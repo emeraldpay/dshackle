@@ -1,0 +1,49 @@
+package io.emeraldpay.dshackle.upstream
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.rpc.transport.DefaultRpcTransport
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.core.env.Environment
+import org.springframework.stereotype.Repository
+import java.net.URI
+import javax.annotation.PostConstruct
+
+@Repository
+class Upstreams(
+        @Autowired val env: Environment,
+        @Autowired private val objectMapper: ObjectMapper
+) {
+
+    private var seq = 0
+    private val chainMapping = HashMap<Chain, List<EthereumUpstream>>()
+
+    @PostConstruct
+    fun start() {
+        env.getProperty("upstream.ethereum")?.let {
+            chainMapping[Chain.ETHEREUM] = listOf(buildClient(it))
+        }
+        env.getProperty("upstream.ethereumclassic")?.let {
+            chainMapping[Chain.ETHEREUM_CLASSIC] = listOf(buildClient(it))
+        }
+        env.getProperty("upstream.morden")?.let {
+            chainMapping[Chain.MORDEN] = listOf(buildClient(it))
+        }
+    }
+
+    private fun buildClient(url: String): EthereumUpstream {
+        return EthereumUpstream(
+                DefaultRpcTransport(URI(url)),
+                objectMapper
+        )
+    }
+
+    fun validateUpstream(upstream: EthereumUpstream): Boolean {
+        return true
+    }
+
+    fun ethereumUpstream(chain: Chain): EthereumUpstream? {
+        val all = chainMapping[chain] ?: return null
+        return all[seq++ % all.size]
+    }
+}
