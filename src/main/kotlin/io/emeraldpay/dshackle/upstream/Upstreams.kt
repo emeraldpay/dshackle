@@ -27,6 +27,9 @@ class Upstreams(
         env.getProperty("upstream.ethereumclassic")?.let {
             chainMapping[Chain.ETHEREUM_CLASSIC] = listOf(buildClient(it, Chain.ETHEREUM_CLASSIC))
         }
+        env.getProperty("upstream.ethereumclassic.ws")?.let {
+            chainMapping[Chain.ETHEREUM_CLASSIC]!![0].ws = buildWs(it, Chain.ETHEREUM_CLASSIC)
+        }
         env.getProperty("upstream.morden")?.let {
             chainMapping[Chain.MORDEN] = listOf(buildClient(it, Chain.MORDEN))
         }
@@ -38,6 +41,15 @@ class Upstreams(
                 objectMapper,
                 chain
         )
+    }
+
+    private fun buildWs(url: String, chain: Chain): EthereumWsUpstream {
+        val ws = EthereumWsUpstream(
+                URI(url),
+                URI("http://localhost")
+        )
+        ws.connect()
+        return ws
     }
 
     fun validateUpstream(upstream: EthereumUpstream): Boolean {

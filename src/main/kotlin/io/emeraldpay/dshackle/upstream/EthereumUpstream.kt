@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.hex.HexQuantity
 import io.infinitape.etherjar.rpc.RpcCall
 import io.infinitape.etherjar.rpc.RpcClient
 import io.infinitape.etherjar.rpc.RpcException
@@ -19,6 +20,10 @@ class EthereumUpstream(
 
     private val timeout = Duration.ofSeconds(5)
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
+    var ws: EthereumWsUpstream? = null
+        set(value) {
+            field = value
+        }
 
     private val allowedMethods = listOf(
             "eth_gasPrice",
@@ -59,13 +64,9 @@ class EthereumUpstream(
 
     fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
         val result: Mono<Any> = if (hardcodedMethods.contains(method)) {
-            Mono.just(method)
-                .map{ hardcoded(it) }
+            Mono.just(method).map { hardcoded(it) }
         } else if (allowedMethods.contains(method)) {
-            Mono.fromCompletionStage(
-                        rpcClient.execute(RpcCall.create(method, Any::class.java, params))
-                )
-                .timeout(timeout)
+            callUpstream(method, params)
         } else {
             Mono.error(RpcException(-32601, "Method not allowed or not found"))
         }
@@ -93,6 +94,18 @@ class EthereumUpstream(
                     resp.error = t.error
                     Mono.just(objectMapper.writer().writeValueAsBytes(resp))
                 }
+    }
+
+    private fun callUpstream(method: String, params: List<Any>): Mono<Any> {
+        if (ws != null && method == "eth_blockNumber") {
+            val head = ws!!.getHead()
+            if (head != null) {
+                return Mono.just(HexQuantity.from(head.number).toHex())
+            }
+        }
+        return Mono.fromCompletionStage(
+                rpcClient.execute(RpcCall.create(method, Any::class.java, params))
+        ).timeout(timeout)
     }
 
     fun hardcoded(method: String): Any {
