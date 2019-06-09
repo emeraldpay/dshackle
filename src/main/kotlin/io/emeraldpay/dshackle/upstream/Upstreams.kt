@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.rpc.DefaultRpcClient
 import io.infinitape.etherjar.rpc.transport.DefaultRpcTransport
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
@@ -33,7 +34,7 @@ class Upstreams(
 
     private fun buildClient(url: String): EthereumUpstream {
         return EthereumUpstream(
-                DefaultRpcTransport(URI(url)),
+                DefaultRpcClient(DefaultRpcTransport(URI(url))),
                 objectMapper
         )
     }
