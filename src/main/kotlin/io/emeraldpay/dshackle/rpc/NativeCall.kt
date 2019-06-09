@@ -23,29 +23,7 @@ class NativeCall(
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
 
-    private val allowedMethods = listOf(
-        "eth_gasPrice",
-        "eth_blockNumber",
-        "eth_getBalance",
-        "eth_getStorageAt",
-        "eth_getTransactionCount",
-        "eth_getBlockTransactionCountByHash",
-        "eth_getBlockTransactionCountByNumber",
-        "eth_getUncleCountByBlockHash",
-        "eth_getUncleCountByBlockNumber",
-        "eth_getCode",
-        "eth_sendRawTransaction",
-        "eth_call",
-        "eth_estimateGas",
-        "eth_getBlockByHash",
-        "eth_getBlockByNumber",
-        "eth_getTransactionByHash",
-        "eth_getTransactionByBlockHashAndIndex",
-        "eth_getTransactionByBlockNumberAndIndex",
-        "eth_getTransactionReceipt",
-        "eth_getUncleByBlockHashAndIndex",
-        "eth_getUncleByBlockNumberAndIndex"
-    )
+
 
     open fun nativeCall(request: BlockchainOuterClass.CallBlockchainRequest, responseObserver: StreamObserver<BlockchainOuterClass.CallBlockchainReplyItem>) {
         val chain= Chain.byId(request.chain.number)

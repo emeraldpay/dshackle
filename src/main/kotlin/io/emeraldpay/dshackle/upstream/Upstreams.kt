@@ -22,20 +22,21 @@ class Upstreams(
     @PostConstruct
     fun start() {
         env.getProperty("upstream.ethereum")?.let {
-            chainMapping[Chain.ETHEREUM] = listOf(buildClient(it))
+            chainMapping[Chain.ETHEREUM] = listOf(buildClient(it, Chain.ETHEREUM))
         }
         env.getProperty("upstream.ethereumclassic")?.let {
-            chainMapping[Chain.ETHEREUM_CLASSIC] = listOf(buildClient(it))
+            chainMapping[Chain.ETHEREUM_CLASSIC] = listOf(buildClient(it, Chain.ETHEREUM_CLASSIC))
         }
         env.getProperty("upstream.morden")?.let {
-            chainMapping[Chain.MORDEN] = listOf(buildClient(it))
+            chainMapping[Chain.MORDEN] = listOf(buildClient(it, Chain.MORDEN))
         }
     }
 
-    private fun buildClient(url: String): EthereumUpstream {
+    private fun buildClient(url: String, chain: Chain): EthereumUpstream {
         return EthereumUpstream(
                 DefaultRpcClient(DefaultRpcTransport(URI(url))),
-                objectMapper
+                objectMapper,
+                chain
         )
     }
 
