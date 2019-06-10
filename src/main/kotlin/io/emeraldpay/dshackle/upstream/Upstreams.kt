@@ -17,34 +17,39 @@ class Upstreams(
 ) {
 
     private var seq = 0
-    private val chainMapping = HashMap<Chain, List<EthereumUpstream>>()
+    private val chainMapping = HashMap<Chain, Upstream>()
 
     @PostConstruct
     fun start() {
         env.getProperty("upstream.ethereum")?.let {
-            chainMapping[Chain.ETHEREUM] = listOf(buildClient(it, Chain.ETHEREUM))
+            val api = buildClient(it, Chain.ETHEREUM)
+            chainMapping[Chain.ETHEREUM] = Upstream(Chain.ETHEREUM, api)
         }
         env.getProperty("upstream.ethereumclassic")?.let {
-            chainMapping[Chain.ETHEREUM_CLASSIC] = listOf(buildClient(it, Chain.ETHEREUM_CLASSIC))
-        }
-        env.getProperty("upstream.ethereumclassic.ws")?.let {
-            chainMapping[Chain.ETHEREUM_CLASSIC]!![0].ws = buildWs(it, Chain.ETHEREUM_CLASSIC)
+            val api = buildClient(it, Chain.ETHEREUM_CLASSIC)
+            val ws = if (env.containsProperty("upstream.ethereumclassic.ws")) {
+                buildWs(env.getProperty("upstream.ethereumclassic.ws")!!, Chain.ETHEREUM_CLASSIC)
+            } else {
+                null
+            }
+            chainMapping[Chain.ETHEREUM_CLASSIC] = Upstream(Chain.ETHEREUM_CLASSIC, api, ws)
         }
         env.getProperty("upstream.morden")?.let {
-            chainMapping[Chain.MORDEN] = listOf(buildClient(it, Chain.MORDEN))
+            val api = buildClient(it, Chain.MORDEN)
+            chainMapping[Chain.MORDEN] = Upstream(Chain.MORDEN, api)
         }
     }
 
-    private fun buildClient(url: String, chain: Chain): EthereumUpstream {
-        return EthereumUpstream(
+    private fun buildClient(url: String, chain: Chain): EthereumApi {
+        return EthereumApi(
                 DefaultRpcClient(DefaultRpcTransport(URI(url))),
                 objectMapper,
                 chain
         )
     }
 
-    private fun buildWs(url: String, chain: Chain): EthereumWsUpstream {
-        val ws = EthereumWsUpstream(
+    private fun buildWs(url: String, chain: Chain): EthereumWs {
+        val ws = EthereumWs(
                 URI(url),
                 URI("http://localhost")
         )
@@ -52,12 +57,7 @@ class Upstreams(
         return ws
     }
 
-    fun validateUpstream(upstream: EthereumUpstream): Boolean {
-        return true
-    }
-
-    fun ethereumUpstream(chain: Chain): EthereumUpstream? {
-        val all = chainMapping[chain] ?: return null
-        return all[seq++ % all.size]
+    fun ethereumUpstream(chain: Chain): Upstream? {
+        return chainMapping[chain]
     }
 }

@@ -10,12 +10,12 @@ import java.net.URI
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
-class EthereumWsUpstream(
+class EthereumWs(
         private val uri: URI,
         private val origin: URI
 ) {
 
-    private val log = LoggerFactory.getLogger(EthereumWsUpstream::class.java)
+    private val log = LoggerFactory.getLogger(EthereumWs::class.java)
     private val topic = TopicProcessor
             .builder<BlockJson<TransactionId>>()
             .name("new-blocks")

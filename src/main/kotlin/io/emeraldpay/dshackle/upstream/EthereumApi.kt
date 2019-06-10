@@ -3,24 +3,27 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.hex.HexQuantity
+import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.RpcCall
 import io.infinitape.etherjar.rpc.RpcClient
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.json.ResponseJson
+import io.infinitape.etherjar.rpc.transport.BatchStatus
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.CompletableFuture
 
-class EthereumUpstream(
+class EthereumApi(
         private val rpcClient: RpcClient,
         private val objectMapper: ObjectMapper,
         private val chain: Chain
 ) {
 
     private val timeout = Duration.ofSeconds(5)
-    private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
-    var ws: EthereumWsUpstream? = null
+    private val log = LoggerFactory.getLogger(EthereumApi::class.java)
+    var ws: EthereumWs? = null
         set(value) {
             field = value
         }
@@ -61,6 +64,10 @@ class EthereumUpstream(
             "eth_hashrate",
             "eth_accounts"
     )
+
+    fun execute(batch: Batch): CompletableFuture<BatchStatus> {
+        return rpcClient.execute(batch)
+    }
 
     fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
         val result: Mono<Any> = if (hardcodedMethods.contains(method)) {

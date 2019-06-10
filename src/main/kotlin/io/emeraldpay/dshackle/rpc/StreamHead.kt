@@ -27,7 +27,7 @@ class StreamHead(
     @PostConstruct
     fun init() {
         listOf(Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC, Chain.MORDEN).forEach { chain ->
-            if (upstreams.ethereumUpstream(chain)?.ws != null) {
+            if (upstreams.ethereumUpstream(chain)?.head != null) {
                 clients[chain] = ConcurrentLinkedQueue()
                 subscribe(chain)
             }
@@ -35,7 +35,7 @@ class StreamHead(
     }
 
     private fun subscribe(chain: Chain) {
-        upstreams.ethereumUpstream(chain)!!.ws!!.getFlux()
+        upstreams.ethereumUpstream(chain)!!.head.getFlux()
                 .doOnComplete {
                     log.info("Closing streams for ${chain.chainCode}")
                     clients.replace(chain, ConcurrentLinkedQueue())!!.forEach { client ->
@@ -68,9 +68,10 @@ class StreamHead(
 
     fun process(chain: Chain, client: StreamSender<BlockchainOuterClass.ChainHead>): Boolean {
         val upstream = upstreams.ethereumUpstream(chain) ?: return false
-        val ws = upstream.ws ?: return false
-        val head = ws.getHead() ?: return false
-        return notify(chain, head, client)
+        val head = upstream.head.getHead()
+        return head.map {
+            notify(chain, it, client)
+        }.defaultIfEmpty(false).block()!!
     }
 
     fun notify(chain: Chain, block: BlockJson<TransactionId>, client: StreamSender<BlockchainOuterClass.ChainHead>): Boolean {
