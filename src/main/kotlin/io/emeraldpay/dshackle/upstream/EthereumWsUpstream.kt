@@ -30,14 +30,13 @@ class EthereumWsUpstream(
             topic.onNext(it)
         }
 
-        topic
-                .onBackpressureLatest()
-                .sample(Duration.ofMillis(100))
-                .subscribe { head.set(it) }
+        getFlux().subscribe { head.set(it) }
     }
 
     fun getFlux(): Flux<BlockJson<TransactionId>> {
-        return this.topic
+        return Flux.from(this.topic)
+                .onBackpressureLatest()
+                .sample(Duration.ofMillis(100))
     }
 
     fun getHead(): BlockJson<TransactionId>? {
