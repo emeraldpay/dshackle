@@ -1,0 +1,11 @@
+= Emerald Dshackle
+
+Implements Emerald API for Blockchains
+
+== Start
+
+----
+gradle run
+----
+
+Application runs on port 8090
