@@ -29,9 +29,4 @@ open class Config {
         return objectMapper
     }
 
-    // Temporally hack to let Spring Boot know it has something active (i.e shouldn't shutdown, as non-web server)
-    @Scheduled(fixedRate = 60000)
-    fun readCurrentTime() {
-    }
-
 }

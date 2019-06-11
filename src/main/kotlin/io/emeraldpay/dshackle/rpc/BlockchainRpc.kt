@@ -14,7 +14,8 @@ import java.time.Instant
 class BlockchainRpc(
         @Autowired private val nativeCall: NativeCall,
         @Autowired private val streamHead: StreamHead,
-        @Autowired private val trackTx: TrackTx
+        @Autowired private val trackTx: TrackTx,
+        @Autowired private val trackAddress: TrackAddress
 ): BlockchainGrpc.BlockchainImplBase() {
 
     override fun nativeCall(request: BlockchainOuterClass.CallBlockchainRequest, responseObserver: StreamObserver<BlockchainOuterClass.CallBlockchainReplyItem>) {
@@ -34,5 +35,9 @@ class BlockchainRpc(
                 Math.min(Math.max(1, request.confirmations), 100)
         )
         trackTx.add(tx)
+    }
+
+    override fun trackAddress(request: BlockchainOuterClass.TrackAddressRequest, responseObserver: StreamObserver<BlockchainOuterClass.AddressStatus>) {
+        trackAddress.add(request, responseObserver)
     }
 }
