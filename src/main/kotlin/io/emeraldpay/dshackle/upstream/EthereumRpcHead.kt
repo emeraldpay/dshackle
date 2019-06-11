@@ -26,20 +26,20 @@ class EthereumRpcHead(
                     val batch = Batch()
                     val f = batch.add(Commands.eth().blockNumber)
                     api.execute(batch)
-                    Mono.fromCompletionStage(f)
+                    Mono.fromCompletionStage(f).timeout(Duration.ofSeconds(5))
                 }
                 .flatMap {
                     val batch = Batch()
                     val f = batch.add(Commands.eth().getBlock(it))
                     api.execute(batch)
-                    Mono.fromCompletionStage(f)
+                    Mono.fromCompletionStage(f).timeout(Duration.ofSeconds(5))
                 }
                 .onErrorContinue { err, _ ->
                     log.warn("RPC error ${err.message}")
                 }
                 .filter { block ->
                     val curr = head.get()
-                    curr == null || curr.difficulty < block.difficulty
+                    curr == null || curr.totalDifficulty < block.totalDifficulty
                 }
                 .subscribe { block ->
                     stream.onNext(block)
