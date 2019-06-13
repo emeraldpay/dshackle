@@ -9,16 +9,18 @@ buildscript {
 }
 
 plugins {
+    id 'java'
+    id 'groovy'
+    id 'idea'
+    id 'maven'
+    id 'application'
+
     id 'org.jetbrains.kotlin.jvm' version '1.3.11'
+    id "com.google.cloud.tools.jib" version "1.3.0"
+    id 'org.springframework.boot' version '2.1.4.RELEASE'
+    id 'io.spring.dependency-management' version '1.0.6.RELEASE'
 }
 
-apply plugin: 'war'
-apply plugin: 'java'
-apply plugin: 'groovy'
-apply plugin: "kotlin"
-apply plugin: 'idea'
-apply plugin: 'maven'
-apply plugin: 'application'
 
 group = 'io.emeraldpay.dshackle'
 version = '0.1-SNAPSHOT'
@@ -108,3 +110,27 @@ application {
     mainClassName = 'io.emeraldpay.dshackle.StarterKt'
 }
 
+ext {
+    dockerTags = [project.version].with (true) {
+        if (!project.version.contains("-SNAPSHOT")) {
+            add "latest"
+        }
+    }
+}
+
+jib {
+    from {
+    }
+    to {
+        image = 'emeraldpay/dshackle'
+        tags = dockerTags
+    }
+    container {
+        jvmFlags = [
+                '-Xms1024m',
+        ]
+        mainClass = 'io.emeraldpay.dshackle.StarterKt'
+        args = []
+        ports = ['8090']
+    }
+}
