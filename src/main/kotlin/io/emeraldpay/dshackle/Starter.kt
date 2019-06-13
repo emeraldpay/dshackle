@@ -10,5 +10,5 @@ open class Starter
 
 fun main(args: Array<String>) {
     val app = SpringApplication(Starter::class.java)
-    app.run()
+    app.run(*args)
 }
