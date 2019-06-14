@@ -26,7 +26,9 @@ open class GrpcServer(
     @PostConstruct
     fun start() {
         log.info("Starting GRPC Server...")
-        val serverBuilder = ServerBuilder.forPort(8090)
+        val port = env.getProperty("port", "8090").toInt()
+        log.info("Listening on 0.0.0.0:$port")
+        val serverBuilder = ServerBuilder.forPort(port)
         rpcs.forEach {
             serverBuilder.addService(it)
         }
