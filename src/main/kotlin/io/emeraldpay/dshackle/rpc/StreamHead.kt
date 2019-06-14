@@ -59,7 +59,6 @@ class StreamHead(
         val sender = StreamSender(client)
         if (!clients.containsKey(chain)) {
             client.onError(Exception("Chain ${chain.chainCode} is not available for streaming"))
-            client.onCompleted()
             return
         }
         clients[chain]!!.add(sender)
