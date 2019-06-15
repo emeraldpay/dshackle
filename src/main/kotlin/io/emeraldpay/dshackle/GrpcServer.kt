@@ -1,7 +1,9 @@
 package io.emeraldpay.dshackle
 
 import io.grpc.Server
-import io.grpc.ServerBuilder
+import io.grpc.netty.GrpcSslContexts
+import io.grpc.netty.NettyServerBuilder
+import io.netty.handler.ssl.ClientAuth
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -28,7 +30,7 @@ open class GrpcServer(
         log.info("Starting GRPC Server...")
         val port = env.getProperty("port", "8090").toInt()
         log.info("Listening on 0.0.0.0:$port")
-        val serverBuilder = ServerBuilder.forPort(port)
+        val serverBuilder = NettyServerBuilder.forPort(port)
         rpcs.forEach {
             serverBuilder.addService(it)
         }
@@ -47,11 +49,19 @@ open class GrpcServer(
         }
         if (secure) {
             log.info("Using TLS")
-            serverBuilder
-                    .useTransportSecurity(
-                            File(env.getProperty("ssl.cert")!!),
-                            File(env.getProperty("ssl.key")!!)
-                    )
+            val sslContextBuilder = GrpcSslContexts.forServer(
+                    File(env.getProperty("ssl.cert")!!),
+                    File(env.getProperty("ssl.key")!!)
+            )
+            if (StringUtils.isNotEmpty(env.getProperty("ssl.client.cert"))) {
+                log.info("Using TLS for client authentication")
+                sslContextBuilder.trustManager(
+                        File(env.getProperty("ssl.client.cert")!!)
+                ).clientAuth(ClientAuth.REQUIRE)
+            } else {
+                log.warn("Trust all clients")
+            }
+            serverBuilder.sslContext(sslContextBuilder.build())
         } else {
             log.warn("Using insecure transport")
         }
