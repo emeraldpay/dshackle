@@ -35,29 +35,39 @@ open class GrpcServer(
             serverBuilder.addService(it)
         }
 
-        var secure = false
-        if (env.getProperty("ssl", "false") == "true") {
-            secure = true
-            if (StringUtils.isEmpty(env.getProperty("ssl.cert"))) {
-                log.warn("ssl.cert property is not set (path to server TLS certificate)")
-                secure = false
+        val mustBeSecure = env.getProperty("tls.enabled", "") == "true"
+        val tlsDisabled = env.getProperty("tls.enabled", "") == "false"
+        var hasServerCertificate = true
+        if (!tlsDisabled) {
+            if (StringUtils.isEmpty(env.getProperty("tls.server.certificate"))) {
+                if (mustBeSecure) {
+                    log.warn("tls.server.certificate property is not set (path to server TLS certificate)")
+                    System.exit(1)
+                }
+                hasServerCertificate = false
             }
-            if (StringUtils.isEmpty(env.getProperty("ssl.key"))) {
-                log.warn("ssl.key property is not set (path to server TLS certificate key)")
-                secure = false
+            if (StringUtils.isEmpty(env.getProperty("tls.server.key"))) {
+                if (mustBeSecure) {
+                    log.warn("tls.server.key property is not set (path to server TLS certificate key)")
+                    System.exit(1)
+                }
+                hasServerCertificate = false
             }
         }
-        if (secure) {
+        if (mustBeSecure || (!tlsDisabled && hasServerCertificate)) {
             log.info("Using TLS")
             val sslContextBuilder = GrpcSslContexts.forServer(
-                    File(env.getProperty("ssl.cert")!!),
-                    File(env.getProperty("ssl.key")!!)
+                    File(env.getProperty("tls.server.certificate")!!),
+                    File(env.getProperty("tls.server.key")!!)
             )
-            if (StringUtils.isNotEmpty(env.getProperty("ssl.client.cert"))) {
+            if (StringUtils.isNotEmpty(env.getProperty("tls.client.ca"))) {
                 log.info("Using TLS for client authentication")
                 sslContextBuilder.trustManager(
-                        File(env.getProperty("ssl.client.cert")!!)
-                ).clientAuth(ClientAuth.REQUIRE)
+                        File(env.getProperty("tls.client.ca")!!)
+                )
+                if (env.getProperty("tls.client.require", "true") == "true") {
+                    sslContextBuilder.clientAuth(ClientAuth.REQUIRE)
+                }
             } else {
                 log.warn("Trust all clients")
             }
