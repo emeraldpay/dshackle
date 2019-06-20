@@ -1,12 +1,16 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.config.UpstreamsReader
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.DefaultRpcClient
 import io.infinitape.etherjar.rpc.transport.DefaultRpcTransport
+import org.apache.commons.lang3.StringUtils
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Repository
+import java.io.File
 import java.net.URI
 import javax.annotation.PostConstruct
 
@@ -16,48 +20,72 @@ class Upstreams(
         @Autowired private val objectMapper: ObjectMapper
 ) {
 
+    private val log = LoggerFactory.getLogger(Upstreams::class.java)
     private var seq = 0
-    private val chainMapping = HashMap<Chain, Upstream>()
+    private val chainMapping = HashMap<Chain, ArrayList<Upstream>>()
+
+    private val chainNames = mapOf(
+            "ethereum" to Chain.ETHEREUM,
+            "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
+            "morden" to Chain.MORDEN
+    )
 
     @PostConstruct
     fun start() {
-        env.getProperty("upstream.ethereum")?.let {
-            val api = buildClient(it, Chain.ETHEREUM)
-            chainMapping[Chain.ETHEREUM] = Upstream(Chain.ETHEREUM, api)
+        val path = env.getProperty("upstreams.config")
+        if (StringUtils.isEmpty(path)) {
+            log.error("Path to upstreams is not set (upstreams.config)")
+            System.exit(1)
         }
-        env.getProperty("upstream.ethereumclassic")?.let {
-            val api = buildClient(it, Chain.ETHEREUM_CLASSIC)
-            val ws = if (env.containsProperty("upstream.ethereumclassic.ws")) {
-                buildWs(env.getProperty("upstream.ethereumclassic.ws")!!, Chain.ETHEREUM_CLASSIC)
-            } else {
-                null
+        val upstreamConfig = File(path)
+        val ok = upstreamConfig.exists() && upstreamConfig.isFile
+        if (!ok) {
+            log.error("Unable to setup upstreams from ${upstreamConfig.path}")
+            System.exit(1)
+        }
+        log.info("Read upstream configuration from ${upstreamConfig.path}")
+        val reader = UpstreamsReader()
+        val config = reader.read(upstreamConfig.inputStream())
+
+        config.upstreams.forEach { up ->
+            val chain = chainNames[up.chain] ?: return@forEach
+            var rpcApi: EthereumApi? = null
+            var wsApi: EthereumWs? = null
+            val urls = ArrayList<URI>()
+            up.endpoints.forEach { endpoint ->
+                if (endpoint.type == io.emeraldpay.dshackle.config.Upstreams.EndpointType.JSON_RPC) {
+                    rpcApi = EthereumApi(
+                            DefaultRpcClient(DefaultRpcTransport(endpoint.url)),
+                            objectMapper,
+                            chain
+                    )
+                }
+                if (endpoint.type == io.emeraldpay.dshackle.config.Upstreams.EndpointType.WEBSOCKET) {
+                    wsApi = EthereumWs(
+                            endpoint.url,
+                            endpoint.origin ?: URI("http://localhost")
+                    )
+                }
+                urls.add(endpoint.url)
             }
-            chainMapping[Chain.ETHEREUM_CLASSIC] = Upstream(Chain.ETHEREUM_CLASSIC, api, ws)
+            if (rpcApi != null) {
+                log.info("Info using ${chain.chainName} upstream, at ${urls.joinToString()}")
+                val current = chainMapping[chain] ?: ArrayList()
+                current.add(Upstream(chain, rpcApi!!, wsApi))
+                chainMapping[chain] = current
+            }
         }
-        env.getProperty("upstream.morden")?.let {
-            val api = buildClient(it, Chain.MORDEN)
-            chainMapping[Chain.MORDEN] = Upstream(Chain.MORDEN, api)
-        }
-    }
-
-    private fun buildClient(url: String, chain: Chain): EthereumApi {
-        return EthereumApi(
-                DefaultRpcClient(DefaultRpcTransport(URI(url))),
-                objectMapper,
-                chain
-        )
-    }
-
-    private fun buildWs(url: String, chain: Chain): EthereumWs {
-        val ws = EthereumWs(
-                URI(url),
-                URI("http://localhost")
-        )
-        ws.connect()
-        return ws
     }
 
     fun ethereumUpstream(chain: Chain): Upstream? {
-        return chainMapping[chain]
+        val list = chainMapping[chain]
+        if (list == null || list.isEmpty()) {
+            return null
+        }
+        val i = seq++
+        if (seq >= Int.MAX_VALUE / 2) {
+            seq = 0
+        }
+        return list.get(i % list.size)
     }
 }
