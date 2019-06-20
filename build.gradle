@@ -64,6 +64,7 @@ dependencies {
     compile 'io.projectreactor.addons:reactor-extra:3.2.3.RELEASE'
     compile 'io.projectreactor.kotlin:reactor-kotlin-extensions:1.0.0.M1'
 
+    compile 'org.yaml:snakeyaml:1.24'
 
     compile "io.infinitape:etherjar-domain:$etherjarVersion"
     compile "io.infinitape:etherjar-hex:$etherjarVersion"
