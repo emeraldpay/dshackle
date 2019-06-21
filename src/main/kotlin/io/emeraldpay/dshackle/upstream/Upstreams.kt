@@ -21,12 +21,13 @@ class Upstreams(
 ) {
 
     private val log = LoggerFactory.getLogger(Upstreams::class.java)
-    private var seq = 0
-    private val chainMapping = HashMap<Chain, ArrayList<Upstream>>()
+    private val chainMapping = HashMap<Chain, ChainConnect>()
 
     private val chainNames = mapOf(
             "ethereum" to Chain.ETHEREUM,
             "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
+            "eth" to Chain.ETHEREUM,
+            "etc" to Chain.ETHEREUM_CLASSIC,
             "morden" to Chain.MORDEN
     )
 
@@ -47,6 +48,8 @@ class Upstreams(
         val reader = UpstreamsReader()
         val config = reader.read(upstreamConfig.inputStream())
 
+        val groups = HashMap<Chain, ArrayList<Upstream>>()
+
         config.upstreams.forEach { up ->
             val chain = chainNames[up.chain] ?: return@forEach
             var rpcApi: EthereumApi? = null
@@ -65,27 +68,23 @@ class Upstreams(
                             endpoint.url,
                             endpoint.origin ?: URI("http://localhost")
                     )
+                    wsApi!!.connect()
                 }
                 urls.add(endpoint.url)
             }
             if (rpcApi != null) {
                 log.info("Info using ${chain.chainName} upstream, at ${urls.joinToString()}")
-                val current = chainMapping[chain] ?: ArrayList()
+                val current = groups[chain] ?: ArrayList()
                 current.add(Upstream(chain, rpcApi!!, wsApi))
-                chainMapping[chain] = current
+                groups[chain] = current
             }
+        }
+        groups.forEach { chain, group ->
+            chainMapping[chain] = ChainConnect(chain, group)
         }
     }
 
-    fun ethereumUpstream(chain: Chain): Upstream? {
-        val list = chainMapping[chain]
-        if (list == null || list.isEmpty()) {
-            return null
-        }
-        val i = seq++
-        if (seq >= Int.MAX_VALUE / 2) {
-            seq = 0
-        }
-        return list.get(i % list.size)
+    fun ethereumUpstream(chain: Chain): ChainConnect? {
+        return chainMapping[chain]
     }
 }

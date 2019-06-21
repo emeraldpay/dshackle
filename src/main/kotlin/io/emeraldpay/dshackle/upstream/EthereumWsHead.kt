@@ -22,7 +22,7 @@ class EthereumWsHead(
     }
 
     override fun getFlux(): Flux<BlockJson<TransactionId>> {
-        return Flux.from(stream)
+        return ws.getFlux()
     }
 
 }

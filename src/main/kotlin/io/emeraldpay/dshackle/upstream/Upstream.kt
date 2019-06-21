@@ -24,4 +24,8 @@ class Upstream(
     init {
         log.info("Configured for ${chain.chainName}")
     }
+
+    fun isAvailable(): Boolean {
+        return true
+    }
 }
