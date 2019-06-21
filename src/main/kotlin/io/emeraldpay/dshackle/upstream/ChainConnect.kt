@@ -1,13 +1,18 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.domain.TransactionId
+import io.infinitape.etherjar.rpc.json.BlockJson
+import org.slf4j.LoggerFactory
 import java.lang.IllegalStateException
+import java.time.Duration
 
 class ChainConnect(
         val chain: Chain,
         val upstreams: List<Upstream>
         ) {
 
+    private val log = LoggerFactory.getLogger(ChainConnect::class.java)
     private var seq = 0
 
     val head: EthereumHead = if (upstreams.size == 1) {
@@ -27,6 +32,19 @@ class ChainConnect(
             seq = 0
         }
         return QuorumApi(upstreams, 1, seq)
+    }
+
+    fun printStatus() {
+        var height: Long = -1
+        try {
+            height = head.getHead().block(Duration.ofSeconds(1))?.number ?: -1
+        } catch (e: Exception) { }
+        val statuses = upstreams.map { it.getStatus() }
+                .groupBy { it }
+                .map { "${it.key.name}/${it.value.size}" }
+                .joinToString(",")
+
+        log.info("State of ${chain.chainCode}: height=$height, status=$statuses")
     }
 
     class SingleApi(

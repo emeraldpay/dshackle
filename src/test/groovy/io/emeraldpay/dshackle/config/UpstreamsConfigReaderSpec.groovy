@@ -2,9 +2,9 @@ package io.emeraldpay.dshackle.config
 
 import spock.lang.Specification
 
-class UpstreamsReaderSpec extends Specification {
+class UpstreamsConfigReaderSpec extends Specification {
 
-    UpstreamsReader reader = new UpstreamsReader()
+    UpstreamsConfigReader reader = new UpstreamsConfigReader()
 
     def "Parse standard config"() {
         setup:
@@ -30,11 +30,11 @@ class UpstreamsReaderSpec extends Specification {
             provider == "geth"
             endpoints.size() == 2
             with(endpoints.get(0)) {
-                type == Upstreams.EndpointType.JSON_RPC
+                type == UpstreamsConfig.EndpointType.JSON_RPC
                 url == new URI("http://localhost:8545")
             }
             with(endpoints.get(1)) {
-                type == Upstreams.EndpointType.WEBSOCKET
+                type == UpstreamsConfig.EndpointType.WEBSOCKET
                 url == new URI("ws://localhost:8546")
             }
         }
@@ -44,10 +44,10 @@ class UpstreamsReaderSpec extends Specification {
             provider == "infura"
             endpoints.size() == 1
             with(endpoints.get(0)) {
-                type == Upstreams.EndpointType.JSON_RPC
+                type == UpstreamsConfig.EndpointType.JSON_RPC
                 url == new URI("https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2")
-                auth instanceof Upstreams.BasicAuth
-                with((Upstreams.BasicAuth)auth) {
+                auth instanceof UpstreamsConfig.BasicAuth
+                with((UpstreamsConfig.BasicAuth)auth) {
                     key == "4fc258fe41a68149c199ad8f281f2015"
                 }
             }

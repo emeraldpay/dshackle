@@ -1,14 +1,15 @@
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionJson
 import org.slf4j.LoggerFactory
+import java.util.concurrent.atomic.AtomicReference
 
 class Upstream(
         val chain: Chain,
         val api: EthereumApi,
-        private val ethereumWs: EthereumWs? = null
+        private val ethereumWs: EthereumWs? = null,
+        private val options: UpstreamsConfig.Options
 ) {
 
     private val log = LoggerFactory.getLogger(Upstream::class.java)
@@ -21,11 +22,23 @@ class Upstream(
         }
     }
 
+    val validator = UpstreamValidator(this, options)
+    private val status = AtomicReference(UpstreamAvailability.UNAVAILABLE)
+
     init {
         log.info("Configured for ${chain.chainName}")
+
+        validator.start()
+                .subscribe {
+                    status.set(it)
+                }
     }
 
     fun isAvailable(): Boolean {
-        return true
+        return status.get() == UpstreamAvailability.OK
+    }
+
+    fun getStatus(): UpstreamAvailability {
+        return status.get()
     }
 }

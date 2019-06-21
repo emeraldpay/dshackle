@@ -1,7 +1,8 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.config.UpstreamsReader
+import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfigReader
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.DefaultRpcClient
 import io.infinitape.etherjar.rpc.transport.DefaultRpcTransport
@@ -9,6 +10,7 @@ import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
 import java.io.File
 import java.net.URI
@@ -45,10 +47,25 @@ class Upstreams(
             System.exit(1)
         }
         log.info("Read upstream configuration from ${upstreamConfig.path}")
-        val reader = UpstreamsReader()
+        val reader = UpstreamsConfigReader()
         val config = reader.read(upstreamConfig.inputStream())
 
         val groups = HashMap<Chain, ArrayList<Upstream>>()
+
+        val defaultOptions = HashMap<Chain, UpstreamsConfig.Options>()
+        config.defaultOptions.forEach { df ->
+            df.chains.forEach { chainName ->
+                chainNames[chainName]?.let {  chain ->
+                    var current = defaultOptions[chain]
+                    if (current == null) {
+                        current = df.options
+                    } else {
+                        current = current.merge(df.options)
+                    }
+                    defaultOptions[chain] = current
+                }
+            }
+        }
 
         config.upstreams.forEach { up ->
             val chain = chainNames[up.chain] ?: return@forEach
@@ -56,14 +73,14 @@ class Upstreams(
             var wsApi: EthereumWs? = null
             val urls = ArrayList<URI>()
             up.endpoints.forEach { endpoint ->
-                if (endpoint.type == io.emeraldpay.dshackle.config.Upstreams.EndpointType.JSON_RPC) {
+                if (endpoint.type == UpstreamsConfig.EndpointType.JSON_RPC) {
                     rpcApi = EthereumApi(
                             DefaultRpcClient(DefaultRpcTransport(endpoint.url)),
                             objectMapper,
                             chain
                     )
                 }
-                if (endpoint.type == io.emeraldpay.dshackle.config.Upstreams.EndpointType.WEBSOCKET) {
+                if (endpoint.type == UpstreamsConfig.EndpointType.WEBSOCKET) {
                     wsApi = EthereumWs(
                             endpoint.url,
                             endpoint.origin ?: URI("http://localhost")
@@ -72,10 +89,13 @@ class Upstreams(
                 }
                 urls.add(endpoint.url)
             }
+            val options = (up.options ?: UpstreamsConfig.Options())
+                    .merge(defaultOptions[chain])
+                    .merge(UpstreamsConfig.Options.getDefaults())
             if (rpcApi != null) {
                 log.info("Info using ${chain.chainName} upstream, at ${urls.joinToString()}")
                 val current = groups[chain] ?: ArrayList()
-                current.add(Upstream(chain, rpcApi!!, wsApi))
+                current.add(Upstream(chain, rpcApi!!, wsApi, options))
                 groups[chain] = current
             }
         }
@@ -86,5 +106,10 @@ class Upstreams(
 
     fun ethereumUpstream(chain: Chain): ChainConnect? {
         return chainMapping[chain]
+    }
+
+    @Scheduled(fixedRate = 15000)
+    fun printStatuses() {
+        chainMapping.forEach { it.value.printStatus() }
     }
 }

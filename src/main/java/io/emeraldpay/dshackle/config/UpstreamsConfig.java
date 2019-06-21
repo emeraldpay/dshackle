@@ -18,7 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-public class Upstreams {
+public class UpstreamsConfig {
 
     private String version;
     private List<DefaultOptions> defaultOptions;
@@ -49,9 +49,9 @@ public class Upstreams {
     }
 
     public static class Options {
-        private Boolean disableSyncing = true;
-        private Integer minPeers = 1;
-        private Integer quorum = 1;
+        private Boolean disableSyncing;
+        private Integer minPeers;
+        private Integer quorum;
 
         public Boolean getDisableSyncing() {
             return disableSyncing;
@@ -66,6 +66,9 @@ public class Upstreams {
         }
 
         public void setMinPeers(Integer minPeers) {
+            if (minPeers < 0) {
+                throw new IllegalArgumentException("minPeers must be positive number");
+            }
             this.minPeers = minPeers;
         }
 
@@ -74,8 +77,31 @@ public class Upstreams {
         }
 
         public void setQuorum(Integer quorum) {
+            if (quorum < 0) {
+                throw new IllegalArgumentException("quorum must be positive number");
+            }
             this.quorum = quorum;
         }
+
+        public Options merge(Options additional) {
+            if (additional == null) {
+                return this;
+            }
+            Options copy = new Options();
+            copy.setDisableSyncing(this.disableSyncing != null ? this.disableSyncing : additional.disableSyncing);
+            copy.setMinPeers(this.minPeers != null ? this.minPeers : additional.minPeers);
+            copy.setQuorum(this.quorum != null ? this.quorum : additional.quorum);
+            return copy;
+        }
+
+        public static Options getDefaults() {
+            Options options = new Options();
+            options.setDisableSyncing(true);
+            options.setMinPeers(1);
+            options.setQuorum(1);
+            return options;
+        }
+
     }
 
     public static class OptionsYaml extends TypeDescription {
@@ -154,6 +180,7 @@ public class Upstreams {
             this.endpoints = endpoints;
         }
 
+        @Nullable
         public Options getOptions() {
             return options;
         }

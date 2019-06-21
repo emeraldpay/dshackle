@@ -20,12 +20,17 @@ class EthereumWs(
             .builder<BlockJson<TransactionId>>()
             .name("new-blocks")
             .build()
-    private val head = AtomicReference<BlockJson<TransactionId>>(null);
+    private val head = AtomicReference<BlockJson<TransactionId>>(null)
 
     fun connect() {
         log.info("Connecting to WebSocket: $uri")
         val client = WebsocketClient()
-        client.connect(uri, origin)
+        try {
+            client.connect(uri, origin)
+        } catch (e: Exception) {
+            log.error("Failed to connect to websocket at $uri. Error: ${e.message}")
+            return
+        }
         client.onNewBlock {
             topic.onNext(it)
         }
