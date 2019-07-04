@@ -48,10 +48,10 @@ class ChainConnect(
     }
 
     class SingleApi(
-            val quorumApi: QuorumApi
+            private val quorumApi: QuorumApi
     ): Iterator<EthereumApi> {
 
-        var consumed = false
+        private var consumed = false
 
         override fun hasNext(): Boolean {
             return !consumed && quorumApi.hasNext()
@@ -64,12 +64,12 @@ class ChainConnect(
     }
 
     class QuorumApi(
-            val apis: List<Upstream>,
-            val quorum: Int,
-            var pos: Int
+            private val apis: List<Upstream>,
+            private val quorum: Int,
+            private var pos: Int
     ): Iterator<EthereumApi> {
 
-        var consumed = 0
+        private var consumed = 0
 
         override fun hasNext(): Boolean {
             return consumed < quorum
@@ -78,7 +78,7 @@ class ChainConnect(
         override fun next(): EthereumApi {
             val start = pos
             while (pos < start + apis.size) {
-                val api = apis[pos++]
+                val api = apis[pos++ % apis.size]
                 if (api.isAvailable()) {
                     consumed++
                     return api.api
