@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.rpc
 
+import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
@@ -26,7 +27,7 @@ class StreamHead(
 
     @PostConstruct
     fun init() {
-        listOf(Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC, Chain.MORDEN).forEach { chain ->
+        listOf(Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC, Chain.TESTNET_MORDEN, Chain.TESTNET_KOVAN).forEach { chain ->
             if (upstreams.ethereumUpstream(chain)?.head != null) {
                 clients[chain] = ConcurrentLinkedQueue()
                 subscribe(chain)
@@ -77,7 +78,9 @@ class StreamHead(
         val data = BlockchainOuterClass.ChainHead.newBuilder()
                 .setChainValue(chain.id)
                 .setHeight(block.number)
-                .setHash(block.hash.toHex())
+                .setTimestamp(block.timestamp.time)
+                .setWeight(ByteString.copyFrom(block.totalDifficulty.toByteArray()))
+                .setBlockId(block.hash.toHex().substring(2))
                 .build()
         var sent: Boolean = false
         try {

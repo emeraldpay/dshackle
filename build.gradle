@@ -44,7 +44,7 @@ configurations {
 }
 
 dependencies {
-    compile "io.emeraldpay:emerald-grpc:0.1-SNAPSHOT"
+    compile "io.emeraldpay:emerald-grpc:0.2"
 
     compile "io.grpc:grpc-protobuf:${grpcVersion}"
     compile "io.grpc:grpc-stub:${grpcVersion}"

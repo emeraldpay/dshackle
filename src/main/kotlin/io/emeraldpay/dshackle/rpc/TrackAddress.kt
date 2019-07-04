@@ -1,6 +1,5 @@
 package io.emeraldpay.dshackle.rpc
 
-import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.upstream.Upstreams
@@ -17,11 +16,13 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toFlux
+import reactor.math.sum
 import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
 import java.lang.Exception
 import java.time.Duration
 import java.time.Instant
+import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Future
 import javax.annotation.PostConstruct
@@ -33,7 +34,7 @@ class TrackAddress(
 
     private val clients = HashMap<Chain, ConcurrentLinkedQueue<TrackedAddress>>()
 
-    private val allChains = listOf(Chain.MORDEN, Chain.ETHEREUM_CLASSIC, Chain.ETHEREUM)
+    private val allChains = listOf(Chain.TESTNET_MORDEN, Chain.ETHEREUM_CLASSIC, Chain.ETHEREUM, Chain.TESTNET_KOVAN)
 
     @PostConstruct
     fun init() {
@@ -59,18 +60,18 @@ class TrackAddress(
         }
     }
 
-    fun add(request: BlockchainOuterClass.TrackAddressRequest, responseObserver: StreamObserver<BlockchainOuterClass.AddressStatus>) {
+    fun initializeFor(request: BlockchainOuterClass.BalanceRequest, responseObserver: StreamObserver<BlockchainOuterClass.AddressBalance>): List<TrackedAddress> {
         val chain = Chain.byId(request.asset.chainValue)
         if (!allChains.contains(chain)) {
             responseObserver.onError(Exception("Unsupported chain ${request.asset.chainValue}"))
-            return
+            return Collections.emptyList()
         }
         if (request.asset.code?.toLowerCase() != "ether") {
             responseObserver.onError(Exception("Unsupported asset ${request.asset.code}"))
-            return
+            return Collections.emptyList()
         }
         val new = java.util.ArrayList<TrackedAddress>()
-        val observer = StreamSender<BlockchainOuterClass.AddressStatus>(responseObserver)
+        val observer = StreamSender<BlockchainOuterClass.AddressBalance>(responseObserver)
         if (request.address.addrTypeCase == Common.AnyAddress.AddrTypeCase.ADDRESS_SINGLE) {
             new.add(forAddress(request.address.addressSingle, chain, observer))
         } else if (request.address.addrTypeCase == Common.AnyAddress.AddrTypeCase.ADDRESS_MULTI) {
@@ -78,11 +79,27 @@ class TrackAddress(
                 new.add(forAddress(address, chain, observer))
             }
         }
-        verify(chain, new).subscribe()
-        clients[chain]?.addAll(new)
+        return new
     }
 
-    private fun forAddress(address: Common.SingleAddress, chain: Chain, observer: StreamSender<BlockchainOuterClass.AddressStatus>): TrackedAddress {
+    fun send(request: BlockchainOuterClass.BalanceRequest, addresses: List<TrackedAddress>): Mono<Long> {
+        val chain = Chain.byId(request.asset.chainValue)
+        return verify(chain, addresses)
+                .map { updated -> notify(updated); 1 }
+                .sum()
+    }
+
+    fun add(request: BlockchainOuterClass.BalanceRequest, responseObserver: StreamObserver<BlockchainOuterClass.AddressBalance>) {
+        val chain = Chain.byId(request.asset.chainValue)
+        val new = initializeFor(request, responseObserver)
+        send(request, new)
+                .doFinally {
+                    clients[chain]?.addAll(new)
+                }
+                .subscribe()
+    }
+
+    private fun forAddress(address: Common.SingleAddress, chain: Chain, observer: StreamSender<BlockchainOuterClass.AddressBalance>): TrackedAddress {
         val addressParsed = Address.from(address.address)
         return TrackedAddress(
                 chain,
@@ -130,8 +147,8 @@ class TrackAddress(
 
     private fun notify(address: TrackedAddress): Boolean {
         val sent = address.stream.send(
-                BlockchainOuterClass.AddressStatus.newBuilder()
-                        .setBalance(ByteString.copyFrom(address.balance!!.amount!!.toByteArray()))
+                BlockchainOuterClass.AddressBalance.newBuilder()
+                        .setBalance(address.balance!!.amount!!.toString(10))
                         .setAsset(Common.Asset.newBuilder()
                                 .setChainValue(address.chain.id)
                                 .setCode("ETHER")
@@ -149,7 +166,7 @@ class TrackAddress(
     class Update(val addr: TrackedAddress, val value: Future<Wei>)
 
     class TrackedAddress(val chain: Chain,
-                         val stream: StreamSender<BlockchainOuterClass.AddressStatus>,
+                         val stream: StreamSender<BlockchainOuterClass.AddressBalance>,
                          val address: Address,
                          val since: Instant = Instant.now(),
                          var lastPing: Instant = Instant.now(),

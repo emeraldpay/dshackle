@@ -123,8 +123,11 @@ class EthereumApi(
             if (Chain.ETHEREUM_CLASSIC == chain) {
                 return "1"
             }
-            if (Chain.MORDEN == chain) {
+            if (Chain.TESTNET_MORDEN == chain) {
                 return "2"
+            }
+            if (Chain.TESTNET_KOVAN == chain) {
+                return "42"
             }
             throw RpcException(-32602, "Invalid chain")
         }
@@ -135,7 +138,7 @@ class EthereumApi(
             return true
         }
         if ("web3_clientVersion" == method) {
-            return "EmeraldDshackle/v0.1"
+            return "EmeraldDshackle/v0.2"
         }
         if ("eth_protocolVersion" == method) {
             return "0x3f"

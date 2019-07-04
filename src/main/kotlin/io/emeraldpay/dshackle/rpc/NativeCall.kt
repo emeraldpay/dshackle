@@ -6,7 +6,6 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
-import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -23,9 +22,7 @@ class NativeCall(
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
 
-
-
-    open fun nativeCall(request: BlockchainOuterClass.CallBlockchainRequest, responseObserver: StreamObserver<BlockchainOuterClass.CallBlockchainReplyItem>) {
+    open fun nativeCall(request: BlockchainOuterClass.NativeCallRequest, responseObserver: StreamObserver<BlockchainOuterClass.NativeCallReplyItem>) {
         val chain= Chain.byId(request.chain.number)
         if (chain == Chain.UNSPECIFIED) {
             throw Exception("Invalid chain id: ${request.chain.number}")
@@ -49,7 +46,7 @@ class NativeCall(
                     }
                 }
                 .map {
-                    BlockchainOuterClass.CallBlockchainReplyItem.newBuilder()
+                    BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                             .setSucceed(true)
                             .setId(it.id)
                             .setPayload(ByteString.copyFrom(it.payload))
@@ -62,7 +59,7 @@ class NativeCall(
                         log.error("Lost context for a native call", it)
                         0
                     }
-                    return@onErrorResume BlockchainOuterClass.CallBlockchainReplyItem.newBuilder()
+                    return@onErrorResume BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                             .setSucceed(false)
                             .setId(id)
                             .build()

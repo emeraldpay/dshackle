@@ -30,7 +30,8 @@ class Upstreams(
             "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
             "eth" to Chain.ETHEREUM,
             "etc" to Chain.ETHEREUM_CLASSIC,
-            "morden" to Chain.MORDEN
+            "morden" to Chain.TESTNET_MORDEN,
+            "kovan" to Chain.TESTNET_KOVAN
     )
 
     @PostConstruct
