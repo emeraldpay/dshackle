@@ -25,11 +25,11 @@ class BlockchainRpc(
         nativeCall.nativeCall(request, responseObserver)
     }
 
-    override fun streamHead(request: Common.Chain, responseObserver: StreamObserver<BlockchainOuterClass.ChainHead>) {
+    override fun subscribeHead(request: Common.Chain, responseObserver: StreamObserver<BlockchainOuterClass.ChainHead>) {
         streamHead.add(Chain.byId(request.type.number), responseObserver)
     }
 
-    override fun streamTxStatus(request: BlockchainOuterClass.TxStatusRequest, responseObserver: StreamObserver<BlockchainOuterClass.TxStatus>) {
+    override fun subscribeTxStatus(request: BlockchainOuterClass.TxStatusRequest, responseObserver: StreamObserver<BlockchainOuterClass.TxStatus>) {
         val tx = TrackTx.TrackedTx(
                 Chain.byId(request.chainValue),
                 StreamSender(responseObserver),
@@ -40,7 +40,7 @@ class BlockchainRpc(
         trackTx.add(tx)
     }
 
-    override fun streamBalance(request: BlockchainOuterClass.BalanceRequest, responseObserver: StreamObserver<BlockchainOuterClass.AddressBalance>) {
+    override fun subscribeBalance(request: BlockchainOuterClass.BalanceRequest, responseObserver: StreamObserver<BlockchainOuterClass.AddressBalance>) {
         trackAddress.add(request, responseObserver)
     }
 
