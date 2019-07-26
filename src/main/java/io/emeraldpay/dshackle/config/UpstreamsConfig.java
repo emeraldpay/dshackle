@@ -1,7 +1,7 @@
 package io.emeraldpay.dshackle.config;
 
 import org.yaml.snakeyaml.TypeDescription;
-import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.introspector.GenericProperty;
 import org.yaml.snakeyaml.introspector.MethodProperty;
 import org.yaml.snakeyaml.introspector.Property;
 import org.yaml.snakeyaml.introspector.PropertySubstitute;
@@ -12,6 +12,10 @@ import org.yaml.snakeyaml.nodes.ScalarNode;
 import javax.annotation.Nullable;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
@@ -201,6 +205,8 @@ public class UpstreamsConfig {
     public static class Endpoint {
         private EndpointType type;
         private URI url;
+        private String host;
+        private int port;
         @Nullable
         private Auth auth;
         private Boolean enabled = true;
@@ -248,6 +254,22 @@ public class UpstreamsConfig {
         public void setOrigin(@Nullable URI origin) {
             this.origin = origin;
         }
+
+        public String getHost() {
+            return host;
+        }
+
+        public void setHost(String host) {
+            this.host = host;
+        }
+
+        public int getPort() {
+            return port;
+        }
+
+        public void setPort(int port) {
+            this.port = port;
+        }
     }
 
     public static class Auth {
@@ -262,8 +284,43 @@ public class UpstreamsConfig {
         }
     }
 
-    public static class BasicAuth extends Auth {
+    public static interface WithKey {
+        public String getKey();
+        public void setKey(String key);
+    }
+
+    public static class BasicAuth extends Auth implements WithKey {
         private String key;
+
+        public String getKey() {
+            return key;
+        }
+
+        public void setKey(String key) {
+            this.key = key;
+        }
+    }
+
+    public static class TlsAuth extends Auth implements WithKey {
+        private String ca;
+        private String certificate;
+        private String key;
+
+        public String getCa() {
+            return ca;
+        }
+
+        public void setCa(String ca) {
+            this.ca = ca;
+        }
+
+        public String getCertificate() {
+            return certificate;
+        }
+
+        public void setCertificate(String certificate) {
+            this.certificate = certificate;
+        }
 
         public String getKey() {
             return key;
@@ -278,14 +335,38 @@ public class UpstreamsConfig {
 
         public AuthYaml() {
             super(Auth.class);
+        }
 
+        public Class getImpl() {
+            try {
+                Field f = TypeDescription.class.getDeclaredField("impl");
+                f.setAccessible(true);
+                return (Class) f.get(this);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                e.printStackTrace();
+            }
+            return null;
         }
 
         @Override
         public Property getProperty(String name) {
             if ("key".equals(name)) {
                 try {
-                    return new MethodProperty(new PropertyDescriptor("key", BasicAuth.class, "getKey", "setKey"));
+                    return new MethodProperty(new PropertyDescriptor("key", WithKey.class, "getKey", "setKey"));
+                } catch (IntrospectionException e) {
+                    e.printStackTrace();
+                }
+            }
+            if ("ca".equals(name)) {
+                try {
+                    return new MethodProperty(new PropertyDescriptor("ca", TlsAuth.class, "getCa", "setCa"));
+                } catch (IntrospectionException e) {
+                    e.printStackTrace();
+                }
+            }
+            if ("certificate".equals(name)) {
+                try {
+                    return new MethodProperty(new PropertyDescriptor("certificate", TlsAuth.class, "getCertificate", "setCertificate"));
                 } catch (IntrospectionException e) {
                     e.printStackTrace();
                 }
@@ -293,22 +374,28 @@ public class UpstreamsConfig {
             return super.getProperty(name);
         }
 
+        private Optional<ScalarNode> getValue(MappingNode mappingNode, String key) {
+            return mappingNode.getValue()
+                    .stream()
+                    .filter((n) -> n.getKeyNode() instanceof ScalarNode && n.getValueNode() instanceof ScalarNode)
+                    .filter((n) -> {
+                        ScalarNode sn = (ScalarNode)n.getKeyNode();
+                        return "type".equals(sn.getValue());
+                    })
+                    .map((n) -> (ScalarNode)n.getValueNode())
+                    .findFirst();
+        }
+
         @Override
         public Object newInstance(Node node) {
             if (node instanceof MappingNode) {
                 MappingNode mappingNode = (MappingNode)node;
-                Optional<ScalarNode> type = mappingNode.getValue()
-                        .stream()
-                        .filter((n) -> n.getKeyNode() instanceof ScalarNode && n.getValueNode() instanceof ScalarNode)
-                        .filter((n) -> {
-                            ScalarNode sn = (ScalarNode)n.getKeyNode();
-                            return "type".equals(sn.getValue());
-                        })
-                        .map((n) -> (ScalarNode)n.getValueNode())
-                        .findFirst();
+                Optional<ScalarNode> type = getValue(mappingNode, "type");
                 if (type.isPresent()) {
                     if ("basic".equals(type.get().getValue())) {
                         return new BasicAuth();
+                    } else if ("tls".equals(type.get().getValue())) {
+                        return new TlsAuth();
                     } else {
                         throw new IllegalArgumentException("Unsupported auth type: " + type.get().getValue());
                     }

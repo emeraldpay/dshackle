@@ -3,19 +3,17 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.upstream.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
-import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.Commands
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toFlux
-import reactor.kotlin.core.publisher.switchIfEmpty
 import java.lang.Exception
 import java.math.BigInteger
 import java.time.Duration
@@ -37,7 +35,7 @@ class TrackTx(
     fun init() {
         listOf(Chain.TESTNET_MORDEN, Chain.ETHEREUM_CLASSIC, Chain.ETHEREUM, Chain.TESTNET_KOVAN).forEach { chain ->
             clients[chain] = ConcurrentLinkedQueue()
-            upstreams.ethereumUpstream(chain)?.head?.let { head ->
+            upstreams.ethereumUpstream(chain)?.getHead()?.let { head ->
                 head.getFlux().subscribe { verifyAll(chain) }
             }
         }
@@ -63,9 +61,9 @@ class TrackTx(
     }
 
     private fun loadWeight(tx: TrackedTx): Mono<TrackedTx> {
-        val batch = Batch()
-        val execution = Mono
-                .fromCompletionStage(batch.add(Commands.eth().getBlock(tx.status.blockHash)))
+        val upstream = upstreams.ethereumUpstream(tx.chain)
+        return upstream.getApi()
+                .executeAndConvert(Commands.eth().getBlock(tx.status.blockHash))
                 .map { block ->
                     if (block != null && block.number != null && block.totalDifficulty != null) {
                         tx.withStatus(
@@ -78,18 +76,14 @@ class TrackTx(
                         )
                     }
                 }
-        val upstream = upstreams.ethereumUpstream(tx.chain)!!
-        upstream.api.execute(batch)
-        return execution
     }
 
     private fun verify(tx: TrackedTx): Boolean {
         val found = tx.status.found
         val mined = tx.status.mined
-        val batch = Batch()
-        val execution = Mono.fromCompletionStage(batch.add(Commands.eth().getTransaction(tx.txid)))
-        val upstream = upstreams.ethereumUpstream(tx.chain)!!
-        upstream.api.execute(batch)
+        val upstream = upstreams.ethereumUpstream(tx.chain)
+        val execution = upstream.getApi()
+                .executeAndConvert(Commands.eth().getTransaction(tx.txid))
         val update = execution.flatMap {
             if (it.blockNumber != null
                     && it.blockHash != null && it.blockHash != ZERO_BLOCK) {
@@ -100,7 +94,7 @@ class TrackTx(
                         mined = true,
                         confirmation = 1
                 )
-                return@flatMap upstream.head.getHead().map { head ->
+                return@flatMap upstream.getHead().getHead().map { head ->
                     tx.withStatus(
                             confirmation = head.number - tx.status.height!! + 1
                     )

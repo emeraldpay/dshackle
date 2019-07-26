@@ -8,7 +8,7 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 class UpstreamValidator(
-        private val upstream: Upstream,
+        private val ethereumUpstream: EthereumUpstream,
         private val options: UpstreamsConfig.Options
 ) {
 
@@ -17,7 +17,7 @@ class UpstreamValidator(
         val peerCount = batch.add(Commands.net().peerCount())
         val syncing = batch.add(Commands.eth().syncing())
         try {
-            upstream.api.execute(batch).get(5, TimeUnit.SECONDS)
+            ethereumUpstream.getApi().rpcClient.execute(batch).get(5, TimeUnit.SECONDS)
             if (syncing.get().isSyncing) {
                 return UpstreamAvailability.SYNCING
             }

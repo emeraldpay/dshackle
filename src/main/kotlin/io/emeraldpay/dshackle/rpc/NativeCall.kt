@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.upstream.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
@@ -27,7 +28,7 @@ class NativeCall(
         if (chain == Chain.UNSPECIFIED) {
             throw Exception("Invalid chain id: ${request.chain.number}")
         }
-        val upstream = upstreams.ethereumUpstream(chain)?.api ?: throw Exception("Chain ${chain.id} is unavailable")
+        val upstream = upstreams.ethereumUpstream(chain)?.getApi() ?: throw Exception("Chain ${chain.id} is unavailable")
         request.itemsList.toFlux()
                 .map {
                     val method = it.target

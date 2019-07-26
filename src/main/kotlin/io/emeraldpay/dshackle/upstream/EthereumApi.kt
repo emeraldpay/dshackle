@@ -3,23 +3,24 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.hex.HexQuantity
-import io.infinitape.etherjar.rpc.Batch
-import io.infinitape.etherjar.rpc.RpcCall
-import io.infinitape.etherjar.rpc.RpcClient
-import io.infinitape.etherjar.rpc.RpcException
+import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import io.infinitape.etherjar.rpc.transport.BatchStatus
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.toFlux
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.CompletableFuture
 
-class EthereumApi(
-        private val rpcClient: RpcClient,
+open class EthereumApi(
+        val rpcClient: RpcClient,
         private val objectMapper: ObjectMapper,
         private val chain: Chain
 ) {
+
+    private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
 
     private val timeout = Duration.ofSeconds(5)
     private val log = LoggerFactory.getLogger(EthereumApi::class.java)
@@ -65,13 +66,19 @@ class EthereumApi(
             "eth_accounts"
     )
 
-    fun execute(batch: Batch): CompletableFuture<BatchStatus> {
-        return rpcClient.execute(batch)
+    open fun <JS, RS> executeAndConvert(rpcCall: RpcCall<JS, RS>): Mono<RS> {
+        return execute(0, rpcCall.method, rpcCall.params as List<Any>)
+                .map {
+                    jacksonRpcConverter.fromJson(it.inputStream(), rpcCall.jsonType, Int::class.java)
+                }.map {
+                    rpcCall.converter.apply(it)
+                }
     }
 
-    fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
+    open fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
         val result: Mono<Any> = if (hardcodedMethods.contains(method)) {
-            Mono.just(method).map { hardcoded(it) }
+            Mono.just(method)
+                    .map { hardcoded(it) }
         } else if (allowedMethods.contains(method)) {
             callUpstream(method, params)
         } else {

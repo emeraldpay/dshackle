@@ -44,7 +44,7 @@ configurations {
 }
 
 dependencies {
-    compile "io.emeraldpay:emerald-grpc:0.4"
+    compile "io.emeraldpay:emerald-grpc:0.6-SNAPSHOT"
 
     compile "io.grpc:grpc-protobuf:${grpcVersion}"
     compile "io.grpc:grpc-stub:${grpcVersion}"
@@ -63,6 +63,7 @@ dependencies {
     compile 'io.projectreactor:reactor-core:3.2.9.RELEASE'
     compile 'io.projectreactor.addons:reactor-extra:3.2.3.RELEASE'
     compile 'io.projectreactor.kotlin:reactor-kotlin-extensions:1.0.0.M1'
+    compile 'com.salesforce.servicelibs:reactor-grpc:0.10.0'
 
     compile 'org.yaml:snakeyaml:1.24'
 
@@ -93,7 +94,9 @@ dependencies {
 
 
     testCompile "org.codehaus.groovy:groovy:$groovyVersion"
+    testCompile 'cglib:cglib-nodep:3.2.12'
     testCompile "org.spockframework:spock-core:$spockVersion"
+    testCompile "io.grpc:grpc-testing:${grpcVersion}"
 }
 
 compileKotlin {

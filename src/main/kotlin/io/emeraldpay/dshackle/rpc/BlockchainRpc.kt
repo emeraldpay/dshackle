@@ -16,7 +16,9 @@ class BlockchainRpc(
         @Autowired private val nativeCall: NativeCall,
         @Autowired private val streamHead: StreamHead,
         @Autowired private val trackTx: TrackTx,
-        @Autowired private val trackAddress: TrackAddress
+        @Autowired private val trackAddress: TrackAddress,
+        @Autowired private val describe: Describe,
+        @Autowired private val subscribeStatus: SubscribeStatus
 ): BlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
@@ -55,5 +57,13 @@ class BlockchainRpc(
                     responseObserver.onCompleted()
                 }
 
+    }
+
+    override fun describe(request: BlockchainOuterClass.DescribeRequest, responseObserver: StreamObserver<BlockchainOuterClass.DescribeResponse>) {
+        describe.describe(request, responseObserver)
+    }
+
+    override fun subscribeStatus(request: BlockchainOuterClass.StatusRequest, responseObserver: StreamObserver<BlockchainOuterClass.ChainStatus>) {
+        subscribeStatus.subscribeStatus(request, responseObserver)
     }
 }

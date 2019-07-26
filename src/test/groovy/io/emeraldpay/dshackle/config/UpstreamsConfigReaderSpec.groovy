@@ -54,4 +54,31 @@ class UpstreamsConfigReaderSpec extends Specification {
 
         }
     }
+
+    def "Parse ds config"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-ds.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.version == "v1"
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "remote"
+            chain == "auto"
+            provider == "dshackle"
+            endpoints.size() == 1
+            with(endpoints.get(0)) {
+                type == UpstreamsConfig.EndpointType.DSHACKLE
+                host == "10.2.0.15"
+                auth instanceof UpstreamsConfig.TlsAuth
+                with((UpstreamsConfig.TlsAuth)auth) {
+                    ca == "/etc/ca.myservice.com.crt"
+                    certificate == "/etc/client1.myservice.com.crt"
+                    key == "/etc/client1.myservice.com.key"
+                }
+            }
+        }
+    }
 }

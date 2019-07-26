@@ -25,13 +25,13 @@ class EthereumRpcHead(
                 .flatMap {
                     val batch = Batch()
                     val f = batch.add(Commands.eth().blockNumber)
-                    api.execute(batch)
+                    api.rpcClient.execute(batch)
                     Mono.fromCompletionStage(f).timeout(Duration.ofSeconds(5))
                 }
                 .flatMap {
                     val batch = Batch()
                     val f = batch.add(Commands.eth().getBlock(it))
-                    api.execute(batch)
+                    api.rpcClient.execute(batch)
                     Mono.fromCompletionStage(f).timeout(Duration.ofSeconds(5))
                 }
                 .onErrorContinue { err, _ ->

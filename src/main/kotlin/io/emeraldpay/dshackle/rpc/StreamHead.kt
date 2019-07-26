@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.rpc
 
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.upstream.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
@@ -12,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.toFlux
 import java.lang.Exception
-import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.annotation.PostConstruct
 import kotlin.collections.HashMap
@@ -28,7 +28,7 @@ class StreamHead(
     @PostConstruct
     fun init() {
         listOf(Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC, Chain.TESTNET_MORDEN, Chain.TESTNET_KOVAN).forEach { chain ->
-            if (upstreams.ethereumUpstream(chain)?.head != null) {
+            if (upstreams.ethereumUpstream(chain)?.getHead() != null) {
                 clients[chain] = ConcurrentLinkedQueue()
                 subscribe(chain)
             }
@@ -36,7 +36,7 @@ class StreamHead(
     }
 
     private fun subscribe(chain: Chain) {
-        upstreams.ethereumUpstream(chain)!!.head.getFlux()
+        upstreams.ethereumUpstream(chain)!!.getHead().getFlux()
                 .doOnComplete {
                     log.info("Closing streams for ${chain.chainCode}")
                     clients.replace(chain, ConcurrentLinkedQueue())!!.forEach { client ->
@@ -68,7 +68,7 @@ class StreamHead(
 
     fun process(chain: Chain, client: StreamSender<BlockchainOuterClass.ChainHead>): Boolean {
         val upstream = upstreams.ethereumUpstream(chain) ?: return false
-        val head = upstream.head.getHead()
+        val head = upstream.getHead().getHead()
         return head.map {
             notify(chain, it, client)
         }.defaultIfEmpty(false).block()!!

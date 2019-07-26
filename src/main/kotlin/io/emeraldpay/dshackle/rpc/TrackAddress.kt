@@ -2,12 +2,12 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.upstream.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.Wei
-import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.json.BlockTag
 import org.springframework.beans.factory.annotation.Autowired
@@ -17,14 +17,11 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toFlux
 import reactor.math.sum
-import reactor.util.function.Tuple2
-import reactor.util.function.Tuples
 import java.lang.Exception
 import java.time.Duration
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.Future
 import javax.annotation.PostConstruct
 
 @Service
@@ -40,7 +37,7 @@ class TrackAddress(
     fun init() {
         allChains.forEach { chain ->
             clients[chain] = ConcurrentLinkedQueue()
-            upstreams.ethereumUpstream(chain)?.head?.let { head ->
+            upstreams.ethereumUpstream(chain)?.getHead()?.let { head ->
                 head.getFlux().subscribe { verifyAll(chain) }
             }
         }
@@ -120,25 +117,18 @@ class TrackAddress(
     }
 
     private fun verify(chain: Chain, group: List<TrackedAddress>): Flux<TrackedAddress> {
-        val up = upstreams.ethereumUpstream(chain)!!
+        val up = upstreams.ethereumUpstream(chain)
         return group.toFlux()
-                .reduce<Tuple2<Batch, ArrayList<Update>>>(Tuples.of(Batch(), ArrayList())) { batch, a ->
-                    val f = batch.t1.add(Commands.eth().getBalance(a.address, BlockTag.LATEST));
-                    batch.t2.add(Update(a, f))
-                    batch
-                }
-                .flatMap {
-                    Mono.fromCompletionStage(up.api.execute(it.t1))
-                            .thenReturn(it.t2)
-                }
-                .flatMapMany {
-                    it.toFlux()
+                .flatMap { a ->
+                    up.getApi()
+                            .executeAndConvert(Commands.eth().getBalance(a.address, BlockTag.LATEST))
+                            .map { Update(a, it) }
                 }
                 .filter {
-                    it.addr.balance == null || it.addr.balance != it.value.get()
+                    it.addr.balance == null || it.addr.balance != it.value
                 }
                 .doOnNext {
-                    it.addr.balance = it.value.get()
+                    it.addr.balance = it.value
                 }
                 .map {
                     it.addr
@@ -163,7 +153,7 @@ class TrackAddress(
         return sent
     }
 
-    class Update(val addr: TrackedAddress, val value: Future<Wei>)
+    class Update(val addr: TrackedAddress, val value: Wei)
 
     class TrackedAddress(val chain: Chain,
                          val stream: StreamSender<BlockchainOuterClass.AddressBalance>,
