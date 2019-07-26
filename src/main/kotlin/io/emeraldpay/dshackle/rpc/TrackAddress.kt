@@ -37,7 +37,7 @@ class TrackAddress(
     fun init() {
         allChains.forEach { chain ->
             clients[chain] = ConcurrentLinkedQueue()
-            upstreams.ethereumUpstream(chain)?.getHead()?.let { head ->
+            upstreams.getUpstream(chain)?.getHead()?.let { head ->
                 head.getFlux().subscribe { verifyAll(chain) }
             }
         }
@@ -117,7 +117,7 @@ class TrackAddress(
     }
 
     private fun verify(chain: Chain, group: List<TrackedAddress>): Flux<TrackedAddress> {
-        val up = upstreams.ethereumUpstream(chain)
+        val up = upstreams.getUpstream(chain) ?: return Flux.empty<TrackedAddress>()
         return group.toFlux()
                 .flatMap { a ->
                     up.getApi()

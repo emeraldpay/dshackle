@@ -40,16 +40,12 @@ open class ConfiguredUpstreams(
     fun start() {
         val config = readConfig()
         val defaultOptions = buildDefaultOptions(config)
-        val groups = HashMap<Chain, ArrayList<Upstream>>()
         config.upstreams.forEach { up ->
             if (up.provider == "dshackle") {
                 buildGrpcUpstream(up)
             } else {
-                buildEthereumUpstream(up, defaultOptions, groups)
+                buildEthereumUpstream(up, defaultOptions)
             }
-        }
-        groups.forEach { chain, group ->
-            chainMapping[chain] = ChainUpstreams(chain, group)
         }
     }
 
@@ -89,8 +85,7 @@ open class ConfiguredUpstreams(
     }
 
     private fun buildEthereumUpstream(up: UpstreamsConfig.Upstream,
-                                      defaultOptions: HashMap<Chain, UpstreamsConfig.Options>,
-                                      groups: HashMap<Chain, ArrayList<Upstream>>) {
+                                      defaultOptions: HashMap<Chain, UpstreamsConfig.Options>) {
         val chain = chainNames[up.chain] ?: return
         var rpcApi: EthereumApi? = null
         var wsApi: EthereumWs? = null
@@ -117,9 +112,7 @@ open class ConfiguredUpstreams(
                 .merge(UpstreamsConfig.Options.getDefaults())
         if (rpcApi != null) {
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-            val current = groups[chain] ?: ArrayList()
-            current.add(EthereumUpstream(chain, rpcApi!!, wsApi, options))
-            groups[chain] = current
+            getOrCreateUpstream(chain).addUpstream(EthereumUpstream(chain, rpcApi!!, wsApi, options))
         }
     }
 
@@ -145,12 +138,16 @@ open class ConfiguredUpstreams(
                     }
                     .subscribe {
                         log.info("Subscribed to $it through gRPC at ${endpoint.host}:${endpoint.port}")
-                        ethereumUpstream(it).addUpstream(ds.getOrCreate(it))
+                        getOrCreateUpstream(it).addUpstream(ds.getOrCreate(it))
                     }
         }
     }
 
-    override fun ethereumUpstream(chain: Chain): ChainUpstreams {
+    override fun getUpstream(chain: Chain): AggregatedUpstreams? {
+        return chainMapping[chain]
+    }
+
+    override fun getOrCreateUpstream(chain: Chain): ChainUpstreams {
         val current = chainMapping[chain]
         if (current == null) {
             val created = ChainUpstreams(chain, ArrayList<Upstream>())

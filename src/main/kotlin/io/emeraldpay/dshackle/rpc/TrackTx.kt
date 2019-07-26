@@ -35,7 +35,7 @@ class TrackTx(
     fun init() {
         listOf(Chain.TESTNET_MORDEN, Chain.ETHEREUM_CLASSIC, Chain.ETHEREUM, Chain.TESTNET_KOVAN).forEach { chain ->
             clients[chain] = ConcurrentLinkedQueue()
-            upstreams.ethereumUpstream(chain)?.getHead()?.let { head ->
+            upstreams.getUpstream(chain)?.getHead()?.let { head ->
                 head.getFlux().subscribe { verifyAll(chain) }
             }
         }
@@ -61,7 +61,7 @@ class TrackTx(
     }
 
     private fun loadWeight(tx: TrackedTx): Mono<TrackedTx> {
-        val upstream = upstreams.ethereumUpstream(tx.chain)
+        val upstream = upstreams.getUpstream(tx.chain)!!
         return upstream.getApi()
                 .executeAndConvert(Commands.eth().getBlock(tx.status.blockHash))
                 .map { block ->
@@ -81,7 +81,7 @@ class TrackTx(
     private fun verify(tx: TrackedTx): Boolean {
         val found = tx.status.found
         val mined = tx.status.mined
-        val upstream = upstreams.ethereumUpstream(tx.chain)
+        val upstream = upstreams.getUpstream(tx.chain)!!
         val execution = upstream.getApi()
                 .executeAndConvert(Commands.eth().getTransaction(tx.txid))
         val update = execution.flatMap {

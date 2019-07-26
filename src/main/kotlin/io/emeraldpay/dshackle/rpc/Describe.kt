@@ -17,7 +17,7 @@ class Describe(
     fun describe(request: BlockchainOuterClass.DescribeRequest, responseObserver: StreamObserver<BlockchainOuterClass.DescribeResponse>) {
         val resp = BlockchainOuterClass.DescribeResponse.newBuilder()
         upstreams.getAvailable().forEach { chain ->
-            upstreams.ethereumUpstream(chain).let { chainUpstreams ->
+            upstreams.getUpstream(chain)?.let { chainUpstreams ->
                 val quorum = chainUpstreams.getAll().map { u ->
                     if (u.getStatus() == UpstreamAvailability.OK) {
                         u.getOptions().quorum

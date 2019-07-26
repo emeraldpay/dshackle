@@ -28,7 +28,7 @@ class NativeCall(
         if (chain == Chain.UNSPECIFIED) {
             throw Exception("Invalid chain id: ${request.chain.number}")
         }
-        val upstream = upstreams.ethereumUpstream(chain)?.getApi() ?: throw Exception("Chain ${chain.id} is unavailable")
+        val upstream = upstreams.getUpstream(chain)?.getApi() ?: throw Exception("Chain ${chain.id} is unavailable")
         request.itemsList.toFlux()
                 .map {
                     val method = it.target

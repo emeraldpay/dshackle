@@ -28,7 +28,7 @@ class StreamHead(
     @PostConstruct
     fun init() {
         listOf(Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC, Chain.TESTNET_MORDEN, Chain.TESTNET_KOVAN).forEach { chain ->
-            if (upstreams.ethereumUpstream(chain)?.getHead() != null) {
+            if (upstreams.getUpstream(chain)?.getHead() != null) {
                 clients[chain] = ConcurrentLinkedQueue()
                 subscribe(chain)
             }
@@ -36,7 +36,7 @@ class StreamHead(
     }
 
     private fun subscribe(chain: Chain) {
-        upstreams.ethereumUpstream(chain)!!.getHead().getFlux()
+        upstreams.getUpstream(chain)!!.getHead().getFlux()
                 .doOnComplete {
                     log.info("Closing streams for ${chain.chainCode}")
                     clients.replace(chain, ConcurrentLinkedQueue())!!.forEach { client ->
@@ -67,7 +67,7 @@ class StreamHead(
     }
 
     fun process(chain: Chain, client: StreamSender<BlockchainOuterClass.ChainHead>): Boolean {
-        val upstream = upstreams.ethereumUpstream(chain) ?: return false
+        val upstream = upstreams.getUpstream(chain) ?: return false
         val head = upstream.getHead().getHead()
         return head.map {
             notify(chain, it, client)
