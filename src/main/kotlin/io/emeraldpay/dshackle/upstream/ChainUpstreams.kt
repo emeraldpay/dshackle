@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
+import java.io.Closeable
 import java.lang.IllegalStateException
 import java.time.Duration
 
@@ -12,13 +13,17 @@ class ChainUpstreams (
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
-    private var head: EthereumHead
+    private var head: EthereumHead?
 
     init {
         head = updateHead()
     }
 
     internal fun updateHead(): EthereumHead {
+        val current = head
+        if (current != null && Closeable::class.java.isAssignableFrom(current.javaClass)) {
+            (current as Closeable).close()
+        }
         return if (upstreams.size == 1) {
             upstreams.first().getHead()
         } else {
@@ -48,13 +53,13 @@ class ChainUpstreams (
     }
 
     override fun getHead(): EthereumHead {
-        return head
+        return head!!
     }
 
     fun printStatus() {
         var height: Long = -1
         try {
-            height = head.getHead().block(Duration.ofSeconds(1))?.number ?: -1
+            height = head!!.getHead().block(Duration.ofSeconds(1))?.number ?: -1
         } catch (e: IllegalStateException) {
             //timout
         } catch (e: Exception) {
