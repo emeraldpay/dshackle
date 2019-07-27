@@ -46,7 +46,7 @@ class GrpcUpstreams(
                 .subscribe { value ->
                     val chain = Chain.byId(value.chain.number)
                     if (chain != Chain.UNSPECIFIED) {
-                        getOrCreate(chain).onStatus(value)
+                        known[chain]?.onStatus(value)
                     }
                 }
         return loaded
