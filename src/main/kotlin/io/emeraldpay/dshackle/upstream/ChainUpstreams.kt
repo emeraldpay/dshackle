@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import java.io.Closeable
@@ -57,9 +58,9 @@ class ChainUpstreams (
     }
 
     fun printStatus() {
-        var height: Long = -1
+        var height: Long? = null
         try {
-            height = head!!.getHead().block(Duration.ofSeconds(1))?.number ?: -1
+            height = head!!.getHead().block(Duration.ofSeconds(1))?.number
         } catch (e: IllegalStateException) {
             //timout
         } catch (e: Exception) {
@@ -70,7 +71,7 @@ class ChainUpstreams (
                 .map { "${it.key.name}/${it.value.size}" }
                 .joinToString(",")
 
-        log.info("State of ${chain.chainCode}: height=$height, status=$statuses")
+        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=$statuses")
     }
 
 

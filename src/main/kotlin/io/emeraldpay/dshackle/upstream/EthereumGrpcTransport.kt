@@ -16,6 +16,7 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.toFlux
 import reactor.util.function.Tuple3
 import reactor.util.function.Tuples
+import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.function.Function
 
@@ -97,6 +98,7 @@ class EthereumGrpcTransport(
                         bi.onError(RpcException(-32603, "RPC response not received"))
                     }
                 }
+                .timeout(Duration.ofSeconds(15))
                 .toFuture()
     }
 }

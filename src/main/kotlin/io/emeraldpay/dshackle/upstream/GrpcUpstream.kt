@@ -38,6 +38,7 @@ open class GrpcUpstream(
     private var status = AtomicReference<UpstreamAvailability>(UpstreamAvailability.UNAVAILABLE)
     private val head = Head(this)
     private val api: EthereumApi
+    private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
 
     init {
         val grpcTransport = EthereumGrpcTransport(chain, client, objectMapper)
@@ -52,7 +53,7 @@ open class GrpcUpstream(
                 .toMono()
 
         val retry: Function<Flux<BlockchainOuterClass.ChainHead>, Flux<BlockchainOuterClass.ChainHead>> = Function {
-            status.set(UpstreamAvailability.UNAVAILABLE)
+            setStatus(UpstreamAvailability.UNAVAILABLE)
             client.subscribeHead(chainRef)
         }
 
@@ -80,14 +81,14 @@ open class GrpcUpstream(
                     log.debug("New block ${block.number} on ${chain}")
                     headBlock.set(block)
                     streamBlocks.onNext(block)
-                    status.set(UpstreamAvailability.OK)
+                    setStatus(UpstreamAvailability.OK)
                 }
     }
 
     fun init(conf: BlockchainOuterClass.DescribeChain) {
         val available = conf.available
         val quorum = conf.quorum
-        status.set(
+        setStatus(
                 if (available && quorum > 0) UpstreamAvailability.OK else UpstreamAvailability.UNAVAILABLE
         )
     }
@@ -95,11 +96,15 @@ open class GrpcUpstream(
     fun onStatus(value: BlockchainOuterClass.ChainStatus) {
         val available = value.available
         val quorum = value.quorum
-        status.set(
+        setStatus(
                 if (available && quorum > 0) UpstreamAvailability.OK else UpstreamAvailability.UNAVAILABLE
         )
     }
 
+    private fun setStatus(value: UpstreamAvailability) {
+        status.set(value)
+        statusStream.onNext(value)
+    }
     // ------------------------------------------------------------------------------------------
 
 
@@ -109,6 +114,10 @@ open class GrpcUpstream(
 
     override fun getStatus(): UpstreamAvailability {
         return status.get()
+    }
+
+    override fun observeStatus(): Flux<UpstreamAvailability> {
+        return Flux.from(statusStream)
     }
 
     override fun getHead(): EthereumHead {

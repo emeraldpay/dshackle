@@ -43,7 +43,7 @@ class EthereumGrpcTransportSpec extends Specification {
         def status = transport.execute(batch.items).get()
 
         then:
-        1 * otherSideUpstreams.ethereumUpstream(Chain.ETHEREUM) >> otherSideAggr
+        1 * otherSideUpstreams.getUpstream(Chain.ETHEREUM) >> otherSideAggr
         1 * otherSideAggr.api >> otherSideApi
         status.failed == 0
         status.succeed == 1
@@ -87,7 +87,7 @@ class EthereumGrpcTransportSpec extends Specification {
         def status = transport.execute(batch.items).get()
 
         then:
-        1 * otherSideUpstreams.ethereumUpstream(Chain.ETHEREUM) >> otherSideAggr
+        1 * otherSideUpstreams.getUpstream(Chain.ETHEREUM) >> otherSideAggr
         1 * otherSideAggr.api >> otherSideApi
         status.failed == 0
         status.succeed == 2
