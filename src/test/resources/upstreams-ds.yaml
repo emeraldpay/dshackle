@@ -1,0 +1,22 @@
+version: v1
+
+defaultOptions:
+  - chains:
+      - ethereum
+    options:
+      disable-syncing: true
+      min-peers: 3
+      quorum: 1
+
+upstreams:
+  - id: remote
+    chain: auto
+    provider: dshackle
+    endpoints:
+      - type: dshackle
+        host: "10.2.0.15"
+        auth:
+          type: tls
+          ca: /etc/ca.myservice.com.crt
+          certificate: /etc/client1.myservice.com.crt
+          key: /etc/client1.myservice.com.key
