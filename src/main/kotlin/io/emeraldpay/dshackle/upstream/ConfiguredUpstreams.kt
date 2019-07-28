@@ -41,10 +41,14 @@ open class ConfiguredUpstreams(
         val config = readConfig()
         val defaultOptions = buildDefaultOptions(config)
         config.upstreams.forEach { up ->
+            val options = (up.options ?: UpstreamsConfig.Options())
+                    .merge(UpstreamsConfig.Options.getDefaults())
+
             if (up.provider == "dshackle") {
-                buildGrpcUpstream(up)
+                buildGrpcUpstream(up.connection as UpstreamsConfig.GrpcConnection, options)
             } else {
-                buildEthereumUpstream(up, defaultOptions)
+                val chain = chainNames[up.chain] ?: return
+                buildEthereumUpstream(up.connection as UpstreamsConfig.EthereumConnection, chain, options)
             }
         }
     }
@@ -69,7 +73,7 @@ open class ConfiguredUpstreams(
     private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.Options> {
         val defaultOptions = HashMap<Chain, UpstreamsConfig.Options>()
         config.defaultOptions.forEach { df ->
-            df.chains.forEach { chainName ->
+            df.chains?.forEach { chainName ->
                 chainNames[chainName]?.let { chain ->
                     var current = defaultOptions[chain]
                     if (current == null) {
@@ -77,56 +81,45 @@ open class ConfiguredUpstreams(
                     } else {
                         current = current.merge(df.options)
                     }
-                    defaultOptions[chain] = current
+                    defaultOptions[chain] = current!!
                 }
             }
         }
         return defaultOptions
     }
 
-    private fun buildEthereumUpstream(up: UpstreamsConfig.Upstream,
-                                      defaultOptions: HashMap<Chain, UpstreamsConfig.Options>) {
-        val chain = chainNames[up.chain] ?: return
+    private fun buildEthereumUpstream(up: UpstreamsConfig.EthereumConnection,
+                                      chain: Chain,
+                                      options: UpstreamsConfig.Options) {
         var rpcApi: EthereumApi? = null
         var wsApi: EthereumWs? = null
         val urls = ArrayList<URI>()
-        up.endpoints.forEach { endpoint ->
-            if (endpoint.type == UpstreamsConfig.EndpointType.JSON_RPC) {
-                rpcApi = EthereumApi(
-                        DefaultRpcClient(DefaultRpcTransport(endpoint.url)),
-                        objectMapper,
-                        chain
-                )
-            }
-            if (endpoint.type == UpstreamsConfig.EndpointType.WEBSOCKET) {
-                wsApi = EthereumWs(
-                        endpoint.url,
-                        endpoint.origin ?: URI("http://localhost")
-                )
-                wsApi!!.connect()
-            }
+        up.rpc?.let { endpoint ->
+            rpcApi = EthereumApi(
+                    DefaultRpcClient(DefaultRpcTransport(endpoint.url)),
+                    objectMapper,
+                    chain
+            )
             urls.add(endpoint.url)
         }
-        val options = (up.options ?: UpstreamsConfig.Options())
-                .merge(defaultOptions[chain])
-                .merge(UpstreamsConfig.Options.getDefaults())
+        up.ws?.let { endpoint ->
+            wsApi = EthereumWs(
+                    endpoint.url,
+                    endpoint.origin ?: URI("http://localhost")
+            )
+            wsApi!!.connect()
+            urls.add(endpoint.url)
+        }
         if (rpcApi != null) {
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
             getOrCreateUpstream(chain).addUpstream(EthereumUpstream(chain, rpcApi!!, wsApi, options))
         }
     }
 
-    private fun buildGrpcUpstream(up: UpstreamsConfig.Upstream) {
-        if (up.endpoints.size == 0) {
-            return
-        }
-        val options = (up.options ?: UpstreamsConfig.Options())
-                .merge(UpstreamsConfig.Options.getDefaults())
-
-        val endpoint = up.endpoints.first()
-        if (endpoint.type == UpstreamsConfig.EndpointType.DSHACKLE) {
+    private fun buildGrpcUpstream(up: UpstreamsConfig.GrpcConnection, options: UpstreamsConfig.Options) {
+        val endpoint = up
             val ds = GrpcUpstreams(
-                    endpoint.host,
+                    endpoint.host!!,
                     endpoint.port ?: 443,
                     objectMapper,
                     options
@@ -140,7 +133,6 @@ open class ConfiguredUpstreams(
                         log.info("Subscribed to $it through gRPC at ${endpoint.host}:${endpoint.port}")
                         getOrCreateUpstream(it).addUpstream(ds.getOrCreate(it))
                     }
-        }
     }
 
     override fun getUpstream(chain: Chain): AggregatedUpstreams? {

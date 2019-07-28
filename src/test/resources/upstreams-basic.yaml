@@ -6,24 +6,25 @@ defaultOptions:
     options:
       disable-syncing: true
       min-peers: 3
-      quorum: 1
 
 upstreams:
   - id: local
     chain: ethereum
     provider: geth
-    endpoints:
-      - type: json-rpc
-        url: "http://localhost:8545"
-      - type: ws
-        url: "ws://localhost:8546"
-        origin: "http://localhost"
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+        ws:
+          url: "ws://localhost:8546"
+          origin: "http://localhost"
   - id: infura
     chain: ethereum
     provider: infura
-    endpoints:
-      - type: json-rpc
-        url: "https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2"
-        auth:
-          type: basic
-          key: 4fc258fe41a68149c199ad8f281f2015
+    connection:
+      ethereum:
+        rpc:
+          url: "https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2"
+          auth:
+            type: basic
+            key: 4fc258fe41a68149c199ad8f281f2015

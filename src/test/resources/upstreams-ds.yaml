@@ -6,14 +6,12 @@ defaultOptions:
     options:
       disable-syncing: true
       min-peers: 3
-      quorum: 1
 
 upstreams:
   - id: remote
-    chain: auto
     provider: dshackle
-    endpoints:
-      - type: dshackle
+    connection:
+      grpc:
         host: "10.2.0.15"
         auth:
           type: tls

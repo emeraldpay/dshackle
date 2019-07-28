@@ -21,7 +21,7 @@ class UpstreamValidator(
             if (syncing.get().isSyncing) {
                 return UpstreamAvailability.SYNCING
             }
-            if (peerCount.get() < options.minPeers) {
+            if (options.minPeers != null && peerCount.get() < options.minPeers!!) {
                 return UpstreamAvailability.IMMATURE
             }
             return UpstreamAvailability.OK
