@@ -86,18 +86,14 @@ open class GrpcUpstream(
     }
 
     fun init(conf: BlockchainOuterClass.DescribeChain) {
-        val available = conf.available
-        val quorum = conf.quorum
-        setStatus(
-                if (available && quorum > 0) UpstreamAvailability.OK else UpstreamAvailability.UNAVAILABLE
-        )
+        conf.status?.let { status -> onStatus(status) }
     }
 
     fun onStatus(value: BlockchainOuterClass.ChainStatus) {
-        val available = value.available
+        val available = value.availability
         val quorum = value.quorum
         setStatus(
-                if (available && quorum > 0) UpstreamAvailability.OK else UpstreamAvailability.UNAVAILABLE
+                if (available != null) UpstreamAvailability.fromGrpc(available.number) else UpstreamAvailability.UNAVAILABLE
         )
     }
 

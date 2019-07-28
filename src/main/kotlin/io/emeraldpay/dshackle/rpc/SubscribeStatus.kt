@@ -2,8 +2,10 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.grpc.Chain
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
 import org.springframework.beans.factory.annotation.Autowired
@@ -18,24 +20,32 @@ class SubscribeStatus(
     fun subscribeStatus(request: BlockchainOuterClass.StatusRequest, responseObserver: StreamObserver<BlockchainOuterClass.ChainStatus>) {
         upstreams.getAvailable().forEach { chain ->
             var d: Disposable? = null
-            d = upstreams.getUpstream(chain)?.observeStatus()?.subscribe { availability ->
-                val chainStatus = BlockchainOuterClass.ChainStatus.newBuilder()
-                        .setChain(Common.ChainRef.forNumber(chain.id))
-                        .setAvailable(availability == UpstreamAvailability.OK)
-                        .setQuorum(0)
-                if (availability == UpstreamAvailability.OK) {
-                    upstreams.getUpstream(chain)?.getOptions()?.let { opts ->
-                        chainStatus.setQuorum(opts.quorum)
-                    }
-                }
+            val chainUpstream = upstreams.getUpstream(chain)
+            d = chainUpstream?.observeStatus()?.subscribe { availability ->
+                val status = chainStatus(chain, chainUpstream.getAll())
                 try {
-                    responseObserver.onNext(chainStatus.build())
+                    responseObserver.onNext(status)
                 } catch (e: StatusRuntimeException) {
                     // gRPC channel was closed
                     d?.dispose()
                 }
             }
         }
+    }
+
+    fun chainStatus(chain: Chain, ups: List<Upstream>): BlockchainOuterClass.ChainStatus {
+        val available = ups.map { u ->
+            u.getStatus()
+        }.min()!!
+        val quorum = ups.filter {
+            it.getStatus() > UpstreamAvailability.UNAVAILABLE
+        }.count()
+        val status = BlockchainOuterClass.ChainStatus.newBuilder()
+                .setAvailability(BlockchainOuterClass.AvailabilityEnum.forNumber(available.grpcId))
+                .setChain(Common.ChainRef.forNumber(chain.id))
+                .setQuorum(quorum)
+                .build()
+        return status
     }
 
 }
