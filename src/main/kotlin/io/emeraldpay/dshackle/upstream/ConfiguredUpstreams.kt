@@ -122,7 +122,8 @@ open class ConfiguredUpstreams(
                     endpoint.host!!,
                     endpoint.port ?: 443,
                     objectMapper,
-                    options
+                    options,
+                    up.auth
             )
             log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
             ds.start()

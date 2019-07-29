@@ -6,7 +6,12 @@ import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
+import io.grpc.netty.NettyChannelBuilder
+import io.netty.handler.ssl.*
+import org.apache.commons.lang3.StringUtils
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
+import java.io.File
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -15,17 +20,26 @@ class GrpcUpstreams(
         private val host: String,
         private val port: Int,
         private val objectMapper: ObjectMapper,
-        private val options: UpstreamsConfig.Options
+        private val options: UpstreamsConfig.Options,
+        private val auth: UpstreamsConfig.TlsAuth? = null
 ) {
+    private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
     private var known = HashMap<Chain, GrpcUpstream>()
     private val lock = ReentrantLock()
 
     fun start(): Mono<List<Chain>> {
-        val channel = ManagedChannelBuilder.forAddress(host, port)
-                .enableRetry()
-        channel.usePlaintext()
+        val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
+            NettyChannelBuilder.forAddress(host, port)
+                    .useTransportSecurity()
+                    .sslContext(withTls(auth))
+        } else {
+            log.warn("Using insecure connection for $host:$port")
+            ManagedChannelBuilder.forAddress(host, port)
+                    .usePlaintext()
+        }
+
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
         this.client = client
         val loaded = client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
@@ -50,6 +64,24 @@ class GrpcUpstreams(
                     }
                 }
         return loaded
+    }
+
+    internal fun withTls(auth: UpstreamsConfig.TlsAuth): SslContext {
+        val sslContext = SslContextBuilder.forClient()
+                .clientAuth(ClientAuth.REQUIRE)
+        sslContext.trustManager(File(auth.ca!!).inputStream())
+        if (StringUtils.isNotEmpty(auth.key) && StringUtils.isNoneEmpty(auth.certificate)) {
+            sslContext.keyManager(File(auth.certificate!!).inputStream(), File(auth.key!!).inputStream())
+        } else {
+            log.warn("Connect to remote using only CA certificate")
+        }
+        val alpn = ApplicationProtocolConfig(
+                ApplicationProtocolConfig.Protocol.ALPN,
+                ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                "grpc-exp", "h2")
+        sslContext.applicationProtocolConfig(alpn)
+        return sslContext.build()
     }
 
     fun getOrCreate(chain: Chain): GrpcUpstream {
