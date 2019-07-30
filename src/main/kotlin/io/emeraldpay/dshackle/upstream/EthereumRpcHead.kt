@@ -42,11 +42,9 @@ class EthereumRpcHead(
                     curr == null || curr.totalDifficulty < block.totalDifficulty
                 }
                 .subscribe { block ->
+                    head.set(block)
                     stream.onNext(block)
                 }
-
-        Flux.from(this.stream)
-                .subscribe { head.set(it) }
     }
 
     override fun getHead(): Mono<BlockJson<TransactionId>> {

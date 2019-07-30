@@ -89,9 +89,9 @@ open class GrpcUpstream(
                 }
                 .subscribe { block ->
                     log.debug("New block ${block.number} on ${chain}")
+                    setStatus(UpstreamAvailability.OK)
                     headBlock.set(block)
                     streamBlocks.onNext(block)
-                    setStatus(UpstreamAvailability.OK)
                 }
     }
 

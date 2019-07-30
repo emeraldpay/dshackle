@@ -32,10 +32,9 @@ class EthereumWs(
             return
         }
         client.onNewBlock {
+            head.set(it)
             topic.onNext(it)
         }
-
-        getFlux().subscribe { head.set(it) }
     }
 
     fun getFlux(): Flux<BlockJson<TransactionId>> {

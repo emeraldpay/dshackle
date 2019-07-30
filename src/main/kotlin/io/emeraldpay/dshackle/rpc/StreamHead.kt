@@ -4,6 +4,8 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.upstream.AvailableChains
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamServices
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.TransactionId
@@ -16,6 +18,7 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
 import java.lang.Exception
+import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.annotation.PostConstruct
 import kotlin.collections.HashMap
@@ -56,10 +59,16 @@ class StreamHead(
 
     private fun onBlock(chain: Chain, block: BlockJson<TransactionId>) {
         log.info("New block ${block.number} on ${chain.chainCode}")
-        clients[chain]!!.toFlux()
-                .subscribe { stream ->
-                    notify(chain, block, stream)
+        upstreams.getUpstream(chain)?.let { up ->
+            UpstreamServices.onceOk(up).subscribe {avail ->
+                if (avail) {
+                    clients[chain]!!.toFlux()
+                            .subscribe { stream ->
+                                notify(chain, block, stream)
+                            }
                 }
+            }
+        }
     }
 
     fun add(requestMono: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
@@ -78,8 +87,12 @@ class StreamHead(
     fun notify(chain: Chain, client: TopicProcessor<BlockchainOuterClass.ChainHead>) {
         val upstream = upstreams.getUpstream(chain) ?: return
         val head = upstream.getHead().getHead()
-        head.subscribe {
-            notify(chain, it, client)
+        head.subscribe { block ->
+            UpstreamServices.onceOk(upstream).subscribe { avail ->
+                if (avail) {
+                    notify(chain, block, client)
+                }
+            }
         }
     }
 

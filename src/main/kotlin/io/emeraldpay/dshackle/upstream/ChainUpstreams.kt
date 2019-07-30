@@ -18,6 +18,9 @@ class ChainUpstreams (
 
     init {
         head = updateHead()
+        observeStatus()
+                .distinctUntilChanged()
+                .subscribe { printStatus() }
     }
 
     internal fun updateHead(): EthereumHead {
