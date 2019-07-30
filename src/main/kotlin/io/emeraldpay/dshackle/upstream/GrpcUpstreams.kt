@@ -56,6 +56,9 @@ class GrpcUpstreams(
                     }
                     chains as List<Chain>
                 }
+                .doOnError { t ->
+                    log.error("Failed to get description from $host:$port", t)
+                }
         //TODO subscribe only after receiving details
         client.subscribeStatus(BlockchainOuterClass.StatusRequest.newBuilder().build())
                 .subscribe { value ->

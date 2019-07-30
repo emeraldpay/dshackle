@@ -10,4 +10,5 @@ interface Upstream {
     fun getHead(): EthereumHead
     fun getApi(): EthereumApi
     fun getOptions(): UpstreamsConfig.Options
+    fun getSupportedTargets(): Set<String>
 }

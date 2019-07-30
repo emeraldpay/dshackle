@@ -167,4 +167,8 @@ open class EthereumApi(
         }
         throw RpcException(-32601, "Method not found")
     }
+
+    fun getSupportedMethods(): Set<String> {
+        return allowedMethods.plus(hardcodedMethods).toSortedSet()
+    }
 }

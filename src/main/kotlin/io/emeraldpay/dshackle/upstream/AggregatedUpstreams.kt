@@ -20,6 +20,14 @@ abstract class AggregatedUpstreams: Upstream {
                 .map { it.status }
     }
 
+    override fun getSupportedTargets(): Set<String> {
+        val list = HashSet<String>()
+        getAll().forEach {
+            list.addAll(it.getSupportedTargets())
+        }
+        return list
+    }
+
     override fun isAvailable(): Boolean {
         return getAll().any { it.isAvailable() }
     }

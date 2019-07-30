@@ -20,8 +20,10 @@ import reactor.core.publisher.toMono
 import java.lang.Exception
 import java.math.BigInteger
 import java.time.Duration
+import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Function
+import kotlin.collections.ArrayList
 
 open class GrpcUpstream(
         private val chain: Chain,
@@ -41,6 +43,7 @@ open class GrpcUpstream(
     private val head = Head(this)
     private val api: EthereumApi
     private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
+    private val supportedMethods = HashSet<String>()
 
     init {
         val grpcTransport = EthereumGrpcTransport(chain, client, objectMapper)
@@ -93,6 +96,7 @@ open class GrpcUpstream(
     }
 
     fun init(conf: BlockchainOuterClass.DescribeChain) {
+        supportedMethods.addAll(conf.supportedTargetsList)
         conf.status?.let { status -> onStatus(status) }
     }
 
@@ -110,6 +114,9 @@ open class GrpcUpstream(
     }
     // ------------------------------------------------------------------------------------------
 
+    override fun getSupportedTargets(): Set<String> {
+        return supportedMethods
+    }
 
     override fun isAvailable(): Boolean {
         return headBlock.get() != null

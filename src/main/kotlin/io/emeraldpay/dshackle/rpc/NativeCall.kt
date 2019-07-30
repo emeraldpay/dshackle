@@ -32,6 +32,7 @@ class NativeCall(
             if (chain == Chain.UNSPECIFIED) {
                 throw Exception("Invalid chain id: ${request.chain.number}")
             }
+            // TODO send error to all requests?
             val upstream = upstreams.getUpstream(chain)?.getApi() ?: throw Exception("Chain ${chain.id} is unavailable")
             request.itemsList.toFlux().map {
                 val method = it.target

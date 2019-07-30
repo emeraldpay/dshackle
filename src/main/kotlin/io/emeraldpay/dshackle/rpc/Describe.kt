@@ -26,12 +26,13 @@ class Describe(
                     chainUpstreams.getAll().let { ups ->
                         if (ups.isNotEmpty()) {
                             val status = subscribeStatus.chainStatus(chain, ups)
-                            resp.addChains(
-                                    BlockchainOuterClass.DescribeChain.newBuilder()
-                                            .setChain(Common.ChainRef.forNumber(chain.id))
-                                            .setStatus(status)
-                                            .build()
-                            )
+                            val targets = chainUpstreams.getSupportedTargets()
+                            val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
+                                    .setChain(Common.ChainRef.forNumber(chain.id))
+                                    .addAllSupportedTargets(targets)
+                                    .setStatus(status)
+                                    .build()
+                            resp.addChains(chainDescription)
                         }
                     }
                 }

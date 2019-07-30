@@ -16,6 +16,10 @@ class EthereumUpstream(
         private val options: UpstreamsConfig.Options
 ): Upstream {
 
+    override fun getSupportedTargets(): Set<String> {
+        return api.getSupportedMethods()
+    }
+
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
 
     private val head: EthereumHead = if (ethereumWs != null) {
