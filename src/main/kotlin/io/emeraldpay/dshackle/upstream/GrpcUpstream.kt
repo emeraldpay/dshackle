@@ -11,11 +11,13 @@ import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.BlockTag
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toMono
+import java.lang.Exception
 import java.math.BigInteger
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
@@ -73,6 +75,11 @@ open class GrpcUpstream(
                 .filter { block ->
                     val curr = headBlock.get()
                     curr == null || curr.totalDifficulty < block.totalDifficulty
+                }
+                .flatMap {
+                    getApi()
+                            .executeAndConvert(Commands.eth().getBlock(it.hash))
+                            .timeout(Duration.ofSeconds(15))
                 }
                 .doOnError { err ->
                     log.error("Head subscription error", err)

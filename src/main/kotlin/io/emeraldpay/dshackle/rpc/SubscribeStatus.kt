@@ -2,34 +2,32 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.grpc.Chain
-import io.grpc.StatusRuntimeException
-import io.grpc.stub.StreamObserver
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import reactor.core.Disposable
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 @Service
 class SubscribeStatus(
-        @Autowired private val upstreams: Upstreams
+        @Autowired private val upstreams: Upstreams,
+        @Autowired private val availableChains: AvailableChains
 ) {
 
-    fun subscribeStatus(request: BlockchainOuterClass.StatusRequest, responseObserver: StreamObserver<BlockchainOuterClass.ChainStatus>) {
-        upstreams.getAvailable().forEach { chain ->
-            var d: Disposable? = null
-            val chainUpstream = upstreams.getUpstream(chain)
-            d = chainUpstream?.observeStatus()?.subscribe { availability ->
-                val status = chainStatus(chain, chainUpstream.getAll())
-                try {
-                    responseObserver.onNext(status)
-                } catch (e: StatusRuntimeException) {
-                    // gRPC channel was closed
-                    d?.dispose()
+    fun subscribeStatus(requestMono: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
+        return requestMono.flatMapMany {
+            val ups = availableChains.getAll().mapNotNull { chain ->
+                val chainUpstream = upstreams.getUpstream(chain)
+                chainUpstream?.observeStatus()?.map { avail ->
+                    ChainSubscription(chain, chainUpstream, avail)
                 }
             }
+
+            Flux.merge(ups)
+                    .map {
+                        chainStatus(it.chain, it.up.getAll())
+                    }
         }
     }
 
@@ -40,12 +38,13 @@ class SubscribeStatus(
         val quorum = ups.filter {
             it.getStatus() > UpstreamAvailability.UNAVAILABLE
         }.count()
-        val status = BlockchainOuterClass.ChainStatus.newBuilder()
+        return BlockchainOuterClass.ChainStatus.newBuilder()
                 .setAvailability(BlockchainOuterClass.AvailabilityEnum.forNumber(available.grpcId))
                 .setChain(Common.ChainRef.forNumber(chain.id))
                 .setQuorum(quorum)
                 .build()
-        return status
     }
+
+    class ChainSubscription(val chain: Chain, val up: AggregatedUpstreams, val avail: UpstreamAvailability)
 
 }

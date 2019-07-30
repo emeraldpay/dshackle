@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle
 
 import com.fasterxml.jackson.core.Version
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import org.springframework.context.annotation.Bean
@@ -22,6 +23,7 @@ open class Config {
 
         val objectMapper = ObjectMapper()
         objectMapper.registerModule(module)
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
         objectMapper
                 .setDateFormat(SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm:ss.SSS"))
                 .setTimeZone(TimeZone.getTimeZone("UTC"))

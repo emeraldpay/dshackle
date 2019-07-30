@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
+import reactor.core.publisher.Flux
+import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
 import java.io.File
 import java.net.URI
@@ -21,7 +23,8 @@ import javax.annotation.PostConstruct
 @Repository
 open class ConfiguredUpstreams(
         @Autowired val env: Environment,
-        @Autowired private val objectMapper: ObjectMapper
+        @Autowired private val objectMapper: ObjectMapper,
+        @Autowired private val availableChains: AvailableChains
 ) : Upstreams {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -123,7 +126,8 @@ open class ConfiguredUpstreams(
                     endpoint.port ?: 443,
                     objectMapper,
                     options,
-                    up.auth
+                    up.auth,
+                    availableChains
             )
             log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
             ds.start()
@@ -145,6 +149,7 @@ open class ConfiguredUpstreams(
         if (current == null) {
             val created = ChainUpstreams(chain, ArrayList<Upstream>())
             chainMapping[chain] = created
+            availableChains.add(chain)
             return created
         }
         return current

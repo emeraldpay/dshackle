@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.upstream.AvailableChains
 import io.emeraldpay.dshackle.upstream.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
@@ -12,7 +13,9 @@ import io.infinitape.etherjar.rpc.Commands
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
 import java.lang.Exception
 import java.math.BigInteger
@@ -20,10 +23,13 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.annotation.PostConstruct
+import kotlin.math.max
+import kotlin.math.min
 
 @Service
 class TrackTx(
-        @Autowired private val upstreams: Upstreams
+        @Autowired private val upstreams: Upstreams,
+        @Autowired private val availableChains: AvailableChains
 ) {
 
     private val ZERO_BLOCK = BlockHash.from("0x0000000000000000000000000000000000000000000000000000000000000000")
@@ -33,7 +39,7 @@ class TrackTx(
 
     @PostConstruct
     fun init() {
-        listOf(Chain.TESTNET_MORDEN, Chain.ETHEREUM_CLASSIC, Chain.ETHEREUM, Chain.TESTNET_KOVAN).forEach { chain ->
+        availableChains.observe().subscribe { chain ->
             clients[chain] = ConcurrentLinkedQueue()
             upstreams.getUpstream(chain)?.getHead()?.let { head ->
                 head.getFlux().subscribe { verifyAll(chain) }
@@ -41,18 +47,42 @@ class TrackTx(
         }
     }
 
-    private fun currentList(chain: Chain): ConcurrentLinkedQueue<TrackedTx> {
-        return clients[chain]!!
+    private fun currentList(chain: Chain): ConcurrentLinkedQueue<TrackedTx>? {
+        return clients[chain]
     }
 
-    fun add(tx: TrackedTx) {
-        currentList(tx.chain).add(tx)
-        verify(tx)
-        notify(tx)
+    fun add(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
+        return requestMono.map { request ->
+            val sender = TopicProcessor.create<BlockchainOuterClass.TxStatus>()
+            TrackTx.TrackedTx(
+                    Chain.byId(request.chainValue),
+                    sender,
+                    Instant.now(),
+                    TransactionId.from(request.txId),
+                    min(max(1, request.confirmationLimit), 100)
+            )
+        }.filter {
+            clients.containsKey(it.chain)
+        }.map { tx ->
+            currentList(tx.chain)!!.let { list ->
+                list.add(tx)
+                tx.stream.doOnError {
+                    list.remove(tx)
+                    tx.stream.dispose()
+                }
+            }
+            tx
+        }.map { tx ->
+            verify(tx)
+            notify(tx)
+            tx
+        }.flatMapMany { tx ->
+            tx.stream
+        }
     }
 
     private fun verifyAll(chain: Chain) {
-        currentList(chain)
+        currentList(chain)!!
                 .toFlux()
                 .filter(this::verify)
                 .subscribe {
@@ -61,7 +91,8 @@ class TrackTx(
     }
 
     private fun loadWeight(tx: TrackedTx): Mono<TrackedTx> {
-        val upstream = upstreams.getUpstream(tx.chain)!!
+        val upstream = upstreams.getUpstream(tx.chain)
+                ?: return Mono.error(Exception("Unsupported blockchain: ${tx.chain}"))
         return upstream.getApi()
                 .executeAndConvert(Commands.eth().getBlock(tx.status.blockHash))
                 .map { block ->
@@ -81,7 +112,7 @@ class TrackTx(
     private fun verify(tx: TrackedTx): Boolean {
         val found = tx.status.found
         val mined = tx.status.mined
-        val upstream = upstreams.getUpstream(tx.chain)!!
+        val upstream = upstreams.getUpstream(tx.chain) ?: return false
         val execution = upstream.getApi()
                 .executeAndConvert(Commands.eth().getTransaction(tx.txid))
         val update = execution.flatMap {
@@ -122,7 +153,7 @@ class TrackTx(
         return true
     }
 
-    private fun notify(tx: TrackedTx): Boolean {
+    private fun notify(tx: TrackedTx) {
         val client = tx.stream
         val data = BlockchainOuterClass.TxStatus.newBuilder()
                 .setTxId(tx.txid.toHex())
@@ -140,23 +171,11 @@ class TrackTx(
                             .setTimestamp(tx.status.blockTime!!.toEpochMilli())
             )
         }
-        var sent: Boolean = false
-        try {
-            sent = client.send(data.build())
-            if (!sent || tx.shouldClose()) {
-                if (sent) {
-                    client.stream.onCompleted()
-                }
-                currentList(tx.chain).remove(tx)
-            }
-        } catch (e: Exception) {
-            log.error("Send error ${e.javaClass}: ${e.message}")
-        }
-        return sent
+        client.onNext(data.build())
     }
 
     class TrackedTx(val chain: Chain,
-                    val stream: StreamSender<BlockchainOuterClass.TxStatus>,
+                    val stream: TopicProcessor<BlockchainOuterClass.TxStatus>,
                     val since: Instant,
                     val txid: TransactionId,
                     val maxConfirmations: Int,

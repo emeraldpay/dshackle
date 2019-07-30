@@ -1,17 +1,18 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.test.EthereumApiMock
 import io.emeraldpay.dshackle.test.MockServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
-import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.RpcCall
 import io.infinitape.etherjar.rpc.RpcClient
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import spock.lang.Specification
 
 class EthereumGrpcTransportSpec extends Specification {
@@ -27,11 +28,11 @@ class EthereumGrpcTransportSpec extends Specification {
         def otherSideNativeCall = new NativeCall(otherSideUpstreams, objectMapper)
         def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM)
 
-        def client = mockServer.runServer(new BlockchainGrpc.BlockchainImplBase() {
+        def client = mockServer.clientForServer(new ReactorBlockchainGrpc.BlockchainImplBase() {
             @Override
-            void nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {
-                callData["request"] = request
-                otherSideNativeCall.nativeCall(request, responseObserver)
+            Flux<BlockchainOuterClass.NativeCallReplyItem> nativeCall(Mono<BlockchainOuterClass.NativeCallRequest> request) {
+                callData["request"] = request.block()
+                return otherSideNativeCall.nativeCall(request)
             }
         })
 
@@ -68,12 +69,13 @@ class EthereumGrpcTransportSpec extends Specification {
         def otherSideNativeCall = new NativeCall(otherSideUpstreams, objectMapper)
         def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM)
 
-        def client = mockServer.runServer(new BlockchainGrpc.BlockchainImplBase() {
+        def client = mockServer.clientForServer(new ReactorBlockchainGrpc.BlockchainImplBase() {
             @Override
-            void nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {
-                callData["request"] = request
-                otherSideNativeCall.nativeCall(request, responseObserver)
+            Flux<BlockchainOuterClass.NativeCallReplyItem> nativeCall(Mono<BlockchainOuterClass.NativeCallRequest> request) {
+                callData["request"] = request.block()
+                return otherSideNativeCall.nativeCall(request)
             }
+
         })
 
         EthereumGrpcTransport transport = new EthereumGrpcTransport(Chain.ETHEREUM, client, objectMapper)

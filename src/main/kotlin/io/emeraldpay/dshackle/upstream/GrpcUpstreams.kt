@@ -21,7 +21,8 @@ class GrpcUpstreams(
         private val port: Int,
         private val objectMapper: ObjectMapper,
         private val options: UpstreamsConfig.Options,
-        private val auth: UpstreamsConfig.TlsAuth? = null
+        private val auth: UpstreamsConfig.TlsAuth? = null,
+        private val availableChains: AvailableChains
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -90,6 +91,7 @@ class GrpcUpstreams(
             return if (current == null) {
                 val created = GrpcUpstream(chain, client!!, objectMapper, options)
                 known[chain] = created
+                availableChains.add(chain)
                 created.connect()
                 created
             } else {

@@ -1,15 +1,14 @@
 package io.emeraldpay.dshackle.rpc
 
-import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.grpc.stub.StreamObserver
-import io.infinitape.etherjar.domain.TransactionId
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import java.time.Instant
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 @Service
 class BlockchainRpc(
@@ -19,51 +18,35 @@ class BlockchainRpc(
         @Autowired private val trackAddress: TrackAddress,
         @Autowired private val describe: Describe,
         @Autowired private val subscribeStatus: SubscribeStatus
-): BlockchainGrpc.BlockchainImplBase() {
+): ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
 
-    override fun nativeCall(request: BlockchainOuterClass.NativeCallRequest, responseObserver: StreamObserver<BlockchainOuterClass.NativeCallReplyItem>) {
-        nativeCall.nativeCall(request, responseObserver)
+    override fun nativeCall(request: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
+        return nativeCall.nativeCall(request)
     }
 
-    override fun subscribeHead(request: Common.Chain, responseObserver: StreamObserver<BlockchainOuterClass.ChainHead>) {
-        streamHead.add(Chain.byId(request.type.number), responseObserver)
+    override fun subscribeHead(request: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
+        return streamHead.add(request)
     }
 
-    override fun subscribeTxStatus(request: BlockchainOuterClass.TxStatusRequest, responseObserver: StreamObserver<BlockchainOuterClass.TxStatus>) {
-        val tx = TrackTx.TrackedTx(
-                Chain.byId(request.chainValue),
-                StreamSender(responseObserver),
-                Instant.now(),
-                TransactionId.from(request.txId),
-                Math.min(Math.max(1, request.confirmationLimit), 100)
-        )
-        trackTx.add(tx)
+    override fun subscribeTxStatus(request: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
+        return trackTx.add(request)
     }
 
-    override fun subscribeBalance(request: BlockchainOuterClass.BalanceRequest, responseObserver: StreamObserver<BlockchainOuterClass.AddressBalance>) {
-        trackAddress.add(request, responseObserver)
+    override fun subscribeBalance(request: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
+        return trackAddress.subscribe(request)
     }
 
-    override fun getBalance(request: BlockchainOuterClass.BalanceRequest, responseObserver: StreamObserver<BlockchainOuterClass.AddressBalance>) {
-        val addresses = trackAddress.initializeFor(request, responseObserver)
-        trackAddress.send(request, addresses)
-                .doOnError { t ->
-                    log.error("Failed to process balance", t)
-                    responseObserver.onError(Exception("Internal error"))
-                }
-                .subscribe {
-                    responseObserver.onCompleted()
-                }
-
+    override fun getBalance(request: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
+        return trackAddress.getBalance(request)
     }
 
-    override fun describe(request: BlockchainOuterClass.DescribeRequest, responseObserver: StreamObserver<BlockchainOuterClass.DescribeResponse>) {
-        describe.describe(request, responseObserver)
+    override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
+        return describe.describe(request)
     }
 
-    override fun subscribeStatus(request: BlockchainOuterClass.StatusRequest, responseObserver: StreamObserver<BlockchainOuterClass.ChainStatus>) {
-        subscribeStatus.subscribeStatus(request, responseObserver)
+    override fun subscribeStatus(request: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
+        return subscribeStatus.subscribeStatus(request)
     }
 }
