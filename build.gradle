@@ -60,7 +60,7 @@ dependencies {
     compile "org.springframework.security:spring-security-core:$springVersion"
     compile "org.springframework.security:spring-security-web:$springVersion"
     compile "org.springframework.security:spring-security-config:$springVersion"
-    compile 'io.projectreactor:reactor-core:3.2.9.RELEASE'
+    compile "io.projectreactor:reactor-core:$reactorVersion"
     compile 'io.projectreactor.addons:reactor-extra:3.2.3.RELEASE'
     compile 'io.projectreactor.kotlin:reactor-kotlin-extensions:1.0.0.M1'
     compile 'com.salesforce.servicelibs:reactor-grpc:0.10.0'
@@ -97,6 +97,7 @@ dependencies {
     testCompile 'cglib:cglib-nodep:3.2.12'
     testCompile "org.spockframework:spock-core:$spockVersion"
     testCompile "io.grpc:grpc-testing:${grpcVersion}"
+    testCompile "io.projectreactor:reactor-test:$reactorVersion"
 }
 
 compileKotlin {

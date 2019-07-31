@@ -4,13 +4,17 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
+import reactor.core.scheduler.Scheduler
+import reactor.core.scheduler.Schedulers
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.Executors
 
 @Configuration
 @EnableScheduling
@@ -29,6 +33,11 @@ open class Config {
                 .setTimeZone(TimeZone.getTimeZone("UTC"))
 
         return objectMapper
+    }
+
+    @Bean @Qualifier("upstreamScheduler")
+    open fun upstreamScheduler(): Scheduler {
+        return Schedulers.fromExecutorService(Executors.newFixedThreadPool(16))
     }
 
 }

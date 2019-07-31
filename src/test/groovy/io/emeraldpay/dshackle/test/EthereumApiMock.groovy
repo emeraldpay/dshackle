@@ -25,8 +25,12 @@ class EthereumApiMock extends EthereumApi {
         this.objectMapper = objectMapper
     }
 
-    EthereumApiMock answer(@NotNull String method, List<Object> params, Object result) {
-        predefined << new PredefinedResponse(method: method, params: params, result: result)
+    EthereumApiMock answerOnce(@NotNull String method, List<Object> params, Object result) {
+        return answer(method, params, result, 1)
+    }
+
+    EthereumApiMock answer(@NotNull String method, List<Object> params, Object result, Integer limit = null) {
+        predefined << new PredefinedResponse(method: method, params: params, result: result, limit: limit)
         return this
     }
 
@@ -40,6 +44,8 @@ class EthereumApiMock extends EthereumApi {
             log.error("Method ${method} with ${params} is not mocked")
             json.error = new RpcResponseError(-32601, "Method ${method} with ${params} is not mocked")
         }
+        predefined.onCalled()
+        predefined.print()
         return Mono.just(objectMapper.writeValueAsBytes(json))
     }
 
@@ -61,8 +67,14 @@ class EthereumApiMock extends EthereumApi {
         String method
         List params
         Object result
+        Integer limit
 
         boolean isSame(int id, String method, List<?> params) {
+            if (limit != null) {
+                if (limit <= 0) {
+                    return false
+                }
+            }
             if (method != this.method) {
                 return false
             }
@@ -70,6 +82,16 @@ class EthereumApiMock extends EthereumApi {
                 return true
             }
             return this.params == params
+        }
+
+        void onCalled() {
+            if (limit != null) {
+                limit--
+            }
+        }
+
+        void print() {
+            println "Execute API: $method ${params ? params : '_'} >> $result"
         }
     }
 }
