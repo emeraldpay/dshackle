@@ -4,7 +4,6 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.upstream.AvailableChains
-import io.emeraldpay.dshackle.upstream.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
@@ -17,11 +16,14 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
+import reactor.core.scheduler.Scheduler
+import reactor.util.function.Tuples
 import java.lang.Exception
 import java.math.BigInteger
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicLong
 import javax.annotation.PostConstruct
 import kotlin.math.max
 import kotlin.math.min
@@ -29,13 +31,15 @@ import kotlin.math.min
 @Service
 class TrackTx(
         @Autowired private val upstreams: Upstreams,
-        @Autowired private val availableChains: AvailableChains
+        @Autowired private val availableChains: AvailableChains,
+        @Autowired private val upstreamScheduler: Scheduler
 ) {
 
     private val ZERO_BLOCK = BlockHash.from("0x0000000000000000000000000000000000000000000000000000000000000000")
 
     private val log = LoggerFactory.getLogger(TrackTx::class.java)
     private val clients = HashMap<Chain, ConcurrentLinkedQueue<TrackedTx>>()
+    private val seq = AtomicLong(0)
 
     @PostConstruct
     fun init() {
@@ -53,40 +57,42 @@ class TrackTx(
 
     fun add(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
         return requestMono.map { request ->
-            val sender = TopicProcessor.create<BlockchainOuterClass.TxStatus>()
+            val bus = TopicProcessor.create<BlockchainOuterClass.TxStatus>()
             TrackTx.TrackedTx(
                     Chain.byId(request.chainValue),
-                    sender,
+                    bus,
                     Instant.now(),
                     TransactionId.from(request.txId),
-                    min(max(1, request.confirmationLimit), 100)
+                    min(max(1, request.confirmationLimit), 100),
+                    seq.incrementAndGet()
             )
         }.filter {
             clients.containsKey(it.chain)
-        }.map { tx ->
-            currentList(tx.chain)!!.let { list ->
-                list.add(tx)
-                tx.stream.doOnError {
-                    list.remove(tx)
-                    tx.stream.dispose()
+        }.flatMapMany { tx ->
+            val current = checkForUpdate(tx).doOnNext{
+                currentList(tx.chain)?.add(tx)
+            }.map(this::asProto)
+
+            val next = Flux.from(tx.bus)
+            Flux.merge(current, next).doFinally {
+                currentList(tx.chain)?.removeIf { x -> x.id == tx.id }
+            }.doOnNext { txp ->
+                if (txp.confirmations >= tx.maxConfirmations) {
+                    tx.bus.onComplete()
                 }
             }
-            tx
-        }.map { tx ->
-            verify(tx)
-            notify(tx)
-            tx
-        }.flatMapMany { tx ->
-            tx.stream
         }
     }
 
     private fun verifyAll(chain: Chain) {
         currentList(chain)!!
                 .toFlux()
-                .filter(this::verify)
-                .subscribe {
-                    notify(it)
+                .parallel(8).runOn(upstreamScheduler)
+                .flatMap {  checkForUpdate(it) }
+                .sequential()
+                .map { Tuples.of(it.bus, asProto(it)) }
+                .subscribe { t ->
+                    notify(t.t1, t.t2)
                 }
     }
 
@@ -106,113 +112,147 @@ class TrackTx(
                                 mined = false
                         )
                     }
+                }.doOnError { t ->
+                    log.warn("Failed to update weight", t)
                 }
     }
 
-    private fun verify(tx: TrackedTx): Boolean {
-        val found = tx.status.found
-        val mined = tx.status.mined
-        val upstream = upstreams.getUpstream(tx.chain) ?: return false
+    private fun checkForUpdate(tx: TrackedTx): Mono<TrackedTx> {
+        val upstream = upstreams.getUpstream(tx.chain) ?: return Mono.error(Exception("Unsupported blockchain: ${tx.chain}"))
         val execution = upstream.getApi()
                 .executeAndConvert(Commands.eth().getTransaction(tx.txid))
-        val update = execution.flatMap {
-            if (it.blockNumber != null
-                    && it.blockHash != null && it.blockHash != ZERO_BLOCK) {
-                tx.withStatus(
+        return execution.flatMap {
+            if (it.blockNumber != null && it.blockHash != null && it.blockHash != ZERO_BLOCK) {
+                val updated = tx.withStatus(
                         blockHash = it.blockHash,
                         height = it.blockNumber,
                         found = true,
                         mined = true,
-                        confirmation = 1
+                        confirmations = 1
                 )
-                return@flatMap upstream.getHead().getHead().map { head ->
-                    tx.withStatus(
-                            confirmation = head.number - tx.status.height!! + 1
-                    )
+                upstream.getHead().getHead().map { head ->
+                    if (updated.status.height == null || head.number < updated.status.height) {
+                        updated
+                    } else {
+                        updated.withStatus(
+                                confirmations = head.number - updated.status.height + 1
+                        )
+                    }
                 }.flatMap(this::loadWeight)
             } else {
-                tx.withStatus(
-                    found = true,
-                    mined = false
-                )
+                Mono.just(tx.withStatus(
+                        found = true,
+                        mined = false
+                ))
             }
-            return@flatMap Mono.just(tx)
-        }.block()
-        if (update == null) {
-            tx.withStatus(
-                found = false,
-                mined = false
-            )
+        }.switchIfEmpty(Mono.just(tx.withStatus(found = false))).filter { current ->
+            current.status != tx.status
         }
-        if (!found) {
-            return tx.status.found != found
-        }
-        if (!mined) {
-            return tx.status.mined != mined
-        }
-        return true
     }
 
-    private fun notify(tx: TrackedTx) {
-        val client = tx.stream
+    private fun asProto(tx: TrackedTx): BlockchainOuterClass.TxStatus {
         val data = BlockchainOuterClass.TxStatus.newBuilder()
                 .setTxId(tx.txid.toHex())
-                .setConfirmations(tx.status.confirmation.toInt())
-                .setMined(tx.status.mined)
-                .setBroadcasted(tx.status.found)
+                .setConfirmations(tx.status.confirmations.toInt())
 
-        if (tx.status.mined) {
-            data.setBlock(
-                    Common.BlockInfo.newBuilder()
-                            .setBlockId(tx.status.blockHash!!.toHex().substring(2))
-                            .setTimestamp(tx.status.blockTime!!.toEpochMilli())
-                            .setWeight(ByteString.copyFrom(tx.status.blockTotalDifficulty!!.toByteArray()))
-                            .setHeight(tx.status.height!!)
-                            .setTimestamp(tx.status.blockTime!!.toEpochMilli())
-            )
+        if (tx.status.found != null) {
+            data.broadcasted = tx.status.found
         }
-        client.onNext(data.build())
+        if (tx.status.mined != null) {
+            data.mined = tx.status.mined
+            if (tx.status.mined) {
+                data.setBlock(
+                        Common.BlockInfo.newBuilder()
+                                .setBlockId(tx.status.blockHash!!.toHex().substring(2))
+                                .setTimestamp(tx.status.blockTime!!.toEpochMilli())
+                                .setWeight(ByteString.copyFrom(tx.status.blockTotalDifficulty!!.toByteArray()))
+                                .setHeight(tx.status.height!!)
+                                .setTimestamp(tx.status.blockTime!!.toEpochMilli())
+                )
+            }
+        }
+        return data.build()
+    }
+
+    private fun notify(client: TopicProcessor<BlockchainOuterClass.TxStatus>, data: BlockchainOuterClass.TxStatus) {
+        client.onNext(data)
     }
 
     class TrackedTx(val chain: Chain,
-                    val stream: TopicProcessor<BlockchainOuterClass.TxStatus>,
+                    val bus: TopicProcessor<BlockchainOuterClass.TxStatus>,
                     val since: Instant,
                     val txid: TransactionId,
                     val maxConfirmations: Int,
-                    var status: TxStatus = TxStatus()) {
+                    val id: Long,
+                    val status: TxStatus = TxStatus()) {
 
-        fun withStatus(found: Boolean = this.status.found,
+        fun withStatus(found: Boolean? = this.status.found,
                        height: Long? = this.status.height,
-                       mined: Boolean = this.status.mined,
+                       mined: Boolean? = this.status.mined,
                        blockHash: BlockHash? = this.status.blockHash,
                        blockTime: Instant? = this.status.blockTime,
                        blockTotalDifficulty: BigInteger? = this.status.blockTotalDifficulty,
-                       confirmation: Long = this.status.confirmation): TrackedTx {
-            this.status = this.status.copy(found, height, mined, blockHash, blockTime, blockTotalDifficulty, confirmation)
-            return this
-        }
+                       confirmations: Long = this.status.confirmations)
+                = TrackedTx(
+                        chain, bus, since, txid, maxConfirmations, id,
+                        this.status.copy(found, height, mined, blockHash, blockTime, blockTotalDifficulty, confirmations)
+                )
+
+        fun withCleanStatus()
+                = TrackedTx(
+                        chain, bus, since, txid, maxConfirmations, id, this.status.clean()
+                )
 
         fun shouldClose(): Boolean {
-            return maxConfirmations <= this.status.confirmation
+            return maxConfirmations <= this.status.confirmations
                     || since.isBefore(Instant.now().minus(Duration.ofHours(1)))
         }
     }
 
-    class TxStatus(var found: Boolean = false,
-                   var height: Long? = null,
-                   var mined: Boolean = false,
-                   var blockHash: BlockHash? = null,
-                   var blockTime: Instant? = null,
-                   var blockTotalDifficulty: BigInteger? = null,
-                   var confirmation: Long = 0) {
-        fun copy(found: Boolean = this.found,
+    class TxStatus(val found: Boolean? = null,
+                   val height: Long? = null,
+                   val mined: Boolean? = null,
+                   val blockHash: BlockHash? = null,
+                   val blockTime: Instant? = null,
+                   val blockTotalDifficulty: BigInteger? = null,
+                   val confirmations: Long = 0) {
+
+        fun copy(found: Boolean? = this.found,
                  height: Long? = this.height,
-                 mined: Boolean = this.mined,
+                 mined: Boolean? = this.mined,
                  blockHash: BlockHash? = this.blockHash,
                  blockTime: Instant? = this.blockTime,
                  blockTotalDifficulty: BigInteger? = this.blockTotalDifficulty,
-                 confirmation: Long = this.confirmation)
+                 confirmation: Long = this.confirmations)
                 = TxStatus(found, height, mined, blockHash, blockTime, blockTotalDifficulty, confirmation)
+
+        fun clean() = TxStatus(false, null, false, null, null, null, 0)
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as TxStatus
+
+            if (found != other.found) return false
+            if (height != other.height) return false
+            if (mined != other.mined) return false
+            if (blockHash != other.blockHash) return false
+            if (blockTime != other.blockTime) return false
+            if (blockTotalDifficulty != other.blockTotalDifficulty) return false
+            if (confirmations != other.confirmations) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = found.hashCode()
+            result = 31 * result + (height?.hashCode() ?: 0)
+            result = 31 * result + (blockHash?.hashCode() ?: 0)
+            return result
+        }
+
+
     }
 
 }

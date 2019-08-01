@@ -68,8 +68,10 @@ open class EthereumApi(
 
     open fun <JS, RS> executeAndConvert(rpcCall: RpcCall<JS, RS>): Mono<RS> {
         return execute(0, rpcCall.method, rpcCall.params as List<Any>)
-                .map {
-                    jacksonRpcConverter.fromJson(it.inputStream(), rpcCall.jsonType, Int::class.java)
+                .flatMap {
+                    val jsonValue: JS? = jacksonRpcConverter.fromJson(it.inputStream(), rpcCall.jsonType, Int::class.java);
+                    if (jsonValue == null) Mono.empty<JS>()
+                    else Mono.just(jsonValue)
                 }.map {
                     rpcCall.converter.apply(it)
                 }
