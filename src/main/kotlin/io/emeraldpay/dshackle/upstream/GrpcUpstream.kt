@@ -23,7 +23,6 @@ import java.time.Duration
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Function
-import kotlin.collections.ArrayList
 
 open class GrpcUpstream(
         private val chain: Chain,
@@ -39,7 +38,8 @@ open class GrpcUpstream(
 
     private val headBlock = AtomicReference<BlockJson<TransactionId>>(null)
     private val streamBlocks: TopicProcessor<BlockJson<TransactionId>> = TopicProcessor.create()
-    private var status = AtomicReference<UpstreamAvailability>(UpstreamAvailability.UNAVAILABLE)
+    private val status = AtomicReference<UpstreamAvailability>(UpstreamAvailability.UNAVAILABLE)
+    private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
     private val head = Head(this)
     private val api: EthereumApi
     private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
@@ -97,6 +97,18 @@ open class GrpcUpstream(
 
     fun init(conf: BlockchainOuterClass.DescribeChain) {
         supportedMethods.addAll(conf.supportedTargetsList)
+        val nodes = NodeDetailsList()
+        conf.nodesList.forEach { node ->
+            val node = NodeDetailsList.NodeDetails(node.quorum,
+                    node.labelsList.let { provided ->
+                        val labels = UpstreamsConfig.Labels()
+                        provided.forEach { labels.put(it.name, it.value) }
+                        labels
+                    }
+            )
+            nodes.add(node)
+        }
+        this.nodes.set(nodes)
         conf.status?.let { status -> onStatus(status) }
     }
 
@@ -112,6 +124,11 @@ open class GrpcUpstream(
         status.set(value)
         statusStream.onNext(value)
     }
+
+    fun getNodes(): NodeDetailsList {
+        return nodes.get()
+    }
+
     // ------------------------------------------------------------------------------------------
 
     override fun getSupportedTargets(): Set<String> {

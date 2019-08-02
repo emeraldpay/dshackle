@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.config
 import java.net.URI
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class UpstreamsConfig {
     var version: String? = null
@@ -50,10 +51,10 @@ class UpstreamsConfig {
     class Upstream<T : UpstreamConnection> {
         var id: String? = null
         var chain: String? = null
-        var provider: String? = null
         var options: Options? = null
         var isEnabled = true
         var connection: T? = null
+        val labels = Labels()
     }
 
     open class UpstreamConnection
@@ -89,6 +90,10 @@ class UpstreamsConfig {
         var ca: String? = null
         var certificate: String? = null
         var key: String? = null
+    }
+
+    //TODO make it unmodifiable after initial load
+    class Labels: HashMap<String, String>() {
     }
 
     enum class UpstreamType private constructor(vararg code: String) {

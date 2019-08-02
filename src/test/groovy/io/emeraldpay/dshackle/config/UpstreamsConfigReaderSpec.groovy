@@ -26,7 +26,6 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "local"
             chain == "ethereum"
-            provider == "geth"
             connection instanceof UpstreamsConfig.EthereumConnection
             with((UpstreamsConfig.EthereumConnection)connection) {
                 rpc != null
@@ -38,7 +37,6 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(1)) {
             id == "infura"
             chain == "ethereum"
-            provider == "infura"
             connection instanceof UpstreamsConfig.EthereumConnection
             with((UpstreamsConfig.EthereumConnection)connection) {
                 rpc.url == new URI("https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2")
@@ -63,7 +61,6 @@ class UpstreamsConfigReaderSpec extends Specification {
         act.upstreams.size() == 1
         with(act.upstreams.get(0)) {
             id == "remote"
-            provider == "dshackle"
             connection instanceof UpstreamsConfig.GrpcConnection
             with((UpstreamsConfig.GrpcConnection)connection) {
                 host == "10.2.0.15"
@@ -74,6 +71,26 @@ class UpstreamsConfigReaderSpec extends Specification {
                     key == "/etc/client1.myservice.com.key"
                 }
             }
+        }
+    }
+
+    def "Parse config with labels"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-labels.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 2
+        with(act.upstreams.get(0)) {
+            connection instanceof UpstreamsConfig.GrpcConnection
+            labels.isEmpty()
+        }
+        with(act.upstreams.get(1)) {
+            !labels.isEmpty()
+            labels.size() == 2
+            labels["fullnode"] == "true"
+            labels["api"] == "geth"
         }
     }
 }

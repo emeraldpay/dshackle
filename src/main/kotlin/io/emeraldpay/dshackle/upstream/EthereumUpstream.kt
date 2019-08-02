@@ -13,7 +13,8 @@ class EthereumUpstream(
         val chain: Chain,
         private val api: EthereumApi,
         private val ethereumWs: EthereumWs? = null,
-        private val options: UpstreamsConfig.Options
+        private val options: UpstreamsConfig.Options,
+        val node: NodeDetailsList.NodeDetails
 ): Upstream {
 
     override fun getSupportedTargets(): Set<String> {

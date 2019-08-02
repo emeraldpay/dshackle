@@ -10,7 +10,6 @@ defaultOptions:
 upstreams:
   - id: local
     chain: ethereum
-    provider: geth
     connection:
       ethereum:
         rpc:
@@ -20,7 +19,6 @@ upstreams:
           origin: "http://localhost"
   - id: infura
     chain: ethereum
-    provider: infura
     connection:
       ethereum:
         rpc:

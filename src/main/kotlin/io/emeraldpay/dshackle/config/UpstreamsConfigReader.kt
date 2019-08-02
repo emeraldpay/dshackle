@@ -1,11 +1,13 @@
 package io.emeraldpay.dshackle.config
 
+import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
 import org.yaml.snakeyaml.nodes.Node
 import org.yaml.snakeyaml.nodes.ScalarNode
+import reactor.util.function.Tuples
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.lang.IllegalArgumentException
@@ -44,9 +46,8 @@ class UpstreamsConfigReader {
             if (hasAny(connNode, "ethereum")) {
                 val connConfigNode = getMapping(connNode, "ethereum")!!
                 val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>()
-                upstream.id = getValueAsString(upNode, "id")
-                upstream.provider = getValueAsString(upNode, "provider")
-                upstream.chain = getValueAsString(upNode, "chain")
+                readUpstreamCommon(upNode, upstream)
+                readUpstreamEthereum(upNode, upstream)
                 config.upstreams.add(upstream)
                 val connection = UpstreamsConfig.EthereumConnection()
                 upstream.connection = connection
@@ -70,8 +71,8 @@ class UpstreamsConfigReader {
             } else if (hasAny(connNode, "grpc")) {
                 val connConfigNode = getMapping(connNode, "grpc")!!
                 val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>()
-                upstream.id = getValueAsString(upNode, "id")
-                upstream.provider = getValueAsString(upNode, "provider")
+                readUpstreamCommon(upNode, upstream)
+                readUpstreamGrpc(upNode, upstream)
                 config.upstreams.add(upstream)
                 val connection = UpstreamsConfig.GrpcConnection()
                 upstream.connection = connection
@@ -86,6 +87,35 @@ class UpstreamsConfigReader {
         }
 
         return config
+    }
+
+    internal fun readUpstreamCommon(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
+        upstream.id = getValueAsString(upNode, "id")
+    }
+
+    internal fun readUpstreamGrpc(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>) {
+        if (hasAny(upNode, "labels")) {
+            log.warn("Labels are not applied to gRPC upstream")
+        }
+        if (hasAny(upNode, "chain")) {
+            log.warn("Chain is not applied to gRPC upstream")
+        }
+    }
+
+    internal fun readUpstreamEthereum(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>) {
+        upstream.chain = getValueAsString(upNode, "chain")
+        if (hasAny(upNode, "labels")) {
+            getMapping(upNode, "labels")?.let { labels ->
+                labels.value.stream()
+                        .filter { n -> n.keyNode is ScalarNode && n.valueNode is ScalarNode }
+                        .map { n -> Tuples.of((n.keyNode as ScalarNode).value, (n.valueNode as ScalarNode).value)}
+                        .map { kv -> Tuples.of(kv.t1.trim(), kv.t2.trim()) }
+                        .filter { kv -> StringUtils.isNotEmpty(kv.t1) && StringUtils.isNotEmpty(kv.t2) }
+                        .forEach { kv ->
+                            upstream.labels[kv.t1] = kv.t2
+                        }
+            }
+        }
     }
 
     private fun readAuth(authNode: MappingNode?): UpstreamsConfig.Auth? {

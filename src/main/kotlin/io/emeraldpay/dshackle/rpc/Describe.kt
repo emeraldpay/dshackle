@@ -2,10 +2,7 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.ConfiguredUpstreams
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import org.springframework.beans.factory.annotation.Autowired
@@ -23,18 +20,34 @@ class Describe(
             val resp = BlockchainOuterClass.DescribeResponse.newBuilder()
             upstreams.getAvailable().forEach { chain ->
                 upstreams.getUpstream(chain)?.let { chainUpstreams ->
+                    val status = subscribeStatus.chainStatus(chain, chainUpstreams.getAll())
+                    val targets = chainUpstreams.getSupportedTargets()
+                    val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
+                            .setChain(Common.ChainRef.forNumber(chain.id))
+                            .addAllSupportedTargets(targets)
+                            .setStatus(status)
                     chainUpstreams.getAll().let { ups ->
-                        if (ups.isNotEmpty()) {
-                            val status = subscribeStatus.chainStatus(chain, ups)
-                            val targets = chainUpstreams.getSupportedTargets()
-                            val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
-                                    .setChain(Common.ChainRef.forNumber(chain.id))
-                                    .addAllSupportedTargets(targets)
-                                    .setStatus(status)
-                                    .build()
-                            resp.addChains(chainDescription)
+                        ups.forEach { up ->
+                            val nodes = NodeDetailsList()
+                            if (up is EthereumUpstream) {
+                                nodes.add(up.node)
+                            } else if (up is GrpcUpstream) {
+                                nodes.add(up.getNodes())
+                            }
+                            nodes.getNodes().forEach { node ->
+                                val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()
+                                        .setQuorum(node.quorum)
+                                        .addAllLabels(node.labels.entries.map { label ->
+                                            BlockchainOuterClass.Label.newBuilder()
+                                                    .setName(label.key)
+                                                    .setValue(label.value)
+                                                    .build()
+                                        })
+                                chainDescription.addNodes(nodeDetails)
+                            }
                         }
                     }
+                    resp.addChains(chainDescription.build())
                 }
             }
             resp.build()

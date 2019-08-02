@@ -17,3 +17,15 @@ upstreams:
           ca: /etc/ca.myservice.com.crt
           certificate: /etc/client1.myservice.com.crt
           key: /etc/client1.myservice.com.key
+  - id: local
+    chain: ethereum
+    labels:
+      api: geth
+      fullnode: true
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+        ws:
+          url: "ws://localhost:8546"
+          origin: "http://localhost"

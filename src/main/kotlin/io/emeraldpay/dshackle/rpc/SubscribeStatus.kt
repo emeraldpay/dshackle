@@ -34,7 +34,7 @@ class SubscribeStatus(
     fun chainStatus(chain: Chain, ups: List<Upstream>): BlockchainOuterClass.ChainStatus {
         val available = ups.map { u ->
             u.getStatus()
-        }.min()!!
+        }.min() ?: UpstreamAvailability.UNAVAILABLE
         val quorum = ups.filter {
             it.getStatus() > UpstreamAvailability.UNAVAILABLE
         }.count()

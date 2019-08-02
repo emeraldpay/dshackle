@@ -12,8 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
-import reactor.core.publisher.Flux
-import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
 import java.io.File
 import java.net.URI
@@ -47,11 +45,11 @@ open class ConfiguredUpstreams(
             val options = (up.options ?: UpstreamsConfig.Options())
                     .merge(UpstreamsConfig.Options.getDefaults())
 
-            if (up.provider == "dshackle") {
+            if (up.connection is UpstreamsConfig.GrpcConnection) {
                 buildGrpcUpstream(up.connection as UpstreamsConfig.GrpcConnection, options)
             } else {
                 val chain = chainNames[up.chain] ?: return
-                buildEthereumUpstream(up.connection as UpstreamsConfig.EthereumConnection, chain, options)
+                buildEthereumUpstream(up.connection as UpstreamsConfig.EthereumConnection, chain, options, up.labels)
             }
         }
     }
@@ -93,7 +91,8 @@ open class ConfiguredUpstreams(
 
     private fun buildEthereumUpstream(up: UpstreamsConfig.EthereumConnection,
                                       chain: Chain,
-                                      options: UpstreamsConfig.Options) {
+                                      options: UpstreamsConfig.Options,
+                                      labels: UpstreamsConfig.Labels) {
         var rpcApi: EthereumApi? = null
         var wsApi: EthereumWs? = null
         val urls = ArrayList<URI>()
@@ -115,7 +114,7 @@ open class ConfiguredUpstreams(
         }
         if (rpcApi != null) {
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-            getOrCreateUpstream(chain).addUpstream(EthereumUpstream(chain, rpcApi!!, wsApi, options))
+            getOrCreateUpstream(chain).addUpstream(EthereumUpstream(chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels)))
         }
     }
 
