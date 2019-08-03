@@ -1,6 +1,5 @@
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import java.io.Closeable
@@ -44,16 +43,16 @@ class ChainUpstreams (
         head = updateHead()
     }
 
-    override fun getApis(quorum: Int): Iterator<EthereumApi> {
+    override fun getApis(quorum: Int, matcher: Selector.Matcher): Iterator<EthereumApi> {
         val i = seq++
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
         }
-        return QuorumApi(upstreams, 1, seq)
+        return FilteringApiIterator(upstreams, 1, seq, matcher)
     }
 
-    override fun getApi(): EthereumApi {
-        return getApis(1).next()
+    override fun getApi(matcher: Selector.Matcher): EthereumApi {
+        return getApis(1, matcher).next()
     }
 
     override fun getHead(): EthereumHead {

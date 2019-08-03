@@ -9,7 +9,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.TopicProcessor
 import java.util.concurrent.atomic.AtomicReference
 
-class EthereumUpstream(
+open class EthereumUpstream(
         val chain: Chain,
         private val api: EthereumApi,
         private val ethereumWs: EthereumWs? = null,
@@ -45,12 +45,16 @@ class EthereumUpstream(
                 }
     }
 
-    override fun isAvailable(): Boolean {
-        return status.get() == UpstreamAvailability.OK
+    override fun isAvailable(matcher: Selector.Matcher): Boolean {
+        return status.get() == UpstreamAvailability.OK && matcher.matches(node.labels)
     }
 
     override fun getStatus(): UpstreamAvailability {
         return status.get()
+    }
+
+    fun setStatus(avail: UpstreamAvailability) {
+        status.set(avail)
     }
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
@@ -61,7 +65,11 @@ class EthereumUpstream(
         return head
     }
 
-    override fun getApi(): EthereumApi {
+    override fun getApi(matcher: Selector.Matcher): EthereumApi {
+        return api
+    }
+
+    fun getApi(): EthereumApi {
         return api
     }
 

@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.upstream.AvailableChains
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
@@ -68,7 +69,9 @@ class TrackAddress(
     }
 
     private fun stopTracking(client: TrackedAddress) {
-        clients[client.chain]?.remove(client) ?: log.warn("Chain ${client.chain} is not available for tracking")
+        clients[client.chain]?.removeIf {
+            it.id == client.id
+        } ?: log.warn("Chain ${client.chain} is not available for tracking")
     }
 
     fun isTracked(chain: Chain, address: Address): Boolean {
@@ -151,7 +154,7 @@ class TrackAddress(
 
     fun getBalance(addr: SimpleAddress): Mono<Wei> {
         val up = upstreams.getUpstream(addr.chain) ?: return Mono.error(Exception("Unsupported chain: ${addr.chain}"))
-        return up.getApi()
+        return up.getApi(Selector.empty)
                 .executeAndConvert(Commands.eth().getBalance(addr.address, BlockTag.LATEST))
                 .timeout(Duration.ofSeconds(15))
     }
@@ -208,9 +211,5 @@ class TrackAddress(
                          val id: Long
     ): SimpleAddress(chain, address, balance) {
         override fun withBalance(balance: Wei) = TrackedAddress(chain, stream, address, lastPing, balance, id)
-
-        override fun equals(other: Any?): Boolean {
-            return other != null && other is TrackedAddress && other.id == id
-        }
     }
 }

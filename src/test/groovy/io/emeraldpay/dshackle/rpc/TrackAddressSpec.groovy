@@ -23,7 +23,7 @@ import java.time.Duration
 
 class TrackAddressSpec extends Specification {
 
-    AvailableChains availableChains = new AvailableChains()
+    AvailableChains availableChains
     Upstreams upstreams
     TrackAddress trackAddress
 
@@ -37,6 +37,7 @@ class TrackAddressSpec extends Specification {
 
 
     def setup() {
+        availableChains = new AvailableChains()
         upstreams = Mock(Upstreams)
         trackAddress = new TrackAddress(upstreams, availableChains, Schedulers.immediate())
     }
@@ -63,7 +64,7 @@ class TrackAddressSpec extends Specification {
         def apiMock = new EthereumApiMock(Mock(RpcClient), TestingCommons.objectMapper(), Chain.ETHEREUM)
         apiMock.answer("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
         _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi() >> apiMock
+        _ * upstreamMock.getApi(_) >> apiMock
         start()
         when:
         def flux = trackAddress.getBalance(Mono.just(req))
@@ -106,7 +107,7 @@ class TrackAddressSpec extends Specification {
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0xff98")
         _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi() >> apiMock
+        _ * upstreamMock.getApi(_) >> apiMock
         _ * upstreamMock.getHead() >> headMock
         _ * headMock.getFlux() >> blocksBus
         start()
@@ -124,6 +125,7 @@ class TrackAddressSpec extends Specification {
                 .expectNext(exp2)
                 .thenCancel()
                 .verify(Duration.ofSeconds(3))
+        Thread.sleep(50)
         !trackAddress.isTracked(Chain.ETHEREUM, Address.from(address1))
     }
 }

@@ -41,14 +41,13 @@ open class GrpcUpstream(
     private val status = AtomicReference<UpstreamAvailability>(UpstreamAvailability.UNAVAILABLE)
     private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
     private val head = Head(this)
-    private val api: EthereumApi
     private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
     private val supportedMethods = HashSet<String>()
+    private val grpcTransport = EthereumGrpcTransport(chain, client, objectMapper)
 
-    init {
-        val grpcTransport = EthereumGrpcTransport(chain, client, objectMapper)
-        val rpcClient = DefaultRpcClient(grpcTransport)
-        api = EthereumApi(rpcClient, objectMapper, chain)
+    open fun createApi(matcher: Selector.Matcher): EthereumApi {
+        val rpcClient = DefaultRpcClient(grpcTransport.withMatcher(matcher))
+        return EthereumApi(rpcClient, objectMapper, chain)
     }
 
     open fun connect() {
@@ -80,7 +79,7 @@ open class GrpcUpstream(
                     curr == null || curr.totalDifficulty < block.totalDifficulty
                 }
                 .flatMap {
-                    getApi()
+                    getApi(Selector.EmptyMatcher())
                             .executeAndConvert(Commands.eth().getBlock(it.hash))
                             .timeout(Duration.ofSeconds(15))
                 }
@@ -135,8 +134,10 @@ open class GrpcUpstream(
         return supportedMethods
     }
 
-    override fun isAvailable(): Boolean {
-        return headBlock.get() != null
+    override fun isAvailable(matcher: Selector.Matcher): Boolean {
+        return headBlock.get() != null && nodes.get().getNodes().any {
+            it.quorum > 0 && matcher.matches(it.labels)
+        }
     }
 
     override fun getStatus(): UpstreamAvailability {
@@ -151,8 +152,8 @@ open class GrpcUpstream(
         return head
     }
 
-    override fun getApi(): EthereumApi {
-        return api
+    override fun getApi(matcher: Selector.Matcher): EthereumApi {
+        return createApi(matcher)
     }
 
     override fun getOptions(): UpstreamsConfig.Options {

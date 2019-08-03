@@ -21,13 +21,26 @@ import java.util.concurrent.CompletableFuture
 import java.util.function.Function
 
 class EthereumGrpcTransport(
-        private val chain: Chain,
+        private val chainRef: Common.ChainRef,
+        private val selector: BlockchainOuterClass.Selector?,
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper
 ): RpcTransport {
 
-    private val chainRef = Common.ChainRef.forNumber(chain.id)
     private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
+
+    constructor(
+            chain: Chain,
+            client: ReactorBlockchainGrpc.ReactorBlockchainStub,
+            objectMapper: ObjectMapper
+    ) : this(Common.ChainRef.forNumber(chain.id), Selector.EmptyMatcher().asProto(), client, objectMapper)
+
+    fun withMatcher(matcher: Selector.Matcher): EthereumGrpcTransport {
+        if (matcher is Selector.EmptyMatcher && selector == null) {
+            return this
+        }
+        return EthereumGrpcTransport(chainRef, matcher.asProto(), client, objectMapper)
+    }
 
     override fun close() {
     }
@@ -87,7 +100,10 @@ class EthereumGrpcTransport(
 
     override fun execute(items: List<Batch.BatchItem<out Any, out Any>>): CompletableFuture<BatchStatus> {
         val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(chainRef);
+                .setChain(chainRef)
+        if (selector != null) {
+            req.setSelector(selector)
+        }
         val mapping = prepareMapping(items, req)
         return client.nativeCall(req.build())
                 .map(replyProcessor(mapping))

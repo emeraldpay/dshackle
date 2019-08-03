@@ -17,7 +17,7 @@ class UpstreamValidator(
         val peerCount = batch.add(Commands.net().peerCount())
         val syncing = batch.add(Commands.eth().syncing())
         try {
-            ethereumUpstream.getApi().rpcClient.execute(batch).get(5, TimeUnit.SECONDS)
+            ethereumUpstream.getApi(Selector.empty).rpcClient.execute(batch).get(5, TimeUnit.SECONDS)
             if (syncing.get().isSyncing) {
                 return UpstreamAvailability.SYNCING
             }

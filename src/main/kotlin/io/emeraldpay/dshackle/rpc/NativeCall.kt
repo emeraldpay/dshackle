@@ -5,9 +5,11 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.EthereumApi
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
+import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -30,10 +32,11 @@ class NativeCall(
         return requestMono.flatMapMany { request ->
             val chain= Chain.byId(request.chain.number)
             if (chain == Chain.UNSPECIFIED) {
+                // TODO send error to all requests?
                 throw Exception("Invalid chain id: ${request.chain.number}")
             }
-            // TODO send error to all requests?
-            val upstream = upstreams.getUpstream(chain)?.getApi() ?: throw Exception("Chain ${chain.id} is unavailable")
+            val matcher = Selector.convertToMatcher(request.selector)
+            val upstream = upstreams.getUpstream(chain)?.getApi(matcher) ?: throw Exception("Chain ${chain.id} is unavailable")
             request.itemsList.toFlux().map {
                 val method = it.target
                 val params = it.payload.toStringUtf8()

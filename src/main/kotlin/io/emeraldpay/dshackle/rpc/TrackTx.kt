@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.upstream.AvailableChains
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
@@ -99,7 +100,7 @@ class TrackTx(
     private fun loadWeight(tx: TrackedTx): Mono<TrackedTx> {
         val upstream = upstreams.getUpstream(tx.chain)
                 ?: return Mono.error(Exception("Unsupported blockchain: ${tx.chain}"))
-        return upstream.getApi()
+        return upstream.getApi(Selector.empty)
                 .executeAndConvert(Commands.eth().getBlock(tx.status.blockHash))
                 .map { block ->
                     if (block != null && block.number != null && block.totalDifficulty != null) {
@@ -119,7 +120,7 @@ class TrackTx(
 
     private fun checkForUpdate(tx: TrackedTx): Mono<TrackedTx> {
         val upstream = upstreams.getUpstream(tx.chain) ?: return Mono.error(Exception("Unsupported blockchain: ${tx.chain}"))
-        val execution = upstream.getApi()
+        val execution = upstream.getApi(Selector.empty)
                 .executeAndConvert(Commands.eth().getTransaction(tx.txid))
         return execution.flatMap {
             if (it.blockNumber != null && it.blockHash != null && it.blockHash != ZERO_BLOCK) {

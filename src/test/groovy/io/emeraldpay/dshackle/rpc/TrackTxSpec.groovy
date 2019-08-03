@@ -99,7 +99,7 @@ class TrackTxSpec extends Specification {
         apiMock.answer("eth_getBlockByHash", [blockJson.hash.toHex(), false], blockJson)
 
         _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi() >> apiMock
+        _ * upstreamMock.getApi(_) >> apiMock
         _ * upstreamMock.getHead() >> headMock
         _ * headMock.getFlux() >> blocksBus
         _ * headMock.getHead() >> Mono.just(blockHeadJson)
@@ -182,7 +182,7 @@ class TrackTxSpec extends Specification {
         def headBlock = blocks[0]
 
         _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi() >> apiMock
+        _ * upstreamMock.getApi(_) >> apiMock
         _ * upstreamMock.getHead() >> headMock
         _ * headMock.getFlux() >> blocksBus
         _ * headMock.getHead() >> { return Mono.just(headBlock) }

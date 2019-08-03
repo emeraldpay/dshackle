@@ -94,6 +94,16 @@ class UpstreamsConfig {
 
     //TODO make it unmodifiable after initial load
     class Labels: HashMap<String, String>() {
+
+        companion object {
+            @JvmStatic fun fromMap(map: Map<String, String>): Labels {
+                val labels = Labels()
+                map.entries.forEach() { kv ->
+                    labels.put(kv.key, kv.value)
+                }
+                return labels
+            }
+        }
     }
 
     enum class UpstreamType private constructor(vararg code: String) {

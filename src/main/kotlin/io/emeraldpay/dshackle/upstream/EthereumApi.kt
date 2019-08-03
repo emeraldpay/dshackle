@@ -12,7 +12,6 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.toFlux
 import java.time.Duration
 import java.util.*
-import java.util.concurrent.CompletableFuture
 
 open class EthereumApi(
         val rpcClient: RpcClient,

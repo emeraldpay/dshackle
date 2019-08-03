@@ -45,7 +45,7 @@ class EthereumGrpcTransportSpec extends Specification {
 
         then:
         1 * otherSideUpstreams.getUpstream(Chain.ETHEREUM) >> otherSideAggr
-        1 * otherSideAggr.api >> otherSideApi
+        1 * otherSideAggr.getApi(_) >> otherSideApi
         status.failed == 0
         status.succeed == 1
         status.total == 1
@@ -90,7 +90,7 @@ class EthereumGrpcTransportSpec extends Specification {
 
         then:
         1 * otherSideUpstreams.getUpstream(Chain.ETHEREUM) >> otherSideAggr
-        1 * otherSideAggr.api >> otherSideApi
+        1 * otherSideAggr.getApi(_) >> otherSideApi
         status.failed == 0
         status.succeed == 2
         status.total == 2
