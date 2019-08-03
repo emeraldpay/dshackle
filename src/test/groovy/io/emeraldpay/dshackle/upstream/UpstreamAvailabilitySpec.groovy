@@ -6,10 +6,10 @@ class UpstreamAvailabilitySpec extends Specification {
 
     def "Defined order"() {
         expect:
-        UpstreamAvailability.OK.compareTo(UpstreamAvailability.IMMATURE) < 0
+        UpstreamAvailability.OK.compareTo(UpstreamAvailability.LAGGING) < 0
+        UpstreamAvailability.LAGGING.compareTo(UpstreamAvailability.IMMATURE) < 0
         UpstreamAvailability.IMMATURE.compareTo(UpstreamAvailability.SYNCING) < 0
-        UpstreamAvailability.SYNCING.compareTo(UpstreamAvailability.LAGGING) < 0
-        UpstreamAvailability.LAGGING.compareTo(UpstreamAvailability.UNAVAILABLE) < 0
+        UpstreamAvailability.SYNCING.compareTo(UpstreamAvailability.UNAVAILABLE) < 0
 
         UpstreamAvailability.OK.compareTo(UpstreamAvailability.UNAVAILABLE) < 0
         UpstreamAvailability.UNAVAILABLE.compareTo(UpstreamAvailability.OK) > 0
