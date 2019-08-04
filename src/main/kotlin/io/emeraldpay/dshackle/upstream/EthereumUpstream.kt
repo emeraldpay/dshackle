@@ -14,11 +14,12 @@ open class EthereumUpstream(
         private val api: EthereumApi,
         private val ethereumWs: EthereumWs? = null,
         private val options: UpstreamsConfig.Options,
-        val node: NodeDetailsList.NodeDetails
+        val node: NodeDetailsList.NodeDetails,
+        private val targets: EthereumTargets
 ): Upstream {
 
     override fun getSupportedTargets(): Set<String> {
-        return api.getSupportedMethods()
+        return targets.getSupportedMethods()
     }
 
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
@@ -37,6 +38,7 @@ open class EthereumUpstream(
 
     init {
         log.info("Configured for ${chain.chainName}")
+        api.upstream = this
 
         validator.start()
                 .subscribe {

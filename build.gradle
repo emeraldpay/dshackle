@@ -98,6 +98,7 @@ dependencies {
     testCompile "org.spockframework:spock-core:$spockVersion"
     testCompile "io.grpc:grpc-testing:${grpcVersion}"
     testCompile "io.projectreactor:reactor-test:$reactorVersion"
+    testCompile 'org.objenesis:objenesis:3.0.1'
 }
 
 compileKotlin {

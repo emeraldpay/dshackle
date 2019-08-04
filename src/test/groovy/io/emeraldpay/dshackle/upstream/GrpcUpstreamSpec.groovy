@@ -23,12 +23,13 @@ class GrpcUpstreamSpec extends Specification {
 
     MockServer mockServer = new MockServer()
     ObjectMapper objectMapper = TestingCommons.objectMapper()
+    def ethereumTargets = new EthereumTargets(objectMapper, Chain.ETHEREUM)
 
     def "Subscribe to head"() {
         setup:
         def callData = [:]
         def chain = Chain.ETHEREUM
-        def api = new EthereumApiMock(Mock(RpcClient), objectMapper, chain)
+        def api = TestingCommons.api(Stub(RpcClient), Stub(Upstream))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -54,7 +55,7 @@ class GrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper)
+        def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
         when:
         upstream.connect()
         def h = upstream.head.head.block(Duration.ofSeconds(1))
@@ -69,7 +70,7 @@ class GrpcUpstreamSpec extends Specification {
         def callData = [:]
         def finished = new CompletableFuture<Boolean>()
         def chain = Chain.ETHEREUM
-        def api = new EthereumApiMock(Mock(RpcClient), objectMapper, chain)
+        def api = TestingCommons.api(Stub(RpcClient), Stub(Upstream))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -109,7 +110,7 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper)
+        def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
         when:
         upstream.connect()
         finished.get()
@@ -125,7 +126,7 @@ class GrpcUpstreamSpec extends Specification {
         def callData = [:]
         def finished = new CompletableFuture<Boolean>()
         def chain = Chain.ETHEREUM
-        def api = new EthereumApiMock(Mock(RpcClient), objectMapper, chain)
+        def api = TestingCommons.api(Stub(RpcClient), Stub(Upstream))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -165,7 +166,7 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper)
+        def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
         when:
         upstream.connect()
         finished.get()

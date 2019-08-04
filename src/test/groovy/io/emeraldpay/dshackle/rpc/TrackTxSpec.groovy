@@ -25,7 +25,7 @@ import java.time.Duration
 
 class TrackTxSpec extends Specification {
 
-    AvailableChains availableChains = new AvailableChains()
+    AvailableChains availableChains = new AvailableChains(TestingCommons.objectMapper())
     Upstreams upstreams
     TrackTx trackTx
 
@@ -94,7 +94,7 @@ class TrackTxSpec extends Specification {
         def blocksBus = TopicProcessor.create()
         def headMock = Mock(EthereumHead)
 
-        def apiMock = new EthereumApiMock(Mock(RpcClient), TestingCommons.objectMapper(), Chain.ETHEREUM)
+        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
         apiMock.answer("eth_getBlockByHash", [blockJson.hash.toHex(), false], blockJson)
 
@@ -171,7 +171,7 @@ class TrackTxSpec extends Specification {
         def blocksBus = TopicProcessor.create()
         def headMock = Mock(EthereumHead)
 
-        def apiMock = new EthereumApiMock(Mock(RpcClient), TestingCommons.objectMapper(), Chain.ETHEREUM)
+        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
         apiMock.answerOnce("eth_getTransactionByHash", [txId], txJsonBroadcasted)
         apiMock.answer("eth_getTransactionByHash", [txId], txJsonMined)

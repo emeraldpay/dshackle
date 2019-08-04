@@ -28,11 +28,12 @@ open class GrpcUpstream(
         private val chain: Chain,
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
-        private val options: UpstreamsConfig.Options
+        private val options: UpstreamsConfig.Options,
+        private val targets: EthereumTargets
 ): Upstream {
 
-    constructor(chain: Chain, client: ReactorBlockchainGrpc.ReactorBlockchainStub, objectMapper: ObjectMapper)
-            : this(chain, client, objectMapper, UpstreamsConfig.Options.getDefaults())
+    constructor(chain: Chain, client: ReactorBlockchainGrpc.ReactorBlockchainStub, objectMapper: ObjectMapper, targets: EthereumTargets)
+            : this(chain, client, objectMapper, UpstreamsConfig.Options.getDefaults(), targets)
 
     private val log = LoggerFactory.getLogger(GrpcUpstream::class.java)
 
@@ -47,7 +48,7 @@ open class GrpcUpstream(
 
     open fun createApi(matcher: Selector.Matcher): EthereumApi {
         val rpcClient = DefaultRpcClient(grpcTransport.withMatcher(matcher))
-        return EthereumApi(rpcClient, objectMapper, chain)
+        return EthereumApi(rpcClient, objectMapper, chain, targets, this)
     }
 
     open fun connect() {
@@ -81,10 +82,13 @@ open class GrpcUpstream(
                 .flatMap {
                     getApi(Selector.EmptyMatcher())
                             .executeAndConvert(Commands.eth().getBlock(it.hash))
-                            .timeout(Duration.ofSeconds(15))
+                            .timeout(Duration.ofSeconds(5), Mono.error(Exception("Timeout requesting block from upstream")))
+                            .doOnError { t ->
+                                log.warn("Failed to download block data", t)
+                            }
                 }
-                .doOnError { err ->
-                    log.error("Head subscription error", err)
+                .onErrorContinue { err, _ ->
+                    log.error("Head subscription error: ${err.message}")
                 }
                 .subscribe { block ->
                     log.debug("New block ${block.number} on ${chain}")

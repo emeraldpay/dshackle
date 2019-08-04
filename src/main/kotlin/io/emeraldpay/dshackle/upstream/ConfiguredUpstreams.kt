@@ -17,6 +17,7 @@ import java.io.File
 import java.net.URI
 import java.util.*
 import javax.annotation.PostConstruct
+import kotlin.collections.HashMap
 
 @Repository
 open class ConfiguredUpstreams(
@@ -100,7 +101,8 @@ open class ConfiguredUpstreams(
             rpcApi = EthereumApi(
                     DefaultRpcClient(DefaultRpcTransport(endpoint.url)),
                     objectMapper,
-                    chain
+                    chain,
+                    availableChains.targetFor(chain)
             )
             urls.add(endpoint.url)
         }
@@ -114,7 +116,12 @@ open class ConfiguredUpstreams(
         }
         if (rpcApi != null) {
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-            getOrCreateUpstream(chain).addUpstream(EthereumUpstream(chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels)))
+            getOrCreateUpstream(chain)
+                    .addUpstream(
+                            EthereumUpstream(
+                                    chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels), availableChains.targetFor(chain)
+                            )
+                    )
         }
     }
 
@@ -146,7 +153,7 @@ open class ConfiguredUpstreams(
     override fun getOrCreateUpstream(chain: Chain): ChainUpstreams {
         val current = chainMapping[chain]
         if (current == null) {
-            val created = ChainUpstreams(chain, ArrayList<Upstream>())
+            val created = ChainUpstreams(chain, ArrayList<Upstream>(), availableChains.targetFor(chain))
             chainMapping[chain] = created
             availableChains.add(chain)
             return created

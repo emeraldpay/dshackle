@@ -92,7 +92,7 @@ class GrpcUpstreams(
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val created = GrpcUpstream(chain, client!!, objectMapper, options)
+                val created = GrpcUpstream(chain, client!!, objectMapper, options, availableChains.targetFor(chain))
                 known[chain] = created
                 availableChains.add(chain)
                 created.connect()

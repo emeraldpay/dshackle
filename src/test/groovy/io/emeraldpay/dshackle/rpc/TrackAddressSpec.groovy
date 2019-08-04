@@ -37,7 +37,7 @@ class TrackAddressSpec extends Specification {
 
 
     def setup() {
-        availableChains = new AvailableChains()
+        availableChains = new AvailableChains(TestingCommons.objectMapper())
         upstreams = Mock(Upstreams)
         trackAddress = new TrackAddress(upstreams, availableChains, Schedulers.immediate())
     }
@@ -61,7 +61,7 @@ class TrackAddressSpec extends Specification {
             .build()
 
         def upstreamMock = Mock(AggregatedUpstreams)
-        def apiMock = new EthereumApiMock(Mock(RpcClient), TestingCommons.objectMapper(), Chain.ETHEREUM)
+        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
         apiMock.answer("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
         _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
         _ * upstreamMock.getApi(_) >> apiMock
@@ -103,7 +103,7 @@ class TrackAddressSpec extends Specification {
         def blocksBus = TopicProcessor.create()
         def upstreamMock = Mock(AggregatedUpstreams)
         def headMock = Mock(EthereumHead)
-        def apiMock = new EthereumApiMock(Mock(RpcClient), TestingCommons.objectMapper(), Chain.ETHEREUM)
+        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0xff98")
         _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock

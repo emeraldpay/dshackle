@@ -8,8 +8,9 @@ import java.time.Duration
 
 class ChainUpstreams (
         val chain: Chain,
-        private val upstreams: MutableList<Upstream>
-) : AggregatedUpstreams() {
+        private val upstreams: MutableList<Upstream>,
+        targets: EthereumTargets
+) : AggregatedUpstreams(targets) {
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
@@ -43,16 +44,16 @@ class ChainUpstreams (
         head = updateHead()
     }
 
-    override fun getApis(quorum: Int, matcher: Selector.Matcher): Iterator<EthereumApi> {
+    override fun getApis(matcher: Selector.Matcher): Iterator<EthereumApi> {
         val i = seq++
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
         }
-        return FilteringApiIterator(upstreams, 1, seq, matcher)
+        return FilteringApiIterator(upstreams, i, matcher)
     }
 
     override fun getApi(matcher: Selector.Matcher): EthereumApi {
-        return getApis(1, matcher).next()
+        return getApis(matcher).next()
     }
 
     override fun getHead(): EthereumHead {

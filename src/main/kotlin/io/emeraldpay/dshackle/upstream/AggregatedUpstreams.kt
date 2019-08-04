@@ -7,11 +7,13 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Predicate
 
-abstract class AggregatedUpstreams: Upstream {
+abstract class AggregatedUpstreams(
+        val targets: EthereumTargets
+): Upstream {
 
     abstract fun getAll(): List<Upstream>
     abstract fun addUpstream(upstream: Upstream)
-    abstract fun getApis(quorum: Int, matcher: Selector.Matcher): Iterator<EthereumApi>
+    abstract fun getApis(matcher: Selector.Matcher): Iterator<EthereumApi>
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
         val upstreamsFluxes = getAll().map { up -> up.observeStatus().map { UpstreamStatus(up, it) } }
