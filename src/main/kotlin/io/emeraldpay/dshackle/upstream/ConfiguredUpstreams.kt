@@ -98,8 +98,13 @@ open class ConfiguredUpstreams(
         var wsApi: EthereumWs? = null
         val urls = ArrayList<URI>()
         up.rpc?.let { endpoint ->
+            val rpcTransport = DefaultRpcTransport(endpoint.url)
+            up.auth?.let { auth ->
+                rpcTransport.setBasicAuth(auth.username, auth.password)
+            }
+            val rpcClient = DefaultRpcClient(rpcTransport)
             rpcApi = EthereumApi(
-                    DefaultRpcClient(DefaultRpcTransport(endpoint.url)),
+                    rpcClient,
                     objectMapper,
                     chain,
                     availableChains.targetFor(chain)

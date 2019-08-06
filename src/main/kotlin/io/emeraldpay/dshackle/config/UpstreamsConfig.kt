@@ -68,6 +68,7 @@ class UpstreamsConfig {
     class EthereumConnection : UpstreamConnection() {
         var rpc: HttpEndpoint? = null
         var ws: WsEndpoint? = null
+        var auth: BasicAuth? = null
     }
 
     class HttpEndpoint(val url: URI) {
@@ -82,9 +83,10 @@ class UpstreamsConfig {
         var type: String? = null
     }
 
-    class BasicAuth : Auth() {
-        var key: String? = null
-    }
+    class BasicAuth(
+            val username: String,
+            val password: String
+    ) : Auth()
 
     class TlsAuth : Auth() {
         var ca: String? = null

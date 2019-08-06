@@ -57,6 +57,9 @@ class UpstreamsConfigReader {
                         connection.rpc = http
                         http.auth = readAuth(getMapping(node, "auth"))
                     }
+                    readAuth(getMapping(node, "auth"))?.let { auth ->
+                        connection.auth = auth as UpstreamsConfig.BasicAuth
+                    }
                 }
                 getMapping(connConfigNode, "ws")?.let { node ->
                     getValueAsString(node, "url")?.let { url ->
@@ -129,9 +132,14 @@ class UpstreamsConfigReader {
                     auth
                 }
                 "basic" -> {
-                    val auth = UpstreamsConfig.BasicAuth()
-                    auth.key = getValueAsString(authNode, "key")
-                    auth
+                    val username = getValueAsString(authNode, "username")
+                    val password = getValueAsString(authNode, "password")
+                    if (username != null && password != null) {
+                        UpstreamsConfig.BasicAuth(username, password)
+                    } else {
+                        log.warn("Basic auth is not fully configured")
+                        null
+                    }
                 }
                 else -> {
                     log.warn("Invalid Auth type: $it")
