@@ -1,3 +1,7 @@
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
 buildscript {
     repositories {
         mavenLocal()
@@ -118,9 +122,7 @@ application {
 
 ext {
     dockerTags = [project.version].with (true) {
-        if (!project.version.contains("-SNAPSHOT")) {
-            add "latest"
-        }
+        add "t"+ DateTimeFormatter.ofPattern("yyyyMMddHHmm").withZone(ZoneId.of('UTC')).format(Instant.now())
     }
 }
 
@@ -128,7 +130,7 @@ jib {
     from {
     }
     to {
-        image = 'emeraldpay/dshackle'
+        image = 'emeraldpay/dshackle:snapshot'
         tags = dockerTags
     }
     container {
