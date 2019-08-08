@@ -58,7 +58,6 @@ class StreamHead(
     }
 
     private fun onBlock(chain: Chain, block: BlockJson<TransactionId>) {
-        log.info("New block ${block.number} on ${chain.chainCode}")
         upstreams.getUpstream(chain)?.let { up ->
             UpstreamServices.onceOk(up).subscribe {avail ->
                 if (avail) {
