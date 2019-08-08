@@ -8,7 +8,6 @@ import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.time.Duration
-import java.util.*
 
 open class EthereumApi(
         val rpcClient: RpcClient,
@@ -28,14 +27,14 @@ open class EthereumApi(
         }
 
     open fun <JS, RS> executeAndConvert(rpcCall: RpcCall<JS, RS>): Mono<RS> {
+        val convertToJS = java.util.function.Function<ByteArray, Mono<JS>> { resp ->
+            val jsonValue: JS? = jacksonRpcConverter.fromJson(resp.inputStream(), rpcCall.jsonType, Int::class.java)
+            if (jsonValue == null) Mono.empty<JS>()
+            else Mono.just(jsonValue)
+        }
         return execute(0, rpcCall.method, rpcCall.params as List<Any>)
-                .flatMap {
-                    val jsonValue: JS? = jacksonRpcConverter.fromJson(it.inputStream(), rpcCall.jsonType, Int::class.java);
-                    if (jsonValue == null) Mono.empty<JS>()
-                    else Mono.just(jsonValue)
-                }.map {
-                    rpcCall.converter.apply(it)
-                }
+                .flatMap(convertToJS)
+                .map(rpcCall.converter::apply)
     }
 
     open fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
