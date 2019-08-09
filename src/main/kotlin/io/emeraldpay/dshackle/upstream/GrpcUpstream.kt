@@ -30,7 +30,7 @@ open class GrpcUpstream(
         private val objectMapper: ObjectMapper,
         private val options: UpstreamsConfig.Options,
         private val targets: EthereumTargets
-): Upstream {
+): DefaultUpstream() {
 
     constructor(chain: Chain, client: ReactorBlockchainGrpc.ReactorBlockchainStub, objectMapper: ObjectMapper, targets: EthereumTargets)
             : this(chain, client, objectMapper, UpstreamsConfig.Options.getDefaults(), targets)
@@ -123,11 +123,6 @@ open class GrpcUpstream(
         )
     }
 
-    private fun setStatus(value: UpstreamAvailability) {
-        status.set(value)
-        statusStream.onNext(value)
-    }
-
     fun getNodes(): NodeDetailsList {
         return nodes.get()
     }
@@ -142,14 +137,6 @@ open class GrpcUpstream(
         return headBlock.get() != null && nodes.get().getNodes().any {
             it.quorum > 0 && matcher.matches(it.labels)
         }
-    }
-
-    override fun getStatus(): UpstreamAvailability {
-        return status.get()
-    }
-
-    override fun observeStatus(): Flux<UpstreamAvailability> {
-        return Flux.from(statusStream)
     }
 
     override fun getHead(): EthereumHead {

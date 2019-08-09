@@ -56,6 +56,7 @@ class GrpcUpstreamSpec extends Specification {
             }
         })
         def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
+        upstream.setLag(0)
         when:
         upstream.connect()
         def h = upstream.head.head.block(Duration.ofSeconds(1))
@@ -111,6 +112,7 @@ class GrpcUpstreamSpec extends Specification {
             }
         })
         def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
+        upstream.setLag(0)
         when:
         upstream.connect()
         finished.get()
@@ -167,6 +169,7 @@ class GrpcUpstreamSpec extends Specification {
             }
         })
         def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
+        upstream.setLag(0)
         when:
         upstream.connect()
         finished.get()

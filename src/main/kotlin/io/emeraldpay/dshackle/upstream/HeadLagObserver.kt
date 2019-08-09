@@ -1,0 +1,77 @@
+package io.emeraldpay.dshackle.upstream
+
+import io.infinitape.etherjar.domain.TransactionId
+import io.infinitape.etherjar.rpc.json.BlockJson
+import org.slf4j.LoggerFactory
+import reactor.core.Disposable
+import reactor.core.publisher.Flux
+import reactor.core.publisher.toFlux
+import reactor.util.function.Tuple2
+import reactor.util.function.Tuples
+import java.io.Closeable
+import java.time.Duration
+
+class HeadLagObserver (
+        private val master: EthereumHead,
+        private val followers: Collection<Upstream>
+): Closeable {
+
+    private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
+
+    private var current: Disposable? = null
+
+    fun start() {
+        current = subscription().subscribe { }
+    }
+
+    private fun subscription(): Flux<Unit> {
+        return master.getFlux()
+                .flatMap(this::probeFollowers)
+                .map { item ->
+                    item.t2.setLag(item.t1)
+                }
+    }
+
+    fun probeFollowers(top: BlockJson<TransactionId>): Flux<Tuple2<Long, Upstream>> {
+        return followers.toFlux()
+                .parallel(followers.size)
+                .flatMap { mapLagging(top, it, getCurrentBlocks(it)) }
+                .sequential()
+                .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
+    }
+
+    fun getCurrentBlocks(up: Upstream): Flux<BlockJson<TransactionId>> {
+        val head = up.getHead()
+        return Flux.concat(head.getHead(), head.getFlux())
+                .take(Duration.ofSeconds(1))
+    }
+
+    fun mapLagging(top: BlockJson<TransactionId>, up: Upstream, blocks: Flux<BlockJson<TransactionId>>): Flux<Tuple2<Long, Upstream>> {
+        return blocks
+                .map { extractDistance(top, it) }
+                .takeUntil{ lag -> lag <= 0L }
+                .map { Tuples.of(it, up) }
+                .doOnError { t ->
+                    log.warn("Failed to find distance for $up", t)
+                }
+    }
+
+    fun extractDistance(top: BlockJson<TransactionId>, curr: BlockJson<TransactionId>): Long {
+        return  when {
+            curr.number  > top.number -> if (curr.totalDifficulty >= top.totalDifficulty) 0 else forkDistance(top, curr)
+            curr.number == top.number -> if (curr.totalDifficulty == top.totalDifficulty) 0 else forkDistance(top, curr)
+            else -> top.number - curr.number
+        }
+    }
+
+    fun forkDistance(top: BlockJson<TransactionId>, curr: BlockJson<TransactionId>): Long {
+        //TODO look for common ancestor? though it may be a corruption
+        return 6
+    }
+
+    override fun close() {
+        current?.dispose()
+        current = null
+    }
+
+}

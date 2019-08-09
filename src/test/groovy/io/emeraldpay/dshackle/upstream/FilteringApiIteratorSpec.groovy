@@ -32,6 +32,7 @@ class FilteringApiIteratorSpec extends Specification {
         }
         def matcher = new Selector.LabelMatcher("test", ["foo"])
         upstreams.forEach {
+            it.setLag(0)
             it.setStatus(UpstreamAvailability.OK)
         }
         when:

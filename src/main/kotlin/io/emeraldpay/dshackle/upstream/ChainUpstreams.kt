@@ -15,6 +15,7 @@ class ChainUpstreams (
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
     private var head: EthereumHead?
+    private var lagObserver: HeadLagObserver? = null
 
     init {
         head = updateHead()
@@ -28,10 +29,18 @@ class ChainUpstreams (
         if (current != null && Closeable::class.java.isAssignableFrom(current.javaClass)) {
             (current as Closeable).close()
         }
+        lagObserver?.close()
+        lagObserver = null
         return if (upstreams.size == 1) {
-            upstreams.first().getHead()
+            val upstream = upstreams.first()
+            upstream.setLag(0)
+            upstream.getHead()
         } else {
-            EthereumHeadMerge(upstreams.map { it.getHead() })
+            val newHead = EthereumHeadMerge(upstreams.map { it.getHead() })
+            val lagObserver = HeadLagObserver(newHead, upstreams)
+            lagObserver.start()
+            this.lagObserver = lagObserver
+            newHead
         }
     }
 
@@ -60,6 +69,13 @@ class ChainUpstreams (
         return head!!
     }
 
+    override fun setLag(lag: Long) {
+    }
+
+    override fun getLag(): Long {
+        return 0
+    }
+
     fun printStatus() {
         var height: Long? = null
         try {
@@ -73,8 +89,10 @@ class ChainUpstreams (
                 .groupBy { it }
                 .map { "${it.key.name}/${it.value.size}" }
                 .joinToString(",")
+        val lag = upstreams.map { it.getLag() }
+                .joinToString(", ")
 
-        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=$statuses")
+        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=$statuses, lag=[$lag]")
     }
 
 

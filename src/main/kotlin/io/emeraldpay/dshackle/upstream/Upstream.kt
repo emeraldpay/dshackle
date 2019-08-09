@@ -11,4 +11,6 @@ interface Upstream {
     fun getApi(matcher: Selector.Matcher): EthereumApi
     fun getOptions(): UpstreamsConfig.Options
     fun getSupportedTargets(): Set<String>
+    fun setLag(lag: Long)
+    fun getLag(): Long
 }

@@ -16,6 +16,7 @@ import reactor.core.publisher.toFlux
 import java.io.File
 import java.net.URI
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import javax.annotation.PostConstruct
 import kotlin.collections.HashMap
 
@@ -27,7 +28,7 @@ open class ConfiguredUpstreams(
 ) : Upstreams {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
-    private val chainMapping = HashMap<Chain, ChainUpstreams>()
+    private val chainMapping = ConcurrentHashMap<Chain, ChainUpstreams>()
 
     private val chainNames = mapOf(
             "ethereum" to Chain.ETHEREUM,
