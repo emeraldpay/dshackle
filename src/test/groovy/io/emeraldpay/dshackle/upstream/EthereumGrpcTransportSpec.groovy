@@ -93,7 +93,7 @@ class EthereumGrpcTransportSpec extends Specification {
 
         then:
         1 * otherSideUpstreams.getUpstream(Chain.ETHEREUM) >> otherSideAggr
-        1 * otherSideAggr.getApis(_) >> [otherSideApi].multiply(3).iterator()
+        1 * otherSideAggr.getApis(_) >> [otherSideApi].multiply(34).iterator()
         _ * otherSideAggr.getHead() >> Stub(EthereumHead)
         _ * otherSideAggr.getTargets() >> ethereumTargets
         status.failed == 0

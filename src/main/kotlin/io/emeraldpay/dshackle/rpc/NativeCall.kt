@@ -17,6 +17,7 @@ import reactor.core.publisher.toMono
 import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
 import java.lang.Exception
+import java.time.Duration
 import java.util.function.Predicate
 
 @Service
@@ -30,7 +31,9 @@ class NativeCall(
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return requestMono.flatMapMany(this::prepareCall)
             .map(this::setupCallParams)
+            .parallel()
             .flatMap(this::executeOnRemote)
+            .sequential()
             .map(this::buildResponse)
             .doOnError { e -> log.warn("Error during native call", e) }
             .onErrorResume(this::processException)
@@ -89,7 +92,11 @@ class NativeCall(
 
     fun executeOnRemote(ctx: CallContext<Tuple2<String, List<Any>>>): Mono<CallContext<ByteArray>> {
         val p: Predicate<Any> = CallQuorum.untilResolved(ctx.callQuorum)
-        return ctx.apis.toFlux()
+        val all = ctx.apis.toFlux().share()
+        //execute on the first API immediately, and then make a delay between each call to not dos upstreams
+        val immediate = Flux.from(all).take(1)
+        val retries = Flux.from(all).delayElements(Duration.ofMillis(200))
+        return Flux.concat(immediate, retries)
                 .takeWhile(p)
                 .flatMap { api ->
                     api.execute(ctx.id, ctx.payload.t1, ctx.payload.t2).map { Tuples.of(it, api.upstream!!) }
