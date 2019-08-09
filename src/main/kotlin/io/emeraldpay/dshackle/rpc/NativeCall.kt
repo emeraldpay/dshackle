@@ -6,6 +6,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
+import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -110,6 +111,9 @@ class NativeCall(
     }
 
     private fun extractParams(jsonParams: String): List<Any> {
+        if (StringUtils.isEmpty(jsonParams)) {
+            return emptyList()
+        }
         val req = objectMapper.readValue(jsonParams, List::class.java)
         return req as List<Any>
     }
