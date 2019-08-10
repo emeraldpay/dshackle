@@ -159,9 +159,9 @@ open class ConfiguredUpstreams(
     override fun getOrCreateUpstream(chain: Chain): ChainUpstreams {
         val current = chainMapping[chain]
         if (current == null) {
+            availableChains.add(chain)
             val created = ChainUpstreams(chain, ArrayList<Upstream>(), availableChains.targetFor(chain))
             chainMapping[chain] = created
-            availableChains.add(chain)
             return created
         }
         return current

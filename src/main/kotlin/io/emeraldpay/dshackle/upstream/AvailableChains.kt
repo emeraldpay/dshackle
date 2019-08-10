@@ -19,12 +19,18 @@ class AvailableChains(
     private val callTargets = HashMap<Chain, EthereumTargets>()
 
     fun add(chain: Chain) {
+        if (all.contains(chain)) {
+            return
+        }
         all.add(chain)
         bus.onNext(chain)
     }
 
     fun observe(): Flux<Chain> {
-        return Flux.from(bus)
+        return Flux.merge(
+                Flux.fromIterable(all),
+                Flux.from(bus)
+        )
     }
 
     fun supports(chain: Chain): Boolean {
