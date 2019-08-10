@@ -3,7 +3,6 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.test.EthereumApiMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.AggregatedUpstreams
 import io.emeraldpay.dshackle.upstream.AvailableChains
@@ -22,6 +21,7 @@ import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
+import java.time.Instant
 
 class TrackTxSpec extends Specification {
 
@@ -37,7 +37,7 @@ class TrackTxSpec extends Specification {
         trackTx = new TrackTx(upstreams, availableChains, Schedulers.immediate())
     }
 
-    def start() {
+    def startTrackTxService() {
         trackTx.init()
         availableChains.add(Chain.ETHEREUM)
         availableChains.add(Chain.TESTNET_KOVAN)
@@ -103,13 +103,129 @@ class TrackTxSpec extends Specification {
         _ * upstreamMock.getHead() >> headMock
         _ * headMock.getFlux() >> blocksBus
         _ * headMock.getHead() >> Mono.just(blockHeadJson)
-        start()
+        startTrackTxService()
 
         when:
         def flux = trackTx.add(Mono.just(req))
         then:
         StepVerifier.create(flux)
                 .expectNext(exp1)
+                .expectComplete()
+                .verify(Duration.ofSeconds(4))
+    }
+
+    def "Closes for unknown transaction"() {
+        setup:
+        def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
+                .setChain(chain)
+                .setConfirmationLimit(6)
+                .setTxId(txId)
+                .build()
+        def exp1 = BlockchainOuterClass.TxStatus.newBuilder()
+                .setTxId(txId)
+                .setBroadcasted(false)
+                .setMined(false)
+                .build()
+
+        def upstreamMock = Mock(AggregatedUpstreams)
+        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
+        apiMock.answer("eth_getTransactionByHash", [txId], null)
+
+        _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
+        _ * upstreamMock.getApi(_) >> apiMock
+        startTrackTxService()
+
+        when:
+        def act = StepVerifier.withVirtualTime {
+            return trackTx.add(Mono.just(req))
+        }
+        then:
+        act
+                .expectNext(exp1)
+                .then {
+                    assert trackTx.notFound.any { it.tx.txid.toHex() == txId }
+                }
+                .expectNoEvent(Duration.ofSeconds(30))
+                .then {
+                    def track = trackTx.notFound.iterator().next()
+                    track.tx
+                            .copy(Instant.now() - Duration.ofHours(1), track, track.tx.status, Instant.now() - Duration.ofMinutes(15))
+                            .makeCurrent()
+                    trackTx.recheckNotFound()
+                }
+                .expectNext(exp1)
+                .then {
+                    assert !trackTx.notFound.any { it.tx.txid.toHex() == txId }
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(4))
+    }
+
+    def "Closes for known transaction if not mined"() {
+        setup:
+        def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
+                .setChain(chain)
+                .setConfirmationLimit(6)
+                .setTxId(txId)
+                .build()
+        def exp1 = BlockchainOuterClass.TxStatus.newBuilder()
+                .setTxId(txId)
+                .setBroadcasted(false)
+                .setMined(false)
+                .build()
+        def exp2 = BlockchainOuterClass.TxStatus.newBuilder()
+                .setTxId(txId)
+                .setBroadcasted(true)
+                .setMined(false)
+                .build()
+        def txJson = new TransactionJson().with {
+            it.hash = TransactionId.from(txId)
+            it.nonce = 1
+            it
+        }
+
+        def upstreamMock = Mock(AggregatedUpstreams)
+        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
+        apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
+        apiMock.answer("eth_getTransactionByHash", [txId], txJson)
+
+        _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
+        _ * upstreamMock.getApi(_) >> apiMock
+        startTrackTxService()
+
+        when:
+        def act = StepVerifier.withVirtualTime {
+            return trackTx.add(Mono.just(req))
+        }
+        then:
+        act
+                .expectNext(exp1)
+                .then {
+                    assert trackTx.notFound.any { it.tx.txid.toHex() == txId }
+                }
+                .expectNoEvent(Duration.ofSeconds(20))
+
+                .then {
+                    def track = trackTx.notFound.iterator().next()
+                    track.tx
+                            .copy(Instant.now() - Duration.ofSeconds(119), track, track.tx.status, Instant.now() - Duration.ofMinutes(15))
+                            .makeCurrent()
+                    trackTx.recheckNotFound()
+                }
+                .expectNext(exp2)
+                .then {
+                    assert trackTx.notFound.any { it.tx.txid.toHex() == txId }
+                }
+                .expectNoEvent(Duration.ofSeconds(20))
+
+                .then {
+                    def track = trackTx.notFound.iterator().next()
+                    track.tx
+                            .copy(Instant.now() - Duration.ofSeconds(121), track, track.tx.status, Instant.now() - Duration.ofMinutes(15))
+                            .makeCurrent()
+                    trackTx.recheckNotFound()
+                }
+                .expectNext(exp2)
                 .expectComplete()
                 .verify(Duration.ofSeconds(4))
     }
@@ -186,7 +302,7 @@ class TrackTxSpec extends Specification {
         _ * upstreamMock.getHead() >> headMock
         _ * headMock.getFlux() >> blocksBus
         _ * headMock.getHead() >> { return Mono.just(headBlock) }
-        start()
+        startTrackTxService()
 
         def nextBlock = { int i ->
             return {
@@ -213,5 +329,52 @@ class TrackTxSpec extends Specification {
                 .expectNext(exp2.setConfirmations(4).build())
                 .expectComplete()
                 .verify(Duration.ofSeconds(4))
+    }
+
+    def "Tracked after first load"() {
+        setup:
+        startTrackTxService()
+
+        def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
+                .setChain(chain)
+                .setConfirmationLimit(6)
+                .setTxId(txId)
+                .build()
+        def tx = trackTx.prepareTracking(req)
+        when:
+        trackTx.onFirstUpdate(tx)
+        then:
+        trackTx.notFound.any { it.tx.txid == TransactionId.from(txId) }
+        trackTx.trackedForChain(Chain.ETHEREUM).any { it.txid == TransactionId.from(txId) }
+    }
+
+    def "Update of last notified keeps everything else"() {
+        setup:
+        startTrackTxService()
+        def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
+                .setChain(chain)
+                .setConfirmationLimit(6)
+                .setTxId(txId)
+                .build()
+        def tx = trackTx.prepareTracking(req)
+        when:
+        tx = tx.withStatus(true, 100,
+                true, BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22"), Instant.now(),
+                1000 as BigInteger, 15L)
+        then:
+        tx.status.found
+        tx.notifiedAt.isBefore(Instant.now() - Duration.ofSeconds(5))
+        when:
+        def c = tx.justNotified()
+        then:
+        tx.notifiedAt.isBefore(Instant.now() - Duration.ofSeconds(5))
+        c.notifiedAt.isAfter(Instant.now() - Duration.ofSeconds(5))
+        c.status.found
+        c.status.height == 100
+        c.status.mined
+        c.status.blockHash.toHex() == "0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22"
+        c.status.blockTime.isAfter(Instant.now() - Duration.ofSeconds(5))
+        c.status.blockTotalDifficulty == 1000 as BigInteger
+        c.status.confirmations == 15L
     }
 }
