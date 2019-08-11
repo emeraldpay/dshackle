@@ -75,6 +75,7 @@ open class GrpcUpstream(
                     block.hash = BlockHash.from("0x"+value.blockId)
                     block
                 }
+                .distinctUntilChanged { it.hash }
                 .filter { block ->
                     val curr = headBlock.get()
                     curr == null || curr.totalDifficulty < block.totalDifficulty

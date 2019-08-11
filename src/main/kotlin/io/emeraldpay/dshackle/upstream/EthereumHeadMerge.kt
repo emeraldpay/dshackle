@@ -21,6 +21,9 @@ class EthereumHeadMerge(
     init {
         val fluxes = upstreams.map { it.getFlux() }
         flux = Flux.merge(fluxes)
+                .distinctUntilChanged {
+                    it.hash
+                }
                 .filter {
                     val curr = head.get()
                     curr == null || curr.totalDifficulty < it.totalDifficulty

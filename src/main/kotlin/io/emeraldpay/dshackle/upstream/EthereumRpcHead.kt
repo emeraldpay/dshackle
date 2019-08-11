@@ -37,6 +37,7 @@ class EthereumRpcHead(
                 .onErrorContinue { err, _ ->
                     log.warn("RPC error ${err.message}")
                 }
+                .distinctUntilChanged { it.hash }
                 .filter { block ->
                     val curr = head.get()
                     curr == null || curr.totalDifficulty < block.totalDifficulty
