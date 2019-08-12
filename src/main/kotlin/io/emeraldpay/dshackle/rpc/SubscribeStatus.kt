@@ -11,13 +11,12 @@ import reactor.core.publisher.Mono
 
 @Service
 class SubscribeStatus(
-        @Autowired private val upstreams: Upstreams,
-        @Autowired private val availableChains: AvailableChains
+        @Autowired private val upstreams: Upstreams
 ) {
 
     fun subscribeStatus(requestMono: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
         return requestMono.flatMapMany {
-            val ups = availableChains.getAll().mapNotNull { chain ->
+            val ups = upstreams.getAvailable().mapNotNull { chain ->
                 val chainUpstream = upstreams.getUpstream(chain)
                 chainUpstream?.observeStatus()?.map { avail ->
                     ChainSubscription(chain, chainUpstream, avail)
@@ -45,6 +44,6 @@ class SubscribeStatus(
                 .build()
     }
 
-    class ChainSubscription(val chain: Chain, val up: AggregatedUpstreams, val avail: UpstreamAvailability)
+    class ChainSubscription(val chain: Chain, val up: AggregatedUpstream, val avail: UpstreamAvailability)
 
 }

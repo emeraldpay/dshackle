@@ -27,14 +27,13 @@ class NativeCallSpec extends Specification {
         def quorum = Spy(new AlwaysQuorum())
         def upstreams = Stub(Upstreams)
         RpcClient rpcClient = Stub(RpcClient)
-        def upstream = Stub(Upstream)
-        def apiMock = TestingCommons.api(rpcClient, upstream)
+        def apiMock = TestingCommons.api(rpcClient)
+        apiMock.upstream = Stub(Upstream)
 
         apiMock.answer("eth_test", [], "foo")
 
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, [apiMock].multiply(5).iterator(), quorum, Tuples.of("eth_test", []))
-
+        def call = new NativeCall.CallContext(1, [apiMock].multiply(59).iterator(), quorum, Tuples.of("eth_test", []))
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
@@ -52,8 +51,8 @@ class NativeCallSpec extends Specification {
 
         def upstreams = Stub(Upstreams)
         RpcClient rpcClient = Stub(RpcClient)
-        def upstream = Stub(Upstream)
-        def apiMock = TestingCommons.api(rpcClient, upstream)
+        def apiMock = TestingCommons.api(rpcClient)
+        apiMock.upstream = Stub(Upstream)
 
         apiMock.answerOnce("eth_test", [], null)
         apiMock.answerOnce("eth_test", [], "bar")
@@ -79,8 +78,8 @@ class NativeCallSpec extends Specification {
 
         def upstreams = Stub(Upstreams)
         RpcClient rpcClient = Stub(RpcClient)
-        def upstream = Stub(Upstream)
-        def apiMock = TestingCommons.api(rpcClient, upstream)
+        def apiMock = TestingCommons.api(rpcClient)
+        apiMock.upstream = Stub(Upstream)
 
         apiMock.answer("eth_test", [], null, 3)
         apiMock.answerOnce("eth_test", [], "foo")

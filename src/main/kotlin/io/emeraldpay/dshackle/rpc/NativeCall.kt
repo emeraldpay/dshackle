@@ -5,7 +5,6 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.RpcException
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -77,7 +76,7 @@ class NativeCall(
         return prepareCall(request, upstream)
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstreams): Flux<CallContext<Tuple2<String, String>>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream): Flux<CallContext<Tuple2<String, String>>> {
         val matcher = Selector.convertToMatcher(request.selector)
         val apis = upstream.getApis(matcher)
         return request.itemsList.toFlux().map {
@@ -109,6 +108,7 @@ class NativeCall(
                     ctx.withPayload(result)
                 }
                 .onErrorMap {
+                    log.error("Failed to make a call", it)
                     if (it is CallFailure) it
                     else CallFailure(ctx.id, it)
                 }

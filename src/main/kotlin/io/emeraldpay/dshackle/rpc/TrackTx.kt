@@ -3,7 +3,6 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.upstream.AvailableChains
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
@@ -38,7 +37,6 @@ import kotlin.math.min
 @Service
 class TrackTx(
         @Autowired private val upstreams: Upstreams,
-        @Autowired private val availableChains: AvailableChains,
         @Autowired private val upstreamScheduler: Scheduler
 ) {
 
@@ -59,7 +57,7 @@ class TrackTx(
 
     @PostConstruct
     fun init() {
-        availableChains.observe().subscribe { chain ->
+        upstreams.observeChains().subscribe { chain ->
             clients[chain] = ConcurrentLinkedQueue()
             upstreams.getUpstream(chain)?.getHead()?.let { head ->
                 head.getFlux().subscribe { verifyAll(chain) }
@@ -239,6 +237,9 @@ class TrackTx(
                 .executeAndConvert(Commands.eth().getTransaction(tx.txid))
         return execution
                 .flatMap { updateFromBlock(upstream, tx, it) }
+                .doOnError { t ->
+                    log.error("Failed to load tx block", t)
+                }
                 .switchIfEmpty(Mono.just(tx.withStatus(found = false)))
                 .filter { current ->
                     initialStatus != current.status || current.shouldNotify() || current.shouldClose()

@@ -5,7 +5,6 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.test.EthereumApiMock
 import io.emeraldpay.dshackle.test.MockServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
@@ -13,7 +12,6 @@ import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.RpcClient
 import io.infinitape.etherjar.rpc.json.BlockJson
-import org.apache.commons.codec.binary.Hex
 import spock.lang.Specification
 
 import java.time.Duration
@@ -23,13 +21,13 @@ class GrpcUpstreamSpec extends Specification {
 
     MockServer mockServer = new MockServer()
     ObjectMapper objectMapper = TestingCommons.objectMapper()
-    def ethereumTargets = new EthereumTargets(objectMapper, Chain.ETHEREUM)
+    def ethereumTargets = new QuorumBasedMethods(objectMapper, Chain.ETHEREUM)
 
     def "Subscribe to head"() {
         setup:
         def callData = [:]
         def chain = Chain.ETHEREUM
-        def api = TestingCommons.api(Stub(RpcClient), Stub(Upstream))
+        def api = TestingCommons.api(Stub(RpcClient))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -71,7 +69,7 @@ class GrpcUpstreamSpec extends Specification {
         def callData = [:]
         def finished = new CompletableFuture<Boolean>()
         def chain = Chain.ETHEREUM
-        def api = TestingCommons.api(Stub(RpcClient), Stub(Upstream))
+        def api = TestingCommons.api(Stub(RpcClient))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -128,7 +126,7 @@ class GrpcUpstreamSpec extends Specification {
         def callData = [:]
         def finished = new CompletableFuture<Boolean>()
         def chain = Chain.ETHEREUM
-        def api = TestingCommons.api(Stub(RpcClient), Stub(Upstream))
+        def api = TestingCommons.api(Stub(RpcClient))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")

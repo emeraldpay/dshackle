@@ -19,15 +19,16 @@ class EthereumGrpcTransportSpec extends Specification {
 
     MockServer mockServer = new MockServer()
     ObjectMapper objectMapper = TestingCommons.objectMapper()
-    def ethereumTargets = new EthereumTargets(objectMapper, Chain.ETHEREUM)
+    def ethereumTargets = new QuorumBasedMethods(objectMapper, Chain.ETHEREUM)
 
     def "Make simple call"() {
         setup:
         def callData = [:]
         def otherSideUpstreams = Mock(Upstreams)
-        def otherSideAggr = Mock(AggregatedUpstreams)
+        def otherSideAggr = Mock(AggregatedUpstream)
         def otherSideNativeCall = new NativeCall(otherSideUpstreams, objectMapper)
-        def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM, otherSideAggr)
+        def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM)
+        otherSideApi.upstream = otherSideAggr
 
         def client = mockServer.clientForServer(new ReactorBlockchainGrpc.BlockchainImplBase() {
             @Override
@@ -68,9 +69,10 @@ class EthereumGrpcTransportSpec extends Specification {
         setup:
         def callData = [:]
         def otherSideUpstreams = Mock(Upstreams)
-        def otherSideAggr = Mock(AggregatedUpstreams)
+        def otherSideAggr = Mock(AggregatedUpstream)
         def otherSideNativeCall = new NativeCall(otherSideUpstreams, objectMapper)
-        def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM, otherSideAggr)
+        def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM)
+        otherSideApi.upstream = otherSideAggr
 
         def client = mockServer.clientForServer(new ReactorBlockchainGrpc.BlockchainImplBase() {
             @Override

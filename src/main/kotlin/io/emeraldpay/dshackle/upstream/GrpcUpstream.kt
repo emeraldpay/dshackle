@@ -11,7 +11,6 @@ import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.BlockTag
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -29,10 +28,10 @@ open class GrpcUpstream(
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
         private val options: UpstreamsConfig.Options,
-        private val targets: EthereumTargets
+        private val targets: CallMethods
 ): DefaultUpstream() {
 
-    constructor(chain: Chain, client: ReactorBlockchainGrpc.ReactorBlockchainStub, objectMapper: ObjectMapper, targets: EthereumTargets)
+    constructor(chain: Chain, client: ReactorBlockchainGrpc.ReactorBlockchainStub, objectMapper: ObjectMapper, targets: CallMethods)
             : this(chain, client, objectMapper, UpstreamsConfig.Options.getDefaults(), targets)
 
     private val log = LoggerFactory.getLogger(GrpcUpstream::class.java)
@@ -48,7 +47,10 @@ open class GrpcUpstream(
 
     open fun createApi(matcher: Selector.Matcher): EthereumApi {
         val rpcClient = DefaultRpcClient(grpcTransport.withMatcher(matcher))
-        return EthereumApi(rpcClient, objectMapper, chain, targets, this)
+        return EthereumApi(rpcClient, objectMapper, chain, targets).let {
+            it.upstream = this
+            it
+        }
     }
 
     open fun connect() {

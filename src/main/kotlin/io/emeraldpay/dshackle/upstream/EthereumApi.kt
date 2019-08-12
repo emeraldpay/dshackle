@@ -13,11 +13,11 @@ open class EthereumApi(
         val rpcClient: RpcClient,
         private val objectMapper: ObjectMapper,
         private val chain: Chain,
-        val targets: EthereumTargets,
-        var upstream: Upstream? = null
+        val targets: CallMethods
 ) {
 
     private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
+    var upstream: Upstream? = null
 
     private val timeout = Duration.ofSeconds(5)
     private val log = LoggerFactory.getLogger(EthereumApi::class.java)

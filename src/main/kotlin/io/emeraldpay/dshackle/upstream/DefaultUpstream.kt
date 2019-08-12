@@ -5,13 +5,13 @@ import reactor.core.publisher.TopicProcessor
 import java.util.concurrent.atomic.AtomicReference
 
 abstract class DefaultUpstream(
-        lag: Long,
-        avail: UpstreamAvailability
+        defaultLag: Long,
+        defaultAvail: UpstreamAvailability
 ) : Upstream {
 
     constructor() : this(Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE)
 
-    private val status = AtomicReference(Status(lag, avail, statusByLag(lag, avail)))
+    private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
 
     override fun getStatus(): UpstreamAvailability {

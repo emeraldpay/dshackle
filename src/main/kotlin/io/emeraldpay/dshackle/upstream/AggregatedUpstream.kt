@@ -7,8 +7,8 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Predicate
 
-abstract class AggregatedUpstreams(
-        val targets: EthereumTargets
+abstract class AggregatedUpstream(
+        val targets: CallMethods
 ): Upstream {
 
     abstract fun getAll(): List<Upstream>

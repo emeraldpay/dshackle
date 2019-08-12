@@ -10,7 +10,7 @@ class FilteringApiIteratorSpec extends Specification {
 
     def rpcClient = new DefaultRpcClient(null)
     def objectMapper = TestingCommons.objectMapper()
-    def ethereumTargets = new EthereumTargets(objectMapper, Chain.ETHEREUM)
+    def ethereumTargets = new QuorumBasedMethods(objectMapper, Chain.ETHEREUM)
 
     def "Verifies labels"() {
         setup:
@@ -23,7 +23,7 @@ class FilteringApiIteratorSpec extends Specification {
         ].collect {
             new EthereumUpstream(
                     Chain.ETHEREUM,
-                    new EthereumApi(rpcClient, objectMapper, Chain.ETHEREUM, ethereumTargets, null),
+                    new EthereumApi(rpcClient, objectMapper, Chain.ETHEREUM, ethereumTargets),
                     (EthereumWs) null,
                     new UpstreamsConfig.Options(),
                     new NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels.fromMap(it)),

@@ -6,10 +6,10 @@ import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcException
 import java.util.*
 
-class EthereumTargets(
+class QuorumBasedMethods(
         private val objectMapper: ObjectMapper,
         private val chain: Chain
-) {
+) : CallMethods {
 
     private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
 
@@ -61,7 +61,7 @@ class EthereumTargets(
             "eth_accounts"
     )
 
-    open fun getQuorumFor(method: String): CallQuorum {
+    override fun getQuorumFor(method: String): CallQuorum {
         return when {
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(6)
@@ -78,14 +78,14 @@ class EthereumTargets(
         }
     }
 
-    fun isAllowed(method: String): Boolean {
+    override fun isAllowed(method: String): Boolean {
         return allowedMethods.contains(method)
     }
-    fun isHardcoded(method: String): Boolean {
+    override fun isHardcoded(method: String): Boolean {
         return hardcodedMethods.contains(method)
     }
 
-    fun hardcoded(method: String): Any {
+    override fun hardcoded(method: String): Any {
         if ("net_version" == method) {
             if (Chain.ETHEREUM == chain) {
                 return "1"
@@ -131,7 +131,7 @@ class EthereumTargets(
         throw RpcException(-32601, "Method not found")
     }
 
-    fun getSupportedMethods(): Set<String> {
+    override fun getSupportedMethods(): Set<String> {
         return allowedMethods.plus(hardcodedMethods).toSortedSet()
     }
 }

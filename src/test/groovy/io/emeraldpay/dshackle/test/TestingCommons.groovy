@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.emeraldpay.dshackle.upstream.EthereumApi
+import io.emeraldpay.dshackle.upstream.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.Batch
@@ -32,11 +34,15 @@ class TestingCommons {
         return objectMapper
     }
 
-    static EthereumApiMock api(RpcClient rpcClient, Upstream upstream) {
-        return new EthereumApiMock(rpcClient, objectMapper(), Chain.ETHEREUM, upstream)
+    static EthereumApiMock api(RpcClient rpcClient) {
+        return new EthereumApiMock(rpcClient, objectMapper(), Chain.ETHEREUM)
     }
 
     static JacksonRpcConverter rpcConverter() {
         return new JacksonRpcConverter(objectMapper())
+    }
+
+    static EthereumUpstreamMock upstream(EthereumApi api) {
+        return new EthereumUpstreamMock(Chain.ETHEREUM, api)
     }
 }

@@ -9,8 +9,8 @@ import java.time.Duration
 class ChainUpstreams (
         val chain: Chain,
         private val upstreams: MutableList<Upstream>,
-        targets: EthereumTargets
-) : AggregatedUpstreams(targets) {
+        targets: CallMethods
+) : AggregatedUpstream(targets) {
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0

@@ -2,7 +2,6 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.upstream.AvailableChains
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
@@ -30,7 +29,6 @@ import javax.annotation.PostConstruct
 @Service
 class TrackAddress(
         @Autowired private val upstreams: Upstreams,
-        @Autowired private val availableChains: AvailableChains,
         @Autowired private val upstreamScheduler: Scheduler
 ) {
 
@@ -40,7 +38,7 @@ class TrackAddress(
 
     @PostConstruct
     fun init() {
-        availableChains.observe().subscribe { chain ->
+        upstreams.observeChains().subscribe { chain ->
             if (!clients.containsKey(chain)) {
                 clients[chain] = ConcurrentLinkedQueue()
                 upstreams.getUpstream(chain)?.getHead()?.let { head ->
@@ -53,7 +51,7 @@ class TrackAddress(
     @Scheduled(fixedDelay = 120_000)
     fun pingOld() {
         val period = Duration.ofMinutes(15)
-        availableChains.getAll().forEach { chain ->
+        upstreams.getAvailable().forEach { chain ->
             clients[chain]?.let { clients ->
                 clients.toFlux().filter {
                     it.lastPing < Instant.now().minus(period)
@@ -80,7 +78,7 @@ class TrackAddress(
 
     private fun initializeSimple(request: BlockchainOuterClass.BalanceRequest): Flux<SimpleAddress> {
         val chain = Chain.byId(request.asset.chainValue)
-        if (!availableChains.supports(chain)) {
+        if (!upstreams.isAvailable(chain)) {
             return Flux.error(Exception("Unsupported chain ${request.asset.chainValue}"))
         }
         if (request.asset.code?.toLowerCase() != "ether") {

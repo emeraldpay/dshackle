@@ -3,10 +3,10 @@ package io.emeraldpay.dshackle.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.upstream.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.EthereumApi
-import io.emeraldpay.dshackle.upstream.EthereumTargets
+import io.emeraldpay.dshackle.upstream.QuorumBasedMethods
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.rpc.RpcClient
@@ -23,8 +23,8 @@ class EthereumApiMock extends EthereumApi {
     List<PredefinedResponse> predefined = []
     private ObjectMapper objectMapper
 
-    EthereumApiMock(@NotNull RpcClient rpcClient, @NotNull ObjectMapper objectMapper, @NotNull Chain chain, Upstream upstream) {
-        super(rpcClient, objectMapper, chain, new EthereumTargets(objectMapper, chain), upstream)
+    EthereumApiMock(@NotNull RpcClient rpcClient, @NotNull ObjectMapper objectMapper, @NotNull Chain chain) {
+        super(rpcClient, objectMapper, chain, new DirectCallMethods())
         this.objectMapper = objectMapper
     }
 

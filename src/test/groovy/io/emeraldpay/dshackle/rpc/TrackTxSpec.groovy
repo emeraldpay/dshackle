@@ -4,9 +4,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.AggregatedUpstreams
-import io.emeraldpay.dshackle.upstream.AvailableChains
-import io.emeraldpay.dshackle.upstream.EthereumHead
+import io.emeraldpay.dshackle.test.UpstreamsMock
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
@@ -15,7 +13,6 @@ import io.infinitape.etherjar.rpc.RpcClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
 import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -25,23 +22,9 @@ import java.time.Instant
 
 class TrackTxSpec extends Specification {
 
-    AvailableChains availableChains = new AvailableChains(TestingCommons.objectMapper())
-    Upstreams upstreams
-    TrackTx trackTx
-
     def chain = Common.ChainRef.CHAIN_ETHEREUM
     def txId = "0xba61ce4672751fd6086a9ac2b55547a5555af17535b6c0334ede2ecb6d64070a"
 
-    def setup() {
-        upstreams = Mock(Upstreams)
-        trackTx = new TrackTx(upstreams, availableChains, Schedulers.immediate())
-    }
-
-    def startTrackTxService() {
-        trackTx.init()
-        availableChains.add(Chain.ETHEREUM)
-        availableChains.add(Chain.TESTNET_KOVAN)
-    }
 
     def "Gives details for an old transaction"() {
         setup:
@@ -89,21 +72,15 @@ class TrackTxSpec extends Specification {
                         .setTimestamp(blockJson.timestamp.getTime())
             ).build()
 
+        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        trackTx.init()
 
-        def upstreamMock = Mock(AggregatedUpstreams)
-        def blocksBus = TopicProcessor.create()
-        def headMock = Mock(EthereumHead)
-
-        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
         apiMock.answer("eth_getBlockByHash", [blockJson.hash.toHex(), false], blockJson)
-
-        _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi(_) >> apiMock
-        _ * upstreamMock.getHead() >> headMock
-        _ * headMock.getFlux() >> blocksBus
-        _ * headMock.getHead() >> Mono.just(blockHeadJson)
-        startTrackTxService()
+        upstreamMock.nextBlock(blockHeadJson)
 
         when:
         def flux = trackTx.add(Mono.just(req))
@@ -127,13 +104,13 @@ class TrackTxSpec extends Specification {
                 .setMined(false)
                 .build()
 
-        def upstreamMock = Mock(AggregatedUpstreams)
-        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
-        apiMock.answer("eth_getTransactionByHash", [txId], null)
+        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        trackTx.init()
 
-        _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi(_) >> apiMock
-        startTrackTxService()
+        apiMock.answer("eth_getTransactionByHash", [txId], null)
 
         when:
         def act = StepVerifier.withVirtualTime {
@@ -184,14 +161,14 @@ class TrackTxSpec extends Specification {
             it
         }
 
-        def upstreamMock = Mock(AggregatedUpstreams)
-        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
+        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        trackTx.init()
+
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
-
-        _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi(_) >> apiMock
-        startTrackTxService()
 
         when:
         def act = StepVerifier.withVirtualTime {
@@ -283,11 +260,12 @@ class TrackTxSpec extends Specification {
                 )
 
 
-        def upstreamMock = Mock(AggregatedUpstreams)
-        def blocksBus = TopicProcessor.create()
-        def headMock = Mock(EthereumHead)
+        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        trackTx.init()
 
-        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
         apiMock.answerOnce("eth_getTransactionByHash", [txId], txJsonBroadcasted)
         apiMock.answer("eth_getTransactionByHash", [txId], txJsonMined)
@@ -295,20 +273,10 @@ class TrackTxSpec extends Specification {
             apiMock.answer("eth_getBlockByHash", [block.hash.toHex(), false], block)
         }
 
-        def headBlock = blocks[0]
-
-        _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi(_) >> apiMock
-        _ * upstreamMock.getHead() >> headMock
-        _ * headMock.getFlux() >> blocksBus
-        _ * headMock.getHead() >> { return Mono.just(headBlock) }
-        startTrackTxService()
-
         def nextBlock = { int i ->
             return {
                 println("block $i");
-                headBlock = blocks[i];
-                blocksBus.onNext(blocks[i])
+                upstreamMock.nextBlock(blocks[i])
             } as Runnable
         }
 
@@ -333,7 +301,11 @@ class TrackTxSpec extends Specification {
 
     def "Tracked after first load"() {
         setup:
-        startTrackTxService()
+        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        trackTx.init()
 
         def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
                 .setChain(chain)
@@ -350,7 +322,12 @@ class TrackTxSpec extends Specification {
 
     def "Update of last notified keeps everything else"() {
         setup:
-        startTrackTxService()
+        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        trackTx.init()
+
         def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
                 .setChain(chain)
                 .setConfirmationLimit(6)

@@ -2,11 +2,8 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.test.EthereumApiMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.AggregatedUpstreams
-import io.emeraldpay.dshackle.upstream.AvailableChains
-import io.emeraldpay.dshackle.upstream.EthereumHead
+import io.emeraldpay.dshackle.test.UpstreamsMock
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
@@ -23,10 +20,6 @@ import java.time.Duration
 
 class TrackAddressSpec extends Specification {
 
-    AvailableChains availableChains
-    Upstreams upstreams
-    TrackAddress trackAddress
-
     def chain = Common.ChainRef.CHAIN_ETHEREUM
     def address1 = "0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f"
     def address1Proto = Common.SingleAddress.newBuilder()
@@ -35,18 +28,6 @@ class TrackAddressSpec extends Specification {
             .setChain(chain)
             .setCode("ETHER")
 
-
-    def setup() {
-        availableChains = new AvailableChains(TestingCommons.objectMapper())
-        upstreams = Mock(Upstreams)
-        trackAddress = new TrackAddress(upstreams, availableChains, Schedulers.immediate())
-    }
-
-    def start() {
-        trackAddress.init()
-        availableChains.add(Chain.ETHEREUM)
-        availableChains.add(Chain.TESTNET_KOVAN)
-    }
 
     def "get balance"() {
         setup:
@@ -60,12 +41,13 @@ class TrackAddressSpec extends Specification {
             .setBalance("1234567890")
             .build()
 
-        def upstreamMock = Mock(AggregatedUpstreams)
-        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
+        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackAddress trackAddress = new TrackAddress(upstreams, Schedulers.immediate())
+        trackAddress.init()
+
         apiMock.answer("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
-        _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi(_) >> apiMock
-        start()
         when:
         def flux = trackAddress.getBalance(Mono.just(req))
         then:
@@ -101,16 +83,14 @@ class TrackAddressSpec extends Specification {
         }
 
         def blocksBus = TopicProcessor.create()
-        def upstreamMock = Mock(AggregatedUpstreams)
-        def headMock = Mock(EthereumHead)
-        def apiMock = TestingCommons.api(Stub(RpcClient), upstreamMock)
+        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackAddress trackAddress = new TrackAddress(upstreams, Schedulers.immediate())
+        trackAddress.init()
+
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0xff98")
-        _ * upstreams.getUpstream(Chain.ETHEREUM) >> upstreamMock
-        _ * upstreamMock.getApi(_) >> apiMock
-        _ * upstreamMock.getHead() >> headMock
-        _ * headMock.getFlux() >> blocksBus
-        start()
         when:
         def flux = trackAddress.subscribe(Mono.just(req))
         then:
@@ -120,7 +100,7 @@ class TrackAddressSpec extends Specification {
                     assert trackAddress.isTracked(Chain.ETHEREUM, Address.from(address1))
                 }
                 .then {
-                    blocksBus.onNext(block2)
+                    upstreamMock.nextBlock(block2)
                 }
                 .expectNext(exp2)
                 .thenCancel()

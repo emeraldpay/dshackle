@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
+import reactor.core.publisher.Flux
+import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
 import java.io.File
 import java.net.URI
@@ -23,12 +25,13 @@ import kotlin.collections.HashMap
 @Repository
 open class ConfiguredUpstreams(
         @Autowired val env: Environment,
-        @Autowired private val objectMapper: ObjectMapper,
-        @Autowired private val availableChains: AvailableChains
+        @Autowired private val objectMapper: ObjectMapper
 ) : Upstreams {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
     private val chainMapping = ConcurrentHashMap<Chain, ChainUpstreams>()
+    private val chainsBus = TopicProcessor.create<Chain>()
+    private val callTargets = HashMap<Chain, QuorumBasedMethods>()
 
     private val chainNames = mapOf(
             "ethereum" to Chain.ETHEREUM,
@@ -108,7 +111,7 @@ open class ConfiguredUpstreams(
                     rpcClient,
                     objectMapper,
                     chain,
-                    availableChains.targetFor(chain)
+                    targetFor(chain)
             )
             urls.add(endpoint.url)
         }
@@ -122,12 +125,7 @@ open class ConfiguredUpstreams(
         }
         if (rpcApi != null) {
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-            getOrCreateUpstream(chain)
-                    .addUpstream(
-                            EthereumUpstream(
-                                    chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels), availableChains.targetFor(chain)
-                            )
-                    )
+            addUpstream(chain, EthereumUpstream(chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels), targetFor(chain)))
         }
     }
 
@@ -139,7 +137,7 @@ open class ConfiguredUpstreams(
                     objectMapper,
                     options,
                     up.auth,
-                    availableChains
+                    this
             )
             log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
             ds.start()
@@ -148,21 +146,24 @@ open class ConfiguredUpstreams(
                     }
                     .subscribe {
                         log.info("Subscribed to $it through gRPC at ${endpoint.host}:${endpoint.port}")
-                        getOrCreateUpstream(it).addUpstream(ds.getOrCreate(it))
+                        addUpstream(it, ds.getOrCreate(it))
                     }
     }
 
-    override fun getUpstream(chain: Chain): AggregatedUpstreams? {
+    override fun getUpstream(chain: Chain): AggregatedUpstream? {
         return chainMapping[chain]
     }
 
-    override fun getOrCreateUpstream(chain: Chain): ChainUpstreams {
+    override fun addUpstream(chain: Chain, up: Upstream): ChainUpstreams {
         val current = chainMapping[chain]
         if (current == null) {
-            availableChains.add(chain)
-            val created = ChainUpstreams(chain, ArrayList<Upstream>(), availableChains.targetFor(chain))
+            val created = ChainUpstreams(chain, ArrayList<Upstream>(), targetFor(chain))
+            created.addUpstream(up)
             chainMapping[chain] = created
+            chainsBus.onNext(chain)
             return created
+        } else {
+            current.addUpstream(up)
         }
         return current
     }
@@ -174,5 +175,25 @@ open class ConfiguredUpstreams(
 
     override fun getAvailable(): List<Chain> {
         return Collections.unmodifiableList(chainMapping.keys.toList())
+    }
+
+    override fun observeChains(): Flux<Chain> {
+        return Flux.merge(
+                Flux.fromIterable(getAvailable()),
+                Flux.from(chainsBus)
+        )
+    }
+
+    override fun targetFor(chain: Chain): CallMethods {
+        var current = callTargets[chain]
+        if (current == null) {
+            current = QuorumBasedMethods(objectMapper, chain)
+            callTargets[chain] = current
+        }
+        return current
+    }
+
+    override fun isAvailable(chain: Chain): Boolean {
+        return chainMapping.containsKey(chain) && callTargets.containsKey(chain)
     }
 }

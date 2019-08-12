@@ -3,8 +3,6 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.upstream.AvailableChains
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamServices
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
@@ -17,16 +15,13 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
-import java.lang.Exception
-import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.annotation.PostConstruct
 import kotlin.collections.HashMap
 
 @Service
 class StreamHead(
-        @Autowired private val upstreams: Upstreams,
-        @Autowired private val availableChains: AvailableChains
+        @Autowired private val upstreams: Upstreams
 ) {
 
     private val log = LoggerFactory.getLogger(StreamHead::class.java)
@@ -34,14 +29,17 @@ class StreamHead(
 
     @PostConstruct
     fun init() {
-        availableChains.observe().subscribe { chain ->
+        upstreams.observeChains().subscribe { chain ->
+            if (clients.containsKey(chain)) {
+                return@subscribe
+            }
             clients[chain] = ConcurrentLinkedQueue()
             subscribe(chain)
         }
     }
 
     private fun subscribe(chain: Chain) {
-        upstreams.getUpstream(chain)?.let { up ->
+        upstreams.getUpstream(chain)!!.let { up ->
             up.getHead()
                 .getFlux()
                 .doOnComplete {
