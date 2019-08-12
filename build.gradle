@@ -120,18 +120,19 @@ application {
     mainClassName = 'io.emeraldpay.dshackle.StarterKt'
 }
 
-ext {
-    dockerTags = [project.version].with (true) {
-        add "t"+ DateTimeFormatter.ofPattern("yyyyMMddHHmm").withZone(ZoneId.of('UTC')).format(Instant.now())
-    }
-}
-
 jib {
     from {
     }
     to {
         image = 'emeraldpay/dshackle:snapshot'
-        tags = dockerTags
+        tags = [project.version].with (true) {
+            add "t"+ DateTimeFormatter.ofPattern("yyyyMMddHHmm").withZone(ZoneId.of('UTC')).format(Instant.now())
+            // execute with -Platest=true
+            // $ gradle jib -Platest=true
+            if (project.hasProperty('latest') && project.property('latest') == 'true') {
+                add "latest"
+            }
+        }
     }
     container {
         jvmFlags = [
