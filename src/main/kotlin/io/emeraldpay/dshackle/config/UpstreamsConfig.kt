@@ -11,9 +11,6 @@ class UpstreamsConfig {
     var upstreams: MutableList<Upstream<*>> = ArrayList<Upstream<*>>()
 
     open class Options {
-        @Deprecated("remove it")
-        var quorum: Int = 1
-        var disableSyncing: Boolean? = null
         var disableValidation: Boolean? = null
 
         var minPeers: Int? = 1
@@ -29,7 +26,6 @@ class UpstreamsConfig {
                 return this
             }
             val copy = Options()
-            copy.disableSyncing = if (this.disableSyncing != null) this.disableSyncing else additional.disableSyncing
             copy.minPeers = if (this.minPeers != null) this.minPeers else additional.minPeers
             copy.disableValidation = if (this.disableValidation != null) this.disableValidation else additional.disableValidation
             return copy
@@ -38,7 +34,6 @@ class UpstreamsConfig {
         companion object {
             fun getDefaults(): Options {
                 val options = Options()
-                options.disableSyncing = true
                 options.minPeers = 1
                 options.disableValidation = false
                 return options

@@ -4,7 +4,6 @@ defaultOptions:
   - chains:
       - ethereum
     options:
-      disable-syncing: true
       min-peers: 3
 
 upstreams:

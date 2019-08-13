@@ -128,9 +128,6 @@ class UpstreamsConfigReader {
 
     internal fun readOptions(values: MappingNode): UpstreamsConfig.Options {
         val options = UpstreamsConfig.Options()
-        getValueAsBool(values, "disable-syncing")?.let {
-            options.disableSyncing = it
-        }
         getValueAsInt(values, "min-peers")?.let {
             options.minPeers = it
         }

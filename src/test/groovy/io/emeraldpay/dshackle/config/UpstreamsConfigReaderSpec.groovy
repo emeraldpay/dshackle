@@ -19,7 +19,6 @@ class UpstreamsConfigReaderSpec extends Specification {
             with(get(0)) {
                 chains == ["ethereum"]
                 options.minPeers == 3
-                options.disableSyncing
             }
         }
         act.upstreams.size() == 2
