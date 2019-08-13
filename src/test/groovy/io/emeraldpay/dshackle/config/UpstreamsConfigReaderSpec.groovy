@@ -96,6 +96,22 @@ class UpstreamsConfigReaderSpec extends Specification {
         }
     }
 
+    def "Parse config with options"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-options.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 2
+        with(act.upstreams.get(0)) {
+            options.minPeers == 7
+        }
+        with(act.upstreams.get(1)) {
+            options.disableValidation == true
+        }
+    }
+
     def "Post process for usual strings"() {
         expect:
         s == reader.postProcess(s)

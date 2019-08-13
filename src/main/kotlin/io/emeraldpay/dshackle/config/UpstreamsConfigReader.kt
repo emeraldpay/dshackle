@@ -29,15 +29,8 @@ class UpstreamsConfigReader {
             val defaultOptions = UpstreamsConfig.DefaultOptions()
             config.defaultOptions.add(defaultOptions)
             defaultOptions.chains = getListOfString(opts, "chains")
-            val options = UpstreamsConfig.Options()
-            defaultOptions.options = options
             getMapping(opts, "options")?.let { values ->
-                getValueAsBool(values, "disable-syncing")?.let {
-                    options.disableSyncing = it
-                }
-                getValueAsInt(values, "min-peers")?.let {
-                    options.minPeers = it
-                }
+                defaultOptions.options = readOptions(values)
             }
         }
 
@@ -95,6 +88,7 @@ class UpstreamsConfigReader {
 
     internal fun readUpstreamCommon(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
         upstream.id = getValueAsString(upNode, "id")
+        upstream.options = tryReadOptions(upNode)
     }
 
     internal fun readUpstreamGrpc(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>) {
@@ -120,6 +114,30 @@ class UpstreamsConfigReader {
                         }
             }
         }
+    }
+
+    internal fun tryReadOptions(upNode: MappingNode): UpstreamsConfig.Options? {
+        return if (hasAny(upNode, "options")) {
+            return getMapping(upNode, "options")?.let { values ->
+                readOptions(values)
+            }
+        } else {
+            null
+        }
+    }
+
+    internal fun readOptions(values: MappingNode): UpstreamsConfig.Options {
+        val options = UpstreamsConfig.Options()
+        getValueAsBool(values, "disable-syncing")?.let {
+            options.disableSyncing = it
+        }
+        getValueAsInt(values, "min-peers")?.let {
+            options.minPeers = it
+        }
+        getValueAsBool(values, "disable-validation")?.let {
+            options.disableValidation = it
+        }
+        return options
     }
 
     private fun readAuth(authNode: MappingNode?): UpstreamsConfig.Auth? {

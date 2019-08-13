@@ -47,13 +47,17 @@ open class ConfiguredUpstreams(
         val config = readConfig()
         val defaultOptions = buildDefaultOptions(config)
         config.upstreams.forEach { up ->
-            val options = (up.options ?: UpstreamsConfig.Options())
-                    .merge(UpstreamsConfig.Options.getDefaults())
 
             if (up.connection is UpstreamsConfig.GrpcConnection) {
-                buildGrpcUpstream(up.connection as UpstreamsConfig.GrpcConnection, options)
+                buildGrpcUpstream(up.connection as UpstreamsConfig.GrpcConnection)
             } else {
-                val chain = chainNames[up.chain] ?: return
+                val chain = chainNames[up.chain]
+                if (chain == null) {
+                    log.error("Chain not supported: ${up.chain}")
+                    return@forEach
+                }
+                val options = (up.options ?: UpstreamsConfig.Options())
+                        .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
                 buildEthereumUpstream(up.connection as UpstreamsConfig.EthereumConnection, chain, options, up.labels)
             }
         }
@@ -78,18 +82,21 @@ open class ConfiguredUpstreams(
 
     private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.Options> {
         val defaultOptions = HashMap<Chain, UpstreamsConfig.Options>()
-        config.defaultOptions.forEach { df ->
-            df.chains?.forEach { chainName ->
+        config.defaultOptions.forEach { defaultsConfig ->
+            defaultsConfig.chains?.forEach { chainName ->
                 chainNames[chainName]?.let { chain ->
-                    var current = defaultOptions[chain]
-                    if (current == null) {
-                        current = df.options
-                    } else {
-                        current = current.merge(df.options)
+                    defaultsConfig.options?.let { options ->
+                        if (!defaultOptions.containsKey(chain)) {
+                            defaultOptions[chain] = options
+                        } else {
+                            defaultOptions[chain] = defaultOptions[chain]!!.merge(options)
+                        }
                     }
-                    defaultOptions[chain] = current!!
                 }
             }
+        }
+        defaultOptions.keys.forEach { chain ->
+            defaultOptions[chain] = defaultOptions[chain]!!.merge(UpstreamsConfig.Options.getDefaults())
         }
         return defaultOptions
     }
@@ -129,13 +136,12 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildGrpcUpstream(up: UpstreamsConfig.GrpcConnection, options: UpstreamsConfig.Options) {
+    private fun buildGrpcUpstream(up: UpstreamsConfig.GrpcConnection) {
         val endpoint = up
             val ds = GrpcUpstreams(
                     endpoint.host!!,
                     endpoint.port ?: 443,
                     objectMapper,
-                    options,
                     up.auth,
                     this
             )

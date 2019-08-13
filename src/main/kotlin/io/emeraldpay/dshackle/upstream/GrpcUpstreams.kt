@@ -20,7 +20,6 @@ class GrpcUpstreams(
         private val host: String,
         private val port: Int,
         private val objectMapper: ObjectMapper,
-        private val options: UpstreamsConfig.Options,
         private val auth: UpstreamsConfig.TlsAuth? = null,
         private val upstreams: Upstreams
 ) {
@@ -92,7 +91,7 @@ class GrpcUpstreams(
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val created = GrpcUpstream(chain, client!!, objectMapper, options, upstreams.targetFor(chain))
+                val created = GrpcUpstream(chain, client!!, objectMapper, upstreams.targetFor(chain))
                 known[chain] = created
                 upstreams.addUpstream(chain, created)
                 created.connect()

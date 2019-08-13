@@ -27,15 +27,13 @@ open class GrpcUpstream(
         private val chain: Chain,
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
-        private val options: UpstreamsConfig.Options,
         private val targets: CallMethods
 ): DefaultUpstream() {
 
-    constructor(chain: Chain, client: ReactorBlockchainGrpc.ReactorBlockchainStub, objectMapper: ObjectMapper, targets: CallMethods)
-            : this(chain, client, objectMapper, UpstreamsConfig.Options.getDefaults(), targets)
 
     private val log = LoggerFactory.getLogger(GrpcUpstream::class.java)
 
+    private val options = UpstreamsConfig.Options.getDefaults()
     private val headBlock = AtomicReference<BlockJson<TransactionId>>(null)
     private val streamBlocks: TopicProcessor<BlockJson<TransactionId>> = TopicProcessor.create()
     private val status = AtomicReference<UpstreamAvailability>(UpstreamAvailability.UNAVAILABLE)

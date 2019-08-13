@@ -23,16 +23,20 @@ open class EthereumUpstream(
 
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
 
-    private val head: EthereumHead = createHead()
-
-    private val validator = UpstreamValidator(this, options)
+    private val head: EthereumHead = this.createHead()
 
     init {
         log.info("Configured for ${chain.chainName}")
         api.upstream = this
 
-        validator.start()
-                .subscribe(this::setStatus)
+        if (options.disableValidation != null && options.disableValidation!!) {
+            this.setLag(0)
+            this.setStatus(UpstreamAvailability.OK)
+        } else {
+            val validator = UpstreamValidator(this, options)
+            validator.start()
+                    .subscribe(this::setStatus)
+        }
     }
 
     open fun createHead(): EthereumHead {
