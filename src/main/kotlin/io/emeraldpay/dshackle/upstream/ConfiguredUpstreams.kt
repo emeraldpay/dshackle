@@ -132,7 +132,9 @@ open class ConfiguredUpstreams(
         }
         if (rpcApi != null) {
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-            addUpstream(chain, EthereumUpstream(chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels), targetFor(chain)))
+            val ethereumUpstream = EthereumUpstream(chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels), targetFor(chain))
+            ethereumUpstream.start()
+            addUpstream(chain, ethereumUpstream)
         }
     }
 
@@ -165,6 +167,7 @@ open class ConfiguredUpstreams(
         if (current == null) {
             val created = ChainUpstreams(chain, ArrayList<Upstream>(), targetFor(chain))
             created.addUpstream(up)
+            created.start()
             chainMapping[chain] = created
             chainsBus.onNext(chain)
             return created

@@ -94,7 +94,7 @@ class GrpcUpstreams(
                 val created = GrpcUpstream(chain, client!!, objectMapper, upstreams.targetFor(chain))
                 known[chain] = created
                 upstreams.addUpstream(chain, created)
-                created.connect()
+                created.start()
                 created
             } else {
                 current

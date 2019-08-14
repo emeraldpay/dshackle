@@ -12,6 +12,8 @@ import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.slf4j.LoggerFactory
+import org.springframework.context.Lifecycle
+import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
@@ -28,20 +30,19 @@ open class GrpcUpstream(
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
         private val targets: CallMethods
-): DefaultUpstream() {
-
+): DefaultUpstream(), Lifecycle {
 
     private val log = LoggerFactory.getLogger(GrpcUpstream::class.java)
 
     private val options = UpstreamsConfig.Options.getDefaults()
     private val headBlock = AtomicReference<BlockJson<TransactionId>>(null)
     private val streamBlocks: TopicProcessor<BlockJson<TransactionId>> = TopicProcessor.create()
-    private val status = AtomicReference<UpstreamAvailability>(UpstreamAvailability.UNAVAILABLE)
     private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
     private val head = Head(this)
-    private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
     private val supportedMethods = HashSet<String>()
     private val grpcTransport = EthereumGrpcTransport(chain, client, objectMapper)
+
+    private var headSubscription: Disposable? = null
 
     open fun createApi(matcher: Selector.Matcher): EthereumApi {
         val rpcClient = DefaultRpcClient(grpcTransport.withMatcher(matcher))
@@ -51,7 +52,7 @@ open class GrpcUpstream(
         }
     }
 
-    open fun connect() {
+    override fun start() {
         val chainRef = Common.Chain.newBuilder()
                 .setTypeValue(chain.id)
                 .build()
@@ -64,11 +65,22 @@ open class GrpcUpstream(
 
         val flux = client.subscribeHead(chainRef)
                 .compose(GrpcRetry.ManyToMany.retryAfter(retry, Duration.ofSeconds(5)))
-        subscribe(flux)
+        observeHead(flux)
     }
 
-    internal fun subscribe(flux: Flux<BlockchainOuterClass.ChainHead>) {
-        flux.map { value ->
+    override fun isRunning(): Boolean {
+        return headSubscription != null
+    }
+
+
+    override fun stop() {
+        headSubscription?.dispose()
+        headSubscription = null
+    }
+
+
+    internal fun observeHead(flux: Flux<BlockchainOuterClass.ChainHead>) {
+        headSubscription = flux.map { value ->
                     val block = BlockJson<TransactionId>()
                     block.number = value.height
                     block.totalDifficulty = BigInteger(1, value.weight.toByteArray())

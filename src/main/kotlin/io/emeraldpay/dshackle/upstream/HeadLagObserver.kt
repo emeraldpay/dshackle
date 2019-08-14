@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.slf4j.LoggerFactory
+import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.toFlux
@@ -14,14 +15,23 @@ import java.time.Duration
 class HeadLagObserver (
         private val master: EthereumHead,
         private val followers: Collection<Upstream>
-): Closeable {
+): Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
 
     private var current: Disposable? = null
 
-    fun start() {
+    override fun start() {
         current = subscription().subscribe { }
+    }
+
+    override fun isRunning(): Boolean {
+        return current != null
+    }
+
+    override fun stop() {
+        current?.dispose()
+        current = null
     }
 
     private fun subscription(): Flux<Unit> {
@@ -67,11 +77,6 @@ class HeadLagObserver (
     fun forkDistance(top: BlockJson<TransactionId>, curr: BlockJson<TransactionId>): Long {
         //TODO look for common ancestor? though it may be a corruption
         return 6
-    }
-
-    override fun close() {
-        current?.dispose()
-        current = null
     }
 
 }

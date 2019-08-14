@@ -2,6 +2,8 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
+import org.springframework.context.Lifecycle
+import reactor.core.Disposable
 import java.io.Closeable
 import java.lang.IllegalStateException
 import java.time.Duration
@@ -10,26 +12,47 @@ class ChainUpstreams (
         val chain: Chain,
         private val upstreams: MutableList<Upstream>,
         targets: CallMethods
-) : AggregatedUpstream(targets) {
+) : AggregatedUpstream(targets), Lifecycle {
+
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
     private var head: EthereumHead?
     private var lagObserver: HeadLagObserver? = null
+    private var subscription: Disposable? = null
 
     init {
         head = updateHead()
-        observeStatus()
+    }
+
+    override fun isRunning(): Boolean {
+        return subscription != null
+    }
+
+    override fun start() {
+        subscription = observeStatus()
                 .distinctUntilChanged()
                 .subscribe { printStatus() }
     }
 
-    internal fun updateHead(): EthereumHead {
-        val current = head
-        if (current != null && Closeable::class.java.isAssignableFrom(current.javaClass)) {
-            (current as Closeable).close()
+    override fun stop() {
+        subscription?.dispose()
+        subscription = null
+        head?.let {
+            if (it is Lifecycle) {
+                it.stop()
+            }
         }
-        lagObserver?.close()
+        lagObserver?.stop()
+    }
+
+    internal fun updateHead(): EthereumHead {
+        head?.let {
+            if (it is Lifecycle) {
+                it.stop()
+            }
+        }
+        lagObserver?.stop()
         lagObserver = null
         return if (upstreams.size == 1) {
             val upstream = upstreams.first()
@@ -37,6 +60,7 @@ class ChainUpstreams (
             upstream.getHead()
         } else {
             val newHead = EthereumHeadMerge(upstreams.map { it.getHead() })
+            newHead.start()
             val lagObserver = HeadLagObserver(newHead, upstreams)
             lagObserver.start()
             this.lagObserver = lagObserver

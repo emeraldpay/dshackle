@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.slf4j.LoggerFactory
+import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -10,13 +11,13 @@ import java.io.Closeable
 import java.util.concurrent.atomic.AtomicReference
 
 class EthereumHeadMerge(
-        private val upstreams: List<EthereumHead>
-): EthereumHead, Closeable {
+        upstreams: List<EthereumHead>
+): EthereumHead, Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumHeadMerge::class.java)
     private val flux: Flux<BlockJson<TransactionId>>
     private val head = AtomicReference<BlockJson<TransactionId>>(null)
-    private val subscription: Disposable
+    private var subscription: Disposable? = null
 
     init {
         val fluxes = upstreams.map { it.getFlux() }
@@ -30,12 +31,18 @@ class EthereumHeadMerge(
                 }
                 .publish()
                 .autoConnect()
+    }
 
+    override fun isRunning(): Boolean {
+        return subscription != null
+    }
 
+    override fun start() {
         subscription = Flux.from(flux).subscribe {
             head.set(it)
         }
     }
+
 
     override fun getHead(): Mono<BlockJson<TransactionId>> {
         val curr = head.get()
@@ -50,10 +57,8 @@ class EthereumHeadMerge(
                 .onBackpressureLatest()
     }
 
-    override fun close() {
-        if (!subscription.isDisposed) {
-            subscription.dispose()
-        }
+    override fun stop() {
+        subscription?.dispose()
     }
 
 }

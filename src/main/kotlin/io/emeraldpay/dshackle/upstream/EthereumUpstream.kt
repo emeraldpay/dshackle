@@ -3,6 +3,9 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
+import org.springframework.context.Lifecycle
+import reactor.core.Disposable
+import java.io.Closeable
 
 open class EthereumUpstream(
         val chain: Chain,
@@ -11,7 +14,7 @@ open class EthereumUpstream(
         private val options: UpstreamsConfig.Options,
         val node: NodeDetailsList.NodeDetails,
         private val targets: CallMethods
-): DefaultUpstream() {
+): DefaultUpstream(), Lifecycle {
 
     constructor(chain: Chain, api: EthereumApi): this(chain, api, null,
             UpstreamsConfig.Options.getDefaults(), NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels()),
@@ -24,19 +27,32 @@ open class EthereumUpstream(
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
 
     private val head: EthereumHead = this.createHead()
+    private var validatorSubscription: Disposable? = null
 
     init {
-        log.info("Configured for ${chain.chainName}")
         api.upstream = this
+    }
+
+    override fun start() {
+        log.info("Configured for ${chain.chainName}")
 
         if (options.disableValidation != null && options.disableValidation!!) {
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)
         } else {
             val validator = UpstreamValidator(this, options)
-            validator.start()
+            validatorSubscription = validator.start()
                     .subscribe(this::setStatus)
         }
+    }
+
+    override fun isRunning(): Boolean {
+        return true
+    }
+
+    override fun stop() {
+        validatorSubscription?.dispose()
+        validatorSubscription = null
     }
 
     open fun createHead(): EthereumHead {

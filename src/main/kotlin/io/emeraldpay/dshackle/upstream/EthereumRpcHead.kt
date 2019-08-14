@@ -5,6 +5,8 @@ import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.slf4j.LoggerFactory
+import org.springframework.context.Lifecycle
+import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
@@ -13,15 +15,16 @@ import java.util.concurrent.atomic.AtomicReference
 
 class EthereumRpcHead(
     private val api: EthereumApi
-): EthereumHead {
+): EthereumHead, Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumRpcHead::class.java)
 
     private val head = AtomicReference<BlockJson<TransactionId>>(null)
     private val stream: TopicProcessor<BlockJson<TransactionId>> = TopicProcessor.create()
+    private var refreshSubscription: Disposable? = null
 
-    fun start() {
-        Flux.interval(Duration.ofSeconds(7))
+    override fun start() {
+        refreshSubscription = Flux.interval(Duration.ofSeconds(7))
                 .flatMap {
                     val batch = Batch()
                     val f = batch.add(Commands.eth().blockNumber)
@@ -47,6 +50,16 @@ class EthereumRpcHead(
                     stream.onNext(block)
                 }
     }
+
+    override fun isRunning(): Boolean {
+        return refreshSubscription != null
+    }
+
+    override fun stop() {
+        refreshSubscription?.dispose()
+        refreshSubscription = null
+    }
+
 
     override fun getHead(): Mono<BlockJson<TransactionId>> {
         val current = head.get()
