@@ -149,12 +149,9 @@ open class ConfiguredUpstreams(
             )
             log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
             ds.start()
-                    .flatMapMany {
-                        it.toFlux()
-                    }
                     .subscribe {
-                        log.info("Subscribed to $it through gRPC at ${endpoint.host}:${endpoint.port}")
-                        addUpstream(it, ds.getOrCreate(it))
+                        log.info("Subscribed to ${it.t1} through gRPC at ${endpoint.host}:${endpoint.port}")
+                        addUpstream(it.t1, it.t2)
                     }
     }
 

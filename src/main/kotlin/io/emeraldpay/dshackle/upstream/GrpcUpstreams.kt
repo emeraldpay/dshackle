@@ -10,7 +10,11 @@ import io.grpc.netty.NettyChannelBuilder
 import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.toFlux
+import reactor.util.function.Tuple2
+import reactor.util.function.Tuples
 import java.io.File
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
@@ -29,7 +33,7 @@ class GrpcUpstreams(
     private var known = HashMap<Chain, GrpcUpstream>()
     private val lock = ReentrantLock()
 
-    fun start(): Mono<List<Chain>> {
+    fun start(): Flux<Tuple2<Chain, GrpcUpstream>> {
         val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             NettyChannelBuilder.forAddress(host, port)
                     .useTransportSecurity()
@@ -45,17 +49,18 @@ class GrpcUpstreams(
         val loaded = client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
                 .map { value ->
                     val chains = ArrayList<Chain>()
-                    value.chainsList.forEach { chainDetails ->
+                    value.chainsList.filter {
+                        Chain.byId(it.chain.number) != Chain.UNSPECIFIED
+                    }.map { chainDetails ->
                         val chain = Chain.byId(chainDetails.chain.number)
-                        if (chain != Chain.UNSPECIFIED) {
-                            getOrCreate(chain)
-                                    .init(chainDetails)
-                            chains.add(chain)
-                        }
+                        val up = getOrCreate(chain)
+                        up.init(chainDetails)
+                        chains.add(chain)
+                        Tuples.of(chain, up)
                     }
-                    chains as List<Chain>
-                }
-                .doOnError { t ->
+                }.flatMapMany {
+                    it.toFlux()
+                }.doOnError { t ->
                     log.error("Failed to get description from $host:$port", t)
                 }
         //TODO subscribe only after receiving details
@@ -93,7 +98,6 @@ class GrpcUpstreams(
             return if (current == null) {
                 val created = GrpcUpstream(chain, client!!, objectMapper, upstreams.targetFor(chain))
                 known[chain] = created
-                upstreams.addUpstream(chain, created)
                 created.start()
                 created
             } else {
@@ -102,4 +106,7 @@ class GrpcUpstreams(
         }
     }
 
+    fun get(chain: Chain): GrpcUpstream {
+        return known[chain]!!
+    }
 }
