@@ -26,6 +26,7 @@ class UpstreamValidator(
             }
             return UpstreamAvailability.OK
         } catch (e: Throwable) {
+            e.printStackTrace()
             return UpstreamAvailability.UNAVAILABLE
         }
     }

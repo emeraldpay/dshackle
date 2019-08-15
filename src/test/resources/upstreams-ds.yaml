@@ -11,8 +11,7 @@ upstreams:
     connection:
       grpc:
         host: "10.2.0.15"
-        auth:
-          type: tls
+        tls:
           ca: /etc/ca.myservice.com.crt
           certificate: /etc/client1.myservice.com.crt
           key: /etc/client1.myservice.com.key

@@ -39,9 +39,8 @@ class UpstreamsConfigReaderSpec extends Specification {
             connection instanceof UpstreamsConfig.EthereumConnection
             with((UpstreamsConfig.EthereumConnection)connection) {
                 rpc.url == new URI("https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2")
-                rpc.auth != null
-                rpc.auth instanceof UpstreamsConfig.BasicAuth
-                with((UpstreamsConfig.BasicAuth)rpc.auth) {
+                rpc.basicAuth != null
+                with((UpstreamsConfig.BasicAuth)rpc.basicAuth) {
                     username == "4fc258fe41a68149c199ad8f281f2015"
                     password == "1a68f20154fc258fe4149c199ad8f281"
                 }
@@ -65,8 +64,8 @@ class UpstreamsConfigReaderSpec extends Specification {
             connection instanceof UpstreamsConfig.GrpcConnection
             with((UpstreamsConfig.GrpcConnection)connection) {
                 host == "10.2.0.15"
-                auth instanceof UpstreamsConfig.TlsAuth
-                with((UpstreamsConfig.TlsAuth)auth) {
+                auth != null
+                with(auth) {
                     ca == "/etc/ca.myservice.com.crt"
                     certificate == "/etc/client1.myservice.com.crt"
                     key == "/etc/client1.myservice.com.key"

@@ -14,7 +14,6 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.TopicProcessor
-import reactor.core.publisher.toFlux
 import java.io.File
 import java.net.URI
 import java.util.*
@@ -110,8 +109,13 @@ open class ConfiguredUpstreams(
         val urls = ArrayList<URI>()
         up.rpc?.let { endpoint ->
             val rpcTransport = DefaultRpcTransport(endpoint.url)
-            up.auth?.let { auth ->
+            up.rpc?.basicAuth?.let { auth ->
                 rpcTransport.setBasicAuth(auth.username, auth.password)
+            }
+            up.rpc?.tls?.let { tls ->
+                tls.ca?.let { ca ->
+                    File(ca).inputStream().use { cert -> rpcTransport.setTrustedCertificate(cert) }
+                }
             }
             val rpcClient = DefaultRpcClient(rpcTransport)
             rpcApi = EthereumApi(

@@ -49,10 +49,8 @@ class UpstreamsConfigReader {
                     getValueAsString(node, "url")?.let { url ->
                         val http = UpstreamsConfig.HttpEndpoint(URI(url))
                         connection.rpc = http
-                        http.auth = readAuth(getMapping(node, "auth"))
-                    }
-                    readAuth(getMapping(node, "auth"))?.let { auth ->
-                        connection.auth = auth as UpstreamsConfig.BasicAuth
+                        http.basicAuth = readBasicAuth(node)
+                        http.tls = readTls(node)
                     }
                 }
                 getMapping(connConfigNode, "ws")?.let { node ->
@@ -79,7 +77,7 @@ class UpstreamsConfigReader {
                 getValueAsInt(connConfigNode, "port")?.let {
                     connection.port = it
                 }
-                connection.auth = readAuth(getMapping(connConfigNode, "auth")) as UpstreamsConfig.TlsAuth?
+                connection.auth = readTls(connConfigNode)
             }
         }
 
@@ -137,31 +135,26 @@ class UpstreamsConfigReader {
         return options
     }
 
-    private fun readAuth(authNode: MappingNode?): UpstreamsConfig.Auth? {
-        return getValueAsString(authNode, "type")?.let {
-            return when (it) {
-                "tls" -> {
-                    val auth = UpstreamsConfig.TlsAuth()
-                    auth.ca = getValueAsString(authNode, "ca")
-                    auth.certificate = getValueAsString(authNode, "certificate")
-                    auth.key = getValueAsString(authNode, "key")
-                    auth
-                }
-                "basic" -> {
-                    val username = getValueAsString(authNode, "username")
-                    val password = getValueAsString(authNode, "password")
-                    if (username != null && password != null) {
-                        UpstreamsConfig.BasicAuth(username, password)
-                    } else {
-                        log.warn("Basic auth is not fully configured")
-                        null
-                    }
-                }
-                else -> {
-                    log.warn("Invalid Auth type: $it")
-                    null
-                }
+    private fun readBasicAuth(node: MappingNode?): UpstreamsConfig.BasicAuth? {
+        return getMapping(node, "basic-auth")?.let {  authNode ->
+            val username = getValueAsString(authNode, "username")
+            val password = getValueAsString(authNode, "password")
+            if (username != null && password != null) {
+                UpstreamsConfig.BasicAuth(username, password)
+            } else {
+                log.warn("Basic auth is not fully configured")
+                null
             }
+        }
+    }
+
+    private fun readTls(node: MappingNode?): UpstreamsConfig.TlsAuth? {
+        return getMapping(node, "tls")?.let { authNode ->
+            val auth = UpstreamsConfig.TlsAuth()
+            auth.ca = getValueAsString(authNode, "ca")
+            auth.certificate = getValueAsString(authNode, "certificate")
+            auth.key = getValueAsString(authNode, "key")
+            auth
         }
     }
 

@@ -67,11 +67,11 @@ class UpstreamsConfig {
     class EthereumConnection : UpstreamConnection() {
         var rpc: HttpEndpoint? = null
         var ws: WsEndpoint? = null
-        var auth: BasicAuth? = null
     }
 
     class HttpEndpoint(val url: URI) {
-        var auth: Auth? = null
+        var basicAuth: BasicAuth? = null
+        var tls: TlsAuth? = null
     }
 
     class WsEndpoint(val url: URI) {
@@ -87,11 +87,11 @@ class UpstreamsConfig {
             val password: String
     ) : Auth()
 
-    class TlsAuth : Auth() {
-        var ca: String? = null
-        var certificate: String? = null
+    class TlsAuth(
+        var ca: String? = null,
+        var certificate: String? = null,
         var key: String? = null
-    }
+    ) : Auth()
 
     //TODO make it unmodifiable after initial load
     class Labels: HashMap<String, String>() {
