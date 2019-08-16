@@ -31,6 +31,11 @@ class UpstreamsConfigReaderSpec extends Specification {
                 rpc.url == new URI("http://localhost:8545")
                 ws != null
                 ws.url == new URI("ws://localhost:8546")
+                ws.basicAuth != null
+                with(ws.basicAuth) {
+                    username == "9c199ad8f281f20154fc258fe41a6814"
+                    password == "258fe4149c199ad8f2811a68f20154fc"
+                }
             }
         }
         with(act.upstreams.get(1)) {

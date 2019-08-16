@@ -76,6 +76,7 @@ class UpstreamsConfig {
 
     class WsEndpoint(val url: URI) {
         var origin: URI? = null
+        var basicAuth: BasicAuth? = null
     }
 
     open class Auth {

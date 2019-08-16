@@ -38,13 +38,10 @@ open class EthereumApi(
     }
 
     open fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
-        val result: Mono<Any> = if (targets.isHardcoded(method)) {
-            Mono.just(method)
-                    .map { targets.hardcoded(it) }
-        } else if (targets.isAllowed(method)) {
-            callUpstream(method, params)
-        } else {
-            Mono.error(RpcException(-32601, "Method not allowed or not found"))
+        val result: Mono<out Any> = when {
+            targets.isHardcoded(method) -> Mono.just(method).map { targets.hardcoded(it) }
+            targets.isAllowed(method)   -> callUpstream(method, params)
+            else -> Mono.error(RpcException(-32601, "Method not allowed or not found"))
         }
         return result
                 .doOnError { t ->
@@ -72,11 +69,13 @@ open class EthereumApi(
                 }
     }
 
-    private fun callUpstream(method: String, params: List<Any>): Mono<Any> {
-        if (ws != null && method == "eth_blockNumber") {
-            val head = ws!!.getHead()
-            if (head != null) {
-                return Mono.just(HexQuantity.from(head.number).toHex())
+    private fun callUpstream(method: String, params: List<Any>): Mono<out Any> {
+        if (method == "eth_blockNumber") {
+            val current = upstream?.getHead()?.getHead()?.let { head ->
+                head.map { HexQuantity.from(it.number).toHex() }
+            }
+            if (current != null) {
+                return current
             }
         }
         return Mono.fromCompletionStage(

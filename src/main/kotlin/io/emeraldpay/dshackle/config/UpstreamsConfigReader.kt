@@ -60,7 +60,7 @@ class UpstreamsConfigReader {
                         getValueAsString(node, "origin")?.let { origin ->
                             ws.origin = URI(origin)
                         }
-//                    ws.auth = readAuth(getMapping(node, "auth"))
+                        ws.basicAuth = readBasicAuth(node)
                     }
                 }
             } else if (hasAny(connNode, "grpc")) {

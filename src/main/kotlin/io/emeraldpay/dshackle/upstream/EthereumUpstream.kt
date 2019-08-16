@@ -57,7 +57,9 @@ open class EthereumUpstream(
 
     open fun createHead(): EthereumHead {
         return if (ethereumWs != null) {
-            EthereumWsHead(ethereumWs)
+            EthereumWsHead(ethereumWs).apply {
+                this.start()
+            }
         } else {
             EthereumRpcHead(api).apply {
                 this.start()

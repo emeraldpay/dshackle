@@ -105,7 +105,6 @@ open class ConfiguredUpstreams(
                                       options: UpstreamsConfig.Options,
                                       labels: UpstreamsConfig.Labels) {
         var rpcApi: EthereumApi? = null
-        var wsApi: EthereumWs? = null
         val urls = ArrayList<URI>()
         up.rpc?.let { endpoint ->
             val rpcTransport = DefaultRpcTransport(endpoint.url)
@@ -126,15 +125,21 @@ open class ConfiguredUpstreams(
             )
             urls.add(endpoint.url)
         }
-        up.ws?.let { endpoint ->
-            wsApi = EthereumWs(
-                    endpoint.url,
-                    endpoint.origin ?: URI("http://localhost")
-            )
-            wsApi!!.connect()
-            urls.add(endpoint.url)
-        }
         if (rpcApi != null) {
+            val wsApi: EthereumWs? = up.ws?.let { endpoint ->
+                val wsApi = EthereumWs(
+                        endpoint.url,
+                        endpoint.origin ?: URI("http://localhost"),
+                        rpcApi!!
+                )
+                endpoint.basicAuth?.let { auth ->
+                    wsApi.basicAuth = auth
+                }
+                wsApi.connect()
+                urls.add(endpoint.url)
+                wsApi
+            }
+
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
             val ethereumUpstream = EthereumUpstream(chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels), targetFor(chain))
             ethereumUpstream.start()
