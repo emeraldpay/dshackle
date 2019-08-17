@@ -5,7 +5,6 @@ import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
-import java.io.Closeable
 
 open class EthereumUpstream(
         val chain: Chain,
@@ -57,7 +56,17 @@ open class EthereumUpstream(
 
     open fun createHead(): EthereumHead {
         return if (ethereumWs != null) {
-            EthereumWsHead(ethereumWs).apply {
+            // load current block through RPC then listen for following blocks through WS
+            val ws = EthereumWsHead(ethereumWs).apply {
+                this.start()
+            }
+            val rpc = EthereumRpcHead(api).apply {
+                this.start()
+            }
+            val currentHead = rpc.getHead().doFinally {
+                rpc.stop()
+            }
+            EthereumHeadMerge(listOf(currentHead, ws.getFlux())).apply {
                 this.start()
             }
         } else {

@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream
 
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -11,7 +12,7 @@ import java.io.Closeable
 import java.util.concurrent.atomic.AtomicReference
 
 class EthereumHeadMerge(
-        upstreams: List<EthereumHead>
+        fluxes: Iterable<Publisher<BlockJson<TransactionId>>>
 ): EthereumHead, Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumHeadMerge::class.java)
@@ -20,7 +21,6 @@ class EthereumHeadMerge(
     private var subscription: Disposable? = null
 
     init {
-        val fluxes = upstreams.map { it.getFlux() }
         flux = Flux.merge(fluxes)
                 .distinctUntilChanged {
                     it.hash
