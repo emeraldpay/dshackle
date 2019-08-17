@@ -168,16 +168,11 @@ open class GrpcUpstream(
             val upstream: GrpcUpstream
     ): EthereumHead {
 
-        override fun getHead(): Mono<BlockJson<TransactionId>> {
-            val current = upstream.headBlock.get()
-            if (current != null) {
-                return Mono.just(current)
-            }
-            return Mono.from(upstream.streamBlocks)
-        }
-
         override fun getFlux(): Flux<BlockJson<TransactionId>> {
-            return Flux.from(upstream.streamBlocks)
+            return Flux.merge(
+                    Mono.justOrEmpty(upstream.headBlock.get()),
+                    Flux.from(upstream.streamBlocks)
+            )
         }
     }
 

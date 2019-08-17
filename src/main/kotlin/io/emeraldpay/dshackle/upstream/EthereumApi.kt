@@ -71,7 +71,7 @@ open class EthereumApi(
 
     private fun callUpstream(method: String, params: List<Any>): Mono<out Any> {
         if (method == "eth_blockNumber") {
-            val current = upstream?.getHead()?.getHead()?.let { head ->
+            val current = upstream?.getHead()?.getFlux()?.next()?.let { head ->
                 head.map { HexQuantity.from(it.number).toHex() }
             }
             if (current != null) {

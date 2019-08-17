@@ -60,17 +60,11 @@ class EthereumRpcHead(
         refreshSubscription = null
     }
 
-
-    override fun getHead(): Mono<BlockJson<TransactionId>> {
-        val current = head.get()
-        if (current != null) {
-            return Mono.just(current)
-        }
-        return Mono.from(stream)
-    }
-
     override fun getFlux(): Flux<BlockJson<TransactionId>> {
-        return Flux.from(stream)
+        return Flux.merge(
+                Mono.justOrEmpty(head.get()),
+                Flux.from(stream)
+        ).onBackpressureLatest()
     }
 
 }

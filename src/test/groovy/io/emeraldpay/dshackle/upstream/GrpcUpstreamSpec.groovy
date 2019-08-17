@@ -57,7 +57,7 @@ class GrpcUpstreamSpec extends Specification {
         upstream.setLag(0)
         when:
         upstream.start()
-        def h = upstream.head.head.block(Duration.ofSeconds(1))
+        def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
         then:
         callData.chain == Chain.ETHEREUM.id
         upstream.status == UpstreamAvailability.OK
@@ -114,7 +114,7 @@ class GrpcUpstreamSpec extends Specification {
         when:
         upstream.start()
         finished.get()
-        def h = upstream.head.head.block(Duration.ofSeconds(1))
+        def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
         then:
         upstream.status == UpstreamAvailability.OK
         h.hash == BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -171,7 +171,7 @@ class GrpcUpstreamSpec extends Specification {
         when:
         upstream.start()
         finished.get()
-        def h = upstream.head.head.block(Duration.ofSeconds(1))
+        def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
         then:
         upstream.status == UpstreamAvailability.OK
         h.hash == BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")

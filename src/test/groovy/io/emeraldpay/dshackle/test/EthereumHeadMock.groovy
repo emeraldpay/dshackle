@@ -19,12 +19,7 @@ class EthereumHeadMock implements EthereumHead {
     }
 
     @Override
-    Mono<BlockJson<TransactionId>> getHead() {
-        return latest != null ? Mono.just(latest) : Mono.from(bus)
-    }
-
-    @Override
     Flux<BlockJson<TransactionId>> getFlux() {
-        return Flux.concat(getHead(), bus).distinctUntilChanged()
+        return Flux.concat(Mono.justOrEmpty(latest), bus).distinctUntilChanged()
     }
 }

@@ -210,7 +210,7 @@ class TrackTx(
                     mined = true,
                     confirmations = 1
             )
-            upstream.getHead().getHead().map { head ->
+            upstream.getHead().getFlux().next().map { head ->
                 val height = updated.status.height
                 if (height == null || head.number < height) {
                     updated

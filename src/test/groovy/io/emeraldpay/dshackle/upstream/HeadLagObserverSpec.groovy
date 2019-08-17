@@ -37,12 +37,14 @@ class HeadLagObserverSpec extends Specification {
         def masterBus = TopicProcessor.create()
 
         1 * master.getFlux() >> Flux.from(masterBus)
-        1 * head1.getHead() >> Mono.just(blocks[1])
-        1 * head1.getFlux() >> Flux.just(blocks[2])
-                .delaySubscription(Duration.ofSeconds(1))
-        1 * head2.getHead() >> Mono.just(blocks[0])
-        1 * head2.getFlux() >> Flux.just(blocks[1])
-                .delaySubscription(Duration.ofMillis(100))
+        1 * head1.getFlux() >> Flux.merge(
+                Flux.just(blocks[1]),
+                Flux.just(blocks[2]).delaySubscription(Duration.ofSeconds(1))
+                )
+        1 * head2.getFlux() >> Flux.merge(
+                Flux.just(blocks[0]),
+                Flux.just(blocks[1]).delaySubscription(Duration.ofMillis(100))
+        )
         1 * up1.setLag(0)
         1 * up2.setLag(1)
         1 * up2.setLag(0)

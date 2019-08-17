@@ -105,7 +105,7 @@ class ChainUpstreams (
     fun printStatus() {
         var height: Long? = null
         try {
-            height = head!!.getHead().block(Duration.ofSeconds(1))?.number
+            height = head!!.getFlux().next().block(Duration.ofSeconds(1))?.number
         } catch (e: IllegalStateException) {
             //timout
         } catch (e: Exception) {

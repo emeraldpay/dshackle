@@ -20,16 +20,13 @@ class EthereumWsHead(
     private val head = AtomicReference<BlockJson<TransactionId>>(null)
     private var stream: Flux<BlockJson<TransactionId>>? = null
 
-    override fun getHead(): Mono<BlockJson<TransactionId>> {
-        val current = head.get()
-        if (current != null) {
-            return Mono.just(current)
-        }
-        return Mono.from(getFlux())
-    }
-
     override fun getFlux(): Flux<BlockJson<TransactionId>> {
-        return stream?.let { Flux.from(it) } ?: Flux.error(Exception("Not started"))
+        return stream?.let {
+            Flux.merge(
+                Mono.justOrEmpty(head.get()),
+                Flux.from(this.stream)
+            ).onBackpressureLatest()
+        } ?: Flux.error(Exception("Not started"))
     }
 
     override fun isRunning(): Boolean {

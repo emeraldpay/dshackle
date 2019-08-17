@@ -63,7 +63,7 @@ open class EthereumUpstream(
             val rpc = EthereumRpcHead(api).apply {
                 this.start()
             }
-            val currentHead = rpc.getHead().doFinally {
+            val currentHead = rpc.getFlux().next().doFinally {
                 rpc.stop()
             }
             EthereumHeadMerge(listOf(currentHead, ws.getFlux())).apply {

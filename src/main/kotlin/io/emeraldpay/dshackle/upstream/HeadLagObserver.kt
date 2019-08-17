@@ -52,8 +52,7 @@ class HeadLagObserver (
 
     fun getCurrentBlocks(up: Upstream): Flux<BlockJson<TransactionId>> {
         val head = up.getHead()
-        return Flux.concat(head.getHead(), head.getFlux())
-                .take(Duration.ofSeconds(1))
+        return head.getFlux().take(Duration.ofSeconds(1))
     }
 
     fun mapLagging(top: BlockJson<TransactionId>, up: Upstream, blocks: Flux<BlockJson<TransactionId>>): Flux<Tuple2<Long, Upstream>> {

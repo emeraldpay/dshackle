@@ -43,18 +43,11 @@ class EthereumHeadMerge(
         }
     }
 
-
-    override fun getHead(): Mono<BlockJson<TransactionId>> {
-        val curr = head.get()
-        if (curr != null) {
-            return Mono.just(curr)
-        }
-        return getFlux().next()
-    }
-
     override fun getFlux(): Flux<BlockJson<TransactionId>> {
-        return Flux.from(this.flux)
-                .onBackpressureLatest()
+        return Flux.merge(
+                Mono.justOrEmpty(head.get()),
+                Flux.from(this.flux)
+        ).onBackpressureLatest()
     }
 
     override fun stop() {

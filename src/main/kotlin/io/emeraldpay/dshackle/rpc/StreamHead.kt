@@ -83,7 +83,7 @@ class StreamHead(
 
     fun notify(chain: Chain, client: TopicProcessor<BlockchainOuterClass.ChainHead>) {
         val upstream = upstreams.getUpstream(chain) ?: return
-        val head = upstream.getHead().getHead()
+        val head = upstream.getHead().getFlux().next()
         head.subscribe { block ->
             UpstreamServices.onceOk(upstream).subscribe { avail ->
                 if (avail) {
