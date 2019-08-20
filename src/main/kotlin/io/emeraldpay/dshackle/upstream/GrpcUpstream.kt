@@ -112,7 +112,7 @@ open class GrpcUpstream(
     }
 
     fun init(conf: BlockchainOuterClass.DescribeChain) {
-        supportedMethods.addAll(conf.supportedTargetsList)
+        supportedMethods.addAll(conf.supportedMethodsList)
         val nodes = NodeDetailsList()
         conf.nodesList.forEach { node ->
             val node = NodeDetailsList.NodeDetails(node.quorum,

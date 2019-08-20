@@ -54,7 +54,7 @@ class EthereumApiMock extends EthereumApi {
 
     def nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {
         request.itemsList.forEach { req ->
-            def resp = execute(req.id, req.target, objectMapper.readerFor(List).readValue(req.payload.toByteArray()))
+            def resp = execute(req.id, req.method, objectMapper.readerFor(List).readValue(req.payload.toByteArray()))
             resp.subscribe {
                 def proto = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                         .setId(req.id)

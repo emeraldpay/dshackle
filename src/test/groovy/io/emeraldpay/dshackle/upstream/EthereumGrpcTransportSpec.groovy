@@ -58,7 +58,7 @@ class EthereumGrpcTransportSpec extends Specification {
             chain.number == Chain.ETHEREUM.id
             itemsCount == 1
             with(getItems(0)) {
-                target == "eth_test"
+                method == "eth_test"
                 payload.toStringUtf8() == "[1]"
             }
         }
@@ -106,11 +106,11 @@ class EthereumGrpcTransportSpec extends Specification {
             chain.number == Chain.ETHEREUM.id
             itemsCount == 2
             with(getItems(0)) {
-                target == "eth_test"
+                method == "eth_test"
                 payload.toStringUtf8() == "[1]"
             }
             with(getItems(1)) {
-                target == "eth_test2"
+                method == "eth_test2"
                 payload.toStringUtf8() == "[2,\"3\"]"
             }
         }

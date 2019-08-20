@@ -80,7 +80,7 @@ class NativeCall(
         val matcher = Selector.convertToMatcher(request.selector)
         val apis = upstream.getApis(matcher)
         return request.itemsList.toFlux().map {
-            val method = it.target
+            val method = it.method
             val params = it.payload.toStringUtf8()
             val callQuorum = upstream.targets?.getQuorumFor(method) ?: AlwaysQuorum()
             callQuorum.init(upstream.getHead())

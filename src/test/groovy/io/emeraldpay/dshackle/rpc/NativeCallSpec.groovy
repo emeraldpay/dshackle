@@ -155,7 +155,7 @@ class NativeCallSpec extends Specification {
             .addAllItems([1, 2].collect { id ->
                 return BlockchainOuterClass.NativeCallItem.newBuilder()
                 .setId(id)
-                .setTarget("eth_test")
+                .setMethod("eth_test")
                 .build()
             })
             .build()
@@ -178,7 +178,7 @@ class NativeCallSpec extends Specification {
                 .addAllItems([1, 2].collect { id ->
                     return BlockchainOuterClass.NativeCallItem.newBuilder()
                             .setId(id)
-                            .setTarget("eth_test")
+                            .setMethod("eth_test")
                             .build()
                 })
                 .build()

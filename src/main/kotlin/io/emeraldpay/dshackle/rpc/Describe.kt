@@ -3,8 +3,6 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.upstream.*
-import io.emeraldpay.grpc.Chain
-import io.grpc.stub.StreamObserver
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -24,7 +22,7 @@ class Describe(
                     val targets = chainUpstreams.getSupportedTargets()
                     val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
                             .setChain(Common.ChainRef.forNumber(chain.id))
-                            .addAllSupportedTargets(targets)
+                            .addAllSupportedMethods(targets)
                             .setStatus(status)
                     chainUpstreams.getAll().let { ups ->
                         ups.forEach { up ->
