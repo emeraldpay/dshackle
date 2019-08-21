@@ -201,7 +201,8 @@ class UpstreamsConfigReader {
     }
 
     private fun <T> getList(mappingNode: MappingNode?, key: String): CollectionNode<T>? {
-        return getValue(mappingNode, key, CollectionNode::class.java) as CollectionNode<T>
+        val value = getValue(mappingNode, key, CollectionNode::class.java) ?: return null
+        return value as CollectionNode<T>
     }
 
     private fun getListOfString(mappingNode: MappingNode?, key: String): List<String>? {

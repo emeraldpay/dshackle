@@ -1,0 +1,9 @@
+version: v1
+
+upstreams:
+  - id: local
+    chain: ethereum
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"

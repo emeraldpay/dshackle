@@ -136,4 +136,27 @@ class UpstreamsConfigReaderSpec extends Specification {
         "\${PASSWORD}"      | "1a68f20154fc258fe4149c199ad8f281"
     }
 
+    def "Parse config without defaults"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-no-defaults.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.version == "v1"
+        with(act.defaultOptions) {
+            size() == 0
+        }
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "local"
+            chain == "ethereum"
+            connection instanceof UpstreamsConfig.EthereumConnection
+            with((UpstreamsConfig.EthereumConnection)connection) {
+                rpc != null
+                rpc.url == new URI("http://localhost:8545")
+                ws == null
+            }
+        }
+    }
 }
