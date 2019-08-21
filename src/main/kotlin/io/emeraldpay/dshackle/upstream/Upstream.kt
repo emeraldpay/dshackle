@@ -8,7 +8,8 @@ interface Upstream {
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
     fun getHead(): EthereumHead
-    fun getApi(matcher: Selector.Matcher): EthereumApi
+    fun getApi(matcher: Selector.Matcher): DirectEthereumApi
+//    fun getCache(): CachingEthereumApi
     fun getOptions(): UpstreamsConfig.Options
     fun getSupportedTargets(): Set<String>
     fun setLag(lag: Long)

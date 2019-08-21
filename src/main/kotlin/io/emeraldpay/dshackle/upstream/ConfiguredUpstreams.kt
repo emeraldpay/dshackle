@@ -104,7 +104,7 @@ open class ConfiguredUpstreams(
                                       chain: Chain,
                                       options: UpstreamsConfig.Options,
                                       labels: UpstreamsConfig.Labels) {
-        var rpcApi: EthereumApi? = null
+        var rpcApi: DirectEthereumApi? = null
         val urls = ArrayList<URI>()
         up.rpc?.let { endpoint ->
             val rpcTransport = DefaultRpcTransport(endpoint.url)
@@ -117,10 +117,9 @@ open class ConfiguredUpstreams(
                 }
             }
             val rpcClient = DefaultRpcClient(rpcTransport)
-            rpcApi = EthereumApi(
+            rpcApi = DirectEthereumApi(
                     rpcClient,
                     objectMapper,
-                    chain,
                     targetFor(chain)
             )
             urls.add(endpoint.url)
@@ -171,7 +170,7 @@ open class ConfiguredUpstreams(
     override fun addUpstream(chain: Chain, up: Upstream): ChainUpstreams {
         val current = chainMapping[chain]
         if (current == null) {
-            val created = ChainUpstreams(chain, ArrayList<Upstream>(), targetFor(chain))
+            val created = ChainUpstreams(chain, ArrayList<Upstream>(), targetFor(chain), objectMapper)
             created.addUpstream(up)
             created.start()
             chainMapping[chain] = created

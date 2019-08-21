@@ -5,7 +5,7 @@ class FilteringApiIterator(
         private var pos: Int,
         private val matcher: Selector.Matcher,
         private val repeatLimit: Int = 3
-): Iterator<EthereumApi> {
+): Iterator<DirectEthereumApi> {
 
     private var nextUpstream: Upstream? = null
     private var consumed = 0
@@ -31,7 +31,7 @@ class FilteringApiIterator(
         return nextInternal()
     }
 
-    override fun next(): EthereumApi {
+    override fun next(): DirectEthereumApi {
         if (nextInternal()) {
             val curr = nextUpstream!!
             nextUpstream = null

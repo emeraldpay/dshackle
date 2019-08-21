@@ -5,6 +5,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.UpstreamsMock
+import io.emeraldpay.dshackle.upstream.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.EthereumApi
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.grpc.Chain
@@ -57,7 +58,7 @@ class StreamHeadSpec extends Specification {
                 .build()
         }
 
-        def upstream = new EthereumUpstreamMock(Chain.ETHEREUM, Mock(EthereumApi))
+        def upstream = new EthereumUpstreamMock(Chain.ETHEREUM, Stub(DirectEthereumApi.class))
         def upstreams = new UpstreamsMock(Chain.ETHEREUM, upstream)
         def streamHead = new StreamHead(upstreams)
         when:

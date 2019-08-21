@@ -7,28 +7,22 @@ import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
+import java.io.InputStream
 import java.time.Duration
 
-open class EthereumApi(
-        val rpcClient: RpcClient,
-        private val objectMapper: ObjectMapper,
-        private val chain: Chain,
-        val targets: CallMethods
+abstract class EthereumApi(
+        objectMapper: ObjectMapper
 ) {
 
     private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
     var upstream: Upstream? = null
 
-    private val timeout = Duration.ofSeconds(5)
-    private val log = LoggerFactory.getLogger(EthereumApi::class.java)
-    var ws: EthereumWs? = null
-        set(value) {
-            field = value
-        }
+    abstract fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray>
 
-    open fun <JS, RS> executeAndConvert(rpcCall: RpcCall<JS, RS>): Mono<RS> {
+    fun <JS, RS> executeAndConvert(rpcCall: RpcCall<JS, RS>): Mono<RS> {
         val convertToJS = java.util.function.Function<ByteArray, Mono<JS>> { resp ->
-            val jsonValue: JS? = jacksonRpcConverter.fromJson(resp.inputStream(), rpcCall.jsonType, Int::class.java)
+            val inputStream: InputStream = resp.inputStream()
+            val jsonValue: JS? = jacksonRpcConverter.fromJson(inputStream, rpcCall.jsonType, Int::class.java)
             if (jsonValue == null) Mono.empty<JS>()
             else Mono.just(jsonValue)
         }
@@ -36,51 +30,4 @@ open class EthereumApi(
                 .flatMap(convertToJS)
                 .map(rpcCall.converter::apply)
     }
-
-    open fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
-        val result: Mono<out Any> = when {
-            targets.isHardcoded(method) -> Mono.just(method).map { targets.hardcoded(it) }
-            targets.isAllowed(method)   -> callUpstream(method, params)
-            else -> Mono.error(RpcException(-32601, "Method not allowed or not found"))
-        }
-        return result
-                .doOnError { t ->
-                    log.warn("Upstream error: ${t.message} for ${method} on $chain")
-                }
-                .map {
-                    val resp = ResponseJson<Any, Int>()
-                    resp.id = id
-                    resp.result = it
-                    objectMapper.writer().writeValueAsBytes(resp)
-                }
-                .onErrorMap { t ->
-                    if (RpcException::class.java.isAssignableFrom(t.javaClass)) {
-                        t
-                    } else {
-                        log.warn("Convert to RPC error. Exception: ${t.message}")
-                        RpcException(-32020, "Error reading from upstream", null, t)
-                    }
-                }
-                .onErrorResume(RpcException::class.java) { t ->
-                    val resp = ResponseJson<Any, Int>()
-                    resp.id = id
-                    resp.error = t.error
-                    Mono.just(objectMapper.writer().writeValueAsBytes(resp))
-                }
-    }
-
-    private fun callUpstream(method: String, params: List<Any>): Mono<out Any> {
-        if (method == "eth_blockNumber") {
-            val current = upstream?.getHead()?.getFlux()?.next()?.let { head ->
-                head.map { HexQuantity.from(it.number).toHex() }
-            }
-            if (current != null) {
-                return current
-            }
-        }
-        return Mono.fromCompletionStage(
-                rpcClient.execute(RpcCall.create(method, Any::class.java, params))
-        ).timeout(timeout, Mono.error(RpcException(-32603, "Upstream timeout")))
-    }
-
 }

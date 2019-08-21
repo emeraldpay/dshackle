@@ -8,14 +8,14 @@ import reactor.core.Disposable
 
 open class EthereumUpstream(
         val chain: Chain,
-        private val api: EthereumApi,
+        private val api: DirectEthereumApi,
         private val ethereumWs: EthereumWs? = null,
         private val options: UpstreamsConfig.Options,
         val node: NodeDetailsList.NodeDetails,
         private val targets: CallMethods
 ): DefaultUpstream(), Lifecycle {
 
-    constructor(chain: Chain, api: EthereumApi): this(chain, api, null,
+    constructor(chain: Chain, api: DirectEthereumApi): this(chain, api, null,
             UpstreamsConfig.Options.getDefaults(), NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels()),
             DirectCallMethods())
 
@@ -84,11 +84,11 @@ open class EthereumUpstream(
         return head
     }
 
-    override fun getApi(matcher: Selector.Matcher): EthereumApi {
+    override fun getApi(matcher: Selector.Matcher): DirectEthereumApi {
         return api
     }
 
-    fun getApi(): EthereumApi {
+    fun getApi(): DirectEthereumApi {
         return api
     }
 

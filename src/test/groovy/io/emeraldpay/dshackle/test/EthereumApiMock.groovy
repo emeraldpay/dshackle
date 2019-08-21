@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.EthereumApi
 import io.emeraldpay.dshackle.upstream.QuorumBasedMethods
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -17,14 +18,14 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
-class EthereumApiMock extends EthereumApi {
+class EthereumApiMock extends DirectEthereumApi {
 
     private static final Logger log = LoggerFactory.getLogger(this)
     List<PredefinedResponse> predefined = []
     private ObjectMapper objectMapper
 
     EthereumApiMock(@NotNull RpcClient rpcClient, @NotNull ObjectMapper objectMapper, @NotNull Chain chain) {
-        super(rpcClient, objectMapper, chain, new DirectCallMethods())
+        super(rpcClient, objectMapper, new DirectCallMethods())
         this.objectMapper = objectMapper
     }
 

@@ -44,9 +44,9 @@ open class GrpcUpstream(
 
     private var headSubscription: Disposable? = null
 
-    open fun createApi(matcher: Selector.Matcher): EthereumApi {
+    open fun createApi(matcher: Selector.Matcher): DirectEthereumApi {
         val rpcClient = DefaultRpcClient(grpcTransport.withMatcher(matcher))
-        return EthereumApi(rpcClient, objectMapper, chain, targets).let {
+        return DirectEthereumApi(rpcClient, objectMapper, targets).let {
             it.upstream = this
             it
         }
@@ -156,7 +156,7 @@ open class GrpcUpstream(
         return head
     }
 
-    override fun getApi(matcher: Selector.Matcher): EthereumApi {
+    override fun getApi(matcher: Selector.Matcher): DirectEthereumApi {
         return createApi(matcher)
     }
 

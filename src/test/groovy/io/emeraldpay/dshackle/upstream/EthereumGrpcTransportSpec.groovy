@@ -23,11 +23,13 @@ class EthereumGrpcTransportSpec extends Specification {
 
     def "Make simple call"() {
         setup:
+        def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM)
+
         def callData = [:]
         def otherSideUpstreams = Mock(Upstreams)
-        def otherSideAggr = Mock(AggregatedUpstream)
+        def otherSideAggr = TestingCommons.aggregatedUpstream(otherSideApi)
+
         def otherSideNativeCall = new NativeCall(otherSideUpstreams, objectMapper)
-        def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM)
         otherSideApi.upstream = otherSideAggr
 
         def client = mockServer.clientForServer(new ReactorBlockchainGrpc.BlockchainImplBase() {
@@ -47,9 +49,6 @@ class EthereumGrpcTransportSpec extends Specification {
 
         then:
         1 * otherSideUpstreams.getUpstream(Chain.ETHEREUM) >> otherSideAggr
-        1 * otherSideAggr.getApis(_) >> [otherSideApi].iterator()
-        _ * otherSideAggr.getHead() >> Stub(EthereumHead)
-        _ * otherSideAggr.getTargets() >> ethereumTargets
         status.failed == 0
         status.succeed == 1
         status.total == 1
@@ -67,11 +66,12 @@ class EthereumGrpcTransportSpec extends Specification {
 
     def "Make few calls"() {
         setup:
+        def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM)
+
         def callData = [:]
         def otherSideUpstreams = Mock(Upstreams)
-        def otherSideAggr = Mock(AggregatedUpstream)
+        def otherSideAggr = TestingCommons.aggregatedUpstream(otherSideApi)
         def otherSideNativeCall = new NativeCall(otherSideUpstreams, objectMapper)
-        def otherSideApi = new EthereumApiMock(Mock(RpcClient), objectMapper, Chain.ETHEREUM)
         otherSideApi.upstream = otherSideAggr
 
         def client = mockServer.clientForServer(new ReactorBlockchainGrpc.BlockchainImplBase() {
@@ -95,9 +95,6 @@ class EthereumGrpcTransportSpec extends Specification {
 
         then:
         1 * otherSideUpstreams.getUpstream(Chain.ETHEREUM) >> otherSideAggr
-        1 * otherSideAggr.getApis(_) >> [otherSideApi].multiply(34).iterator()
-        _ * otherSideAggr.getHead() >> Stub(EthereumHead)
-        _ * otherSideAggr.getTargets() >> ethereumTargets
         status.failed == 0
         status.succeed == 2
         status.total == 2

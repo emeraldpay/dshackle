@@ -1,19 +1,19 @@
 package io.emeraldpay.dshackle.upstream
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
-import java.io.Closeable
 import java.lang.IllegalStateException
 import java.time.Duration
 
-class ChainUpstreams (
+open class ChainUpstreams (
         val chain: Chain,
         private val upstreams: MutableList<Upstream>,
-        targets: CallMethods
-) : AggregatedUpstream(targets), Lifecycle {
-
+        targets: CallMethods,
+        objectMapper: ObjectMapper
+) : AggregatedUpstream(targets, objectMapper), Lifecycle {
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
@@ -30,12 +30,14 @@ class ChainUpstreams (
     }
 
     override fun start() {
+        super.start()
         subscription = observeStatus()
                 .distinctUntilChanged()
                 .subscribe { printStatus() }
     }
 
     override fun stop() {
+        super.stop()
         subscription?.dispose()
         subscription = null
         head?.let {
@@ -54,7 +56,7 @@ class ChainUpstreams (
         }
         lagObserver?.stop()
         lagObserver = null
-        return if (upstreams.size == 1) {
+        val head = if (upstreams.size == 1) {
             val upstream = upstreams.first()
             upstream.setLag(0)
             upstream.getHead()
@@ -68,6 +70,8 @@ class ChainUpstreams (
             this.lagObserver = lagObserver
             newHead
         }
+        onHeadUpdated(head)
+        return head
     }
 
     override fun getAll(): List<Upstream> {
@@ -79,7 +83,7 @@ class ChainUpstreams (
         head = updateHead()
     }
 
-    override fun getApis(matcher: Selector.Matcher): Iterator<EthereumApi> {
+    override fun getApis(matcher: Selector.Matcher): Iterator<DirectEthereumApi> {
         val i = seq++
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
@@ -87,7 +91,7 @@ class ChainUpstreams (
         return FilteringApiIterator(upstreams, i, matcher)
     }
 
-    override fun getApi(matcher: Selector.Matcher): EthereumApi {
+    override fun getApi(matcher: Selector.Matcher): DirectEthereumApi {
         return getApis(matcher).next()
     }
 

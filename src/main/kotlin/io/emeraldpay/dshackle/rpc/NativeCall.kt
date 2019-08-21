@@ -31,16 +31,16 @@ class NativeCall(
         return requestMono.flatMapMany(this::prepareCall)
             .map(this::setupCallParams)
             .parallel()
-            .flatMap(this::executeOnRemote)
+            .flatMap(this::fetch)
             .sequential()
             .map(this::buildResponse)
             .doOnError { e -> log.warn("Error during native call", e) }
             .onErrorResume(this::processException)
     }
 
-    fun setupCallParams(it: CallContext<Tuple2<String, String>>): CallContext<Tuple2<String, List<Any>>> {
-        val params = extractParams(it.payload.t2)
-        return it.withPayload(Tuples.of(it.payload.t1, params))
+    fun setupCallParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
+        val params = extractParams(it.payload.params)
+        return it.withPayload(ParsedCallDetails(it.payload.method, params))
     }
 
     fun buildResponse(it: CallContext<ByteArray>): BlockchainOuterClass.NativeCallReplyItem {
@@ -65,46 +65,57 @@ class NativeCall(
                 .toMono()
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest): Flux<CallContext<Tuple2<String, String>>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest): Flux<CallContext<RawCallDetails>> {
         val chain = Chain.byId(request.chain.number)
         if (chain == Chain.UNSPECIFIED) {
-            return Flux.error<CallContext<Tuple2<String, String>>>(CallFailure(0, Exception("Invalid chain id: ${request.chain.number}")))
+            return Flux.error(CallFailure(0, Exception("Invalid chain id: ${request.chain.number}")))
         }
         val upstream = upstreams.getUpstream(chain)
-                ?: return Flux.error<CallContext<Tuple2<String, String>>>(CallFailure(0, Exception("Chain ${chain.id} is unavailable")))
+                ?: return Flux.error(CallFailure(0, Exception("Chain ${chain.id} is unavailable")))
 
         return prepareCall(request, upstream)
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream): Flux<CallContext<Tuple2<String, String>>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream): Flux<CallContext<RawCallDetails>> {
         val matcher = Selector.convertToMatcher(request.selector)
-        val apis = upstream.getApis(matcher)
         return request.itemsList.toFlux().map {
             val method = it.method
             val params = it.payload.toStringUtf8()
             val callQuorum = upstream.targets?.getQuorumFor(method) ?: AlwaysQuorum()
             callQuorum.init(upstream.getHead())
 
-            CallContext(it.id, apis, callQuorum, Tuples.of(method, params))
+            CallContext(it.id, upstream, matcher, callQuorum, RawCallDetails(method, params))
         }
     }
 
-    fun executeOnRemote(ctx: CallContext<Tuple2<String, List<Any>>>): Mono<CallContext<ByteArray>> {
+    fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
+        return fetchFromCache(ctx)
+                .switchIfEmpty(
+                        Mono.just(ctx).flatMap(this::executeOnRemote)
+                )
+    }
+
+    fun fetchFromCache(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
+        val cachingApi = ctx.upstream.cache
+        return cachingApi.execute(ctx.id, ctx.payload.method, ctx.payload.params).map { ctx.withPayload(it) }
+    }
+
+    fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
         val p: Predicate<Any> = CallQuorum.untilResolved(ctx.callQuorum)
-        val all = ctx.apis.toFlux().share()
+        val all = ctx.getApis().toFlux().share()
         //execute on the first API immediately, and then make a delay between each call to not dos upstreams
         val immediate = Flux.from(all).take(1)
         val retries = Flux.from(all).delayElements(Duration.ofMillis(200))
         return Flux.concat(immediate, retries)
                 .takeWhile(p)
                 .flatMap { api ->
-                    api.execute(ctx.id, ctx.payload.t1, ctx.payload.t2).map { Tuples.of(it, api.upstream!!) }
+                    api.execute(ctx.id, ctx.payload.method, ctx.payload.params).map { Tuples.of(it, api.upstream!!) }
                 }
                 .reduce(ctx.callQuorum, CallQuorum.asReducer())
                 .filter { it.isResolved() }
                 .map {
                     val result  = it.getResult()
-                            ?: throw CallFailure(ctx.id, Exception("No response from upstream for ${ctx.payload.t1}"))
+                            ?: throw CallFailure(ctx.id, Exception("No response from upstream for ${ctx.payload.method}"))
                     ctx.withPayload(result)
                 }
                 .onErrorMap {
@@ -113,7 +124,7 @@ class NativeCall(
                     else CallFailure(ctx.id, it)
                 }
                 .switchIfEmpty(
-                        Mono.error<CallContext<ByteArray>>(CallFailure(ctx.id, Exception("No response or no available upstream for ${ctx.payload.t1}")))
+                        Mono.error<CallContext<ByteArray>>(CallFailure(ctx.id, Exception("No response or no available upstream for ${ctx.payload.method}")))
                 )
     }
 
@@ -125,11 +136,18 @@ class NativeCall(
         return req as List<Any>
     }
 
-    open class CallContext<T>(val id: Int, val apis: Iterator<EthereumApi>, val callQuorum: CallQuorum, val payload: T) {
+    open class CallContext<T>(val id: Int, val upstream: AggregatedUpstream, val matcher: Selector.Matcher, val callQuorum: CallQuorum, val payload: T) {
         fun <X> withPayload(payload: X): CallContext<X> {
-            return CallContext(id, apis, callQuorum, payload)
+            return CallContext(id, upstream, matcher, callQuorum, payload)
+        }
+
+        fun getApis(): Iterator<DirectEthereumApi> {
+            return upstream.getApis(matcher)
         }
     }
 
     open class CallFailure(val id: Int, val reason: Throwable): Exception("Failed to call $id: ${reason.message}")
+
+    class RawCallDetails(val method: String, val params: String)
+    class ParsedCallDetails(val method: String, val params: List<Any>)
 }

@@ -14,7 +14,7 @@ import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
 class EthereumRpcHead(
-    private val api: EthereumApi
+    private val api: DirectEthereumApi
 ): EthereumHead, Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumRpcHead::class.java)

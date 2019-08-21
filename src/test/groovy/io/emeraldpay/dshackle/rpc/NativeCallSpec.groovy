@@ -1,17 +1,23 @@
 package io.emeraldpay.dshackle.rpc
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.test.EthereumApiMock
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.AlwaysQuorum
+import io.emeraldpay.dshackle.upstream.CachingEthereumApi
 import io.emeraldpay.dshackle.upstream.CallQuorum
+import io.emeraldpay.dshackle.upstream.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.EthereumApi
 import io.emeraldpay.dshackle.upstream.NonEmptyQuorum
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcClient
+import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import reactor.util.function.Tuples
 import spock.lang.Specification
@@ -33,7 +39,9 @@ class NativeCallSpec extends Specification {
         apiMock.answer("eth_test", [], "foo")
 
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, [apiMock].multiply(59).iterator(), quorum, Tuples.of("eth_test", []))
+        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
+                Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
@@ -59,7 +67,9 @@ class NativeCallSpec extends Specification {
         apiMock.answerOnce("eth_test", [], null)
 
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, [apiMock].multiply(5).iterator(), quorum, Tuples.of("eth_test", []))
+        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
+                Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_test", []))
 
 
         when:
@@ -85,7 +95,8 @@ class NativeCallSpec extends Specification {
         apiMock.answerOnce("eth_test", [], "foo")
 
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, [apiMock].multiply(5).iterator(), quorum, Tuples.of("eth_test", []))
+        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock), Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_test", []))
 
         (4..5) * quorum.isResolved()
         3 * quorum.record(_, _)
@@ -135,9 +146,10 @@ class NativeCallSpec extends Specification {
         def upstreams = Stub(Upstreams)
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
         def json = [jsonrpc:"2.0", id:1, result: "foo"]
+
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallContext<byte[]>(1561, [].iterator(), new AlwaysQuorum(), objectMapper.writeValueAsBytes(json))
+                new NativeCall.CallContext<byte[]>(1561, TestingCommons.aggregatedUpstream(Stub(DirectEthereumApi)), Selector.empty, new AlwaysQuorum(), objectMapper.writeValueAsBytes(json))
         )
         then:
         resp.id == 1561
@@ -190,5 +202,43 @@ class NativeCallSpec extends Specification {
                 .expectErrorMatches({t -> t instanceof NativeCall.CallFailure && t.id == 0})
 //                .expectComplete()
                 .verify(Duration.ofSeconds(1))
+    }
+
+    def "Calls cache before remote"() {
+        setup:
+        def upstreams = Stub(Upstreams)
+        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def api = Mock(DirectEthereumApi)
+        def upstream = TestingCommons.aggregatedUpstream(api)
+        def cacheMock = Mock(CachingEthereumApi)
+        upstream.cache = cacheMock
+
+        def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(10,
+                upstream,
+                Selector.empty, new AlwaysQuorum(),
+                new NativeCall.ParsedCallDetails("eth_test", []))
+        when:
+        nativeCall.fetch(ctx)
+        then:
+        1 * cacheMock.execute(10, "eth_test", []) >> Mono.empty()
+    }
+
+    def "Uses cached value"() {
+        setup:
+        def upstreams = Stub(Upstreams)
+        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def upstream = TestingCommons.aggregatedUpstream(Stub(DirectEthereumApi))
+        def cacheMock = Mock(CachingEthereumApi)
+        upstream.cache = cacheMock
+
+        def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(10,
+                upstream,
+                Selector.empty, new AlwaysQuorum(),
+                new NativeCall.ParsedCallDetails("eth_test", []))
+        when:
+        def act = nativeCall.fetch(ctx)
+        then:
+        1 * cacheMock.execute(10, "eth_test", []) >> Mono.just('{"result": "foo"}'.bytes)
+        new String(act.block().payload) == '{"result": "foo"}'
     }
 }

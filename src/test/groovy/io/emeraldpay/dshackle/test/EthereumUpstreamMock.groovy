@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.test
 
+import io.emeraldpay.dshackle.upstream.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.EthereumApi
 import io.emeraldpay.dshackle.upstream.EthereumHead
 import io.emeraldpay.dshackle.upstream.EthereumUpstream
@@ -13,7 +14,7 @@ class EthereumUpstreamMock extends EthereumUpstream {
 
     EthereumHeadMock ethereumHeadMock = new EthereumHeadMock()
 
-    EthereumUpstreamMock(@NotNull Chain chain, @NotNull EthereumApi api) {
+    EthereumUpstreamMock(@NotNull Chain chain, @NotNull DirectEthereumApi api) {
         super(chain, api)
         setLag(0)
         setStatus(UpstreamAvailability.OK)

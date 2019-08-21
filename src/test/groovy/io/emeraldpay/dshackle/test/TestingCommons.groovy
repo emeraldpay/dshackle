@@ -4,6 +4,10 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.emeraldpay.dshackle.upstream.AggregatedUpstream
+import io.emeraldpay.dshackle.upstream.ChainUpstreams
+import io.emeraldpay.dshackle.upstream.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.EthereumApi
 import io.emeraldpay.dshackle.upstream.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -42,7 +46,11 @@ class TestingCommons {
         return new JacksonRpcConverter(objectMapper())
     }
 
-    static EthereumUpstreamMock upstream(EthereumApi api) {
+    static EthereumUpstreamMock upstream(DirectEthereumApi api) {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api)
+    }
+
+    static AggregatedUpstream aggregatedUpstream(DirectEthereumApi api) {
+        return new ChainUpstreams(Chain.ETHEREUM, [upstream(api)], new DirectCallMethods(), objectMapper())
     }
 }

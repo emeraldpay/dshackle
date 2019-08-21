@@ -26,7 +26,7 @@ class UpstreamsMock implements Upstreams {
     @Override
     AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            upstreams[chain] = new ChainUpstreams(chain, [up], targetFor(chain))
+            upstreams[chain] = new ChainUpstreams(chain, [up], targetFor(chain), TestingCommons.objectMapper())
         } else {
             upstreams[chain].addUpstream(up)
         }

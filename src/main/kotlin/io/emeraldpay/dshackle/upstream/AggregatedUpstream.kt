@@ -1,19 +1,40 @@
 package io.emeraldpay.dshackle.upstream
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.cache.BlocksMemCache
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.BlockCacheReader
+import io.emeraldpay.dshackle.reader.CompoundReader
+import io.emeraldpay.dshackle.reader.Reader
+import io.infinitape.etherjar.domain.BlockHash
+import io.infinitape.etherjar.domain.TransactionId
+import io.infinitape.etherjar.rpc.json.BlockJson
+import org.springframework.context.Lifecycle
+import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
+import kotlin.concurrent.withLock
 
 abstract class AggregatedUpstream(
-        val targets: CallMethods
-): Upstream {
+        val targets: CallMethods,
+        val objectMapper: ObjectMapper
+): Upstream, Lifecycle {
+
+    private val blocksCache = BlocksMemCache()
+    private var cacheSubscription: Disposable? = null
+    private val blockReader: Reader<BlockHash, BlockJson<TransactionId>> = CompoundReader(
+            listOf(BlockCacheReader(blocksCache))
+    )
+    var cache: CachingEthereumApi = CachingEthereumApi.empty()
+    private val reconfigLock = ReentrantLock()
 
     abstract fun getAll(): List<Upstream>
     abstract fun addUpstream(upstream: Upstream)
-    abstract fun getApis(matcher: Selector.Matcher): Iterator<EthereumApi>
+    abstract fun getApis(matcher: Selector.Matcher): Iterator<DirectEthereumApi>
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
         val upstreamsFluxes = getAll().map { up -> up.observeStatus().map { UpstreamStatus(up, it) } }
@@ -61,4 +82,23 @@ abstract class AggregatedUpstream(
             return changed
         }
     }
+
+    override fun start() {
+    }
+
+    override fun stop() {
+        cacheSubscription?.dispose()
+        cacheSubscription = null
+    }
+
+    fun onHeadUpdated(head: EthereumHead) {
+        reconfigLock.withLock {
+            cacheSubscription?.dispose()
+            cacheSubscription = head.getFlux().subscribe {
+                blocksCache.add(it)
+            }
+            cache = CachingEthereumApi(objectMapper, blockReader, head)
+        }
+    }
+
 }
