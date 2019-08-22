@@ -34,7 +34,7 @@ class NativeCall(
             .flatMap(this::fetch)
             .sequential()
             .map(this::buildResponse)
-            .doOnError { e -> log.warn("Error during native call", e) }
+            .doOnError { e -> log.warn("Error during native call: ${e.message}") }
             .onErrorResume(this::processException)
     }
 
