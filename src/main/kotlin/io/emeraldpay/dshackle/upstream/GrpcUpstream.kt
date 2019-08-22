@@ -147,7 +147,7 @@ open class GrpcUpstream(
     }
 
     override fun isAvailable(matcher: Selector.Matcher): Boolean {
-        return headBlock.get() != null && nodes.get().getNodes().any {
+        return getStatus() == UpstreamAvailability.OK && headBlock.get() != null && nodes.get().getNodes().any {
             it.quorum > 0 && matcher.matches(it.labels)
         }
     }
