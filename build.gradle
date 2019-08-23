@@ -143,3 +143,11 @@ jib {
         ports = ['8090']
     }
 }
+
+jar {
+    enabled=true
+}
+
+afterEvaluate {
+    distZip.dependsOn(jar)
+}

@@ -1,3 +1,18 @@
 == Launch a server
 
-TBD
+=== Docker
+
+Prepare configuration files `dshackle.yaml` and `upstreams.yaml` in the current directory, then launch docker as:
+
+[source,bash]
+----
+docker run -p 9001:9001 -v $(pwd):/config -w /config emeraldpay/dshackle
+----
+
+=== Install & Run manually
+
+1. Download latest release from https://github.com/emeraldpay/dshackle/releases
+2. Unpack `unzip dshackle-0.3.zip`
+3. Copy to `/opt/dshackle`
+4. Setup configuration in `/etc/dshackle`
+5. Run as `cp /etc/dshackle && /opt/dshackle/bin/dshackle`
