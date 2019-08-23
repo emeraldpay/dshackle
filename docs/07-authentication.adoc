@@ -13,6 +13,7 @@ generate certificates, but traditional `openssl` tool can be used as well.
 ==== Setup Server certificate
 
 .Generate a server certificate
+[source,bash]
 ----
 SERVER_CA="ca.myhost.dev"
 SERVER_IP="127.0.0.1"
@@ -27,6 +28,7 @@ openssl pkcs8 -topk8 -inform PEM -outform PEM -in out/$SERVER_IP.key -out out/$S
 ----
 
 .Update dshackle.yaml to have:
+[source,yaml]
 ----
 version: v1
 port: 9001
@@ -38,6 +40,7 @@ tls:
 ----
 
 .Verify that server uses the certificate
+[source,bash]
 ----
 openssl s_client -alpn h2 -connect 127.0.0.1:9001 -CAfile out/ca.myhost.dev.crt
 ----
@@ -52,6 +55,7 @@ To have authentication in both ways you'll need to configure client side certifi
 will also verify each incoming connection and allow to connect only by a client with a trusted certificate.
 
 .Generate a client certificate
+[source,bash]
 ----
 CLIENT_CA="client-ca.myhost.dev"
 CLIENT_ID="client_1"
@@ -64,6 +68,7 @@ certstrap sign "$CLIENT_ID" --CA $CLIENT_CA
 ----
 
 .Update dshackle.yaml to have:
+[source,yaml]
 ----
 version: v1
 port: 9001
@@ -78,6 +83,7 @@ tls:
 ----
 
 .Verify connection with client certificate
+[source,bash]
 ----
 openssl s_client -alpn h2 -connect 127.0.0.1:9001 -CAfile out/ca.myhost.dev.crt -cert out/client_1.crt -key out/client_1.key
 ----

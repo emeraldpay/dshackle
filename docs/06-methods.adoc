@@ -107,6 +107,7 @@ Where:
 Subscribes to changes of the balance for a single address or a set of addresses
 
 .Request
+[source,proto]
 ----
 message BalanceRequest {
     Asset asset = 1;
@@ -124,6 +125,7 @@ message AnyAddress {
 ----
 
 .Response
+[source,proto]
 ----
 message AddressBalance {
     Asset asset = 1;
@@ -138,6 +140,7 @@ Subscribes to transaction confirmations. Allows to send a transactions and then 
 gets enough confirmations. Changes is `NOTFOUND -> BROADCASTED <- -> MINED <- -> CONFIRMED`
 
 .Request
+[source,proto]
 ----
 message TxStatusRequest {
     ChainRef chain = 1;
@@ -147,6 +150,7 @@ message TxStatusRequest {
 ----
 
 .Response (stream of)
+[source,proto]
 ----
 message TxStatus {
     string tx_id = 1;
