@@ -1,11 +1,184 @@
 = Emerald Dshackle
 
-Implements Emerald API for Blockchains
+image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square[Docker Pulls]
+image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License", link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
+image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
 
-== Start
+Dshackle is a Blockchain API Load Balancer with automatic discovery and health checking, authentication and TLS termination.
+It can be used as an edge proxy, middle proxy or API gateway.
 
+Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers,
+such as Geth, Parity, Infura, etc), it automatically verifies their availability and the current status of the network,
+executes commands making sure that the response is consistent and/or data successfully broadcasted to the network.
+
+Project goals:
+
+- stable and fault tolerant access to blockchain nodes
+- secure connections and authentication
+- allows to build scalable APIs with nodes distributed over multiple data centers
+
+Dshackle connects to several upstreams via JSON RPC, Websockets or gRPC protocols. It verifies if a node ("upstream") is
+fully synchronized (not in initial sync mode), has enough peers and its height is not behind other nodes. If an upstream
+lags behind others, lost peers, started to resync, or simply went down then Dshackle temporarily excludes it from
+requests and returns back when the the upstream problem is fixed.
+
+== Quick Start
+
+=== Configuration
+
+Create file `dshackle.yaml` with following content:
+[source,yaml]
 ----
-gradle run
+version: v1
+port: 9001
+tls:
+  enabled: false
+upstreams:
+  config: "upstreams.yaml"
 ----
 
-Application runs on port 8090
+Which sets the following:
+
+- application listen on 0.0.0.0:9001
+- TLS security is disabled (_never use in production!_)
+- read upstreams configuration from file `upstreams.yaml` in the current directory
+
+Now create file `upstreams.yaml`:
+[source,yaml]
+----
+version: v1
+upstreams:
+  - id: infura-eth
+    chain: ethereum
+    connection:
+      ethereum:
+        rpc:
+          url: "https://mainnet.infura.io/v3/${INFURA_USER}"
+        ws:
+          url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+  - id: infura-kovan
+    chain: kovan
+    connection:
+      ethereum:
+        rpc:
+          url: "https://kovan.infura.io/v3/${INFURA_USER}"
+----
+
+This configures:
+
+- setups 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured for Infura)
+- for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan just JSON RPC is used
+- Infura authentication config is omitted for this demo
+- `${INFURA_USER}` will be provided through environment variable
+
+==== Run docker image
+
+Official Docker image you can find at: emeraldpay/dshackle
+
+.Setup Infura username
+[source,bash]
+----
+export INFURA_USER=...
+----
+
+.Run Dshackle
+[source,bash]
+----
+docker run -p 9001:9001 -v $(pwd):/config -w /config -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
+----
+
+Now it listen on port 9001 at the localhost and can be connected from any gRPC compatible client.
+Tools such as https://github.com/fullstorydev/grpcurl[gRPCurl] can automatically parse protobuf definitions and connect
+to it (actual Protobuf sources are located in a separate repository which you can find at https://github.com/emeraldpay/proto)
+
+.Connect and listen for new blocks on Ethereum Mainnet
+[source,bash]
+----
+grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:9001 io.emeraldpay.api.Blockchain/SubscribeHead
+----
+
+.Output would be like
+----
+{
+  "chain": "CHAIN_ETHEREUM",
+  "height": 8396159,
+  "blockId": "fc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75",
+  "timestamp": 1566423564000,
+  "weight": "AnMcf2VJB5kOSQ=="
+}
+{
+  "chain": "CHAIN_ETHEREUM",
+  "height": 8396160,
+  "blockId": "787899711b862b77df8d2faa69de664048598265a9f96abf178d341076e200e0",
+  "timestamp": 1566423574000,
+  "weight": "AnMch35tO6hSGg=="
+}
+...
+...
+----
+
+The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet. It's one of services provided
+by Dshackle, in additional to standard methods provided by RPC JSON of underlying nodes.
+
+== Documentation
+
+For detailed documentation see link:docs/[] directory.
+
+== Client Libraries
+
+=== Java gRPC Client
+image:https://api.bintray.com/packages/emerald/emerald-grpc/emerald-grpc/images/download.svg[link="https://bintray.com/emerald/emerald-grpc/emerald-grpc/"]
+
+https://github.com/emeraldpay/emerald-java-client
+
+
+[source,groovy]
+----
+repositories {
+    maven {
+        url  "https://dl.bintray.com/emerald/emerald-grpc"
+    }
+}
+
+dependencies {
+    compile 'io.emeraldpay:emerald-grpc:0.2'
+}
+----
+
+=== Javascript gRPC Client
+image:https://img.shields.io/npm/v/@emeraldplatform/grpc.svg["npm (scoped)", link="https://www.npmjs.com/package/@emeraldplatform/grpc"]
+
+https://github.com/emeraldpay/emerald-js-grpc
+
+[source,json]
+----
+"dependencies": {
+    "@emeraldplatform/grpc": "0.10.0",
+}
+----
+
+== Community
+
+=== Chat
+
+image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
+
+== Support
+
+Contact splix@emeraldpay.io if you want to integrate Dshackle into your project or want to sponsor the development.
+
+== License
+
+Copyright 2019 ETCDEV GmbH
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

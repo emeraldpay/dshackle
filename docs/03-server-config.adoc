@@ -1,0 +1,25 @@
+== Server Configuration
+
+[source,yaml]
+----
+version: v1
+port: 9001
+tls:
+  enabled: true
+  server:
+    certificate: "server.crt"
+    key: "server.p8.key"
+  client:
+    require: true
+    ca: "ca.crt"
+upstreams:
+  config: "upstreams.yaml"
+----
+
+Configures following:
+
+- server is listening on `0.0.0.0:9001`
+- TLS is enabled
+- server certificate in located at `server.crt` with key for it at `server.p8.key`
+- server requires a client authentication by TLS client certificate signed by `ca.crt` certificate
+- upstreams configuration is configured in file `upstreams.yaml`

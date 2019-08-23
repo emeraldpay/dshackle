@@ -1,0 +1,159 @@
+== Methods
+
+IMPORTANT: Dshackle provides an unified API based on gRPC and Protobuf.
+
+Dshackle provides an unified API based on gRPC and Protobuf. I.e. it's not standard JSON RPC but client libraries could
+be generated for all major libraries, and there're official libraries for Java and Javascript.
+
+=== gRPC definition
+
+[source,proto]
+----
+service Blockchain {
+    rpc SubscribeHead (Chain) returns (stream ChainHead) {}
+    rpc SubscribeBalance (BalanceRequest) returns (stream AddressBalance) {}
+    rpc SubscribeTxStatus (TxStatusRequest) returns (stream TxStatus) {}
+
+    rpc GetBalance (BalanceRequest) returns (stream AddressBalance) {}
+
+    rpc NativeCall (NativeCallRequest) returns (stream NativeCallReplyItem) {}
+
+    rpc Describe (DescribeRequest) returns (DescribeResponse) {}
+    rpc SubscribeStatus (StatusRequest) returns (stream ChainStatus) {}
+}
+----
+
+=== Wrapped JSON RPC methods
+
+Standard JSON RPC methods provided by Ethereum nodes are available wrapped into gRPC/Protobuf with additional features.
+To call standard methods you use `NativeCall` method.
+
+.NativeCallRequest
+[source,proto]
+----
+message NativeCallRequest {
+    ChainRef chain = 1;
+    repeated NativeCallItem items = 2;
+    Selector selector = 3;
+    int32 quorum = 4;
+    AvailabilityEnum min_availability = 5;
+}
+
+message NativeCallItem {
+    uint32 id = 1;
+    string method = 3;
+    bytes payload = 4;
+}
+----
+
+Where:
+
+- `chain` target chain (see reference for ids)
+- `items` as a list of independent requests, which may be executed in different nodes in parallels or in different order, with:
+ * `method` - a JSON RPC standard name, ex: `eth_getBlockByHash`
+ * `payload` - list of parameters for the methods, encoded as JSON string, ex. `["0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331", true]`
+- `Selector` and `AvailabilityEnum` are described in reference, in short they allow to specify which nodes are allowed
+to execute the request.
+
+.NativeCallReplyItem
+[source,proto]
+----
+
+message NativeCallReplyItem {
+    uint32 id = 1;
+    bool succeed = 2;
+    bytes payload = 3;
+    bytes error = 4;
+}
+----
+
+Where:
+
+- `payload` is JSON response for a particular call, encoded into a string (when `succeed` is true)
+- or `error` if request failed (`succeed` is false)
+
+NOTE: Reply Items comes right after their execution on an upstream, therefore streaming response. It allows to build
+      non-blocking queries
+
+=== SubscribeHead
+
+Subscribes to new blocks on the specified chain. Returns stream of blocks right after it was accepted (and verified by
+Dshackle) by any of the upstreams.
+
+.ChainHead
+[source,proto]
+----
+message ChainHead {
+    ChainRef chain = 1;
+    uint64 height = 2;
+    string block_id = 3;
+    uint64 timestamp = 4;
+    bytes weight = 5;
+    uint64 reorg = 6;
+}
+----
+
+Where:
+
+- `chain` - chain id
+- `height` - block number
+- `block_id` - block hash, as a string (please note that it doesn't have `0x` prefix)
+- `timestamp` - timestamp of that block
+- `weight` - total network difficulty on that block, as raw bytes
+- `reorg` - number of reorganized blocks, if reorg happened
+
+=== SubscribeBalance or GetBalance
+
+Subscribes to changes of the balance for a single address or a set of addresses
+
+.Request
+----
+message BalanceRequest {
+    Asset asset = 1;
+    AnyAddress address = 2;
+}
+
+message AnyAddress {
+    oneof addr_type {
+        SingleAddress address_single = 1;
+        MultiAddress address_multi = 2;
+        XpubAddress address_xpub = 3;
+        ReferenceAddress address_ref = 4;
+    }
+}
+----
+
+.Response
+----
+message AddressBalance {
+    Asset asset = 1;
+    SingleAddress address = 2;
+    string balance = 3;
+}
+----
+
+==== SubscribeTxStatus
+
+Subscribes to transaction confirmations. Allows to send a transactions and then listen to all changes until it
+gets enough confirmations. Changes is `NOTFOUND -> BROADCASTED <- -> MINED <- -> CONFIRMED`
+
+.Request
+----
+message TxStatusRequest {
+    ChainRef chain = 1;
+    string tx_id = 2;
+    uint32 confirmation_limit = 3;
+}
+----
+
+.Response (stream of)
+----
+message TxStatus {
+    string tx_id = 1;
+    bool broadcasted = 2;
+    bool mined = 3;
+    BlockInfo block = 4;
+    uint32 confirmations = 5;
+}
+----
+

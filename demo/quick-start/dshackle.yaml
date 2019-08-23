@@ -1,0 +1,6 @@
+version: v1
+port: 9001
+tls:
+  enabled: false
+upstreams:
+  config: upstreams.yaml

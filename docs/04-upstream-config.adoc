@@ -1,0 +1,115 @@
+== Upstreams Configuration
+
+Dshackle can connect to multiple independent APIs ("upstreams") and provides an unified API on top of it.
+
+Supported upstream protocols:
+
+- JSON RPC
+- Websockets
+- gRPC (i.e. can connect to another Dshackle)
+
+Those protocols can be configures with additional security, TLS and authentication.
+
+=== Example
+
+.upstreams.yaml
+[source,yaml]
+----
+version: v1
+
+defaultOptions:
+  - chains:
+      - ethereum
+    options:
+      min-peers: 10
+  - chains:
+      - kovan
+    options:
+      min-peers: 2
+
+upstreams:
+  - id: us-nodes
+    chain: auto
+    connection:
+      grpc:
+        host: 35.226.252.117
+        port: 443
+        tls:
+          ca: ca.crt
+          certificate: client.crt
+          key: client.p8.key
+  - id: infura-eth
+    chain: ethereum
+    labels:
+      provider: infura
+    options:
+      disable-validation: true
+    connection:
+      ethereum:
+        rpc:
+          url: "https://mainnet.infura.io/v3/${INFURA_USER}"
+          basic-auth:
+            username: ${INFURA_USER}
+            password: ${INFURA_PASSWD}
+        ws:
+          url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+          basic-auth:
+            username: ${INFURA_USER}
+            password: ${INFURA_PASSWD}
+----
+
+There're two main segments for upstreams configuration:
+
+- _upstreams_ - a list of API to connect to, with all configuration specific for upstream and chain
+- and _default options_ as common configuration options applied to all nodes in that group
+
+In the example above we have:
+
+- default configuration for _Ethereum Mainnet_ which accepts upstream as valid when it not in fast synchronization mode
+  and has at least 10 peers. For _Kovan Testnet_ nodes the requirements are much relieved
+- as upstreams it has 2 configurations
+  * balancer connects to another Dshackle/another machine by using gRPC protocol
+    ** accepts (i.e. proxies) any blockchain available on that remote
+    ** verifies TLS certificate of the server
+    ** uses client certificate for authentication, i.e. remote server is accepting only clients authenticated by a
+       certificate
+  * connects to Infura provided _Ethereum Mainnet_
+    ** configuration is using placeholders for `${INFURA_USER}` and `${INFURA_PASSWD}` which will be replaced with
+       corresponding environment variables values
+    ** uses Basic Authentication to authenticate requests on Infura
+    ** label `[provider: infura]` is set for that particular upstream, which can be selected during a request. For example for
+      some requests you may want to use nodes with that label only, i.e. _"send that tx to infura nodes only"_,
+      or _"read only from archive node, with label [archive: true]"_
+    ** upstream validation (peers, sync status, etc) is disabled for that particular upstream
+
+=== Configuration options
+
+Options (default or as part of upstream config):
+
+- `disable-validation` - if `true` then Dshackle would not try to verify status of the upstream (useful for a trusted cloud
+   provider such as Infura, but is not recommended for an own node)
+- `min-peers` - do not use upstream with less than specified connected peers
+
+=== Connection type
+
+Dshackle currently supports
+
+- `rpc` a standard Ethereum JSON RPC
+- `ws` websocket connection (supposed to be used in addition to `rpc` connection)
+- `grpc` connects to another Dshackle instance
+
+=== Authentication
+
+==== TLS
+
+All connection types can use TLS secured connection, with optional client certificate authentication:
+
+- `ca` path to certificate required from remote server
+- optional `certificate` and `key` for client authentication. Please note that `key` is encoded with _PKCS 8_
+
+==== Basic Authentication
+
+For JSON RPC and Websockets a Basic Authentication can be used:
+
+- `username` - username
+- `password` - password

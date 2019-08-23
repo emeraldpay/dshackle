@@ -1,0 +1,11 @@
+== Links
+
+- Github: https://github.com/emeraldpay/dshackle
+
+== Chat
+
+image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
+
+== Support
+
+Contact splix@emeraldpay.io if you want to integrate Dshackle into your project or want to sponsor the development.

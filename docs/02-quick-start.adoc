@@ -1,0 +1,104 @@
+== Quick Start
+
+=== Prerequisites
+
+Dshackle is designed for cloud environment and supposed to be used withing Docker and/or Kubernetes. However it's a JVM
+based application and therefore can be used in most of standard environment where Java Virtual Machine can be installed.
+
+We're going to use Docker image for this quick start.
+
+For demo access we use gRPCurl tool, which can be installed from https://github.com/fullstorydev/grpcurl
+
+=== Configuration
+
+NOTE: you can find following example configuration in demo/quick-start directory of the project
+
+Create file `dshackle.yaml` with following content:
+[source,yaml]
+----
+version: v1
+port: 9001
+tls:
+  enabled: false
+upstreams:
+  config: "upstreams.yaml"
+----
+
+This very basic config says that:
+
+- application should listen on 0.0.0.0:9001
+- TLS security should be disabled (_never use in production!_)
+- read upstreams configuration from file `upstreams.yaml` in current directory
+
+Now create file `upstreams.yaml`:
+[source,yaml]
+----
+version: v1
+upstreams:
+  - id: infura-eth
+    chain: ethereum
+    connection:
+      ethereum:
+        rpc:
+          url: "https://mainnet.infura.io/v3/${INFURA_USER}"
+        ws:
+          url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+  - id: infura-kovan
+    chain: kovan
+    connection:
+      ethereum:
+        rpc:
+          url: "https://kovan.infura.io/v3/${INFURA_USER}"
+----
+
+This config:
+
+- setups 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured for Infura for demo purposes, but you can use other compatible endpoints)
+- for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan just JSON RPC is used
+- Infura authentication config is omitted for this demo
+- `${INFURA_USER}` value can be provided through environment variables
+
+==== Run as docker
+
+Official Docker image you can find at: emeraldpay/dshackle
+
+.Setup Infura username
+[source,bash]
+----
+export INFURA_USER=...
+----
+
+.Run Dshackle
+[source,bash]
+----
+docker run -p 9001:9001 -v $(pwd):/config -w /config -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
+----
+
+.Connect and listen for new blocks on Ethereum Mainnet
+[source,bash]
+----
+grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:9001 io.emeraldpay.api.Blockchain/SubscribeHead
+----
+
+.Output would be like
+----
+{
+  "chain": "CHAIN_ETHEREUM",
+  "height": 8396159,
+  "blockId": "fc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75",
+  "timestamp": 1566423564000,
+  "weight": "AnMcf2VJB5kOSQ=="
+}
+{
+  "chain": "CHAIN_ETHEREUM",
+  "height": 8396160,
+  "blockId": "787899711b862b77df8d2faa69de664048598265a9f96abf178d341076e200e0",
+  "timestamp": 1566423574000,
+  "weight": "AnMch35tO6hSGg=="
+}
+...
+...
+----
+
+The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet. It's a method provided
+by Dshackle, provided in additional to methods provided by RPC JSON of underlying nodes.

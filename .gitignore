@@ -2,6 +2,6 @@
 build/
 out/
 *.iml
-dshackle.yaml
-upstream.yaml
+./dshackle.yaml
+./upstream.yaml
 testsetup/

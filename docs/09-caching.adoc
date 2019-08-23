@@ -1,0 +1,9 @@
+== Caching
+
+=== In memory cache
+
+Dshackle keeps latest blocks in memory (by default 64 blocks)
+
+=== Redis cache
+
+TBD

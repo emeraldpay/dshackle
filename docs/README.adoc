@@ -1,0 +1,18 @@
+= Dshackle Documentation
+
+include::00-intro.adoc[]
+
+== Table of Content
+
+. link:01-architecture-intro.adoc[Architecture Overview]
+. link:02-quick-start.adoc[Quick Start]
+. link:03-server-config.adoc[Server Configuration]
+. link:04-upstream-config.adoc[Upstreams Configuration]
+. link:05-start.adoc[How to launch a server]
+. link:06-methods.adoc[API methods]
+. link:07-authentication.adoc[Authentication]
+. link:08-quorum-and-selectors.adoc[Quorum and Selectors]
+. link:09-caching.adoc[Caching]
+. link:10-client-libraries.adoc[Client Libraries]
+
+include::99-ending.adoc[]
