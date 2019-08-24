@@ -75,6 +75,7 @@ class NativeCall(
         }
         return BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                 .setSucceed(false)
+                .setErrorMessage(it?.message ?: "Internal error")
                 .setId(id)
                 .build()
                 .toMono()
@@ -139,7 +140,7 @@ class NativeCall(
                     else CallFailure(ctx.id, it)
                 }
                 .switchIfEmpty(
-                        Mono.error<CallContext<ByteArray>>(CallFailure(ctx.id, Exception("No response or no available upstream for ${ctx.payload.method}")))
+                        Mono.error(CallFailure(ctx.id, Exception("No response or no available upstream for ${ctx.payload.method}")) as Throwable)
                 )
     }
 

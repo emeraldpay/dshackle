@@ -24,6 +24,7 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcException
+import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.transport.BatchStatus
 import io.infinitape.etherjar.rpc.transport.RpcTransport
 import reactor.core.publisher.Flux
@@ -74,7 +75,7 @@ class EthereumGrpcTransport(
                         bi.onError(e)
                     }
                 } else {
-                    bi.onError(RpcException(-32603, resp.error.toString()))
+                    bi.onError(RpcException(RpcResponseError.CODE_INTERNAL_ERROR, resp.errorMessage))
                 }
             }
             false
