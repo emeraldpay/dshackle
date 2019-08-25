@@ -37,7 +37,8 @@ repositories {
     mavenCentral()
     maven { url "http://repo.spring.io/snapshot" }
     maven { url "http://repo.spring.io/milestone" }
-    maven { url  "https://dl.bintray.com/infinitape/etherjar" }
+    maven { url "https://dl.bintray.com/infinitape/etherjar" }
+    maven { url "https://dl.bintray.com/emerald/emerald-grpc" }
 }
 
 configurations {
@@ -48,7 +49,7 @@ configurations {
 }
 
 dependencies {
-    compile "io.emeraldpay:emerald-grpc:0.6-SNAPSHOT"
+    compile "io.emeraldpay:emerald-grpc:0.6.0-0.2"
 
     compile "io.grpc:grpc-protobuf:${grpcVersion}"
     compile "io.grpc:grpc-stub:${grpcVersion}"
