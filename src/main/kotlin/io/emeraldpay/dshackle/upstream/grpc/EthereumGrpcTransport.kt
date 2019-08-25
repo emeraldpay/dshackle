@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.grpc
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
@@ -27,9 +28,6 @@ import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.transport.BatchStatus
 import io.infinitape.etherjar.rpc.transport.RpcTransport
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import reactor.core.publisher.toFlux
 import reactor.util.function.Tuple3
 import reactor.util.function.Tuples
 import java.time.Duration

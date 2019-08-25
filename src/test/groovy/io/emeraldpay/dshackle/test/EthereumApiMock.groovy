@@ -19,10 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.EthereumApi
-import io.emeraldpay.dshackle.upstream.QuorumBasedMethods
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.rpc.RpcClient

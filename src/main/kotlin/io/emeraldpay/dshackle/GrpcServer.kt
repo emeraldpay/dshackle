@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle
 
-import io.grpc.Server
+import io.grpc.*
 import io.grpc.netty.GrpcSslContexts
 import io.grpc.netty.NettyServerBuilder
 import io.netty.handler.ssl.ClientAuth
@@ -104,4 +104,5 @@ open class GrpcServer(
         server?.shutdownNow()
         log.info("GRPC Server shot down")
     }
+
 }

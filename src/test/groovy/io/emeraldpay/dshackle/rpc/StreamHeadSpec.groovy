@@ -20,11 +20,9 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.UpstreamsMock
-import io.emeraldpay.dshackle.upstream.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.EthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson

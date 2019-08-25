@@ -13,10 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import reactor.core.publisher.Flux
 
-interface EthereumHead: Head<BlockJson<TransactionId>> {
+class EmptyEthereumHead : EthereumHead {
+
+    override fun getFlux(): Flux<BlockJson<TransactionId>> {
+        return Flux.empty()
+    }
 }

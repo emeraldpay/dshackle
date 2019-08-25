@@ -17,6 +17,9 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.DefaultRpcClient
 import spock.lang.Specification

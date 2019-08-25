@@ -13,17 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.hex.HexQuantity
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.rpc.*
-import io.infinitape.etherjar.rpc.json.ResponseJson
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.io.InputStream
-import java.time.Duration
 
 abstract class EthereumApi(
         objectMapper: ObjectMapper

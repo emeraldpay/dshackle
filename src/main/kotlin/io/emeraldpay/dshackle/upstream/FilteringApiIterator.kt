@@ -15,6 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+
 class FilteringApiIterator(
         private val upstreams: List<Upstream>,
         private var pos: Int,

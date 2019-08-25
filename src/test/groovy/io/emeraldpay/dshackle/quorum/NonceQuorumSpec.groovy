@@ -13,9 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.quorum.NonceQuorum
 import spock.lang.Specification
 
 class NonceQuorumSpec extends Specification {

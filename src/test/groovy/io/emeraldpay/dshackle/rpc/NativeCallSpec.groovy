@@ -15,18 +15,13 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-import com.fasterxml.jackson.databind.ObjectMapper
+
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.test.EthereumApiMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.AggregatedUpstream
-import io.emeraldpay.dshackle.upstream.AlwaysQuorum
+import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.upstream.CachingEthereumApi
-import io.emeraldpay.dshackle.upstream.CallQuorum
-import io.emeraldpay.dshackle.upstream.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.EthereumApi
-import io.emeraldpay.dshackle.upstream.NonEmptyQuorum
+import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
@@ -34,7 +29,6 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcClient
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
-import reactor.util.function.Tuples
 import spock.lang.Specification
 
 import java.time.Duration

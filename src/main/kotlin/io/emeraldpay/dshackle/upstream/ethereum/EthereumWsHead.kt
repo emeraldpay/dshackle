@@ -13,39 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
-import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.io.Closeable
 import java.util.concurrent.atomic.AtomicReference
 
-class EthereumHeadMerge(
-        fluxes: Iterable<Publisher<BlockJson<TransactionId>>>
+class EthereumWsHead(
+        private val ws: EthereumWs
 ): EthereumHead, Lifecycle {
 
-    private val log = LoggerFactory.getLogger(EthereumHeadMerge::class.java)
-    private val flux: Flux<BlockJson<TransactionId>>
-    private val head = AtomicReference<BlockJson<TransactionId>>(null)
-    private var subscription: Disposable? = null
+    private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 
-    init {
-        flux = Flux.merge(fluxes)
-                .distinctUntilChanged {
-                    it.hash
-                }
-                .filter {
-                    val curr = head.get()
-                    curr == null || curr.totalDifficulty < it.totalDifficulty
-                }
-                .publish()
-                .autoConnect()
+    private var subscription: Disposable? = null
+    private val head = AtomicReference<BlockJson<TransactionId>>(null)
+    private var stream: Flux<BlockJson<TransactionId>>? = null
+
+    override fun getFlux(): Flux<BlockJson<TransactionId>> {
+        return stream?.let {
+            Flux.merge(
+                Mono.justOrEmpty(head.get()),
+                Flux.from(this.stream)
+            ).onBackpressureLatest()
+        } ?: Flux.error(Exception("Not started"))
     }
 
     override fun isRunning(): Boolean {
@@ -53,20 +48,20 @@ class EthereumHeadMerge(
     }
 
     override fun start() {
-        subscription = Flux.from(flux).subscribe {
-            head.set(it)
-        }
-    }
+        val flux = ws.getFlux()
+            .distinctUntilChanged { it.hash }
+            .filter { block ->
+                val curr = head.get()
+                curr == null || curr.totalDifficulty < block.totalDifficulty
+            }.share()
 
-    override fun getFlux(): Flux<BlockJson<TransactionId>> {
-        return Flux.merge(
-                Mono.justOrEmpty(head.get()),
-                Flux.from(this.flux)
-        ).onBackpressureLatest()
+        this.subscription = flux.subscribe(head::set)
+        this.stream = flux
     }
 
     override fun stop() {
         subscription?.dispose()
+        subscription = null
     }
 
 }

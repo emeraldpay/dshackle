@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import spock.lang.Specification
 
 class BroadcastQuorumSpec extends Specification {

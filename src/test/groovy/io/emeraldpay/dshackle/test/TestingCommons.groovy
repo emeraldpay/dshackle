@@ -22,21 +22,12 @@ import com.fasterxml.jackson.databind.module.SimpleModule
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
 import io.emeraldpay.dshackle.upstream.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.EthereumApi
-import io.emeraldpay.dshackle.upstream.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.Batch
-import io.infinitape.etherjar.rpc.ExecutableBatch
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
-import io.infinitape.etherjar.rpc.RpcCall
 import io.infinitape.etherjar.rpc.RpcClient
-import io.infinitape.etherjar.rpc.transport.BatchStatus
-import spock.mock.MockingApi
 
 import java.text.SimpleDateFormat
-import java.util.concurrent.CompletableFuture
 
 class TestingCommons {
 

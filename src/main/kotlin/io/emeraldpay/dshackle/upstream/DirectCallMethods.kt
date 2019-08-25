@@ -15,6 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.quorum.AlwaysQuorum
+import io.emeraldpay.dshackle.quorum.CallQuorum
+
 class DirectCallMethods : CallMethods {
 
     override fun getQuorumFor(method: String): CallQuorum {

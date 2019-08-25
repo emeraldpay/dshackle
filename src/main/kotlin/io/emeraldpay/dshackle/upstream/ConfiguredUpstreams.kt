@@ -18,6 +18,10 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfigReader
+import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
+import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.DefaultRpcClient
 import io.infinitape.etherjar.rpc.transport.DefaultRpcTransport

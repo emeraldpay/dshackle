@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.rpc.json.BlockJson
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 import reactor.test.StepVerifier
 import reactor.util.function.Tuples

@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.test
 
-import io.emeraldpay.dshackle.upstream.EthereumHead
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import reactor.core.publisher.Flux

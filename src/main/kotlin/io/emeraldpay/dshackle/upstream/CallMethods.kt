@@ -15,6 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.quorum.CallQuorum
+
 interface CallMethods {
     fun getQuorumFor(method: String): CallQuorum
     fun isAllowed(method: String): Boolean

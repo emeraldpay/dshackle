@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.slf4j.LoggerFactory
@@ -24,7 +25,6 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.toFlux
 import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
-import java.io.Closeable
 import java.time.Duration
 
 class HeadLagObserver (

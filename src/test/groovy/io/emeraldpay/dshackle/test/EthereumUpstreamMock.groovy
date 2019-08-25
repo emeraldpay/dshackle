@@ -15,10 +15,9 @@
  */
 package io.emeraldpay.dshackle.test
 
-import io.emeraldpay.dshackle.upstream.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.EthereumApi
-import io.emeraldpay.dshackle.upstream.EthereumHead
-import io.emeraldpay.dshackle.upstream.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.TransactionId

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.Batch
@@ -53,7 +53,7 @@ class EthereumRpcHead(
                     Mono.fromCompletionStage(f).timeout(Duration.ofSeconds(5))
                 }
                 .onErrorContinue { err, _ ->
-                    log.warn("RPC error ${err.message}")
+                    log.debug("RPC error ${err.message}")
                 }
                 .distinctUntilChanged { it.hash }
                 .filter { block ->
