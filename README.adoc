@@ -141,19 +141,19 @@ repositories {
 }
 
 dependencies {
-    compile 'io.emeraldpay:emerald-grpc:0.2'
+    compile "io.emeraldpay:emerald-grpc:0.6.0-0.2"
 }
 ----
 
 === Javascript gRPC Client
-image:https://img.shields.io/npm/v/@emeraldplatform/grpc.svg["npm (scoped)", link="https://www.npmjs.com/package/@emeraldplatform/grpc"]
+image:https://img.shields.io/npm/v/@emeraldpay/grpc-client.svg["npm (scoped)", link="https://www.npmjs.com/package/@emeraldpay/grpc-client"]
 
 https://github.com/emeraldpay/emerald-js-grpc
 
 [source,json]
 ----
 "dependencies": {
-    "@emeraldplatform/grpc": "0.10.0",
+    "@emeraldpay/grpc-client": "0.11.0-0.2",
 }
 ----
 
