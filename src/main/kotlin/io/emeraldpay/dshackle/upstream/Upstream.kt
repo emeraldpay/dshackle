@@ -21,14 +21,14 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import reactor.core.publisher.Flux
 
 interface Upstream {
-    fun isAvailable(matcher: Selector.Matcher): Boolean
+    fun isAvailable(): Boolean
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
     fun getHead(): EthereumHead
     fun getApi(matcher: Selector.Matcher): DirectEthereumApi
-//    fun getCache(): CachingEthereumApi
     fun getOptions(): UpstreamsConfig.Options
-    fun getSupportedTargets(): Set<String>
     fun setLag(lag: Long)
     fun getLag(): Long
+    fun getLabels(): Collection<UpstreamsConfig.Labels>
+    fun getMethods(): CallMethods
 }

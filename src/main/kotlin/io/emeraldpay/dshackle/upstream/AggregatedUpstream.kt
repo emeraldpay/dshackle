@@ -37,7 +37,6 @@ import java.util.function.Predicate
 import kotlin.concurrent.withLock
 
 abstract class AggregatedUpstream(
-        val targets: CallMethods,
         val objectMapper: ObjectMapper
 ): Upstream, Lifecycle {
 
@@ -48,10 +47,19 @@ abstract class AggregatedUpstream(
     )
     var cache: CachingEthereumApi = CachingEthereumApi.empty()
     private val reconfigLock = ReentrantLock()
+    private var callMethods: CallMethods = DirectCallMethods()
 
     abstract fun getAll(): List<Upstream>
     abstract fun addUpstream(upstream: Upstream)
     abstract fun getApis(matcher: Selector.Matcher): Iterator<DirectEthereumApi>
+
+    fun reconfigure() {
+        reconfigLock.withLock {
+            getAll().map { it.getMethods() }.let {
+                callMethods = AggregatedCallMethods(it)
+            }
+        }
+    }
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
         val upstreamsFluxes = getAll().map { up -> up.observeStatus().map { UpstreamStatus(up, it) } }
@@ -60,16 +68,8 @@ abstract class AggregatedUpstream(
                 .map { it.status }
     }
 
-    override fun getSupportedTargets(): Set<String> {
-        val list = HashSet<String>()
-        getAll().forEach {
-            list.addAll(it.getSupportedTargets())
-        }
-        return list
-    }
-
-    override fun isAvailable(matcher: Selector.Matcher): Boolean {
-        return getAll().any { it.isAvailable(matcher) }
+    override fun isAvailable(): Boolean {
+        return getAll().any { it.isAvailable() }
     }
 
     override fun getStatus(): UpstreamAvailability {
@@ -80,6 +80,10 @@ abstract class AggregatedUpstream(
 
     override fun getOptions(): UpstreamsConfig.Options {
         return UpstreamsConfig.Options()
+    }
+
+    override fun getMethods(): CallMethods {
+        return callMethods
     }
 
     class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())

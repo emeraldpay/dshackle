@@ -36,7 +36,7 @@ class Describe(
             upstreams.getAvailable().forEach { chain ->
                 upstreams.getUpstream(chain)?.let { chainUpstreams ->
                     val status = subscribeStatus.chainStatus(chain, chainUpstreams.getAll())
-                    val targets = chainUpstreams.getSupportedTargets()
+                    val targets = chainUpstreams.getMethods().getSupportedMethods()
                     val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
                             .setChain(Common.ChainRef.forNumber(chain.id))
                             .addAllSupportedMethods(targets)

@@ -23,6 +23,6 @@ interface Upstreams {
     fun getUpstream(chain: Chain): AggregatedUpstream?
     fun getAvailable(): List<Chain>
     fun observeChains(): Flux<Chain>
-    fun targetFor(chain: Chain): CallMethods
+    fun getDefaultMethods(chain: Chain): CallMethods
     fun isAvailable(chain: Chain): Boolean
 }

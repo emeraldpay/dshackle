@@ -174,4 +174,24 @@ class UpstreamsConfigReaderSpec extends Specification {
             }
         }
     }
+
+    def "Parse config with methods"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-methods.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        with(act.upstreams.get(0)) {
+            methods != null
+            with(methods) {
+                enabled.size() == 1
+                enabled.first().name == "parity_trace"
+
+                disabled.size() == 2
+                disabled.toList()[0].name == "eth_getBlockByNumber"
+                disabled.toList()[1].name == "admin_shutdown"
+            }
+        }
+    }
 }

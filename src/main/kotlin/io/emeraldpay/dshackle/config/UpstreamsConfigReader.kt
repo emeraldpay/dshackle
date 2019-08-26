@@ -102,6 +102,7 @@ class UpstreamsConfigReader {
     internal fun readUpstreamCommon(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
         upstream.id = getValueAsString(upNode, "id")
         upstream.options = tryReadOptions(upNode)
+        upstream.methods = tryReadMethods(upNode)
     }
 
     internal fun readUpstreamGrpc(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>) {
@@ -136,6 +137,29 @@ class UpstreamsConfigReader {
             }
         } else {
             null
+        }
+    }
+
+    internal fun tryReadMethods(upNode: MappingNode): UpstreamsConfig.Methods? {
+        return getMapping(upNode, "methods")?.let { mnode ->
+            val enabled = getList<MappingNode>(mnode, "enabled")?.value?.map { m ->
+                getValueAsString(m, "name")?.let { name ->
+                    UpstreamsConfig.Method(
+                            name = name
+                    )
+                }
+            }?.filterNotNull()?.toSet() ?: emptySet()
+            val disabled = getList<MappingNode>(mnode, "disabled")?.value?.map { m ->
+                getValueAsString(m, "name")?.let { name ->
+                    UpstreamsConfig.Method(
+                            name = name
+                    )
+                }
+            }?.filterNotNull()?.toSet() ?: emptySet()
+
+            UpstreamsConfig.Methods(
+                    enabled, disabled
+            )
         }
     }
 

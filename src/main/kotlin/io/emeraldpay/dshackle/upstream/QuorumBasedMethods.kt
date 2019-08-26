@@ -101,7 +101,7 @@ class QuorumBasedMethods(
         return hardcodedMethods.contains(method)
     }
 
-    override fun hardcoded(method: String): Any {
+    override fun executeHardcoded(method: String): Any {
         if ("net_version" == method) {
             if (Chain.ETHEREUM == chain) {
                 return "1"

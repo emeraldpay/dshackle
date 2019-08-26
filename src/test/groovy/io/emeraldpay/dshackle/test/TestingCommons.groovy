@@ -20,9 +20,12 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
+import io.emeraldpay.dshackle.upstream.CallMethods
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
 import io.emeraldpay.dshackle.upstream.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.QuorumBasedMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcClient
@@ -57,6 +60,10 @@ class TestingCommons {
     }
 
     static AggregatedUpstream aggregatedUpstream(DirectEthereumApi api) {
-        return new ChainUpstreams(Chain.ETHEREUM, [upstream(api)], new DirectCallMethods(), objectMapper())
+        return aggregatedUpstream(upstream(api))
+    }
+
+    static AggregatedUpstream aggregatedUpstream(EthereumUpstream up) {
+        return new ChainUpstreams(Chain.ETHEREUM, [up], objectMapper())
     }
 }

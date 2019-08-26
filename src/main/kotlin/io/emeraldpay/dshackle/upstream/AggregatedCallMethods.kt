@@ -15,32 +15,43 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import java.util.*
+import kotlin.collections.HashSet
 
-class DirectCallMethods(private val methods: Set<String>) : CallMethods {
+class AggregatedCallMethods(
+        private val delegates: Collection<CallMethods>
+): CallMethods {
 
-    constructor(): this(emptySet())
-    constructor(methods: Collection<String>): this(methods.toSet())
+    private val allMethods: Set<String>
+
+    init {
+        val buf = HashSet<String>()
+        delegates.map { it.getSupportedMethods().forEach { m -> buf.add(m) } }
+        allMethods = Collections.unmodifiableSet(buf)
+    }
 
     override fun getQuorumFor(method: String): CallQuorum {
-        return AlwaysQuorum()
+        return delegates.find {
+            it.isAllowed(method)
+        }?.getQuorumFor(method) ?: throw IllegalStateException("No quorum for $method")
     }
 
     override fun isAllowed(method: String): Boolean {
-        return methods.contains(method)
+        return delegates.any { it.isAllowed(method) }
     }
 
     override fun getSupportedMethods(): Set<String> {
-        return methods
+        return allMethods
     }
 
     override fun isHardcoded(method: String): Boolean {
-        return false
+        return delegates.any { it.isAllowed(method) && it.isHardcoded(method) }
     }
 
     override fun executeHardcoded(method: String): Any {
-        return "unsupported"
+        return delegates.find {
+            it.isAllowed(method) && it.isHardcoded(method)
+        }?.executeHardcoded(method) ?: throw IllegalStateException("No hardcoded for $method")
     }
 }

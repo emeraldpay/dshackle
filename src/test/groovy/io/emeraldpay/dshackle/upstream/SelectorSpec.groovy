@@ -35,7 +35,7 @@ class SelectorSpec extends Specification {
         when:
         def act = Selector.convertToMatcher(null)
         then:
-        act.class == Selector.EmptyMatcher
+        act.class == Selector.AnyLabelMatcher
     }
 
     def "Convert LABEL match"() {

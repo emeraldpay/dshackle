@@ -1,0 +1,26 @@
+version: v1
+
+defaultOptions:
+  - chains:
+      - ethereum
+    options:
+      min-peers: 3
+
+upstreams:
+  - id: local
+    chain: ethereum
+    options:
+      min-peers: 7
+    methods:
+      enabled:
+        - name: "parity_trace"
+      disabled:
+        - name: "eth_getBlockByNumber"
+        - name: "admin_shutdown"
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+        ws:
+          url: "ws://localhost:8546"
+          origin: "http://localhost"

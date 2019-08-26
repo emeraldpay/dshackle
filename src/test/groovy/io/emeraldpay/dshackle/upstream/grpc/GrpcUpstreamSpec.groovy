@@ -39,7 +39,6 @@ class GrpcUpstreamSpec extends Specification {
 
     MockServer mockServer = new MockServer()
     ObjectMapper objectMapper = TestingCommons.objectMapper()
-    def ethereumTargets = new QuorumBasedMethods(objectMapper, Chain.ETHEREUM)
 
     def "Subscribe to head"() {
         setup:
@@ -71,8 +70,11 @@ class GrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
+        def upstream = new GrpcUpstream(chain, client, objectMapper)
         upstream.setLag(0)
+        upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
+                .addAllSupportedMethods(["eth_getBlockByHash"])
+                .build())
         when:
         upstream.start()
         def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
@@ -127,8 +129,11 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
+        def upstream = new GrpcUpstream(chain, client, objectMapper)
         upstream.setLag(0)
+        upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
+                .addAllSupportedMethods(["eth_getBlockByHash"])
+                .build())
         when:
         upstream.start()
         finished.get()
@@ -184,8 +189,11 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper, ethereumTargets)
+        def upstream = new GrpcUpstream(chain, client, objectMapper)
         upstream.setLag(0)
+        upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
+                .addAllSupportedMethods(["eth_getBlockByHash"])
+                .build())
         when:
         upstream.start()
         finished.get()

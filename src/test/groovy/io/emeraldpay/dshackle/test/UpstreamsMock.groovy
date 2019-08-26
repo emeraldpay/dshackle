@@ -41,7 +41,7 @@ class UpstreamsMock implements Upstreams {
     @Override
     AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            upstreams[chain] = new ChainUpstreams(chain, [up], targetFor(chain), TestingCommons.objectMapper())
+            upstreams[chain] = new ChainUpstreams(chain, [up], TestingCommons.objectMapper())
         } else {
             upstreams[chain].addUpstream(up)
         }
@@ -64,7 +64,7 @@ class UpstreamsMock implements Upstreams {
     }
 
     @Override
-    QuorumBasedMethods targetFor(@NotNull Chain chain) {
+    QuorumBasedMethods getDefaultMethods(@NotNull Chain chain) {
         if (target[chain] == null) {
             QuorumBasedMethods targets = new QuorumBasedMethods(TestingCommons.objectMapper(), chain)
             target[chain] = targets

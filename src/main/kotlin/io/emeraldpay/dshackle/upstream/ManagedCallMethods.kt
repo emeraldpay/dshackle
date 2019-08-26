@@ -19,28 +19,37 @@ import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import java.util.*
 
-class DirectCallMethods(private val methods: Set<String>) : CallMethods {
+class ManagedCallMethods(
+        private val delegate: CallMethods,
+        private val enabled: Set<String>,
+        private val disabled: Set<String>
+): CallMethods {
 
-    constructor(): this(emptySet())
-    constructor(methods: Collection<String>): this(methods.toSet())
+    private val allAllowed: Set<String> = Collections.unmodifiableSet(
+            enabled + delegate.getSupportedMethods() - disabled
+    )
 
     override fun getQuorumFor(method: String): CallQuorum {
-        return AlwaysQuorum()
+        return if (enabled.contains(method)) {
+            AlwaysQuorum()
+        } else {
+            delegate.getQuorumFor(method)
+        }
     }
 
     override fun isAllowed(method: String): Boolean {
-        return methods.contains(method)
+        return allAllowed.contains(method)
     }
 
     override fun getSupportedMethods(): Set<String> {
-        return methods
+        return allAllowed
     }
 
     override fun isHardcoded(method: String): Boolean {
-        return false
+        return delegate.isHardcoded(method)
     }
 
     override fun executeHardcoded(method: String): Any {
-        return "unsupported"
+        return delegate.executeHardcoded(method)
     }
 }

@@ -95,11 +95,16 @@ class NativeCall(
     }
 
     fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream): Flux<CallContext<RawCallDetails>> {
-        val matcher = Selector.convertToMatcher(request.selector)
         return request.itemsList.toFlux().map {
             val method = it.method
             val params = it.payload.toStringUtf8()
-            val callQuorum = upstream.targets?.getQuorumFor(method) ?: AlwaysQuorum()
+
+            val matcher = Selector.Builder()
+                    .forMethod(method)
+                    .forLabels(Selector.convertToMatcher(request.selector))
+                    .build()
+
+            val callQuorum = upstream.getMethods().getQuorumFor(method) ?: AlwaysQuorum()
             callQuorum.init(upstream.getHead())
 
             CallContext(it.id, upstream, matcher, callQuorum, RawCallDetails(method, params))
@@ -154,7 +159,11 @@ class NativeCall(
         return req as List<Any>
     }
 
-    open class CallContext<T>(val id: Int, val upstream: AggregatedUpstream, val matcher: Selector.Matcher, val callQuorum: CallQuorum, val payload: T) {
+    open class CallContext<T>(val id: Int,
+                              val upstream: AggregatedUpstream,
+                              val matcher: Selector.Matcher,
+                              val callQuorum: CallQuorum,
+                              val payload: T) {
         fun <X> withPayload(payload: X): CallContext<X> {
             return CallContext(id, upstream, matcher, callQuorum, payload)
         }

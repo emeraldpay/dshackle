@@ -37,7 +37,7 @@ class FilteringApiIterator(
                 return false
             }
             val upstream = upstreams[pos++ % upstreams.size]
-            if (upstream.isAvailable(matcher)) {
+            if (upstream.isAvailable() && matcher.matches(upstream)) {
                 nextUpstream = upstream
             }
         }

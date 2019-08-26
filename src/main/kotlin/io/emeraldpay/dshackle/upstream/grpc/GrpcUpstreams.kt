@@ -39,8 +39,7 @@ class GrpcUpstreams(
         private val host: String,
         private val port: Int,
         private val objectMapper: ObjectMapper,
-        private val auth: UpstreamsConfig.TlsAuth? = null,
-        private val upstreams: Upstreams
+        private val auth: UpstreamsConfig.TlsAuth? = null
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -111,7 +110,7 @@ class GrpcUpstreams(
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val created = GrpcUpstream(chain, client!!, objectMapper, upstreams.targetFor(chain))
+                val created = GrpcUpstream(chain, client!!, objectMapper)
                 known[chain] = created
                 created.start()
                 created

@@ -42,14 +42,15 @@ import java.time.Duration
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Function
+import kotlin.collections.ArrayList
 
 open class GrpcUpstream(
         private val chain: Chain,
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
-        private val objectMapper: ObjectMapper,
-        private val targets: CallMethods
+        private val objectMapper: ObjectMapper
 ): DefaultUpstream(), Lifecycle {
 
+    private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
     private val log = LoggerFactory.getLogger(GrpcUpstream::class.java)
 
     private val options = UpstreamsConfig.Options.getDefaults()
@@ -57,13 +58,13 @@ open class GrpcUpstream(
     private val streamBlocks: TopicProcessor<BlockJson<TransactionId>> = TopicProcessor.create()
     private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
     private val head = Head(this)
-    private val supportedMethods = HashSet<String>()
+    private var targets: CallMethods = DirectCallMethods()
     private val grpcTransport = EthereumGrpcTransport(chain, client, objectMapper)
 
     private var headSubscription: Disposable? = null
 
     open fun createApi(matcher: Selector.Matcher): DirectEthereumApi {
-        val rpcClient = DefaultRpcClient(grpcTransport.withMatcher(matcher))
+        val rpcClient = DefaultRpcClient(grpcTransport.withLabels(Selector.extractLabels(matcher)))
         return DirectEthereumApi(rpcClient, objectMapper, targets).let {
             it.upstream = this
             it
@@ -130,19 +131,24 @@ open class GrpcUpstream(
     }
 
     fun init(conf: BlockchainOuterClass.DescribeChain) {
-        supportedMethods.addAll(conf.supportedMethodsList)
+        targets = DirectCallMethods(conf.supportedMethodsList.toSet())
         val nodes = NodeDetailsList()
+        val allLabels = ArrayList<UpstreamsConfig.Labels>()
         conf.nodesList.forEach { node ->
             val node = NodeDetailsList.NodeDetails(node.quorum,
                     node.labelsList.let { provided ->
                         val labels = UpstreamsConfig.Labels()
-                        provided.forEach { labels.put(it.name, it.value) }
+                        provided.forEach {
+                            labels[it.name] = it.value
+                        }
+                        allLabels.add(labels)
                         labels
                     }
             )
             nodes.add(node)
         }
         this.nodes.set(nodes)
+        this.allLabels = Collections.unmodifiableCollection(allLabels)
         conf.status?.let { status -> onStatus(status) }
     }
 
@@ -160,13 +166,17 @@ open class GrpcUpstream(
 
     // ------------------------------------------------------------------------------------------
 
-    override fun getSupportedTargets(): Set<String> {
-        return supportedMethods
+    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
+        return allLabels
     }
 
-    override fun isAvailable(matcher: Selector.Matcher): Boolean {
+    override fun getMethods(): CallMethods {
+        return targets
+    }
+
+    override fun isAvailable(): Boolean {
         return getStatus() == UpstreamAvailability.OK && headBlock.get() != null && nodes.get().getNodes().any {
-            it.quorum > 0 && matcher.matches(it.labels)
+            it.quorum > 0
         }
     }
 

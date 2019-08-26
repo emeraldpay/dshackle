@@ -19,6 +19,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import org.apache.commons.lang3.StringUtils
 import java.util.*
+import kotlin.collections.ArrayList
 
 class Selector {
 
@@ -27,9 +28,9 @@ class Selector {
         val empty = EmptyMatcher()
 
         @JvmStatic
-        fun convertToMatcher(req: BlockchainOuterClass.Selector?): Matcher {
+        fun convertToMatcher(req: BlockchainOuterClass.Selector?): LabelSelectorMatcher {
             return when {
-                req == null -> EmptyMatcher()
+                req == null -> AnyLabelMatcher()
                 req.hasLabelSelector() -> req.labelSelector.let { selector ->
                     if (StringUtils.isNotEmpty(selector.name)) {
                         val values = selector.valueList
@@ -41,24 +42,87 @@ class Selector {
                             LabelMatcher(selector.name, selector.valueList)
                         }
                     } else {
-                        EmptyMatcher()
+                        AnyLabelMatcher()
                     }
                 }
                 req.hasAndSelector() -> AndMatcher(Collections.unmodifiableCollection(req.andSelector.selectorsList.map { convertToMatcher(it) }))
                 req.hasOrSelector() -> OrMatcher(Collections.unmodifiableCollection(req.orSelector.selectorsList.map { convertToMatcher(it) }))
                 req.hasNotSelector() -> NotMatcher(convertToMatcher(req.notSelector.selector))
                 req.hasExistsSelector() -> ExistsMatcher(req.existsSelector.name)
-                else -> EmptyMatcher()
+                else -> AnyLabelMatcher()
             }
+        }
+
+        @JvmStatic
+        fun extractLabels(matcher: Matcher): LabelSelectorMatcher? {
+            if (matcher is LabelSelectorMatcher) {
+                return matcher
+            }
+            if (matcher is MultiMatcher) {
+                return matcher.getLabelMatcher()
+            }
+            return null
+        }
+    }
+
+    class Builder {
+        private val matchers = ArrayList<Matcher>()
+
+        fun forMethod(name: String): Builder {
+            matchers.add(MethodMatcher(name))
+            return this
+        }
+
+        fun forLabels(matcher: LabelSelectorMatcher): Builder {
+            matchers.add(matcher)
+            return this
+        }
+
+        fun build(): Matcher {
+            return MultiMatcher(matchers)
         }
     }
 
     interface Matcher {
-        fun matches(labels: UpstreamsConfig.Labels): Boolean
-        fun asProto(): BlockchainOuterClass.Selector?
+        fun matches(up: Upstream): Boolean
+    }
+
+    class MultiMatcher(
+            private val matchers: Collection<Matcher>
+    ): Matcher {
+        override fun matches(up: Upstream): Boolean {
+            return matchers.all { it.matches(up) }
+        }
+
+        fun getLabelMatcher(): LabelSelectorMatcher? {
+            return matchers.find { it is LabelSelectorMatcher } as LabelSelectorMatcher?
+        }
+    }
+
+    class MethodMatcher(
+            val method: String
+    ): Matcher {
+        override fun matches(up: Upstream): Boolean {
+            return up.getMethods().isAllowed(method)
+        }
+    }
+
+    abstract class LabelSelectorMatcher: Matcher {
+        override fun matches(up: Upstream): Boolean {
+            return up.getLabels().any(this::matches)
+        }
+        abstract fun matches(labels: UpstreamsConfig.Labels): Boolean
+        abstract fun asProto(): BlockchainOuterClass.Selector?
     }
 
     class EmptyMatcher: Matcher {
+        override fun matches(up: Upstream): Boolean {
+            return true
+        }
+    }
+
+    class AnyLabelMatcher: LabelSelectorMatcher() {
+
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return true
         }
@@ -66,9 +130,13 @@ class Selector {
         override fun asProto(): BlockchainOuterClass.Selector? {
             return null
         }
+
+        override fun matches(up: Upstream): Boolean {
+            return true
+        }
     }
 
-    class LabelMatcher(val name: String, val values: Collection<String>): Matcher {
+    class LabelMatcher(val name: String, val values: Collection<String>): LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return labels.get(name)?.let {
                 labelValue -> values.any { it == labelValue }
@@ -84,7 +152,7 @@ class Selector {
         }
     }
 
-    class OrMatcher(val matchers: Collection<Matcher>): Matcher {
+    class OrMatcher(val matchers: Collection<LabelSelectorMatcher>): LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return matchers.any { matcher -> matcher.matches(labels) }
         }
@@ -98,7 +166,7 @@ class Selector {
         }
     }
 
-    class AndMatcher(val matchers: Collection<Matcher>): Matcher {
+    class AndMatcher(val matchers: Collection<LabelSelectorMatcher>): LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return matchers.all { matcher -> matcher.matches(labels) }
         }
@@ -112,7 +180,7 @@ class Selector {
         }
     }
 
-    class NotMatcher(val matcher: Matcher): Matcher {
+    class NotMatcher(val matcher: LabelSelectorMatcher): LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return !matcher.matches(labels)
         }
@@ -126,7 +194,7 @@ class Selector {
         }
     }
 
-    class ExistsMatcher(val name: String): Matcher {
+    class ExistsMatcher(val name: String): LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return labels.containsKey(name)
         }

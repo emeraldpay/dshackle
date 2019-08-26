@@ -47,6 +47,7 @@ class UpstreamsConfig {
         }
 
         companion object {
+            @JvmStatic
             fun getDefaults(): Options {
                 val options = Options()
                 options.minPeers = 1
@@ -69,6 +70,7 @@ class UpstreamsConfig {
         var isEnabled = true
         var connection: T? = null
         val labels = Labels()
+        var methods: Methods? = null
     }
 
     open class UpstreamConnection
@@ -149,4 +151,13 @@ class UpstreamsConfig {
             }
         }
     }
+
+    class Methods(
+            val enabled: Set<Method>,
+            val disabled: Set<Method>
+    )
+
+    class Method(
+            val name: String
+    )
 }

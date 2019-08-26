@@ -98,6 +98,68 @@ Dshackle currently supports
 - `ws` websocket connection (supposed to be used in addition to `rpc` connection)
 - `grpc` connects to another Dshackle instance
 
+=== Methods
+
+.By default an ethereum upstream supports following JSON RPC methods:
+- `eth_gasPrice`
+- `eth_call`
+- `eth_estimateGas`
+- `eth_getBlockTransactionCountByHash`
+- `eth_getUncleCountByBlockHash`
+- `eth_getBlockByHash`
+- `eth_getTransactionByHash`
+- `eth_getTransactionByBlockHashAndIndex`
+- `eth_getStorageAt`
+- `eth_getCode`
+- `eth_getUncleByBlockHashAndIndex`
+- `eth_getTransactionCount`
+- `eth_blockNumber`
+- `eth_getBalance`
+- `eth_sendRawTransaction`
+- `eth_getBlockTransactionCountByNumber`
+- `eth_getUncleCountByBlockNumber`
+- `eth_getBlockByNumber`
+- `eth_getTransactionByBlockNumberAndIndex`
+- `eth_getTransactionReceipt`
+- `eth_getUncleByBlockNumberAndIndex`
+
+
+.Plus following methods are answered directly by Dshackle
+- `net_version`
+- `net_peerCount`
+- `net_listening`
+- `web3_clientVersion`
+- `eth_protocolVersion`
+- `eth_syncing`
+- `eth_coinbase`
+- `eth_mining`
+- `eth_hashrate`
+- `eth_accounts`
+
+It's possible to enable additional methods that are available on upstream, or disable an existing method. For that purpose
+there is `methods` configuration:
+
+[source, yaml]
+----
+upstreams:
+  - id: my-node
+    chain: ethereum
+    labels:
+      archive: true
+    methods:
+      enabled:
+        - name: trace_transaction
+      disabled:
+        - name: eth_getBlockByNumber
+----
+
+Such configuration option allows to execute methods `trace_transaction` and also disables `eth_getBlockByNumber` on that
+particular upstream. If a client tries to execute method `trace_transaction` it will be executed on that upstream, or
+another upstream will have such method enabled.
+
+Together with label `archive: true` it's possible to specify during execution that a client wants to execute method only
+on an archive node.
+
 === Authentication
 
 ==== TLS

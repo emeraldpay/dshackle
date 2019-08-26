@@ -36,7 +36,7 @@ open class DirectEthereumApi(
 
     override fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
         val result: Mono<out Any> = when {
-            targets.isHardcoded(method) -> Mono.just(method).map { targets.hardcoded(it) }
+            targets.isHardcoded(method) -> Mono.just(method).map { targets.executeHardcoded(it) }
             targets.isAllowed(method)   -> callUpstream(method, params)
             else -> Mono.error(RpcException(-32601, "Method not allowed or not found"))
         }

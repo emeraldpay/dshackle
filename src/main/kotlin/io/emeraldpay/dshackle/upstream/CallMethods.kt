@@ -22,5 +22,5 @@ interface CallMethods {
     fun isAllowed(method: String): Boolean
     fun getSupportedMethods(): Set<String>
     fun isHardcoded(method: String): Boolean
-    fun hardcoded(method: String): Any
+    fun executeHardcoded(method: String): Any
 }

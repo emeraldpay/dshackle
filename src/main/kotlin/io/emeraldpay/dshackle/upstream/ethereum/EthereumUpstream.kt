@@ -35,9 +35,6 @@ open class EthereumUpstream(
             UpstreamsConfig.Options.getDefaults(), NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels()),
             DirectCallMethods())
 
-    override fun getSupportedTargets(): Set<String> {
-        return targets.getSupportedMethods()
-    }
 
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
 
@@ -92,8 +89,8 @@ open class EthereumUpstream(
         }
     }
 
-    override fun isAvailable(matcher: Selector.Matcher): Boolean {
-        return getStatus() == UpstreamAvailability.OK && matcher.matches(node.labels)
+    override fun isAvailable(): Boolean {
+        return getStatus() == UpstreamAvailability.OK
     }
 
     override fun getHead(): EthereumHead {
@@ -110,6 +107,14 @@ open class EthereumUpstream(
 
     override fun getOptions(): UpstreamsConfig.Options {
         return options
+    }
+
+    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
+        return listOf(node.labels)
+    }
+
+    override fun getMethods(): CallMethods {
+        return targets
     }
 
 }

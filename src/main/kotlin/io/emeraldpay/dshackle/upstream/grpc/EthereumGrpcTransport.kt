@@ -36,7 +36,7 @@ import java.util.function.Function
 
 class EthereumGrpcTransport(
         private val chainRef: Common.ChainRef,
-        private val selector: BlockchainOuterClass.Selector?,
+        private val labelSelector: BlockchainOuterClass.Selector?,
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper
 ): RpcTransport {
@@ -47,13 +47,13 @@ class EthereumGrpcTransport(
             chain: Chain,
             client: ReactorBlockchainGrpc.ReactorBlockchainStub,
             objectMapper: ObjectMapper
-    ) : this(Common.ChainRef.forNumber(chain.id), Selector.EmptyMatcher().asProto(), client, objectMapper)
+    ) : this(Common.ChainRef.forNumber(chain.id), null, client, objectMapper)
 
-    fun withMatcher(matcher: Selector.Matcher): EthereumGrpcTransport {
-        if (matcher is Selector.EmptyMatcher && selector == null) {
+    fun withLabels(matcher: Selector.LabelSelectorMatcher?): EthereumGrpcTransport {
+        if ((matcher == null || matcher is Selector.AnyLabelMatcher) && labelSelector == null) {
             return this
         }
-        return EthereumGrpcTransport(chainRef, matcher.asProto(), client, objectMapper)
+        return EthereumGrpcTransport(chainRef, matcher?.asProto(), client, objectMapper)
     }
 
     override fun close() {
@@ -114,8 +114,8 @@ class EthereumGrpcTransport(
     override fun execute(items: List<Batch.BatchItem<out Any, out Any>>): CompletableFuture<BatchStatus> {
         val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChain(chainRef)
-        if (selector != null) {
-            req.setSelector(selector)
+        if (labelSelector != null) {
+            req.setSelector(labelSelector)
         }
         val mapping = prepareMapping(items, req)
         return client.nativeCall(req.build())

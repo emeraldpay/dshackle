@@ -76,7 +76,7 @@ open class ConfiguredUpstreams(
                 }
                 val options = (up.options ?: UpstreamsConfig.Options())
                         .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
-                buildEthereumUpstream(up.connection as UpstreamsConfig.EthereumConnection, chain, options, up.labels)
+                buildEthereumUpstream(up as UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>, chain, options)
             }
         }
     }
@@ -119,18 +119,27 @@ open class ConfiguredUpstreams(
         return defaultOptions
     }
 
-    private fun buildEthereumUpstream(up: UpstreamsConfig.EthereumConnection,
+    private fun buildEthereumUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
                                       chain: Chain,
-                                      options: UpstreamsConfig.Options,
-                                      labels: UpstreamsConfig.Labels) {
+                                      options: UpstreamsConfig.Options
+                                      ) {
+        val conn = config.connection!!
         var rpcApi: DirectEthereumApi? = null
         val urls = ArrayList<URI>()
-        up.rpc?.let { endpoint ->
+        val methods = if (config.methods != null) {
+            ManagedCallMethods(getDefaultMethods(chain),
+                    config.methods!!.enabled.map { it.name }.toSet(),
+                    config.methods!!.disabled.map { it.name }.toSet()
+            )
+        } else {
+            getDefaultMethods(chain)
+        }
+        conn.rpc?.let { endpoint ->
             val rpcTransport = DefaultRpcTransport(endpoint.url)
-            up.rpc?.basicAuth?.let { auth ->
+            conn.rpc?.basicAuth?.let { auth ->
                 rpcTransport.setBasicAuth(auth.username, auth.password)
             }
-            up.rpc?.tls?.let { tls ->
+            conn.rpc?.tls?.let { tls ->
                 tls.ca?.let { ca ->
                     File(ca).inputStream().use { cert -> rpcTransport.setTrustedCertificate(cert) }
                 }
@@ -139,12 +148,12 @@ open class ConfiguredUpstreams(
             rpcApi = DirectEthereumApi(
                     rpcClient,
                     objectMapper,
-                    targetFor(chain)
+                    methods
             )
             urls.add(endpoint.url)
         }
         if (rpcApi != null) {
-            val wsApi: EthereumWs? = up.ws?.let { endpoint ->
+            val wsApi: EthereumWs? = conn.ws?.let { endpoint ->
                 val wsApi = EthereumWs(
                         endpoint.url,
                         endpoint.origin ?: URI("http://localhost"),
@@ -159,7 +168,9 @@ open class ConfiguredUpstreams(
             }
 
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-            val ethereumUpstream = EthereumUpstream(chain, rpcApi!!, wsApi, options, NodeDetailsList.NodeDetails(1, labels), targetFor(chain))
+            val ethereumUpstream = EthereumUpstream(chain, rpcApi!!, wsApi, options,
+                    NodeDetailsList.NodeDetails(1, config.labels),
+                    methods)
             ethereumUpstream.start()
             addUpstream(chain, ethereumUpstream)
         }
@@ -171,8 +182,7 @@ open class ConfiguredUpstreams(
                     endpoint.host!!,
                     endpoint.port ?: 443,
                     objectMapper,
-                    up.auth,
-                    this
+                    up.auth
             )
             log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
             ds.start()
@@ -189,7 +199,7 @@ open class ConfiguredUpstreams(
     override fun addUpstream(chain: Chain, up: Upstream): ChainUpstreams {
         val current = chainMapping[chain]
         if (current == null) {
-            val created = ChainUpstreams(chain, ArrayList<Upstream>(), targetFor(chain), objectMapper)
+            val created = ChainUpstreams(chain, ArrayList<Upstream>(), objectMapper)
             created.addUpstream(up)
             created.start()
             chainMapping[chain] = created
@@ -217,7 +227,7 @@ open class ConfiguredUpstreams(
         )
     }
 
-    override fun targetFor(chain: Chain): CallMethods {
+    override fun getDefaultMethods(chain: Chain): CallMethods {
         var current = callTargets[chain]
         if (current == null) {
             current = QuorumBasedMethods(objectMapper, chain)

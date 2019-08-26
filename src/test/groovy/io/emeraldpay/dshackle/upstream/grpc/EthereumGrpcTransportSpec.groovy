@@ -20,8 +20,10 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.test.EthereumApiMock
+import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.MockServer
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.QuorumBasedMethods
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.dshackle.upstream.grpc.EthereumGrpcTransport
@@ -45,7 +47,9 @@ class EthereumGrpcTransportSpec extends Specification {
 
         def callData = [:]
         def otherSideUpstreams = Mock(Upstreams)
-        def otherSideAggr = TestingCommons.aggregatedUpstream(otherSideApi)
+        def otherSideAggr = TestingCommons.aggregatedUpstream(
+                new EthereumUpstreamMock(Chain.ETHEREUM, otherSideApi, new DirectCallMethods(["eth_test"]))
+        )
 
         def otherSideNativeCall = new NativeCall(otherSideUpstreams, objectMapper)
         otherSideApi.upstream = otherSideAggr
@@ -88,7 +92,9 @@ class EthereumGrpcTransportSpec extends Specification {
 
         def callData = [:]
         def otherSideUpstreams = Mock(Upstreams)
-        def otherSideAggr = TestingCommons.aggregatedUpstream(otherSideApi)
+        def otherSideAggr = TestingCommons.aggregatedUpstream(
+                new EthereumUpstreamMock(Chain.ETHEREUM, otherSideApi, new DirectCallMethods(["eth_test", "eth_test2"]))
+        )
         def otherSideNativeCall = new NativeCall(otherSideUpstreams, objectMapper)
         otherSideApi.upstream = otherSideAggr
 
