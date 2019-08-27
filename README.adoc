@@ -163,6 +163,8 @@ https://github.com/emeraldpay/emerald-js-grpc
 }
 ----
 
+See more in the documentation for link:docs/10-client-libraries.adoc[Client Libraries].
+
 == Community
 
 === Chat

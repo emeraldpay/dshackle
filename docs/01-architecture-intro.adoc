@@ -15,3 +15,50 @@ API.
 
 Dshackle servers can be connected to each other as well, or work in parallel, to provide scalable and fault tolerant
 connection to blockchains. All connections can be secured and authenticated with client/server certificates.
+
+=== Upstream selection
+
+Dshackle tries to find an optimal upstream for each particular request, to do so it consider following factors of a node:
+
+- Current height
+- Is it fully synchronized, missing few (less than 6) blocks or in process of initial sync?
+- How many peers it has?
+
+And for a request:
+
+- Is it for a concrete data (_block #100_) or latest (_get balance_)?
+- Is result a static value (_just block_) or may vary depending on network and node (_latest nonce_)?
+- Does it need to be repeat over multiple nodes (_broadcast transaction_)?
+- Request can also specify which subset of nodes should be able to execute the request by selecting node _Labels_
+(see "link:08-quorum-and-selectors.adoc[Quorum and Selectors]")
+
+Based on these factors Dshackle execute request on a most optimal node. For most of the simple requests it just gets a node which is synchronized
+to the point that must have response for that particular request. If node failed, returned invalid response, returned
+empty response when shouldn't then Dshackle tries again on another node, or on the same node after awhile (default is
+200ms between failover repeats)
+
+=== gRPC protocol
+
+Dshackle uses gRPC protocol for communications, because:
+
+- provides additional parameters on top of upstreams JSON RPC requests
+- based on HTTP/2 with low latency, compression, server push, pipelining and multiplexing
+- gRPC has binding and code generators for most of the languages and frameworks
+- easy to support TLS encryption and authentication
+
+Dshackle has extra methods and functionality on top of standard APIs of upstreams, and it's more flexible to wrap
+original APIs, such as JSON, into gRPC and Protobuf + have additional data provided by Dshackle. It also allowed
+to push new data from the server, or send responses asynchronously, immediately after it gets executed on an upstream.
+
+=== Distributed Load Balancing
+
+Dshackle servers can connect to each other through a secure encrypted and authenticated connection.
+It allows to build a network of nodes deployed to different regions or run blockchain nodes outside of the main
+network.
+
+Later is especially important for blockchain nodes, as they require open firewall with incoming connections for P2P, and
+to execute untrusted code ("smart contracts") on the same time. With Dshackle it's possible to separate unsecure nodes from
+business application.
+
+But in general Dshackle allows to run a fault tolerant load balancing to build scalable and fail safe systems on
+blockchain.
