@@ -1,4 +1,8 @@
 = Emerald Dshackle
+:imagesdir: docs/assets
+ifdef::env-github[]
+:imagesdir: https://raw.githubusercontent.com/emeraldpay/dshackle/splix/test-image/docs/assets
+endif::[]
 
 image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square[Docker Pulls]
 image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License", link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
@@ -22,6 +26,8 @@ fully synchronized (not in initial sync mode), has enough peers and its height i
 lags behind others, lost peers, started to resync, or simply went down then Dshackle temporarily excludes it from
 requests and returns back when the the upstream problem is fixed.
 
+image::call-schema.png[alt="Call Schema",width=100%,align="center"]
+
 == Quick Start
 
 === Configuration
@@ -40,7 +46,7 @@ upstreams:
 Which sets the following:
 
 - application listen on 0.0.0.0:9001
-- TLS security is disabled (_never use in production!_)
+- TLS security is disabled (_don't use in production!_)
 - read upstreams configuration from file `upstreams.yaml` in the current directory
 
 Now create file `upstreams.yaml`:
