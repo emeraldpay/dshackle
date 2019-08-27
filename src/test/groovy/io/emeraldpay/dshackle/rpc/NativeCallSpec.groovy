@@ -57,7 +57,6 @@ class NativeCallSpec extends Specification {
         def act = objectMapper.readValue(resp.payload, Map)
         then:
         act == [jsonrpc:"2.0", id:1, result: "foo"]
-        (2..3) * quorum.isResolved() // 2 times during api call (before and after) + 1 time in a filter after
         1 * quorum.record(_, _)
         1 * quorum.getResult()
     }
@@ -86,9 +85,59 @@ class NativeCallSpec extends Specification {
         def act = objectMapper.readValue(resp.payload, Map)
         then:
         act == [jsonrpc:"2.0", id:1, result: "bar"]
-        (3..4) * quorum.isResolved()
         2 * quorum.record(_, _)
         1 * quorum.getResult()
+    }
+
+    def "Have pause between repeats"() {
+        setup:
+        def quorum = Spy(new NonEmptyQuorum(TestingCommons.rpcConverter(), 3))
+
+        def upstreams = Stub(Upstreams)
+        RpcClient rpcClient = Stub(RpcClient)
+        def apiMock = TestingCommons.api(rpcClient)
+        apiMock.upstream = Stub(Upstream)
+
+        apiMock.answerOnce("eth_test", [], null)
+        apiMock.answerOnce("eth_test", [], "bar")
+
+        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
+                Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_test", []))
+
+
+        when:
+        def t1 = System.currentTimeMillis()
+        nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
+        def delta = System.currentTimeMillis() - t1
+        then:
+        delta >= 200
+    }
+
+    def "One call has no pause"() {
+        setup:
+        def quorum = Spy(new NonEmptyQuorum(TestingCommons.rpcConverter(), 3))
+
+        def upstreams = Stub(Upstreams)
+        RpcClient rpcClient = Stub(RpcClient)
+        def apiMock = TestingCommons.api(rpcClient)
+        apiMock.upstream = Stub(Upstream)
+
+        apiMock.answerOnce("eth_test", [], "bar")
+
+        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
+                Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_test", []))
+
+
+        when:
+        def t1 = System.currentTimeMillis()
+        nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
+        def delta = System.currentTimeMillis() - t1
+        then:
+        delta < 50
     }
 
     def "Returns error if no quorum"() {
@@ -107,7 +156,6 @@ class NativeCallSpec extends Specification {
         def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
-        (4..5) * quorum.isResolved()
         3 * quorum.record(_, _)
         1 * quorum.getResult()
 

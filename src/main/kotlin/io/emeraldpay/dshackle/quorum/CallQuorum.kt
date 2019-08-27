@@ -28,7 +28,7 @@ interface CallQuorum {
     fun init(head: Head<BlockJson<TransactionId>>)
 
     fun isResolved(): Boolean
-    fun record(response: ByteArray, upstream: Upstream)
+    fun record(response: ByteArray, upstream: Upstream): Boolean
     fun getResult(): ByteArray?
 
     companion object {

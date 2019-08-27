@@ -31,7 +31,7 @@ abstract class ValueAwareQuorum<T>(
         return jacksonRpcConverter.fromJson(response.inputStream(), clazz)
     }
 
-    override fun record(response: ByteArray, upstream: Upstream) {
+    override fun record(response: ByteArray, upstream: Upstream): Boolean {
         try {
             val value = extractValue(response, clazz)
             recordValue(response, value, upstream)
@@ -40,6 +40,7 @@ abstract class ValueAwareQuorum<T>(
         } catch (e: Exception) {
             recordError(response, e.message, upstream)
         }
+        return isResolved();
     }
 
     abstract fun recordValue(response: ByteArray, responseValue: T?, upstream: Upstream)

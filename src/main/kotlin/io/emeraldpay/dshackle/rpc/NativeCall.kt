@@ -27,13 +27,11 @@ import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import reactor.core.publisher.toFlux
-import reactor.core.publisher.toMono
+import reactor.core.publisher.*
 import reactor.util.function.Tuples
 import java.lang.Exception
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Predicate
 
 @Service
@@ -124,17 +122,26 @@ class NativeCall(
     }
 
     fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
-        val p: Predicate<Any> = CallQuorum.untilResolved(ctx.callQuorum)
         val all = ctx.getApis().toFlux().share()
-        //execute on the first API immediately, and then make a delay between each call to not dos upstreams
+        //execute on the first API immediately, and then make a delay between each call to not overload upstreams
         val immediate = Flux.from(all).take(1)
-        val retries = Flux.from(all).delayElements(Duration.ofMillis(200))
+        val repeatControl = EmitterProcessor.create<Boolean>()//TopicProcessor.create<Boolean>()
+        val retries = Flux.from(all).skip(1)
+                .zipWith(repeatControl).zipWith(Flux.interval(Duration.ofMillis(200)))
+                .map { it.t1.t1 }
+
         return Flux.concat(immediate, retries)
-                .takeWhile(p)
                 .flatMap { api ->
                     api.execute(ctx.id, ctx.payload.method, ctx.payload.params).map { Tuples.of(it, api.upstream!!) }
                 }
-                .reduce(ctx.callQuorum, CallQuorum.asReducer())
+                .reduce(ctx.callQuorum, {res, a ->
+                    if (res.record(a.t1, a.t2)) {
+                        repeatControl.onComplete()
+                    } else {
+                        repeatControl.onNext(true)
+                    }
+                    res
+                })
                 .filter { it.isResolved() }
                 .map {
                     val result  = it.getResult()

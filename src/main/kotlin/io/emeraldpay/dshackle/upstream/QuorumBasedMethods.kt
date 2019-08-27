@@ -80,6 +80,7 @@ class QuorumBasedMethods(
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
             hardcodedMethods.contains(method) -> AlwaysQuorum()
+            firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(6)
             headVerifiedMethods.contains(method) -> NotLaggingQuorum(1)
             specialMethods.contains(method) -> {

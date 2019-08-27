@@ -32,11 +32,13 @@ class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
         return result.get() != null
     }
 
-    override fun record(response: ByteArray, upstream: Upstream) {
+    override fun record(response: ByteArray, upstream: Upstream): Boolean {
         val lagging = upstream.getLag() > maxLag
         if (!lagging) {
             result.set(response)
+            return true
         }
+        return false
     }
 
     override fun getResult(): ByteArray {

@@ -21,7 +21,7 @@ class FilteringApiIterator(
         private val upstreams: List<Upstream>,
         private var pos: Int,
         private val matcher: Selector.Matcher,
-        private val repeatLimit: Int = 3
+        private val repeatLimit: Int = 5
 ): Iterator<DirectEthereumApi> {
 
     private var nextUpstream: Upstream? = null
