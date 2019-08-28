@@ -27,6 +27,15 @@ certstrap sign $SERVER_IP --CA $SERVER_CA
 openssl pkcs8 -topk8 -inform PEM -outform PEM -in out/$SERVER_IP.key -out out/$SERVER_IP.p8.key -nocrypt
 ----
 
+You are going to get following files now in `out` directory:
+
+- `ca.myhost.dev.crt` your Certification Authority to sign or verify other certificates
+- `127.0.0.1.crt` server certificate, 127.0.0.1 is an IP address supposed to be used by that instance, and we use local
+  host for demo purposes. For production use a real IP must be used.
+- `127.0.0.1.p8.key` is private key for certificate in PKCS 8 format, it needed by Dshackle server to use certificate
+
+Copy those files to directory with Dshackle and update configuration.
+
 .Update dshackle.yaml to have:
 [source,yaml]
 ----
@@ -35,8 +44,8 @@ port: 9001
 tls:
   enabled: true
   server:
-    certificate: out/127.0.0.1.crt
-    key: out/127.0.0.1.p8.key
+    certificate: 127.0.0.1.crt
+    key: 127.0.0.1.p8.key
 ----
 
 .Verify that server uses the certificate
@@ -49,10 +58,12 @@ With the configuration above the server listen using TLS and the server identity
 server certificate. Please note that a server certificate doesn't prevent from connection by an unauthorized client, it only
 verifies the server and encrypts a connection.
 
-==== Setup Client certificate
+==== Use Client Certificate Authentication
 
 To have authentication in both ways you'll need to configure client side certificates as well, at that case the server
 will also verify each incoming connection and allow to connect only by a client with a trusted certificate.
+
+It's possible to connect a Dshackle server to another one, and to do so you'll probably want to use TLS as well.
 
 .Generate a client certificate
 [source,bash]
@@ -65,9 +76,20 @@ ORG_UNIT="Client"
 certstrap init --common-name "$CLIENT_CA" --passphrase "" -o "$ORG" -ou "$ORG_UNIT CA"
 certstrap request-cert --common-name "$CLIENT_ID" --passphrase ""
 certstrap sign "$CLIENT_ID" --CA $CLIENT_CA
+
+openssl pkcs8 -topk8 -inform PEM -outform PEM -in out/$CLIENT_ID.key -out out/$CLIENT_ID.p8.key -nocrypt
 ----
 
-.Update dshackle.yaml to have:
+In addition to files mentioned above you got few new files in `out` directory, including:
+
+- `client-ca.myhost.dev.crt` a certificate to validate connecting clients, all their keys much be signed by that
+  certificate. Server don't need a private key for that certificate because it's used for verification only.
+- `client_1.crt` certificate for a client that will connect to the server
+- `client_1.p8.key` private key for that certificate, needed by client
+
+Copy `client-ca.myhost.dev.crt` to directory with first Dshackle server.
+
+.Update server dshackle.yaml to have:
 [source,yaml]
 ----
 version: v1
@@ -75,11 +97,11 @@ port: 9001
 tls:
   enabled: true
   server:
-    certificate: out/127.0.0.1.crt
-    key: out/127.0.0.1.p8.key
+    certificate: 127.0.0.1.crt
+    key: 127.0.0.1.p8.key
   client:
     require: true
-    ca: out/client-ca.myhost.dev.crt
+    ca: client-ca.myhost.dev.crt
 ----
 
 .Verify connection with client certificate
@@ -87,3 +109,40 @@ tls:
 ----
 openssl s_client -alpn h2 -connect 127.0.0.1:9001 -CAfile out/ca.myhost.dev.crt -cert out/client_1.crt -key out/client_1.key
 ----
+
+Now you need to setup connection from another Dshackle server. I.e. the server we configured above is going be an
+upstream to another Dshackle server, which we configure below.
+
+Setup another Dshackle server on the same machine:
+
+.Configure dshackle.yaml for second server
+[source,yaml]
+----
+version: v1
+port: 9002
+tls:
+  enabled: false
+----
+
+At this case we run another server on port 9002 in unsecure mode. But to connect to an upstream is still uses a TLS
+certificate as described below
+
+[source,yaml]
+----
+version: v1
+upstreams:
+  - id: ds
+    chain: auto
+    provider: dshackle
+    connection:
+      grpc:
+        host: 127.0.0.1
+        port: 9001
+        tls:
+          ca: ca.myhost.dev.crt
+          certificate: client_1.crt
+          key: client_1.p8.key
+----
+
+Now if you run second server it will connect to first server ("upstream") running on port 9001, will verify upstream
+with certificate `ca.myhost.dev.crt` and authenticate itself by using pair of `client_1.crt` and `client_1.p8.key`
