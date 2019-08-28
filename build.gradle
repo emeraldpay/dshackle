@@ -125,14 +125,12 @@ jib {
     from {
     }
     to {
-        image = 'emeraldpay/dshackle:snapshot'
+        // execute with -Platest=true
+        // $ gradle jib -Platest=true
+        image = (project.hasProperty('latest') && project.property('latest') == 'true') ? 'emeraldpay/dshackle:latest' : 'emeraldpay/dshackle:snapshot'
         tags = [project.version].with (true) {
             add "t"+ DateTimeFormatter.ofPattern("yyyyMMddHHmm").withZone(ZoneId.of('UTC')).format(Instant.now())
-            // execute with -Platest=true
-            // $ gradle jib -Platest=true
-            if (project.hasProperty('latest') && project.property('latest') == 'true') {
-                add "latest"
-            }
+            add project.version.toString().replaceAll('(\\d+\\.\\d+).+', '$1')
         }
     }
     container {
