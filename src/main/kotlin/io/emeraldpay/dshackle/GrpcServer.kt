@@ -43,6 +43,7 @@ open class GrpcServer(
     @PostConstruct
     fun start() {
         log.info("Starting GRPC Server...")
+        log.debug("Running with DEBUG LOGGING")
         val port = env.getProperty("port", "8090").toInt()
         log.info("Listening on 0.0.0.0:$port")
         val serverBuilder = NettyServerBuilder.forPort(port)
