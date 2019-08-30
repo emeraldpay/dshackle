@@ -44,14 +44,19 @@ open class CachingEthereumApi(
 
     override fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
         return when (method) {
-            "eth_blockNumber" -> head.getFlux().next()
+            "eth_blockNumber" ->
+                head.getFlux().next()
                     .map { HexQuantity.from(it.number).toHex() }
                     .map(toJson(id))
-            "eth_getBlockByHash" -> Mono.just(params[0])
-                    .map { BlockHash.from(it as String) }
-                    .flatMap(cache::read)
-                    .map(toJson(id))
-            else -> Mono.empty()
+            "eth_getBlockByHash" ->
+                if (params.size == 2 && (params[1] == "false" || params[1] == false))
+                    Mono.just(params[0])
+                        .map { BlockHash.from(it as String) }
+                        .flatMap(cache::read)
+                        .map(toJson(id))
+                else Mono.empty()
+            else ->
+                Mono.empty()
         }
     }
 
