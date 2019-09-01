@@ -124,7 +124,7 @@ class EthereumGrpcTransport(
                 .map(asStatus)
                 .doFinally {
                     mapping.values.forEach { bi ->
-                        bi.onError(RpcException(-32603, "RPC response not received"))
+                        bi.onError(RpcException(-32603, "RPC response not received for ${bi.call.method}"))
                     }
                 }
                 .timeout(Duration.ofSeconds(15))

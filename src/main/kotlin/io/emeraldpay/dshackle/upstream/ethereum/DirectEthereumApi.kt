@@ -42,7 +42,7 @@ open class DirectEthereumApi(
         }
         return result
                 .doOnError { t ->
-                    log.warn("Upstream error: ${t.message} for ${method}")
+                    log.warn("Upstream error: [${t.message}] for ${method}")
                 }
                 .map {
                     val resp = ResponseJson<Any, Int>()
