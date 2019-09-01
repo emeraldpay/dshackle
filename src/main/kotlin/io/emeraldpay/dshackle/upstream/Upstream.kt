@@ -31,4 +31,5 @@ interface Upstream {
     fun getLag(): Long
     fun getLabels(): Collection<UpstreamsConfig.Labels>
     fun getMethods(): CallMethods
+    fun getId(): String
 }

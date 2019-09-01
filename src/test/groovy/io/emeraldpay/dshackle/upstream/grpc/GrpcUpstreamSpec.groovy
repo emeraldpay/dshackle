@@ -70,7 +70,7 @@ class GrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper)
+        def upstream = new GrpcUpstream("test", chain, client, objectMapper)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -129,7 +129,7 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper)
+        def upstream = new GrpcUpstream("test", chain, client, objectMapper)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -189,7 +189,7 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new GrpcUpstream(chain, client, objectMapper)
+        def upstream = new GrpcUpstream("test", chain, client, objectMapper)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])

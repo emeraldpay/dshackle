@@ -19,7 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.UpstreamChange
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
@@ -27,15 +27,14 @@ import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
-import reactor.core.publisher.toFlux
-import reactor.util.function.Tuple2
-import reactor.util.function.Tuples
 import java.io.File
+import java.time.Duration
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 class GrpcUpstreams(
+        private val id: String,
         private val host: String,
         private val port: Int,
         private val objectMapper: ObjectMapper,
@@ -44,39 +43,32 @@ class GrpcUpstreams(
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
-    private var known = HashMap<Chain, GrpcUpstream>()
+    private val known = HashMap<Chain, GrpcUpstream>()
     private val lock = ReentrantLock()
 
-    fun start(): Flux<Tuple2<Chain, GrpcUpstream>> {
+    fun start(): Flux<UpstreamChange> {
         val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             NettyChannelBuilder.forAddress(host, port)
                     .useTransportSecurity()
                     .sslContext(withTls(auth))
         } else {
-            log.warn("Using insecure connection for $host:$port")
+            log.warn("Using insecure connection to $host:$port")
             ManagedChannelBuilder.forAddress(host, port)
                     .usePlaintext()
         }
 
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
         this.client = client
-        val loaded = client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
-                .map { value ->
-                    val chains = ArrayList<Chain>()
-                    value.chainsList.filter {
-                        Chain.byId(it.chain.number) != Chain.UNSPECIFIED
-                    }.map { chainDetails ->
-                        val chain = Chain.byId(chainDetails.chain.number)
-                        val up = getOrCreate(chain)
-                        up.init(chainDetails)
-                        chains.add(chain)
-                        Tuples.of(chain, up)
-                    }
-                }.flatMapMany {
-                    it.toFlux()
+
+        val updates = Flux.interval(Duration.ZERO, Duration.ofMinutes(1))
+                .flatMap {
+                    client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
+                }.flatMap { value ->
+                    processDescription(value)
                 }.doOnError { t ->
                     log.error("Failed to get description from $host:$port", t)
                 }
+
         //TODO subscribe only after receiving details
         client.subscribeStatus(BlockchainOuterClass.StatusRequest.newBuilder().build())
                 .subscribe { value ->
@@ -85,7 +77,30 @@ class GrpcUpstreams(
                         known[chain]?.onStatus(value)
                     }
                 }
-        return loaded
+        return updates
+    }
+
+    fun processDescription(value: BlockchainOuterClass.DescribeResponse): Flux<UpstreamChange> {
+        val current = value.chainsList.filter {
+            Chain.byId(it.chain.number) != Chain.UNSPECIFIED
+        }.map { chainDetails ->
+            val chain = Chain.byId(chainDetails.chain.number)
+            val up = getOrCreate(chain)
+            (up.upstream as GrpcUpstream).init(chainDetails)
+            up
+        }
+
+        val added = current.filter {
+            it.type == UpstreamChange.ChangeType.ADDED
+        }
+
+        val removed = known.filterNot { kv ->
+            val stillCurrent = current.any { c -> c.chain == kv.key }
+            stillCurrent
+        }.map {
+            UpstreamChange(it.key, known.remove(it.key)!!, UpstreamChange.ChangeType.REMOVED)
+        }
+        return Flux.fromIterable(removed + added)
     }
 
     internal fun withTls(auth: UpstreamsConfig.TlsAuth): SslContext {
@@ -106,16 +121,16 @@ class GrpcUpstreams(
         return sslContext.build()
     }
 
-    fun getOrCreate(chain: Chain): GrpcUpstream {
+    fun getOrCreate(chain: Chain): UpstreamChange {
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val created = GrpcUpstream(chain, client!!, objectMapper)
+                val created = GrpcUpstream(id, chain, client!!, objectMapper)
                 known[chain] = created
                 created.start()
-                created
+                UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)
             } else {
-                current
+                UpstreamChange(chain, current, UpstreamChange.ChangeType.REVALIDATED)
             }
         }
     }

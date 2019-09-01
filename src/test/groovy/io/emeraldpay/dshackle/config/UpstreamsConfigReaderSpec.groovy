@@ -15,6 +15,10 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.rpc.RpcClient
 import spock.lang.Specification
 
 class UpstreamsConfigReaderSpec extends Specification {
@@ -193,5 +197,32 @@ class UpstreamsConfigReaderSpec extends Specification {
                 disabled.toList()[1].name == "admin_shutdown"
             }
         }
+    }
+
+    def "Parse config with invalid ids"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-no-id.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "test"
+        }
+    }
+
+    def "Invalidate wrong ids"() {
+        expect:
+        !reader.isValid(new UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>(id: id))
+        where:
+        id << ["", null, "a", "ab", "!ab", "foo bar", "foo@bar", "123test", "_test", "test/test"]
+    }
+
+    def "Accept good ids"() {
+        expect:
+        reader.isValid(new UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>(id: id))
+        where:
+        id << ["test", "test_test", "test-test", "test123", "test1test", "foo_bar_12"]
     }
 }

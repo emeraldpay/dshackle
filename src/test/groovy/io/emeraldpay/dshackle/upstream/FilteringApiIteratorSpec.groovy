@@ -40,6 +40,7 @@ class FilteringApiIteratorSpec extends Specification {
                 [test: "baz"]
         ].collect {
             new EthereumUpstream(
+                    "test",
                     Chain.ETHEREUM,
                     new DirectEthereumApi(rpcClient, objectMapper, ethereumTargets),
                     (EthereumWs) null,

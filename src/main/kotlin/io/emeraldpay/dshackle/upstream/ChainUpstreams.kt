@@ -35,12 +35,19 @@ open class ChainUpstreams (
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
-    private var head: EthereumHead?
+    private var head: EthereumHead? = null
     private var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
 
     init {
-        head = updateHead()
+        if (upstreams.size > 0) {
+            head = updateHead()
+            onUpstreamsUpdated()
+        }
+    }
+
+    override fun getId(): String {
+        return "!all:${chain.chainCode}"
     }
 
     override fun isRunning(): Boolean {
@@ -99,7 +106,14 @@ open class ChainUpstreams (
     override fun addUpstream(upstream: Upstream) {
         upstreams.add(upstream)
         head = updateHead()
-        reconfigure()
+        onUpstreamsUpdated()
+    }
+
+    fun removeUpstream(id: String) {
+        if (upstreams.removeIf { it.getId() == id }) {
+            head = updateHead()
+            onUpstreamsUpdated()
+        }
     }
 
     override fun getApis(matcher: Selector.Matcher): Iterator<DirectEthereumApi> {

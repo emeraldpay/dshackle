@@ -43,13 +43,11 @@ import kotlin.collections.HashMap
 @Repository
 open class ConfiguredUpstreams(
         @Autowired val env: Environment,
-        @Autowired private val objectMapper: ObjectMapper
-) : Upstreams {
+        @Autowired private val objectMapper: ObjectMapper,
+        @Autowired private val currentUpstreams: CurrentUpstreams
+) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
-    private val chainMapping = ConcurrentHashMap<Chain, ChainUpstreams>()
-    private val chainsBus = TopicProcessor.create<Chain>()
-    private val callTargets = HashMap<Chain, QuorumBasedMethods>()
 
     private val chainNames = mapOf(
             "ethereum" to Chain.ETHEREUM,
@@ -67,7 +65,7 @@ open class ConfiguredUpstreams(
         config.upstreams.forEach { up ->
 
             if (up.connection is UpstreamsConfig.GrpcConnection) {
-                buildGrpcUpstream(up.connection as UpstreamsConfig.GrpcConnection)
+                buildGrpcUpstream(up as UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>)
             } else {
                 val chain = chainNames[up.chain]
                 if (chain == null) {
@@ -127,12 +125,12 @@ open class ConfiguredUpstreams(
         var rpcApi: DirectEthereumApi? = null
         val urls = ArrayList<URI>()
         val methods = if (config.methods != null) {
-            ManagedCallMethods(getDefaultMethods(chain),
+            ManagedCallMethods(currentUpstreams.getDefaultMethods(chain),
                     config.methods!!.enabled.map { it.name }.toSet(),
                     config.methods!!.disabled.map { it.name }.toSet()
             )
         } else {
-            getDefaultMethods(chain)
+            currentUpstreams.getDefaultMethods(chain)
         }
         conn.rpc?.let { endpoint ->
             val rpcTransport = DefaultRpcTransport(endpoint.url)
@@ -168,75 +166,32 @@ open class ConfiguredUpstreams(
             }
 
             log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-            val ethereumUpstream = EthereumUpstream(chain, rpcApi!!, wsApi, options,
+            val ethereumUpstream = EthereumUpstream(
+                    config.id!!,
+                    chain, rpcApi!!, wsApi, options,
                     NodeDetailsList.NodeDetails(1, config.labels),
                     methods)
             ethereumUpstream.start()
-            addUpstream(chain, ethereumUpstream)
+            currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
         }
     }
 
-    private fun buildGrpcUpstream(up: UpstreamsConfig.GrpcConnection) {
-        val endpoint = up
-            val ds = GrpcUpstreams(
-                    endpoint.host!!,
-                    endpoint.port ?: 443,
-                    objectMapper,
-                    up.auth
-            )
-            log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
-            ds.start()
-                    .subscribe {
-                        log.info("Subscribed to ${it.t1} through gRPC at ${endpoint.host}:${endpoint.port}")
-                        addUpstream(it.t1, it.t2)
-                    }
-    }
-
-    override fun getUpstream(chain: Chain): AggregatedUpstream? {
-        return chainMapping[chain]
-    }
-
-    override fun addUpstream(chain: Chain, up: Upstream): ChainUpstreams {
-        val current = chainMapping[chain]
-        if (current == null) {
-            val created = ChainUpstreams(chain, ArrayList<Upstream>(), objectMapper)
-            created.addUpstream(up)
-            created.start()
-            chainMapping[chain] = created
-            chainsBus.onNext(chain)
-            return created
-        } else {
-            current.addUpstream(up)
-        }
-        return current
-    }
-
-    @Scheduled(fixedRate = 15000)
-    fun printStatuses() {
-        chainMapping.forEach { it.value.printStatus() }
-    }
-
-    override fun getAvailable(): List<Chain> {
-        return Collections.unmodifiableList(chainMapping.keys.toList())
-    }
-
-    override fun observeChains(): Flux<Chain> {
-        return Flux.merge(
-                Flux.fromIterable(getAvailable()),
-                Flux.from(chainsBus)
+    private fun buildGrpcUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>) {
+        val endpoint = config.connection!!
+        val ds = GrpcUpstreams(
+                config.id!!,
+                endpoint.host!!,
+                endpoint.port ?: 443,
+                objectMapper,
+                endpoint.auth
         )
+        log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
+        ds.start()
+                .doOnNext {
+                    log.info("Chain ${it.chain} has ${it.type} through gRPC at ${endpoint.host}:${endpoint.port}")
+                }
+                .subscribe(currentUpstreams::update)
     }
 
-    override fun getDefaultMethods(chain: Chain): CallMethods {
-        var current = callTargets[chain]
-        if (current == null) {
-            current = QuorumBasedMethods(objectMapper, chain)
-            callTargets[chain] = current
-        }
-        return current
-    }
 
-    override fun isAvailable(chain: Chain): Boolean {
-        return chainMapping.containsKey(chain) && callTargets.containsKey(chain)
-    }
 }

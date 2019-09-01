@@ -36,8 +36,16 @@ class EthereumUpstreamMock extends EthereumUpstream {
         this(chain, api, new QuorumBasedMethods(TestingCommons.objectMapper(), chain))
     }
 
+    EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull DirectEthereumApi api) {
+        this(id, chain, api, new QuorumBasedMethods(TestingCommons.objectMapper(), chain))
+    }
+
     EthereumUpstreamMock(@NotNull Chain chain, @NotNull DirectEthereumApi api, CallMethods methods) {
-        super(chain, api, null,
+        this("test", chain, api, methods)
+    }
+
+    EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull DirectEthereumApi api, CallMethods methods) {
+        super(id, chain, api, null,
                 UpstreamsConfig.Options.getDefaults(), new NodeDetailsList.NodeDetails(1, new UpstreamsConfig.Labels()),
                 methods)
         setLag(0)

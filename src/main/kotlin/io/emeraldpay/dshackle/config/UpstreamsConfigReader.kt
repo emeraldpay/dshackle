@@ -50,53 +50,70 @@ class UpstreamsConfigReader {
         }
 
         config.upstreams = ArrayList<UpstreamsConfig.Upstream<*>>()
-        getList<MappingNode>(configNode, "upstreams")?.value?.forEach { upNode ->
+        getList<MappingNode>(configNode, "upstreams")?.value?.forEachIndexed { pos, upNode ->
             val connNode = getMapping(upNode, "connection")
             if (hasAny(connNode, "ethereum")) {
                 val connConfigNode = getMapping(connNode, "ethereum")!!
                 val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>()
                 readUpstreamCommon(upNode, upstream)
                 readUpstreamEthereum(upNode, upstream)
-                config.upstreams.add(upstream)
-                val connection = UpstreamsConfig.EthereumConnection()
-                upstream.connection = connection
-                getMapping(connConfigNode, "rpc")?.let { node ->
-                    getValueAsString(node, "url")?.let { url ->
-                        val http = UpstreamsConfig.HttpEndpoint(URI(url))
-                        connection.rpc = http
-                        http.basicAuth = readBasicAuth(node)
-                        http.tls = readTls(node)
-                    }
-                }
-                getMapping(connConfigNode, "ws")?.let { node ->
-                    getValueAsString(node, "url")?.let { url ->
-                        val ws = UpstreamsConfig.WsEndpoint(URI(url))
-                        connection.ws = ws
-                        getValueAsString(node, "origin")?.let { origin ->
-                            ws.origin = URI(origin)
+                if (isValid(upstream)) {
+                    config.upstreams.add(upstream)
+                    val connection = UpstreamsConfig.EthereumConnection()
+                    upstream.connection = connection
+                    getMapping(connConfigNode, "rpc")?.let { node ->
+                        getValueAsString(node, "url")?.let { url ->
+                            val http = UpstreamsConfig.HttpEndpoint(URI(url))
+                            connection.rpc = http
+                            http.basicAuth = readBasicAuth(node)
+                            http.tls = readTls(node)
                         }
-                        ws.basicAuth = readBasicAuth(node)
                     }
+                    getMapping(connConfigNode, "ws")?.let { node ->
+                        getValueAsString(node, "url")?.let { url ->
+                            val ws = UpstreamsConfig.WsEndpoint(URI(url))
+                            connection.ws = ws
+                            getValueAsString(node, "origin")?.let { origin ->
+                                ws.origin = URI(origin)
+                            }
+                            ws.basicAuth = readBasicAuth(node)
+                        }
+                    }
+                } else {
+                    log.error("Upstream at #0 has invalid configuration")
                 }
             } else if (hasAny(connNode, "grpc")) {
                 val connConfigNode = getMapping(connNode, "grpc")!!
                 val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>()
                 readUpstreamCommon(upNode, upstream)
                 readUpstreamGrpc(upNode, upstream)
-                config.upstreams.add(upstream)
-                val connection = UpstreamsConfig.GrpcConnection()
-                upstream.connection = connection
-                getValueAsString(connConfigNode, "host")?.let {
-                    connection.host = it
+                if (isValid(upstream)) {
+                    config.upstreams.add(upstream)
+                    val connection = UpstreamsConfig.GrpcConnection()
+                    upstream.connection = connection
+                    getValueAsString(connConfigNode, "host")?.let {
+                        connection.host = it
+                    }
+                    getValueAsInt(connConfigNode, "port")?.let {
+                        connection.port = it
+                    }
+                    connection.auth = readTls(connConfigNode)
+                } else {
+                    log.error("Upstream at #0 has invalid configuration")
                 }
-                getValueAsInt(connConfigNode, "port")?.let {
-                    connection.port = it
-                }
-                connection.auth = readTls(connConfigNode)
             }
         }
 
         return config
+    }
+
+    fun isValid(upstream: UpstreamsConfig.Upstream<*>): Boolean {
+        val id = upstream.id
+        if (id == null || id.length < 3 || !id.matches(Regex("[a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9]"))) {
+            log.warn("Invalid id: $id")
+            return false
+        }
+        return true
     }
 
     internal fun readUpstreamCommon(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {

@@ -23,6 +23,7 @@ import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 
 open class EthereumUpstream(
+        private val id: String,
         val chain: Chain,
         private val api: DirectEthereumApi,
         private val ethereumWs: EthereumWs? = null,
@@ -31,7 +32,7 @@ open class EthereumUpstream(
         private val targets: CallMethods
 ): DefaultUpstream(), Lifecycle {
 
-    constructor(chain: Chain, api: DirectEthereumApi): this(chain, api, null,
+    constructor(id: String, chain: Chain, api: DirectEthereumApi): this(id, chain, api, null,
             UpstreamsConfig.Options.getDefaults(), NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels()),
             DirectCallMethods())
 
@@ -43,6 +44,10 @@ open class EthereumUpstream(
 
     init {
         api.upstream = this
+    }
+
+    override fun getId(): String {
+        return id
     }
 
     override fun start() {

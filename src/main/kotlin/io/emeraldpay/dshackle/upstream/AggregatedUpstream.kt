@@ -47,13 +47,13 @@ abstract class AggregatedUpstream(
     )
     var cache: CachingEthereumApi = CachingEthereumApi.empty()
     private val reconfigLock = ReentrantLock()
-    private var callMethods: CallMethods = DirectCallMethods()
+    private var callMethods: CallMethods? = null
 
     abstract fun getAll(): List<Upstream>
     abstract fun addUpstream(upstream: Upstream)
     abstract fun getApis(matcher: Selector.Matcher): Iterator<DirectEthereumApi>
 
-    fun reconfigure() {
+    fun onUpstreamsUpdated() {
         reconfigLock.withLock {
             getAll().map { it.getMethods() }.let {
                 callMethods = AggregatedCallMethods(it)
@@ -83,7 +83,7 @@ abstract class AggregatedUpstream(
     }
 
     override fun getMethods(): CallMethods {
-        return callMethods
+        return callMethods ?: throw IllegalStateException("Methods are not initialized yet")
     }
 
     class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())

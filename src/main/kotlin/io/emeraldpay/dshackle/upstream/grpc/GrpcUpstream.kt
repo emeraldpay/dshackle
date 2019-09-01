@@ -45,6 +45,7 @@ import java.util.function.Function
 import kotlin.collections.ArrayList
 
 open class GrpcUpstream(
+        private val parentId: String,
         private val chain: Chain,
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper
@@ -58,12 +59,13 @@ open class GrpcUpstream(
     private val streamBlocks: TopicProcessor<BlockJson<TransactionId>> = TopicProcessor.create()
     private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
     private val head = Head(this)
-    private var targets: CallMethods = DirectCallMethods()
+    private var targets: CallMethods? = null
     private val grpcTransport = EthereumGrpcTransport(chain, client, objectMapper)
 
     private var headSubscription: Disposable? = null
 
     open fun createApi(matcher: Selector.Matcher): DirectEthereumApi {
+        val targets = this.getMethods()
         val rpcClient = DefaultRpcClient(grpcTransport.withLabels(Selector.extractLabels(matcher)))
         return DirectEthereumApi(rpcClient, objectMapper, targets).let {
             it.upstream = this
@@ -71,7 +73,12 @@ open class GrpcUpstream(
         }
     }
 
+    override fun getId(): String {
+        return "$parentId/${chain.chainCode}"
+    }
+
     override fun start() {
+        if (this.isRunning) return
         val chainRef = Common.Chain.newBuilder()
                 .setTypeValue(chain.id)
                 .build()
@@ -116,7 +123,12 @@ open class GrpcUpstream(
                             .executeAndConvert(Commands.eth().getBlock(it.hash))
                             .timeout(Duration.ofSeconds(5), Mono.error(Exception("Timeout requesting block from upstream")))
                             .doOnError { t ->
-                                log.warn("Failed to download block data", t)
+                                val msg = "Failed to download block data for chain $chain"
+                                if (t is RpcException) {
+                                    log.warn("$msg. Message: ${t.message}")
+                                } else {
+                                    log.error(msg, t)
+                                }
                             }
                 }
                 .onErrorContinue { err, _ ->
@@ -134,9 +146,9 @@ open class GrpcUpstream(
         targets = DirectCallMethods(conf.supportedMethodsList.toSet())
         val nodes = NodeDetailsList()
         val allLabels = ArrayList<UpstreamsConfig.Labels>()
-        conf.nodesList.forEach { node ->
-            val node = NodeDetailsList.NodeDetails(node.quorum,
-                    node.labelsList.let { provided ->
+        conf.nodesList.forEach { remoteNode ->
+            val node = NodeDetailsList.NodeDetails(remoteNode.quorum,
+                    remoteNode.labelsList.let { provided ->
                         val labels = UpstreamsConfig.Labels()
                         provided.forEach {
                             labels[it.name] = it.value
@@ -171,7 +183,7 @@ open class GrpcUpstream(
     }
 
     override fun getMethods(): CallMethods {
-        return targets
+        return targets ?: throw IllegalStateException("Upstream is not initialized yet")
     }
 
     override fun isAvailable(): Boolean {
