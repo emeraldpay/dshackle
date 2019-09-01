@@ -45,8 +45,9 @@ class EthereumApiMock extends DirectEthereumApi {
         return answer(method, params, result, 1)
     }
 
-    EthereumApiMock answer(@NotNull String method, List<Object> params, Object result, Integer limit = null) {
-        predefined << new PredefinedResponse(method: method, params: params, result: result, limit: limit)
+    EthereumApiMock answer(@NotNull String method, List<Object> params, Object result,
+                           Integer limit = null, Throwable exception = null) {
+        predefined << new PredefinedResponse(method: method, params: params, result: result, limit: limit, exception: exception)
         return this
     }
 
@@ -55,6 +56,11 @@ class EthereumApiMock extends DirectEthereumApi {
         def predefined = predefined.find { it.isSame(id, method, params) }
         ResponseJson json = new ResponseJson<Object, Integer>(id: id)
         if (predefined != null) {
+            if (predefined.exception != null) {
+                predefined.onCalled()
+                predefined.print()
+                throw predefined.exception
+            }
             json.result = predefined.result
         } else {
             log.error("Method ${method} with ${params} is not mocked")
@@ -84,6 +90,7 @@ class EthereumApiMock extends DirectEthereumApi {
         List params
         Object result
         Integer limit
+        Throwable exception
 
         boolean isSame(int id, String method, List<?> params) {
             if (limit != null) {

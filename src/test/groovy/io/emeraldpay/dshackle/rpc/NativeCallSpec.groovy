@@ -32,6 +32,7 @@ import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
+import java.util.concurrent.TimeoutException
 
 class NativeCallSpec extends Specification {
 
@@ -299,5 +300,33 @@ class NativeCallSpec extends Specification {
         then:
         1 * cacheMock.execute(10, "eth_test", []) >> Mono.just('{"result": "foo"}'.bytes)
         new String(act.block().payload) == '{"result": "foo"}'
+    }
+
+    def "Retries on error"() {
+        setup:
+        def quorum = Spy(new AlwaysQuorum())
+
+        def upstreams = Stub(Upstreams)
+        RpcClient rpcClient = Stub(RpcClient)
+        def apiMock = TestingCommons.api(rpcClient)
+        apiMock.upstream = Stub(Upstream)
+
+        apiMock.answer("eth_test", [], null, 1, new TimeoutException("test 1"))
+        apiMock.answer("eth_test", [], null, 1, new TimeoutException("test 2"))
+        apiMock.answerOnce("eth_test", [], "bar")
+
+        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
+                Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_test", []))
+
+
+        when:
+        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
+        def act = objectMapper.readValue(resp.payload, Map)
+        then:
+        act == [jsonrpc:"2.0", id:1, result: "bar"]
+        1 * quorum.record(_, _)
+        1 * quorum.getResult()
     }
 }

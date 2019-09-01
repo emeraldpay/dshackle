@@ -134,6 +134,7 @@ class NativeCall(
                 .flatMap { api ->
                     api.execute(ctx.id, ctx.payload.method, ctx.payload.params).map { Tuples.of(it, api.upstream!!) }
                 }
+                .retry(3)
                 .reduce(ctx.callQuorum, {res, a ->
                     if (res.record(a.t1, a.t2)) {
                         repeatControl.onComplete()
