@@ -28,6 +28,7 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.*
+import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -48,7 +49,8 @@ open class GrpcUpstream(
         private val parentId: String,
         private val chain: Chain,
         private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
-        private val objectMapper: ObjectMapper
+        private val objectMapper: ObjectMapper,
+        private val grpcTransport: EmeraldGrpcTransport
 ): DefaultUpstream(), Lifecycle {
 
     private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
@@ -60,13 +62,15 @@ open class GrpcUpstream(
     private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
     private val head = Head(this)
     private var targets: CallMethods? = null
-    private val grpcTransport = EthereumGrpcTransport(chain, client, objectMapper)
 
     private var headSubscription: Disposable? = null
 
     open fun createApi(matcher: Selector.Matcher): DirectEthereumApi {
         val targets = this.getMethods()
-        val rpcClient = DefaultRpcClient(grpcTransport.withLabels(Selector.extractLabels(matcher)))
+        val transport = Selector.extractLabels(matcher)?.let { selector ->
+            grpcTransport.copyWithSelector(selector.asProto())
+        } ?: grpcTransport
+        val rpcClient = DefaultRpcClient(transport)
         return DirectEthereumApi(rpcClient, objectMapper, targets).let {
             it.upstream = this
             it

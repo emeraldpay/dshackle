@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamChange
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
+import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
 import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
@@ -30,6 +31,7 @@ import reactor.core.publisher.Flux
 import java.io.File
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.Executors
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -46,6 +48,8 @@ class GrpcUpstreams(
     private val known = HashMap<Chain, GrpcUpstream>()
     private val lock = ReentrantLock()
 
+    private var grpcTransport: EmeraldGrpcTransport? = null
+
     fun start(): Flux<UpstreamChange> {
         val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             NettyChannelBuilder.forAddress(host, port)
@@ -59,6 +63,13 @@ class GrpcUpstreams(
 
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
         this.client = client
+        var i = 0
+        val grpcExecutor = Executors.newFixedThreadPool(8) { r -> Thread(r, "grpc-up-$id-${i++}") };
+        this.grpcTransport = EmeraldGrpcTransport.newBuilder()
+                .forChannel(client.channel)
+                .setObjectMapper(objectMapper)
+                .setExecutorService(grpcExecutor)
+                .build()
 
         val updates = Flux.interval(Duration.ZERO, Duration.ofMinutes(1))
                 .flatMap {
@@ -67,6 +78,8 @@ class GrpcUpstreams(
                     processDescription(value)
                 }.doOnError { t ->
                     log.error("Failed to get description from $host:$port", t)
+                }.doFinally {
+                    grpcExecutor.shutdown()
                 }
 
         //TODO subscribe only after receiving details
@@ -125,7 +138,7 @@ class GrpcUpstreams(
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val created = GrpcUpstream(id, chain, client!!, objectMapper)
+                val created = GrpcUpstream(id, chain, client!!, objectMapper, grpcTransport!!.copyForChain(chain))
                 known[chain] = created
                 created.start()
                 UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)

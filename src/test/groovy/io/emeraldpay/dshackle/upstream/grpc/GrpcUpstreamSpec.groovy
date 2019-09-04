@@ -28,12 +28,15 @@ import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.domain.BlockHash
+import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcClient
+import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
 import io.infinitape.etherjar.rpc.json.BlockJson
 import spock.lang.Specification
 
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executors
 
 class GrpcUpstreamSpec extends Specification {
 
@@ -70,7 +73,8 @@ class GrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new GrpcUpstream("test", chain, client, objectMapper)
+        def transport = EmeraldGrpcTransport.newBuilder().forChannel(client.channel).build()
+        def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -129,7 +133,8 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new GrpcUpstream("test", chain, client, objectMapper)
+        def transport = EmeraldGrpcTransport.newBuilder().forChannel(client.channel).build()
+        def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -189,7 +194,8 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new GrpcUpstream("test", chain, client, objectMapper)
+        def transport = EmeraldGrpcTransport.newBuilder().forChannel(client.channel).build()
+        def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])

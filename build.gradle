@@ -76,6 +76,7 @@ dependencies {
     compile "io.infinitape:etherjar-hex:$etherjarVersion"
     compile "io.infinitape:etherjar-rpc-http:$etherjarVersion"
     compile "io.infinitape:etherjar-rpc-ws:$etherjarVersion"
+    compile "io.infinitape:etherjar-rpc-emerald:$etherjarVersion"
     compile "io.infinitape:etherjar-tx:$etherjarVersion"
 
     compile 'org.apache.httpcomponents:httpmime:4.5.8'
