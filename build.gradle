@@ -127,7 +127,11 @@ jib {
     to {
         // execute with -Platest=true
         // $ gradle jib -Platest=true
-        image = (project.hasProperty('latest') && project.property('latest') == 'true') ? 'emeraldpay/dshackle:latest' : 'emeraldpay/dshackle:snapshot'
+        image = [
+                project.hasProperty('docker') ? project.property('docker') : 'emeraldpay',
+                '/dshackle:',
+                (project.hasProperty('latest') && project.property('latest') == 'true') ? 'latest' : 'snapshot'
+        ].join('')
         tags = [project.version].with (true) {
             add "t"+ DateTimeFormatter.ofPattern("yyyyMMddHHmm").withZone(ZoneId.of('UTC')).format(Instant.now())
             add project.version.toString().replaceAll('(\\d+\\.\\d+).+', '$1')
