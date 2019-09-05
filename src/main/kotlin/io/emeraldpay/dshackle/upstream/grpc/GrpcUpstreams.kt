@@ -27,11 +27,13 @@ import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
 import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
+import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import java.io.File
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -64,32 +66,38 @@ class GrpcUpstreams(
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
         this.client = client
         var i = 0
-        val grpcExecutor = Executors.newFixedThreadPool(8) { r -> Thread(r, "grpc-up-$id-${i++}") };
+        val grpcExecutor = Executors.newFixedThreadPool(32) { r -> Thread(r, "grpc-up-$id-${i++}") };
         this.grpcTransport = EmeraldGrpcTransport.newBuilder()
                 .forChannel(client.channel)
                 .setObjectMapper(objectMapper)
                 .setExecutorService(grpcExecutor)
                 .build()
 
+        val statusSubscription = AtomicReference<Disposable>()
+
         val updates = Flux.interval(Duration.ZERO, Duration.ofMinutes(1))
                 .flatMap {
                     client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
+                }.onErrorContinue { t, u ->
+                    log.error("Failed to get description from $host:$port", t)
                 }.flatMap { value ->
                     processDescription(value)
-                }.doOnError { t ->
-                    log.error("Failed to get description from $host:$port", t)
+                }.doOnNext {
+                    val subscription = client.subscribeStatus(BlockchainOuterClass.StatusRequest.newBuilder().build())
+                            .subscribe { value ->
+                                val chain = Chain.byId(value.chain.number)
+                                if (chain != Chain.UNSPECIFIED) {
+                                    known[chain]?.onStatus(value)
+                                }
+                            }
+                    statusSubscription.updateAndGet { prev ->
+                        prev?.dispose()
+                        subscription
+                    }
                 }.doFinally {
                     grpcExecutor.shutdown()
                 }
 
-        //TODO subscribe only after receiving details
-        client.subscribeStatus(BlockchainOuterClass.StatusRequest.newBuilder().build())
-                .subscribe { value ->
-                    val chain = Chain.byId(value.chain.number)
-                    if (chain != Chain.UNSPECIFIED) {
-                        known[chain]?.onStatus(value)
-                    }
-                }
         return updates
     }
 
