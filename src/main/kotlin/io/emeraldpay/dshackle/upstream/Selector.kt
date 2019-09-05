@@ -59,7 +59,18 @@ class Selector {
                 return matcher
             }
             if (matcher is MultiMatcher) {
-                return matcher.getLabelMatcher()
+                return matcher.getMatcher(LabelSelectorMatcher::class.java)
+            }
+            return null
+        }
+
+        @JvmStatic
+        fun extractMethod(matcher: Matcher): MethodMatcher? {
+            if (matcher is MethodMatcher) {
+                return matcher
+            }
+            if (matcher is MultiMatcher) {
+                return matcher.getMatcher(MethodMatcher::class.java)
             }
             return null
         }
@@ -94,8 +105,8 @@ class Selector {
             return matchers.all { it.matches(up) }
         }
 
-        fun getLabelMatcher(): LabelSelectorMatcher? {
-            return matchers.find { it is LabelSelectorMatcher } as LabelSelectorMatcher?
+        fun <T: Matcher> getMatcher(type: Class<T>): T? {
+            return matchers.find { type.isAssignableFrom(it.javaClass) } as T?
         }
     }
 
