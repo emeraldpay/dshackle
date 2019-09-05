@@ -125,10 +125,10 @@ class NativeCall(
         val all = ctx.getApis().toFlux().share()
         //execute on the first API immediately, and then make a delay between each call to not overload upstreams
         val immediate = Flux.from(all).take(1)
-        val repeatControl = EmitterProcessor.create<Boolean>()//TopicProcessor.create<Boolean>()
+        val repeatControl = EmitterProcessor.create<Boolean>()
         val retries = Flux.from(all).skip(1)
-                .zipWith(repeatControl).zipWith(Flux.interval(Duration.ofMillis(200)))
-                .map { it.t1.t1 }
+                .zipWith(repeatControl.delayElements(Duration.ofMillis(200))) //manages when need another call, make delay for at least of 200ms between calls
+                .map { it.t1 }
 
         return Flux.concat(immediate, retries)
                 .flatMap { api ->
@@ -143,6 +143,11 @@ class NativeCall(
                     }
                     res
                 })
+                .doOnNext {
+                    if (!it.isResolved()) {
+                        log.debug("No quorum for ${ctx.payload.method} as ${ctx.callQuorum}")
+                    }
+                }
                 .filter { it.isResolved() }
                 .map {
                     val result  = it.getResult()
