@@ -22,6 +22,7 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.ethereum.DefaultEthereumHead
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.emeraldpay.grpc.Chain
@@ -35,7 +36,6 @@ import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toMono
 import java.lang.Exception
 import java.math.BigInteger
@@ -57,10 +57,8 @@ open class GrpcUpstream(
     private val log = LoggerFactory.getLogger(GrpcUpstream::class.java)
 
     private val options = UpstreamsConfig.Options.getDefaults()
-    private val headBlock = AtomicReference<BlockJson<TransactionId>>(null)
-    private val streamBlocks: TopicProcessor<BlockJson<TransactionId>> = TopicProcessor.create()
     private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
-    private val head = Head(this)
+    private val head = DefaultEthereumHead()
     private var targets: CallMethods? = null
 
     private var headSubscription: Disposable? = null
@@ -110,40 +108,36 @@ open class GrpcUpstream(
 
 
     internal fun observeHead(flux: Flux<BlockchainOuterClass.ChainHead>) {
-        headSubscription = flux.map { value ->
-                    val block = BlockJson<TransactionId>()
-                    block.number = value.height
-                    block.totalDifficulty = BigInteger(1, value.weight.toByteArray())
-                    block.hash = BlockHash.from("0x"+value.blockId)
-                    block
-                }
-                .distinctUntilChanged { it.hash }
-                .filter { block ->
-                    val curr = headBlock.get()
-                    curr == null || curr.totalDifficulty < block.totalDifficulty
-                }
-                .flatMap {
-                    getApi(Selector.EmptyMatcher())
-                            .executeAndConvert(Commands.eth().getBlock(it.hash))
-                            .timeout(Duration.ofSeconds(5), Mono.error(Exception("Timeout requesting block from upstream")))
-                            .doOnError { t ->
-                                val msg = "Failed to download block data for chain $chain"
-                                if (t is RpcException) {
-                                    log.warn("$msg. Message: ${t.message}")
-                                } else {
-                                    log.error(msg, t)
-                                }
-                            }
-                }
-                .onErrorContinue { err, _ ->
-                    log.error("Head subscription error: ${err.message}")
-                }
-                .subscribe { block ->
-                    log.debug("New block ${block.number} on ${chain}")
-                    setStatus(UpstreamAvailability.OK)
-                    headBlock.set(block)
-                    streamBlocks.onNext(block)
-                }
+        val base = flux.map { value ->
+            val block = BlockJson<TransactionId>()
+            block.number = value.height
+            block.totalDifficulty = BigInteger(1, value.weight.toByteArray())
+            block.hash = BlockHash.from("0x"+value.blockId)
+            block
+        }.distinctUntilChanged {
+            it.hash
+        }.filter { block ->
+            val curr = head.getCurrent()
+            curr == null || curr.totalDifficulty < block.totalDifficulty
+        }.flatMap {
+            getApi(Selector.EmptyMatcher())
+                    .executeAndConvert(Commands.eth().getBlock(it.hash))
+                    .timeout(Duration.ofSeconds(5), Mono.error(Exception("Timeout requesting block from upstream")))
+                    .doOnError { t ->
+                        val msg = "Failed to download block data for chain $chain"
+                        if (t is RpcException) {
+                            log.warn("$msg. Message: ${t.message}")
+                        } else {
+                            log.error(msg, t)
+                        }
+                    }
+        }.onErrorContinue { err, _ ->
+            log.error("Head subscription error: ${err.message}")
+        }.doOnNext {
+            setStatus(UpstreamAvailability.OK)
+        }
+
+        headSubscription = head.follow(base)
     }
 
     fun init(conf: BlockchainOuterClass.DescribeChain) {
@@ -191,7 +185,7 @@ open class GrpcUpstream(
     }
 
     override fun isAvailable(): Boolean {
-        return getStatus() == UpstreamAvailability.OK && headBlock.get() != null && nodes.get().getNodes().any {
+        return getStatus() == UpstreamAvailability.OK && head.getCurrent() != null && nodes.get().getNodes().any {
             it.quorum > 0
         }
     }
@@ -206,18 +200,6 @@ open class GrpcUpstream(
 
     override fun getOptions(): UpstreamsConfig.Options {
         return options
-    }
-
-    class Head(
-            val upstream: GrpcUpstream
-    ): EthereumHead {
-
-        override fun getFlux(): Flux<BlockJson<TransactionId>> {
-            return Flux.merge(
-                    Mono.justOrEmpty(upstream.headBlock.get()),
-                    Flux.from(upstream.streamBlocks)
-            )
-        }
     }
 
 }

@@ -26,42 +26,17 @@ import reactor.core.publisher.Mono
 import java.util.concurrent.atomic.AtomicReference
 
 class EthereumHeadMerge(
-        fluxes: Iterable<Publisher<BlockJson<TransactionId>>>
-): EthereumHead, Lifecycle {
+        private val fluxes: Iterable<Publisher<BlockJson<TransactionId>>>
+): DefaultEthereumHead(), Lifecycle {
 
-    private val log = LoggerFactory.getLogger(EthereumHeadMerge::class.java)
-    private val flux: Flux<BlockJson<TransactionId>>
-    private val head = AtomicReference<BlockJson<TransactionId>>(null)
     private var subscription: Disposable? = null
-
-    init {
-        flux = Flux.merge(fluxes)
-                .distinctUntilChanged {
-                    it.hash
-                }
-                .filter {
-                    val curr = head.get()
-                    curr == null || curr.totalDifficulty < it.totalDifficulty
-                }
-                .publish()
-                .autoConnect()
-    }
 
     override fun isRunning(): Boolean {
         return subscription != null
     }
 
     override fun start() {
-        subscription = Flux.from(flux).subscribe {
-            head.set(it)
-        }
-    }
-
-    override fun getFlux(): Flux<BlockJson<TransactionId>> {
-        return Flux.merge(
-                Mono.justOrEmpty(head.get()),
-                Flux.from(this.flux)
-        ).onBackpressureLatest()
+        subscription = super.follow(Flux.merge(fluxes))
     }
 
     override fun stop() {

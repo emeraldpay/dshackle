@@ -32,6 +32,7 @@ import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcClient
 import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
 import io.infinitape.etherjar.rpc.json.BlockJson
+import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
@@ -90,9 +91,6 @@ class GrpcUpstreamSpec extends Specification {
 
     def "Follows difficulty, ignores less difficult"() {
         setup:
-        def callData = [:]
-        def finished = new CompletableFuture<Boolean>()
-        def chain = Chain.ETHEREUM
         def api = TestingCommons.api(Stub(RpcClient))
         def block1 = new BlockJson().with {
             it.number = 650246
@@ -130,19 +128,17 @@ class GrpcUpstreamSpec extends Specification {
                                 .setWeight(ByteString.copyFrom(block2.totalDifficulty.toByteArray()))
                                 .build()
                 )
-                finished.complete(true)
             }
         })
         def transport = EmeraldGrpcTransport.newBuilder().forChannel(client.channel).build()
-        def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
+        def upstream = new GrpcUpstream("test", Chain.ETHEREUM, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
                 .build())
         when:
         upstream.start()
-        finished.get()
-        def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
+        def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block()
         then:
         upstream.status == UpstreamAvailability.OK
         h.hash == BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -203,7 +199,7 @@ class GrpcUpstreamSpec extends Specification {
         when:
         upstream.start()
         finished.get()
-        def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
+        def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block()
         then:
         upstream.status == UpstreamAvailability.OK
         h.hash == BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")

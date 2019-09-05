@@ -21,6 +21,7 @@ import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
+import java.time.Duration
 
 open class EthereumUpstream(
         private val id: String,
@@ -70,21 +71,20 @@ open class EthereumUpstream(
     override fun stop() {
         validatorSubscription?.dispose()
         validatorSubscription = null
+        if (head is Lifecycle) {
+            head.stop()
+        }
     }
 
     open fun createHead(): EthereumHead {
         return if (ethereumWs != null) {
-            // load current block through RPC then listen for following blocks through WS
             val ws = EthereumWsHead(ethereumWs).apply {
                 this.start()
             }
-            val rpc = EthereumRpcHead(api).apply {
+            val rpc = EthereumRpcHead(api, Duration.ofSeconds(20)).apply {
                 this.start()
             }
-            val currentHead = rpc.getFlux().next().doFinally {
-                rpc.stop()
-            }
-            EthereumHeadMerge(listOf(currentHead, ws.getFlux())).apply {
+            EthereumHeadMerge(listOf(rpc.getFlux(), ws.getFlux())).apply {
                 this.start()
             }
         } else {
@@ -103,10 +103,6 @@ open class EthereumUpstream(
     }
 
     override fun getApi(matcher: Selector.Matcher): DirectEthereumApi {
-        return api
-    }
-
-    fun getApi(): DirectEthereumApi {
         return api
     }
 
