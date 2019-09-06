@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import org.reactivestreams.Publisher
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -51,7 +52,7 @@ abstract class AggregatedUpstream(
 
     abstract fun getAll(): List<Upstream>
     abstract fun addUpstream(upstream: Upstream)
-    abstract fun getApis(matcher: Selector.Matcher): Iterator<DirectEthereumApi>
+    abstract fun getApis(matcher: Selector.Matcher): ApiSource
 
     fun onUpstreamsUpdated() {
         reconfigLock.withLock {

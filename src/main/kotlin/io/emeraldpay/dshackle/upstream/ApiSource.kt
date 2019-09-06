@@ -15,22 +15,12 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
+import org.reactivestreams.Publisher
 
-interface Upstream {
-    fun isAvailable(): Boolean
-    fun getStatus(): UpstreamAvailability
-    fun observeStatus(): Flux<UpstreamAvailability>
-    fun getHead(): EthereumHead
-    fun getApi(matcher: Selector.Matcher): Mono<DirectEthereumApi>
-    fun getOptions(): UpstreamsConfig.Options
-    fun setLag(lag: Long)
-    fun getLag(): Long
-    fun getLabels(): Collection<UpstreamsConfig.Labels>
-    fun getMethods(): CallMethods
-    fun getId(): String
+interface ApiSource: Publisher<DirectEthereumApi> {
+
+    fun resolve()
+    fun request(tries: Int)
+
 }

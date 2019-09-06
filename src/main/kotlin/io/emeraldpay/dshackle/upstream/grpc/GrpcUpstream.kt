@@ -121,7 +121,7 @@ open class GrpcUpstream(
             curr == null || curr.totalDifficulty < block.totalDifficulty
         }.flatMap {
             getApi(Selector.EmptyMatcher())
-                    .executeAndConvert(Commands.eth().getBlock(it.hash))
+                    .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(it.hash)) }
                     .timeout(Duration.ofSeconds(5), Mono.error(Exception("Timeout requesting block from upstream")))
                     .doOnError { t ->
                         val msg = "Failed to download block data for chain $chain"
@@ -194,8 +194,8 @@ open class GrpcUpstream(
         return head
     }
 
-    override fun getApi(matcher: Selector.Matcher): DirectEthereumApi {
-        return createApi(matcher)
+    override fun getApi(matcher: Selector.Matcher): Mono<DirectEthereumApi> {
+        return Mono.just(createApi(matcher))
     }
 
     override fun getOptions(): UpstreamsConfig.Options {

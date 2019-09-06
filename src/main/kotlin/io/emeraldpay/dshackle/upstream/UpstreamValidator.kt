@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.Commands
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -28,28 +29,29 @@ class UpstreamValidator(
         private val options: UpstreamsConfig.Options
 ) {
 
-    fun validate(): UpstreamAvailability {
+    fun validate(): Mono<UpstreamAvailability> {
         val batch = Batch()
         val peerCount = batch.add(Commands.net().peerCount())
         val syncing = batch.add(Commands.eth().syncing())
-        try {
-            ethereumUpstream.getApi(Selector.empty).rpcClient.execute(batch).get(5, TimeUnit.SECONDS)
-            if (syncing.get().isSyncing) {
-                return UpstreamAvailability.SYNCING
-            }
-            if (options.minPeers != null && peerCount.get() < options.minPeers!!) {
-                return UpstreamAvailability.IMMATURE
-            }
-            return UpstreamAvailability.OK
-        } catch (e: Throwable) {
-            return UpstreamAvailability.UNAVAILABLE
-        }
+        return ethereumUpstream.getApi(Selector.empty)
+                .map { api -> api.rpcClient.execute(batch) }
+                .flatMap { Mono.fromCompletionStage(it) }
+                .timeout(Duration.ofSeconds(10))
+                .map {
+                    if (syncing.get().isSyncing) {
+                        UpstreamAvailability.SYNCING
+                    } else if (options.minPeers != null && peerCount.get() < options.minPeers!!) {
+                        UpstreamAvailability.IMMATURE
+                    } else {
+                        UpstreamAvailability.OK
+                    }
+                }.onErrorContinue { _, _ -> UpstreamAvailability.UNAVAILABLE }
     }
 
     fun start(): Flux<UpstreamAvailability> {
         return Flux.interval(Duration.ofSeconds(15))
-                .map {
+                .flatMap {
                     validate()
-                }.onErrorContinue { _, _ -> UpstreamAvailability.UNAVAILABLE }
+                }
     }
 }

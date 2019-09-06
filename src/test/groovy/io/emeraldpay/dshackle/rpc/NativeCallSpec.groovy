@@ -113,7 +113,7 @@ class NativeCallSpec extends Specification {
         nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
         def delta = System.currentTimeMillis() - t1
         then:
-        delta >= 200
+        delta >= 100
     }
 
     def "One call has no pause"() {

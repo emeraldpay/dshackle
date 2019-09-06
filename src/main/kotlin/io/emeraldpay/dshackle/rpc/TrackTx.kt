@@ -208,7 +208,7 @@ class TrackTx(
         val upstream = upstreams.getUpstream(tx.chain)
                 ?: return Mono.error(Exception("Unsupported blockchain: ${tx.chain}"))
         return upstream.getApi(Selector.empty)
-                .executeAndConvert(Commands.eth().getBlock(tx.status.blockHash))
+                .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(tx.status.blockHash)) }
                 .map { block ->
                     setBlockDetails(tx, block)
                 }.doOnError { t ->
@@ -249,7 +249,7 @@ class TrackTx(
         val initialStatus = tx.status
         val upstream = upstreams.getUpstream(tx.chain) ?: return Mono.error(Exception("Unsupported blockchain: ${tx.chain}"))
         val execution = upstream.getApi(Selector.empty)
-                .executeAndConvert(Commands.eth().getTransaction(tx.txid))
+                .flatMap { api -> api.executeAndConvert(Commands.eth().getTransaction(tx.txid)) }
         return execution
                 .flatMap { updateFromBlock(upstream, tx, it) }
                 .doOnError { t ->

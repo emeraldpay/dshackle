@@ -168,7 +168,7 @@ class TrackAddress(
     fun getBalance(addr: SimpleAddress): Mono<Wei> {
         val up = upstreams.getUpstream(addr.chain) ?: return Mono.error(Exception("Unsupported chain: ${addr.chain}"))
         return up.getApi(Selector.empty)
-                .executeAndConvert(Commands.eth().getBalance(addr.address, BlockTag.LATEST))
+                .flatMap { api -> api.executeAndConvert(Commands.eth().getBalance(addr.address, BlockTag.LATEST)) }
                 .timeout(Duration.ofSeconds(15))
     }
 

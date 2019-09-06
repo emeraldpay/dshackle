@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.*
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.grpc.Chain
@@ -30,9 +29,6 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.*
 import reactor.util.function.Tuples
 import java.lang.Exception
-import java.time.Duration
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.function.Predicate
 
 @Service
 class NativeCall(
@@ -122,24 +118,27 @@ class NativeCall(
     }
 
     fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
-        val all = ctx.getApis().toFlux().share()
-        //execute on the first API immediately, and then make a delay between each call to not overload upstreams
-        val immediate = Flux.from(all).take(1)
-        val repeatControl = EmitterProcessor.create<Boolean>()
-        val retries = Flux.from(all).skip(1)
-                .zipWith(repeatControl.delayElements(Duration.ofMillis(200))) //manages when need another call, make delay for at least of 200ms between calls
-                .map { it.t1 }
-
-        return Flux.concat(immediate, retries)
+        val apis = ctx.getApis()
+        apis.request(1)
+        var failures = 0
+        return Flux.from(apis)
                 .flatMap { api ->
                     api.execute(ctx.id, ctx.payload.method, ctx.payload.params).map { Tuples.of(it, api.upstream!!) }
                 }
-                .retry(3)
+                .retry {
+                    failures++
+                    if (failures <= 3) {
+                        apis.request(1)
+                        true
+                    } else {
+                        false
+                    }
+                }
                 .reduce(ctx.callQuorum, {res, a ->
                     if (res.record(a.t1, a.t2)) {
-                        repeatControl.onComplete()
+                        apis.resolve()
                     } else {
-                        repeatControl.onNext(true)
+                        apis.request(1)
                     }
                     res
                 })
@@ -181,7 +180,7 @@ class NativeCall(
             return CallContext(id, upstream, matcher, callQuorum, payload)
         }
 
-        fun getApis(): Iterator<DirectEthereumApi> {
+        fun getApis(): ApiSource {
             return upstream.getApis(matcher)
         }
     }

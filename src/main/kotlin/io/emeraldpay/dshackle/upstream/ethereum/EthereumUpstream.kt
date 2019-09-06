@@ -21,6 +21,7 @@ import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
+import reactor.core.publisher.Mono
 import java.time.Duration
 
 open class EthereumUpstream(
@@ -102,8 +103,8 @@ open class EthereumUpstream(
         return head
     }
 
-    override fun getApi(matcher: Selector.Matcher): DirectEthereumApi {
-        return api
+    override fun getApi(matcher: Selector.Matcher): Mono<DirectEthereumApi> {
+        return Mono.just(api)
     }
 
     override fun getOptions(): UpstreamsConfig.Options {

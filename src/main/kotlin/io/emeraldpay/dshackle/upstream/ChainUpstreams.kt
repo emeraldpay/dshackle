@@ -24,6 +24,7 @@ import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
+import reactor.core.publisher.Mono
 import java.lang.IllegalStateException
 import java.time.Duration
 
@@ -116,16 +117,19 @@ open class ChainUpstreams (
         }
     }
 
-    override fun getApis(matcher: Selector.Matcher): Iterator<DirectEthereumApi> {
+    override fun getApis(matcher: Selector.Matcher): ApiSource {
         val i = seq++
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
         }
-        return FilteringApiIterator(upstreams, i, matcher)
+        return FilteredApis(upstreams, matcher, i)
     }
 
-    override fun getApi(matcher: Selector.Matcher): DirectEthereumApi {
-        return getApis(matcher).next()
+    override fun getApi(matcher: Selector.Matcher): Mono<DirectEthereumApi> {
+        val apis = getApis(matcher)
+        apis.request(1)
+        return Mono.from(apis)
+                .switchIfEmpty(Mono.error<DirectEthereumApi>(Exception("No API available")))
     }
 
     override fun getHead(): EthereumHead {

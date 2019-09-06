@@ -32,7 +32,8 @@ class BlockApiReader(
     override fun read(key: BlockHash): Mono<BlockJson<TransactionId>> {
         return Mono.just(key)
                 .flatMap {
-                    upstream.getApi(Selector.empty).executeAndConvert(Commands.eth().getBlock(it))
+                    upstream.getApi(Selector.empty)
+                            .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(it)) }
                 }.repeatWhenEmpty { n ->
                     Repeat.times<Any>(3)
                             .exponentialBackoff(Duration.ofMillis(100), Duration.ofMillis(500))
