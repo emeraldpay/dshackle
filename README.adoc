@@ -1,7 +1,7 @@
 = Emerald Dshackle
 :imagesdir: docs/assets
 ifdef::env-github[]
-:imagesdir: https://raw.githubusercontent.com/emeraldpay/dshackle/splix/test-image/docs/assets
+:imagesdir: https://raw.githubusercontent.com/emeraldpay/dshackle/master/docs/assets
 endif::[]
 
 image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square[Docker Pulls]
