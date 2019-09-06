@@ -41,6 +41,7 @@ import java.lang.Exception
 import java.math.BigInteger
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Function
 import kotlin.collections.ArrayList
@@ -122,10 +123,11 @@ open class GrpcUpstream(
         }.flatMap {
             getApi(Selector.EmptyMatcher())
                     .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(it.hash)) }
-                    .timeout(Duration.ofSeconds(5), Mono.error(Exception("Timeout requesting block from upstream")))
+                    .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Timeout from upstream")))
                     .doOnError { t ->
-                        val msg = "Failed to download block data for chain $chain"
-                        if (t is RpcException) {
+                        setStatus(UpstreamAvailability.UNAVAILABLE)
+                        val msg = "Failed to download block data for chain $chain on $parentId"
+                        if (t is RpcException || t is TimeoutException) {
                             log.warn("$msg. Message: ${t.message}")
                         } else {
                             log.error(msg, t)
