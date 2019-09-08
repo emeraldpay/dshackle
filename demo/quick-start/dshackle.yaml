@@ -1,5 +1,5 @@
 version: v1
-port: 9001
+port: 2449
 tls:
   enabled: false
 upstreams:

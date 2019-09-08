@@ -17,7 +17,7 @@ Create file `dshackle.yaml` with following content:
 [source,yaml]
 ----
 version: v1
-port: 9001
+port: 2449
 tls:
   enabled: false
 upstreams:
@@ -26,7 +26,7 @@ upstreams:
 
 This very basic config says that:
 
-- application should listen on 0.0.0.0:9001
+- application will listen for connections on 0.0.0.0:2449
 - TLS security should be disabled (_never use in production!_)
 - read upstreams configuration from file `upstreams.yaml` in current directory
 
@@ -71,13 +71,13 @@ export INFURA_USER=...
 .Run Dshackle
 [source,bash]
 ----
-docker run -p 9001:9001 -v $(pwd):/config -w /config -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
+docker run -p 2449:2449 -v $(pwd):/config -w /config -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
 ----
 
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
 ----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:9001 io.emeraldpay.api.Blockchain/SubscribeHead
+grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 io.emeraldpay.api.Blockchain/SubscribeHead
 ----
 
 .Output would be like

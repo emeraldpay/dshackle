@@ -6,7 +6,7 @@ Prepare configuration files `dshackle.yaml` and `upstreams.yaml` in the current 
 
 [source,bash]
 ----
-docker run -p 9001:9001 -v $(pwd):/config -w /config emeraldpay/dshackle
+docker run -p 2449:2449 -v $(pwd):/config -w /config emeraldpay/dshackle
 ----
 
 === Install & Run manually

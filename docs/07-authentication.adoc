@@ -40,7 +40,7 @@ Copy those files to directory with Dshackle and update configuration.
 [source,yaml]
 ----
 version: v1
-port: 9001
+port: 2449
 tls:
   enabled: true
   server:
@@ -51,7 +51,7 @@ tls:
 .Verify that server uses the certificate
 [source,bash]
 ----
-openssl s_client -alpn h2 -connect 127.0.0.1:9001 -CAfile out/ca.myhost.dev.crt
+openssl s_client -alpn h2 -connect 127.0.0.1:2449 -CAfile out/ca.myhost.dev.crt
 ----
 
 With the configuration above the server listen using TLS and the server identity can be verified by a client against public
@@ -93,7 +93,7 @@ Copy `client-ca.myhost.dev.crt` to directory with first Dshackle server.
 [source,yaml]
 ----
 version: v1
-port: 9001
+port: 2449
 tls:
   enabled: true
   server:
@@ -107,7 +107,7 @@ tls:
 .Verify connection with client certificate
 [source,bash]
 ----
-openssl s_client -alpn h2 -connect 127.0.0.1:9001 -CAfile out/ca.myhost.dev.crt -cert out/client_1.crt -key out/client_1.key
+openssl s_client -alpn h2 -connect 127.0.0.1:2449 -CAfile out/ca.myhost.dev.crt -cert out/client_1.crt -key out/client_1.key
 ----
 
 Now you need to setup connection from another Dshackle server. I.e. the server we configured above is going be an
@@ -119,12 +119,12 @@ Setup another Dshackle server on the same machine:
 [source,yaml]
 ----
 version: v1
-port: 9002
+port: 3449
 tls:
   enabled: false
 ----
 
-At this case we run another server on port 9002 in unsecure mode. But to connect to an upstream is still uses a TLS
+At this case we run another server on port 3449 in unsecure mode. But to connect to an upstream is still uses a TLS
 certificate as described below
 
 [source,yaml]
@@ -137,12 +137,12 @@ upstreams:
     connection:
       grpc:
         host: 127.0.0.1
-        port: 9001
+        port: 2449
         tls:
           ca: ca.myhost.dev.crt
           certificate: client_1.crt
           key: client_1.p8.key
 ----
 
-Now if you run second server it will connect to first server ("upstream") running on port 9001, will verify upstream
+Now if you run second server it will connect to first server ("upstream") running on port 2449, will verify upstream
 with certificate `ca.myhost.dev.crt` and authenticate itself by using pair of `client_1.crt` and `client_1.p8.key`
