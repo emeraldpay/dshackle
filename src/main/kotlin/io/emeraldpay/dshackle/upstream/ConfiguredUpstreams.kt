@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfigReader
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
@@ -29,22 +30,19 @@ import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
-import reactor.core.publisher.Flux
-import reactor.core.publisher.TopicProcessor
-import java.io.File
 import java.net.URI
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import javax.annotation.PostConstruct
 import kotlin.collections.HashMap
+import kotlin.system.exitProcess
 
 @Repository
 open class ConfiguredUpstreams(
         @Autowired val env: Environment,
         @Autowired private val objectMapper: ObjectMapper,
-        @Autowired private val currentUpstreams: CurrentUpstreams
+        @Autowired private val currentUpstreams: CurrentUpstreams,
+        @Autowired private val fileResolver: FileResolver
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -83,13 +81,13 @@ open class ConfiguredUpstreams(
         val path = env.getProperty("upstreams.config")
         if (StringUtils.isEmpty(path)) {
             log.error("Path to upstreams is not set (upstreams.config)")
-            System.exit(1)
+            exitProcess(1)
         }
-        val upstreamConfig = File(path!!)
+        val upstreamConfig = fileResolver.resolve(path!!).normalize()
         val ok = upstreamConfig.exists() && upstreamConfig.isFile
         if (!ok) {
             log.error("Unable to setup upstreams from ${upstreamConfig.path}")
-            System.exit(1)
+            exitProcess(1)
         }
         log.info("Read upstream configuration from ${upstreamConfig.path}")
         val reader = UpstreamsConfigReader()
@@ -139,7 +137,7 @@ open class ConfiguredUpstreams(
             }
             conn.rpc?.tls?.let { tls ->
                 tls.ca?.let { ca ->
-                    File(ca).inputStream().use { cert -> rpcTransport.setTrustedCertificate(cert) }
+                    fileResolver.resolve(ca).inputStream().use { cert -> rpcTransport.setTrustedCertificate(cert) }
                 }
             }
             val rpcClient = DefaultRpcClient(rpcTransport)
@@ -181,9 +179,10 @@ open class ConfiguredUpstreams(
         val ds = GrpcUpstreams(
                 config.id!!,
                 endpoint.host!!,
-                endpoint.port ?: 443,
+                endpoint.port ?: 2449,
                 objectMapper,
-                endpoint.auth
+                endpoint.auth,
+                fileResolver
         )
         log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
         ds.start()

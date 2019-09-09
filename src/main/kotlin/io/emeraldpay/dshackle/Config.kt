@@ -19,22 +19,34 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
+import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
+import java.io.File
+import java.lang.IllegalStateException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
+import kotlin.system.exitProcess
 
 @Configuration
 @EnableScheduling
 @EnableAsync
-open class Config {
+open class Config(
+        @Autowired private val env: Environment
+) {
+
+    private val log = LoggerFactory.getLogger(Config::class.java)
 
     @Bean
     open fun objectMapper(): ObjectMapper {
@@ -55,4 +67,19 @@ open class Config {
         return Schedulers.fromExecutorService(Executors.newFixedThreadPool(16))
     }
 
+    @Bean
+    @Qualifier("configDir")
+    open fun configDir(): File {
+        val config = env.getProperty("configPath") ?: throw IllegalStateException("Config path is not set")
+        if (config.trim().isEmpty()) {
+            throw IllegalStateException("Config path is empty")
+        }
+        log.info("Use configuration from: $config")
+        return File(config).parentFile
+    }
+
+    @Bean
+    open fun fileResolver(): FileResolver {
+        return FileResolver(configDir())
+    }
 }

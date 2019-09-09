@@ -15,19 +15,18 @@
  */
 package io.emeraldpay.dshackle
 
-import org.slf4j.LoggerFactory
-import org.springframework.boot.SpringApplication
-import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.context.annotation.Import
+import java.io.File
 
-@SpringBootApplication(scanBasePackages = [ "io.emeraldpay.dshackle" ])
-@Import(Config::class)
-open class Starter
+class FileResolver(
+        private val baseDir: File
+) {
 
-private val log = LoggerFactory.getLogger(Starter::class.java)
+    fun resolve(path: String): File {
+        val direct = File(path)
+        if (direct.isAbsolute) {
+            return direct
+        }
+        return File(baseDir, path)
+    }
 
-fun main(args: Array<String>) {
-    val app = SpringApplication(Starter::class.java)
-    app.setEnvironment(DshackleEnvironment())
-    app.run(*args)
 }

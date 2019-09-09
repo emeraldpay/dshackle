@@ -71,7 +71,7 @@ export INFURA_USER=...
 .Run Dshackle
 [source,bash]
 ----
-docker run -p 2449:2449 -v $(pwd):/config -w /config -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
+docker run -p 2449:2449 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
 ----
 
 .Connect and listen for new blocks on Ethereum Mainnet

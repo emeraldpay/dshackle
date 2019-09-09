@@ -72,7 +72,7 @@ upstreams:
 
 This configures:
 
-- setups 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured for Infura)
+- setups 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
 - for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan just JSON RPC is used
 - Infura authentication config is omitted for this demo
 - `${INFURA_USER}` will be provided through environment variable
@@ -90,7 +90,7 @@ export INFURA_USER=...
 .Run Dshackle
 [source,bash]
 ----
-docker run -p 2449:2449 -v $(pwd):/config -w /config -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
+docker run -p 2449:2449 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
 ----
 
 Now it listen on port 2449 at the localhost and can be connected from any gRPC compatible client.

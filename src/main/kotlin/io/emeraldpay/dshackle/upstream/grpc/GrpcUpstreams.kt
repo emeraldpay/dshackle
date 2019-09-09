@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.grpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.UpstreamChange
 import io.emeraldpay.grpc.Chain
@@ -29,7 +30,6 @@ import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import java.io.File
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.Executors
@@ -42,7 +42,8 @@ class GrpcUpstreams(
         private val host: String,
         private val port: Int,
         private val objectMapper: ObjectMapper,
-        private val auth: UpstreamsConfig.TlsAuth? = null
+        private val auth: UpstreamsConfig.TlsAuth? = null,
+        private val fileResolver: FileResolver
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -127,9 +128,11 @@ class GrpcUpstreams(
     internal fun withTls(auth: UpstreamsConfig.TlsAuth): SslContext {
         val sslContext = SslContextBuilder.forClient()
                 .clientAuth(ClientAuth.REQUIRE)
-        sslContext.trustManager(File(auth.ca!!).inputStream())
+        sslContext.trustManager(fileResolver.resolve(auth.ca!!).inputStream())
         if (StringUtils.isNotEmpty(auth.key) && StringUtils.isNoneEmpty(auth.certificate)) {
-            sslContext.keyManager(File(auth.certificate!!).inputStream(), File(auth.key!!).inputStream())
+            sslContext.keyManager(
+                    fileResolver.resolve(auth.certificate!!).inputStream(),
+                    fileResolver.resolve(auth.key!!).inputStream())
         } else {
             log.warn("Connect to remote using only CA certificate")
         }

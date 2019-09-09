@@ -1,6 +1,10 @@
 == Server Configuration
 
+Dshackle server tries to load its configuration from `/etc/dshackle/dshackle.yaml`, if it can't find a file at that path
+it tries to load file `dshackle.yaml` from current working directory. If none of them found server fails to run with an error.
+
 [source,yaml]
+.Example dshackle.yaml configuration:
 ----
 version: v1
 port: 2449
@@ -16,10 +20,10 @@ upstreams:
   config: "upstreams.yaml"
 ----
 
-Configures following:
+It configures following:
 
 - server is listening on `0.0.0.0:2449`
 - TLS is enabled
-- server certificate in located at `server.crt` with key for it at `server.p8.key`
-- server requires a client authentication by TLS client certificate signed by `ca.crt` certificate
-- upstreams configuration is configured in file `upstreams.yaml`
+- server certificate is located at `server.crt` with the key for it at `server.p8.key`
+- the server requires a client authentication by TLS client certificate signed by `ca.crt` certificate
+- upstreams configuration is configured in the file `upstreams.yaml`

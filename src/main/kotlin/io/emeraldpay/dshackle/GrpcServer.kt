@@ -25,7 +25,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
 import org.springframework.core.io.ResourceLoader
 import org.springframework.stereotype.Service
-import java.io.File
 import javax.annotation.PostConstruct
 import javax.annotation.PreDestroy
 
@@ -33,7 +32,8 @@ import javax.annotation.PreDestroy
 open class GrpcServer(
         @Autowired val rpcs: List<io.grpc.BindableService>,
         @Autowired val resourceLoader: ResourceLoader,
-        @Autowired val env: Environment
+        @Autowired val env: Environment,
+        @Autowired val fileResolver: FileResolver
 ) {
 
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)
@@ -73,13 +73,13 @@ open class GrpcServer(
         if (mustBeSecure || (!tlsDisabled && hasServerCertificate)) {
             log.info("Using TLS")
             val sslContextBuilder = GrpcSslContexts.forServer(
-                    File(env.getProperty("tls.server.certificate")!!),
-                    File(env.getProperty("tls.server.key")!!)
+                    fileResolver.resolve(env.getProperty("tls.server.certificate")!!),
+                    fileResolver.resolve(env.getProperty("tls.server.key")!!)
             )
             if (StringUtils.isNotEmpty(env.getProperty("tls.client.ca"))) {
                 log.info("Using TLS for client authentication")
                 sslContextBuilder.trustManager(
-                        File(env.getProperty("tls.client.ca")!!)
+                        fileResolver.resolve(env.getProperty("tls.client.ca")!!)
                 )
                 if (env.getProperty("tls.client.require", "true") == "true") {
                     sslContextBuilder.clientAuth(ClientAuth.REQUIRE)
