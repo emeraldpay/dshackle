@@ -20,6 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamChange
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
@@ -27,9 +28,11 @@ import io.grpc.netty.NettyChannelBuilder
 import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
 import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.exception.ExceptionUtils
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import java.net.ConnectException
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.Executors
@@ -82,7 +85,14 @@ class GrpcUpstreams(
                 .flatMap {
                     client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
                 }.onErrorContinue { t, u ->
-                    log.error("Failed to get description from $host:$port", t)
+                    if (ExceptionUtils.indexOfType(t, ConnectException::class.java) >= 0) {
+                        log.warn("gRPC upstream $host:$port is unavailable")
+                        known.values.forEach {
+                            it.setStatus(UpstreamAvailability.UNAVAILABLE)
+                        }
+                    } else {
+                        log.error("Failed to get description from $host:$port", t)
+                    }
                 }.flatMap { value ->
                     processDescription(value)
                 }.doOnNext {
