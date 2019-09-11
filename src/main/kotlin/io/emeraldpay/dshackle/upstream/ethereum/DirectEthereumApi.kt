@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.CallMethods
 import io.infinitape.etherjar.rpc.RpcCall
 import io.infinitape.etherjar.rpc.RpcClient
@@ -31,7 +32,7 @@ open class DirectEthereumApi(
         val targets: CallMethods
 ): EthereumApi(objectMapper) {
 
-    private val timeout = Duration.ofSeconds(5)
+    var timeout = Defaults.timeout
     private val log = LoggerFactory.getLogger(EthereumApi::class.java)
 
     override fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {

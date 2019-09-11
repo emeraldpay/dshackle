@@ -15,7 +15,9 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.Defaults
 import java.net.URI
+import java.time.Duration
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -27,6 +29,7 @@ class UpstreamsConfig {
 
     open class Options {
         var disableValidation: Boolean? = null
+        var timeout = Defaults.timeout
 
         var minPeers: Int? = 1
             set(minPeers) {

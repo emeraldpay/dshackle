@@ -27,6 +27,7 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.lang.IllegalArgumentException
 import java.net.URI
+import java.time.Duration
 
 class UpstreamsConfigReader {
 
@@ -184,6 +185,9 @@ class UpstreamsConfigReader {
         val options = UpstreamsConfig.Options()
         getValueAsInt(values, "min-peers")?.let {
             options.minPeers = it
+        }
+        getValueAsInt(values, "timeout")?.let {
+            options.timeout = Duration.ofSeconds(it.toLong())
         }
         getValueAsBool(values, "disable-validation")?.let {
             options.disableValidation = it

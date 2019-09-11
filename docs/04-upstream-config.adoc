@@ -86,9 +86,15 @@ In the example above we have:
 
 Options (default or as part of upstream config):
 
-- `disable-validation` - if `true` then Dshackle would not try to verify status of the upstream (useful for a trusted cloud
-   provider such as Infura, but is not recommended for an own node)
-- `min-peers` - do not use upstream with less than specified connected peers
+[cols="2,1,5a"]
+|===
+| Option | Default | Description
+
+| `disable-validation` | false | if `true` then Dshackle will not try to verify status of the upstream (could be useful for a trusted cloud
+   provider such as Infura, but disabling it is not recommended for a normal node)
+| `min-peers` | 3 | specify minimum amount of connected peers, Dshackle will not use upstream with less than specified number
+| `timeout` | 60 | timeout in seconds after which request to the upstream will be discarded (and may be retried on an another upstream)
+|===
 
 === Connection type
 
@@ -153,12 +159,13 @@ upstreams:
         - name: eth_getBlockByNumber
 ----
 
-Such configuration option allows to execute methods `trace_transaction` and also disables `eth_getBlockByNumber` on that
-particular upstream. If a client tries to execute method `trace_transaction` it will be executed on that upstream, or
-another upstream will have such method enabled.
+Such configuration option allows to execute method `trace_transaction` and also disables `eth_getBlockByNumber` on that
+particular upstream. If a client requests to execute method `trace_transaction` then it will be scheduled to that upstream (or
+any upstream with such method enabled).
 
-Together with label `archive: true` it's possible to specify during execution that a client wants to execute method only
-on an archive node.
+NOTE: It's especially useful when used together with upstream labels. If an archive upstream has label `archive: true` it's
+possible to specify that the client wants to execute method `trace_transaction` only on an archive node(s), which has
+complete historical data for tracing.
 
 === Authentication
 
@@ -167,7 +174,9 @@ on an archive node.
 All connection types can use TLS secured connection, with optional client certificate authentication:
 
 - `ca` path to certificate required from remote server
-- optional `certificate` and `key` for client authentication. Please note that `key` is encoded with _PKCS 8_
+- optional `certificate` and `key` for client authentication.
+
+NOTE: Please note that `key` must be encoded with _PKCS 8_
 
 ==== Basic Authentication
 

@@ -20,6 +20,7 @@ import com.salesforce.reactorgrpc.GrpcRetry
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.ethereum.DefaultEthereumHead
@@ -61,8 +62,9 @@ open class GrpcUpstream(
     private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
     private val head = DefaultEthereumHead()
     private var targets: CallMethods? = null
-
     private var headSubscription: Disposable? = null
+
+    var timeout = Defaults.timeout
 
     open fun createApi(matcher: Selector.Matcher): DirectEthereumApi {
         val targets = this.getMethods()
@@ -123,7 +125,7 @@ open class GrpcUpstream(
         }.flatMap {
             getApi(Selector.EmptyMatcher())
                     .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(it.hash)) }
-                    .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Timeout from upstream")))
+                    .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
                     .doOnError { t ->
                         setStatus(UpstreamAvailability.UNAVAILABLE)
                         val msg = "Failed to download block data for chain $chain on $parentId"

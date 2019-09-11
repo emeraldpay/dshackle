@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Defaults
 import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.Commands
 import org.slf4j.LoggerFactory
@@ -39,13 +40,13 @@ class EthereumRpcHead(
                     val batch = Batch()
                     val f = batch.add(Commands.eth().blockNumber)
                     api.rpcClient.execute(batch)
-                    Mono.fromCompletionStage(f).timeout(Duration.ofSeconds(5), Mono.empty())
+                    Mono.fromCompletionStage(f).timeout(Defaults.timeout, Mono.empty())
                 }
                 .flatMap {
                     val batch = Batch()
                     val f = batch.add(Commands.eth().getBlock(it))
                     api.rpcClient.execute(batch)
-                    Mono.fromCompletionStage(f).timeout(Duration.ofSeconds(5), Mono.empty())
+                    Mono.fromCompletionStage(f).timeout(Defaults.timeout, Mono.empty())
                 }
                 .onErrorContinue { err, _ ->
                     log.debug("RPC error ${err.message}")

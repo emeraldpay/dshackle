@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
@@ -169,7 +170,7 @@ class TrackAddress(
         val up = upstreams.getUpstream(addr.chain) ?: return Mono.error(Exception("Unsupported chain: ${addr.chain}"))
         return up.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getBalance(addr.address, BlockTag.LATEST)) }
-                .timeout(Duration.ofSeconds(15))
+                .timeout(Defaults.timeout)
     }
 
     private fun updateBalances(chain: Chain, group: List<TrackedAddress>): Flux<TrackedAddress> {

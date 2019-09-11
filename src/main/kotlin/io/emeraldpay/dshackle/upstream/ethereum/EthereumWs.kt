@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.Commands
@@ -62,7 +63,7 @@ class EthereumWs(
                             .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(250))
                             .apply(n)
                 }
-                .timeout(Duration.ofSeconds(5), Mono.empty())
+                .timeout(Defaults.timeout, Mono.empty())
                 .subscribe(topic::onNext)
             } else {
                 topic.onNext(it)
@@ -73,6 +74,5 @@ class EthereumWs(
     fun getFlux(): Flux<BlockJson<TransactionId>> {
         return Flux.from(this.topic)
                 .onBackpressureLatest()
-                .sample(Duration.ofMillis(100))
     }
 }

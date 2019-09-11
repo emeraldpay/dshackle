@@ -45,7 +45,7 @@ upstreams:
 
 Which sets the following:
 
-- application listen on 0.0.0.0:2448
+- application listen on 0.0.0.0:2449
 - TLS security is disabled (_don't use in production!_)
 - read upstreams configuration from file `upstreams.yaml` in the current directory
 

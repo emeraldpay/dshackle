@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.infinitape.etherjar.rpc.Batch
@@ -36,7 +37,7 @@ class UpstreamValidator(
         return ethereumUpstream.getApi(Selector.empty)
                 .map { api -> api.rpcClient.execute(batch) }
                 .flatMap { Mono.fromCompletionStage(it) }
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Defaults.timeout)
                 .map {
                     if (syncing.get().isSyncing) {
                         UpstreamAvailability.SYNCING

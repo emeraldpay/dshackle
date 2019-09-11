@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.grpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -50,10 +51,11 @@ class GrpcUpstreams(
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
+    var timeout = Defaults.timeout
+
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
     private val known = HashMap<Chain, GrpcUpstream>()
     private val lock = ReentrantLock()
-
     private var grpcTransport: EmeraldGrpcTransport? = null
 
     fun start(): Flux<UpstreamChange> {
@@ -162,6 +164,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val created = GrpcUpstream(id, chain, client!!, objectMapper, grpcTransport!!.copyForChain(chain))
+                created.timeout = this.timeout
                 known[chain] = created
                 created.start()
                 UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)

@@ -63,7 +63,8 @@ open class ConfiguredUpstreams(
         config.upstreams.forEach { up ->
 
             if (up.connection is UpstreamsConfig.GrpcConnection) {
-                buildGrpcUpstream(up as UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>)
+                val options = up.options ?: UpstreamsConfig.Options()
+                buildGrpcUpstream(up as UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>, options)
             } else {
                 val chain = chainNames[up.chain]
                 if (chain == null) {
@@ -145,7 +146,10 @@ open class ConfiguredUpstreams(
                     rpcClient,
                     objectMapper,
                     methods
-            )
+            ).apply {
+                timeout = options.timeout
+            }
+
             urls.add(endpoint.url)
         }
         if (rpcApi != null) {
@@ -174,7 +178,7 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildGrpcUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>) {
+    private fun buildGrpcUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>, options: UpstreamsConfig.Options) {
         val endpoint = config.connection!!
         val ds = GrpcUpstreams(
                 config.id!!,
@@ -183,7 +187,9 @@ open class ConfiguredUpstreams(
                 objectMapper,
                 endpoint.auth,
                 fileResolver
-        )
+        ).apply {
+            timeout = options.timeout
+        }
         log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
         ds.start()
                 .doOnNext {
