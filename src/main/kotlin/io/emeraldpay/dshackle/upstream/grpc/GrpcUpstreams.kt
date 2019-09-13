@@ -74,7 +74,7 @@ class GrpcUpstreams(
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
         this.client = client
         var i = 0
-        val grpcExecutor = Executors.newFixedThreadPool(64) { r -> Thread(r, "grpc-up-$id-${i++}") };
+        val grpcExecutor = Executors.newCachedThreadPool { r -> Thread(r, "grpc-up-$id-${i++}") };
         this.grpcTransport = EmeraldGrpcTransport.newBuilder()
                 .forChannel(client.channel)
                 .setObjectMapper(objectMapper)
