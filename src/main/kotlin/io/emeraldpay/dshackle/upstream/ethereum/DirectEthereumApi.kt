@@ -18,8 +18,9 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.CallMethods
+import io.infinitape.etherjar.rpc.ReactorBatch
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcCall
-import io.infinitape.etherjar.rpc.RpcClient
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
@@ -27,7 +28,7 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 
 open class DirectEthereumApi(
-        val rpcClient: RpcClient,
+        val rpcClient: ReactorRpcClient,
         private val objectMapper: ObjectMapper,
         val targets: CallMethods
 ): EthereumApi(objectMapper) {
@@ -68,8 +69,7 @@ open class DirectEthereumApi(
     }
 
     private fun callUpstream(method: String, params: List<Any>): Mono<out Any> {
-        return Mono.fromCompletionStage(
-                rpcClient.execute(RpcCall.create(method, Any::class.java, params))
-        ).timeout(timeout, Mono.error(RpcException(-32603, "Upstream timeout")))
+        return rpcClient.execute(RpcCall.create(method, Any::class.java, params))
+                .timeout(timeout, Mono.error(RpcException(-32603, "Upstream timeout")))
     }
 }

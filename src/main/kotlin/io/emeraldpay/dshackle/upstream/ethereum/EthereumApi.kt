@@ -18,12 +18,17 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.rpc.*
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.io.InputStream
 
 abstract class EthereumApi(
         objectMapper: ObjectMapper
 ) {
+
+    companion object {
+        private val log = LoggerFactory.getLogger(EthereumApi::class.java)
+    }
 
     private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
     var upstream: Upstream? = null
@@ -40,5 +45,6 @@ abstract class EthereumApi(
         return execute(0, rpcCall.method, rpcCall.params as List<Any>)
                 .flatMap(convertToJS)
                 .map(rpcCall.converter::apply)
+                .doOnError { err -> log.debug("Failed to read from upstream", err) }
     }
 }

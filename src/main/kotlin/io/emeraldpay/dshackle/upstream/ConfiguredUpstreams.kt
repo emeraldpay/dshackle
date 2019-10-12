@@ -24,8 +24,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.DefaultRpcClient
-import io.infinitape.etherjar.rpc.transport.DefaultRpcTransport
+import io.infinitape.etherjar.rpc.http.ReactorHttpRpcClient
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -132,18 +131,18 @@ open class ConfiguredUpstreams(
             currentUpstreams.getDefaultMethods(chain)
         }
         conn.rpc?.let { endpoint ->
-            val rpcTransport = DefaultRpcTransport(endpoint.url)
+            val rpcClient = ReactorHttpRpcClient.newBuilder()
+                    .setTarget(endpoint.url)
             conn.rpc?.basicAuth?.let { auth ->
-                rpcTransport.setBasicAuth(auth.username, auth.password)
+                rpcClient.setBasicAuth(auth.username, auth.password)
             }
             conn.rpc?.tls?.let { tls ->
                 tls.ca?.let { ca ->
-                    fileResolver.resolve(ca).inputStream().use { cert -> rpcTransport.setTrustedCertificate(cert) }
+                    fileResolver.resolve(ca).inputStream().use { cert -> rpcClient.setTrustedCertificate(cert) }
                 }
             }
-            val rpcClient = DefaultRpcClient(rpcTransport)
             rpcApi = DirectEthereumApi(
-                    rpcClient,
+                    rpcClient.build(),
                     objectMapper,
                     methods
             ).apply {

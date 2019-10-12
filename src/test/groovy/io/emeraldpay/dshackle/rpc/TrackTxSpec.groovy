@@ -24,7 +24,7 @@ import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.RpcClient
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import reactor.core.publisher.Mono
@@ -87,7 +87,7 @@ class TrackTxSpec extends Specification {
                         .setTimestamp(blockJson.timestamp.getTime())
             ).build()
 
-        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
@@ -119,7 +119,7 @@ class TrackTxSpec extends Specification {
                 .setMined(false)
                 .build()
 
-        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
@@ -176,7 +176,7 @@ class TrackTxSpec extends Specification {
             it
         }
 
-        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
@@ -275,7 +275,7 @@ class TrackTxSpec extends Specification {
                 )
 
 
-        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
@@ -316,7 +316,7 @@ class TrackTxSpec extends Specification {
 
     def "Tracked after first load"() {
         setup:
-        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
@@ -337,7 +337,7 @@ class TrackTxSpec extends Specification {
 
     def "Update of last notified keeps everything else"() {
         setup:
-        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())

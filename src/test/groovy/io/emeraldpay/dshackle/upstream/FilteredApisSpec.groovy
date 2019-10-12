@@ -22,8 +22,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.DefaultRpcClient
-import io.infinitape.etherjar.rpc.RpcClient
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import reactor.test.StepVerifier
 import spock.lang.Retry
 import spock.lang.Specification
@@ -32,7 +31,7 @@ import java.time.Duration
 
 class FilteredApisSpec extends Specification {
 
-    def rpcClient = new DefaultRpcClient(null)
+    def rpcClient = Stub(ReactorRpcClient)
     def objectMapper = TestingCommons.objectMapper()
     def ethereumTargets = new QuorumBasedMethods(objectMapper, Chain.ETHEREUM)
 
@@ -141,8 +140,8 @@ class FilteredApisSpec extends Specification {
 
     def "Makes pause between batches"() {
         when:
-        def api1 = TestingCommons.api(Stub(RpcClient))
-        def api2 = TestingCommons.api(Stub(RpcClient))
+        def api1 = TestingCommons.api(Stub(ReactorRpcClient))
+        def api2 = TestingCommons.api(Stub(ReactorRpcClient))
         def up1 = TestingCommons.upstream(api1)
         def up2 = TestingCommons.upstream(api2)
         then:

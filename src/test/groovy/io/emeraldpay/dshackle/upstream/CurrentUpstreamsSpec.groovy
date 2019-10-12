@@ -2,9 +2,8 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.RpcClient
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import spock.lang.Specification
 
 class CurrentUpstreamsSpec extends Specification {
@@ -12,7 +11,7 @@ class CurrentUpstreamsSpec extends Specification {
     def "add upstream"() {
         setup:
         def current = new CurrentUpstreams(TestingCommons.objectMapper())
-        def up = new EthereumUpstreamMock("test", Chain.ETHEREUM, TestingCommons.api(Stub(RpcClient)))
+        def up = new EthereumUpstreamMock("test", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
         when:
         current.update(new UpstreamChange(Chain.ETHEREUM, up, UpstreamChange.ChangeType.ADDED))
         then:
@@ -23,9 +22,9 @@ class CurrentUpstreamsSpec extends Specification {
     def "add multiple upstreams"() {
         setup:
         def current = new CurrentUpstreams(TestingCommons.objectMapper())
-        def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(RpcClient)))
-        def up2 = new EthereumUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api(Stub(RpcClient)))
-        def up3 = new EthereumUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api(Stub(RpcClient)))
+        def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
+        def up2 = new EthereumUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api(Stub(ReactorRpcClient)))
+        def up3 = new EthereumUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
         when:
         current.update(new UpstreamChange(Chain.ETHEREUM, up1, UpstreamChange.ChangeType.ADDED))
         current.update(new UpstreamChange(Chain.ETHEREUM_CLASSIC, up2, UpstreamChange.ChangeType.ADDED))
@@ -39,10 +38,10 @@ class CurrentUpstreamsSpec extends Specification {
     def "remove upstream"() {
         setup:
         def current = new CurrentUpstreams(TestingCommons.objectMapper())
-        def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(RpcClient)))
-        def up2 = new EthereumUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api(Stub(RpcClient)))
-        def up3 = new EthereumUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api(Stub(RpcClient)))
-        def up1_del = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(RpcClient)))
+        def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
+        def up2 = new EthereumUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api(Stub(ReactorRpcClient)))
+        def up3 = new EthereumUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
+        def up1_del = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
         when:
         current.update(new UpstreamChange(Chain.ETHEREUM, up1, UpstreamChange.ChangeType.ADDED))
         current.update(new UpstreamChange(Chain.ETHEREUM_CLASSIC, up2, UpstreamChange.ChangeType.ADDED))

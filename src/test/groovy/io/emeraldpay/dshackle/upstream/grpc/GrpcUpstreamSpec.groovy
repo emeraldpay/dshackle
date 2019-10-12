@@ -29,8 +29,8 @@ import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
-import io.infinitape.etherjar.rpc.RpcClient
-import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
+import io.infinitape.etherjar.rpc.ReactorRpcClient
+import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -48,7 +48,7 @@ class GrpcUpstreamSpec extends Specification {
         setup:
         def callData = [:]
         def chain = Chain.ETHEREUM
-        def api = TestingCommons.api(Stub(RpcClient))
+        def api = TestingCommons.api(Stub(ReactorRpcClient))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -74,7 +74,7 @@ class GrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def transport = EmeraldGrpcTransport.newBuilder().forChannel(client.channel).build()
+        def transport = ReactorEmeraldClient.newBuilder().forChannel(client.channel).build()
         def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
@@ -91,7 +91,7 @@ class GrpcUpstreamSpec extends Specification {
 
     def "Follows difficulty, ignores less difficult"() {
         setup:
-        def api = TestingCommons.api(Stub(RpcClient))
+        def api = TestingCommons.api(Stub(ReactorRpcClient))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -130,7 +130,7 @@ class GrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def transport = EmeraldGrpcTransport.newBuilder().forChannel(client.channel).build()
+        def transport = ReactorEmeraldClient.newBuilder().forChannel(client.channel).build()
         def upstream = new GrpcUpstream("test", Chain.ETHEREUM, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
@@ -150,7 +150,7 @@ class GrpcUpstreamSpec extends Specification {
         def callData = [:]
         def finished = new CompletableFuture<Boolean>()
         def chain = Chain.ETHEREUM
-        def api = TestingCommons.api(Stub(RpcClient))
+        def api = TestingCommons.api(Stub(ReactorRpcClient))
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -190,7 +190,7 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def transport = EmeraldGrpcTransport.newBuilder().forChannel(client.channel).build()
+        def transport = ReactorEmeraldClient.newBuilder().forChannel(client.channel).build()
         def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()

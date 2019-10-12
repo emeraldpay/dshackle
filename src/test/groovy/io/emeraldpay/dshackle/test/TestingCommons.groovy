@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcClient
 
 import java.text.SimpleDateFormat
@@ -47,7 +48,7 @@ class TestingCommons {
         return objectMapper
     }
 
-    static EthereumApiMock api(RpcClient rpcClient) {
+    static EthereumApiMock api(ReactorRpcClient rpcClient) {
         return new EthereumApiMock(rpcClient, objectMapper(), Chain.ETHEREUM)
     }
 

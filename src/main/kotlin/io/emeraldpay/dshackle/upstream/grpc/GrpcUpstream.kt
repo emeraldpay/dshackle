@@ -30,7 +30,7 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.*
-import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
+import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -38,7 +38,6 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toMono
-import java.lang.Exception
 import java.math.BigInteger
 import java.time.Duration
 import java.util.*
@@ -50,9 +49,9 @@ import kotlin.collections.ArrayList
 open class GrpcUpstream(
         private val parentId: String,
         private val chain: Chain,
-        private val client: ReactorBlockchainGrpc.ReactorBlockchainStub,
+        private val blockchainStub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
-        private val grpcTransport: EmeraldGrpcTransport
+        private val rpcClient: ReactorEmeraldClient
 ): DefaultUpstream(), Lifecycle {
 
     private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
@@ -68,11 +67,10 @@ open class GrpcUpstream(
 
     open fun createApi(matcher: Selector.Matcher): DirectEthereumApi {
         val targets = this.getMethods()
-        val transport = Selector.extractLabels(matcher)?.let { selector ->
-            grpcTransport.copyWithSelector(selector.asProto())
-        } ?: grpcTransport
-        val rpcClient = DefaultRpcClient(transport)
-        return DirectEthereumApi(rpcClient, objectMapper, targets).let {
+        val client = Selector.extractLabels(matcher)?.let { selector ->
+            rpcClient.copyWithSelector(selector.asProto())
+        } ?: rpcClient
+        return DirectEthereumApi(client, objectMapper, targets).let {
             it.upstream = this
             it
         }
@@ -91,10 +89,10 @@ open class GrpcUpstream(
 
         val retry: Function<Flux<BlockchainOuterClass.ChainHead>, Flux<BlockchainOuterClass.ChainHead>> = Function {
             setStatus(UpstreamAvailability.UNAVAILABLE)
-            client.subscribeHead(chainRef)
+            blockchainStub.subscribeHead(chainRef)
         }
 
-        val flux = client.subscribeHead(chainRef)
+        val flux = blockchainStub.subscribeHead(chainRef)
                 .compose(GrpcRetry.ManyToMany.retryAfter(retry, Duration.ofSeconds(5)))
         observeHead(flux)
     }
@@ -136,7 +134,7 @@ open class GrpcUpstream(
                         }
                     }
         }.onErrorContinue { err, _ ->
-            log.error("Head subscription error: ${err.message}")
+            log.error("Head subscription error. ${err.javaClass.name}:${err.message}", err)
         }.doOnNext {
             setStatus(UpstreamAvailability.OK)
         }

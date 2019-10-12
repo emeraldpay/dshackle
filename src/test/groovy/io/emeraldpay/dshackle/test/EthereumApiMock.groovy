@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.upstream.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcClient
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.ResponseJson
@@ -36,7 +37,7 @@ class EthereumApiMock extends DirectEthereumApi {
     List<PredefinedResponse> predefined = []
     private ObjectMapper objectMapper
 
-    EthereumApiMock(@NotNull RpcClient rpcClient, @NotNull ObjectMapper objectMapper, @NotNull Chain chain) {
+    EthereumApiMock(@NotNull ReactorRpcClient rpcClient, @NotNull ObjectMapper objectMapper, @NotNull Chain chain) {
         super(rpcClient, objectMapper, new DirectCallMethods())
         this.objectMapper = objectMapper
     }

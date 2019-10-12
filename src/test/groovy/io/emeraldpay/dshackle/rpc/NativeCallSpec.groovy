@@ -26,7 +26,7 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.RpcClient
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -42,7 +42,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = Spy(new AlwaysQuorum())
         def upstreams = Stub(Upstreams)
-        RpcClient rpcClient = Stub(RpcClient)
+        ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
         def apiMock = TestingCommons.api(rpcClient)
         apiMock.upstream = Stub(Upstream)
 
@@ -67,7 +67,7 @@ class NativeCallSpec extends Specification {
         def quorum = Spy(new NonEmptyQuorum(TestingCommons.rpcConverter(), 3))
 
         def upstreams = Stub(Upstreams)
-        RpcClient rpcClient = Stub(RpcClient)
+        ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
         def apiMock = TestingCommons.api(rpcClient)
         apiMock.upstream = Stub(Upstream)
 
@@ -95,7 +95,7 @@ class NativeCallSpec extends Specification {
         def quorum = Spy(new NonEmptyQuorum(TestingCommons.rpcConverter(), 3))
 
         def upstreams = Stub(Upstreams)
-        RpcClient rpcClient = Stub(RpcClient)
+        ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
         def apiMock = TestingCommons.api(rpcClient)
         apiMock.upstream = Stub(Upstream)
 
@@ -121,7 +121,7 @@ class NativeCallSpec extends Specification {
         def quorum = Spy(new NonEmptyQuorum(TestingCommons.rpcConverter(), 3))
 
         def upstreams = Stub(Upstreams)
-        RpcClient rpcClient = Stub(RpcClient)
+        ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
         def apiMock = TestingCommons.api(rpcClient)
         apiMock.upstream = Stub(Upstream)
 
@@ -146,7 +146,7 @@ class NativeCallSpec extends Specification {
         def quorum = Spy(new NonEmptyQuorum(TestingCommons.rpcConverter(), 3))
 
         def upstreams = Stub(Upstreams)
-        RpcClient rpcClient = Stub(RpcClient)
+        ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
         def apiMock = TestingCommons.api(rpcClient)
         apiMock.upstream = Stub(Upstream)
 
@@ -307,7 +307,7 @@ class NativeCallSpec extends Specification {
         def quorum = Spy(new AlwaysQuorum())
 
         def upstreams = Stub(Upstreams)
-        RpcClient rpcClient = Stub(RpcClient)
+        ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
         def apiMock = TestingCommons.api(rpcClient)
         apiMock.upstream = Stub(Upstream)
 

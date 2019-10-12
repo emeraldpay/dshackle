@@ -16,14 +16,14 @@
 package io.emeraldpay.dshackle.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.upstream.CallMethods
 import io.emeraldpay.dshackle.upstream.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.infinitape.etherjar.rpc.Batch
-import io.infinitape.etherjar.rpc.ExecutableBatch
+import io.infinitape.etherjar.rpc.ReactorBatch
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcCall
-import io.infinitape.etherjar.rpc.RpcClient
-import io.infinitape.etherjar.rpc.transport.BatchStatus
+import io.infinitape.etherjar.rpc.RpcCallResponse
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 import java.util.concurrent.CompletableFuture
 
@@ -31,7 +31,7 @@ class EthereumApiStub extends DirectEthereumApi {
 
     private String id
     private static ObjectMapper objectMapper = TestingCommons.objectMapper()
-    private static RpcClient rpcClient = new RpcClientMock();
+    private static ReactorRpcClient rpcClient = new RpcClientMock();
 
     EthereumApiStub(Integer id) {
         this(id.toString())
@@ -47,30 +47,16 @@ class EthereumApiStub extends DirectEthereumApi {
         return "API Stub $id"
     }
 
-    static class RpcClientMock implements RpcClient {
+    static class RpcClientMock implements ReactorRpcClient {
+
         @Override
-        CompletableFuture<BatchStatus> execute(Batch batch) {
-            return null
+        Flux<RpcCallResponse> execute(ReactorBatch batch) {
+            return Flux.error(new Exception("Not implemented in mock"))
         }
 
         @Override
-        def <RES> CompletableFuture<RES> execute(RpcCall<?, RES> call) {
-            return null
-        }
-
-        @Override
-        ExecutableBatch batch() {
-            return null
-        }
-
-        @Override
-        EthCommands eth() {
-            return null
-        }
-
-        @Override
-        TraceCommands trace() {
-            return null
+        def <JS, RES> Mono<RES> execute(RpcCall<JS, RES> call) {
+            return Mono.error(new Exception("Not implemented in mock"))
         }
     }
 }

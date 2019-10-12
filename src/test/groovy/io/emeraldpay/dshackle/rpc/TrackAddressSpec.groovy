@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.RpcClient
+import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
@@ -56,7 +56,7 @@ class TrackAddressSpec extends Specification {
             .setBalance("1234567890")
             .build()
 
-        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackAddress trackAddress = new TrackAddress(upstreams, Schedulers.immediate())
@@ -98,7 +98,7 @@ class TrackAddressSpec extends Specification {
         }
 
         def blocksBus = TopicProcessor.create()
-        def apiMock = TestingCommons.api(Stub(RpcClient))
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackAddress trackAddress = new TrackAddress(upstreams, Schedulers.immediate())

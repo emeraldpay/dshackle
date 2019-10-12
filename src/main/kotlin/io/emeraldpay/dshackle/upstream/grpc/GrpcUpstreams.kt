@@ -26,7 +26,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamChange
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
-import io.infinitape.etherjar.rpc.emerald.EmeraldGrpcTransport
+import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
@@ -56,7 +56,7 @@ class GrpcUpstreams(
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
     private val known = HashMap<Chain, GrpcUpstream>()
     private val lock = ReentrantLock()
-    private var grpcTransport: EmeraldGrpcTransport? = null
+    private var grpcTransport: ReactorEmeraldClient? = null
 
     fun start(): Flux<UpstreamChange> {
         val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
@@ -73,12 +73,9 @@ class GrpcUpstreams(
 
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
         this.client = client
-        var i = 0
-        val grpcExecutor = Executors.newCachedThreadPool { r -> Thread(r, "grpc-up-$id-${i++}") };
-        this.grpcTransport = EmeraldGrpcTransport.newBuilder()
+        this.grpcTransport = ReactorEmeraldClient.newBuilder()
                 .forChannel(client.channel)
                 .setObjectMapper(objectMapper)
-                .setExecutorService(grpcExecutor)
                 .build()
 
         val statusSubscription = AtomicReference<Disposable>()
@@ -109,8 +106,6 @@ class GrpcUpstreams(
                         prev?.dispose()
                         subscription
                     }
-                }.doFinally {
-                    grpcExecutor.shutdown()
                 }
 
         return updates

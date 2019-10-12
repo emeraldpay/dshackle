@@ -18,17 +18,25 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Defaults
 import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.Commands
+import io.infinitape.etherjar.rpc.ReactorBatch
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.time.Duration
+import java.util.concurrent.Executors
 
 class EthereumRpcHead(
     private val api: DirectEthereumApi,
     private val interval: Duration = Duration.ofSeconds(10)
 ): DefaultEthereumHead(), Lifecycle {
+
+    companion object {
+        val scheduler = Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-rpc-head")))
+    }
 
     private val log = LoggerFactory.getLogger(EthereumRpcHead::class.java)
 
@@ -36,17 +44,18 @@ class EthereumRpcHead(
 
     override fun start() {
         val base = Flux.interval(interval)
+                .publishOn(scheduler)
                 .flatMap {
-                    val batch = Batch()
-                    val f = batch.add(Commands.eth().blockNumber)
-                    api.rpcClient.execute(batch)
-                    Mono.fromCompletionStage(f).timeout(Defaults.timeout, Mono.empty())
+                    api.rpcClient
+                            .execute(Commands.eth().blockNumber)
+                            .subscribeOn(scheduler)
+                            .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
                 }
                 .flatMap {
-                    val batch = Batch()
-                    val f = batch.add(Commands.eth().getBlock(it))
-                    api.rpcClient.execute(batch)
-                    Mono.fromCompletionStage(f).timeout(Defaults.timeout, Mono.empty())
+                    api.rpcClient
+                            .execute(Commands.eth().getBlock(it))
+                            .subscribeOn(scheduler)
+                            .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
                 }
                 .onErrorContinue { err, _ ->
                     log.debug("RPC error ${err.message}")
