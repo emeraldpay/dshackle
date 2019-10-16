@@ -19,13 +19,14 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 
 open class AlwaysQuorum: CallQuorum {
 
     private var resolved = false
     private var result: ByteArray? = null
 
-    override fun init(head: Head<BlockJson<TransactionId>>) {
+    override fun init(head: Head<BlockJson<TransactionRefJson>>) {
     }
 
     override fun isResolved(): Boolean {

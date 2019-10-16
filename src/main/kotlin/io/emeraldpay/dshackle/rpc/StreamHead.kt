@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -47,7 +48,7 @@ class StreamHead(
         }
     }
 
-    fun asProto(chain: Chain, block: BlockJson<TransactionId>): BlockchainOuterClass.ChainHead {
+    fun asProto(chain: Chain, block: BlockJson<TransactionRefJson>): BlockchainOuterClass.ChainHead {
         return BlockchainOuterClass.ChainHead.newBuilder()
                 .setChainValue(chain.id)
                 .setHeight(block.number)

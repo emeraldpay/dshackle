@@ -19,13 +19,14 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import java.util.concurrent.atomic.AtomicReference
 
 class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
 
     private val result: AtomicReference<ByteArray> = AtomicReference()
 
-    override fun init(head: Head<BlockJson<TransactionId>>) {
+    override fun init(head: Head<BlockJson<TransactionRefJson>>) {
     }
 
     override fun isResolved(): Boolean {

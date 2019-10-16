@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.reactivestreams.Publisher
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -43,7 +44,7 @@ abstract class AggregatedUpstream(
 
     private val blocksCache = BlocksMemCache()
     private var cacheSubscription: Disposable? = null
-    private val blockReader: Reader<BlockHash, BlockJson<TransactionId>> = CompoundReader(
+    private val blockReader: Reader<BlockHash, BlockJson<TransactionRefJson>> = CompoundReader(
             listOf(BlockCacheReader(blocksCache))
     )
     var cache: CachingEthereumApi = CachingEthereumApi.empty()

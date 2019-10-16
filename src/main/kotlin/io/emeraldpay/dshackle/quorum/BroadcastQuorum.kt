@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 
 open class BroadcastQuorum(
         jacksonRpcConverter: JacksonRpcConverter,
@@ -30,7 +31,7 @@ open class BroadcastQuorum(
     private var txid: String? = null
     private var calls = 0
 
-    override fun init(head: Head<BlockJson<TransactionId>>) {
+    override fun init(head: Head<BlockJson<TransactionRefJson>>) {
     }
 
     override fun isResolved(): Boolean {

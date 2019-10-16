@@ -26,12 +26,13 @@ import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.hex.HexQuantity
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.ResponseJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Mono
 import java.util.function.Function
 
 open class CachingEthereumApi(
         private val objectMapper: ObjectMapper,
-        private val cache: Reader<BlockHash, BlockJson<TransactionId>>,
+        private val cache: Reader<BlockHash, BlockJson<TransactionRefJson>>,
         private val head: EthereumHead
 ): EthereumApi(objectMapper) {
 

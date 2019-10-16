@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.upstream.Head
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 
-interface EthereumHead: Head<BlockJson<TransactionId>> {
+interface EthereumHead: Head<BlockJson<TransactionRefJson>> {
 }

@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -26,7 +27,7 @@ import reactor.core.publisher.Mono
 import java.util.concurrent.atomic.AtomicReference
 
 class EthereumHeadMerge(
-        private val fluxes: Iterable<Publisher<BlockJson<TransactionId>>>
+        private val fluxes: Iterable<Publisher<BlockJson<TransactionRefJson>>>
 ): DefaultEthereumHead(), Lifecycle {
 
     private var subscription: Disposable? = null

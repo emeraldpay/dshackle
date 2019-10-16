@@ -27,6 +27,7 @@ import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
@@ -191,7 +192,7 @@ class TrackTx(
                 }
     }
 
-    fun setBlockDetails(tx: TxDetails, block: BlockJson<TransactionId>): TxDetails {
+    fun setBlockDetails(tx: TxDetails, block: BlockJson<TransactionRefJson>): TxDetails {
         return if (block.number != null && block.totalDifficulty != null) {
             tx.withStatus(
                     blockTotalDifficulty = block.totalDifficulty,

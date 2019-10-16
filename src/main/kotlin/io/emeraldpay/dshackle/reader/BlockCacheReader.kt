@@ -19,13 +19,14 @@ import io.emeraldpay.dshackle.cache.BlocksMemCache
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Mono
 
 class BlockCacheReader(
         val cache: BlocksMemCache
-): Reader<BlockHash, BlockJson<TransactionId>> {
+): Reader<BlockHash, BlockJson<TransactionRefJson>> {
 
-    override fun read(key: BlockHash): Mono<BlockJson<TransactionId>> {
+    override fun read(key: BlockHash): Mono<BlockJson<TransactionRefJson>> {
         return cache.get(key)
     }
 }

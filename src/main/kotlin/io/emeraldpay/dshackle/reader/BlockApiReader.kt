@@ -21,15 +21,16 @@ import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Mono
 import reactor.retry.Repeat
 import java.time.Duration
 
 class BlockApiReader(
         val upstream: Upstream
-): Reader<BlockHash, BlockJson<TransactionId>> {
+): Reader<BlockHash, BlockJson<TransactionRefJson>> {
 
-    override fun read(key: BlockHash): Mono<BlockJson<TransactionId>> {
+    override fun read(key: BlockHash): Mono<BlockJson<TransactionRefJson>> {
         return Mono.just(key)
                 .flatMap {
                     upstream.getApi(Selector.empty)

@@ -21,6 +21,7 @@ import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.hex.HexQuantity
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -35,7 +36,7 @@ open class NonceQuorum(
     private var receivedTimes = 0
     private var errors = 0
 
-    override fun init(head: Head<BlockJson<TransactionId>>) {
+    override fun init(head: Head<BlockJson<TransactionRefJson>>) {
     }
 
     override fun isResolved(): Boolean {

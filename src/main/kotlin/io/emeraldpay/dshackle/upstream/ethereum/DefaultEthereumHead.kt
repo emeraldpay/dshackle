@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -12,10 +13,10 @@ import java.util.concurrent.atomic.AtomicReference
 open class DefaultEthereumHead: EthereumHead {
 
     private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)
-    private val head = AtomicReference<BlockJson<TransactionId>>(null)
-    private val stream: TopicProcessor<BlockJson<TransactionId>> = TopicProcessor.create()
+    private val head = AtomicReference<BlockJson<TransactionRefJson>>(null)
+    private val stream: TopicProcessor<BlockJson<TransactionRefJson>> = TopicProcessor.create()
 
-    fun follow(source: Flux<BlockJson<TransactionId>>): Disposable {
+    fun follow(source: Flux<BlockJson<TransactionRefJson>>): Disposable {
         return source.distinctUntilChanged {
             it.hash
         }.filter { block ->
@@ -37,14 +38,14 @@ open class DefaultEthereumHead: EthereumHead {
         }
     }
 
-    override fun getFlux(): Flux<BlockJson<TransactionId>> {
+    override fun getFlux(): Flux<BlockJson<TransactionRefJson>> {
         return Flux.merge(
                 Mono.justOrEmpty(head.get()),
                 Flux.from(stream)
         ).onBackpressureLatest()
     }
 
-    fun getCurrent(): BlockJson<TransactionId>? {
+    fun getCurrent(): BlockJson<TransactionRefJson>? {
         return head.get()
     }
 }

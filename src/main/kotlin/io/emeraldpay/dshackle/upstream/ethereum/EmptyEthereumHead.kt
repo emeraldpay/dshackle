@@ -17,11 +17,12 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Flux
 
 class EmptyEthereumHead : EthereumHead {
 
-    override fun getFlux(): Flux<BlockJson<TransactionId>> {
+    override fun getFlux(): Flux<BlockJson<TransactionRefJson>> {
         return Flux.empty()
     }
 }

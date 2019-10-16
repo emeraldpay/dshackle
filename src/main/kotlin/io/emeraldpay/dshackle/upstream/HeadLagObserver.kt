@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -57,7 +58,7 @@ class HeadLagObserver (
                 }
     }
 
-    fun probeFollowers(top: BlockJson<TransactionId>): Flux<Tuple2<Long, Upstream>> {
+    fun probeFollowers(top: BlockJson<TransactionRefJson>): Flux<Tuple2<Long, Upstream>> {
         return followers.toFlux()
                 .parallel(followers.size)
                 .flatMap { mapLagging(top, it, getCurrentBlocks(it)) }
@@ -65,12 +66,12 @@ class HeadLagObserver (
                 .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
     }
 
-    fun getCurrentBlocks(up: Upstream): Flux<BlockJson<TransactionId>> {
+    fun getCurrentBlocks(up: Upstream): Flux<BlockJson<TransactionRefJson>> {
         val head = up.getHead()
         return head.getFlux().take(Duration.ofSeconds(1))
     }
 
-    fun mapLagging(top: BlockJson<TransactionId>, up: Upstream, blocks: Flux<BlockJson<TransactionId>>): Flux<Tuple2<Long, Upstream>> {
+    fun mapLagging(top: BlockJson<TransactionRefJson>, up: Upstream, blocks: Flux<BlockJson<TransactionRefJson>>): Flux<Tuple2<Long, Upstream>> {
         return blocks
                 .map { extractDistance(top, it) }
                 .takeUntil{ lag -> lag <= 0L }
@@ -80,7 +81,7 @@ class HeadLagObserver (
                 }
     }
 
-    fun extractDistance(top: BlockJson<TransactionId>, curr: BlockJson<TransactionId>): Long {
+    fun extractDistance(top: BlockJson<TransactionRefJson>, curr: BlockJson<TransactionRefJson>): Long {
         return  when {
             curr.number  > top.number -> if (curr.totalDifficulty >= top.totalDifficulty) 0 else forkDistance(top, curr)
             curr.number == top.number -> if (curr.totalDifficulty == top.totalDifficulty) 0 else forkDistance(top, curr)
@@ -88,7 +89,7 @@ class HeadLagObserver (
         }
     }
 
-    fun forkDistance(top: BlockJson<TransactionId>, curr: BlockJson<TransactionId>): Long {
+    fun forkDistance(top: BlockJson<TransactionRefJson>, curr: BlockJson<TransactionRefJson>): Long {
         //TODO look for common ancestor? though it may be a corruption
         return 6
     }

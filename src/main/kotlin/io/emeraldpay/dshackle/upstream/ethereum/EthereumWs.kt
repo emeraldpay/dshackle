@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import io.infinitape.etherjar.rpc.ws.WebsocketClient
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -37,7 +38,7 @@ class EthereumWs(
 
     private val log = LoggerFactory.getLogger(EthereumWs::class.java)
     private val topic = TopicProcessor
-            .builder<BlockJson<TransactionId>>()
+            .builder<BlockJson<TransactionRefJson>>()
             .name("new-blocks")
             .build()
     var basicAuth: UpstreamsConfig.BasicAuth? = null
@@ -71,7 +72,7 @@ class EthereumWs(
         }
     }
 
-    fun getFlux(): Flux<BlockJson<TransactionId>> {
+    fun getFlux(): Flux<BlockJson<TransactionRefJson>> {
         return Flux.from(this.topic)
                 .onBackpressureLatest()
     }

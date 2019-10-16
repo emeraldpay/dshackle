@@ -19,13 +19,14 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.util.function.Tuple2
 import java.util.function.BiFunction
 import java.util.function.Predicate
 
 interface CallQuorum {
 
-    fun init(head: Head<BlockJson<TransactionId>>)
+    fun init(head: Head<BlockJson<TransactionRefJson>>)
 
     fun isResolved(): Boolean
     fun record(response: ByteArray, upstream: Upstream): Boolean

@@ -32,6 +32,7 @@ import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -110,7 +111,7 @@ open class GrpcUpstream(
 
     internal fun observeHead(flux: Flux<BlockchainOuterClass.ChainHead>) {
         val base = flux.map { value ->
-            val block = BlockJson<TransactionId>()
+            val block = BlockJson<TransactionRefJson>()
             block.number = value.height
             block.totalDifficulty = BigInteger(1, value.weight.toByteArray())
             block.hash = BlockHash.from("0x"+value.blockId)
