@@ -52,4 +52,22 @@ class CurrentUpstreamsSpec extends Specification {
         current.getUpstream(Chain.ETHEREUM).getAll().toSet() == [up3].toSet()
         current.getUpstream(Chain.ETHEREUM_CLASSIC).getAll().toSet() == [up2].toSet()
     }
+
+    def "available after adding"() {
+        setup:
+        def current = new CurrentUpstreams(TestingCommons.objectMapper())
+        def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
+
+        when:
+        def act = current.isAvailable(Chain.ETHEREUM)
+        then:
+        !act
+
+        when:
+        current.update(new UpstreamChange(Chain.ETHEREUM, up1, UpstreamChange.ChangeType.ADDED))
+        act = current.isAvailable(Chain.ETHEREUM)
+
+        then:
+        act
+    }
 }

@@ -58,6 +58,9 @@ class CurrentUpstreams(
                 } else {
                     current.addUpstream(up)
                 }
+                if (!callTargets.containsKey(chain)) {
+                    setupDefaultMethods(chain)
+                }
                 log.info("Upstream ${change.upstream.getId()} with chain $chain has been added")
             }
         }
@@ -84,12 +87,13 @@ class CurrentUpstreams(
     }
 
     override fun getDefaultMethods(chain: Chain): CallMethods {
-        var current = callTargets[chain]
-        if (current == null) {
-            current = QuorumBasedMethods(objectMapper, chain)
-            callTargets[chain] = current
-        }
-        return current
+        return callTargets[chain] ?: return setupDefaultMethods(chain)
+    }
+
+    fun setupDefaultMethods(chain: Chain): QuorumBasedMethods {
+        val created = QuorumBasedMethods(objectMapper, chain)
+        callTargets[chain] = created
+        return created
     }
 
     override fun isAvailable(chain: Chain): Boolean {
