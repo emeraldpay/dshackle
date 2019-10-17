@@ -18,10 +18,9 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.CallMethods
-import io.infinitape.etherjar.rpc.ReactorBatch
-import io.infinitape.etherjar.rpc.ReactorRpcClient
-import io.infinitape.etherjar.rpc.RpcCall
-import io.infinitape.etherjar.rpc.RpcException
+import io.grpc.Status
+import io.grpc.StatusRuntimeException
+import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -52,11 +51,18 @@ open class DirectEthereumApi(
                     resp.result = it
                     objectMapper.writer().writeValueAsBytes(resp)
                 }
+                .onErrorResume(StatusRuntimeException::class.java) { t ->
+                    if (t.status.code == Status.Code.CANCELLED) {
+                        Mono.empty<ByteArray>()
+                    } else {
+                        Mono.error(RpcException(RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR, "gRPC error ${t.status}"))
+                    }
+                }
                 .onErrorMap { t ->
                     if (RpcException::class.java.isAssignableFrom(t.javaClass)) {
                         t
                     } else {
-                        log.warn("Convert to RPC error. Exception: ${t.message}")
+                        log.warn("Convert to RPC error. Exception ${t.javaClass}:${t.message}", t)
                         RpcException(-32020, "Error reading from upstream", null, t)
                     }
                 }

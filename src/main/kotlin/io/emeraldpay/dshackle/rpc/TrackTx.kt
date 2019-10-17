@@ -25,6 +25,7 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.Commands
+import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
@@ -252,6 +253,10 @@ class TrackTx(
         val execution = upstream.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getTransaction(tx.txid)) }
         return execution
+                .onErrorResume(RpcException::class.java) { t ->
+                    log.warn("Upstream error, ignoring. {}", t.rpcMessage)
+                    Mono.empty<TransactionJson>()
+                }
                 .flatMap { updateFromBlock(upstream, tx, it) }
                 .doOnError { t ->
                     log.error("Failed to load tx block", t)
