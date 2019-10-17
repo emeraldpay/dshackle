@@ -50,8 +50,8 @@ open class BroadcastQuorum(
         }
     }
 
-    override fun recordError(response: ByteArray,  errorMessage: String?, upstream: Upstream) {
-        // can be "message: known transaction: TXID" or "message: Nonce too low"
+    override fun recordError(response: ByteArray?,  errorMessage: String?, upstream: Upstream) {
+        // can be "message: known transaction: TXID", "Transaction with the same hash was already imported" or "message: Nonce too low"
         calls++
         if (result == null) {
             result = response

@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.quorum
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.TransactionId
+import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 
@@ -37,6 +38,9 @@ open class AlwaysQuorum: CallQuorum {
         result = response
         resolved = true
         return true
+    }
+
+    override fun record(error: RpcException, upstream: Upstream) {
     }
 
     override fun getResult(): ByteArray? {

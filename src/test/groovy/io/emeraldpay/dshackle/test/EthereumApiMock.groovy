@@ -24,6 +24,7 @@ import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcClient
+import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.jetbrains.annotations.NotNull
@@ -60,9 +61,13 @@ class EthereumApiMock extends DirectEthereumApi {
             if (predefined.exception != null) {
                 predefined.onCalled()
                 predefined.print()
-                throw predefined.exception
+                return Mono.error(predefined.exception)
             }
-            json.result = predefined.result
+            if (predefined.result instanceof RpcResponseError) {
+                json.error = predefined.result
+            } else {
+                json.result = predefined.result
+            }
         } else {
             log.error("Method ${method} with ${params} is not mocked")
             json.error = new RpcResponseError(-32601, "Method ${method} with ${params} is not mocked")

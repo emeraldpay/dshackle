@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.quorum
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.TransactionId
+import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.util.function.Tuple2
@@ -30,6 +31,7 @@ interface CallQuorum {
 
     fun isResolved(): Boolean
     fun record(response: ByteArray, upstream: Upstream): Boolean
+    fun record(error: RpcException, upstream: Upstream)
     fun getResult(): ByteArray?
 
     companion object {

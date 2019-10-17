@@ -43,8 +43,12 @@ abstract class ValueAwareQuorum<T>(
         return isResolved();
     }
 
+    override fun record(error: RpcException, upstream: Upstream) {
+        recordError(null, error.rpcMessage, upstream)
+    }
+
     abstract fun recordValue(response: ByteArray, responseValue: T?, upstream: Upstream)
 
-    abstract fun recordError(response: ByteArray, errorMessage: String?, upstream: Upstream)
+    abstract fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream)
 
 }

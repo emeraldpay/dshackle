@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.rpc.RpcException
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -123,17 +124,28 @@ class NativeCall(
         var failures = 0
         return Flux.from(apis)
                 .flatMap { api ->
-                    api.execute(ctx.id, ctx.payload.method, ctx.payload.params).map { Tuples.of(it, api.upstream!!) }
+                    val upstream = api.upstream!!
+                    api.execute(ctx.id, ctx.payload.method, ctx.payload.params)
+                            // on error notify quorum, it may use error message or other details
+                            .doOnError { err ->
+                                if (err is RpcException) {
+                                    ctx.callQuorum.record(err, upstream)
+                                }
+                            }
+                            .map { Tuples.of(it, upstream) }
                 }
                 .retry {
                     failures++
-                    if (failures <= 3) {
+                    if (ctx.callQuorum.isResolved()) {
+                        false
+                    } else if (failures < 3) {
                         apis.request(1)
                         true
                     } else {
                         false
                     }
                 }
+                // record all correct responses until quorum reached
                 .reduce(ctx.callQuorum, {res, a ->
                     if (res.record(a.t1, a.t2)) {
                         apis.resolve()
@@ -142,6 +154,14 @@ class NativeCall(
                     }
                     res
                 })
+                // if last call resulted in error it's still possible that request was resolved correctly. i.e. for BroadcastQuorum
+                .onErrorResume { err ->
+                    if (ctx.callQuorum.isResolved()) {
+                        Mono.just(ctx.callQuorum)
+                    } else {
+                        Mono.error(err)
+                    }
+                }
                 .doOnNext {
                     if (!it.isResolved()) {
                         log.debug("No quorum for ${ctx.payload.method} as ${ctx.callQuorum}")

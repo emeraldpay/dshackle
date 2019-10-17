@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
+import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 
@@ -48,7 +49,10 @@ open class NonEmptyQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray, errorMessage: String?, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream) {
+    }
+
+    override fun record(error: RpcException, upstream: Upstream) {
     }
 
 }
