@@ -6,10 +6,10 @@ Dshackle is built using/based on:
 - Kotlin
 - Spring Framework, Boot and Reactor
 
-It's own communication protocol is based on Protobuf and gRPC, though it connects to other nodes using different protocols,
+Its own communication protocol is based on Protobuf and gRPC, though it connects to other nodes using different protocols,
 such as JSON RPC or Websockets.
 
-Dshackle connects to actual blockchain nodes and provides an aggregated API automatically directing requests to
+Dshackle connects to actual blockchain nodes and provides an aggregated API, automatically directing requests to
 currently healthy nodes. It's built using _reactive_ and non-blocking code and provides low latency and high efficient
 API.
 
@@ -21,20 +21,20 @@ connection to blockchains. All connections can be secured and authenticated with
 Dshackle tries to find an optimal upstream for each particular request, to do so it consider following factors of a node:
 
 - Current height
-- Is it fully synchronized, missing few (less than 6) blocks or in process of initial sync?
+- Is it fully synchronized, missing few (less than 6) blocks, or in the process of initial sync?
 - How many peers it has?
 
 And for a request:
 
-- Is it for a concrete data (_block #100_) or latest (_get balance_)?
+- Is it for concrete data (_block #100_) or the latest (_get balance_)?
 - Is result a static value (_just block_) or may vary depending on network and node (_latest nonce_)?
-- Does it need to be repeat over multiple nodes (_broadcast transaction_)?
+- Does it need to be repeated over multiple nodes (_broadcast transaction_)?
 - Request can also specify which subset of nodes should be able to execute the request by selecting node _Labels_
 (see "link:08-quorum-and-selectors.adoc[Quorum and Selectors]")
 
-Based on these factors Dshackle execute request on a most optimal node. For most of the simple requests it just gets a node which is synchronized
-to the point that must have response for that particular request. If node failed, returned invalid response, returned
-empty response when shouldn't then Dshackle tries again on another node, or on the same node after awhile (default is
+Based on these factors, Dshackle executes the request on a most optimal node. For most of the simple requests, it just gets a node that is synchronized
+to the point that must have a response for that particular request. If node failed, returned an invalid response, returned
+an empty response when shouldn't then Dshackle tries again on another node, or on the same node after awhile (default is
 200ms between failover repeats)
 
 === gRPC protocol
@@ -47,8 +47,8 @@ Dshackle uses gRPC protocol for communications, because:
 - easy to support TLS encryption and authentication
 
 Dshackle has extra methods and functionality on top of standard APIs of upstreams, and it's more flexible to wrap
-original APIs, such as JSON, into gRPC and Protobuf + have additional data provided by Dshackle. It also allowed
-to push new data from the server, or send responses asynchronously, immediately after it gets executed on an upstream.
+original APIs, such as JSON, into gRPC, and Protobuf + has additional data provided by Dshackle. It also allowed
+to push new data from the server or send responses asynchronously, immediately after it gets executed on an upstream.
 
 === Distributed Load Balancing
 
@@ -56,9 +56,9 @@ Dshackle servers can connect to each other through a secure encrypted and authen
 It allows to build a network of nodes deployed to different regions or run blockchain nodes outside of the main
 network.
 
-Later is especially important for blockchain nodes, as they require open firewall with incoming connections for P2P, and
-to execute untrusted code ("smart contracts") on the same time. With Dshackle it's possible to separate unsecure nodes from
-business application.
+Later is especially important for blockchain nodes, as they require an open firewall with incoming connections for P2P, and
+to execute untrusted code ("smart contracts") at the same time. With Dshackle, it's possible to separate insecure nodes from
+the business application.
 
-But in general Dshackle allows to run a fault tolerant load balancing to build scalable and fail safe systems on
+But in general, Dshackle allows running a fault tolerant load balancing to build scalable and fail safe systems on
 blockchain.

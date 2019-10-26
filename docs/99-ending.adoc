@@ -8,4 +8,5 @@ image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/
 
 == Support
 
-Contact splix@emeraldpay.io if you want to integrate Dshackle into your project or want to sponsor the development.
+Want to support the project, prioritize a specific feature, or get commercial help with using Dshackle in your project?
+Please contact splix@emeraldpay.io to discuss the possibility

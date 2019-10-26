@@ -2,13 +2,13 @@
 
 === Server authentication
 
-Dshackle server supports both server and client certificate authentication, it's strongly recommended to use TLS to
-connect to Dshackle server. More to that, the server uses gRPC which is based on HTTP/2, and most of 3rd party tools and
+Dshackle server supports both server and client certificate authentication, and it's strongly recommended to use TLS to
+connect to Dshackle server. More to that, the server uses gRPC, which is based on HTTP/2, and most of 3rd party tools and
 libraries expect it to be encrypted.
 
 Please note that for most of use cases for Dshackle, which is designed to be an internal load balancer, a self-signed
-certificates would be enough. In the example below a https://github.com/square/certstrap[certstrap] tool is used to
-generate certificates, but traditional `openssl` tool can be used as well.
+Certificates would be enough. In the example below, a https://github.com/square/certstrap[certstrap] tool is used to
+generate certificates, but the traditional `openssl` tool can be used as well.
 
 ==== Setup Server certificate
 
@@ -54,14 +54,14 @@ tls:
 openssl s_client -alpn h2 -connect 127.0.0.1:2449 -CAfile out/ca.myhost.dev.crt
 ----
 
-With the configuration above the server listen using TLS and the server identity can be verified by a client against public
-server certificate. Please note that a server certificate doesn't prevent from connection by an unauthorized client, it only
+With the configuration above, the server listens using TLS, and the server identity can be verified by a client against a public
+server certificate. Please note that a server certificate doesn't prevent a connection from an unauthorized client; it only
 verifies the server and encrypts a connection.
 
 ==== Use Client Certificate Authentication
 
-To have authentication in both ways you'll need to configure client side certificates as well, at that case the server
-will also verify each incoming connection and allow to connect only by a client with a trusted certificate.
+To have authentication in both ways, you'll need to configure client side certificates as well, in that case the server
+also verifies each incoming connection and allow to connect only by a client with a trusted certificate.
 
 It's possible to connect a Dshackle server to another one, and to do so you'll probably want to use TLS as well.
 

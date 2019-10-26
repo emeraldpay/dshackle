@@ -1,30 +1,29 @@
 == What is Dshackle
 
-Dshackle is a L7 Load Balancer for Blockchain APIs with automatic discovery, health checking, secure access, TLS with
-client authentication, and many other features. It can be configured as an edge proxy, middle proxy or API gateway.
+Dshackle is an L7 Blockchain API Load Balancer with automatic discovery and health checking, authentication, and TLS termination.
+It is designed to work as an edge proxy, middle proxy, or API gateway.
 
-Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers,
-such as Geth, Parity, Infura, etc), automatically verifies their availability and the current status of the network,
-it routes requests to available node, and makes sure the response is consistent and/or data successfully broadcasted to
-the networks.
+Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers, such
+as Geth, Parity, Infura, etc), it automatically verifies their availability and the current status of the network, executes
+commands making sure that the response is consistent and/or data successfully broadcasted to the network.
 
 Example use cases:
 
-- Query for a _transaction_ (block, etc) tries to find it on different nodes and/or retry until it's found or there is
-  a consistent answer from upstreams
-- Getting _nonce_ to send a transaction makes sure it's larges value over several nodes
-- Sending _transaction_ distributes it to several nodes in parallel
+- Read a _transaction_ - Dshackle tries to find it on different nodes and retries until it's found or there is a
+  consistent answer from upstreams that the transaction doesn't exist
+- Get _nonce_ to send a transaction - Dshackle makes sure it finds the highest value across several nodes
+- Send _transaction_ - Dshackle distributes it to several nodes in parallel
 
 Availability and fault tolerance:
 
-- Dshackle connects to several upstreams via JSON RPC, Websockets or gRPC protocols
+- Dshackle connects to several upstreams via JSON RPC, Websockets or gRPC protocol
 - It verifies if a node ("upstream") is fully synchronized (not in initial sync mode), has enough peers and its height
   is not behind other nodes
-- If an upstream lags behind, lost peers, started to resync, or simply goes down then Dshackle temporarily excludes it from
-  routing and returns back when the the upstream's problem is fixed
+- If upstream lags behind, lost peers, started to resync, or goes down then Dshackle temporarily excludes it from
+  routing and returns back when the upstream's problem is fixed
 
 Main goals:
 
-- stable and fault tolerant access to blockchain nodes
-- secure connections and authentication
-- allow to build scalable APIs with nodes distributed over multiple data centers
+- separate application services and blockchain nodes
+- make blockchain access compatible with modern microservice oriented architecture
+- provide secure access to a blockchain, on both protocol and data level

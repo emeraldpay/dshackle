@@ -8,23 +8,35 @@ image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square[
 image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License", link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
 image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
 
-Dshackle is a Blockchain API Load Balancer with automatic discovery and health checking, authentication and TLS termination.
-It can be used as an edge proxy, middle proxy or API gateway.
+Dshackle is an L7 Blockchain API Load Balancer with automatic discovery and health checking, authentication, and TLS termination.
+It is designed to work as an edge proxy, middle proxy, or API gateway.
 
-Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers,
-such as Geth, Parity, Infura, etc), it automatically verifies their availability and the current status of the network,
-executes commands making sure that the response is consistent and/or data successfully broadcasted to the network.
+Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers, such
+as Geth, Parity, Infura, etc), it automatically verifies their availability and the current status of the network, executes
+commands making sure that the response is consistent and/or data successfully broadcasted to the network.
 
-Project goals:
+The main goals of the project is to:
 
-- stable and fault tolerant access to blockchain nodes
-- secure connections and authentication
-- allows to build scalable APIs with nodes distributed over multiple data centers
+- separate application services and blockchain nodes
+- make blockchain access compatible with modern microservice oriented architecture
+- provide secure access to a blockchain, on both protocol and data level
 
-Dshackle connects to several upstreams via JSON RPC, Websockets or gRPC protocols. It verifies if a node ("upstream") is
-fully synchronized (not in initial sync mode), has enough peers and its height is not behind other nodes. If an upstream
-lags behind others, lost peers, started to resync, or simply went down then Dshackle temporarily excludes it from
-requests and returns back when the the upstream problem is fixed.
+The main features and advantages are:
+- leveraging gRPC and HTTP2 protocols, with server push and asynchronous communications, to simplify and optimize standard
+  access patterns
+- targeting Kubernetes architecture
+- automatically distributing access to API through multiple different target nodes, taking into account their current
+  availability and status
+- allowing to build a mesh network of routers in different regions sharing a set of underlying nodes, with automatic
+  rebalancing and smart routing
+- caching data on the edge
+- providing monitoring (ex. Prometheus) and externalizable logging
+- configurable access authentication and authorization, including TLS certificates
+
+Dshackle connects to several upstreams via JSON RPC, Websockets, or gRPC protocols. It verifies if a node ("upstream") is
+fully synchronized (not in initial sync mode), has enough peers, and its height is not behind other nodes. If upstream lags
+behind others, lost peers, started to resync or went down, then Dshackle temporarily excludes it from requests and returns
+when the upstream problem is fixed.
 
 image::call-schema.png[alt="Call Schema",width=100%,align="center"]
 
