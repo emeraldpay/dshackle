@@ -27,6 +27,7 @@ import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
@@ -51,7 +52,7 @@ class TrackTxSpec extends Specification {
 
         def blockJson = new BlockJson().with {
             it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
-            it.timestamp = new Date(156400000000)
+            it.timestamp = Instant.ofEpochMilli(156400000000)
             it.number = 100
             it.totalDifficulty = BigInteger.valueOf(500)
             it
@@ -59,7 +60,7 @@ class TrackTxSpec extends Specification {
 
         def blockHeadJson = new BlockJson().with {
             it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
-            it.timestamp = new Date(156400200000)
+            it.timestamp = Instant.ofEpochMilli(156400200000)
             it.number = 108
             it.totalDifficulty = BigInteger.valueOf(800)
             it
@@ -84,7 +85,7 @@ class TrackTxSpec extends Specification {
                         .setHeight(blockJson.number)
                         .setWeight(ByteString.copyFrom(blockJson.totalDifficulty.toByteArray()))
                         .setBlockId(blockJson.hash.toHex().substring(2))
-                        .setTimestamp(blockJson.timestamp.getTime())
+                        .setTimestamp(blockJson.timestamp.toEpochMilli())
             ).build()
 
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
@@ -230,10 +231,10 @@ class TrackTxSpec extends Specification {
                 .setTxId(txId)
                 .build()
 
-        List<BlockJson<TransactionId>> blocks = (0..9).collect { i ->
+        List<BlockJson<TransactionRefJson>> blocks = (0..9).collect { i ->
             return new BlockJson().with {
                 it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a2000${i}")
-                it.timestamp = new Date(156400000000 + i * 10000)
+                it.timestamp = Instant.ofEpochMilli(156400000000 + i * 10000)
                 it.setNumber(100L + i.longValue())
                 it.totalDifficulty = BigInteger.valueOf(500 + i)
                 it
@@ -271,7 +272,7 @@ class TrackTxSpec extends Specification {
                                 .setHeight(blocks[2].number)
                                 .setWeight(ByteString.copyFrom(blocks[2].totalDifficulty.toByteArray()))
                                 .setBlockId(blocks[2].hash.toHex().substring(2))
-                                .setTimestamp(blocks[2].timestamp.getTime())
+                                .setTimestamp(blocks[2].timestamp.toEpochMilli())
                 )
 
 

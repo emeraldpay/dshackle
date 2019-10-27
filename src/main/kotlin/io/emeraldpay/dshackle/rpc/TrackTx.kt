@@ -197,7 +197,7 @@ class TrackTx(
         return if (block.number != null && block.totalDifficulty != null) {
             tx.withStatus(
                     blockTotalDifficulty = block.totalDifficulty,
-                    blockTime = block.timestamp.toInstant()
+                    blockTime = block.timestamp
             )
         } else {
             tx.withStatus(

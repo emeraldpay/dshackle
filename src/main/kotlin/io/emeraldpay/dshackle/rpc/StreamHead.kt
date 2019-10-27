@@ -52,7 +52,7 @@ class StreamHead(
         return BlockchainOuterClass.ChainHead.newBuilder()
                 .setChainValue(chain.id)
                 .setHeight(block.number)
-                .setTimestamp(block.timestamp.time)
+                .setTimestamp(block.timestamp.toEpochMilli())
                 .setWeight(ByteString.copyFrom(block.totalDifficulty.toByteArray()))
                 .setBlockId(block.hash.toHex().substring(2))
                 .build()

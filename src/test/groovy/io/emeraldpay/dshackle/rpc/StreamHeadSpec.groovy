@@ -26,11 +26,13 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
+import java.time.Instant
 
 class StreamHeadSpec extends Specification {
 
@@ -52,11 +54,11 @@ class StreamHeadSpec extends Specification {
         setup:
 
         def blocks = (100..105).collect { i ->
-            return new BlockJson<TransactionId>().with {
+            return new BlockJson<TransactionRefJson>().with {
                 it.number = i
                 it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27${i}")
                 it.totalDifficulty = i * 1000
-                it.timestamp = new Date(1566000000000 + i * 10000)
+                it.timestamp = Instant.ofEpochMilli(1566000000000 + i * 10000)
                 return it
             }
         }
@@ -64,7 +66,7 @@ class StreamHeadSpec extends Specification {
         def heads = blocks.collect {
             return BlockchainOuterClass.ChainHead.newBuilder()
                 .setChain(Common.ChainRef.CHAIN_ETHEREUM)
-                .setTimestamp(it.timestamp.time)
+                .setTimestamp(it.timestamp.toEpochMilli())
                 .setBlockId(it.hash.toHex().substring(2))
                 .setWeight(ByteString.copyFrom(it.totalDifficulty.toByteArray()))
                 .setHeight(it.number)
