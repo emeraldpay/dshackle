@@ -24,6 +24,7 @@ import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
+import reactor.core.publisher.switchIfEmpty
 import java.time.Duration
 
 open class DirectEthereumApi(
@@ -41,6 +42,10 @@ open class DirectEthereumApi(
             targets.isAllowed(method)   -> callUpstream(method, params)
             else -> Mono.error(RpcException(-32601, "Method not allowed or not found"))
         }
+        return processResult(id, method, result)
+    }
+
+    public fun processResult(id: Int, method: String, result: Mono<out Any>): Mono<ByteArray> {
         return result
                 .doOnError { t ->
                     log.warn("Upstream error: [${t.message}] for $method")
@@ -49,7 +54,18 @@ open class DirectEthereumApi(
                     val resp = ResponseJson<Any, Int>()
                     resp.id = id
                     resp.result = it
-                    objectMapper.writer().writeValueAsBytes(resp)
+                    resp
+                }
+                .switchIfEmpty(
+                        Mono.fromCallable {
+                            val resp = ResponseJson<Any, Int>()
+                            resp.id = id
+                            resp.result = null
+                            resp
+                        }
+                )
+                .map {
+                    objectMapper.writer().writeValueAsBytes(it)
                 }
                 .onErrorResume(StatusRuntimeException::class.java) { t ->
                     if (t.status.code == Status.Code.CANCELLED) {

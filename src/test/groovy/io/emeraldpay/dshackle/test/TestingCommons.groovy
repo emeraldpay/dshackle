@@ -60,6 +60,14 @@ class TestingCommons {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api)
     }
 
+    static EthereumUpstreamMock upstream(DirectEthereumApi api, String method) {
+        return upstream(api, [method])
+    }
+
+    static EthereumUpstreamMock upstream(DirectEthereumApi api, List<String> methods) {
+        return new EthereumUpstreamMock(Chain.ETHEREUM, api, new DirectCallMethods(methods))
+    }
+
     static AggregatedUpstream aggregatedUpstream(DirectEthereumApi api) {
         return aggregatedUpstream(upstream(api))
     }
