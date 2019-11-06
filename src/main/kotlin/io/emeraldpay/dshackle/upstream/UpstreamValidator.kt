@@ -21,11 +21,13 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.infinitape.etherjar.rpc.Batch
 import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.ReactorBatch
+import org.apache.commons.lang3.exception.ExceptionUtils
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import java.net.ConnectException
 import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -62,7 +64,13 @@ class UpstreamValidator(
                         }
                     }
                 }
-                .doOnError { err -> log.warn("Failed to validate upstream", err)}
+                .doOnError { err ->
+                    if (ExceptionUtils.hasCause(err, ConnectException::class.java)) {
+                        log.debug("Failed to connect to upstream: ${err.message}")
+                    } else {
+                        log.warn("Failed to validate upstream", err)
+                    }
+                }
                 .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
