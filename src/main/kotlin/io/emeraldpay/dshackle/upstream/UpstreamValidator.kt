@@ -18,19 +18,14 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.infinitape.etherjar.rpc.Batch
-import io.infinitape.etherjar.rpc.Commands
-import io.infinitape.etherjar.rpc.ReactorBatch
-import org.apache.commons.lang3.exception.ExceptionUtils
+import io.infinitape.etherjar.rpc.*
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
-import java.net.ConnectException
 import java.time.Duration
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 class UpstreamValidator(
         private val ethereumUpstream: EthereumUpstream,
@@ -42,40 +37,36 @@ class UpstreamValidator(
     }
 
     fun validate(): Mono<UpstreamAvailability> {
-        val batch = ReactorBatch()
-        val peerCount = batch.add(Commands.net().peerCount()).result
-        val syncing = batch.add(Commands.eth().syncing()).result
-        return ethereumUpstream.getApi(Selector.empty)
-                .subscribeOn(scheduler)
-                .flatMapMany { api -> api.rpcClient.execute(batch) }
-                .timeout(Defaults.timeout, Mono.error(Exception("Validation timeout")))
-                .then(syncing)
-                .flatMap { value ->
-                    if (value.isSyncing) {
-                        Mono.just(UpstreamAvailability.SYNCING)
-                    } else {
-                        peerCount.map { count ->
-                            val minPeers = options.minPeers ?: 1
-                            if (count < minPeers) {
-                                UpstreamAvailability.IMMATURE
-                            } else {
-                                UpstreamAvailability.OK
+        return ethereumUpstream
+                .getApi(Selector.empty)
+                .flatMapMany { api ->
+                    api.rpcClient
+                            .execute(Commands.eth().syncing())
+                            .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Syncing")))
+                            .flatMap { value ->
+                                if (value.isSyncing) {
+                                    Mono.just(UpstreamAvailability.SYNCING)
+                                } else {
+                                    api.rpcClient.execute(Commands.net().peerCount())
+                                            .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Peers")))
+                                            .map { count ->
+                                                val minPeers = options.minPeers ?: 1
+                                                if (count < minPeers) {
+                                                    UpstreamAvailability.IMMATURE
+                                                } else {
+                                                    UpstreamAvailability.OK
+                                                }
+                                            }
+                                }
                             }
-                        }
-                    }
                 }
-                .doOnError { err ->
-                    if (ExceptionUtils.hasCause(err, ConnectException::class.java)) {
-                        log.debug("Failed to connect to upstream: ${err.message}")
-                    } else {
-                        log.warn("Failed to validate upstream", err)
-                    }
-                }
+                .single()
                 .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
     fun start(): Flux<UpstreamAvailability> {
         return Flux.interval(Duration.ofSeconds(15))
+                .subscribeOn(scheduler)
                 .flatMap {
                     validate()
                 }
