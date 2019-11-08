@@ -132,13 +132,14 @@ open class ConfiguredUpstreams(
         }
         conn.rpc?.let { endpoint ->
             val rpcClient = ReactorHttpRpcClient.newBuilder()
-                    .setTarget(endpoint.url)
+                    .connectTo(endpoint.url)
+                    .alwaysSeparate()
             conn.rpc?.basicAuth?.let { auth ->
-                rpcClient.setBasicAuth(auth.username, auth.password)
+                rpcClient.basicAuth(auth.username, auth.password)
             }
             conn.rpc?.tls?.let { tls ->
                 tls.ca?.let { ca ->
-                    fileResolver.resolve(ca).inputStream().use { cert -> rpcClient.setTrustedCertificate(cert) }
+                    fileResolver.resolve(ca).inputStream().use { cert -> rpcClient.trustedCertificate(cert) }
                 }
             }
             rpcApi = DirectEthereumApi(

@@ -45,10 +45,13 @@ class EthereumWs(
 
     fun connect() {
         log.info("Connecting to WebSocket: $uri")
-        val client = WebsocketClient(uri, origin)
+        val clientBuilder = WebsocketClient.newBuilder()
+                .connectTo(uri)
+                .origin(origin)
         basicAuth?.let { auth ->
-            client.setBasicAuth(auth.username, auth.password)
+            clientBuilder.basicAuth(auth.username, auth.password)
         }
+        val client = clientBuilder.build()
         try {
             client.connect()
         } catch (e: Exception) {

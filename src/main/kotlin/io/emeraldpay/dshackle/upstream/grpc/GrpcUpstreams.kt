@@ -74,8 +74,8 @@ class GrpcUpstreams(
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
         this.client = client
         this.grpcTransport = ReactorEmeraldClient.newBuilder()
-                .forChannel(client.channel)
-                .setObjectMapper(objectMapper)
+                .connectUsing(client.channel)
+                .objectMapper(objectMapper)
                 .build()
 
         val statusSubscription = AtomicReference<Disposable>()
