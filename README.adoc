@@ -22,6 +22,7 @@ The main goals of the project is to:
 - provide secure access to a blockchain, on both protocol and data level
 
 The main features and advantages are:
+
 - leveraging gRPC and HTTP2 protocols, with server push and asynchronous communications, to simplify and optimize standard
   access patterns
 - targeting Kubernetes architecture
@@ -176,6 +177,62 @@ https://github.com/emeraldpay/emerald-js-grpc
 ----
 
 See more in the documentation for link:docs/10-client-libraries.adoc[Client Libraries].
+
+== Development
+
+=== Setting up environment
+
+Dshackle is JVM based project written in Kotlin. To build and run it from sources you'll need to install
+https://openjdk.java.net/projects/jdk/11/[Java JDK] and https://gradle.org/[Gradle]
+
+NOTE: For the current `master` branch you'll need to install a development version of Etherjar
+
+----
+git clone git@github.com:infinitape/etherjar.git
+cd etherjar
+gradle install
+----
+
+
+=== Build Dshackle
+
+==== Build everything
+
+[source, bash]
+----
+gradle build
+----
+
+==== Make a Zip distribution
+
+[source, bash]
+----
+gradle distZip
+----
+
+You can find a redistributable zip in `build/distributions`
+
+==== Make a Docker distribution
+
+[source, bash]
+----
+gradle jib -Pdocker=gcr.io/myproject
+----
+
+Gradle will prepare a Docker image and upload it to your custom Docker Registry at `gcr.io/myproject` (please change to address of your actual registry)
+
+==== Architecture
+
+Dshackle is built using:
+
+- Kotlin
+- Spring Framework + Spring Boot
+- Spring Reactor
+- Netty
+- Etherjar
+- gRPC and HTTP2 protocol
+- Groovy and Spock for testing
+
 
 == Community
 
