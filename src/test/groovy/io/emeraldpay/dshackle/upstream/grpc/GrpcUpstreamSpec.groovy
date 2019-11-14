@@ -74,7 +74,7 @@ class GrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def transport = ReactorEmeraldClient.newBuilder().forChannel(client.channel).build()
+        def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
         def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
@@ -130,7 +130,7 @@ class GrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def transport = ReactorEmeraldClient.newBuilder().forChannel(client.channel).build()
+        def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
         def upstream = new GrpcUpstream("test", Chain.ETHEREUM, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
@@ -190,7 +190,7 @@ class GrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def transport = ReactorEmeraldClient.newBuilder().forChannel(client.channel).build()
+        def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
         def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
