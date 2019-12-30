@@ -27,6 +27,7 @@ import io.infinitape.etherjar.hex.HexQuantity
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.function.Function
 
@@ -37,6 +38,8 @@ open class CachingEthereumApi(
 ): EthereumApi(objectMapper) {
 
     companion object {
+        private val log = LoggerFactory.getLogger(CachingEthereumApi::class.java)
+
         @JvmStatic
         fun empty(): CachingEthereumApi {
             return CachingEthereumApi(ObjectMapper(), EmptyReader(), EmptyEthereumHead())
@@ -55,6 +58,10 @@ open class CachingEthereumApi(
                         .map { BlockHash.from(it as String) }
                         .flatMap(cache::read)
                         .map(toJson(id))
+                        .onErrorResume { t ->
+                            log.warn("Error during read from cache", t)
+                            Mono.empty()
+                        }
                 else Mono.empty()
             else ->
                 Mono.empty()

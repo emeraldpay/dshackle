@@ -108,6 +108,10 @@ class NativeCall(
 
     fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
         return fetchFromCache(ctx)
+                .onErrorResume { t ->
+                    log.warn("Failed to read from cache", t);
+                    Mono.empty()
+                }
                 .switchIfEmpty(
                         Mono.just(ctx).flatMap(this::executeOnRemote)
                 )
