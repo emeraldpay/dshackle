@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
@@ -142,7 +143,7 @@ class TrackTx(
     fun prepareTracking(request: BlockchainOuterClass.TxStatusRequest): TxDetails {
         val chain = Chain.byId(request.chainValue)
         if (!clients.containsKey(chain)) {
-            throw Exception("Unsupported blockchain: ${chain}")
+            throw SilentException.UnsupportedBlockchain(chain)
         }
         val bus = TopicProcessor.create<Notification>()
         val details = TxDetails(
@@ -208,7 +209,7 @@ class TrackTx(
 
     private fun loadWeight(tx: TxDetails): Mono<TxDetails> {
         val upstream = upstreams.getUpstream(tx.chain)
-                ?: return Mono.error(Exception("Unsupported blockchain: ${tx.chain}"))
+                ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
         return upstream.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(tx.status.blockHash)) }
                 .map { block ->
@@ -249,7 +250,7 @@ class TrackTx(
 
     private fun checkForUpdate(tx: TxDetails): Mono<TxDetails> {
         val initialStatus = tx.status
-        val upstream = upstreams.getUpstream(tx.chain) ?: return Mono.error(Exception("Unsupported blockchain: ${tx.chain}"))
+        val upstream = upstreams.getUpstream(tx.chain) ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
         val execution = upstream.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getTransaction(tx.txid)) }
         return execution

@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
@@ -34,7 +35,6 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
 import reactor.core.scheduler.Scheduler
-import java.lang.Exception
 import java.time.Duration
 import java.time.Instant
 import java.util.*
@@ -95,10 +95,10 @@ class TrackAddress(
     private fun initializeSimple(request: BlockchainOuterClass.BalanceRequest): Flux<SimpleAddress> {
         val chain = Chain.byId(request.asset.chainValue)
         if (!upstreams.isAvailable(chain)) {
-            return Flux.error(Exception("Unsupported chain ${request.asset.chainValue}"))
+            return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         }
         if (request.asset.code?.toLowerCase() != "ether") {
-            return Flux.error(Exception("Unsupported asset ${request.asset.code}"))
+            return Flux.error(SilentException("Unsupported asset ${request.asset.code}"))
         }
         return when {
             request.address.addrTypeCase == Common.AnyAddress.AddrTypeCase.ADDRESS_SINGLE ->
@@ -133,8 +133,16 @@ class TrackAddress(
                             buildResponse(it)
                         }
                         Flux.merge(current, bus).doFinally { stopTracking(tracked) }
-                    }.doOnError { t ->
-                        log.warn("Failed to process subscription", t)
+                    }
+                    .doOnError { t ->
+                        if (t is SilentException) {
+                            if (t is SilentException.UnsupportedBlockchain) {
+                                log.warn("Unsupported blockchain: ${t.blockchainId}")
+                            }
+                            log.debug("Failed to process subscription", t)
+                        } else {
+                            log.warn("Failed to process subscription", t)
+                        }
                     }
         }
     }
@@ -167,7 +175,7 @@ class TrackAddress(
     }
 
     fun getBalance(addr: SimpleAddress): Mono<Wei> {
-        val up = upstreams.getUpstream(addr.chain) ?: return Mono.error(Exception("Unsupported chain: ${addr.chain}"))
+        val up = upstreams.getUpstream(addr.chain) ?: return Mono.error(SilentException.UnsupportedBlockchain(addr.chain))
         return up.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getBalance(addr.address, BlockTag.LATEST)) }
                 .timeout(Defaults.timeout)

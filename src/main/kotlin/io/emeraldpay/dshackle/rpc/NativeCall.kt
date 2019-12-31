@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
@@ -81,10 +82,10 @@ class NativeCall(
     fun prepareCall(request: BlockchainOuterClass.NativeCallRequest): Flux<CallContext<RawCallDetails>> {
         val chain = Chain.byId(request.chain.number)
         if (chain == Chain.UNSPECIFIED) {
-            return Flux.error(CallFailure(0, Exception("Invalid chain id: ${request.chain.number}")))
+            return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
         }
         val upstream = upstreams.getUpstream(chain)
-                ?: return Flux.error(CallFailure(0, Exception("Chain ${chain.id} is unavailable")))
+                ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
         return prepareCall(request, upstream)
     }
