@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.cache
 
+import io.emeraldpay.dshackle.reader.Reader
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
@@ -25,13 +26,13 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 class BlocksMemCache(
         val maxSize: Int = 64
-) {
+): Reader<BlockHash, BlockJson<TransactionRefJson>> {
 
     private val mapping = ConcurrentHashMap<BlockHash, BlockJson<TransactionRefJson>>()
     private val queue = ConcurrentLinkedQueue<BlockHash>()
 
-    fun get(hash: BlockHash): Mono<BlockJson<TransactionRefJson>> {
-        return Mono.justOrEmpty(mapping[hash])
+    override fun read(key: BlockHash): Mono<BlockJson<TransactionRefJson>> {
+        return Mono.justOrEmpty(mapping[key])
     }
 
     fun add(block: BlockJson<TransactionRefJson>) {

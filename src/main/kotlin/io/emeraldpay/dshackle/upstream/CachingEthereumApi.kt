@@ -29,11 +29,13 @@ import io.infinitape.etherjar.rpc.json.ResponseJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
+import java.math.BigInteger
 import java.util.function.Function
 
 open class CachingEthereumApi(
         private val objectMapper: ObjectMapper,
         private val cache: Reader<BlockHash, BlockJson<TransactionRefJson>>,
+        private val cacheHeight: Reader<Long, BlockJson<TransactionRefJson>>,
         private val head: EthereumHead
 ): EthereumApi(objectMapper) {
 
@@ -42,7 +44,7 @@ open class CachingEthereumApi(
 
         @JvmStatic
         fun empty(): CachingEthereumApi {
-            return CachingEthereumApi(ObjectMapper(), EmptyReader(), EmptyEthereumHead())
+            return CachingEthereumApi(ObjectMapper(), EmptyReader(), EmptyReader(), EmptyEthereumHead())
         }
     }
 
@@ -62,6 +64,21 @@ open class CachingEthereumApi(
                             log.warn("Error during read from cache", t)
                             Mono.empty()
                         }
+                else Mono.empty()
+            "eth_getBlockByNumber" ->
+                if (params.size == 2 && (params[1] == "false" || params[1] == false))
+                    Mono.just(params[0])
+                            .map { HexQuantity.from(it as String) }
+                            .filter {
+                                it.value < BigInteger.valueOf(Long.MAX_VALUE)
+                            }
+                            .map { it.value.toLong() }
+                            .flatMap(cacheHeight::read)
+                            .map(toJson(id))
+                            .onErrorResume { t ->
+                                log.warn("Error during read from cache", t)
+                                Mono.empty()
+                            }
                 else Mono.empty()
             else ->
                 Mono.empty()

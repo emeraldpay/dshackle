@@ -16,18 +16,11 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.cache.BlockByHeight
 import io.emeraldpay.dshackle.cache.BlocksMemCache
+import io.emeraldpay.dshackle.cache.HeightCache
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.BlockCacheReader
-import io.emeraldpay.dshackle.reader.CompoundReader
-import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
-import org.reactivestreams.Publisher
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -42,11 +35,9 @@ abstract class AggregatedUpstream(
         val objectMapper: ObjectMapper
 ): Upstream, Lifecycle {
 
-    private val blocksCache = BlocksMemCache()
     private var cacheSubscription: Disposable? = null
-    private val blockReader: Reader<BlockHash, BlockJson<TransactionRefJson>> = CompoundReader(
-            listOf(BlockCacheReader(blocksCache))
-    )
+    private val blockReaderByHash = BlocksMemCache()
+    private val blockReaderByHeight = HeightCache()
     var cache: CachingEthereumApi = CachingEthereumApi.empty()
     private val reconfigLock = ReentrantLock()
     private var callMethods: CallMethods? = null
@@ -118,9 +109,10 @@ abstract class AggregatedUpstream(
         reconfigLock.withLock {
             cacheSubscription?.dispose()
             cacheSubscription = head.getFlux().subscribe {
-                blocksCache.add(it)
+                blockReaderByHash.add(it)
+                blockReaderByHeight.add(it)
             }
-            cache = CachingEthereumApi(objectMapper, blockReader, head)
+            cache = CachingEthereumApi(objectMapper, blockReaderByHash, BlockByHeight(blockReaderByHeight, blockReaderByHash), head)
         }
     }
 

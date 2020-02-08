@@ -1,7 +1,8 @@
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.cache.BlockByHeight
 import io.emeraldpay.dshackle.cache.BlocksMemCache
-import io.emeraldpay.dshackle.reader.BlockCacheReader
+import io.emeraldpay.dshackle.cache.HeightCache
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
@@ -23,6 +24,7 @@ class CachingEthereumApiSpec extends Specification {
         def api = new CachingEthereumApi(
                 TestingCommons.objectMapper(),
                 new EmptyReader<BlockHash, BlockJson<TransactionRefJson>>(),
+                new EmptyReader<>(),
                 head
         )
         1 * head.getFlux() >> Flux.just(new BlockJson<TransactionRefJson>(number: 100))
@@ -42,6 +44,7 @@ class CachingEthereumApiSpec extends Specification {
         def api = new CachingEthereumApi(
                 TestingCommons.objectMapper(),
                 new EmptyReader<BlockHash, BlockJson<TransactionRefJson>>(),
+                new EmptyReader<>(),
                 head
         )
         when:
@@ -53,19 +56,45 @@ class CachingEthereumApiSpec extends Specification {
                 .verify(Duration.ofSeconds(3))
     }
 
-    def "Return block when cached"() {
+    def "Return block by hash when cached"() {
         setup:
         def cache = new BlocksMemCache();
         def head = Mock(EthereumHead.class)
         def api = new CachingEthereumApi(
                 TestingCommons.objectMapper(),
-                new BlockCacheReader(cache),
+                cache,
+                new EmptyReader<>(),
                 head
         )
         cache.add(new BlockJson<TransactionRefJson>(number: 100, hash: BlockHash.from("0x5b4590a9905fa1c9cc273f32e6dc63b4c512f0ee14edc6fa41c26b416a7b5d58")))
 
         when:
         def act = api.execute(1, "eth_getBlockByHash", ["0x5b4590a9905fa1c9cc273f32e6dc63b4c512f0ee14edc6fa41c26b416a7b5d58", false]).map { new String(it)}
+
+        then:
+        StepVerifier.create(act)
+                .expectNext('{"jsonrpc":"2.0","id":1,"result":{"number":"0x64","hash":"0x5b4590a9905fa1c9cc273f32e6dc63b4c512f0ee14edc6fa41c26b416a7b5d58","transactions":[],"uncles":[]}}')
+                .expectComplete()
+                .verify(Duration.ofSeconds(3))
+    }
+
+    def "Return block by height when cached"() {
+        setup:
+        def blocksCache = new BlocksMemCache()
+        def heightCache = new HeightCache()
+        def head = Mock(EthereumHead.class)
+        def api = new CachingEthereumApi(
+                TestingCommons.objectMapper(),
+                blocksCache,
+                new BlockByHeight(heightCache, blocksCache),
+                head
+        )
+        def block = new BlockJson<TransactionRefJson>(number: 100, hash: BlockHash.from("0x5b4590a9905fa1c9cc273f32e6dc63b4c512f0ee14edc6fa41c26b416a7b5d58"))
+        heightCache.add(block)
+        blocksCache.add(block)
+
+        when:
+        def act = api.execute(1, "eth_getBlockByNumber", ["0x64", false]).map { new String(it)}
 
         then:
         StepVerifier.create(act)

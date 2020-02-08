@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.cache
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import spock.lang.Specification
 
 class BlocksMemCacheSpec extends Specification {
@@ -30,13 +31,13 @@ class BlocksMemCacheSpec extends Specification {
     def "Add and read"() {
         setup:
         def cache = new BlocksMemCache()
-        def block = new BlockJson<TransactionId>()
+        def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.hash = BlockHash.from(hash1)
 
         when:
         cache.add(block)
-        def act = cache.get(BlockHash.from(hash1)).block()
+        def act = cache.read(BlockHash.from(hash1)).block()
         then:
         act == block
     }
@@ -48,20 +49,21 @@ class BlocksMemCacheSpec extends Specification {
 
         when:
         [hash1, hash2, hash3, hash4].eachWithIndex{ String hash, int i ->
-            def block = new BlockJson<TransactionId>()
+            def block = new BlockJson<TransactionRefJson>()
             block.number = 100 + i
             block.hash = BlockHash.from(hash)
             cache.add(block)
         }
 
-        def act1 = cache.get(BlockHash.from(hash1)).block()
-        def act2 = cache.get(BlockHash.from(hash2)).block()
-        def act3 = cache.get(BlockHash.from(hash3)).block()
-        def act4 = cache.get(BlockHash.from(hash4)).block()
+        def act1 = cache.read(BlockHash.from(hash1)).block()
+        def act2 = cache.read(BlockHash.from(hash2)).block()
+        def act3 = cache.read(BlockHash.from(hash3)).block()
+        def act4 = cache.read(BlockHash.from(hash4)).block()
         then:
         act2.hash.toHex() == hash2
         act3.hash.toHex() == hash3
         act4.hash.toHex() == hash4
         act1 == null
     }
+
 }
