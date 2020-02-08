@@ -17,18 +17,22 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.CallMethods
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
+import io.infinitape.etherjar.domain.BlockHash
+import io.infinitape.etherjar.domain.TransactionId
+import io.infinitape.etherjar.hex.HexQuantity
 import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
-import reactor.core.publisher.switchIfEmpty
-import java.time.Duration
+import java.math.BigInteger
 
 open class DirectEthereumApi(
         val rpcClient: ReactorRpcClient,
+        var caches: Caches?,
         private val objectMapper: ObjectMapper,
         val targets: CallMethods
 ): EthereumApi(objectMapper) {
@@ -90,8 +94,78 @@ open class DirectEthereumApi(
                 }
     }
 
+    /**
+     * Actual request to the remote endpoint
+     */
     private fun callUpstream(method: String, params: List<Any>): Mono<out Any> {
-        return rpcClient.execute(RpcCall.create(method, Any::class.java, params))
+        return rpcClient.execute(callMapping(method, params))
                 .timeout(timeout, Mono.error(RpcException(-32603, "Upstream timeout")))
+                .doOnNext { value ->
+                    caches?.cacheRequested(value)
+                }
+    }
+
+    /**
+     * Prepare RpcCall with data types specific for that particular requests. In general it may return a call that just
+     * parses JSON into Map. But the purpose of further processing and caching for some of the requests we want
+     * to have actual data types.
+     */
+    fun callMapping(method: String, params: List<Any>): RpcCall<out Any, out Any> {
+        return when {
+            method == "eth_getTransactionByHash" -> {
+                if (params.size != 1) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 1 parameter")
+                }
+                val hash: TransactionId
+                try {
+                    hash = TransactionId.from(params[0].toString())
+                } catch (e: IllegalArgumentException) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
+                }
+                Commands.eth().getTransaction(hash)
+            }
+            method == "eth_getBlockByHash" -> {
+                if (params.size != 2) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
+                }
+                val hash: BlockHash
+                try {
+                    hash = BlockHash.from(params[0].toString())
+                } catch (e: IllegalArgumentException) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be block hash")
+                }
+                val withTx = params[1].toString().toBoolean()
+                if (withTx) {
+                    Commands.eth().getBlockWithTransactions(hash)
+                } else {
+                    Commands.eth().getBlock(hash)
+                }
+            }
+            method == "eth_getBlockByNumber" -> {
+                if (params.size != 2) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
+                }
+                val number: Long
+                try {
+                    val quantity = HexQuantity.from(params[0].toString()) ?: throw IllegalArgumentException()
+                    number = quantity.value.let {
+                        if (it < BigInteger.valueOf(Long.MAX_VALUE) && it >= BigInteger.ZERO) {
+                            it.toLong()
+                        } else {
+                            throw IllegalArgumentException()
+                        }
+                    }
+                } catch (e: IllegalArgumentException) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be block number")
+                }
+                val withTx = params[1].toString().toBoolean()
+                if (withTx) {
+                    Commands.eth().getBlockWithTransactions(number)
+                } else {
+                    Commands.eth().getBlock(number)
+                }
+            }
+            else -> RpcCall.create(method, Any::class.java, params)
+        }
     }
 }

@@ -20,6 +20,8 @@ import io.emeraldpay.dshackle.upstream.DirectCallMethods
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
+import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionJson
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -28,7 +30,7 @@ import java.time.Duration
 
 class DirectEthereumApiSpec extends Specification {
 
-    DirectEthereumApi api = new DirectEthereumApi(Stub(ReactorRpcClient), TestingCommons.objectMapper(), new DirectCallMethods())
+    DirectEthereumApi api = new DirectEthereumApi(Stub(ReactorRpcClient), null, TestingCommons.objectMapper(), new DirectCallMethods())
 
     def "Process successful result"() {
         setup:
@@ -88,5 +90,111 @@ class DirectEthereumApiSpec extends Specification {
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
 
+    }
+
+    def "Typed mapping for block request"() {
+        when:
+        def act = api.callMapping("eth_getBlockByHash", ["0xacf5611707048efc39cabed483e420672ca1ed070f248ef6202c99994dbc6061", false])
+        then:
+        act.jsonType == BlockJson
+        act.resultType == BlockJson
+    }
+
+    def "Typed mapping for block request with txes"() {
+        when:
+        def act = api.callMapping("eth_getBlockByHash", ["0xacf5611707048efc39cabed483e420672ca1ed070f248ef6202c99994dbc6061", true])
+        then:
+        act.jsonType == BlockJson
+        act.resultType == BlockJson
+    }
+
+    def "Typed mapping for block by height request"() {
+        when:
+        def act = api.callMapping("eth_getBlockByNumber", ["0x135", false])
+        then:
+        act.jsonType == BlockJson
+        act.resultType == BlockJson
+    }
+
+    def "Typed mapping for block by height request with txes"() {
+        when:
+        def act = api.callMapping("eth_getBlockByNumber", ["0xacf5", true])
+        then:
+        act.jsonType == BlockJson
+        act.resultType == BlockJson
+    }
+
+    def "Typed mapping for tx request"() {
+        when:
+        def act = api.callMapping("eth_getTransactionByHash", ["0xacf5611707048efc39cabed483e420672ca1ed070f248ef6202c99994dbc6061"])
+        then:
+        act.jsonType == TransactionJson
+        act.resultType == TransactionJson
+    }
+
+    def "Errors for mapping of invalid tx request"() {
+        when:
+        api.callMapping("eth_getTransactionByHash", ["0xacf5611707048efc39cabed483e420672ca1ed070f248ef6"])
+        then:
+        def t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+
+        when:
+        api.callMapping("eth_getTransactionByHash", ["0xacf5611707048efc39cabed483e420672ca1ed070f248ef6202c99994dbc6061", true])
+        then:
+        t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+
+        when:
+        api.callMapping("eth_getTransactionByHash", [])
+        then:
+        t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+    }
+
+    def "Errors for mapping of invalid block request"() {
+        when:
+        api.callMapping("eth_getBlockByHash", ["0xacf5611707048efc39cabed483e420672ca1ed070f248ef6202c99994dbc6061"])
+        then:
+        def t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+
+        when:
+        api.callMapping("eth_getBlockByHash", ["0xacf5611707048efc39cabed48f6202c99994dbc6061", true])
+        then:
+        t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+
+        when:
+        api.callMapping("eth_getBlockByHash", [])
+        then:
+        t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+    }
+
+    def "Errors for mapping of invalid block by number request"() {
+        when:
+        api.callMapping("eth_getBlockByNumber", ["0xacf5611707048efc3248ef6202c99994dbc6061"])
+        then:
+        def t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+
+        when:
+        api.callMapping("eth_getBlockByNumber", ["0x", true])
+        then:
+        t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+
+        when:
+        api.callMapping("eth_getBlockByNumber", ["-0x23", true])
+        then:
+        t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
+
+        when:
+        api.callMapping("eth_getBlockByNumber", [])
+        then:
+        t = thrown(RpcException)
+        t.code == RpcResponseError.CODE_INVALID_METHOD_PARAMS
     }
 }

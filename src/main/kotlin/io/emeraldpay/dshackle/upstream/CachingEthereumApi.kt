@@ -16,17 +16,14 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.reader.EmptyReader
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.ethereum.EmptyEthereumHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.hex.HexQuantity
-import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.ResponseJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.math.BigInteger
@@ -34,8 +31,7 @@ import java.util.function.Function
 
 open class CachingEthereumApi(
         private val objectMapper: ObjectMapper,
-        private val cache: Reader<BlockHash, BlockJson<TransactionRefJson>>,
-        private val cacheHeight: Reader<Long, BlockJson<TransactionRefJson>>,
+        private val caches: Caches,
         private val head: EthereumHead
 ): EthereumApi(objectMapper) {
 
@@ -44,9 +40,13 @@ open class CachingEthereumApi(
 
         @JvmStatic
         fun empty(): CachingEthereumApi {
-            return CachingEthereumApi(ObjectMapper(), EmptyReader(), EmptyReader(), EmptyEthereumHead())
+            return CachingEthereumApi(ObjectMapper(), Caches.default(), EmptyEthereumHead())
         }
     }
+
+    private val cacheBlocks = caches.getBlocksByHash()
+    private val cacheHeight = caches.getBlocksByHeight()
+    private val cacheTx = caches.getTxByHash()
 
     override fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
         return when (method) {
@@ -58,30 +58,51 @@ open class CachingEthereumApi(
                 if (params.size == 2 && (params[1] == "false" || params[1] == false))
                     Mono.just(params[0])
                         .map { BlockHash.from(it as String) }
-                        .flatMap(cache::read)
-                        .map(toJson(id))
-                        .onErrorResume { t ->
-                            log.warn("Error during read from cache", t)
-                            Mono.empty()
-                        }
+                        .flatMap(cacheBlocks::read)
+                        .transform(converter(id))
+                        .transform(finalizer())
                 else Mono.empty()
             "eth_getBlockByNumber" ->
                 if (params.size == 2 && (params[1] == "false" || params[1] == false))
                     Mono.just(params[0])
                             .map { HexQuantity.from(it as String) }
-                            .filter {
-                                it.value < BigInteger.valueOf(Long.MAX_VALUE)
-                            }
+                            .filter { it.value < BigInteger.valueOf(Long.MAX_VALUE) }
                             .map { it.value.toLong() }
                             .flatMap(cacheHeight::read)
-                            .map(toJson(id))
-                            .onErrorResume { t ->
-                                log.warn("Error during read from cache", t)
-                                Mono.empty()
-                            }
+                            .transform(converter(id))
+                            .transform(finalizer())
+                else Mono.empty()
+            "eth_getTransactionByHash" ->
+                if (params.size == 1)
+                    Mono.just(params[0])
+                            .map { TransactionId.from(it as String) }
+                            .flatMap(cacheTx::read)
+                            .transform(converter(id))
+                            .transform(finalizer())
                 else Mono.empty()
             else ->
                 Mono.empty()
+        }
+    }
+
+    /**
+     * Convert to JSON RPC response
+     */
+    fun converter(id: Int): Function<in Mono<*>, out Mono<ByteArray>> {
+        return Function { mono ->
+            mono.map(toJson(id))
+        }
+    }
+
+    /**
+     * Handle errors and other stuff
+     */
+    fun finalizer(): Function<Mono<ByteArray>, Mono<ByteArray>> {
+        return Function { mono ->
+            mono.onErrorResume { t ->
+                log.warn("Error during read from cache", t)
+                Mono.empty()
+            }
         }
     }
 

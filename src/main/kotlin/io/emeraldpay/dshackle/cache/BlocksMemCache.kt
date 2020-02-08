@@ -24,7 +24,7 @@ import reactor.core.publisher.Mono
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
-class BlocksMemCache(
+open class BlocksMemCache(
         val maxSize: Int = 64
 ): Reader<BlockHash, BlockJson<TransactionRefJson>> {
 
@@ -35,7 +35,11 @@ class BlocksMemCache(
         return Mono.justOrEmpty(mapping[key])
     }
 
-    fun add(block: BlockJson<TransactionRefJson>) {
+    open fun get(key: BlockHash): BlockJson<TransactionRefJson>? {
+        return mapping[key]
+    }
+
+    open fun add(block: BlockJson<TransactionRefJson>) {
         mapping.put(block.hash, block)
         queue.add(block.hash)
 
@@ -44,4 +48,5 @@ class BlocksMemCache(
             mapping.remove(old)
         }
     }
+
 }

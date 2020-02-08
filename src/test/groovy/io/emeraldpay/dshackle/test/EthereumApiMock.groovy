@@ -39,7 +39,7 @@ class EthereumApiMock extends DirectEthereumApi {
     private ObjectMapper objectMapper
 
     EthereumApiMock(@NotNull ReactorRpcClient rpcClient, @NotNull ObjectMapper objectMapper, @NotNull Chain chain) {
-        super(rpcClient, objectMapper, new DirectCallMethods())
+        super(rpcClient, null, objectMapper, new DirectCallMethods())
         this.objectMapper = objectMapper
     }
 

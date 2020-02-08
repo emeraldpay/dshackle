@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono
 /**
  * Connects two caches to read through them. First is cache height->hash, second is hash->block.
  */
-class BlockByHeight(
+open class BlockByHeight(
         private val heights: Reader<Long, BlockHash>,
         private val blocks: Reader<BlockHash, BlockJson<TransactionRefJson>>
 ): Reader<Long, BlockJson<TransactionRefJson>> {

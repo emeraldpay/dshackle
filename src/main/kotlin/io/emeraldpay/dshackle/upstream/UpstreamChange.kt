@@ -15,17 +15,25 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.grpc.Chain
 
 class UpstreamChange(
         val chain: Chain,
         val upstream: Upstream,
         val type: ChangeType
-) {
+): CachesEnabled {
     enum class ChangeType {
         ADDED,
         REVALIDATED,
         STALE,
         REMOVED,
+    }
+
+    override fun setCaches(caches: Caches) {
+        if (upstream is CachesEnabled) {
+            upstream.setCaches(caches)
+        }
     }
 }

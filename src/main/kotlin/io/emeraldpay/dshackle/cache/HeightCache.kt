@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Memory cache for blocks heights, keeps mapping height->hash.
  */
-class HeightCache(
+open class HeightCache(
         val maxSize: Int = 256
 ): Reader<Long, BlockHash> {
 
@@ -25,7 +25,8 @@ class HeightCache(
         return Mono.justOrEmpty(heights[key])
     }
 
-    fun add(block: BlockJson<TransactionRefJson>) {
+    open fun add(block: BlockJson<TransactionRefJson>): BlockHash? {
+        val existing = heights[block.number]
         heights[block.number] = block.hash
 
         // evict old numbers if full
@@ -34,5 +35,7 @@ class HeightCache(
             heights.remove(dropHeight)
             dropHeight++
         }
+
+        return existing
     }
 }

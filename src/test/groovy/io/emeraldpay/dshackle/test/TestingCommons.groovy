@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.CallMethods
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
@@ -73,6 +74,6 @@ class TestingCommons {
     }
 
     static AggregatedUpstream aggregatedUpstream(EthereumUpstream up) {
-        return new ChainUpstreams(Chain.ETHEREUM, [up], objectMapper())
+        return new ChainUpstreams(Chain.ETHEREUM, [up], Caches.default(), objectMapper())
     }
 }

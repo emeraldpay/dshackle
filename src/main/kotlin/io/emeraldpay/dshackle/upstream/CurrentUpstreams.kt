@@ -16,6 +16,8 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -50,12 +52,18 @@ class CurrentUpstreams(
                 log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
             } else {
                 if (current == null) {
-                    val created = ChainUpstreams(chain, ArrayList<Upstream>(), objectMapper)
+                    val created = ChainUpstreams(chain, ArrayList<Upstream>(), Caches.default(), objectMapper)
+                    if (up is CachesEnabled) {
+                        up.setCaches(created.caches)
+                    }
                     created.addUpstream(up)
                     created.start()
                     chainMapping[chain] = created
                     chainsBus.onNext(chain)
                 } else {
+                    if (up is CachesEnabled) {
+                        up.setCaches(current.caches)
+                    }
                     current.addUpstream(up)
                 }
                 if (!callTargets.containsKey(chain)) {

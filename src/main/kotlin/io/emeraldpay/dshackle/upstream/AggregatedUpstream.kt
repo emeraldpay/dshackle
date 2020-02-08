@@ -16,9 +16,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.cache.BlockByHeight
-import io.emeraldpay.dshackle.cache.BlocksMemCache
-import io.emeraldpay.dshackle.cache.HeightCache
+import io.emeraldpay.dshackle.cache.*
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import org.springframework.context.Lifecycle
@@ -32,12 +30,11 @@ import java.util.function.Predicate
 import kotlin.concurrent.withLock
 
 abstract class AggregatedUpstream(
-        val objectMapper: ObjectMapper
+        private val objectMapper: ObjectMapper,
+        val caches: Caches
 ): Upstream, Lifecycle {
 
     private var cacheSubscription: Disposable? = null
-    private val blockReaderByHash = BlocksMemCache()
-    private val blockReaderByHeight = HeightCache()
     var cache: CachingEthereumApi = CachingEthereumApi.empty()
     private val reconfigLock = ReentrantLock()
     private var callMethods: CallMethods? = null
@@ -109,10 +106,9 @@ abstract class AggregatedUpstream(
         reconfigLock.withLock {
             cacheSubscription?.dispose()
             cacheSubscription = head.getFlux().subscribe {
-                blockReaderByHash.add(it)
-                blockReaderByHeight.add(it)
+                caches.cache(Caches.Tag.LATEST, it)
             }
-            cache = CachingEthereumApi(objectMapper, blockReaderByHash, BlockByHeight(blockReaderByHeight, blockReaderByHash), head)
+            cache = CachingEthereumApi(objectMapper, caches, head)
         }
     }
 

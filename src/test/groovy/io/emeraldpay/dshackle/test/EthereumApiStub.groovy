@@ -38,7 +38,7 @@ class EthereumApiStub extends DirectEthereumApi {
     }
 
     EthereumApiStub(String id) {
-        super(rpcClient, objectMapper, new DirectCallMethods())
+        super(rpcClient, null, objectMapper, new DirectCallMethods())
         this.id = id
     }
 

@@ -47,7 +47,7 @@ class FilteredApisSpec extends Specification {
             new EthereumUpstream(
                     "test",
                     Chain.ETHEREUM,
-                    new DirectEthereumApi(rpcClient, objectMapper, ethereumTargets),
+                    new DirectEthereumApi(rpcClient, null, objectMapper, ethereumTargets),
                     (EthereumWs) null,
                     new UpstreamsConfig.Options(),
                     new NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels.fromMap(it)),

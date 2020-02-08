@@ -15,6 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.grpc.Chain
@@ -32,7 +34,7 @@ open class EthereumUpstream(
         private val options: UpstreamsConfig.Options,
         val node: NodeDetailsList.NodeDetails,
         private val targets: CallMethods
-): DefaultUpstream(), Lifecycle {
+): DefaultUpstream(), CachesEnabled, Lifecycle {
 
     constructor(id: String, chain: Chain, api: DirectEthereumApi): this(id, chain, api, null,
             UpstreamsConfig.Options.getDefaults(), NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels()),
@@ -46,6 +48,10 @@ open class EthereumUpstream(
 
     init {
         api.upstream = this
+    }
+
+    override fun setCaches(caches: Caches) {
+        api.caches = caches;
     }
 
     override fun getId(): String {

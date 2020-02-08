@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -28,7 +29,7 @@ class AggregatedUpstreamSpec extends Specification {
         setup:
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, Stub(DirectEthereumApi), new DirectCallMethods(["eth_test1", "eth_test2"]))
         def up2 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, Stub(DirectEthereumApi), new DirectCallMethods(["eth_test2", "eth_test3"]))
-        def aggr = new ChainUpstreams(Chain.ETHEREUM, [up1, up2], TestingCommons.objectMapper())
+        def aggr = new ChainUpstreams(Chain.ETHEREUM, [up1, up2], Caches.default(), TestingCommons.objectMapper())
         when:
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()

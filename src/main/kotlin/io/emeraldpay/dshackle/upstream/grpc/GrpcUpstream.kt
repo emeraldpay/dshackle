@@ -21,6 +21,8 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.ethereum.DefaultEthereumHead
@@ -53,10 +55,11 @@ open class GrpcUpstream(
         private val blockchainStub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
         private val rpcClient: ReactorEmeraldClient
-): DefaultUpstream(), Lifecycle {
+): DefaultUpstream(), CachesEnabled, Lifecycle {
 
     private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
     private val log = LoggerFactory.getLogger(GrpcUpstream::class.java)
+    private var caches: Caches? = null
 
     private val options = UpstreamsConfig.Options.getDefaults()
     private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
@@ -71,7 +74,7 @@ open class GrpcUpstream(
         val client = Selector.extractLabels(matcher)?.let { selector ->
             rpcClient.copyWithSelector(selector.asProto())
         } ?: rpcClient
-        return DirectEthereumApi(client, objectMapper, targets).let {
+        return DirectEthereumApi(client, caches, objectMapper, targets).let {
             it.upstream = this
             it
         }
@@ -203,6 +206,10 @@ open class GrpcUpstream(
 
     override fun getOptions(): UpstreamsConfig.Options {
         return options
+    }
+
+    override fun setCaches(caches: Caches) {
+        this.caches = caches
     }
 
 }

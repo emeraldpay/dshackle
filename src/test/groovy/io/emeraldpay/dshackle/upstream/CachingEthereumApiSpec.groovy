@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.BlockByHeight
 import io.emeraldpay.dshackle.cache.BlocksMemCache
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.HeightCache
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -23,8 +24,7 @@ class CachingEthereumApiSpec extends Specification {
         def head = Mock(EthereumHead.class)
         def api = new CachingEthereumApi(
                 TestingCommons.objectMapper(),
-                new EmptyReader<BlockHash, BlockJson<TransactionRefJson>>(),
-                new EmptyReader<>(),
+                Caches.default(),
                 head
         )
         1 * head.getFlux() >> Flux.just(new BlockJson<TransactionRefJson>(number: 100))
@@ -43,8 +43,7 @@ class CachingEthereumApiSpec extends Specification {
         def head = Mock(EthereumHead.class)
         def api = new CachingEthereumApi(
                 TestingCommons.objectMapper(),
-                new EmptyReader<BlockHash, BlockJson<TransactionRefJson>>(),
-                new EmptyReader<>(),
+                Caches.default(),
                 head
         )
         when:
@@ -62,8 +61,7 @@ class CachingEthereumApiSpec extends Specification {
         def head = Mock(EthereumHead.class)
         def api = new CachingEthereumApi(
                 TestingCommons.objectMapper(),
-                cache,
-                new EmptyReader<>(),
+                Caches.newBuilder().setBlockByHash(cache).build(),
                 head
         )
         cache.add(new BlockJson<TransactionRefJson>(number: 100, hash: BlockHash.from("0x5b4590a9905fa1c9cc273f32e6dc63b4c512f0ee14edc6fa41c26b416a7b5d58")))
@@ -85,8 +83,7 @@ class CachingEthereumApiSpec extends Specification {
         def head = Mock(EthereumHead.class)
         def api = new CachingEthereumApi(
                 TestingCommons.objectMapper(),
-                blocksCache,
-                new BlockByHeight(heightCache, blocksCache),
+                Caches.newBuilder().setBlockByHash(blocksCache).setBlockByHeight(heightCache).build(),
                 head
         )
         def block = new BlockJson<TransactionRefJson>(number: 100, hash: BlockHash.from("0x5b4590a9905fa1c9cc273f32e6dc63b4c512f0ee14edc6fa41c26b416a7b5d58"))

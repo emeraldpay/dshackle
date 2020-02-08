@@ -144,6 +144,7 @@ open class ConfiguredUpstreams(
             }
             rpcApi = DirectEthereumApi(
                     rpcClient.build(),
+                    null,
                     objectMapper,
                     methods
             ).apply {

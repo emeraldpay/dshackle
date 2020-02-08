@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.test
 
-
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
 import io.emeraldpay.dshackle.upstream.QuorumBasedMethods
@@ -40,7 +40,7 @@ class UpstreamsMock implements Upstreams {
 
     AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            upstreams[chain] = new ChainUpstreams(chain, [up], TestingCommons.objectMapper())
+            upstreams[chain] = new ChainUpstreams(chain, [up], Caches.default(), TestingCommons.objectMapper())
         } else {
             upstreams[chain].addUpstream(up)
         }

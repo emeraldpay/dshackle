@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
@@ -31,8 +32,9 @@ import java.time.Duration
 open class ChainUpstreams (
         val chain: Chain,
         private val upstreams: MutableList<Upstream>,
+        caches: Caches,
         objectMapper: ObjectMapper
-) : AggregatedUpstream(objectMapper), Lifecycle {
+) : AggregatedUpstream(objectMapper, caches), Lifecycle {
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
