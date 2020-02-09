@@ -45,8 +45,46 @@ open class CachingEthereumApi(
     }
 
     private val cacheBlocks = caches.getBlocksByHash()
-    private val cacheHeight = caches.getBlocksByHeight()
+    private val cacheBlocksByHeight = caches.getBlocksByHeight()
     private val cacheTx = caches.getTxByHash()
+    private val cacheFullBlocks = caches.getFullBlocks()
+    private val cacheFullBlocksByHeight = caches.getFullBlocksByHeight()
+
+    fun readBlockByHash(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
+        return if (params.size == 2) {
+            val includeTransactions = params[1].toString().toBoolean()
+            val cache = if (includeTransactions) {
+                cacheFullBlocks
+            } else {
+                cacheBlocks
+            }
+            Mono.just(params[0])
+                    .map { BlockHash.from(it as String) }
+                    .flatMap(cache::read)
+                    .transform(converter(id))
+                    .transform(finalizer())
+        }
+        else Mono.empty()
+    }
+
+    fun readBlockByNumber(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
+        return if (params.size == 2) {
+            val includeTransactions = params[1].toString().toBoolean()
+            val cache = if (includeTransactions) {
+                cacheFullBlocksByHeight
+            } else {
+                cacheBlocksByHeight
+            }
+            Mono.just(params[0])
+                    .map { HexQuantity.from(it as String) }
+                    .filter { it.value < BigInteger.valueOf(Long.MAX_VALUE) }
+                    .map { it.value.toLong() }
+                    .flatMap(cache::read)
+                    .transform(converter(id))
+                    .transform(finalizer())
+        }
+        else Mono.empty()
+    }
 
     override fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
         return when (method) {
@@ -54,24 +92,8 @@ open class CachingEthereumApi(
                 head.getFlux().next()
                     .map { HexQuantity.from(it.number).toHex() }
                     .map(toJson(id))
-            "eth_getBlockByHash" ->
-                if (params.size == 2 && (params[1] == "false" || params[1] == false))
-                    Mono.just(params[0])
-                        .map { BlockHash.from(it as String) }
-                        .flatMap(cacheBlocks::read)
-                        .transform(converter(id))
-                        .transform(finalizer())
-                else Mono.empty()
-            "eth_getBlockByNumber" ->
-                if (params.size == 2 && (params[1] == "false" || params[1] == false))
-                    Mono.just(params[0])
-                            .map { HexQuantity.from(it as String) }
-                            .filter { it.value < BigInteger.valueOf(Long.MAX_VALUE) }
-                            .map { it.value.toLong() }
-                            .flatMap(cacheHeight::read)
-                            .transform(converter(id))
-                            .transform(finalizer())
-                else Mono.empty()
+            "eth_getBlockByHash" -> readBlockByHash(id, method, params)
+            "eth_getBlockByNumber" -> readBlockByNumber(id, method, params)
             "eth_getTransactionByHash" ->
                 if (params.size == 1)
                     Mono.just(params[0])

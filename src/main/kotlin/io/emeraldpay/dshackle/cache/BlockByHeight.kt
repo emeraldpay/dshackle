@@ -10,16 +10,16 @@ import reactor.core.publisher.Mono
 /**
  * Connects two caches to read through them. First is cache height->hash, second is hash->block.
  */
-open class BlockByHeight(
+open class BlockByHeight<T: TransactionRefJson>(
         private val heights: Reader<Long, BlockHash>,
-        private val blocks: Reader<BlockHash, BlockJson<TransactionRefJson>>
-): Reader<Long, BlockJson<TransactionRefJson>> {
+        private val blocks: Reader<BlockHash, BlockJson<T>>
+): Reader<Long, BlockJson<T>> {
 
     companion object {
         private val log = LoggerFactory.getLogger(BlockByHeight::class.java)
     }
 
-    override fun read(key: Long): Mono<BlockJson<TransactionRefJson>> {
+    override fun read(key: Long): Mono<BlockJson<T>> {
         return heights.read(key)
                 .flatMap { blocks.read(it) }
     }

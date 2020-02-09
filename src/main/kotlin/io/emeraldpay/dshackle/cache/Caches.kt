@@ -84,6 +84,14 @@ open class Caches(
         return txsByHash
     }
 
+    fun getFullBlocks(): Reader<BlockHash, BlockJson<TransactionJson>> {
+        return BlocksWithTxCache(blocksByHash, txsByHash)
+    }
+
+    fun getFullBlocksByHeight(): Reader<Long, BlockJson<TransactionJson>> {
+        return BlockByHeight(blocksByHeight, BlocksWithTxCache(blocksByHash, txsByHash))
+    }
+
     enum class Tag {
         /**
          * Latest data produced by blockchain
