@@ -32,6 +32,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
+import java.util.concurrent.Callable
+
 class EthereumApiMock extends DirectEthereumApi {
 
     private static final Logger log = LoggerFactory.getLogger(this)
@@ -55,26 +57,30 @@ class EthereumApiMock extends DirectEthereumApi {
 
     @Override
     Mono<byte[]> execute(int id, @NotNull String method, @NotNull List<?> params) {
-        def predefined = predefined.find { it.isSame(id, method, params) }
-        ResponseJson json = new ResponseJson<Object, Integer>(id: id)
-        if (predefined != null) {
-            if (predefined.exception != null) {
+        Callable<byte[]> call = {
+            def predefined = predefined.find { it.isSame(id, method, params) }
+            ResponseJson json = new ResponseJson<Object, Integer>(id: id)
+            if (predefined != null) {
+                if (predefined.exception != null) {
+                    predefined.onCalled()
+                    predefined.print()
+                    throw predefined.exception
+                }
+                if (predefined.result instanceof RpcResponseError) {
+                    json.error = predefined.result
+                } else {
+                    json.result = predefined.result
+                }
                 predefined.onCalled()
                 predefined.print()
-                return Mono.error(predefined.exception)
-            }
-            if (predefined.result instanceof RpcResponseError) {
-                json.error = predefined.result
             } else {
-                json.result = predefined.result
+                log.error("Method ${method} with ${params} is not mocked")
+                json.error = new RpcResponseError(-32601, "Method ${method} with ${params} is not mocked")
             }
-        } else {
-            log.error("Method ${method} with ${params} is not mocked")
-            json.error = new RpcResponseError(-32601, "Method ${method} with ${params} is not mocked")
-        }
-        predefined.onCalled()
-        predefined.print()
-        return Mono.just(objectMapper.writeValueAsBytes(json))
+            byte[] result = objectMapper.writeValueAsBytes(json)
+            return result
+        } as Callable<byte[]>
+        return Mono.fromCallable(call)
     }
 
     def nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {

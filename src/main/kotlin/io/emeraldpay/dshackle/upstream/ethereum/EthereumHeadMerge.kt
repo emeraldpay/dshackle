@@ -15,20 +15,15 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
-import org.reactivestreams.Publisher
-import org.slf4j.LoggerFactory
+import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import java.util.concurrent.atomic.AtomicReference
 
 class EthereumHeadMerge(
-        private val fluxes: Iterable<Publisher<BlockJson<TransactionRefJson>>>
-): DefaultEthereumHead(), Lifecycle {
+        private val sources: Iterable<EthereumHead>
+): DefaultEthereumHead(), Lifecycle, CachesEnabled {
 
     private var subscription: Disposable? = null
 
@@ -37,11 +32,19 @@ class EthereumHeadMerge(
     }
 
     override fun start() {
-        subscription = super.follow(Flux.merge(fluxes))
+        subscription = super.follow(Flux.merge(sources.map { it.getFlux() }))
     }
 
     override fun stop() {
         subscription?.dispose()
+    }
+
+    override fun setCaches(caches: Caches) {
+        sources.forEach {
+            if (it is CachesEnabled) {
+                it.setCaches(caches)
+            }
+        }
     }
 
 }

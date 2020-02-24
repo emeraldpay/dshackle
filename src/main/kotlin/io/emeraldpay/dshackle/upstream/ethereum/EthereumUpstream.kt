@@ -52,6 +52,9 @@ open class EthereumUpstream(
 
     override fun setCaches(caches: Caches) {
         api.caches = caches;
+        if (head is CachesEnabled) {
+            head.setCaches(caches)
+        }
     }
 
     override fun getId(): String {
@@ -92,7 +95,7 @@ open class EthereumUpstream(
             val rpc = EthereumRpcHead(api, Duration.ofSeconds(30)).apply {
                 this.start()
             }
-            EthereumHeadMerge(listOf(rpc.getFlux(), ws.getFlux())).apply {
+            EthereumHeadMerge(listOf(rpc, ws)).apply {
                 this.start()
             }
         } else {

@@ -35,6 +35,10 @@ abstract class EthereumApi(
 
     abstract fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray>
 
+    fun <JS, RS> execute(rpcCall: RpcCall<JS, RS>): Mono<ByteArray> {
+        return execute(0, rpcCall.method, rpcCall.params as List<Any>)
+    }
+
     fun <JS, RS> executeAndConvert(rpcCall: RpcCall<JS, RS>): Mono<RS> {
         val convertToJS = java.util.function.Function<ByteArray, Mono<JS>> { resp ->
             val inputStream: InputStream = resp.inputStream()
@@ -42,7 +46,7 @@ abstract class EthereumApi(
             if (jsonValue == null) Mono.empty<JS>()
             else Mono.just(jsonValue)
         }
-        return execute(0, rpcCall.method, rpcCall.params as List<Any>)
+        return execute(rpcCall)
                 .flatMap(convertToJS)
                 .map(rpcCall.converter::apply)
                 .doOnError { err -> log.debug("Failed to read from upstream", err) }

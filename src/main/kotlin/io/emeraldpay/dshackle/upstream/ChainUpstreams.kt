@@ -89,7 +89,7 @@ open class ChainUpstreams (
             upstream.setLag(0)
             upstream.getHead()
         } else {
-            val newHead = EthereumHeadMerge(upstreams.map { it.getHead().getFlux() }).apply {
+            val newHead = EthereumHeadMerge(upstreams.map { it.getHead() }).apply {
                 this.start()
             }
             val lagObserver = HeadLagObserver(newHead, upstreams).apply {

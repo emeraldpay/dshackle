@@ -16,8 +16,12 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.infinitape.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.reader.EmptyReader
+import io.emeraldpay.dshackle.reader.Reader
+import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
@@ -34,7 +38,7 @@ class EthereumWs(
         private val uri: URI,
         private val origin: URI,
         private val api: EthereumApi
-) {
+): CachesEnabled {
 
     private val log = LoggerFactory.getLogger(EthereumWs::class.java)
     private val topic = TopicProcessor
@@ -42,6 +46,8 @@ class EthereumWs(
             .name("new-blocks")
             .build()
     var basicAuth: UpstreamsConfig.BasicAuth? = null
+
+    private var blockCache: Reader<BlockHash, BlockJson<TransactionRefJson>> = EmptyReader()
 
     fun connect() {
         log.info("Connecting to WebSocket: $uri")
@@ -54,29 +60,36 @@ class EthereumWs(
         val client = clientBuilder.build()
         try {
             client.connect()
+            client.onNewBlock(this::onNewBlock)
         } catch (e: Exception) {
             log.error("Failed to connect to websocket at $uri. Error: ${e.message}")
-            return
         }
-        client.onNewBlock {
-            if (it.totalDifficulty == null || it.transactions == null) {
-                Mono.just(it.hash).flatMap { hash ->
-                    api.executeAndConvert(Commands.eth().getBlock(hash))
-                }.repeatWhenEmpty { n ->
-                    Repeat.times<Any>(10)
-                            .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(250))
-                            .apply(n)
-                }
-                .timeout(Defaults.timeout, Mono.empty())
-                .subscribe(topic::onNext)
-            } else {
-                topic.onNext(it)
-            }
+    }
+
+    fun onNewBlock(block: BlockJson<TransactionRefJson>) {
+        if (block.totalDifficulty == null || block.transactions == null) {
+            Mono.just(block.hash).flatMap { hash ->
+                        // first check in cache, if empty then check api
+                        blockCache.read(hash)
+                                .switchIfEmpty(api.executeAndConvert(Commands.eth().getBlock(hash)))
+                    }.repeatWhenEmpty { n ->
+                        Repeat.times<Any>(10)
+                                .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(250))
+                                .apply(n)
+                    }
+                    .timeout(Defaults.timeout, Mono.empty())
+                    .subscribe(topic::onNext)
+        } else {
+            topic.onNext(block)
         }
     }
 
     fun getFlux(): Flux<BlockJson<TransactionRefJson>> {
         return Flux.from(this.topic)
                 .onBackpressureLatest()
+    }
+
+    override fun setCaches(caches: Caches) {
+        blockCache = caches.getBlocksByHash()
     }
 }
