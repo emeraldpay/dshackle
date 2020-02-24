@@ -88,13 +88,15 @@ open class EthereumUpstream(
             val ws = EthereumWsHead(ethereumWs).apply {
                 this.start()
             }
-            val rpc = EthereumRpcHead(api, Duration.ofSeconds(20)).apply {
+            // receive bew blocks through Websockets, but periodically verify with RPC
+            val rpc = EthereumRpcHead(api, Duration.ofSeconds(30)).apply {
                 this.start()
             }
             EthereumHeadMerge(listOf(rpc.getFlux(), ws.getFlux())).apply {
                 this.start()
             }
         } else {
+            log.warn("Setting up upstream $id with RPC-only access, less effective than WS+RPC")
             EthereumRpcHead(api).apply {
                 this.start()
             }
