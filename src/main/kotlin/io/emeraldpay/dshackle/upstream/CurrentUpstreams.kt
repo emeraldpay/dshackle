@@ -18,6 +18,9 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
+import io.emeraldpay.dshackle.startup.UpstreamChange
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.QuorumBasedMethods
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired

@@ -16,49 +16,50 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.startup.QuorumForLabels
 import org.codehaus.groovy.runtime.DefaultGroovyMethods
 import spock.lang.Specification
 
-class NodeDetailsListSpec extends Specification {
+class QuorumForLabelsSpec extends Specification {
 
     def "Adds new node"() {
         setup:
-        def list = new NodeDetailsList()
+        def list = new QuorumForLabels()
         when:
-        list.add(new NodeDetailsList.NodeDetails(1, asLabels([foo: "bar"])))
+        list.add(new QuorumForLabels.QuorumItem(1, asLabels([foo: "bar"])))
         then:
-        list.nodes.size() == 1
-        with(list.nodes.get(0)) {
+        list.all.size() == 1
+        with(list.all.get(0)) {
             quorum == 1
             DefaultGroovyMethods.equals(labels, [foo: "bar"])
         }
 
         when:
-        list.add(new NodeDetailsList.NodeDetails(2, asLabels([foo: "not-bar"])))
+        list.add(new QuorumForLabels.QuorumItem(2, asLabels([foo: "not-bar"])))
         then:
-        list.nodes.size() == 2
-        with(list.nodes.get(0)) {
+        list.all.size() == 2
+        with(list.all.get(0)) {
             quorum == 1
             DefaultGroovyMethods.equals(labels, [foo: "bar"])
         }
-        with(list.nodes.get(1)) {
+        with(list.all.get(1)) {
             quorum == 2
             DefaultGroovyMethods.equals(labels, [foo: "not-bar"])
         }
 
         when:
-        list.add(new NodeDetailsList.NodeDetails(1, asLabels([foo: "bar", baz: "baz"])))
+        list.add(new QuorumForLabels.QuorumItem(1, asLabels([foo: "bar", baz: "baz"])))
         then:
-        list.nodes.size() == 3
-        with(list.nodes.get(0)) {
+        list.all.size() == 3
+        with(list.all.get(0)) {
             quorum == 1
             DefaultGroovyMethods.equals(labels, [foo: "bar"])
         }
-        with(list.nodes.get(1)) {
+        with(list.all.get(1)) {
             quorum == 2
             DefaultGroovyMethods.equals(labels, [foo: "not-bar"])
         }
-        with(list.nodes.get(2)) {
+        with(list.all.get(2)) {
             quorum == 1
             DefaultGroovyMethods.equals(labels, [foo: "bar", baz: "baz"])
         }
@@ -66,19 +67,19 @@ class NodeDetailsListSpec extends Specification {
 
     def "Updates existing node"() {
         setup:
-        def list = new NodeDetailsList()
-        list.add(new NodeDetailsList.NodeDetails(1, asLabels([foo: "bar"])))
-        list.add(new NodeDetailsList.NodeDetails(1, asLabels([baz: "true"])))
+        def list = new QuorumForLabels()
+        list.add(new QuorumForLabels.QuorumItem(1, asLabels([foo: "bar"])))
+        list.add(new QuorumForLabels.QuorumItem(1, asLabels([baz: "true"])))
 
         when:
-        list.add(new NodeDetailsList.NodeDetails(2, asLabels([baz: "true"])))
+        list.add(new QuorumForLabels.QuorumItem(2, asLabels([baz: "true"])))
         then:
-        list.nodes.size() == 2
-        with(list.nodes.get(0)) {
+        list.all.size() == 2
+        with(list.all.get(0)) {
             quorum == 1
             DefaultGroovyMethods.equals(labels, [foo: "bar"])
         }
-        with(list.nodes.get(1)) {
+        with(list.all.get(1)) {
             quorum == 3
             DefaultGroovyMethods.equals(labels, [baz: "true"])
         }
@@ -86,23 +87,23 @@ class NodeDetailsListSpec extends Specification {
 
     def "Applies all from another list"() {
         setup:
-        def list1 = new NodeDetailsList()
-        list1.add(new NodeDetailsList.NodeDetails(1, asLabels([foo: "bar"])))
-        list1.add(new NodeDetailsList.NodeDetails(2, asLabels([baz: "true"])))
-        list1.add(new NodeDetailsList.NodeDetails(3, asLabels([baz: "true", bar: "bar"])))
+        def list1 = new QuorumForLabels()
+        list1.add(new QuorumForLabels.QuorumItem(1, asLabels([foo: "bar"])))
+        list1.add(new QuorumForLabels.QuorumItem(2, asLabels([baz: "true"])))
+        list1.add(new QuorumForLabels.QuorumItem(3, asLabels([baz: "true", bar: "bar"])))
 
-        def list2 = new NodeDetailsList()
-        list1.add(new NodeDetailsList.NodeDetails(4, asLabels([foo: "bar"])))
-        list1.add(new NodeDetailsList.NodeDetails(5, asLabels([baz: "true", bar: "bar"])))
-        list1.add(new NodeDetailsList.NodeDetails(6, asLabels([bar: "bar"])))
+        def list2 = new QuorumForLabels()
+        list1.add(new QuorumForLabels.QuorumItem(4, asLabels([foo: "bar"])))
+        list1.add(new QuorumForLabels.QuorumItem(5, asLabels([baz: "true", bar: "bar"])))
+        list1.add(new QuorumForLabels.QuorumItem(6, asLabels([bar: "bar"])))
 
-        def list = new NodeDetailsList()
+        def list = new QuorumForLabels()
         when:
         list.add(list1)
         list.add(list2)
-        def nodes = list.nodes.toSorted { it.quorum }
+        def nodes = list.all.toSorted { it.quorum }
         then:
-        list.nodes.size() == 4
+        list.all.size() == 4
         with(nodes.get(0)) {
             quorum == 2
             DefaultGroovyMethods.equals(labels, [baz: "true"])

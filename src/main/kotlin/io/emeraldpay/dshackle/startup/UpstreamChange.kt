@@ -13,14 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.startup
 
-import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.grpc.Chain
 
-interface CallMethods {
-    fun getQuorumFor(method: String): CallQuorum
-    fun isAllowed(method: String): Boolean
-    fun getSupportedMethods(): Set<String>
-    fun isHardcoded(method: String): Boolean
-    fun executeHardcoded(method: String): Any
+class UpstreamChange(
+        val chain: Chain,
+        val upstream: Upstream,
+        val type: ChangeType
+): CachesEnabled {
+    enum class ChangeType {
+        ADDED,
+        REVALIDATED,
+        STALE,
+        REMOVED,
+    }
+
+    override fun setCaches(caches: Caches) {
+        if (upstream is CachesEnabled) {
+            upstream.setCaches(caches)
+        }
+    }
 }

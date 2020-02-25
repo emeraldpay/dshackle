@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.startup
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import java.util.*
@@ -22,17 +22,20 @@ import kotlin.collections.ArrayList
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-class NodeDetailsList {
+/**
+ * Summary details over few upstream nodes. Provides aggregate quorum for nodes with particular label
+ */
+class QuorumForLabels {
 
     private val lock = ReentrantReadWriteLock()
-    private val nodes = ArrayList<NodeDetails>()
+    private val nodes = ArrayList<QuorumItem>()
 
-    fun add(node: NodeDetails) {
+    fun add(node: QuorumItem) {
         lock.read {
             val existing = nodes.find { it.labels == node.labels }
             lock.write {
                 if (existing != null) {
-                    val merged = NodeDetails(existing.quorum + node.quorum, existing.labels)
+                    val merged = QuorumItem(existing.quorum + node.quorum, existing.labels)
                     nodes.remove(existing)
                     nodes.add(merged)
                 } else {
@@ -42,15 +45,18 @@ class NodeDetailsList {
         }
     }
 
-    fun add(nodes: NodeDetailsList) {
+    fun add(nodes: QuorumForLabels) {
         nodes.nodes.forEach { node -> this.add(node) }
     }
 
-    fun getNodes(): List<NodeDetails> {
+    fun getAll(): List<QuorumItem> {
         return Collections.unmodifiableList(nodes)
     }
 
-    class NodeDetails(val quorum: Int, val labels: UpstreamsConfig.Labels) {
+    /**
+     * Details for a single element (upstream, node or aggregation)
+     */
+    class QuorumItem(val quorum: Int, val labels: UpstreamsConfig.Labels) {
         companion object {
         }
     }

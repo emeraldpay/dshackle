@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.UpstreamChange
+import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
@@ -36,7 +36,6 @@ import reactor.core.publisher.Flux
 import java.net.ConnectException
 import java.time.Duration
 import java.util.*
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock

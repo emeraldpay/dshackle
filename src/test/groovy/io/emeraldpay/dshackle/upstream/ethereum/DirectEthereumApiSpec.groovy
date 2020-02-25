@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError

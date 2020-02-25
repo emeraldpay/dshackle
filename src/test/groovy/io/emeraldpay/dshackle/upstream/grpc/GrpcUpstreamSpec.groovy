@@ -22,22 +22,17 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.test.MockServer
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.QuorumBasedMethods
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.infinitape.etherjar.rpc.json.BlockJson
-import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Executors
 
 class GrpcUpstreamSpec extends Specification {
 

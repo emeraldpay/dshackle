@@ -18,6 +18,8 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.*
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable

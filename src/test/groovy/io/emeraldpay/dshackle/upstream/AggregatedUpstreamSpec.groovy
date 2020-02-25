@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.grpc.Chain
 import spock.lang.Specification

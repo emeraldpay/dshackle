@@ -18,13 +18,11 @@ package io.emeraldpay.dshackle.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.upstream.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.rpc.ReactorRpcClient
-import io.infinitape.etherjar.rpc.RpcClient
-import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.jetbrains.annotations.NotNull

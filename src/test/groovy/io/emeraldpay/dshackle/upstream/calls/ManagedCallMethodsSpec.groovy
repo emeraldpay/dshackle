@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import spock.lang.Specification
 
 class ManagedCallMethodsSpec extends Specification {

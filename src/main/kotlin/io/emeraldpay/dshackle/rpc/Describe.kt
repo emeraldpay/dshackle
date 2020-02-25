@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
@@ -43,13 +44,13 @@ class Describe(
                             .setStatus(status)
                     chainUpstreams.getAll().let { ups ->
                         ups.forEach { up ->
-                            val nodes = NodeDetailsList()
+                            val nodes = QuorumForLabels()
                             if (up is EthereumUpstream) {
                                 nodes.add(up.node)
                             } else if (up is GrpcUpstream) {
                                 nodes.add(up.getNodes())
                             }
-                            nodes.getNodes().forEach { node ->
+                            nodes.getAll().forEach { node ->
                                 val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()
                                         .setQuorum(node.quorum)
                                         .addAllLabels(node.labels.entries.map { label ->

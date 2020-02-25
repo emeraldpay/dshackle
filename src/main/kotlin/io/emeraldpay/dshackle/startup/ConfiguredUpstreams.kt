@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.startup
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfigReader
+import io.emeraldpay.dshackle.upstream.CurrentUpstreams
+import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
@@ -172,7 +174,7 @@ open class ConfiguredUpstreams(
             val ethereumUpstream = EthereumUpstream(
                     config.id!!,
                     chain, rpcApi!!, wsApi, options,
-                    NodeDetailsList.NodeDetails(1, config.labels),
+                    QuorumForLabels.QuorumItem(1, config.labels),
                     methods)
             ethereumUpstream.start()
             currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))

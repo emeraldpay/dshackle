@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.upstream.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.infinitape.etherjar.rpc.ReactorBatch
 import io.infinitape.etherjar.rpc.ReactorRpcClient
@@ -24,8 +24,6 @@ import io.infinitape.etherjar.rpc.RpcCall
 import io.infinitape.etherjar.rpc.RpcCallResponse
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-
-import java.util.concurrent.CompletableFuture
 
 class EthereumApiStub extends DirectEthereumApi {
 

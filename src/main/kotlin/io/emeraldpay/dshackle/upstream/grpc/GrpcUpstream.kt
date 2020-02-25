@@ -24,13 +24,15 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DefaultEthereumHead
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.infinitape.etherjar.rpc.json.BlockJson
@@ -62,7 +64,7 @@ open class GrpcUpstream(
     private var caches: Caches? = null
 
     private val options = UpstreamsConfig.Options.getDefaults()
-    private val nodes = AtomicReference<NodeDetailsList>(NodeDetailsList())
+    private val nodes = AtomicReference<QuorumForLabels>(QuorumForLabels())
     private val head = DefaultEthereumHead()
     private var targets: CallMethods? = null
     private var headSubscription: Disposable? = null
@@ -148,10 +150,10 @@ open class GrpcUpstream(
 
     fun init(conf: BlockchainOuterClass.DescribeChain) {
         targets = DirectCallMethods(conf.supportedMethodsList.toSet())
-        val nodes = NodeDetailsList()
+        val nodes = QuorumForLabels()
         val allLabels = ArrayList<UpstreamsConfig.Labels>()
         conf.nodesList.forEach { remoteNode ->
-            val node = NodeDetailsList.NodeDetails(remoteNode.quorum,
+            val node = QuorumForLabels.QuorumItem(remoteNode.quorum,
                     remoteNode.labelsList.let { provided ->
                         val labels = UpstreamsConfig.Labels()
                         provided.forEach {
@@ -176,7 +178,7 @@ open class GrpcUpstream(
         )
     }
 
-    fun getNodes(): NodeDetailsList {
+    fun getNodes(): QuorumForLabels {
         return nodes.get()
     }
 
@@ -191,7 +193,7 @@ open class GrpcUpstream(
     }
 
     override fun isAvailable(): Boolean {
-        return getStatus() == UpstreamAvailability.OK && head.getCurrent() != null && nodes.get().getNodes().any {
+        return getStatus() == UpstreamAvailability.OK && head.getCurrent() != null && nodes.get().getAll().any {
             it.quorum > 0
         }
     }

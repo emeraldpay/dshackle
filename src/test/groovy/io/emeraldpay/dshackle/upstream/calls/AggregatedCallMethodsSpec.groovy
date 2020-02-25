@@ -13,9 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
+import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import spock.lang.Specification
 
 class AggregatedCallMethodsSpec extends Specification {

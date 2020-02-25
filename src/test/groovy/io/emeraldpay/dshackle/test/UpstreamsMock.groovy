@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.test
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
-import io.emeraldpay.dshackle.upstream.QuorumBasedMethods
+import io.emeraldpay.dshackle.upstream.calls.QuorumBasedMethods
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain

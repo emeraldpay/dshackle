@@ -16,8 +16,10 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.calls.QuorumBasedMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
@@ -50,7 +52,7 @@ class FilteredApisSpec extends Specification {
                     new DirectEthereumApi(rpcClient, null, objectMapper, ethereumTargets),
                     (EthereumWs) null,
                     new UpstreamsConfig.Options(),
-                    new NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels.fromMap(it)),
+                    new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     ethereumTargets
             )
         }

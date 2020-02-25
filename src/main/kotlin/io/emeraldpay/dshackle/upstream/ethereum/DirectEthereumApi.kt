@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.upstream.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.infinitape.etherjar.domain.BlockHash

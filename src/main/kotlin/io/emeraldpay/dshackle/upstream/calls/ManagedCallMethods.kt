@@ -13,12 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import java.util.*
 
+/**
+ * Wrapper on top of another configuration, that may disable or enable additional methods on top of it.
+ * If a new method enabled, then its Quorum will be [AlwaysQuorum]. For other methods it delegates all to the provided
+ * parent config.
+ */
 class ManagedCallMethods(
         private val delegate: CallMethods,
         private val enabled: Set<String>,

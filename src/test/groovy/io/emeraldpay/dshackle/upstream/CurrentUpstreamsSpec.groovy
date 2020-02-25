@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain

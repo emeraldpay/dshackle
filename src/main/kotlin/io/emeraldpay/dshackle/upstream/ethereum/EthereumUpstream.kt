@@ -18,7 +18,10 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -32,12 +35,12 @@ open class EthereumUpstream(
         private val api: DirectEthereumApi,
         private val ethereumWs: EthereumWs? = null,
         private val options: UpstreamsConfig.Options,
-        val node: NodeDetailsList.NodeDetails,
+        val node: QuorumForLabels.QuorumItem,
         private val targets: CallMethods
 ): DefaultUpstream(), CachesEnabled, Lifecycle {
 
     constructor(id: String, chain: Chain, api: DirectEthereumApi): this(id, chain, api, null,
-            UpstreamsConfig.Options.getDefaults(), NodeDetailsList.NodeDetails(1, UpstreamsConfig.Labels()),
+            UpstreamsConfig.Options.getDefaults(), QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
             DirectCallMethods())
 
 

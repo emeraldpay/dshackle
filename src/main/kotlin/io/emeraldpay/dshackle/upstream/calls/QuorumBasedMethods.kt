@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.calls
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.quorum.*
@@ -22,6 +22,10 @@ import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcException
 import java.util.*
 
+/**
+ * Default configuration for Ethereum based RPC. Defines optimal Quorum strategies for different methods, and provides
+ * hardcoded results for base methods, such as `net_version`, `web3_clientVersion` and similar
+ */
 class QuorumBasedMethods(
         private val objectMapper: ObjectMapper,
         private val chain: Chain

@@ -13,12 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
-import java.util.*
 
+/**
+ * Configuration that uses [AlwaysQuorum] for all available methods. The methods list itself
+ * is provided in constructor (or empty otherwise)
+ */
 class DirectCallMethods(private val methods: Set<String>) : CallMethods {
 
     constructor(): this(emptySet())
