@@ -67,8 +67,9 @@ dependencies {
     compile "org.springframework.security:spring-security-config:$springVersion"
     compile "io.projectreactor:reactor-core:$reactorVersion"
     compile 'io.projectreactor.addons:reactor-extra:3.2.3.RELEASE'
-    compile 'io.projectreactor.kotlin:reactor-kotlin-extensions:1.0.0.M1'
+    compile 'io.projectreactor.kotlin:reactor-kotlin-extensions:1.0.2.RELEASE'
     compile 'com.salesforce.servicelibs:reactor-grpc:0.10.0'
+    compile 'io.lettuce:lettuce-core:5.2.2.RELEASE'
 
     compile 'org.yaml:snakeyaml:1.24'
 
