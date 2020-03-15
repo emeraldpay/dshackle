@@ -1,0 +1,32 @@
+name: Unit Test
+
+on: [push]
+
+jobs:
+  container-job:
+    runs-on: ubuntu-latest
+    # Docker Hub image that `container-job` executes in
+    container: node:10.18-jessie
+    services:
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Check
+        run: gradle check
+        env:
+          DSHACKLE_TEST_ENABLED: redis
+          REDIS_HOST: redis
+          REDIS_PORT: 6379

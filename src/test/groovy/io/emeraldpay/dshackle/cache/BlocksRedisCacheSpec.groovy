@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.cache
 
+import io.emeraldpay.dshackle.test.IntegrationTestingCommons
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
@@ -13,9 +14,7 @@ import spock.lang.Specification
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-@IgnoreIf({
-    env["DSHACKLE_TEST_ENABLED"] == null || !env["DSHACKLE_TEST_ENABLED"].contains("redis")
-})
+@IgnoreIf({ IntegrationTestingCommons.isDisabled("redis") })
 class BlocksRedisCacheSpec extends Specification {
 
     StatefulRedisConnection<String, String> redis
@@ -27,7 +26,7 @@ class BlocksRedisCacheSpec extends Specification {
 
 
     def setup() {
-        RedisClient client = RedisClient.create("redis://localhost:6379");
+        RedisClient client = IntegrationTestingCommons.redis()
         StatefulRedisConnection<String, String> connection = client.connect();
         connection.sync().flushdb()
         redis = connection
