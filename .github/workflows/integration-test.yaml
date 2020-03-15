@@ -25,7 +25,9 @@ jobs:
           java-version: 11
 
       - name: Check
-        run: ./gradlew check
+        uses: eskatos/gradle-command-action@v1
+          with:
+            arguments: check
         env:
           DSHACKLE_TEST_ENABLED: redis
           REDIS_HOST: redis
