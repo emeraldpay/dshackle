@@ -15,4 +15,6 @@ jobs:
           java-version: 11
 
       - name: Check
-        run: gradle check
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: check
