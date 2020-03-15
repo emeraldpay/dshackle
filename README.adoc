@@ -4,7 +4,8 @@ ifdef::env-github[]
 :imagesdir: https://raw.githubusercontent.com/emeraldpay/dshackle/master/docs/assets
 endif::[]
 
-image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square["Docker", link="https://hub.docker.com/r/emeraldpay/dshackle"]
+image:https://github.com/emeraldpay/dshackle/workflows/Unit%20Test/badge.svg["Unit Test"]
+image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square["Docker",link="https://hub.docker.com/r/emeraldpay/dshackle"]
 image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License", link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
 image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
 
@@ -196,15 +197,6 @@ See more in the documentation for link:docs/10-client-libraries.adoc[Client Libr
 
 Dshackle is JVM based project written in Kotlin. To build and run it from sources you'll need to install
 https://openjdk.java.net/projects/jdk/11/[Java JDK] and https://gradle.org/[Gradle]
-
-NOTE: For the current `master` branch you'll need to install a development version of Etherjar
-
-----
-git clone git@github.com:infinitape/etherjar.git
-cd etherjar
-gradle install
-----
-
 
 === Build Dshackle
 
