@@ -25,7 +25,7 @@ jobs:
           java-version: 11
 
       - name: Check
-        run: gradlew check
+        run: ./gradlew check
         env:
           DSHACKLE_TEST_ENABLED: redis
           REDIS_HOST: redis
