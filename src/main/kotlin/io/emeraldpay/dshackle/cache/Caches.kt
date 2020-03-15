@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.cache
 
+import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -7,11 +8,16 @@ import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
+import reactor.core.publisher.TopicProcessor
 
 open class Caches(
-        private val blocksByHash: BlocksMemCache,
+        private val memBlocksByHash: BlocksMemCache,
         private val blocksByHeight: HeightCache,
-        private val txsByHash: TxMemCache
+        private val memTxsByHash: TxMemCache,
+        private val redisBlocksByHash: BlocksRedisCache?,
+        private val redisTxsByHash: TxRedisCache?
 ) {
 
     companion object {
@@ -28,6 +34,22 @@ open class Caches(
         }
     }
 
+    private val blocksByHash: Reader<BlockHash, BlockJson<TransactionRefJson>>
+    private val txsByHash: Reader<TransactionId, TransactionJson>
+
+    init {
+        blocksByHash = if (redisBlocksByHash == null) {
+            memBlocksByHash
+        } else {
+            CompoundReader(memBlocksByHash, redisBlocksByHash)
+        }
+        txsByHash = if (redisTxsByHash == null) {
+            memTxsByHash
+        } else {
+            CompoundReader(memTxsByHash, redisTxsByHash)
+        }
+    }
+
     /**
      * Cache data that was just requested
      */
@@ -40,32 +62,51 @@ open class Caches(
     }
 
     fun cache(tag: Tag, tx: TransactionJson) {
-        txsByHash.add(tx)
+        //do not cache transactions that are not in a block yet
+        if (tx.blockHash == null) {
+            return
+        }
+        memTxsByHash.add(tx)
+        memBlocksByHash.get(tx.blockHash)?.let { block ->
+            redisTxsByHash?.add(tx, block)
+        }
     }
 
     fun cache(tag: Tag, block: BlockJson<TransactionRefJson>) {
+        val job = ArrayList<Mono<Void>>()
         if (tag == Tag.LATEST) {
-            blocksByHash.add(block)
+            //for LATEST data cache in memory, it will be short living so better to avoid Redis
+            memBlocksByHash.add(block)
             val replaced = blocksByHeight.add(block)
             //evict cached transactions if an existing block was updated
             replaced?.let { replacedBlockHash ->
                 var evicted = false
-                blocksByHash.get(replacedBlockHash)?.let { block ->
-                    txsByHash.evict(block)
+                redisBlocksByHash?.evict(replacedBlockHash)
+                memBlocksByHash.get(replacedBlockHash)?.let { block ->
+                    memTxsByHash.evict(block)
+                    redisTxsByHash?.evict(block)
                     evicted = true
                 }
                 if (!evicted) {
-                    txsByHash.evict(replacedBlockHash)
+                    memTxsByHash.evict(replacedBlockHash)
                 }
             }
         } else if (tag == Tag.REQUESTED) {
-            // if block with transactions was requests cache only transactions
-            block.transactions.forEach { tx ->
-                if (tx is TransactionJson) {
-                    cache(Tag.REQUESTED, tx)
+            //shouldn't cache block json with transactions, separate txes and blocks with refs
+            val blockOnly = block.withoutTransactionDetails()
+            memBlocksByHash.add(blockOnly)
+            redisBlocksByHash?.add(blockOnly)?.let(job::add)
+
+            // now cache only transactions
+            val transactions = block.transactions.filterIsInstance<TransactionJson>()
+            if (transactions.isNotEmpty()) {
+                transactions.forEach { cache(Tag.REQUESTED, it) }
+                if (redisTxsByHash != null) {
+                    job.add(Flux.fromIterable(transactions).flatMap { redisTxsByHash.add(it, block) }.then())
                 }
             }
         }
+        Flux.fromIterable(job).flatMap { it }.subscribe() //TODO move out to a caller
     }
 
     fun getBlocksByHash(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
@@ -107,9 +148,16 @@ open class Caches(
         private var blocksByHash: BlocksMemCache? = null
         private var blocksByHeight: HeightCache? = null
         private var txsByHash: TxMemCache? = null
+        private var redisBlocksByHash: BlocksRedisCache? = null
+        private var redisTxsByHash: TxRedisCache? = null
 
         fun setBlockByHash(cache: BlocksMemCache): Builder {
             blocksByHash = cache
+            return this
+        }
+
+        fun setBlockByHash(cache: BlocksRedisCache): Builder {
+            redisBlocksByHash = cache
             return this
         }
 
@@ -123,6 +171,11 @@ open class Caches(
             return this
         }
 
+        fun setTxByHash(cache: TxRedisCache): Builder {
+            redisTxsByHash = cache
+            return this
+        }
+
         fun build(): Caches {
             if (blocksByHash == null) {
                 blocksByHash = BlocksMemCache()
@@ -133,7 +186,7 @@ open class Caches(
             if (txsByHash == null) {
                 txsByHash = TxMemCache()
             }
-            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!)
+            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, redisBlocksByHash, redisTxsByHash)
         }
     }
 }

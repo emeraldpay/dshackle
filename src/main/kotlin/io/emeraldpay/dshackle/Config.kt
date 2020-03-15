@@ -19,25 +19,22 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.lettuce.core.AbstractRedisClient
+import io.lettuce.core.cluster.RedisClusterClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Import
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.Scheduled
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.io.File
-import java.lang.IllegalStateException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
-import kotlin.system.exitProcess
 
 @Configuration
 @EnableScheduling
@@ -81,5 +78,10 @@ open class Config(
     @Bean
     open fun fileResolver(): FileResolver {
         return FileResolver(configDir())
+    }
+
+    @Bean
+    open fun redisClient(): AbstractRedisClient {
+        return RedisClusterClient.create("redis://password@localhost:6379/0");
     }
 }

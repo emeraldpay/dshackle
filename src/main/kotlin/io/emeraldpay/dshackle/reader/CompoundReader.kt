@@ -15,24 +15,22 @@
  */
 package io.emeraldpay.dshackle.reader
 
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
+/**
+ * Composition of multiple readers. Reader returns first value returned by any of the source readers.
+ */
 class CompoundReader<K, D>(
-        private val readers: Collection<Reader<K, D>>
+        private vararg val readers: Reader<K, D>
 ): Reader<K, D> {
 
     override fun read(key: K): Mono<D> {
         if (readers.isEmpty()) {
             return Mono.empty()
         }
-        var result = readers.first().read(key)
-        if (readers.size == 1) {
-            return result
-        }
-        readers.stream().skip(1).forEach {
-            result = result.switchIfEmpty(it.read(key))
-        }
-        return result
+        return Flux.fromIterable(readers.asIterable())
+                .flatMap { it.read(key) }.next()
     }
 
 }

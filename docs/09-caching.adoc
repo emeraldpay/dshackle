@@ -1,9 +1,67 @@
 == Caching
 
-=== In memory cache
+Dshackle can be configured to cache blockchain data. It can be a _hot_ in-memory cache, and optional _cold_ Redis-based
+cache.
+
+Dshackle has enough information to effectively cache data and evict outdated values. If some data has been removed from
+the blockchain, for example when block was replaced with another block at the same height, then the old values are
+immediately evicted from the caches.
+
+=== In-memory cache
 
 Dshackle keeps latest blocks in memory (by default 64 blocks)
 
 === Redis cache
 
-TBD
+Dshackle can optionally cache blocks and transactions in Redis cache. The values are cached up to 1 hour, but
+fresh blocks and transactions are cached for shorter period.
+
+It makes sense to reuse the same Redis cache between multiple instances of the Dshackle.
+
+.Basic config (dshackle.yaml)
+[source, yaml]
+----
+cache:
+  redis:
+    enabled: true
+----
+
+.Full config (dshackle.yaml)
+[source, yaml]
+----
+cache:
+  redis:
+    enabled: true
+    host: 127.0.0.1
+    port: 6379
+    db: 0
+    password: passw0rd!
+----
+
+
+.Options
+|===
+| Name | Default Value | Description
+
+| enabled
+| false
+| Set to `true` if Dshackle should use Redis for caching
+
+| host
+| 127.0.0.1
+| Redis host
+
+| port
+| 6379
+| Redis port
+
+| db
+| 0
+| Redis database
+
+| password
+| --
+| Password if Redis requires authentication. The value can be read from Environment variable, to do that
+  specify it as `${REDIS_PASSWORD}`, where REDIS_PASSWORD is the name of the variable
+
+|===

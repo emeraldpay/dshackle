@@ -2,8 +2,10 @@ package io.emeraldpay.dshackle.cache
 
 import io.emeraldpay.dshackle.reader.Reader
 import io.infinitape.etherjar.domain.BlockHash
+import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.BeanUtils
 import reactor.core.publisher.Flux
@@ -17,8 +19,8 @@ import reactor.core.publisher.Mono
  * If any of the expected block transactions is not available it returns empty
  */
 class BlocksWithTxCache(
-        private val blocks: BlocksMemCache,
-        private val txes: TxMemCache
+        private val blocks: Reader<BlockHash, BlockJson<TransactionRefJson>>,
+        private val txes: Reader<TransactionId, TransactionJson>
 ): Reader<BlockHash, BlockJson<TransactionJson>> {
 
     companion object {

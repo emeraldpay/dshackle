@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
+import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.QuorumBasedMethods
@@ -35,7 +36,8 @@ import kotlin.concurrent.withLock
 
 @Repository
 class CurrentUpstreams(
-        @Autowired private val objectMapper: ObjectMapper
+        @Autowired private val objectMapper: ObjectMapper,
+        @Autowired private val cachesFactory: CachesFactory
 ): Upstreams {
 
     private val log = LoggerFactory.getLogger(CurrentUpstreams::class.java)
@@ -55,7 +57,7 @@ class CurrentUpstreams(
                 log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
             } else {
                 if (current == null) {
-                    val created = ChainUpstreams(chain, ArrayList<Upstream>(), Caches.default(), objectMapper)
+                    val created = ChainUpstreams(chain, ArrayList<Upstream>(), cachesFactory.getCaches(chain), objectMapper)
                     if (up is CachesEnabled) {
                         up.setCaches(created.caches)
                     }

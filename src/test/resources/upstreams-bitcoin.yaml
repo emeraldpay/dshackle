@@ -1,0 +1,15 @@
+version: v1
+
+defaultOptions:
+  - chains:
+      - bitcoin
+    options:
+      min-peers: 3
+
+upstreams:
+  - id: local
+    chain: bitcoin
+    connection:
+      bitcoin:
+        rpc:
+          url: "http://localhost:8545"

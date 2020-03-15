@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
@@ -28,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.ReactorRpcClient
+import org.springframework.core.env.StandardEnvironment
 
 import java.text.SimpleDateFormat
 
@@ -72,5 +74,9 @@ class TestingCommons {
 
     static AggregatedUpstream aggregatedUpstream(EthereumUpstream up) {
         return new ChainUpstreams(Chain.ETHEREUM, [up], Caches.default(), objectMapper())
+    }
+
+    static CachesFactory emptyCaches() {
+        return new CachesFactory(objectMapper(), new StandardEnvironment())
     }
 }

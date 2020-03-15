@@ -32,7 +32,7 @@ import java.time.Duration
 class UpstreamsConfigReader {
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
-    private val envRegex = Regex("\\$\\{(\\w+?)}")
+    private val envVariables = EnvVariables()
 
     fun read(input: InputStream): UpstreamsConfig {
         val yaml = Yaml()
@@ -268,13 +268,13 @@ class UpstreamsConfigReader {
     private fun getListOfString(mappingNode: MappingNode?, key: String): List<String>? {
         return getList<ScalarNode>(mappingNode, key)?.value
                 ?.map { it.value }
-                ?.map(this::postProcess)
+                ?.map(envVariables::postProcess)
     }
 
     private fun getValueAsString(mappingNode: MappingNode?, key: String): String? {
         return getValue(mappingNode, key)?.let {
              return@let it.value
-        }?.let(this::postProcess)
+        }?.let(envVariables::postProcess)
     }
 
     private fun getValueAsInt(mappingNode: MappingNode?, key: String): Int? {
@@ -305,11 +305,4 @@ class UpstreamsConfigReader {
         }
     }
 
-    fun postProcess(value: String): String {
-        return envRegex.replace(value) { m ->
-            m.groups[1]?.let { g ->
-                System.getProperty(g.value) ?: System.getenv(g.value) ?: ""
-            } ?: ""
-        }
-    }
 }

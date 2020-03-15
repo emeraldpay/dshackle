@@ -11,7 +11,7 @@ class CurrentUpstreamsSpec extends Specification {
 
     def "add upstream"() {
         setup:
-        def current = new CurrentUpstreams(TestingCommons.objectMapper())
+        def current = new CurrentUpstreams(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
         def up = new EthereumUpstreamMock("test", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
         when:
         current.update(new UpstreamChange(Chain.ETHEREUM, up, UpstreamChange.ChangeType.ADDED))
@@ -22,7 +22,7 @@ class CurrentUpstreamsSpec extends Specification {
 
     def "add multiple upstreams"() {
         setup:
-        def current = new CurrentUpstreams(TestingCommons.objectMapper())
+        def current = new CurrentUpstreams(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
         def up2 = new EthereumUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api(Stub(ReactorRpcClient)))
         def up3 = new EthereumUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
@@ -38,7 +38,7 @@ class CurrentUpstreamsSpec extends Specification {
 
     def "remove upstream"() {
         setup:
-        def current = new CurrentUpstreams(TestingCommons.objectMapper())
+        def current = new CurrentUpstreams(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
         def up2 = new EthereumUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api(Stub(ReactorRpcClient)))
         def up3 = new EthereumUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
@@ -56,7 +56,7 @@ class CurrentUpstreamsSpec extends Specification {
 
     def "available after adding"() {
         setup:
-        def current = new CurrentUpstreams(TestingCommons.objectMapper())
+        def current = new CurrentUpstreams(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(Stub(ReactorRpcClient)))
 
         when:

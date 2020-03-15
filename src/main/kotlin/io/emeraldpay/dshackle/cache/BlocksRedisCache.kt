@@ -24,8 +24,9 @@ class BlocksRedisCache(
 
     companion object {
         private val log = LoggerFactory.getLogger(BlocksRedisCache::class.java)
-        // max caching time is 24 hours
-        private const val MAX_CACHE_TIME_HOURS = 24L
+        private const val MAX_CACHE_TIME_MINUTES = 60L
+        // doesn't make sense to cached in redis short living objects
+        private const val MIN_CACHE_TIME_SECONDS = 10
     }
 
     override fun read(key: BlockHash): Mono<BlockJson<TransactionRefJson>> {
@@ -37,23 +38,36 @@ class BlocksRedisCache(
                 }
     }
 
+    fun evict(id: BlockHash): Mono<Void> {
+        return Mono.just(id)
+                .flatMap {
+                    redis.del(key(it))
+                }
+                .then()
+    }
+
     /**
      * Add to cache.
      * Note that it returns Mono<Void> which must be subscribed to actually save
      */
-    open fun add(block: BlockJson<TransactionRefJson>): Mono<Void> {
+    fun add(block: BlockJson<TransactionRefJson>): Mono<Void> {
         if (block.timestamp == null || block.hash == null) {
             return Mono.empty()
         }
         return Mono.just(block)
                 .flatMap { block ->
+
                     val data = objectMapper.writeValueAsString(block)
                     //default caching time is age of the block, i.e. block create hour ago
                     //keep for hour, but block create 10 seconds ago cache for 10 seconds, as it
                     //still can be replaced in the blockchain
                     val age = Instant.now().epochSecond - block.timestamp.epochSecond
-                    val ttl = min(age, TimeUnit.HOURS.toSeconds(MAX_CACHE_TIME_HOURS))
-                    redis.setex(key(block.hash), ttl, data)
+                    val ttl = min(age, TimeUnit.MINUTES.toSeconds(MAX_CACHE_TIME_MINUTES))
+                    if (ttl > MIN_CACHE_TIME_SECONDS) {
+                        redis.setex(key(block.hash), ttl, data)
+                    } else {
+                        Mono.empty()
+                    }
                 }
                 .doOnError {
                     log.warn("Failed to save to Redis: ${it.message}")
@@ -68,7 +82,7 @@ class BlocksRedisCache(
     /**
      * Key in Redis
      */
-    open fun key(hash: BlockHash): String {
+    fun key(hash: BlockHash): String {
         return "block:${chain.id}:${hash.toHex()}"
     }
 }

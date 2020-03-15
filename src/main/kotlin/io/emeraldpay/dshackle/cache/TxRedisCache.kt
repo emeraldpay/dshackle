@@ -39,7 +39,7 @@ class TxRedisCache(
                 }
     }
 
-    open fun evict(block: BlockJson<TransactionRefJson>): Mono<Void> {
+    fun evict(block: BlockJson<TransactionRefJson>): Mono<Void> {
         return Mono.just(block)
                 .map { block ->
                     block.transactions.map {
@@ -50,8 +50,15 @@ class TxRedisCache(
                 }.then()
     }
 
+    fun evict(id: TransactionId): Mono<Void> {
+        return Mono.just(id)
+                .flatMap {
+                    redis.del(key(it))
+                }
+                .then()
+    }
 
-    open fun add(tx: TransactionJson, block: BlockJson<TransactionRefJson>): Mono<Void> {
+    fun add(tx: TransactionJson, block: BlockJson<TransactionRefJson>): Mono<Void> {
         if (tx.blockHash == null || block.hash == null || tx.blockHash != block.hash || block.timestamp == null) {
             return Mono.empty()
         }
@@ -78,7 +85,7 @@ class TxRedisCache(
     /**
      * Key in Redis
      */
-    open fun key(hash: TransactionId): String {
+    fun key(hash: TransactionId): String {
         return "tx:${chain.id}:${hash.toHex()}"
     }
 }

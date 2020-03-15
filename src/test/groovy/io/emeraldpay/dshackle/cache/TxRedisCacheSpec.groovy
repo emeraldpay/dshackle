@@ -54,6 +54,35 @@ class TxRedisCacheSpec extends Specification {
         act == tx
     }
 
+    def "Evict single tx"() {
+        setup:
+        def block = new BlockJson<TransactionRefJson>()
+        block.number = 100
+        block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block.hash = BlockHash.from(hash2)
+        block.transactions = []
+        block.uncles = []
+
+        def tx = new TransactionJson()
+        tx.hash = TransactionId.from(hash3)
+        tx.blockHash = block.hash
+        tx.blockNumber = block.number
+        tx.value = Wei.ofEthers(1.234)
+        tx.nonce = 0
+
+        when:
+        cache.add(tx, block).subscribe()
+        def act = cache.read(tx.hash).block()
+        then:
+        act == tx
+
+        when:
+        cache.evict(tx.hash).subscribe()
+        act = cache.read(tx.hash).block()
+        then:
+        act == null
+    }
+
     def "Evict all by block data"() {
         when:
         def block1 = new BlockJson<TransactionRefJson>()

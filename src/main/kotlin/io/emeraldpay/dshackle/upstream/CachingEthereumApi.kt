@@ -38,6 +38,9 @@ open class CachingEthereumApi(
     companion object {
         private val log = LoggerFactory.getLogger(CachingEthereumApi::class.java)
 
+        /**
+         * Create caching API with empty memory-only cache
+         */
         @JvmStatic
         fun empty(): CachingEthereumApi {
             return CachingEthereumApi(ObjectMapper(), Caches.default(), EmptyEthereumHead())

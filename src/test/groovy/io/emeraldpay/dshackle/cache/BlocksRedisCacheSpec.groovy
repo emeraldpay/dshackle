@@ -52,4 +52,56 @@ class BlocksRedisCacheSpec extends Specification {
         act == block
     }
 
+    def "Evict existing block"() {
+        setup:
+        def cache = new BlocksRedisCache(
+                redis.reactive(), Chain.ETHEREUM, TestingCommons.objectMapper()
+        )
+        def block = new BlockJson<TransactionRefJson>()
+        block.number = 100
+        block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block.hash = BlockHash.from(hash2)
+        block.transactions = []
+        block.uncles = []
+
+        when:
+        cache.add(block).subscribe()
+        def act = cache.read(BlockHash.from(hash2)).block()
+        then:
+        act == block
+
+        when:
+        cache.evict(block.hash).subscribe()
+        act = cache.read(BlockHash.from(hash2)).block()
+
+        then:
+        act == null
+    }
+
+    def "Evict non-existing block"() {
+        setup:
+        def cache = new BlocksRedisCache(
+                redis.reactive(), Chain.ETHEREUM, TestingCommons.objectMapper()
+        )
+        def block = new BlockJson<TransactionRefJson>()
+        block.number = 100
+        block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block.hash = BlockHash.from(hash2)
+        block.transactions = []
+        block.uncles = []
+
+        when:
+        cache.add(block).subscribe()
+        def act = cache.read(BlockHash.from(hash2)).block()
+        then:
+        act == block
+
+        when:
+        cache.evict(BlockHash.from(hash3)).subscribe()
+        act = cache.read(BlockHash.from(hash2)).block()
+
+        then:
+        act == block
+    }
+
 }

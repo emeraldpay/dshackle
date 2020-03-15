@@ -43,14 +43,13 @@ image::call-schema.png[alt="Call Schema",width=100%,align="center"]
 
 == Roadmap
 
-- [ ] Redis caching
+- [ ] JSON RPC emulation, in addition to gRPC protocol
+- [ ] *Support Bitcoin RPC*
+- [ ] Access to ERC-20 tokens on asset level
+- [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
 - [ ] Prometheus monitoring
 - [ ] BIP-32 Pubkey
-- [ ] *Support Bitcoin RPC*
-- [ ] Subscription to bitcoind notification over GRPC (instead of ZeroMQ)
-- [ ] JSON RPC emulation, in addition to GRPC protocol
 - [ ] Lightweight sidecar node connector
-- [ ] Access to ERC-20 tokens on asset level
 - [ ] External logging
 - [ ] Configurable upstream roles
 

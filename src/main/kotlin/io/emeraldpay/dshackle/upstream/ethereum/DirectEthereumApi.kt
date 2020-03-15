@@ -101,7 +101,12 @@ open class DirectEthereumApi(
         return rpcClient.execute(callMapping(method, params))
                 .timeout(timeout, Mono.error(RpcException(-32603, "Upstream timeout")))
                 .doOnNext { value ->
-                    caches?.cacheRequested(value)
+                    try {
+                        caches?.cacheRequested(value)
+                    } catch (e: Throwable) {
+                        //ignore all caching errors, client shouldn't have problems because of them
+                        log.warn("Uncaught caching exception", e)
+                    }
                 }
     }
 
