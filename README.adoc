@@ -198,13 +198,6 @@ See more in the documentation for link:docs/10-client-libraries.adoc[Client Libr
 Dshackle is JVM based project written in Kotlin. To build and run it from sources you'll need to install
 https://openjdk.java.net/projects/jdk/11/[Java JDK] and https://gradle.org/[Gradle]
 
-----
-git clone git@github.com:infinitape/etherjar.git
-cd etherjar
-gradle install
-----
-
-
 === Build Dshackle
 
 ==== Build everything
