@@ -10,11 +10,15 @@ import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import io.lettuce.core.RedisClient
 import io.lettuce.core.api.StatefulRedisConnection
+import spock.lang.IgnoreIf
 import spock.lang.Specification
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+@IgnoreIf({
+    env["DSHACKLE_TEST_ENABLED"] == null || !env["DSHACKLE_TEST_ENABLED"].contains("redis")
+})
 class TxRedisCacheSpec extends Specification {
 
     String hash1 = "0xd3f34def3c56ba4e701540d15edaff9acd2a1c968a7ff83b3300ab5dfd5f6aab"
