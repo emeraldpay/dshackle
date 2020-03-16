@@ -1,9 +1,24 @@
-name: Integration Test
+name: Tests
 
 on: [push]
 
 jobs:
-  container-job:
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Check
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: check
+
+  integration-test:
     runs-on: ubuntu-latest
     # Docker Hub image that `container-job` executes in
     container: node:10.18-jessie
@@ -15,7 +30,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
       - uses: actions/checkout@v2
 
