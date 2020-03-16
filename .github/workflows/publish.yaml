@@ -1,0 +1,23 @@
+name: Publish
+on: [release]
+jobs:
+  publish-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+        with:
+          ref: ${{ github.ref }}
+      - name: Set up JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Check
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: check
+      - name: Upload to Docker
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: jib -Platest=true
+        env:
+          DOCKER_KEY: ${{ secrets.DOCKER_KEY }}
