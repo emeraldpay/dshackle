@@ -33,6 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: debug
+        run: ls -l
+
       - name: Set up JDK
         uses: actions/setup-java@v1
         with:
