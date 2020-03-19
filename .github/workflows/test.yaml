@@ -21,7 +21,7 @@ jobs:
   integration-test:
     runs-on: ubuntu-latest
     # Docker Hub image that `container-job` executes in
-    container: node:10.18-jessie
+    container: node:12-stretch
     services:
       redis:
         image: redis
@@ -31,8 +31,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - name: Instal Git
-        run: sudo apt-get install git
+      #      - name: Instal Git
+      #        run: sudo apt-get install git
 
       - uses: actions/checkout@v2
 
