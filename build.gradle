@@ -173,6 +173,7 @@ task generateVersion()  {
     doLast {
         def version = versionDetails()
         def resourcesDir = sourceSets.main.output.resourcesDir
+        resourcesDir.mkdirs()
         new File(resourcesDir, "version.properties").text = [
                 "# AUTOMATICALLY GENERATED",
                 "version.app=$project.version",
