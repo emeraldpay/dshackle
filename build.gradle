@@ -1,6 +1,7 @@
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 buildscript {
     repositories {
@@ -23,6 +24,7 @@ plugins {
     id "com.google.cloud.tools.jib" version "1.3.0"
     id 'org.springframework.boot' version '2.1.4.RELEASE'
     id 'io.spring.dependency-management' version '1.0.6.RELEASE'
+    id 'com.palantir.git-version' version '0.12.2'
 }
 
 
@@ -161,4 +163,23 @@ jar {
 
 afterEvaluate {
     distZip.dependsOn(jar)
+    compileKotlin.dependsOn(generateVersion)
+}
+
+task generateVersion()  {
+    group = 'Build'
+    description = 'Generate project version'
+
+    doLast {
+        def version = versionDetails()
+        def resourcesDir = sourceSets.main.output.resourcesDir
+        new File(resourcesDir, "version.properties").text = [
+                "# AUTOMATICALLY GENERATED",
+                "version.app=$project.version",
+                "version.commit=${version.gitHash}",
+                "version.tag=${version.lastTag}",
+                "version.date=${DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneId.of('UTC')).format(Instant.now().truncatedTo(ChronoUnit.SECONDS))} UTC"
+        ].join("\n")
+
+    }
 }

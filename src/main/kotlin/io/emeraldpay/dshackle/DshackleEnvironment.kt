@@ -20,8 +20,10 @@ import org.springframework.beans.factory.config.YamlPropertiesFactoryBean
 import org.springframework.core.env.*
 import org.springframework.core.io.FileSystemResource
 import org.springframework.core.io.Resource
+import org.springframework.core.io.support.ResourcePropertySource
 import java.io.File
 import java.util.*
+import javax.annotation.PostConstruct
 
 const val DEFAULT_CONFIG = "/etc/dshackle/dshackle.yaml"
 const val LOCAL_CONFIG = "./dshackle.yaml"
@@ -32,10 +34,10 @@ open class DshackleEnvironment: StandardEnvironment() {
         private val log = LoggerFactory.getLogger(DshackleEnvironment::class.java)
     }
 
-
     override fun customizePropertySources(propertySources: MutablePropertySources) {
         super.customizePropertySources(propertySources)
         propertySources.addLast(mainConfig())
+        propertySources.addLast(ResourcePropertySource("version.properties"))
     }
 
     open fun mainConfig(): PropertySource<*> {
@@ -48,7 +50,6 @@ open class DshackleEnvironment: StandardEnvironment() {
             }
         }
         target = target.normalize()
-        log.info("Load configuration from: ${target.absolutePath}")
         val loadedProperties = this.loadYaml(FileSystemResource(target))
         loadedProperties["configPath"] = target.absolutePath
         return PropertiesPropertySource("mainConfig", loadedProperties)
