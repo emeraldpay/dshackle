@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: debug
-        run: ls -l
+        run: ls -al
 
       - name: Set up JDK
         uses: actions/setup-java@v1
