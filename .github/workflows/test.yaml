@@ -21,7 +21,7 @@ jobs:
   integration-test:
     runs-on: ubuntu-latest
     # Docker Hub image that `container-job` executes in
-    container: node:12-stretch
+    container: node:12-buster
     services:
       redis:
         image: redis
