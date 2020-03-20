@@ -29,32 +29,41 @@ And for a request:
 - Is it for concrete data (_block #100_) or the latest (_get balance_)?
 - Is result a static value (_just block_) or may vary depending on network and node (_latest nonce_)?
 - Does it need to be repeated over multiple nodes (_broadcast transaction_)?
-- Request can also specify which subset of nodes should be able to execute the request by selecting node _Labels_
-(see "link:08-quorum-and-selectors.adoc[Quorum and Selectors]")
+- Request can also specify which subset of nodes should be able to execute the request by selecting node _Labels_ (see "link:08-quorum-and-selectors.adoc[Quorum and Selectors]")
 
-Based on these factors, Dshackle executes the request on a most optimal node. For most of the simple requests, it just gets a node that is synchronized
-to the point that must have a response for that particular request. If node failed, returned an invalid response, returned
-an empty response when shouldn't then Dshackle tries again on another node, or on the same node after awhile (default is
-200ms between failover repeats)
+Based on these factors, Dshackle executes the request on a most optimal node.
+For most of the simple requests, it just gets a node that is synchronized to the point that must have a response for that particular request.
+If node failed, returned an invalid response, returned an empty response when shouldn't then Dshackle tries again on another node, or on the same node after awhile (default is 200ms between failover repeats)
+
+=== Proxy
+
+Dshackle provides access with standard JSON RPC protocol, functioning as a proxy to upstreams.
+It provides:
+
+- Routes only realy/alive upstreams, i.e., synchronized and with enough peers
+- Load Balancing
+- Request Retry on upstream errors
+- Local Caching (memory and Redis, see link:09-caching.adoc[Caching])
+- Broadcasting and Quorum for requests
 
 === gRPC protocol
 
-Dshackle uses gRPC protocol for communications, because:
+Dshackle native protocol is based on gRPC, which provides many additional features:
 
 - provides additional parameters on top of upstreams JSON RPC requests
 - based on HTTP/2 with low latency, compression, server push, pipelining and multiplexing
 - gRPC has binding and code generators for most of the languages and frameworks
 - easy to support TLS encryption and authentication
 
-Dshackle has extra methods and functionality on top of standard APIs of upstreams, and it's more flexible to wrap
-original APIs, such as JSON, into gRPC, and Protobuf + has additional data provided by Dshackle. It also allowed
-to push new data from the server or send responses asynchronously, immediately after it gets executed on an upstream.
+gRPC protocol is more flexible, and many of the Dshackle features are accessible mostly through that native protocol.
+
+Dshackle has extra methods and functionality on top of standard APIs of upstreams, and it's more flexible to wrap original APIs, such as JSON, into gRPC, and Protobuf + has additional data provided by Dshackle.
+It also allowed to push new data from the server or send responses asynchronously, immediately after it gets executed on an upstream.
 
 === Distributed Load Balancing
 
 Dshackle servers can connect to each other through a secure encrypted and authenticated connection.
-It allows to build a network of nodes deployed to different regions or run blockchain nodes outside of the main
-network.
+It allows to build a network of nodes deployed to different regions or run blockchain nodes outside of the main network.
 
 Later is especially important for blockchain nodes, as they require an open firewall with incoming connections for P2P, and
 to execute untrusted code ("smart contracts") at the same time. With Dshackle, it's possible to separate insecure nodes from

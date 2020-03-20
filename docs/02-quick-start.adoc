@@ -20,6 +20,14 @@ version: v1
 port: 2449
 tls:
   enabled: false
+proxy:
+  host: 0.0.0.0
+  port: 8545
+  routes:
+    - id: eth
+      blockchain: ethereum
+    - id: kovan
+      blockchain: kovan
 upstreams:
   config: "upstreams.yaml"
 ----
@@ -71,8 +79,29 @@ export INFURA_USER=...
 .Run Dshackle
 [source,bash]
 ----
-docker run -p 2449:2449 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
+docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
 ----
+
+==== Access using JSON RPC
+
+Dshackle implements standard JSON RPC interface, providing additional caching layer, upstream readiness/liveness checks, retry and other features for building Fault Tolerant services.
+
+.Request using Curl
+[source,bash]
+----
+curl --request POST \
+  --url http://localhost:8545/eth \
+  --header 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0", "method":"eth_getBalance", "id":1, "params":["0x690b2bdf41f33f9f251ae0459e5898b856ed96be", "latest"]}'
+----
+
+.Output
+[source,bash]
+----
+{"jsonrpc":"2.0","id":1,"result":"0x72fa5e0181"}
+----
+
+==== Access using gRPC
 
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
@@ -100,5 +129,5 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plai
 ...
 ----
 
-The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet. It's a method provided
-by Dshackle, provided in additional to methods provided by RPC JSON of underlying nodes.
+The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet.
+It's a method provided by Dshackle, available in additional to methods provided by RPC JSON of underlying nodes.

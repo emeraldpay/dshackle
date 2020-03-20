@@ -33,7 +33,7 @@ import reactor.util.function.Tuples
 import java.lang.Exception
 
 @Service
-class NativeCall(
+open class NativeCall(
         @Autowired private val upstreams: Upstreams,
         @Autowired private val objectMapper: ObjectMapper
 ) {
@@ -42,8 +42,8 @@ class NativeCall(
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return requestMono.flatMapMany(this::prepareCall)
-            .map(this::setupCallParams)
-            .parallel()
+                .map(this::setupCallParams)
+                .parallel()
             .flatMap(this::fetch)
             .sequential()
             .map(this::buildResponse)

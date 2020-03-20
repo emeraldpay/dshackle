@@ -29,10 +29,9 @@ import java.lang.IllegalArgumentException
 import java.net.URI
 import java.time.Duration
 
-class UpstreamsConfigReader {
+class UpstreamsConfigReader : YamlConfigReader() {
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
-    private val envVariables = EnvVariables()
 
     fun read(input: InputStream): UpstreamsConfig {
         val yaml = Yaml()
@@ -215,93 +214,6 @@ class UpstreamsConfigReader {
             auth.certificate = getValueAsString(authNode, "certificate")
             auth.key = getValueAsString(authNode, "key")
             auth
-        }
-    }
-
-    private fun hasAny(mappingNode: MappingNode?, key: String): Boolean {
-        if (mappingNode == null) {
-            return false
-        }
-        return mappingNode.value
-                .stream()
-                .filter { n -> n.keyNode is ScalarNode }
-                .filter { n ->
-                    val sn = n.keyNode as ScalarNode
-                    key == sn.value
-                }.count() > 0
-    }
-
-    private fun <T> getValue(mappingNode: MappingNode?, key: String, type: Class<T>): T? {
-        if (mappingNode == null) {
-            return null
-        }
-        return mappingNode.value
-                .stream()
-                .filter { n -> n.keyNode is ScalarNode && type.isAssignableFrom(n.valueNode.javaClass) }
-                .filter { n ->
-                    val sn = n.keyNode as ScalarNode
-                    key == sn.value
-                }
-                .map { n -> n.valueNode as T }
-                .findFirst().let {
-                    if (it.isPresent) {
-                        it.get()
-                    } else {
-                        null
-                    }
-                }
-    }
-
-    private fun getMapping(mappingNode: MappingNode?, key: String): MappingNode? {
-        return getValue(mappingNode, key, MappingNode::class.java)
-    }
-
-    private fun getValue(mappingNode: MappingNode?, key: String): ScalarNode? {
-        return getValue(mappingNode, key, ScalarNode::class.java)
-    }
-
-    private fun <T> getList(mappingNode: MappingNode?, key: String): CollectionNode<T>? {
-        val value = getValue(mappingNode, key, CollectionNode::class.java) ?: return null
-        return value as CollectionNode<T>
-    }
-
-    private fun getListOfString(mappingNode: MappingNode?, key: String): List<String>? {
-        return getList<ScalarNode>(mappingNode, key)?.value
-                ?.map { it.value }
-                ?.map(envVariables::postProcess)
-    }
-
-    private fun getValueAsString(mappingNode: MappingNode?, key: String): String? {
-        return getValue(mappingNode, key)?.let {
-             return@let it.value
-        }?.let(envVariables::postProcess)
-    }
-
-    private fun getValueAsInt(mappingNode: MappingNode?, key: String): Int? {
-        return getValue(mappingNode, key)?.let {
-            return@let if (it.isPlain) {
-                it.value.toIntOrNull()
-            } else {
-                null
-            }
-        }
-    }
-
-    private fun getValueAsBool(mappingNode: MappingNode?, key: String): Boolean? {
-        return getValue(mappingNode, key)?.let {
-            return@let if (it.isPlain) {
-                it.value?.toLowerCase() == "true"
-            } else {
-                null
-            }
-        }
-    }
-
-    private fun asMappingNode(node: Node): MappingNode {
-        return if (MappingNode::class.java.isAssignableFrom(node.javaClass)) {
-            node as MappingNode
-        } else {
-            throw IllegalArgumentException("Not a map")
         }
     }
 

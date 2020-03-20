@@ -45,7 +45,7 @@ open class GrpcServer(
         log.info("Starting GRPC Server...")
         log.debug("Running with DEBUG LOGGING")
         val port = env.getProperty("port", "2449").toInt()
-        log.info("Listening on 0.0.0.0:$port")
+        log.info("Listening Native on 0.0.0.0:$port")
         val serverBuilder = NettyServerBuilder.forPort(port)
         rpcs.forEach {
             serverBuilder.addService(it)

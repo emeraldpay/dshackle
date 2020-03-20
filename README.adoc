@@ -24,18 +24,18 @@ The main goals of the project is to:
 
 The main features and advantages are:
 
-- leveraging gRPC and HTTP2 protocols, with server push and asynchronous communications, to simplify and optimize standard
-  access patterns
+- provides standard JSON RPC as smart load balancing proxy to active nodes
+- in addition to JSON RPC it provides gRPC protocol, with server push and asynchronous communications, to simplify and optimize standard access patterns
 - targeting Kubernetes architecture
-- automatically distributing access to API through multiple different target nodes, taking into account their current
-  availability and status
-- allowing to build a mesh network of routers in different regions sharing a set of underlying nodes, with automatic
-  rebalancing and smart routing
+- automatically distributing access to API through multiple different target nodes, taking into account their current availability and status
+- allowing to build a mesh network of routers in different regions sharing a set of underlying nodes, with automatic rebalancing and smart routing
 - caching data on the edge
-- providing monitoring (ex. Prometheus) and externalizable logging
+- providing monitoring (ex.
+Prometheus) and externalizable logging
 - configurable access authentication and authorization, including TLS certificates
 
-Dshackle connects to several upstreams via JSON RPC, Websockets, or gRPC protocols. It verifies if a node ("upstream") is
+Dshackle connects to several upstreams via JSON RPC, Websockets, or gRPC protocols.
+It verifies if a node ("upstream") is
 fully synchronized (not in initial sync mode), has enough peers, and its height is not behind other nodes. If upstream lags
 behind others, lost peers, started to resync or went down, then Dshackle temporarily excludes it from requests and returns
 when the upstream problem is fixed.
@@ -44,14 +44,14 @@ image::call-schema.png[alt="Call Schema",width=100%,align="center"]
 
 == Roadmap
 
-- [ ] JSON RPC emulation, in addition to gRPC protocol
+- [x] JSON RPC emulation, in addition to gRPC protocol
 - [ ] *Support Bitcoin RPC*
+- [ ] External logging
 - [ ] Access to ERC-20 tokens on asset level
 - [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
 - [ ] Prometheus monitoring
 - [ ] BIP-32 Pubkey
 - [ ] Lightweight sidecar node connector
-- [ ] External logging
 - [ ] Configurable upstream roles
 
 == Quick Start
@@ -59,23 +59,39 @@ image::call-schema.png[alt="Call Schema",width=100%,align="center"]
 === Configuration
 
 Create file `dshackle.yaml` with following content:
+
 [source,yaml]
 ----
 version: v1
 port: 2449
 tls:
   enabled: false
+
+proxy:
+  host: 0.0.0.0
+  port: 8545
+  routes:
+    - id: eth
+      blockchain: ethereum
+    - id: kovan
+      blockchain: kovan
+
 upstreams:
   config: "upstreams.yaml"
 ----
 
 Which sets the following:
 
-- application listen on 0.0.0.0:2449
-- TLS security is disabled (_don't use in production!_)
+- gRPC access through 0.0.0.0:2449
+** TLS security is disabled (_don't use in production!_)
+- JSON RPC access through 0.0.0.0:8545
+** proxying requests to Ethereum and Kovan upstreams
+** request path for Ethereum Mainnet is `/eth`, for Kovan is `/kovan`
+** i.e. call Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
 - read upstreams configuration from file `upstreams.yaml` in the current directory
 
 Now create file `upstreams.yaml`:
+
 [source,yaml]
 ----
 version: v1
@@ -116,12 +132,32 @@ export INFURA_USER=...
 .Run Dshackle
 [source,bash]
 ----
-docker run -p 2449:2449 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
+docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
 ----
 
 Now it listen on port 2449 at the localhost and can be connected from any gRPC compatible client.
-Tools such as https://github.com/fullstorydev/grpcurl[gRPCurl] can automatically parse protobuf definitions and connect
-to it (actual Protobuf sources are located in a separate repository which you can find at https://github.com/emeraldpay/proto)
+Tools such as https://github.com/fullstorydev/grpcurl[gRPCurl] can automatically parse protobuf definitions and connect to it (actual Protobuf sources are located in a separate repository which you can find at https://github.com/emeraldpay/proto)
+
+==== Access using JSON RPC
+
+Dshackle implements standard JSON RPC interface, providing additional caching layer, upstream readiness/liveness checks, retry and other features for building Fault Tolerant services.
+
+.Request using Curl
+[source,bash]
+----
+curl --request POST \
+  --url http://localhost:8545/eth \
+  --header 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0", "method":"eth_getBalance", "id":1, "params":["0x690b2bdf41f33f9f251ae0459e5898b856ed96be", "latest"]}'
+----
+
+.Output
+[source,bash]
+----
+{"jsonrpc":"2.0","id":1,"result":"0x72fa5e0181"}
+----
+
+==== Access using gRPC
 
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
@@ -149,7 +185,7 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plai
 ...
 ----
 
-The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet. It's one of services provided
+The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet.It's one of services provided
 by Dshackle, in additional to standard methods provided by RPC JSON of underlying nodes.
 
 == Documentation
@@ -158,11 +194,16 @@ For detailed documentation see link:docs/[] directory.
 
 == Client Libraries
 
+Dshackle should be compatible with all standard libraries that use Ethereum JSON RPC.
+
+But in addition to JSON RPC it provides gRPC API with many additional features and asynchronous access (please refer to the documentation: link:docs/06-methods.adoc[gRPC Methods]).
+Below is the list of the libraries to use native gRPC API.
+
 === Java gRPC Client
+
 image:https://api.bintray.com/packages/emerald/emerald-grpc/emerald-grpc/images/download.svg[link="https://bintray.com/emerald/emerald-grpc/emerald-grpc/"]
 
 https://github.com/emeraldpay/emerald-java-client
-
 
 [source,groovy]
 ----

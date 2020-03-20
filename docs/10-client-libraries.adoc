@@ -1,4 +1,4 @@
-== Client Libraries
+== Client Libraries using native gRPC-based protocol
 
 === Protobuf
 

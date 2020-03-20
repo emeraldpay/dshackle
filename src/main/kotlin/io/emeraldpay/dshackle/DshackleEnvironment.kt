@@ -15,6 +15,8 @@
  */
 package io.emeraldpay.dshackle
 
+import io.emeraldpay.dshackle.config.ProxyConfig
+import io.emeraldpay.dshackle.config.ProxyConfigReader
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean
 import org.springframework.core.env.*
@@ -23,7 +25,6 @@ import org.springframework.core.io.Resource
 import org.springframework.core.io.support.ResourcePropertySource
 import java.io.File
 import java.util.*
-import javax.annotation.PostConstruct
 
 const val DEFAULT_CONFIG = "/etc/dshackle/dshackle.yaml"
 const val LOCAL_CONFIG = "./dshackle.yaml"
@@ -40,18 +41,25 @@ open class DshackleEnvironment: StandardEnvironment() {
         propertySources.addLast(ResourcePropertySource("version.properties"))
     }
 
-    open fun mainConfig(): PropertySource<*> {
+    open fun getResource(): File? {
         var target = File(DEFAULT_CONFIG)
         if (!isAcceptedConfig(target)) {
             target = File(LOCAL_CONFIG)
             if (!isAcceptedConfig(target)) {
                 log.error("Configuration is not found neither at $DEFAULT_CONFIG nor $LOCAL_CONFIG")
-                return PropertySource.named("mainConfig")
+                return null
             }
         }
         target = target.normalize()
-        val loadedProperties = this.loadYaml(FileSystemResource(target))
+        return target
+    }
+
+    open fun mainConfig(): PropertySource<*> {
+        val target = getResource() ?: return PropertySource.named("mainConfig")
+        val resource = FileSystemResource(target)
+        val loadedProperties = this.loadYaml(resource)
         loadedProperties["configPath"] = target.absolutePath
+        loadedProperties[ProxyConfig.CONFIG_ID] = extractYamlProxy(resource)
         return PropertiesPropertySource("mainConfig", loadedProperties)
     }
 
@@ -60,6 +68,11 @@ open class DshackleEnvironment: StandardEnvironment() {
         factory.setResources(resource)
         factory.afterPropertiesSet()
         return factory.getObject()!!
+    }
+
+    protected fun extractYamlProxy(resource: Resource): ProxyConfig? {
+        val reader = ProxyConfigReader()
+        return reader.read(resource.inputStream)
     }
 
     protected fun isAcceptedConfig(target: File): Boolean {

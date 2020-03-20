@@ -3,8 +3,8 @@
 Dshackle server tries to load its configuration from `/etc/dshackle/dshackle.yaml`, if it can't find a file at that path
 it tries to load file `dshackle.yaml` from current working directory. If none of them found server fails to run with an error.
 
-[source,yaml]
 .Example dshackle.yaml configuration:
+[source,yaml]
 ----
 version: v1
 port: 2449
@@ -22,8 +22,33 @@ upstreams:
 
 It configures following:
 
-- server is listening on `0.0.0.0:2449`
+- server is listening with gRCP API on `0.0.0.0:2449`
 - TLS is enabled
 - server certificate is located at `server.crt` with the key for it at `server.p8.key`
 - the server requires a client authentication by TLS client certificate signed by `ca.crt` certificate
+- no JSON RPC is configured
 - upstreams configuration is configured in the file `upstreams.yaml`
+
+=== Enabling JSON RPC proxy
+
+.Example proxy:
+[source,yaml]
+----
+version: v1
+port: 2449
+
+proxy:
+  host: 0.0.0.0
+  port: 8080
+  routes:
+    - id: eth
+      blockchain: ethereum
+
+upstreams:
+  config: "upstreams.yaml"
+----
+
+With that configuration Dshackle starts a JSON RPC proxy:
+
+- JSON RPC server is listening on `0.0.0.0:8080`
+- `http://0.0.0.0:8080/eth` provides access to Ethereum API routed to an available upstream
