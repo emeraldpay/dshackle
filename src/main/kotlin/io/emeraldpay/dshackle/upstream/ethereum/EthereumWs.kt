@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
+import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
@@ -45,7 +46,7 @@ class EthereumWs(
             .builder<BlockJson<TransactionRefJson>>()
             .name("new-blocks")
             .build()
-    var basicAuth: UpstreamsConfig.BasicAuth? = null
+    var basicAuth: AuthConfig.ClientBasicAuth? = null
 
     private var blockCache: Reader<BlockHash, BlockJson<TransactionRefJson>> = EmptyReader()
 

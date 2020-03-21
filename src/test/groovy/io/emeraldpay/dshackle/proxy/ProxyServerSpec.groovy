@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -42,7 +43,8 @@ class ProxyServerSpec extends Specification {
                 new ProxyConfig(),
                 new ReadRpcJson(TestingCommons.objectMapper()),
                 writeRpcJson,
-                nativeCall
+                nativeCall,
+                new TlsSetup(TestingCommons.fileResolver())
         )
 
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)

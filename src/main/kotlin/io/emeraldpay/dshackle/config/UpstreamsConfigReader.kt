@@ -18,24 +18,21 @@ package io.emeraldpay.dshackle.config
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.Yaml
-import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
-import org.yaml.snakeyaml.nodes.Node
 import org.yaml.snakeyaml.nodes.ScalarNode
 import reactor.util.function.Tuples
 import java.io.InputStream
 import java.io.InputStreamReader
-import java.lang.IllegalArgumentException
 import java.net.URI
 import java.time.Duration
 
 class UpstreamsConfigReader : YamlConfigReader() {
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
+    private val authConfigReader = AuthConfigReader()
 
     fun read(input: InputStream): UpstreamsConfig {
-        val yaml = Yaml()
-        val configNode = asMappingNode(yaml.compose(InputStreamReader(input)))
+        val configNode = readNode(input)
 
         val config = UpstreamsConfig()
         config.version = getValueAsString(configNode, "version")
@@ -65,8 +62,8 @@ class UpstreamsConfigReader : YamlConfigReader() {
                         getValueAsString(node, "url")?.let { url ->
                             val http = UpstreamsConfig.HttpEndpoint(URI(url))
                             connection.rpc = http
-                            http.basicAuth = readBasicAuth(node)
-                            http.tls = readTls(node)
+                            http.basicAuth = authConfigReader.readClientBasicAuth(node)
+                            http.tls = authConfigReader.readClientTls(node)
                         }
                     }
                     getMapping(connConfigNode, "ws")?.let { node ->
@@ -76,7 +73,7 @@ class UpstreamsConfigReader : YamlConfigReader() {
                             getValueAsString(node, "origin")?.let { origin ->
                                 ws.origin = URI(origin)
                             }
-                            ws.basicAuth = readBasicAuth(node)
+                            ws.basicAuth = authConfigReader.readClientBasicAuth(node)
                         }
                     }
                 } else {
@@ -97,7 +94,7 @@ class UpstreamsConfigReader : YamlConfigReader() {
                     getValueAsInt(connConfigNode, "port")?.let {
                         connection.port = it
                     }
-                    connection.auth = readTls(connConfigNode)
+                    connection.auth = authConfigReader.readClientTls(connConfigNode)
                 } else {
                     log.error("Upstream at #0 has invalid configuration")
                 }
@@ -192,29 +189,6 @@ class UpstreamsConfigReader : YamlConfigReader() {
             options.disableValidation = it
         }
         return options
-    }
-
-    private fun readBasicAuth(node: MappingNode?): UpstreamsConfig.BasicAuth? {
-        return getMapping(node, "basic-auth")?.let {  authNode ->
-            val username = getValueAsString(authNode, "username")
-            val password = getValueAsString(authNode, "password")
-            if (username != null && password != null) {
-                UpstreamsConfig.BasicAuth(username, password)
-            } else {
-                log.warn("Basic auth is not fully configured")
-                null
-            }
-        }
-    }
-
-    private fun readTls(node: MappingNode?): UpstreamsConfig.TlsAuth? {
-        return getMapping(node, "tls")?.let { authNode ->
-            val auth = UpstreamsConfig.TlsAuth()
-            auth.ca = getValueAsString(authNode, "ca")
-            auth.certificate = getValueAsString(authNode, "certificate")
-            auth.key = getValueAsString(authNode, "key")
-            auth
-        }
     }
 
 }

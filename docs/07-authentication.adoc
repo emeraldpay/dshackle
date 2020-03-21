@@ -12,16 +12,22 @@ generate certificates, but the traditional `openssl` tool can be used as well.
 
 ==== Setup Server certificate
 
-.Generate a server certificate
+.Generate a Certificate Authority
 [source,bash]
 ----
-SERVER_CA="ca.myhost.dev"
-SERVER_IP="127.0.0.1"
-ORG="My Company"
-ORG_UNIT="Blockchain"
+export SERVER_CA="ca.myhost.dev"
+export ORG="My Company"
+export ORG_UNIT="Blockchain"
 
 certstrap init --common-name "$SERVER_CA" --passphrase "" -o "$ORG" -ou "$ORG_UNIT CA"
-certstrap request-cert -ip $SERVER_IP --passphrase ""  -o "$ORG" -ou "$ORG_UNIT Server"
+openssl pkcs8 -topk8 -inform PEM -outform PEM -in out/$SERVER_CA.key -out out/$SERVER_CA.p8.key -nocrypt
+----
+
+.Generate a Server Certificate
+----
+export SERVER_IP="127.0.0.1"
+
+certstrap request-cert -ip $SERVER_IP --common-name $SERVER_IP --passphrase ""  -o "$ORG" -ou "$ORG_UNIT Server"
 certstrap sign $SERVER_IP --CA $SERVER_CA
 
 openssl pkcs8 -topk8 -inform PEM -outform PEM -in out/$SERVER_IP.key -out out/$SERVER_IP.p8.key -nocrypt
@@ -30,8 +36,9 @@ openssl pkcs8 -topk8 -inform PEM -outform PEM -in out/$SERVER_IP.key -out out/$S
 You are going to get following files now in `out` directory:
 
 - `ca.myhost.dev.crt` your Certification Authority to sign or verify other certificates
-- `127.0.0.1.crt` server certificate, 127.0.0.1 is an IP address supposed to be used by that instance, and we use local
-  host for demo purposes. For production use a real IP must be used.
+- `ca.myhost.dev.p8.key` is the private key for Certification Authority in PKSC 8 format
+- `127.0.0.1.crt` server certificate, 127.0.0.1 is an IP address supposed to be used by that instance, and we use local host for demo purposes.
+For production use a real IP must be used.
 - `127.0.0.1.p8.key` is private key for certificate in PKCS 8 format, it needed by Dshackle server to use certificate
 
 Copy those files to directory with Dshackle and update configuration.
@@ -144,5 +151,43 @@ upstreams:
           key: client_1.p8.key
 ----
 
-Now if you run second server it will connect to first server ("upstream") running on port 2449, will verify upstream
-with certificate `ca.myhost.dev.crt` and authenticate itself by using pair of `client_1.crt` and `client_1.p8.key`
+Now if you run second server it will connect to first server ("upstream") running on port 2449, will verify upstream with certificate `ca.myhost.dev.crt` and authenticate itself by using pair of `client_1.crt` and `client_1.p8.key`
+
+=== Server TLS configuration
+
+|===
+| Name | Example | Description
+
+a| `enabled`
+a|
+[source,yaml]
+----
+tls:
+  enabled: true
+----
+| Enabled or disable TLS. By default it checks if certificate is set, and then enables it. But if you enable the TLS
+but didn't specify the certificate or key, then the DShackle will fails to start with error.
+
+a| `server.certificate`, `server.key`
+a|
+[source,yaml]
+----
+tls:
+  server:
+    certificate: server.com.crt
+    key: server.com.p8.key
+----
+| Path to certificate and certificate private key
+
+a| `client.ca`, `client.required`
+a|
+[source,yaml]
+----
+tls:
+  client:
+    ca: ca.crt
+    required: true
+----
+a| Path to CA used to authenticate incoming connections, used if `required: true`
+
+|===

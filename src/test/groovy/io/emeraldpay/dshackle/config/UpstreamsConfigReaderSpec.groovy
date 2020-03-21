@@ -64,7 +64,7 @@ class UpstreamsConfigReaderSpec extends Specification {
             with((UpstreamsConfig.EthereumConnection)connection) {
                 rpc.url == new URI("https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2")
                 rpc.basicAuth != null
-                with((UpstreamsConfig.BasicAuth)rpc.basicAuth) {
+                with((AuthConfig.ClientBasicAuth) rpc.basicAuth) {
                     username == "4fc258fe41a68149c199ad8f281f2015"
                     password == "1a68f20154fc258fe4149c199ad8f281"
                 }

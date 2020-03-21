@@ -17,7 +17,6 @@ package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Defaults
 import java.net.URI
-import java.time.Duration
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -81,7 +80,7 @@ class UpstreamsConfig {
     class GrpcConnection : UpstreamConnection() {
         var host: String? = null
         var port: Int = 0
-        var auth: TlsAuth? = null
+        var auth: AuthConfig.ClientTlsAuth? = null
     }
 
     class EthereumConnection : UpstreamConnection() {
@@ -90,29 +89,16 @@ class UpstreamsConfig {
     }
 
     class HttpEndpoint(val url: URI) {
-        var basicAuth: BasicAuth? = null
-        var tls: TlsAuth? = null
+        var basicAuth: AuthConfig.ClientBasicAuth? = null
+        var tls: AuthConfig.ClientTlsAuth? = null
     }
 
     class WsEndpoint(val url: URI) {
         var origin: URI? = null
-        var basicAuth: BasicAuth? = null
+        var basicAuth: AuthConfig.ClientBasicAuth? = null
     }
 
-    open class Auth {
-        var type: String? = null
-    }
 
-    class BasicAuth(
-            val username: String,
-            val password: String
-    ) : Auth()
-
-    class TlsAuth(
-        var ca: String? = null,
-        var certificate: String? = null,
-        var key: String? = null
-    ) : Auth()
 
     //TODO make it unmodifiable after initial load
     class Labels: HashMap<String, String>() {

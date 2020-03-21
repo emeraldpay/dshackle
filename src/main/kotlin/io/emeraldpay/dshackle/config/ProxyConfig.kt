@@ -39,6 +39,11 @@ class ProxyConfig {
     var port: Int = 8080
 
     /**
+     * TLS Auth required from clients.
+     */
+    var tls: AuthConfig.ServerTlsAuth? = null
+
+    /**
      * List of available routes
      */
     var routes: List<Route> = ArrayList()

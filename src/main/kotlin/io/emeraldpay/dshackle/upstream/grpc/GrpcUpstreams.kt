@@ -20,6 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.startup.UpstreamChange
@@ -45,7 +46,7 @@ class GrpcUpstreams(
         private val host: String,
         private val port: Int,
         private val objectMapper: ObjectMapper,
-        private val auth: UpstreamsConfig.TlsAuth? = null,
+        private val auth: AuthConfig.ClientTlsAuth? = null,
         private val fileResolver: FileResolver
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
@@ -133,7 +134,7 @@ class GrpcUpstreams(
         return Flux.fromIterable(removed + added)
     }
 
-    internal fun withTls(auth: UpstreamsConfig.TlsAuth): SslContext {
+    internal fun withTls(auth: AuthConfig.ClientTlsAuth): SslContext {
         val sslContext = SslContextBuilder.forClient()
                 .clientAuth(ClientAuth.REQUIRE)
         sslContext.trustManager(fileResolver.resolve(auth.ca!!).inputStream())

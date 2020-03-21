@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
@@ -78,5 +79,9 @@ class TestingCommons {
 
     static CachesFactory emptyCaches() {
         return new CachesFactory(objectMapper(), new StandardEnvironment())
+    }
+
+    static FileResolver fileResolver() {
+        return new FileResolver(new File("src/test/resources"))
     }
 }

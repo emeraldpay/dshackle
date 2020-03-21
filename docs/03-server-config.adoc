@@ -29,6 +29,31 @@ It configures following:
 - no JSON RPC is configured
 - upstreams configuration is configured in the file `upstreams.yaml`
 
+.Configuration
+|===
+| Name | Example | Description
+
+a| `version`
+|
+| Version of the format of the config
+
+a| `port`
+a| `port: 12449`
+| Port to bind gRPC server. `2449` by default
+
+a| `tls`
+|
+| TLS configuration for gRPC. See link:07-authentication.adoc[Authentication] for details
+
+a| `proxy`
+|
+| Proxy configuration
+
+a| `upstreams`
+|
+| Upstreams configuration
+|===
+
 === Enabling JSON RPC proxy
 
 .Example proxy:
@@ -52,3 +77,48 @@ With that configuration Dshackle starts a JSON RPC proxy:
 
 - JSON RPC server is listening on `0.0.0.0:8080`
 - `http://0.0.0.0:8080/eth` provides access to Ethereum API routed to an available upstream
+
+.Full configuration:
+[source,yaml]
+----
+proxy:
+  port: 8080
+  tls:
+    enabled: true
+    server:
+      certificate: server.crt
+      key: server.p8.key
+    client:
+      require: true
+      ca: ca.crt
+  routes:
+    - id: eth
+      blockchain: ethereum
+    - id: etc
+      blockchain: ethereum_classic
+----
+
+.Proxy configuration
+|===
+| Name | Example | Description
+
+a| `host`
+a| `host: 0.0.0.0`
+| Host to bind proxy server. `127.0.0.1` by default
+
+a| `port`
+a| `port: 8545`
+| Port to bind proxy server. `8080` by default
+
+a| `enabled`
+a| `enabled: true`
+| Enable/disable proxy server
+
+a| `tls`
+|
+| TLS configuration for proxy. See link:07-authentication.adoc[Authentication] for details
+
+a| `routes`
+|
+| List of endpoints to proxy
+|===

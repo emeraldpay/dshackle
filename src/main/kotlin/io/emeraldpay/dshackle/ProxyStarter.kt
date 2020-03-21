@@ -34,7 +34,8 @@ class ProxyStarter(
         @Autowired private val env: Environment,
         @Autowired private val readRpcJson: ReadRpcJson,
         @Autowired private val writeRpcJson: WriteRpcJson,
-        @Autowired private val nativeCall: NativeCall
+        @Autowired private val nativeCall: NativeCall,
+        @Autowired private val tlsSetup: TlsSetup
 ) {
 
     companion object {
@@ -48,7 +49,7 @@ class ProxyStarter(
             log.debug("Proxy server is not configured")
             return
         }
-        val server = ProxyServer(config, readRpcJson, writeRpcJson, nativeCall)
+        val server = ProxyServer(config, readRpcJson, writeRpcJson, nativeCall, tlsSetup)
         server.start()
     }
 

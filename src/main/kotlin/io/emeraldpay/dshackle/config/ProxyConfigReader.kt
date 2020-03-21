@@ -33,10 +33,10 @@ class ProxyConfigReader : YamlConfigReader() {
     }
 
     private var filename = "dshackle.yaml"
+    private val authConfigReader = AuthConfigReader()
 
     fun read(input: InputStream): ProxyConfig? {
-        val yaml = Yaml()
-        val configNode = asMappingNode(yaml.compose(InputStreamReader(input)))
+        val configNode = readNode(input)
         return read(getMapping(configNode, "proxy"))
     }
 
@@ -73,8 +73,10 @@ class ProxyConfigReader : YamlConfigReader() {
             }
         }
         if (config.routes.isEmpty()) {
+            log.warn("Proxy config has no routes")
             return null
         }
+        config.tls = authConfigReader.readServerTls(input)
         return config
     }
 

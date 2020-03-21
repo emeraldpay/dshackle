@@ -17,9 +17,11 @@ package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.netty.buffer.Unpooled
+import io.netty.handler.ssl.SslContextBuilder
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
@@ -29,6 +31,7 @@ import reactor.netty.http.server.HttpServer
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
+import java.io.File
 import java.util.function.BiFunction
 
 /**
@@ -38,7 +41,8 @@ class ProxyServer(
         private var config: ProxyConfig,
         private val readRpcJson: ReadRpcJson,
         private val writeRpcJson: WriteRpcJson,
-        private val nativeCall: NativeCall
+        private val nativeCall: NativeCall,
+        private val tlsSetup: TlsSetup
 ) {
 
     companion object {
@@ -51,9 +55,17 @@ class ProxyServer(
             return
         }
         log.info("Listening Proxy on ${config.host}:${config.port}")
-        val server: DisposableServer = HttpServer.create()
+        var serverBuilder = HttpServer.create()
                 .host(config.host)
                 .port(config.port)
+
+        config.tls?.let { tls ->
+            tlsSetup.setupServer("proxy", tls)?.let { sslContext ->
+                serverBuilder = serverBuilder.secure { secure -> secure.sslContext(sslContext) }
+            }
+        }
+
+        val server: DisposableServer = serverBuilder
                 .route(this::setupRoutes)
                 .bindNow()
     }

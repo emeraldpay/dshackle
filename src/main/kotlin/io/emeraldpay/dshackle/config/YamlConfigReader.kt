@@ -16,13 +16,25 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.grpc.Chain
+import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
 import org.yaml.snakeyaml.nodes.Node
 import org.yaml.snakeyaml.nodes.ScalarNode
+import java.io.InputStream
+import java.io.InputStreamReader
 
 open class YamlConfigReader {
     private val envVariables = EnvVariables()
+
+    fun readNode(input: String): MappingNode {
+        return readNode(input.byteInputStream())
+    }
+
+    fun readNode(input: InputStream): MappingNode {
+        val yaml = Yaml()
+        return asMappingNode(yaml.compose(InputStreamReader(input)))
+    }
 
     protected fun hasAny(mappingNode: MappingNode?, key: String): Boolean {
         if (mappingNode == null) {
