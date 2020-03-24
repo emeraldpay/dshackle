@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.config.EnvVariables
 import io.emeraldpay.grpc.Chain
 import io.lettuce.core.RedisClient
@@ -20,7 +21,7 @@ import kotlin.collections.HashMap
 @Repository
 class CachesFactory(
         @Autowired private val objectMapper: ObjectMapper,
-        @Autowired private val env: Environment
+        @Autowired private val cacheConfig: CacheConfig
 ) {
 
     companion object {
@@ -33,24 +34,20 @@ class CachesFactory(
 
     @PostConstruct
     fun init() {
-        if (!env.getProperty("${CONFIG_PREFIX}.enabled", Boolean::class.java, false)) {
-            return
-        }
-        val address = env.getProperty("${CONFIG_PREFIX}.host", "127.0.0.1")
-        val port = env.getProperty("${CONFIG_PREFIX}.port", Int::class.java, 6379)
+        val redisConfig = cacheConfig.redis ?: return
 
         var uri = RedisURI.builder()
-                .withHost(address)
-                .withPort(port)
+                .withHost(redisConfig.host)
+                .withPort(redisConfig.port)
 
-        env.getProperty("${CONFIG_PREFIX}.db", Int::class.java)?.let { value ->
+        redisConfig.db?.let { value ->
             uri = uri.withDatabase(value)
         }
 
         //log URI _before_ adding a password, to avoid leaking it to the log
         log.info("Use Redis cache at: ${uri.build().toURI()}")
 
-        env.getProperty("${CONFIG_PREFIX}.password")?.let { value ->
+        redisConfig.password?.let { value ->
             uri = uri.withPassword(value)
         }
 

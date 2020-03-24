@@ -31,7 +31,7 @@ class TlsSetupSpec extends Specification {
                 enabled: false
         )
         when:
-        def act = tlsSetup.setupServer("test", config)
+        def act = tlsSetup.setupServer("test", config, false)
         then:
         act == null
     }
@@ -44,7 +44,7 @@ class TlsSetupSpec extends Specification {
                 key: "127.0.0.1.p8.key"
         )
         when:
-        def act = tlsSetup.setupServer("test", config)
+        def act = tlsSetup.setupServer("test", config, false)
         then:
         act != null
         act.server
@@ -67,7 +67,7 @@ class TlsSetupSpec extends Specification {
                 clientCa: "ca.myhost.dev.crt"
         )
         when:
-        def act = tlsSetup.setupServer("test", config)
+        def act = tlsSetup.setupServer("test", config, false)
         then:
         act != null
         act.server
@@ -87,7 +87,7 @@ class TlsSetupSpec extends Specification {
                 key: "127.0.0.1.p8.key",
         )
         when:
-        tlsSetup.setupServer("test", config)
+        tlsSetup.setupServer("test", config, false)
         then:
         def t = thrown(IllegalArgumentException)
         t.message == "Certificate not set"
@@ -100,7 +100,7 @@ class TlsSetupSpec extends Specification {
                 certificate: "127.0.0.1.crt"
         )
         when:
-        tlsSetup.setupServer("test", config)
+        tlsSetup.setupServer("test", config, false)
         then:
         def t = thrown(IllegalArgumentException)
         t.message == "Certificate Key not set"
@@ -114,7 +114,7 @@ class TlsSetupSpec extends Specification {
                 key: "127.0.0.1.p8.key",
         )
         when:
-        tlsSetup.setupServer("test", config)
+        tlsSetup.setupServer("test", config, false)
         then:
         def t = thrown(IllegalArgumentException)
     }
@@ -127,7 +127,7 @@ class TlsSetupSpec extends Specification {
                 key: "none.p8.key",
         )
         when:
-        tlsSetup.setupServer("test", config)
+        tlsSetup.setupServer("test", config, false)
         then:
         def t = thrown(IllegalArgumentException)
     }
@@ -140,7 +140,7 @@ class TlsSetupSpec extends Specification {
                 key: "127.0.0.1.key",
         )
         when:
-        tlsSetup.setupServer("test", config)
+        tlsSetup.setupServer("test", config, false)
         then:
         def t = thrown(IllegalArgumentException)
     }
@@ -154,7 +154,7 @@ class TlsSetupSpec extends Specification {
                 clientRequire: true
         )
         when:
-        tlsSetup.setupServer("test", config)
+        tlsSetup.setupServer("test", config, false)
         then:
         def t = thrown(IllegalArgumentException)
     }
@@ -169,7 +169,7 @@ class TlsSetupSpec extends Specification {
                 clientCa: "none.crt"
         )
         when:
-        tlsSetup.setupServer("test", config)
+        tlsSetup.setupServer("test", config, false)
         then:
         def t = thrown(IllegalArgumentException)
     }
@@ -184,7 +184,7 @@ class TlsSetupSpec extends Specification {
                 clientCa: "ca.myhost.dev.key"
         )
         when:
-        tlsSetup.setupServer("test", config)
+        tlsSetup.setupServer("test", config, false)
         then:
         def t = thrown(IllegalArgumentException)
     }

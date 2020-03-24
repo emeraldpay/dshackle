@@ -15,29 +15,38 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.FileResolver
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
-import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.nodes.MappingNode
 import org.yaml.snakeyaml.nodes.ScalarNode
 import reactor.util.function.Tuples
 import java.io.InputStream
-import java.io.InputStreamReader
 import java.net.URI
 import java.time.Duration
 
-class UpstreamsConfigReader : YamlConfigReader() {
+class UpstreamsConfigReader(
+        private val fileResolver: FileResolver
+) : YamlConfigReader(), ConfigReader<UpstreamsConfig> {
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
     private val authConfigReader = AuthConfigReader()
 
-    fun read(input: InputStream): UpstreamsConfig {
+    fun read(input: InputStream): UpstreamsConfig? {
         val configNode = readNode(input)
+        return readInternal(configNode)
+    }
 
+    override fun read(input: MappingNode?): UpstreamsConfig? {
+        return getMapping(input, "upstreams")?.let {
+            readInternal(it)
+        }
+    }
+
+    fun readInternal(input: MappingNode?): UpstreamsConfig? {
         val config = UpstreamsConfig()
-        config.version = getValueAsString(configNode, "version")
 
-        getList<MappingNode>(configNode, "defaultOptions")?.value?.forEach { opts ->
+        getList<MappingNode>(input, "defaults")?.value?.forEach { opts ->
             val defaultOptions = UpstreamsConfig.DefaultOptions()
             config.defaultOptions.add(defaultOptions)
             defaultOptions.chains = getListOfString(opts, "chains")
@@ -47,7 +56,32 @@ class UpstreamsConfigReader : YamlConfigReader() {
         }
 
         config.upstreams = ArrayList<UpstreamsConfig.Upstream<*>>()
-        getList<MappingNode>(configNode, "upstreams")?.value?.forEachIndexed { pos, upNode ->
+
+        getValueAsString(input, "include")?.let { path ->
+            fileResolver.resolve(path).let { file ->
+                if (file.exists() && file.isFile && file.canRead()) {
+                    read(file.inputStream())?.let {
+                        it.upstreams.forEach { upstream -> config.upstreams.add(upstream) }
+                    }
+                } else {
+                    log.warn("Failed to read config from $path")
+                }
+            }
+        }
+
+        getListOfString(input, "include")?.forEach { path ->
+            fileResolver.resolve(path).let { file ->
+                if (file.exists() && file.isFile && file.canRead()) {
+                    read(file.inputStream())?.let {
+                        it.upstreams.forEach { upstream -> config.upstreams.add(upstream) }
+                    }
+                } else {
+                    log.warn("Failed to read config from $path")
+                }
+            }
+        }
+
+        getList<MappingNode>(input, "upstreams")?.value?.forEachIndexed { pos, upNode ->
             val connNode = getMapping(upNode, "connection")
             if (hasAny(connNode, "ethereum")) {
                 val connConfigNode = getMapping(connNode, "ethereum")!!
@@ -121,10 +155,10 @@ class UpstreamsConfigReader : YamlConfigReader() {
 
     internal fun readUpstreamGrpc(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>) {
         if (hasAny(upNode, "labels")) {
-            log.warn("Labels are not applied to gRPC upstream")
+            log.warn("Labels should be not applied to gRPC upstream")
         }
         if (hasAny(upNode, "chain")) {
-            log.warn("Chain is not applied to gRPC upstream")
+            log.warn("Chain should be not applied to gRPC upstream")
         }
     }
 

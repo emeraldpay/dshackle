@@ -34,7 +34,11 @@ class TlsSetup(
         private val log = LoggerFactory.getLogger(TlsSetup::class.java)
     }
 
-    fun setupServer(category: String, config: AuthConfig.ServerTlsAuth): SslContext? {
+    fun setupServer(category: String, config: AuthConfig.ServerTlsAuth?, grpc: Boolean): SslContext? {
+        if (config == null) {
+            log.warn("Using insecure transport for $category")
+            return null
+        }
         val mustBeSecure = config.enabled != null && config.enabled!!
         val tlsDisabled = config.enabled != null && !config.enabled!!
         var hasServerCertificate = true
@@ -56,10 +60,17 @@ class TlsSetup(
         }
         if (mustBeSecure || (!tlsDisabled && hasServerCertificate)) {
             log.info("Using TLS for $category")
-            val sslContextBuilder = SslContextBuilder.forServer(
-                    fileResolver.resolve(config.certificate!!),
-                    fileResolver.resolve(config.key!!)
-            )
+            val sslContextBuilder = if (grpc) {
+                GrpcSslContexts.forServer(
+                        fileResolver.resolve(config.certificate!!),
+                        fileResolver.resolve(config.key!!)
+                )
+            } else {
+                SslContextBuilder.forServer(
+                        fileResolver.resolve(config.certificate!!),
+                        fileResolver.resolve(config.key!!)
+                )
+            }
             if (StringUtils.isNotEmpty(config.clientCa)) {
                 log.info("Using TLS for client authentication for $category")
                 sslContextBuilder.trustManager(

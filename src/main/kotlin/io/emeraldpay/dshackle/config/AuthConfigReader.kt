@@ -65,6 +65,9 @@ class AuthConfigReader : YamlConfigReader() {
             getValueAsBool(node, "enabled")?.let {
                 auth.enabled = it
             }
+            if (auth.enabled != null && !auth.enabled!!) {
+                return null
+            }
             getMapping(node, "server")?.let { node ->
                 auth.certificate = getValueAsString(node, "certificate")
                 auth.key = getValueAsString(node, "key")

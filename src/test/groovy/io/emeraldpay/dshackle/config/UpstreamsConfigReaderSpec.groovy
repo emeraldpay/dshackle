@@ -23,7 +23,7 @@ import spock.lang.Specification
 
 class UpstreamsConfigReaderSpec extends Specification {
 
-    UpstreamsConfigReader reader = new UpstreamsConfigReader()
+    UpstreamsConfigReader reader = new UpstreamsConfigReader(TestingCommons.fileResolver())
 
     def "Parse standard config"() {
         setup:
@@ -32,7 +32,6 @@ class UpstreamsConfigReaderSpec extends Specification {
         def act = reader.read(config)
         then:
         act != null
-        act.version == "v1"
         with(act.defaultOptions) {
             size() == 1
             with(get(0)) {
@@ -81,7 +80,6 @@ class UpstreamsConfigReaderSpec extends Specification {
         def act = reader.read(config)
         then:
         act != null
-        act.version == "v1"
         act.upstreams.size() == 1
         with(act.upstreams.get(0)) {
             id == "remote"
@@ -141,7 +139,6 @@ class UpstreamsConfigReaderSpec extends Specification {
         def act = reader.read(config)
         then:
         act != null
-        act.version == "v1"
         with(act.defaultOptions) {
             size() == 0
         }

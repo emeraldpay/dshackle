@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle
 
+import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.proxy.ProxyServer
 import io.emeraldpay.dshackle.proxy.ReadRpcJson
@@ -31,7 +32,7 @@ import javax.annotation.PostConstruct
  */
 @Service
 class ProxyStarter(
-        @Autowired private val env: Environment,
+        @Autowired private val mainConfig: MainConfig,
         @Autowired private val readRpcJson: ReadRpcJson,
         @Autowired private val writeRpcJson: WriteRpcJson,
         @Autowired private val nativeCall: NativeCall,
@@ -44,7 +45,7 @@ class ProxyStarter(
 
     @PostConstruct
     fun start() {
-        val config = env.getProperty(ProxyConfig.CONFIG_ID, ProxyConfig::class.java)
+        val config = mainConfig.proxy
         if (config == null) {
             log.debug("Proxy server is not configured")
             return

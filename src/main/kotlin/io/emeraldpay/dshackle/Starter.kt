@@ -21,6 +21,7 @@ import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
 import org.springframework.core.io.ClassPathResource
+import org.springframework.core.io.support.ResourcePropertySource
 
 @SpringBootApplication(scanBasePackages = [ "io.emeraldpay.dshackle" ])
 @Import(Config::class)
@@ -30,7 +31,7 @@ private val log = LoggerFactory.getLogger(Starter::class.java)
 
 fun main(args: Array<String>) {
     val app = SpringApplication(Starter::class.java)
-    app.setEnvironment(DshackleEnvironment())
+    app.setDefaultProperties(ResourcePropertySource("version.properties").source)
     app.setBanner(ResourceBanner(ClassPathResource("banner.txt")))
     app.run(*args)
 }

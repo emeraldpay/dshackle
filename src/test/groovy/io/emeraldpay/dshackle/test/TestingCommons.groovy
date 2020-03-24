@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
+import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
@@ -78,7 +79,7 @@ class TestingCommons {
     }
 
     static CachesFactory emptyCaches() {
-        return new CachesFactory(objectMapper(), new StandardEnvironment())
+        return new CachesFactory(objectMapper(), new CacheConfig())
     }
 
     static FileResolver fileResolver() {

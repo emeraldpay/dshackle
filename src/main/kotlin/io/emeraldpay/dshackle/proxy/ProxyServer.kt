@@ -59,10 +59,8 @@ class ProxyServer(
                 .host(config.host)
                 .port(config.port)
 
-        config.tls?.let { tls ->
-            tlsSetup.setupServer("proxy", tls)?.let { sslContext ->
-                serverBuilder = serverBuilder.secure { secure -> secure.sslContext(sslContext) }
-            }
+        tlsSetup.setupServer("proxy", config.tls, false)?.let { sslContext ->
+            serverBuilder = serverBuilder.secure { secure -> secure.sslContext(sslContext) }
         }
 
         val server: DisposableServer = serverBuilder

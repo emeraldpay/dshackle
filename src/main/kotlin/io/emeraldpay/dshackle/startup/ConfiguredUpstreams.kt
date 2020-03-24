@@ -40,10 +40,10 @@ import kotlin.system.exitProcess
 
 @Repository
 open class ConfiguredUpstreams(
-        @Autowired val env: Environment,
         @Autowired private val objectMapper: ObjectMapper,
         @Autowired private val currentUpstreams: CurrentUpstreams,
-        @Autowired private val fileResolver: FileResolver
+        @Autowired private val fileResolver: FileResolver,
+        @Autowired private val config: UpstreamsConfig
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -59,7 +59,6 @@ open class ConfiguredUpstreams(
 
     @PostConstruct
     fun start() {
-        val config = readConfig()
         val defaultOptions = buildDefaultOptions(config)
         config.upstreams.forEach { up ->
 
@@ -77,23 +76,6 @@ open class ConfiguredUpstreams(
                 buildEthereumUpstream(up as UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>, chain, options)
             }
         }
-    }
-
-    private fun readConfig(): UpstreamsConfig {
-        val path = env.getProperty("upstreams.config")
-        if (StringUtils.isEmpty(path)) {
-            log.error("Path to upstreams is not set (upstreams.config)")
-            exitProcess(1)
-        }
-        val upstreamConfig = fileResolver.resolve(path!!).normalize()
-        val ok = upstreamConfig.exists() && upstreamConfig.isFile
-        if (!ok) {
-            log.error("Unable to setup upstreams from ${upstreamConfig.path}")
-            exitProcess(1)
-        }
-        log.info("Read upstream configuration from ${upstreamConfig.path}")
-        val reader = UpstreamsConfigReader()
-        return reader.read(upstreamConfig.inputStream())
     }
 
     private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.Options> {

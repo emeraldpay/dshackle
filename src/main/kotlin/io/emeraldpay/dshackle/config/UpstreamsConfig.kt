@@ -22,7 +22,6 @@ import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 
 class UpstreamsConfig {
-    var version: String? = null
     var defaultOptions: MutableList<DefaultOptions> = ArrayList<DefaultOptions>()
     var upstreams: MutableList<Upstream<*>> = ArrayList<Upstream<*>>()
 

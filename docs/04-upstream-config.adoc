@@ -17,7 +17,7 @@ Those protocols can be configures with additional security, TLS and authenticati
 ----
 version: v1
 
-defaultOptions:
+defaults:
   - chains:
       - ethereum
     options:

@@ -2,5 +2,20 @@ version: v1
 port: 2449
 tls:
   enabled: false
+
 upstreams:
-  config: upstreams.yaml
+  upstreams:
+    - id: infura-eth
+      chain: ethereum
+      connection:
+        ethereum:
+          rpc:
+            url: "https://mainnet.infura.io/v3/${INFURA_USER}"
+          ws:
+            url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+    - id: infura-kovan
+      chain: kovan
+      connection:
+        ethereum:
+          rpc:
+            url: "https://kovan.infura.io/v3/${INFURA_USER}"

@@ -24,7 +24,7 @@ import org.yaml.snakeyaml.nodes.ScalarNode
 import java.io.InputStream
 import java.io.InputStreamReader
 
-open class YamlConfigReader {
+abstract class YamlConfigReader {
     private val envVariables = EnvVariables()
 
     fun readNode(input: String): MappingNode {

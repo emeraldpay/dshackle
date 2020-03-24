@@ -17,7 +17,7 @@ tls:
     require: true
     ca: "ca.crt"
 upstreams:
-  config: "upstreams.yaml"
+  include: "upstreams.yaml"
 ----
 
 It configures following:

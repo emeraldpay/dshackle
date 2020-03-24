@@ -21,6 +21,12 @@ class FileResolver(
         private val baseDir: File
 ) {
 
+    companion object {
+        fun isAccessible(file: File): Boolean {
+            return file.exists() && file.isFile && file.canRead()
+        }
+    }
+
     fun resolve(path: String): File {
         val direct = File(path)
         if (direct.isAbsolute) {

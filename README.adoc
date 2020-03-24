@@ -77,7 +77,21 @@ proxy:
       blockchain: kovan
 
 upstreams:
-  config: "upstreams.yaml"
+  upstreams:
+    - id: infura-eth
+      chain: ethereum
+      connection:
+        ethereum:
+          rpc:
+            url: "https://mainnet.infura.io/v3/${INFURA_USER}"
+          ws:
+            url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+    - id: infura-kovan
+      chain: kovan
+      connection:
+        ethereum:
+          rpc:
+            url: "https://kovan.infura.io/v3/${INFURA_USER}"
 ----
 
 Which sets the following:
@@ -88,33 +102,7 @@ Which sets the following:
 ** proxying requests to Ethereum and Kovan upstreams
 ** request path for Ethereum Mainnet is `/eth`, for Kovan is `/kovan`
 ** i.e. call Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
-- read upstreams configuration from file `upstreams.yaml` in the current directory
-
-Now create file `upstreams.yaml`:
-
-[source,yaml]
-----
-version: v1
-upstreams:
-  - id: infura-eth
-    chain: ethereum
-    connection:
-      ethereum:
-        rpc:
-          url: "https://mainnet.infura.io/v3/${INFURA_USER}"
-        ws:
-          url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-  - id: infura-kovan
-    chain: kovan
-    connection:
-      ethereum:
-        rpc:
-          url: "https://kovan.infura.io/v3/${INFURA_USER}"
-----
-
-This configures:
-
-- setups 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
+- sets up 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
 - for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan just JSON RPC is used
 - Infura authentication config is omitted for this demo
 - `${INFURA_USER}` will be provided through environment variable

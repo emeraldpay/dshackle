@@ -26,7 +26,7 @@ import java.io.InputStreamReader
 /**
  * Read YAML config, part related to Proxy configuration
  */
-class ProxyConfigReader : YamlConfigReader() {
+class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ProxyConfigReader::class.java)
@@ -37,10 +37,14 @@ class ProxyConfigReader : YamlConfigReader() {
 
     fun read(input: InputStream): ProxyConfig? {
         val configNode = readNode(input)
-        return read(getMapping(configNode, "proxy"))
+        return read(configNode)
     }
 
-    fun read(input: MappingNode?): ProxyConfig? {
+    override fun read(input: MappingNode?): ProxyConfig? {
+        return readInternal(getMapping(input, "proxy"))
+    }
+
+    fun readInternal(input: MappingNode?): ProxyConfig? {
         if (input == null) {
             return null
         }

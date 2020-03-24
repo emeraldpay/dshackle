@@ -19,13 +19,14 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
-import io.lettuce.core.AbstractRedisClient
-import io.lettuce.core.cluster.RedisClusterClient
+import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.config.MainConfig
+import io.emeraldpay.dshackle.config.MainConfigReader
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.*
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -43,11 +44,37 @@ open class Config(
         @Autowired private val env: Environment
 ) {
 
-    private val log = LoggerFactory.getLogger(Config::class.java)
+    companion object {
+        private val log = LoggerFactory.getLogger(Config::class.java)
+
+        private const val DEFAULT_CONFIG = "/etc/dshackle/dshackle.yaml"
+        private const val LOCAL_CONFIG = "./dshackle.yaml"
+    }
+
+    private var configFilePath: File? = null
+
+    init {
+        configFilePath = getConfigPath()
+    }
+
+    fun getConfigPath(): File {
+        env.getProperty("configPath")?.let {
+            return File(it).normalize()
+        }
+        var target = File(DEFAULT_CONFIG)
+        if (!FileResolver.isAccessible(target)) {
+            target = File(LOCAL_CONFIG)
+            if (!FileResolver.isAccessible(target)) {
+                throw IllegalStateException("Configuration is not found neither at ${DEFAULT_CONFIG} nor ${LOCAL_CONFIG}")
+            }
+        }
+        target = target.normalize()
+        return target
+    }
 
     @Bean
     open fun objectMapper(): ObjectMapper {
-        val module = SimpleModule("EmeraldDShackle", Version(1, 0, 0, null, null, null))
+        val module = SimpleModule("EmeraldDshackle", Version(1, 0, 0, null, null, null))
 
         val objectMapper = ObjectMapper()
         objectMapper.registerModule(module)
@@ -65,23 +92,28 @@ open class Config(
     }
 
     @Bean
-    @Qualifier("configDir")
-    open fun configDir(): File {
-        val config = env.getProperty("configPath") ?: throw IllegalStateException("Config path is not set")
-        if (config.trim().isEmpty()) {
-            throw IllegalStateException("Config path is empty")
-        }
-        log.info("Use configuration from: $config")
-        return File(config).parentFile
+    open fun mainConfig(@Autowired fileResolver: FileResolver): MainConfig {
+        val f = configFilePath ?: throw IllegalStateException("Config path is not set")
+        log.info("Using config: ${f.absolutePath}")
+        val reader = MainConfigReader(fileResolver)
+        return reader.read(f.inputStream())
+                ?: throw IllegalStateException("Config is not available at ${f.absolutePath}")
     }
 
     @Bean
     open fun fileResolver(): FileResolver {
-        return FileResolver(configDir())
+        val f = configFilePath ?: throw IllegalStateException("Config path is not set")
+        return FileResolver(f.absoluteFile.parentFile)
     }
 
     @Bean
-    open fun redisClient(): AbstractRedisClient {
-        return RedisClusterClient.create("redis://password@localhost:6379/0");
+    open fun upstreamsConfig(@Autowired mainConfig: MainConfig): UpstreamsConfig? {
+        return mainConfig.upstreams
     }
+
+    @Bean
+    open fun cacheConfig(@Autowired mainConfig: MainConfig): CacheConfig {
+        return mainConfig.cache ?: CacheConfig()
+    }
+
 }

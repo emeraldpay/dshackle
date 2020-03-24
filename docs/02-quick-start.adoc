@@ -17,6 +17,7 @@ Create file `dshackle.yaml` with following content:
 [source,yaml]
 ----
 version: v1
+host: 0.0.0.0
 port: 2449
 tls:
   enabled: false
@@ -29,39 +30,28 @@ proxy:
     - id: kovan
       blockchain: kovan
 upstreams:
-  config: "upstreams.yaml"
+  upstreams:
+    - id: infura-eth
+      chain: ethereum
+      connection:
+        ethereum:
+          rpc:
+            url: "https://mainnet.infura.io/v3/${INFURA_USER}"
+          ws:
+            url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+    - id: infura-kovan
+      chain: kovan
+      connection:
+        ethereum:
+          rpc:
+            url: "https://kovan.infura.io/v3/${INFURA_USER}"
 ----
 
 This very basic config says that:
 
-- application will listen for connections on 0.0.0.0:2449
-- TLS security should be disabled (_never use in production!_)
-- read upstreams configuration from file `upstreams.yaml` in current directory
-
-Now create file `upstreams.yaml`:
-[source,yaml]
-----
-version: v1
-upstreams:
-  - id: infura-eth
-    chain: ethereum
-    connection:
-      ethereum:
-        rpc:
-          url: "https://mainnet.infura.io/v3/${INFURA_USER}"
-        ws:
-          url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-  - id: infura-kovan
-    chain: kovan
-    connection:
-      ethereum:
-        rpc:
-          url: "https://kovan.infura.io/v3/${INFURA_USER}"
-----
-
-This config:
-
-- setups 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured for Infura for demo purposes, but you can use other compatible endpoints)
+- application listen for gRPC connections on 0.0.0.0:2449, with TLS security disabled (_never use in production!_)
+- listen for HTTP JSON RPC connections on 0.0.0.0:8545, without TLS security too (again, _don't use in production, it's insecure_)
+- sets up 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured for Infura for demo purposes, but you can use other compatible endpoints)
 - for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan just JSON RPC is used
 - Infura authentication config is omitted for this demo
 - `${INFURA_USER}` value can be provided through environment variables
