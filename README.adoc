@@ -76,7 +76,7 @@ proxy:
     - id: kovan
       blockchain: kovan
 
-upstreams:
+cluster:
   upstreams:
     - id: infura-eth
       chain: ethereum

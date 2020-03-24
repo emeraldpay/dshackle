@@ -34,7 +34,7 @@ proxy:
     - id: kovan
       blockchain: kovan
 
-upstreams:
+cluster:
   defaults:
     - chains:
         - ethereum

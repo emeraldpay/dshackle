@@ -38,7 +38,7 @@ class UpstreamsConfigReader(
     }
 
     override fun read(input: MappingNode?): UpstreamsConfig? {
-        return getMapping(input, "upstreams")?.let {
+        return getMapping(input, "cluster")?.let {
             readInternal(it)
         }
     }

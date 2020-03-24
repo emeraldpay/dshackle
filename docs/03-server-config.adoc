@@ -16,7 +16,7 @@ tls:
   client:
     require: true
     ca: "ca.crt"
-upstreams:
+cluster:
   include: "upstreams.yaml"
 ----
 
