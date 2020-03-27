@@ -1,0 +1,462 @@
+= Configuration Reference
+:toc:
+:toclevels: 2
+
+toc::[]
+
+== Example
+
+.Example configuration with most options configured
+[source,yaml]
+----
+host: 0.0.0.0
+port: 2449
+
+tls:
+  enabled: true
+  server:
+    certificate: "/path/127.0.0.1.crt"
+    key: "/path/127.0.0.1.p8.key"
+  client:
+    require: true
+    ca: "/path/ca.dshackle.test.crt"
+
+cache:
+  redis:
+    enabled: true
+    host: redis-master
+    port: 6379
+    db: 0
+    password: I1y0dGKy01by
+
+proxy:
+  host: 0.0.0.0
+  port: 8080
+  tls:
+    enabled: true
+    server:
+      certificate: "/path/127.0.0.1.crt"
+      key: "/path/127.0.0.1.p8.key"
+    client:
+      require: true
+      ca: "/path/ca.dshackle.test.crt"
+  routes:
+    - id: eth
+      blockchain: ethereum
+    - id: kovan
+      blockchain: kovan
+
+cluster:
+  defaults:
+    - chains:
+        - ethereum
+      options:
+        min-peers: 10
+    - chains:
+        - kovan
+      options:
+        min-peers: 3
+  include:
+    - "upstreams-extra.yaml"
+  upstreams:
+    - id: local
+      chain: ethereum
+      labels:
+        fullnode: true
+      methods:
+        enabled:
+          - name: "parity_trace"
+        disabled:
+          - name: "admin_shutdown"
+      connection:
+        ethereum:
+          rpc:
+            url: "http://localhost:8545"
+          ws:
+            url: "ws://localhost:8546"
+            origin: "http://localhost"
+            basic-auth:
+              username: 9c199ad8f281f20154fc258fe41a6814
+              password: 258fe4149c199ad8f2811a68f20154fc
+    - id: infura
+      chain: ethereum
+      options:
+        disable-validation: true
+      connection:
+        ethereum:
+          rpc:
+            url: "https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2"
+            basic-auth:
+              username: 4fc258fe41a68149c199ad8f281f2015
+              password: 1a68f20154fc258fe4149c199ad8f281
+    - id: remote
+      connection:
+        grpc:
+          host: "10.2.0.15"
+          tls:
+            ca: /path/ca.dshackle.test.crt
+            certificate: /path/client1.dshackle.test.crt
+            key: /path/client1.dshackle.test.key
+----
+
+== Top level config
+
+[cols="2a,2,5"]
+|===
+| Option | Default Value | Description
+
+| `host`
+| `127.0.0.0`
+| Host to bind gRPC server
+
+| `port`
+| `2449`
+| Port to bind gRPC server
+
+| `tls`
+|
+| Setup TLS configuration for the gRPC server. See <<tls>> section
+
+| `proxy`
+|
+| Setup HTTP proxy that emulates all standard JSON RPC requests. See <<proxy>> section
+
+| `cache`
+|
+| Caching configuration. See <<cache>> section.
+
+| `cluster`
+|
+| Setup connection to remote nodes. See <<cluster>> section
+
+|===
+
+[#tls]
+== TLS server config
+
+[source,yaml]
+----
+tls:
+  enabled: true
+  server:
+    certificate: "/path/127.0.0.1.crt"
+    key: "/path/127.0.0.1.p8.key"
+  client:
+    require: true
+    ca: "/path/ca.dshackle.test.crt"
+----
+
+[cols="2a,2,5"]
+|===
+| Option | Default Value | Description
+
+| `enabled`
+a| `true` if any value is set
+| Enable/Disable TLS
+
+| `server.certificate`
+|
+| Path to x509 certificate
+
+| `server.key`
+|
+| Path to a private key to the certificate. The key _MUST BE_ in PKCS 8 format
+
+| `client.require`
+|
+| If true then the server will required certificate from a client, otherwise client authentication is optional
+
+| `client.ca`
+|
+| Certificate to validate client authentication
+
+|===
+
+[#proxy]
+== Proxy config
+
+[source,yaml]
+----
+proxy:
+  host: 0.0.0.0
+  port: 8080
+  tls:
+    enabled: true
+    server:
+      certificate: "/path/127.0.0.1.crt"
+      key: "/path/127.0.0.1.p8.key"
+    client:
+      require: true
+      ca: "/path/ca.dshackle.test.crt"
+  routes:
+    - id: eth
+      blockchain: ethereum
+    - id: kovan
+      blockchain: kovan
+----
+
+.Top config
+[cols="2a,2,5"]
+|===
+| Option | Default Value | Description
+
+| `host`
+| `127.0.0.0`
+| Host to bind gRPC server
+
+| `port`
+| `2449`
+| Port to bind gRPC server
+
+
+| `tls`
+|
+| Setup TLS configuration for the Proxy server. See <<tls>> section
+
+| `routes`
+|
+a| Routing paths for Proxy. The proxy will handle requests as `https://${HOST}:${PORT}/${ROUTE_ID}` (or `http://` if TLS is not enabled)
+|===
+
+.Route config
+[cols="2a,2,5"]
+|===
+| Option | Default Value | Description
+
+| `id`
+|
+| Internal _alphanumeric_ id, and a path of binding url - `https://${HOST}:${PORT}/${ROUTE_ID}`.
+
+| `blockchain`
+|
+| A blockchain that must be used to handle that route.
+
+|===
+
+[#cache]
+== Cache config
+
+[source,yaml]
+----
+cache:
+  redis:
+    enabled: true
+    host: redis-master
+    port: 6379
+    db: 0
+    password: I1y0dGKy01by
+----
+
+.Redis Config
+[cols="2a,2,5"]
+|===
+| Option | Default Value | Description
+
+| `enabled`
+| `false`
+| Enable/disable Redis cache
+
+| `host`
+| `127.0.0.1`
+| Redis host address
+
+| `port`
+| `6379`
+| Redis port
+
+| `db`
+| `0`
+| Redis DB to select
+
+| `password`
+|
+| Password for connection, if required
+
+|===
+
+[#cluster]
+== Cluster
+
+The cluster config is the main part that defines all connection to nodes and other servers
+
+[source,yaml]
+----
+cluster:
+  defaults:
+    - chains:
+        - ethereum
+      options:
+        min-peers: 10
+  upstreams:
+    - id: local
+      chain: ethereum
+      connection:
+        ethereum:
+          rpc:
+            url: "http://localhost:8545"
+          ws:
+            url: "ws://localhost:8546"
+            origin: "http://localhost"
+  include:
+    - "upstreams-extra.yaml"
+----
+
+=== Main Cluster Configuration
+
+.Top Level Config
+[cols="2a,5"]
+|===
+| Option | Description
+
+| `defaults`
+| Default options applied to all upstreams within the specified blockchain. It's an optional
+configuration, and may be omitted for most of the situations.
+
+| `upstreams`
+| List of upstream servers. The main part of the config. There are two types of upstream: <<upstream-json>> and <<upstream-dshackle>>.
+
+| `include`
+| Path(s) to include configurations for upstream servers. Same as `upstreams`, but load it from an external file.
+
+|===
+
+[#upstream-json]
+=== JSON RPC Upstream
+
+[source,yaml]
+----
+    - id: local
+      chain: ethereum
+      labels:
+        fullnode: true
+      methods:
+        enabled:
+          - name: "parity_trace"
+        disabled:
+          - name: "admin_shutdown"
+      connection:
+        ethereum:
+          rpc:
+            url: "http://localhost:8545"
+          ws:
+            url: "ws://localhost:8546"
+            origin: "http://localhost"
+            basic-auth:
+              username: 9c199ad8f281f20154fc258fe41a6814
+              password: 258fe4149c199ad8f2811a68f20154fc
+----
+
+.Main Config
+[cols="2a,1a,5"]
+|===
+| Option | Required | Description
+
+| `id`
+| yes
+| Per-cluster identifier of an upstream
+
+| `chain`
+| yes
+| Blockchain which is the provided by the upstream. `ethereum`, `ethereum_classic`, `kovan`
+
+| `labels`
+| no
+| Key-Value pairs that are assigned to the upstream. Used to select an upstream per-request. See link:08-quorum-and-selectors.adoc[Quorum and Selectors]
+
+| `methods`
+| no
+| Enable or disable additional JSON RPC methods that are provided by that particular upstream
+
+| `connection.ethereum`
+| yes
+| Connection configuration for Ethereum JSON RPC API
+
+|===
+
+.Connection Config
+[cols="2a,5"]
+|===
+| Option | Description
+
+| `rpc.url`
+a| HTTP URL to connect to. This is required for a connection. +
+   URL can be configured with Environment Variable placeholders `${ENV_VAR_NAME}`. +
+   Example: `https://kovan.infura.io/v3/${INFURA_USER}`
+
+| `rpc.basic-auth` + `rpc.basic-auth.username`, `rpc.basic-auth.password`
+a| HTTP Basic Auth configuration, if required by the remote server. +
+   Values can also reference env variables, for example:
+[source,yaml]
+----
+rpc:
+  url: "https://ethereum.com:8545"
+  basic-auth:
+    username: "${ETH_USERNAME}"
+    password: "${ETH_PASSWORD}"
+----
+
+| `ws.url`
+| Websocket URL to connect to. Optional, but optimizes performance if it's available.
+
+| `ws.origin`
+| HTTP `Origin` if required by Websocket remote server.
+
+| `ws.basic-auth` + ...
+| Websocket Basic Auth configuration, if required by the remote server
+
+
+|===
+
+[#upstream-dshackle]
+=== Dshackle Upstream
+
+Another option is using another Dshackle server as an upstream.
+It's more effective, easier to secure connection, and allows to build a distributed network of servers.
+
+[source,yaml]
+----
+- id: test1
+  connection:
+    grpc:
+      host: eu-api.mycompany.com
+      port: 2449
+      tls:
+        ca: ca.api.mycompany.crt
+        certificate: client-1.api.mycompany.crt
+        key: client-1.api.mycompany.p8.key
+----
+
+.Main Config
+[cols="2a,1a,5"]
+|===
+| Option | Required | Description
+
+| `id`
+| yes
+| Per-cluster identifier of an upstream
+
+| `connection.grpc`
+| yes
+| Connection configuration for Dshackle gRPC
+|===
+
+.Connection Config
+[cols="2a,5"]
+|===
+| Option | Description
+
+| `host` and `port`
+| Address to connect to
+
+| `tls`
+a| TLC configuration for the connection. In general it's an optional configuration, but it's strongly recommended. Also
+HTTP2 + gRPC is designed to be used with TLS, and some of the related software is unable to use it without TLS. +
+  See link:07-authentication.adoc[Authentication] docs and <<tls>>.
+
+| `tls.ca`
+| Path to x509 certificate to verify remote server
+
+| `tls.certificate` + `tls.key`
+| Client certificate (x509) and its private key (PKCS 8) used for authentication on the remote server.
+
+|===
