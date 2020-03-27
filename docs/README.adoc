@@ -44,6 +44,10 @@ Main goals:
 . link:09-caching.adoc[Caching]
 . link:10-client-libraries.adoc[Client Libraries]
 
+== Reference
+
+. link:reference-configuration.adoc[Configuration Reference]
+
 == Chat
 
 image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]

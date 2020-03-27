@@ -17,12 +17,12 @@ Create file `dshackle.yaml` with following content:
 [source,yaml]
 ----
 version: v1
-host: 0.0.0.0
+host: 0.0.0.0 # <1>
 port: 2449
-tls:
+tls: # <2>
   enabled: false
 proxy:
-  host: 0.0.0.0
+  host: 0.0.0.0 # <3>
   port: 8545
   routes:
     - id: eth
@@ -30,31 +30,34 @@ proxy:
     - id: kovan
       blockchain: kovan
 cluster:
-  upstreams:
+  upstreams: # <4>
     - id: infura-eth
-      chain: ethereum
+      chain: ethereum # <5>
       connection:
         ethereum:
-          rpc:
+          rpc: # <6>
             url: "https://mainnet.infura.io/v3/${INFURA_USER}"
-          ws:
+          ws: # <7>
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
     - id: infura-kovan
-      chain: kovan
+      chain: kovan # <8>
       connection:
         ethereum:
           rpc:
-            url: "https://kovan.infura.io/v3/${INFURA_USER}"
+            url: "https://kovan.infura.io/v3/${INFURA_USER}" # <9>
 ----
+<1> application listen for gRPC connections on 0.0.0.0:2449
+<2> with TLS security for gRPC disabled (_never use in production!_)
+<3> listen for HTTP JSON RPC connections on 0.0.0.0:8545, without TLS security too (again, _don't use in production, it's insecure_)
+<4> sets up 2 upstreams
+<5> one for Ethereum Mainnet, using
+<6> HTTP and
+<7> Websocket conection
+<8> and another for Kovan Testnet
+<9> `${INFURA_USER}` value is provided through environment variable
 
-This very basic config says that:
-
-- application listen for gRPC connections on 0.0.0.0:2449, with TLS security disabled (_never use in production!_)
-- listen for HTTP JSON RPC connections on 0.0.0.0:8545, without TLS security too (again, _don't use in production, it's insecure_)
-- sets up 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured for Infura for demo purposes, but you can use other compatible endpoints)
-- for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan just JSON RPC is used
-- Infura authentication config is omitted for this demo
-- `${INFURA_USER}` value can be provided through environment variables
+Both upstreams are configured for Infura for demo purposes, but you can use other compatible endpoints.
+Infura authentication is omitted for this demo
 
 ==== Run as docker
 
