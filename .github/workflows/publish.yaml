@@ -1,6 +1,10 @@
 name: Publish
-on: [release]
+on:
+  release:
+    types: [created]
+
 jobs:
+
   publish-docker:
     runs-on: ubuntu-latest
     steps:
@@ -21,3 +25,30 @@ jobs:
           arguments: jib -Platest=true
         env:
           DOCKER_KEY: ${{ secrets.DOCKER_KEY }}
+
+  publish-github:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+        with:
+          ref: ${{ github.ref }}
+      - name: Set up JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Check
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: check
+      - name: Build zip
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: distZip
+      - name: Upload Release
+        id: upload-release-asset
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          file: ./build/distributions/*.zip
+          file_glob: true
