@@ -9,29 +9,28 @@ image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square[
 image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License",link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
 image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
 
-Dshackle is an L7 Blockchain API Load Balancer with automatic discovery and health checking, authentication, and TLS termination.
-It is designed to work as an edge proxy, middle proxy, or API gateway.
-
-Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers, such as Geth, Parity, Infura, etc), it automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or data successfully broadcasted to the network.
+_Dshackle is an L7 Blockchain API Load Balancer._ It provided a high level aggregated API on top of several underlying upstreams, i.e., blockchain nodes or providers, such as Geth, Parity, Infura, etc.
+It automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or sent data successfully broadcasted to the network.
 
 - Standard Ethereum JSON RPC API, plus advanced gRPC-based API
-- TLS with optional client authentication
+- **Secure** TLS with optional client authentication
 - Blockchain-aware **caching** in memory and in Redis
-- Routing based on data availability (peers, height, sync status), always a **most actual state**
+- Routing based on **data availability** (peers, height, sync status)
+- **Data consistency**, always gives the most actual state
 - Automatic **failover** and retry
+- Separate public blockchain nodes from your internal servers
 
-Dshackle allows to build a mesh network of interconnected Dshackle servers to have fast, secure, stable and fail-proof access to blockchain.
+Dshackle allows to build a mesh network of interconnected Dshackle servers for building blockchain based services that needs to have fast, secure, stable and fail-proof access to blockchain APIs.
 
-Dshackle connects to several upstreams via JSON RPC, Websockets, or gRPC protocols.
-It verifies if a node ("upstream") is fully synchronized (not in initial sync mode), has enough peers, and its height is not behind other nodes.
-If upstream lags behind others, lost peers, started to resync or went down, then Dshackle temporarily excludes it from requests and returns when the upstream problem is fixed.
+Dshackle connects to several upstreams via JSON RPC, Websockets, or gRPC protocol.
+The server verifies if a node ("upstream") is fully synchronized (not in initial sync mode), has enough peers, and its height is not behind other nodes.
+If upstream lags behind others, lost peers below required, started to resync or went down, then Dshackle temporarily excludes it from requests and returns it when the upstream problem is fixed.
 
-image::dshackle-intro.png[alt="",width=100%,align="center"]
+image::dshackle-intro.png[alt="",width=80%,align="center"]
 
 == Roadmap
 
-- [x] JSON RPC emulation, in addition to gRPC protocol
-- [ ] *Support Bitcoin RPC*
+- [ ] Support Bitcoin RPC
 - [ ] External logging
 - [ ] Access to ERC-20 tokens on asset level
 - [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
@@ -44,7 +43,7 @@ image::dshackle-intro.png[alt="",width=100%,align="center"]
 
 === Configuration
 
-Create file `dshackle.yaml` with following content:
+Create file `dshackle.yaml` with the following content:
 
 [source,yaml]
 ----
@@ -83,15 +82,18 @@ cluster:
 Which sets the following:
 
 - gRPC access through 0.0.0.0:2449
-** TLS security is disabled (_don't use in production!_)
+** TLS security is disabled (_please don't use in production!_)
 - JSON RPC access through 0.0.0.0:8545
-** proxying requests to Ethereum and Kovan upstreams
+** proxy requests to Ethereum and Kovan upstreams
 ** request path for Ethereum Mainnet is `/eth`, for Kovan is `/kovan`
 ** i.e. call Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
-- sets up 2 upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
-- for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan just JSON RPC is used
+- two upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
+- for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan only JSON RPC is used
 - Infura authentication config is omitted for this demo
 - `${INFURA_USER}` will be provided through environment variable
+
+
+link:docs[See full documentations].
 
 ==== Run docker image
 
@@ -111,6 +113,8 @@ docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$IN
 
 Now it listen on port 2449 at the localhost and can be connected from any gRPC compatible client.
 Tools such as https://github.com/fullstorydev/grpcurl[gRPCurl] can automatically parse protobuf definitions and connect to it (actual Protobuf sources are located in a separate repository which you can find at https://github.com/emeraldpay/proto)
+
+Alternatively you can connect to port 8545 with traditional JSON RPC requests
 
 ==== Access using JSON RPC
 
@@ -132,6 +136,9 @@ curl --request POST \
 ----
 
 ==== Access using gRPC
+
+Dshackle provides a custom gRPC based API, which provides additional methods and other features such as streaming responses.
+Please refer to the documentation: link:docs/06-methods.adoc[gRPC Methods]
 
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
@@ -159,8 +166,8 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plai
 ...
 ----
 
-The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet.It's one of services provided
-by Dshackle, in additional to standard methods provided by RPC JSON of underlying nodes.
+The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet.
+It's one of services provided by Dshackle, in additional to standard methods provided by RPC JSON of underlying nodes.
 
 == Documentation
 
@@ -168,10 +175,9 @@ For detailed documentation see link:docs/[] directory.
 
 == Client Libraries
 
-Dshackle should be compatible with all standard libraries that use Ethereum JSON RPC.
+=== JSON RPC
 
-But in addition to JSON RPC it provides gRPC API with many additional features and asynchronous access (please refer to the documentation: link:docs/06-methods.adoc[gRPC Methods]).
-Below is the list of the libraries to use native gRPC API.
+Dshackle should be compatible with all standard libraries that use Ethereum JSON RPC over HTTP.
 
 === Java gRPC Client
 
@@ -210,14 +216,14 @@ See more in the documentation for link:docs/10-client-libraries.adoc[Client Libr
 
 === Setting up environment
 
-Dshackle is JVM based project written in Kotlin. To build and run it from sources you'll need to install
-https://openjdk.java.net/projects/jdk/11/[Java JDK] and https://gradle.org/[Gradle]
+Dshackle is JVM based project written in Kotlin.
+To build and run it from sources you'll need to install https://openjdk.java.net/projects/jdk/11/[Java JDK] and https://gradle.org/[Gradle]
 
 === Build Dshackle
 
 ==== Build everything
 
-[source, bash]
+[source,bash]
 ----
 gradle build
 ----
