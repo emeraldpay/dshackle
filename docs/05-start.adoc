@@ -12,7 +12,7 @@ docker run -p 2449:2449 -v $(pwd):/config -w /config emeraldpay/dshackle
 === Install & Run manually
 
 1. Download latest release from https://github.com/emeraldpay/dshackle/releases
-2. Unpack `unzip dshackle-0.6.zip`
+2. Unpack `unzip dshackle-0.6.0.zip`
 3. Copy to `/opt/dshackle`
 4. Setup configuration in `/etc/dshackle`
 5. Run as `cp /etc/dshackle && /opt/dshackle/bin/dshackle`
