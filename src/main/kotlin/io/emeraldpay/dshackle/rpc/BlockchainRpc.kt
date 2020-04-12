@@ -18,7 +18,8 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.grpc.stub.StreamObserver
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -29,8 +30,8 @@ import reactor.core.publisher.Mono
 class BlockchainRpc(
         @Autowired private val nativeCall: NativeCall,
         @Autowired private val streamHead: StreamHead,
-        @Autowired private val trackTx: TrackTx,
-        @Autowired private val trackAddress: TrackAddress,
+        @Autowired private val trackEthereumTx: TrackEthereumTx,
+        @Autowired private val trackEthereumAddress: TrackEthereumAddress,
         @Autowired private val describe: Describe,
         @Autowired private val subscribeStatus: SubscribeStatus
 ): ReactorBlockchainGrpc.BlockchainImplBase() {
@@ -46,15 +47,15 @@ class BlockchainRpc(
     }
 
     override fun subscribeTxStatus(request: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
-        return trackTx.add(request)
+        return trackEthereumTx.add(request)
     }
 
     override fun subscribeBalance(request: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return trackAddress.subscribe(request)
+        return trackEthereumAddress.subscribe(request)
     }
 
     override fun getBalance(request: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return trackAddress.getBalance(request)
+        return trackEthereumAddress.getBalance(request)
     }
 
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {

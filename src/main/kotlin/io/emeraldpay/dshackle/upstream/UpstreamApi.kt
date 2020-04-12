@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 ETCDEV GmbH
+ * Copyright (c) 2020 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,18 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.grpc.Chain
-import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
-interface Upstreams {
-    fun getUpstream(chain: Chain): AggregatedUpstream<*, *>?
-    fun getAvailable(): List<Chain>
-    fun observeChains(): Flux<Chain>
-    fun getDefaultMethods(chain: Chain): CallMethods
-    fun isAvailable(chain: Chain): Boolean
+/**
+ * A general interface to make a request to an Upstream API
+ */
+interface UpstreamApi {
+
+    /**
+     * @param id an internal uniq id, if multiple requests are made in batch
+     * @param method JSON RPC method name
+     * @param params JSON RPC parameters, must be serializable into a JSON array
+     */
+    fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray>
+
 }

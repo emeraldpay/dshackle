@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
@@ -75,7 +76,7 @@ class TestingCommons {
     }
 
     static AggregatedUpstream aggregatedUpstream(EthereumUpstream up) {
-        return new ChainUpstreams(Chain.ETHEREUM, [up], Caches.default(), objectMapper())
+        return new EthereumChainUpstreams(Chain.ETHEREUM, [up], Caches.default(), objectMapper())
     }
 
     static CachesFactory emptyCaches() {

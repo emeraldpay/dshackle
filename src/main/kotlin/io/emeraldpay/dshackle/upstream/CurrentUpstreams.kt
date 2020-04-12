@@ -16,13 +16,17 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.calls.QuorumBasedMethods
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
@@ -42,22 +46,23 @@ class CurrentUpstreams(
 
     private val log = LoggerFactory.getLogger(CurrentUpstreams::class.java)
 
-    private val chainMapping = ConcurrentHashMap<Chain, ChainUpstreams>()
+    private val chainMapping = ConcurrentHashMap<Chain, ChainUpstreams<*, *>>()
     private val chainsBus = TopicProcessor.create<Chain>()
-    private val callTargets = HashMap<Chain, QuorumBasedMethods>()
+    private val callTargets = HashMap<Chain, CallMethods>()
     private val updateLock = ReentrantLock()
 
     fun update(change: UpstreamChange) {
         updateLock.withLock {
             val chain = change.chain
             val up = change.upstream
-            val current = chainMapping[chain]
+                    .cast(EthereumUpstream::class.java, EthereumApi::class.java, BlockJson::class.java) as Upstream<EthereumApi, BlockJson<TransactionRefJson>>
+            val current = chainMapping[chain] as ChainUpstreams<EthereumApi, BlockJson<TransactionRefJson>>?
             if (change.type == UpstreamChange.ChangeType.REMOVED) {
                 current?.removeUpstream(up.getId())
                 log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
             } else {
                 if (current == null) {
-                    val created = ChainUpstreams(chain, ArrayList<Upstream>(), cachesFactory.getCaches(chain), objectMapper)
+                    val created = EthereumChainUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper)
                     if (up is CachesEnabled) {
                         up.setCaches(created.caches)
                     }
@@ -79,7 +84,7 @@ class CurrentUpstreams(
         }
     }
 
-    override fun getUpstream(chain: Chain): AggregatedUpstream? {
+    override fun getUpstream(chain: Chain): AggregatedUpstream<*, *>? {
         return chainMapping[chain]
     }
 
@@ -103,8 +108,8 @@ class CurrentUpstreams(
         return callTargets[chain] ?: return setupDefaultMethods(chain)
     }
 
-    fun setupDefaultMethods(chain: Chain): QuorumBasedMethods {
-        val created = QuorumBasedMethods(objectMapper, chain)
+    fun setupDefaultMethods(chain: Chain): CallMethods {
+        val created = DefaultEthereumMethods(objectMapper, chain)
         callTargets[chain] = created
         return created
     }

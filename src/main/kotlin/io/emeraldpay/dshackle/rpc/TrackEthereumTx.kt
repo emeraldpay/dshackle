@@ -18,10 +18,13 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -40,7 +43,6 @@ import reactor.core.publisher.TopicProcessor
 import reactor.core.publisher.toFlux
 import reactor.core.scheduler.Scheduler
 import reactor.util.function.Tuples
-import java.lang.Exception
 import java.math.BigInteger
 import java.time.Duration
 import java.time.Instant
@@ -53,7 +55,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 @Service
-class TrackTx(
+class TrackEthereumTx(
         @Autowired private val upstreams: Upstreams,
         @Autowired private val upstreamScheduler: Scheduler
 ) {
@@ -67,7 +69,7 @@ class TrackTx(
         private val PING_PERIOD = Duration.ofMinutes(5)
     }
 
-    private val log = LoggerFactory.getLogger(TrackTx::class.java)
+    private val log = LoggerFactory.getLogger(TrackEthereumTx::class.java)
     private val clients = HashMap<Chain, ConcurrentLinkedQueue<TrackedTx>>()
     private val seq = AtomicLong(0)
 
@@ -142,6 +144,9 @@ class TrackTx(
 
     fun prepareTracking(request: BlockchainOuterClass.TxStatusRequest): TxDetails {
         val chain = Chain.byId(request.chainValue)
+        if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
+            throw SilentException.UnsupportedBlockchain(request.chainValue)
+        }
         if (!clients.containsKey(chain)) {
             throw SilentException.UnsupportedBlockchain(chain)
         }
@@ -208,7 +213,7 @@ class TrackTx(
     }
 
     private fun loadWeight(tx: TxDetails): Mono<TxDetails> {
-        val upstream = upstreams.getUpstream(tx.chain)
+        val upstream = upstreams.getUpstream(tx.chain) as AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>?
                 ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
         return upstream.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(tx.status.blockHash)) }
@@ -219,7 +224,7 @@ class TrackTx(
                 }
     }
 
-    fun updateFromBlock(upstream: Upstream, tx: TxDetails, it: TransactionJson): Mono<TxDetails> {
+    fun updateFromBlock(upstream: Upstream<EthereumApi, BlockJson<TransactionRefJson>>, tx: TxDetails, it: TransactionJson): Mono<TxDetails> {
         return if (it.blockNumber != null && it.blockHash != null && it.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
                     blockHash = it.blockHash,
@@ -250,7 +255,8 @@ class TrackTx(
 
     private fun checkForUpdate(tx: TxDetails): Mono<TxDetails> {
         val initialStatus = tx.status
-        val upstream = upstreams.getUpstream(tx.chain) ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
+        val upstream = upstreams.getUpstream(tx.chain) as AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>?
+                ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
         val execution = upstream.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getTransaction(tx.txid)) }
         return execution

@@ -17,15 +17,20 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.Wei
 import io.infinitape.etherjar.rpc.Commands
+import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.BlockTag
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
@@ -43,12 +48,12 @@ import java.util.concurrent.atomic.AtomicLong
 import javax.annotation.PostConstruct
 
 @Service
-class TrackAddress(
+class TrackEthereumAddress(
         @Autowired private val upstreams: Upstreams,
         @Autowired private val upstreamScheduler: Scheduler
 ) {
 
-    private val log = LoggerFactory.getLogger(TrackAddress::class.java)
+    private val log = LoggerFactory.getLogger(TrackEthereumAddress::class.java)
     private val clients = HashMap<Chain, ConcurrentLinkedQueue<TrackedAddress>>()
     private val seq = AtomicLong(0)
 
@@ -94,6 +99,9 @@ class TrackAddress(
 
     private fun initializeSimple(request: BlockchainOuterClass.BalanceRequest): Flux<SimpleAddress> {
         val chain = Chain.byId(request.asset.chainValue)
+        if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
+            return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
+        }
         if (!upstreams.isAvailable(chain)) {
             return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         }
@@ -122,6 +130,10 @@ class TrackAddress(
 
     fun subscribe(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
         return requestMono.flatMapMany { request ->
+            val chain = Chain.byId(request.asset.chainValue)
+            if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
+                return@flatMapMany Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(request.asset.chainValue))
+            }
             val bus = TopicProcessor.create<BlockchainOuterClass.AddressBalance>()
             initializeSubscription(request, bus)
                     .flatMap { tracked ->
@@ -175,7 +187,8 @@ class TrackAddress(
     }
 
     fun getBalance(addr: SimpleAddress): Mono<Wei> {
-        val up = upstreams.getUpstream(addr.chain) ?: return Mono.error(SilentException.UnsupportedBlockchain(addr.chain))
+        val up = upstreams.getUpstream(addr.chain) as AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>?
+                ?: return Mono.error(SilentException.UnsupportedBlockchain(addr.chain))
         return up.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getBalance(addr.address, BlockTag.LATEST)) }
                 .timeout(Defaults.timeout)

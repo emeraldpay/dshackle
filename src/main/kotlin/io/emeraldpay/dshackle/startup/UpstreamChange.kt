@@ -20,15 +20,38 @@ import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.grpc.Chain
 
+/**
+ * An update event to the list of currently available upstreams.
+ */
 class UpstreamChange(
+        /**
+         * Target blockchain
+         */
         val chain: Chain,
-        val upstream: Upstream,
+        /**
+         * Corresponding upstream
+         */
+        val upstream: Upstream<*, *>,
+        /**
+         * Type of the change
+         */
         val type: ChangeType
 ): CachesEnabled {
+
     enum class ChangeType {
+        /**
+         * Upstream just added
+         */
         ADDED,
+
+        /**
+         * Upstream become available after being temporally off
+         */
         REVALIDATED,
-        STALE,
+
+        /**
+         * Upstream is removed (it still doesn't mean it wouldn't return again after some reconfiguration)
+         */
         REMOVED,
     }
 

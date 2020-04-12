@@ -15,23 +15,21 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.publisher.toFlux
 import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
-import java.time.Duration
 
-class HeadLagObserver (
-        private val master: EthereumHead,
-        private val followers: Collection<Upstream>
-): Lifecycle {
+/**
+ * Observer group of upstreams and defined a distance in blocks (lag) between a leader (best height/difficulty) and
+ * other upstreams.
+ */
+abstract class HeadLagObserver<A : UpstreamApi, B>(
+        private val master: Head<B>,
+        private val followers: Collection<Upstream<A, B>>
+) : Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
 
@@ -50,7 +48,7 @@ class HeadLagObserver (
         current = null
     }
 
-    private fun subscription(): Flux<Unit> {
+    fun subscription(): Flux<Unit> {
         return master.getFlux()
                 .flatMap(this::probeFollowers)
                 .map { item ->
@@ -58,38 +56,29 @@ class HeadLagObserver (
                 }
     }
 
-    fun probeFollowers(top: BlockJson<TransactionRefJson>): Flux<Tuple2<Long, Upstream>> {
-        return followers.toFlux()
+    fun probeFollowers(top: B): Flux<Tuple2<Long, Upstream<A, B>>> {
+        return Flux.fromIterable(followers)
                 .parallel(followers.size)
                 .flatMap { mapLagging(top, it, getCurrentBlocks(it)) }
                 .sequential()
                 .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
     }
 
-    fun getCurrentBlocks(up: Upstream): Flux<BlockJson<TransactionRefJson>> {
-        val head = up.getHead()
-        return head.getFlux().take(Duration.ofSeconds(1))
-    }
+    abstract fun getCurrentBlocks(up: Upstream<A, B>): Flux<B>
 
-    fun mapLagging(top: BlockJson<TransactionRefJson>, up: Upstream, blocks: Flux<BlockJson<TransactionRefJson>>): Flux<Tuple2<Long, Upstream>> {
+    fun mapLagging(top: B, up: Upstream<A, B>, blocks: Flux<B>): Flux<Tuple2<Long, Upstream<A, B>>> {
         return blocks
                 .map { extractDistance(top, it) }
-                .takeUntil{ lag -> lag <= 0L }
+                .takeUntil { lag -> lag <= 0L }
                 .map { Tuples.of(it, up) }
                 .doOnError { t ->
                     log.warn("Failed to find distance for $up", t)
                 }
     }
 
-    fun extractDistance(top: BlockJson<TransactionRefJson>, curr: BlockJson<TransactionRefJson>): Long {
-        return  when {
-            curr.number  > top.number -> if (curr.totalDifficulty >= top.totalDifficulty) 0 else forkDistance(top, curr)
-            curr.number == top.number -> if (curr.totalDifficulty == top.totalDifficulty) 0 else forkDistance(top, curr)
-            else -> top.number - curr.number
-        }
-    }
+    abstract fun extractDistance(top: B, curr: B): Long
 
-    fun forkDistance(top: BlockJson<TransactionRefJson>, curr: BlockJson<TransactionRefJson>): Long {
+    fun forkDistance(top: B, curr: B): Long {
         //TODO look for common ancestor? though it may be a corruption
         return 6
     }

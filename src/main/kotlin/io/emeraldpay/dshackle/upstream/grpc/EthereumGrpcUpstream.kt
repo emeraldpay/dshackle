@@ -30,6 +30,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DefaultEthereumHead
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
@@ -51,16 +52,16 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Function
 import kotlin.collections.ArrayList
 
-open class GrpcUpstream(
+open class EthereumGrpcUpstream(
         private val parentId: String,
         private val chain: Chain,
         private val blockchainStub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
         private val rpcClient: ReactorEmeraldClient
-): DefaultUpstream(), CachesEnabled, Lifecycle {
+) : DefaultUpstream<EthereumApi, BlockJson<TransactionRefJson>>(), CachesEnabled, Lifecycle {
 
     private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
-    private val log = LoggerFactory.getLogger(GrpcUpstream::class.java)
+    private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
     private var caches: Caches? = null
 
     private val options = UpstreamsConfig.Options.getDefaults()
@@ -212,6 +213,20 @@ open class GrpcUpstream(
 
     override fun setCaches(caches: Caches) {
         this.caches = caches
+    }
+
+    @SuppressWarnings("unchecked")
+    override fun <T : Upstream<TA, BA>, TA : UpstreamApi, BA> cast(selfType: Class<T>, upstreamType: Class<TA>, blockType: Class<BA>): T {
+        if (!selfType.isAssignableFrom(this.javaClass)) {
+            throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
+        }
+        if (!upstreamType.isAssignableFrom(EthereumApi::class.java)) {
+            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $upstreamType")
+        }
+        if (!blockType.isAssignableFrom(BlockJson::class.java)) {
+            throw ClassCastException("Cannot cast ${BlockJson::class.java} to $blockType")
+        }
+        return this as T
     }
 
 }

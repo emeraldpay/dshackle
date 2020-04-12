@@ -17,23 +17,24 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamApi
 import io.infinitape.etherjar.rpc.*
+import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.io.InputStream
 
 abstract class EthereumApi(
         objectMapper: ObjectMapper
-) {
+) : UpstreamApi {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumApi::class.java)
     }
 
     private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
-    var upstream: Upstream? = null
-
-    abstract fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray>
+    var upstream: Upstream<EthereumApi, BlockJson<TransactionRefJson>>? = null
 
     fun <JS, RS> execute(rpcCall: RpcCall<JS, RS>): Mono<ByteArray> {
         return execute(0, rpcCall.method, rpcCall.params as List<Any>)

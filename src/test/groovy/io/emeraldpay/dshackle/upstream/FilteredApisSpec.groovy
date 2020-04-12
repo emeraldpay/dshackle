@@ -19,7 +19,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.calls.QuorumBasedMethods
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
@@ -35,7 +35,7 @@ class FilteredApisSpec extends Specification {
 
     def rpcClient = Stub(ReactorRpcClient)
     def objectMapper = TestingCommons.objectMapper()
-    def ethereumTargets = new QuorumBasedMethods(objectMapper, Chain.ETHEREUM)
+    def ethereumTargets = new DefaultEthereumMethods(objectMapper, Chain.ETHEREUM)
 
     def "Verifies labels"() {
         setup:

@@ -42,7 +42,7 @@ open class BroadcastQuorum(
         return result
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream) {
+    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream<*, *>) {
         calls++
         if (txid == null && responseValue != null) {
             txid = responseValue
@@ -50,7 +50,7 @@ open class BroadcastQuorum(
         }
     }
 
-    override fun recordError(response: ByteArray?,  errorMessage: String?, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*, *>) {
         // can be "message: known transaction: TXID", "Transaction with the same hash was already imported" or "message: Nonce too low"
         calls++
         if (result == null) {

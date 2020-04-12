@@ -22,16 +22,18 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-interface Upstream {
+interface Upstream<out T : UpstreamApi, out B> {
     fun isAvailable(): Boolean
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
-    fun getHead(): EthereumHead
-    fun getApi(matcher: Selector.Matcher): Mono<DirectEthereumApi>
+    fun getHead(): Head<B>
+    fun getApi(matcher: Selector.Matcher): Mono<out T>
     fun getOptions(): UpstreamsConfig.Options
     fun setLag(lag: Long)
     fun getLag(): Long
     fun getLabels(): Collection<UpstreamsConfig.Labels>
     fun getMethods(): CallMethods
     fun getId(): String
+
+    fun <T : Upstream<TA, BA>, TA : UpstreamApi, BA> cast(selfType: Class<T>, upstreamType: Class<TA>, blockType: Class<BA>): T
 }

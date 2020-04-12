@@ -23,6 +23,8 @@ import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -37,9 +39,9 @@ open class EthereumUpstream(
         private val options: UpstreamsConfig.Options,
         val node: QuorumForLabels.QuorumItem,
         private val targets: CallMethods
-): DefaultUpstream(), CachesEnabled, Lifecycle {
+) : DefaultUpstream<EthereumApi, BlockJson<TransactionRefJson>>(), Upstream<EthereumApi, BlockJson<TransactionRefJson>>, CachesEnabled, Lifecycle {
 
-    constructor(id: String, chain: Chain, api: DirectEthereumApi): this(id, chain, api, null,
+    constructor(id: String, chain: Chain, api: DirectEthereumApi) : this(id, chain, api, null,
             UpstreamsConfig.Options.getDefaults(), QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
             DirectCallMethods())
 
@@ -131,6 +133,20 @@ open class EthereumUpstream(
 
     override fun getMethods(): CallMethods {
         return targets
+    }
+
+    @Suppress("unchecked")
+    override fun <T : Upstream<TA, BA>, TA : UpstreamApi, BA> cast(selfType: Class<T>, upstreamType: Class<TA>, blockType: Class<BA>): T {
+        if (!selfType.isAssignableFrom(this.javaClass)) {
+            throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
+        }
+        if (!upstreamType.isAssignableFrom(EthereumApi::class.java)) {
+            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $upstreamType")
+        }
+        if (!blockType.isAssignableFrom(BlockJson::class.java)) {
+            throw ClassCastException("Cannot cast ${BlockJson::class.java} to $blockType")
+        }
+        return this as T
     }
 
 }

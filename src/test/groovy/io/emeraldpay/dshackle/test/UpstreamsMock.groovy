@@ -18,16 +18,17 @@ package io.emeraldpay.dshackle.test
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.ChainUpstreams
-import io.emeraldpay.dshackle.upstream.calls.QuorumBasedMethods
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 
 class UpstreamsMock implements Upstreams {
 
-    private Map<Chain, QuorumBasedMethods> target = [:]
+    private Map<Chain, DefaultEthereumMethods> target = [:]
     private Map<Chain, AggregatedUpstream> upstreams = [:]
 
     UpstreamsMock(Chain chain, Upstream up) {
@@ -40,7 +41,7 @@ class UpstreamsMock implements Upstreams {
 
     AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            upstreams[chain] = new ChainUpstreams(chain, [up], Caches.default(), TestingCommons.objectMapper())
+            upstreams[chain] = new EthereumChainUpstreams(chain, [up], Caches.default(), TestingCommons.objectMapper())
         } else {
             upstreams[chain].addUpstream(up)
         }
@@ -63,9 +64,9 @@ class UpstreamsMock implements Upstreams {
     }
 
     @Override
-    QuorumBasedMethods getDefaultMethods(@NotNull Chain chain) {
+    DefaultEthereumMethods getDefaultMethods(@NotNull Chain chain) {
         if (target[chain] == null) {
-            QuorumBasedMethods targets = new QuorumBasedMethods(TestingCommons.objectMapper(), chain)
+            DefaultEthereumMethods targets = new DefaultEthereumMethods(TestingCommons.objectMapper(), chain)
             target[chain] = targets
         }
         return target[chain]

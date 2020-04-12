@@ -34,7 +34,7 @@ import spock.lang.Specification
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 
-class GrpcUpstreamSpec extends Specification {
+class EthereumGrpcUpstreamSpec extends Specification {
 
     MockServer mockServer = new MockServer()
     ObjectMapper objectMapper = TestingCommons.objectMapper()
@@ -70,7 +70,7 @@ class GrpcUpstreamSpec extends Specification {
             }
         })
         def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
-        def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
+        def upstream = new EthereumGrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -126,7 +126,7 @@ class GrpcUpstreamSpec extends Specification {
             }
         })
         def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
-        def upstream = new GrpcUpstream("test", Chain.ETHEREUM, client, objectMapper, transport)
+        def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -186,7 +186,7 @@ class GrpcUpstreamSpec extends Specification {
             }
         })
         def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
-        def upstream = new GrpcUpstream("test", chain, client, objectMapper, transport)
+        def upstream = new EthereumGrpcUpstream("test", chain, client, objectMapper, transport)
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])

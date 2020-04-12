@@ -18,9 +18,9 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
@@ -44,11 +44,25 @@ class StreamHead(
                     ?: return@flatMapMany Flux.error<BlockchainOuterClass.ChainHead>(Exception("Unavailable chain: $chain"))
             up.getHead()
                     .getFlux()
-                    .map { asProto(chain, it) }
+                    .map { asProto(chain, it!!) }
+                    .onErrorContinue { t, _ ->
+                        log.warn("Head error: ${t.message}")
+                    }
         }
     }
 
-    fun asProto(chain: Chain, block: BlockJson<TransactionRefJson>): BlockchainOuterClass.ChainHead {
+    fun asProto(chain: Chain, block: Any): BlockchainOuterClass.ChainHead {
+        if (BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM) {
+            if (BlockJson::class.java.isAssignableFrom(block.javaClass)) {
+                return asEthereumProto(chain, block as BlockJson<TransactionRefJson>)
+            } else {
+                throw IllegalArgumentException("Invalid block type: ${block.javaClass}")
+            }
+        }
+        throw IllegalArgumentException("Unsupported blockchain ${chain}")
+    }
+
+    fun asEthereumProto(chain: Chain, block: BlockJson<TransactionRefJson>): BlockchainOuterClass.ChainHead {
         return BlockchainOuterClass.ChainHead.newBuilder()
                 .setChainValue(chain.id)
                 .setHeight(block.number)

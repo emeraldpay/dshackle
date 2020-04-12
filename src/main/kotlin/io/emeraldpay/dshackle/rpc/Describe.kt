@@ -20,7 +20,7 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
+import io.emeraldpay.dshackle.upstream.grpc.EthereumGrpcUpstream
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -47,7 +47,7 @@ class Describe(
                             val nodes = QuorumForLabels()
                             if (up is EthereumUpstream) {
                                 nodes.add(up.node)
-                            } else if (up is GrpcUpstream) {
+                            } else if (up is EthereumGrpcUpstream) {
                                 nodes.add(up.getNodes())
                             }
                             nodes.getAll().forEach { node ->

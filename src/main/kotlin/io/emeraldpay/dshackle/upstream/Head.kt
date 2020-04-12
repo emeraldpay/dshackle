@@ -18,6 +18,6 @@ package io.emeraldpay.dshackle.upstream
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-interface Head<T> {
-    fun getFlux(): Flux<T>
+interface Head<out T> {
+    fun getFlux(): Flux<out T>
 }

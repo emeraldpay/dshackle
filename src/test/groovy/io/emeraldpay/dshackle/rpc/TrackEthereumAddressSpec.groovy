@@ -33,7 +33,7 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class TrackAddressSpec extends Specification {
+class TrackEthereumAddressSpec extends Specification {
 
     def chain = Common.ChainRef.CHAIN_ETHEREUM
     def address1 = "0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f"
@@ -59,7 +59,7 @@ class TrackAddressSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackAddress trackAddress = new TrackAddress(upstreams, Schedulers.immediate())
+        TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams, Schedulers.immediate())
         trackAddress.init()
 
         apiMock.answer("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
@@ -101,7 +101,7 @@ class TrackAddressSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackAddress trackAddress = new TrackAddress(upstreams, Schedulers.immediate())
+        TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams, Schedulers.immediate())
         trackAddress.init()
 
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")

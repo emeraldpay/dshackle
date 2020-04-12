@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Defaults
+import java.lang.ClassCastException
 import java.net.URI
 import java.util.*
 import kotlin.collections.ArrayList
@@ -72,6 +73,14 @@ class UpstreamsConfig {
         var connection: T? = null
         val labels = Labels()
         var methods: Methods? = null
+
+        @Suppress("unchecked")
+        fun <Z : UpstreamConnection> cast(type: Class<Z>): Upstream<Z> {
+            if (connection == null || type.isAssignableFrom(connection!!.javaClass)) {
+                return this as Upstream<Z>
+            }
+            throw ClassCastException("Cannot cast ${connection?.javaClass} to $type")
+        }
     }
 
     open class UpstreamConnection

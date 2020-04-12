@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import org.reactivestreams.Publisher
 
-interface ApiSource: Publisher<DirectEthereumApi> {
+interface ApiSource<U : UpstreamApi> : Publisher<U> {
 
     fun resolve()
     fun request(tries: Int)

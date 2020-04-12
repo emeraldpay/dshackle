@@ -18,10 +18,10 @@ package io.emeraldpay.dshackle.upstream.grpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.grpc.Chain
@@ -54,7 +54,7 @@ class GrpcUpstreams(
     var timeout = Defaults.timeout
 
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
-    private val known = HashMap<Chain, GrpcUpstream>()
+    private val known = HashMap<Chain, EthereumGrpcUpstream>()
     private val lock = ReentrantLock()
     private var grpcTransport: ReactorEmeraldClient? = null
 
@@ -117,7 +117,7 @@ class GrpcUpstreams(
         }.map { chainDetails ->
             val chain = Chain.byId(chainDetails.chain.number)
             val up = getOrCreate(chain)
-            (up.upstream as GrpcUpstream).init(chainDetails)
+            (up.upstream as EthereumGrpcUpstream).init(chainDetails)
             up
         }
 
@@ -155,10 +155,13 @@ class GrpcUpstreams(
     }
 
     fun getOrCreate(chain: Chain): UpstreamChange {
+        if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
+            throw IllegalArgumentException("Unsupported blockchain: $chain")
+        }
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val created = GrpcUpstream(id, chain, client!!, objectMapper, grpcTransport!!.copyForChain(chain))
+                val created = EthereumGrpcUpstream(id, chain, client!!, objectMapper, grpcTransport!!.copyForChain(chain))
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
@@ -169,7 +172,7 @@ class GrpcUpstreams(
         }
     }
 
-    fun get(chain: Chain): GrpcUpstream {
+    fun get(chain: Chain): EthereumGrpcUpstream {
         return known[chain]!!
     }
 }

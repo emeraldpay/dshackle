@@ -46,7 +46,7 @@ open class NonceQuorum(
         }
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream) {
+    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream<*, *>) {
         val value = responseValue?.let { str ->
             HexQuantity.from(str).value.toLong()
         }
@@ -65,11 +65,11 @@ open class NonceQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray?,  errorMessage: String?, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*, *>) {
         errors++
     }
 
-    override fun record(error: RpcException, upstream: Upstream) {
+    override fun record(error: RpcException, upstream: Upstream<*, *>) {
         errors++
     }
 

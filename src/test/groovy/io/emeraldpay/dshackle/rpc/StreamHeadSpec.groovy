@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.UpstreamsMock
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -38,7 +39,7 @@ class StreamHeadSpec extends Specification {
 
     def "Errors on unavailable chain"() {
         setup:
-        def upstreams = new UpstreamsMock(Chain.ETHEREUM, Stub(Upstream))
+        def upstreams = new UpstreamsMock(Chain.ETHEREUM, Stub(EthereumUpstream))
         def streamHead = new StreamHead(upstreams)
         when:
         def flux = streamHead.add(

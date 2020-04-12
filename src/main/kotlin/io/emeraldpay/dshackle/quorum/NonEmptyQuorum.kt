@@ -38,7 +38,7 @@ open class NonEmptyQuorum(
         return result != null || tries >= maxTries
     }
 
-    override fun recordValue(response: ByteArray, responseValue: Any?, upstream: Upstream) {
+    override fun recordValue(response: ByteArray, responseValue: Any?, upstream: Upstream<*, *>) {
         tries++
         if (responseValue != null) {
             result = response
@@ -49,10 +49,10 @@ open class NonEmptyQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*, *>) {
     }
 
-    override fun record(error: RpcException, upstream: Upstream) {
+    override fun record(error: RpcException, upstream: Upstream<*, *>) {
     }
 
 }

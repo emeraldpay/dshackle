@@ -16,9 +16,9 @@
 package io.emeraldpay.dshackle.startup
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.config.UpstreamsConfigReader
 import io.emeraldpay.dshackle.upstream.CurrentUpstreams
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
@@ -27,16 +27,13 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.http.ReactorHttpRpcClient
-import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.core.env.Environment
 import org.springframework.stereotype.Repository
 import java.net.URI
 import java.util.*
 import javax.annotation.PostConstruct
 import kotlin.collections.HashMap
-import kotlin.system.exitProcess
 
 @Repository
 open class ConfiguredUpstreams(
@@ -59,21 +56,26 @@ open class ConfiguredUpstreams(
 
     @PostConstruct
     fun start() {
+        log.debug("Starting upstreams")
         val defaultOptions = buildDefaultOptions(config)
         config.upstreams.forEach { up ->
-
+            log.debug("Start upstream ${up.id}")
             if (up.connection is UpstreamsConfig.GrpcConnection) {
                 val options = up.options ?: UpstreamsConfig.Options()
-                buildGrpcUpstream(up as UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>, options)
+                buildGrpcUpstream(up.cast(UpstreamsConfig.GrpcConnection::class.java), options)
             } else {
                 val chain = chainNames[up.chain]
                 if (chain == null) {
-                    log.error("Chain not supported: ${up.chain}")
+                    log.error("Chain is unknown: ${up.chain}")
+                    return@forEach
+                }
+                if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
+                    log.error("Chain is unsupported: ${up.chain}")
                     return@forEach
                 }
                 val options = (up.options ?: UpstreamsConfig.Options())
                         .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
-                buildEthereumUpstream(up as UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>, chain, options)
+                buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
             }
         }
     }

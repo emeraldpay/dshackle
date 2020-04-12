@@ -31,19 +31,22 @@ import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
 import kotlin.concurrent.withLock
 
-abstract class AggregatedUpstream(
+/**
+ * Aggregation of multiple upstreams responding to a single blockchain
+ */
+abstract class AggregatedUpstream<U : UpstreamApi, B>(
         private val objectMapper: ObjectMapper,
         val caches: Caches
-): Upstream, Lifecycle {
+) : Upstream<U, B>, Lifecycle {
 
     private var cacheSubscription: Disposable? = null
     var cache: CachingEthereumApi = CachingEthereumApi.empty()
     private val reconfigLock = ReentrantLock()
     private var callMethods: CallMethods? = null
 
-    abstract fun getAll(): List<Upstream>
-    abstract fun addUpstream(upstream: Upstream)
-    abstract fun getApis(matcher: Selector.Matcher): ApiSource
+    abstract fun getAll(): List<Upstream<U, B>>
+    abstract fun addUpstream(upstream: Upstream<U, B>)
+    abstract fun getApis(matcher: Selector.Matcher): ApiSource<U>
 
     fun onUpstreamsUpdated() {
         reconfigLock.withLock {
@@ -78,24 +81,6 @@ abstract class AggregatedUpstream(
         return callMethods ?: throw IllegalStateException("Methods are not initialized yet")
     }
 
-    class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())
-
-    class FilterBestAvailability(): Predicate<UpstreamStatus> {
-        private val lastRef = AtomicReference<UpstreamStatus>()
-
-        override fun test(t: UpstreamStatus): Boolean {
-            val last = lastRef.get()
-            val changed = last == null
-                    || t.status > last.status
-                    || (last.upstream == t.upstream && t.status != last.status)
-                    || last.ts.isBefore(Instant.now() - Duration.ofSeconds(60))
-            if (changed) {
-                lastRef.set(t)
-            }
-            return changed
-        }
-    }
-
     override fun start() {
     }
 
@@ -111,6 +96,26 @@ abstract class AggregatedUpstream(
                 caches.cache(Caches.Tag.LATEST, it)
             }
             cache = CachingEthereumApi(objectMapper, caches, head)
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------------------
+
+    class UpstreamStatus<H>(val upstream: Upstream<UpstreamApi, H>, val status: UpstreamAvailability, val ts: Instant = Instant.now())
+
+    class FilterBestAvailability() : Predicate<UpstreamStatus<*>> {
+        private val lastRef = AtomicReference<UpstreamStatus<*>>()
+
+        override fun test(t: UpstreamStatus<*>): Boolean {
+            val last = lastRef.get()
+            val changed = last == null
+                    || t.status > last.status
+                    || (last.upstream == t.upstream && t.status != last.status)
+                    || last.ts.isBefore(Instant.now() - Duration.ofSeconds(60))
+            if (changed) {
+                lastRef.set(t)
+            }
+            return changed
         }
     }
 

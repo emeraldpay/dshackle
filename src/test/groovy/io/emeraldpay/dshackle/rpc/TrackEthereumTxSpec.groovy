@@ -36,7 +36,7 @@ import spock.lang.Specification
 import java.time.Duration
 import java.time.Instant
 
-class TrackTxSpec extends Specification {
+class TrackEthereumTxSpec extends Specification {
 
     def chain = Common.ChainRef.CHAIN_ETHEREUM
     def txId = "0xba61ce4672751fd6086a9ac2b55547a5555af17535b6c0334ede2ecb6d64070a"
@@ -45,8 +45,8 @@ class TrackTxSpec extends Specification {
     def "Gives details for an old transaction"() {
         setup:
         def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
-            .setChain(chain)
-            .setConfirmationLimit(6)
+                .setChain(chain)
+                .setConfirmationLimit(6)
             .setTxId(txId)
             .build()
 
@@ -91,7 +91,7 @@ class TrackTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
         trackTx.init()
 
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
@@ -123,7 +123,7 @@ class TrackTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
         trackTx.init()
 
         apiMock.answer("eth_getTransactionByHash", [txId], null)
@@ -180,7 +180,7 @@ class TrackTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
         trackTx.init()
 
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
@@ -279,7 +279,7 @@ class TrackTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
         trackTx.init()
 
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
@@ -320,7 +320,7 @@ class TrackTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
         trackTx.init()
 
         def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
@@ -341,7 +341,7 @@ class TrackTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackTx trackTx = new TrackTx(upstreams, Schedulers.immediate())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
         trackTx.init()
 
         def req = BlockchainOuterClass.TxStatusRequest.newBuilder()

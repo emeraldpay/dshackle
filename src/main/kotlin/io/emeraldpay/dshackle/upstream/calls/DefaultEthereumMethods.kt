@@ -26,7 +26,7 @@ import java.util.*
  * Default configuration for Ethereum based RPC. Defines optimal Quorum strategies for different methods, and provides
  * hardcoded results for base methods, such as `net_version`, `web3_clientVersion` and similar
  */
-class QuorumBasedMethods(
+class DefaultEthereumMethods(
         private val objectMapper: ObjectMapper,
         private val chain: Chain
 ) : CallMethods {
@@ -102,6 +102,7 @@ class QuorumBasedMethods(
     override fun isAllowed(method: String): Boolean {
         return allowedMethods.contains(method)
     }
+
     override fun isHardcoded(method: String): Boolean {
         return hardcodedMethods.contains(method)
     }
