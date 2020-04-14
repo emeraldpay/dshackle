@@ -41,7 +41,7 @@ class UpstreamsMock implements Upstreams {
 
     AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            upstreams[chain] = new EthereumChainUpstreams(chain, [up], Caches.default(), TestingCommons.objectMapper())
+            upstreams[chain] = new EthereumChainUpstreams(chain, [up], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
         } else {
             upstreams[chain].addUpstream(up)
         }

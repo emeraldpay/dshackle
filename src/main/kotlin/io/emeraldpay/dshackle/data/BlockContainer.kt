@@ -1,0 +1,76 @@
+/**
+ * Copyright (c) 2020 ETCDEV GmbH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.emeraldpay.dshackle.data
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.infinitape.etherjar.rpc.json.BlockJson
+import io.infinitape.etherjar.rpc.json.TransactionJson
+import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import java.math.BigInteger
+import java.time.Instant
+
+class BlockContainer(
+        val height: Long,
+        val hash: BlockId,
+        val difficulty: BigInteger,
+        val timestamp: Instant,
+        val full: Boolean,
+        json: ByteArray?,
+        val transactions: List<TxId> = emptyList()
+) : SourceContainer(json) {
+
+    companion object {
+        @JvmStatic
+        fun from(block: BlockJson<*>, objectMapper: ObjectMapper): BlockContainer {
+            val hasTransactions = block.transactions?.filterIsInstance<TransactionJson>()?.count() ?: 0 > 0
+            return BlockContainer(
+                    block.number,
+                    BlockId.from(block),
+                    block.totalDifficulty,
+                    block.timestamp,
+                    hasTransactions,
+                    objectMapper.writeValueAsBytes(block),
+                    block.transactions?.map { TxId.from(it.hash) } ?: emptyList()
+            )
+        }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        if (!super.equals(other)) return false
+
+        other as BlockContainer
+
+        if (height != other.height) return false
+        if (hash != other.hash) return false
+        if (difficulty != other.difficulty) return false
+        if (timestamp != other.timestamp) return false
+        if (full != other.full) return false
+        if (transactions != other.transactions) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + height.hashCode()
+        result = 31 * result + hash.hashCode()
+        return result
+    }
+
+
+}

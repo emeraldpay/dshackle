@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -38,12 +39,13 @@ open class EthereumUpstream(
         private val ethereumWs: EthereumWs? = null,
         private val options: UpstreamsConfig.Options,
         val node: QuorumForLabels.QuorumItem,
-        private val targets: CallMethods
-) : DefaultUpstream<EthereumApi, BlockJson<TransactionRefJson>>(), Upstream<EthereumApi, BlockJson<TransactionRefJson>>, CachesEnabled, Lifecycle {
+        private val targets: CallMethods,
+        private val objectMapper: ObjectMapper
+) : DefaultUpstream<EthereumApi>(), Upstream<EthereumApi>, CachesEnabled, Lifecycle {
 
-    constructor(id: String, chain: Chain, api: DirectEthereumApi) : this(id, chain, api, null,
+    constructor(id: String, chain: Chain, api: DirectEthereumApi, objectMapper: ObjectMapper) : this(id, chain, api, null,
             UpstreamsConfig.Options.getDefaults(), QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
-            DirectCallMethods())
+            DirectCallMethods(), objectMapper)
 
 
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
@@ -97,7 +99,7 @@ open class EthereumUpstream(
                 this.start()
             }
             // receive bew blocks through Websockets, but periodically verify with RPC
-            val rpc = EthereumRpcHead(api, Duration.ofSeconds(30)).apply {
+            val rpc = EthereumRpcHead(api, objectMapper, Duration.ofSeconds(30)).apply {
                 this.start()
             }
             EthereumHeadMerge(listOf(rpc, ws)).apply {
@@ -105,7 +107,7 @@ open class EthereumUpstream(
             }
         } else {
             log.warn("Setting up upstream $id with RPC-only access, less effective than WS+RPC")
-            EthereumRpcHead(api).apply {
+            EthereumRpcHead(api, objectMapper).apply {
                 this.start()
             }
         }
@@ -136,15 +138,12 @@ open class EthereumUpstream(
     }
 
     @Suppress("unchecked")
-    override fun <T : Upstream<TA, BA>, TA : UpstreamApi, BA> cast(selfType: Class<T>, upstreamType: Class<TA>, blockType: Class<BA>): T {
+    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
         if (!upstreamType.isAssignableFrom(EthereumApi::class.java)) {
             throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $upstreamType")
-        }
-        if (!blockType.isAssignableFrom(BlockJson::class.java)) {
-            throw ClassCastException("Cannot cast ${BlockJson::class.java} to $blockType")
         }
         return this as T
     }

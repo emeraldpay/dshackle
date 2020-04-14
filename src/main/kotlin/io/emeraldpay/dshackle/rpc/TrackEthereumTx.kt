@@ -213,7 +213,7 @@ class TrackEthereumTx(
     }
 
     private fun loadWeight(tx: TxDetails): Mono<TxDetails> {
-        val upstream = upstreams.getUpstream(tx.chain) as AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>?
+        val upstream = upstreams.getUpstream(tx.chain) as AggregatedUpstream<EthereumApi>?
                 ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
         return upstream.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(tx.status.blockHash)) }
@@ -224,7 +224,7 @@ class TrackEthereumTx(
                 }
     }
 
-    fun updateFromBlock(upstream: Upstream<EthereumApi, BlockJson<TransactionRefJson>>, tx: TxDetails, it: TransactionJson): Mono<TxDetails> {
+    fun updateFromBlock(upstream: Upstream<EthereumApi>, tx: TxDetails, it: TransactionJson): Mono<TxDetails> {
         return if (it.blockNumber != null && it.blockHash != null && it.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
                     blockHash = it.blockHash,
@@ -235,11 +235,11 @@ class TrackEthereumTx(
             )
             upstream.getHead().getFlux().next().map { head ->
                 val height = updated.status.height
-                if (height == null || head.number < height) {
+                if (height == null || head.height < height) {
                     updated
                 } else {
                     updated.withStatus(
-                            confirmations = head.number - height + 1
+                            confirmations = head.height - height + 1
                     )
                 }
             }.doOnError { t ->
@@ -255,7 +255,7 @@ class TrackEthereumTx(
 
     private fun checkForUpdate(tx: TxDetails): Mono<TxDetails> {
         val initialStatus = tx.status
-        val upstream = upstreams.getUpstream(tx.chain) as AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>?
+        val upstream = upstreams.getUpstream(tx.chain) as AggregatedUpstream<EthereumApi>?
                 ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
         val execution = upstream.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getTransaction(tx.txid)) }

@@ -1,5 +1,8 @@
 package io.emeraldpay.dshackle.cache
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
@@ -24,6 +27,7 @@ class BlocksRedisCacheSpec extends Specification {
     String hash3 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
 
+    ObjectMapper objectMapper = TestingCommons.objectMapper()
 
     def setup() {
         RedisClient client = IntegrationTestingCommons.redis()
@@ -40,15 +44,17 @@ class BlocksRedisCacheSpec extends Specification {
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block.totalDifficulty = BigInteger.ONE
         block.hash = BlockHash.from(hash1)
         block.transactions = []
         block.uncles = []
 
         when:
-        cache.add(block).subscribe()
-        def act = cache.read(BlockHash.from(hash1)).block()
+        cache.add(BlockContainer.from(block, objectMapper)).subscribe()
+        def act = cache.read(BlockId.from(hash1)).block()
         then:
-        act == block
+        act != null
+        objectMapper.readValue(act.json, BlockJson) == block
     }
 
     def "Evict existing block"() {
@@ -59,19 +65,20 @@ class BlocksRedisCacheSpec extends Specification {
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block.totalDifficulty = BigInteger.ONE
         block.hash = BlockHash.from(hash2)
         block.transactions = []
         block.uncles = []
 
         when:
-        cache.add(block).subscribe()
-        def act = cache.read(BlockHash.from(hash2)).block()
+        cache.add(BlockContainer.from(block, objectMapper)).subscribe()
+        def act = cache.read(BlockId.from(hash2)).block()
         then:
-        act == block
+        objectMapper.readValue(act.json, BlockJson) == block
 
         when:
-        cache.evict(block.hash).subscribe()
-        act = cache.read(BlockHash.from(hash2)).block()
+        cache.evict(BlockId.from(block.hash)).subscribe()
+        act = cache.read(BlockId.from(hash2)).block()
 
         then:
         act == null
@@ -85,22 +92,25 @@ class BlocksRedisCacheSpec extends Specification {
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block.totalDifficulty = BigInteger.ONE
         block.hash = BlockHash.from(hash2)
         block.transactions = []
         block.uncles = []
 
         when:
-        cache.add(block).subscribe()
-        def act = cache.read(BlockHash.from(hash2)).block()
+        cache.add(BlockContainer.from(block, objectMapper)).subscribe()
+        def act = cache.read(BlockId.from(hash2)).block()
         then:
-        act == block
+        act != null
+        objectMapper.readValue(act.json, BlockJson) == block
 
         when:
-        cache.evict(BlockHash.from(hash3)).subscribe()
-        act = cache.read(BlockHash.from(hash2)).block()
+        cache.evict(BlockId.from(hash3)).subscribe()
+        act = cache.read(BlockId.from(hash2)).block()
 
         then:
-        act == block
+        act != null
+        objectMapper.readValue(act.json, BlockJson) == block
     }
 
 }

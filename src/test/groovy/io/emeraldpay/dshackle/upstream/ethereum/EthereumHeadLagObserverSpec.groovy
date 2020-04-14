@@ -15,8 +15,12 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
 import reactor.core.publisher.Flux
 import reactor.core.publisher.TopicProcessor
@@ -25,8 +29,11 @@ import reactor.util.function.Tuples
 import spock.lang.Specification
 
 import java.time.Duration
+import java.time.Instant
 
 class EthereumHeadLagObserverSpec extends Specification {
+
+    ObjectMapper objectMapper = TestingCommons.objectMapper()
 
     def "Updates lag distance"() {
         setup:
@@ -43,11 +50,15 @@ class EthereumHeadLagObserverSpec extends Specification {
         }
 
         def blocks = [100, 101, 102].collect { i ->
-            return new BlockJson().with {
-                it.number = i
-                it.totalDifficulty = 2000 + i
-                return it
-            }
+            return BlockContainer.from(
+                    new BlockJson().with {
+                        it.number = i
+                        it.totalDifficulty = 2000 + i
+                        it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915" + i)
+                        it.timestamp = Instant.now()
+                        return it
+                    },
+                    objectMapper)
         }
 
         def masterBus = TopicProcessor.create()
@@ -83,11 +94,15 @@ class EthereumHeadLagObserverSpec extends Specification {
         Upstream up = Mock()
 
         def blocks = [100, 101, 102].collect { i ->
-            return new BlockJson().with {
-                it.number = i
-                it.totalDifficulty = 2000 + i
-                return it
-            }
+            return BlockContainer.from(
+                    new BlockJson().with {
+                        it.number = i
+                        it.totalDifficulty = 2000 + i
+                        it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915" + i)
+                        it.timestamp = Instant.now()
+                        return it
+                    },
+                    objectMapper)
         }
 
         def upblocks = Flux.fromIterable(blocks)
@@ -109,14 +124,18 @@ class EthereumHeadLagObserverSpec extends Specification {
         def top = new BlockJson().with {
             it.number = topHeight
             it.totalDifficulty = topDiff
+            it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915123")
+            it.timestamp = Instant.now()
             return it
         }
         def curr = new BlockJson().with {
             it.number = currHeight
             it.totalDifficulty = currDiff
+            it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915123")
+            it.timestamp = Instant.now()
             return it
         }
-        delta as Long == observer.extractDistance(top, curr)
+        delta as Long == observer.extractDistance(BlockContainer.from(top, objectMapper), BlockContainer.from(curr, objectMapper))
         where:
         topHeight | topDiff | currHeight | currDiff | delta
         100       | 1000    | 100        | 1000     | 0

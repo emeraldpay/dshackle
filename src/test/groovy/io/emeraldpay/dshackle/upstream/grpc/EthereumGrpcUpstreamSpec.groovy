@@ -20,6 +20,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.MockServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -32,6 +33,7 @@ import io.infinitape.etherjar.rpc.json.BlockJson
 import spock.lang.Specification
 
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.CompletableFuture
 
 class EthereumGrpcUpstreamSpec extends Specification {
@@ -48,6 +50,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
             it.totalDifficulty = new BigInteger("35bbde5595de6456", 16)
+            it.timestamp = Instant.now()
             return it
         }
         api.answer("eth_getBlockByHash", [block1.hash.toHex(), false], block1)
@@ -81,7 +84,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         then:
         callData.chain == Chain.ETHEREUM.id
         upstream.status == UpstreamAvailability.OK
-        h.hash == BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
+        h.hash == BlockId.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
     }
 
     def "Follows difficulty, ignores less difficult"() {
@@ -91,12 +94,14 @@ class EthereumGrpcUpstreamSpec extends Specification {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
             it.totalDifficulty = new BigInteger("35bbde5595de6456", 16)
+            it.timestamp = Instant.now()
             return it
         }
         def block2 = new BlockJson().with {
             it.number = 650247
             it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
             it.totalDifficulty = new BigInteger("35bbde5595de6455", 16)
+            it.timestamp = Instant.now()
             return it
         }
         api.answer("eth_getBlockByHash", [block1.hash.toHex(), false], block1)
@@ -136,8 +141,8 @@ class EthereumGrpcUpstreamSpec extends Specification {
         def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block()
         then:
         upstream.status == UpstreamAvailability.OK
-        h.hash == BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
-        h.number == 650246
+        h.hash == BlockId.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
+        h.height == 650246
     }
 
     def "Follows difficulty"() {
@@ -150,12 +155,14 @@ class EthereumGrpcUpstreamSpec extends Specification {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
             it.totalDifficulty = new BigInteger("35bbde5595de6456", 16)
+            it.timestamp = Instant.now()
             return it
         }
         def block2 = new BlockJson().with {
             it.number = 650247
             it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
             it.totalDifficulty = new BigInteger("35bbde5595de6457", 16)
+            it.timestamp = Instant.now()
             return it
         }
         api.answer("eth_getBlockByHash", [block1.hash.toHex(), false], block1)
@@ -197,7 +204,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block()
         then:
         upstream.status == UpstreamAvailability.OK
-        h.hash == BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
-        h.number == 650247
+        h.hash == BlockId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
+        h.height == 650247
     }
 }

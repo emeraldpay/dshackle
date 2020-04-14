@@ -17,10 +17,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 
 open class BroadcastQuorum(
         jacksonRpcConverter: JacksonRpcConverter,
@@ -31,7 +28,7 @@ open class BroadcastQuorum(
     private var txid: String? = null
     private var calls = 0
 
-    override fun init(head: Head<BlockJson<TransactionRefJson>>) {
+    override fun init(head: Head) {
     }
 
     override fun isResolved(): Boolean {
@@ -42,7 +39,7 @@ open class BroadcastQuorum(
         return result
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream<*, *>) {
+    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream<*>) {
         calls++
         if (txid == null && responseValue != null) {
             txid = responseValue
@@ -50,7 +47,7 @@ open class BroadcastQuorum(
         }
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*, *>) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*>) {
         // can be "message: known transaction: TXID", "Transaction with the same hash was already imported" or "message: Nonce too low"
         calls++
         if (result == null) {

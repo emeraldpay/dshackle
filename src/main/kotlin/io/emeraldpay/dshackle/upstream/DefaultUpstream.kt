@@ -19,10 +19,10 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.TopicProcessor
 import java.util.concurrent.atomic.AtomicReference
 
-abstract class DefaultUpstream<U : UpstreamApi, B>(
+abstract class DefaultUpstream<U : UpstreamApi>(
         defaultLag: Long,
         defaultAvail: UpstreamAvailability
-) : Upstream<U, B> {
+) : Upstream<U> {
 
     constructor() : this(Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE)
 

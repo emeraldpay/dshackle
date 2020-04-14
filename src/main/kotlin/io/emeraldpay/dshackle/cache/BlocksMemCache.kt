@@ -15,31 +15,29 @@
  */
 package io.emeraldpay.dshackle.cache
 
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Mono
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
 open class BlocksMemCache(
         val maxSize: Int = 64
-): Reader<BlockHash, BlockJson<TransactionRefJson>> {
+) : Reader<BlockId, BlockContainer> {
 
-    private val mapping = ConcurrentHashMap<BlockHash, BlockJson<TransactionRefJson>>()
-    private val queue = ConcurrentLinkedQueue<BlockHash>()
+    private val mapping = ConcurrentHashMap<BlockId, BlockContainer>()
+    private val queue = ConcurrentLinkedQueue<BlockId>()
 
-    override fun read(key: BlockHash): Mono<BlockJson<TransactionRefJson>> {
+    override fun read(key: BlockId): Mono<BlockContainer> {
         return Mono.justOrEmpty(mapping[key])
     }
 
-    open fun get(key: BlockHash): BlockJson<TransactionRefJson>? {
+    open fun get(key: BlockId): BlockContainer? {
         return mapping[key]
     }
 
-    open fun add(block: BlockJson<TransactionRefJson>) {
+    open fun add(block: BlockContainer) {
         mapping.put(block.hash, block)
         queue.add(block.hash)
 

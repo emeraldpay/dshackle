@@ -1,5 +1,10 @@
 package io.emeraldpay.dshackle.cache
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
@@ -7,13 +12,17 @@ import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import spock.lang.Specification
 
-class BlocksWithTxCacheSpec extends Specification {
+import java.time.Instant
+
+class EthereumBlocksWithTxCacheSpec extends Specification {
 
     // sorted
     String hash1 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String hash2 = "0x4aabdaff9acd2f30d15e00ab5dfd5f6c56ba4ea1c968a7ff8d3f34de70153b33"
     String hash3 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
     String hash4 = "0xd3f34def3c56ba4e701540d15edaff9acd2a1c968a7ff83b3300ab5dfd5f6aab"
+
+    ObjectMapper objectMapper = TestingCommons.objectMapper()
 
     def tx1 = new TransactionJson().with {
         it.blockNumber = 100
@@ -50,6 +59,8 @@ class BlocksWithTxCacheSpec extends Specification {
     def block1 = new BlockJson().with {
         it.number = 100
         it.hash = BlockHash.from(hash1)
+        it.totalDifficulty = BigInteger.ONE
+        it.timestamp = Instant.now()
         it.transactions = [
                 new TransactionRefJson(tx1.hash),
                 new TransactionRefJson(tx2.hash)
@@ -61,6 +72,8 @@ class BlocksWithTxCacheSpec extends Specification {
     def block2 = new BlockJson().with {
         it.number = 101
         it.hash = BlockHash.from(hash3)
+        it.totalDifficulty = BigInteger.ONE
+        it.timestamp = Instant.now()
         it.transactions = [
                 new TransactionRefJson(tx3.hash)
         ]
@@ -71,6 +84,8 @@ class BlocksWithTxCacheSpec extends Specification {
     def block3 = new BlockJson().with {
         it.number = 102
         it.hash = BlockHash.from(hash4)
+        it.totalDifficulty = BigInteger.ONE
+        it.timestamp = Instant.now()
         it.transactions = []
         it
     }
@@ -81,21 +96,26 @@ class BlocksWithTxCacheSpec extends Specification {
         def txes = new TxMemCache()
         def blocks = new BlocksMemCache()
 
-        txes.add(tx1)
-        txes.add(tx2)
-        txes.add(tx3)
-        txes.add(tx4)
-        blocks.add(block1)
-        blocks.add(block2)
-        blocks.add(block3)
+        txes.add(TxContainer.from(tx1, objectMapper))
+        txes.add(TxContainer.from(tx2, objectMapper))
+        txes.add(TxContainer.from(tx3, objectMapper))
+        txes.add(TxContainer.from(tx4, objectMapper))
+        blocks.add(BlockContainer.from(block1, objectMapper))
+        blocks.add(BlockContainer.from(block2, objectMapper))
+        blocks.add(BlockContainer.from(block3, objectMapper))
 
-        def full = new BlocksWithTxCache(blocks, txes)
+        def full = new EthereumBlocksWithTxCache(objectMapper, blocks, txes)
 
         when:
-        def act = full.read(block1.hash).block()
+        def act = full.read(BlockId.from(block1.hash)).block()
 
         then:
         act != null
+
+        when:
+        act = objectMapper.readValue(act.json, BlockJson)
+
+        then:
         act.hash == BlockHash.from(hash1)
         act.number == 100
         act.transactions.size() == 2
@@ -119,9 +139,15 @@ class BlocksWithTxCacheSpec extends Specification {
 
         // request second block
         when:
-        act = full.read(block2.hash).block()
+        act = full.read(BlockId.from(block2.hash)).block()
         then:
         act != null
+
+        when:
+        act = objectMapper.readValue(act.json, BlockJson)
+
+        then:
+
         act.hash == BlockHash.from(hash3)
         act.number == 101
         act.transactions.size() == 1
@@ -136,23 +162,23 @@ class BlocksWithTxCacheSpec extends Specification {
         def txes = new TxMemCache()
         def blocks = new BlocksMemCache()
 
-        txes.add(tx1)
-        txes.add(tx2)
-        txes.add(tx3)
-        txes.add(tx4)
-        blocks.add(block1)
-        blocks.add(block2)
-        blocks.add(block3)
+        txes.add(TxContainer.from(tx1, objectMapper))
+        txes.add(TxContainer.from(tx2, objectMapper))
+        txes.add(TxContainer.from(tx3, objectMapper))
+        txes.add(TxContainer.from(tx4, objectMapper))
+        blocks.add(BlockContainer.from(block1, objectMapper))
+        blocks.add(BlockContainer.from(block2, objectMapper))
+        blocks.add(BlockContainer.from(block3, objectMapper))
 
-        def full = new BlocksWithTxCache(blocks, txes)
+        def full = new EthereumBlocksWithTxCache(objectMapper, blocks, txes)
 
         when:
-        def act = full.read(block3.hash).block()
+        def act = full.read(BlockId.from(block3.hash)).block()
 
         then:
         act != null
-        act.hash == BlockHash.from(hash4)
-        act.number == 102
+        act.hash == BlockId.from(hash4)
+        act.height == 102
         act.transactions.size() == 0
     }
 
@@ -161,13 +187,13 @@ class BlocksWithTxCacheSpec extends Specification {
         def txes = new TxMemCache()
         def blocks = new BlocksMemCache()
 
-        txes.add(tx1)
-        blocks.add(block1) //missing tx2 in cache
+        txes.add(TxContainer.from(tx1, objectMapper))
+        blocks.add(BlockContainer.from(block1, objectMapper)) //missing tx2 in cache
 
-        def full = new BlocksWithTxCache(blocks, txes)
+        def full = new EthereumBlocksWithTxCache(objectMapper, blocks, txes)
 
         when:
-        def act = full.read(block1.hash).block()
+        def act = full.read(BlockId.from(block1.hash)).block()
 
         then:
         act == null
@@ -178,14 +204,14 @@ class BlocksWithTxCacheSpec extends Specification {
         def txes = new TxMemCache()
         def blocks = new BlocksMemCache()
 
-        txes.add(tx1)
-        txes.add(tx2)
-        txes.add(tx3)
+        txes.add(TxContainer.from(tx1, objectMapper))
+        txes.add(TxContainer.from(tx2, objectMapper))
+        txes.add(TxContainer.from(tx3, objectMapper))
 
-        def full = new BlocksWithTxCache(blocks, txes)
+        def full = new EthereumBlocksWithTxCache(objectMapper, blocks, txes)
 
         when:
-        def act = full.read(block1.hash).block()
+        def act = full.read(BlockId.from(block1.hash)).block()
 
         then:
         act == null

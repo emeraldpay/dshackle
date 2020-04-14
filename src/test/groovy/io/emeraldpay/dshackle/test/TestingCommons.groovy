@@ -76,7 +76,7 @@ class TestingCommons {
     }
 
     static AggregatedUpstream aggregatedUpstream(EthereumUpstream up) {
-        return new EthereumChainUpstreams(Chain.ETHEREUM, [up], Caches.default(), objectMapper())
+        return new EthereumChainUpstreams(Chain.ETHEREUM, [up], Caches.default(objectMapper()), objectMapper())
     }
 
     static CachesFactory emptyCaches() {

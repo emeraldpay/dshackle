@@ -17,13 +17,11 @@ package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.data.*
 import io.emeraldpay.dshackle.upstream.ethereum.EmptyEthereumHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.hex.HexQuantity
-import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.math.BigInteger
@@ -42,10 +40,12 @@ open class CachingEthereumApi(
          * Create caching API with empty memory-only cache
          */
         @JvmStatic
-        fun empty(): CachingEthereumApi {
-            return CachingEthereumApi(ObjectMapper(), Caches.default(), EmptyEthereumHead())
+        fun empty(objectMapper: ObjectMapper): CachingEthereumApi {
+            return CachingEthereumApi(objectMapper, Caches.default(objectMapper), EmptyEthereumHead())
         }
     }
+
+    private val rawJsonBuilder = RawJsonBuilder()
 
     private val cacheBlocks = caches.getBlocksByHash()
     private val cacheBlocksByHeight = caches.getBlocksByHeight()
@@ -62,7 +62,7 @@ open class CachingEthereumApi(
                 cacheBlocks
             }
             Mono.just(params[0])
-                    .map { BlockHash.from(it as String) }
+                    .map { BlockId.from(it as String) }
                     .flatMap(cache::read)
                     .transform(converter(id))
                     .transform(finalizer())
@@ -93,14 +93,15 @@ open class CachingEthereumApi(
         return when (method) {
             "eth_blockNumber" ->
                 head.getFlux().next()
-                    .map { HexQuantity.from(it.number).toHex() }
-                    .map(toJson(id))
+                        .map { HexQuantity.from(it.height).toHex() }
+                        .map { objectMapper.writeValueAsBytes(it) }
+                        .map(bytesToJson(id))
             "eth_getBlockByHash" -> readBlockByHash(id, method, params)
             "eth_getBlockByNumber" -> readBlockByNumber(id, method, params)
             "eth_getTransactionByHash" ->
                 if (params.size == 1)
                     Mono.just(params[0])
-                            .map { TransactionId.from(it as String) }
+                            .map { TxId.from(it as String) }
                             .flatMap(cacheTx::read)
                             .transform(converter(id))
                             .transform(finalizer())
@@ -113,9 +114,9 @@ open class CachingEthereumApi(
     /**
      * Convert to JSON RPC response
      */
-    fun converter(id: Int): Function<in Mono<*>, out Mono<ByteArray>> {
+    fun converter(id: Int): Function<in Mono<out SourceContainer>, out Mono<ByteArray>> {
         return Function { mono ->
-            mono.map(toJson(id))
+            mono.map(containerToJson(id))
         }
     }
 
@@ -131,12 +132,15 @@ open class CachingEthereumApi(
         }
     }
 
-    fun toJson(id: Int): Function<Any, ByteArray> {
+    fun bytesToJson(id: Int): Function<ByteArray, ByteArray> {
         return Function { data ->
-            val resp = ResponseJson<Any, Int>()
-            resp.id = id
-            resp.result = data
-            objectMapper.writer().writeValueAsBytes(resp)
+            rawJsonBuilder.write(id, data)
+        }
+    }
+
+    fun containerToJson(id: Int): Function<SourceContainer, ByteArray> {
+        return Function { data ->
+            rawJsonBuilder.write(id, data.json!!)
         }
     }
 }

@@ -34,18 +34,18 @@ import kotlin.concurrent.withLock
 /**
  * Aggregation of multiple upstreams responding to a single blockchain
  */
-abstract class AggregatedUpstream<U : UpstreamApi, B>(
+abstract class AggregatedUpstream<U : UpstreamApi>(
         private val objectMapper: ObjectMapper,
         val caches: Caches
-) : Upstream<U, B>, Lifecycle {
+) : Upstream<U>, Lifecycle {
 
     private var cacheSubscription: Disposable? = null
-    var cache: CachingEthereumApi = CachingEthereumApi.empty()
+    var cache: CachingEthereumApi = CachingEthereumApi.empty(objectMapper)
     private val reconfigLock = ReentrantLock()
     private var callMethods: CallMethods? = null
 
-    abstract fun getAll(): List<Upstream<U, B>>
-    abstract fun addUpstream(upstream: Upstream<U, B>)
+    abstract fun getAll(): List<Upstream<U>>
+    abstract fun addUpstream(upstream: Upstream<U>)
     abstract fun getApis(matcher: Selector.Matcher): ApiSource<U>
 
     fun onUpstreamsUpdated() {
@@ -101,12 +101,12 @@ abstract class AggregatedUpstream<U : UpstreamApi, B>(
 
     // --------------------------------------------------------------------------------------------------------
 
-    class UpstreamStatus<H>(val upstream: Upstream<UpstreamApi, H>, val status: UpstreamAvailability, val ts: Instant = Instant.now())
+    class UpstreamStatus(val upstream: Upstream<UpstreamApi>, val status: UpstreamAvailability, val ts: Instant = Instant.now())
 
-    class FilterBestAvailability() : Predicate<UpstreamStatus<*>> {
-        private val lastRef = AtomicReference<UpstreamStatus<*>>()
+    class FilterBestAvailability() : Predicate<UpstreamStatus> {
+        private val lastRef = AtomicReference<UpstreamStatus>()
 
-        override fun test(t: UpstreamStatus<*>): Boolean {
+        override fun test(t: UpstreamStatus): Boolean {
             val last = lastRef.get()
             val changed = last == null
                     || t.status > last.status

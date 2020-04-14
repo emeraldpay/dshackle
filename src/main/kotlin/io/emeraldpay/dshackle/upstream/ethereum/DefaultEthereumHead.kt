@@ -1,8 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.data.BlockContainer
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -13,39 +11,39 @@ import java.util.concurrent.atomic.AtomicReference
 open class DefaultEthereumHead: EthereumHead {
 
     private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)
-    private val head = AtomicReference<BlockJson<TransactionRefJson>>(null)
-    private val stream: TopicProcessor<BlockJson<TransactionRefJson>> = TopicProcessor.create()
+    private val head = AtomicReference<BlockContainer>(null)
+    private val stream: TopicProcessor<BlockContainer> = TopicProcessor.create()
 
-    fun follow(source: Flux<BlockJson<TransactionRefJson>>): Disposable {
+    fun follow(source: Flux<BlockContainer>): Disposable {
         return source.distinctUntilChanged {
             it.hash
         }.filter { block ->
             val curr = head.get()
-            curr == null || curr.totalDifficulty < block.totalDifficulty
+            curr == null || curr.difficulty < block.difficulty
         }
-        .subscribe { block ->
-            val prev = head.getAndUpdate { curr ->
-                if (curr == null || curr.totalDifficulty < block.totalDifficulty) {
-                    block
-                } else {
-                    curr
-                }
+                .subscribe { block ->
+                    val prev = head.getAndUpdate { curr ->
+                        if (curr == null || curr.difficulty < block.difficulty) {
+                            block
+                        } else {
+                            curr
+                        }
             }
             if (prev == null || prev.hash != block.hash) {
-                log.debug("New block ${block.number} ${block.hash}")
+                log.debug("New block ${block.height} ${block.hash}")
                 stream.onNext(block)
             }
         }
     }
 
-    override fun getFlux(): Flux<BlockJson<TransactionRefJson>> {
+    override fun getFlux(): Flux<BlockContainer> {
         return Flux.merge(
                 Mono.justOrEmpty(head.get()),
                 Flux.from(stream)
         ).onBackpressureLatest()
     }
 
-    fun getCurrent(): BlockJson<TransactionRefJson>? {
+    fun getCurrent(): BlockContainer? {
         return head.get()
     }
 }

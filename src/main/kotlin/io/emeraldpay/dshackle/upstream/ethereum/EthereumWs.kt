@@ -15,14 +15,15 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
-import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
@@ -38,17 +39,18 @@ import java.time.Duration
 class EthereumWs(
         private val uri: URI,
         private val origin: URI,
-        private val api: EthereumApi
+        private val api: EthereumApi,
+        private val objectMapper: ObjectMapper
 ): CachesEnabled {
 
     private val log = LoggerFactory.getLogger(EthereumWs::class.java)
     private val topic = TopicProcessor
-            .builder<BlockJson<TransactionRefJson>>()
+            .builder<BlockContainer>()
             .name("new-blocks")
             .build()
     var basicAuth: AuthConfig.ClientBasicAuth? = null
 
-    private var blockCache: Reader<BlockHash, BlockJson<TransactionRefJson>> = EmptyReader()
+    private var blockCache: Reader<BlockId, BlockContainer> = EmptyReader()
 
     fun connect() {
         log.info("Connecting to WebSocket: $uri")
@@ -68,24 +70,33 @@ class EthereumWs(
     }
 
     fun onNewBlock(block: BlockJson<TransactionRefJson>) {
-        if (block.totalDifficulty == null || block.transactions == null) {
+        // WS returns incomplete blocks
+        if (block.difficulty == null || block.transactions == null) {
             Mono.just(block.hash).flatMap { hash ->
-                        // first check in cache, if empty then check api
-                        blockCache.read(hash)
-                                .switchIfEmpty(api.executeAndConvert(Commands.eth().getBlock(hash)))
-                    }.repeatWhenEmpty { n ->
-                        Repeat.times<Any>(10)
-                                .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(250))
-                                .apply(n)
-                    }
+                val hash = BlockId.from(hash)
+                // first check in cache, if empty then check api
+                blockCache.read(hash)
+                        .switchIfEmpty(request(hash))
+            }.repeatWhenEmpty { n ->
+                Repeat.times<Any>(10)
+                        .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(250))
+                        .apply(n)
+            }
                     .timeout(Defaults.timeout, Mono.empty())
                     .subscribe(topic::onNext)
+
         } else {
-            topic.onNext(block)
+            topic.onNext(BlockContainer.from(block, objectMapper))
         }
     }
 
-    fun getFlux(): Flux<BlockJson<TransactionRefJson>> {
+    fun request(hash: BlockId): Mono<BlockContainer> {
+        return api
+                .executeAndConvert(Commands.eth().getBlock(io.infinitape.etherjar.domain.BlockHash(hash.value)))
+                .map { BlockContainer.from(it, objectMapper) }
+    }
+
+    fun getFlux(): Flux<BlockContainer> {
         return Flux.from(this.topic)
                 .onBackpressureLatest()
     }

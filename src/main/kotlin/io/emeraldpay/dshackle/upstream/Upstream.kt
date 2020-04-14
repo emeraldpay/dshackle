@@ -17,16 +17,14 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-interface Upstream<out T : UpstreamApi, out B> {
+interface Upstream<out T : UpstreamApi> {
     fun isAvailable(): Boolean
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
-    fun getHead(): Head<B>
+    fun getHead(): Head
     fun getApi(matcher: Selector.Matcher): Mono<out T>
     fun getOptions(): UpstreamsConfig.Options
     fun setLag(lag: Long)
@@ -35,5 +33,5 @@ interface Upstream<out T : UpstreamApi, out B> {
     fun getMethods(): CallMethods
     fun getId(): String
 
-    fun <T : Upstream<TA, BA>, TA : UpstreamApi, BA> cast(selfType: Class<T>, upstreamType: Class<TA>, blockType: Class<BA>): T
+    fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T
 }

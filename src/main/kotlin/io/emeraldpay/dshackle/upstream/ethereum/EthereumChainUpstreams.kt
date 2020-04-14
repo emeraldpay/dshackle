@@ -33,7 +33,7 @@ class EthereumChainUpstreams(
         val upstreams: MutableList<EthereumUpstream>,
         caches: Caches,
         objectMapper: ObjectMapper
-) : ChainUpstreams<EthereumApi, BlockJson<TransactionRefJson>>(chain, upstreams as MutableList<Upstream<EthereumApi, BlockJson<TransactionRefJson>>>, caches, objectMapper) {
+) : ChainUpstreams<EthereumApi>(chain, upstreams as MutableList<Upstream<EthereumApi>>, caches, objectMapper) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumChainUpstreams::class.java)
@@ -56,7 +56,7 @@ class EthereumChainUpstreams(
         return head!!
     }
 
-    override fun setHead(head: Head<BlockJson<TransactionRefJson>>) {
+    override fun setHead(head: Head) {
         this.head = head as EthereumHead
     }
 
@@ -76,7 +76,7 @@ class EthereumChainUpstreams(
             val newHead = EthereumHeadMerge(upstreams.map { it.getHead() }).apply {
                 this.start()
             }
-            val lagObserver = EthereumHeadLagObserver(newHead, upstreams).apply {
+            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream<EthereumApi>>).apply {
                 this.start()
             }
             this.lagObserver = lagObserver
@@ -93,7 +93,7 @@ class EthereumChainUpstreams(
     override fun printStatus() {
         var height: Long? = null
         try {
-            height = getHead().getFlux().next().block(Duration.ofSeconds(1))?.number
+            height = getHead().getFlux().next().block(Duration.ofSeconds(1))?.height
         } catch (e: IllegalStateException) {
             //timout
         } catch (e: Exception) {
@@ -110,18 +110,14 @@ class EthereumChainUpstreams(
     }
 
     @SuppressWarnings("unchecked")
-    override fun <T : Upstream<TA, BA>, TA : UpstreamApi, BA> cast(selfType: Class<T>, upstreamType: Class<TA>, blockType: Class<BA>): T {
+    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
         if (!upstreamType.isAssignableFrom(EthereumApi::class.java)) {
             throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $upstreamType")
         }
-        if (!blockType.isAssignableFrom(BlockJson::class.java)) {
-            throw ClassCastException("Cannot cast ${BlockJson::class.java} to $blockType")
-        }
         return this as T
     }
-
 
 }

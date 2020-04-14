@@ -24,6 +24,8 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -36,8 +38,6 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.*
 import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -46,6 +46,7 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.toMono
 import java.math.BigInteger
 import java.time.Duration
+import java.time.Instant
 import java.util.*
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
@@ -58,7 +59,7 @@ open class EthereumGrpcUpstream(
         private val blockchainStub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
         private val rpcClient: ReactorEmeraldClient
-) : DefaultUpstream<EthereumApi, BlockJson<TransactionRefJson>>(), CachesEnabled, Lifecycle {
+) : DefaultUpstream<EthereumApi>(), CachesEnabled, Lifecycle {
 
     private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
@@ -117,19 +118,24 @@ open class EthereumGrpcUpstream(
 
     internal fun observeHead(flux: Flux<BlockchainOuterClass.ChainHead>) {
         val base = flux.map { value ->
-            val block = BlockJson<TransactionRefJson>()
-            block.number = value.height
-            block.totalDifficulty = BigInteger(1, value.weight.toByteArray())
-            block.hash = BlockHash.from("0x"+value.blockId)
+            val block = BlockContainer(
+                    value.height,
+                    BlockId.from(BlockHash.from("0x" + value.blockId)),
+                    BigInteger(1, value.weight.toByteArray()),
+                    Instant.ofEpochMilli(value.timestamp),
+                    false,
+                    null
+            )
             block
         }.distinctUntilChanged {
             it.hash
         }.filter { block ->
             val curr = head.getCurrent()
-            curr == null || curr.totalDifficulty < block.totalDifficulty
+            curr == null || curr.difficulty < block.difficulty
         }.flatMap {
             getApi(Selector.EmptyMatcher())
-                    .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(it.hash)) }
+                    .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(BlockHash(it.hash.value))) }
+                    .map { BlockContainer.from(it, objectMapper) }
                     .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
                     .doOnError { t ->
                         setStatus(UpstreamAvailability.UNAVAILABLE)
@@ -216,15 +222,12 @@ open class EthereumGrpcUpstream(
     }
 
     @SuppressWarnings("unchecked")
-    override fun <T : Upstream<TA, BA>, TA : UpstreamApi, BA> cast(selfType: Class<T>, upstreamType: Class<TA>, blockType: Class<BA>): T {
+    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
         if (!upstreamType.isAssignableFrom(EthereumApi::class.java)) {
             throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $upstreamType")
-        }
-        if (!blockType.isAssignableFrom(BlockJson::class.java)) {
-            throw ClassCastException("Cannot cast ${BlockJson::class.java} to $blockType")
         }
         return this as T
     }

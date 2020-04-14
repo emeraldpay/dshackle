@@ -144,7 +144,8 @@ open class ConfiguredUpstreams(
                 val wsApi = EthereumWs(
                         endpoint.url,
                         endpoint.origin ?: URI("http://localhost"),
-                        rpcApi!!
+                        rpcApi!!,
+                        objectMapper
                 )
                 endpoint.basicAuth?.let { auth ->
                     wsApi.basicAuth = auth
@@ -159,7 +160,8 @@ open class ConfiguredUpstreams(
                     config.id!!,
                     chain, rpcApi!!, wsApi, options,
                     QuorumForLabels.QuorumItem(1, config.labels),
-                    methods)
+                    methods,
+                    objectMapper)
             ethereumUpstream.start()
             currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
         }

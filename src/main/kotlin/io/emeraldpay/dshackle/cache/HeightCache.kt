@@ -1,9 +1,8 @@
 package io.emeraldpay.dshackle.cache
 
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.concurrent.ConcurrentHashMap
@@ -13,25 +12,25 @@ import java.util.concurrent.ConcurrentHashMap
  */
 open class HeightCache(
         val maxSize: Int = 256
-): Reader<Long, BlockHash> {
+) : Reader<Long, BlockId> {
 
     companion object {
         private val log = LoggerFactory.getLogger(HeightCache::class.java)
     }
 
-    private val heights = ConcurrentHashMap<Long, BlockHash>()
+    private val heights = ConcurrentHashMap<Long, BlockId>()
 
-    override fun read(key: Long): Mono<BlockHash> {
+    override fun read(key: Long): Mono<BlockId> {
         return Mono.justOrEmpty(heights[key])
     }
 
-    open fun add(block: BlockJson<TransactionRefJson>): BlockHash? {
-        val existing = heights[block.number]
-        heights[block.number] = block.hash
+    open fun add(block: BlockContainer): BlockId? {
+        val existing = heights[block.height]
+        heights[block.height] = block.hash
 
         // evict old numbers if full
-        var dropHeight = block.number - maxSize
-        while (heights.size > maxSize && dropHeight < block.number) {
+        var dropHeight = block.height - maxSize
+        while (heights.size > maxSize && dropHeight < block.height) {
             heights.remove(dropHeight)
             dropHeight++
         }

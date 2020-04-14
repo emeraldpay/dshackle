@@ -53,7 +53,7 @@ class FilteredApisSpec extends Specification {
                     (EthereumWs) null,
                     new UpstreamsConfig.Options(),
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
-                    ethereumTargets
+                    ethereumTargets, TestingCommons.objectMapper()
             )
         }
         def matcher = new Selector.LabelMatcher("test", ["foo"])

@@ -17,12 +17,9 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.hex.HexQuantity
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcException
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -37,7 +34,7 @@ open class NonceQuorum(
     private var receivedTimes = 0
     private var errors = 0
 
-    override fun init(head: Head<BlockJson<TransactionRefJson>>) {
+    override fun init(head: Head) {
     }
 
     override fun isResolved(): Boolean {
@@ -46,7 +43,7 @@ open class NonceQuorum(
         }
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream<*, *>) {
+    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream<*>) {
         val value = responseValue?.let { str ->
             HexQuantity.from(str).value.toLong()
         }
@@ -65,11 +62,11 @@ open class NonceQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*, *>) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*>) {
         errors++
     }
 
-    override fun record(error: RpcException, upstream: Upstream<*, *>) {
+    override fun record(error: RpcException, upstream: Upstream<*>) {
         errors++
     }
 

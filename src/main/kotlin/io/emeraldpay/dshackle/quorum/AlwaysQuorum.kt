@@ -17,30 +17,27 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.RpcException
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 
 open class AlwaysQuorum: CallQuorum {
 
     private var resolved = false
     private var result: ByteArray? = null
 
-    override fun init(head: Head<BlockJson<TransactionRefJson>>) {
+    override fun init(head: Head) {
     }
 
     override fun isResolved(): Boolean {
         return resolved
     }
 
-    override fun record(response: ByteArray, upstream: Upstream<*, *>): Boolean {
+    override fun record(response: ByteArray, upstream: Upstream<*>): Boolean {
         result = response
         resolved = true
         return true
     }
 
-    override fun record(error: RpcException, upstream: Upstream<*, *>) {
+    override fun record(error: RpcException, upstream: Upstream<*>) {
     }
 
     override fun getResult(): ByteArray? {

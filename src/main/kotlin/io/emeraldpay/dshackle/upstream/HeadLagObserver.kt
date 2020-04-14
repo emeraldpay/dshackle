@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.data.BlockContainer
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -26,9 +27,9 @@ import reactor.util.function.Tuples
  * Observer group of upstreams and defined a distance in blocks (lag) between a leader (best height/difficulty) and
  * other upstreams.
  */
-abstract class HeadLagObserver<A : UpstreamApi, B>(
-        private val master: Head<B>,
-        private val followers: Collection<Upstream<A, B>>
+abstract class HeadLagObserver<A : UpstreamApi>(
+        private val master: Head,
+        private val followers: Collection<Upstream<A>>
 ) : Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
@@ -56,7 +57,7 @@ abstract class HeadLagObserver<A : UpstreamApi, B>(
                 }
     }
 
-    fun probeFollowers(top: B): Flux<Tuple2<Long, Upstream<A, B>>> {
+    fun probeFollowers(top: BlockContainer): Flux<Tuple2<Long, Upstream<A>>> {
         return Flux.fromIterable(followers)
                 .parallel(followers.size)
                 .flatMap { mapLagging(top, it, getCurrentBlocks(it)) }
@@ -64,9 +65,9 @@ abstract class HeadLagObserver<A : UpstreamApi, B>(
                 .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
     }
 
-    abstract fun getCurrentBlocks(up: Upstream<A, B>): Flux<B>
+    abstract fun getCurrentBlocks(up: Upstream<A>): Flux<BlockContainer>
 
-    fun mapLagging(top: B, up: Upstream<A, B>, blocks: Flux<B>): Flux<Tuple2<Long, Upstream<A, B>>> {
+    fun mapLagging(top: BlockContainer, up: Upstream<A>, blocks: Flux<BlockContainer>): Flux<Tuple2<Long, Upstream<A>>> {
         return blocks
                 .map { extractDistance(top, it) }
                 .takeUntil { lag -> lag <= 0L }
@@ -76,9 +77,9 @@ abstract class HeadLagObserver<A : UpstreamApi, B>(
                 }
     }
 
-    abstract fun extractDistance(top: B, curr: B): Long
+    abstract fun extractDistance(top: BlockContainer, curr: BlockContainer): Long
 
-    fun forkDistance(top: B, curr: B): Long {
+    fun forkDistance(top: BlockContainer, curr: BlockContainer): Long {
         //TODO look for common ancestor? though it may be a corruption
         return 6
     }

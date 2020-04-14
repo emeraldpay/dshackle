@@ -95,10 +95,10 @@ open class NativeCall(
         val upstream = upstreams.getUpstream(chain)
                 ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
-        return prepareCall(request, upstream as AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>)
+        return prepareCall(request, upstream as AggregatedUpstream<EthereumApi>)
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>): Flux<CallContext<RawCallDetails>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream<EthereumApi>): Flux<CallContext<RawCallDetails>> {
         return request.itemsList.toFlux().map {
             val method = it.method
             val params = it.payload.toStringUtf8()
@@ -205,7 +205,7 @@ open class NativeCall(
     }
 
     open class CallContext<T>(val id: Int,
-                              val upstream: AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>,
+                              val upstream: AggregatedUpstream<EthereumApi>,
                               val matcher: Selector.Matcher,
                               val callQuorum: CallQuorum,
                               val payload: T) {

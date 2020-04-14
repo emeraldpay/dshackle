@@ -20,7 +20,7 @@ import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 
 interface Upstreams {
-    fun getUpstream(chain: Chain): AggregatedUpstream<*, *>?
+    fun getUpstream(chain: Chain): AggregatedUpstream<*>?
     fun getAvailable(): List<Chain>
     fun observeChains(): Flux<Chain>
     fun getDefaultMethods(chain: Chain): CallMethods

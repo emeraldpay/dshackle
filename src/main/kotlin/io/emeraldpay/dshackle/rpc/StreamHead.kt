@@ -19,6 +19,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.json.BlockJson
@@ -51,23 +52,19 @@ class StreamHead(
         }
     }
 
-    fun asProto(chain: Chain, block: Any): BlockchainOuterClass.ChainHead {
+    fun asProto(chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
         if (BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM) {
-            if (BlockJson::class.java.isAssignableFrom(block.javaClass)) {
-                return asEthereumProto(chain, block as BlockJson<TransactionRefJson>)
-            } else {
-                throw IllegalArgumentException("Invalid block type: ${block.javaClass}")
-            }
+            return asEthereumProto(chain, block)
         }
         throw IllegalArgumentException("Unsupported blockchain ${chain}")
     }
 
-    fun asEthereumProto(chain: Chain, block: BlockJson<TransactionRefJson>): BlockchainOuterClass.ChainHead {
+    fun asEthereumProto(chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
         return BlockchainOuterClass.ChainHead.newBuilder()
                 .setChainValue(chain.id)
-                .setHeight(block.number)
-                .setTimestamp(block.timestamp.toEpochMilli())
-                .setWeight(ByteString.copyFrom(block.totalDifficulty.toByteArray()))
+                .setHeight(block.height)
+                .setTimestamp(block.timestamp!!.toEpochMilli())
+                .setWeight(ByteString.copyFrom(block.difficulty.toByteArray()))
                 .setBlockId(block.hash.toHex().substring(2))
                 .build()
     }

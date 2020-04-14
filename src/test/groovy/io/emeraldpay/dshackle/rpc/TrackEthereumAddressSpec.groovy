@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.UpstreamsMock
 import io.emeraldpay.dshackle.upstream.Upstreams
@@ -32,6 +33,8 @@ import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class TrackEthereumAddressSpec extends Specification {
 
@@ -94,6 +97,7 @@ class TrackEthereumAddressSpec extends Specification {
             it.number = 1
             it.totalDifficulty = 100
             it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
+            it.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
             return it
         }
 
@@ -115,7 +119,7 @@ class TrackEthereumAddressSpec extends Specification {
                     assert trackAddress.isTracked(Chain.ETHEREUM, Address.from(address1))
                 }
                 .then {
-                    upstreamMock.nextBlock(block2)
+                    upstreamMock.nextBlock(BlockContainer.from(block2, TestingCommons.objectMapper()))
                 }
                 .expectNext(exp2)
                 .thenCancel()

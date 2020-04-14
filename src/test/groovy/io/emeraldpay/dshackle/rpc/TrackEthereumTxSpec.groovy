@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.UpstreamsMock
 import io.emeraldpay.dshackle.upstream.Upstreams
@@ -63,6 +64,7 @@ class TrackEthereumTxSpec extends Specification {
             it.timestamp = Instant.ofEpochMilli(156400200000)
             it.number = 108
             it.totalDifficulty = BigInteger.valueOf(800)
+            it.transactions = []
             it
         }
 
@@ -75,15 +77,17 @@ class TrackEthereumTxSpec extends Specification {
             it
         }
 
+        blockJson.transactions = [new TransactionRefJson(txJson.hash)]
+
         def exp1 = BlockchainOuterClass.TxStatus.newBuilder()
-            .setTxId(txId)
-            .setBroadcasted(true)
-            .setMined(true)
-            .setConfirmations(8 + 1)
-            .setBlock(
-                    Common.BlockInfo.newBuilder()
-                        .setHeight(blockJson.number)
-                        .setWeight(ByteString.copyFrom(blockJson.totalDifficulty.toByteArray()))
+                .setTxId(txId)
+                .setBroadcasted(true)
+                .setMined(true)
+                .setConfirmations(8 + 1)
+                .setBlock(
+                        Common.BlockInfo.newBuilder()
+                                .setHeight(blockJson.number)
+                                .setWeight(ByteString.copyFrom(blockJson.totalDifficulty.toByteArray()))
                         .setBlockId(blockJson.hash.toHex().substring(2))
                         .setTimestamp(blockJson.timestamp.toEpochMilli())
             ).build()
@@ -96,7 +100,7 @@ class TrackEthereumTxSpec extends Specification {
 
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
         apiMock.answer("eth_getBlockByHash", [blockJson.hash.toHex(), false], blockJson)
-        upstreamMock.nextBlock(blockHeadJson)
+        upstreamMock.nextBlock(BlockContainer.from(blockHeadJson, TestingCommons.objectMapper()))
 
         when:
         def flux = trackTx.add(Mono.just(req))
@@ -292,7 +296,7 @@ class TrackEthereumTxSpec extends Specification {
         def nextBlock = { int i ->
             return {
                 println("block $i");
-                upstreamMock.nextBlock(blocks[i])
+                upstreamMock.nextBlock(BlockContainer.from(blocks[i], TestingCommons.objectMapper()))
             } as Runnable
         }
 

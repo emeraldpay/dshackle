@@ -15,26 +15,25 @@
  */
 package io.emeraldpay.dshackle.test
 
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 
 class EthereumHeadMock implements EthereumHead {
 
-    private TopicProcessor<BlockJson<TransactionId>> bus = TopicProcessor.create()
-    private BlockJson<TransactionId> latest
+    private TopicProcessor<BlockContainer> bus = TopicProcessor.create()
+    private BlockContainer latest
 
-    void nextBlock(BlockJson<TransactionId> block) {
+    void nextBlock(BlockContainer block) {
         assert block != null
         latest = block
         bus.onNext(block)
     }
 
     @Override
-    Flux<BlockJson<TransactionId>> getFlux() {
+    Flux<BlockContainer> getFlux() {
         return Flux.concat(Mono.justOrEmpty(latest), bus).distinctUntilChanged()
     }
 }

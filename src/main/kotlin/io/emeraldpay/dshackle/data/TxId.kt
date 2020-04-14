@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 ETCDEV GmbH
+ * Copyright (c) 2020 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.data
 
-import io.emeraldpay.dshackle.upstream.Head
 import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import io.infinitape.etherjar.rpc.json.TransactionJson
 
-interface EthereumHead : Head {
+class TxId(
+        value: ByteArray
+) : HashId(value) {
+
+    companion object {
+        @JvmStatic
+        fun from(id: TransactionId): TxId {
+            return TxId(id.bytes)
+        }
+
+        @JvmStatic
+        fun from(tx: TransactionJson): TxId {
+            return from(tx.hash)
+        }
+
+        @JvmStatic
+        fun from(id: String): TxId {
+            return from(TransactionId.from(id))
+        }
+    }
 }

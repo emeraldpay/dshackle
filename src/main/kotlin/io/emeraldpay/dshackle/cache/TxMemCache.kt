@@ -1,11 +1,10 @@
 package io.emeraldpay.dshackle.cache
 
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.concurrent.ConcurrentHashMap
@@ -17,35 +16,35 @@ import java.util.concurrent.ConcurrentLinkedQueue
 open class TxMemCache(
         // usually there is 100-150 tx per block on Ethereum, we keep data for about 32 blocks by default
         private val maxSize: Int = 125 * 32
-): Reader<TransactionId, TransactionJson> {
+) : Reader<TxId, TxContainer> {
 
     companion object {
         private val log = LoggerFactory.getLogger(TxMemCache::class.java)
     }
 
-    private val mapping = ConcurrentHashMap<TransactionId, TransactionJson>()
-    private val queue = ConcurrentLinkedQueue<TransactionId>()
+    private val mapping = ConcurrentHashMap<TxId, TxContainer>()
+    private val queue = ConcurrentLinkedQueue<TxId>()
 
-    override fun read(key: TransactionId): Mono<TransactionJson> {
+    override fun read(key: TxId): Mono<TxContainer> {
         return Mono.justOrEmpty(mapping[key])
     }
 
-    open fun evict(block: BlockJson<TransactionRefJson>) {
+    open fun evict(block: BlockContainer) {
         block.transactions.forEach {
-            mapping.remove(it.hash)
+            mapping.remove(it)
         }
     }
 
-    open fun evict(block: BlockHash) {
-        val ids = mapping.filter { it.value.blockHash == block }
+    open fun evict(block: BlockId) {
+        val ids = mapping.filter { it.value.blockId == block }
         ids.forEach {
             mapping.remove(it.key)
         }
     }
 
-    open fun add(tx: TransactionJson) {
+    open fun add(tx: TxContainer) {
         //do not cache fresh transactions
-        if (tx.blockHash == null || tx.blockNumber == null) {
+        if (tx.blockId == null) {
             return
         }
         mapping.put(tx.hash, tx)

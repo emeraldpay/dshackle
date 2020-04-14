@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
@@ -47,12 +48,12 @@ class EthereumUpstreamMock extends EthereumUpstream {
     EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull DirectEthereumApi api, CallMethods methods) {
         super(id, chain, api, null,
                 UpstreamsConfig.Options.getDefaults(), new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
-                methods)
+                methods, TestingCommons.objectMapper())
         setLag(0)
         setStatus(UpstreamAvailability.OK)
     }
 
-    void nextBlock(BlockJson<TransactionId> block) {
+    void nextBlock(BlockContainer block) {
         ethereumHeadMock.nextBlock(block)
     }
 

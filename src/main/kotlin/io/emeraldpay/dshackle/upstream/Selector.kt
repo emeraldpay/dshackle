@@ -95,13 +95,13 @@ class Selector {
     }
 
     interface Matcher {
-        fun matches(up: Upstream<UpstreamApi, *>): Boolean
+        fun matches(up: Upstream<UpstreamApi>): Boolean
     }
 
     class MultiMatcher(
             private val matchers: Collection<Matcher>
     ): Matcher {
-        override fun matches(up: Upstream<UpstreamApi, *>): Boolean {
+        override fun matches(up: Upstream<UpstreamApi>): Boolean {
             return matchers.all { it.matches(up) }
         }
 
@@ -113,13 +113,13 @@ class Selector {
     class MethodMatcher(
             val method: String
     ): Matcher {
-        override fun matches(up: Upstream<UpstreamApi, *>): Boolean {
+        override fun matches(up: Upstream<UpstreamApi>): Boolean {
             return up.getMethods().isAllowed(method)
         }
     }
 
     abstract class LabelSelectorMatcher: Matcher {
-        override fun matches(up: Upstream<UpstreamApi, *>): Boolean {
+        override fun matches(up: Upstream<UpstreamApi>): Boolean {
             return up.getLabels().any(this::matches)
         }
 
@@ -128,7 +128,7 @@ class Selector {
     }
 
     class EmptyMatcher: Matcher {
-        override fun matches(up: Upstream<UpstreamApi, *>): Boolean {
+        override fun matches(up: Upstream<UpstreamApi>): Boolean {
             return true
         }
     }
@@ -143,7 +143,7 @@ class Selector {
             return null
         }
 
-        override fun matches(up: Upstream<UpstreamApi, *>): Boolean {
+        override fun matches(up: Upstream<UpstreamApi>): Boolean {
             return true
         }
     }

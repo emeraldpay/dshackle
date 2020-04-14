@@ -187,7 +187,7 @@ class TrackEthereumAddress(
     }
 
     fun getBalance(addr: SimpleAddress): Mono<Wei> {
-        val up = upstreams.getUpstream(addr.chain) as AggregatedUpstream<EthereumApi, BlockJson<TransactionRefJson>>?
+        val up = upstreams.getUpstream(addr.chain) as AggregatedUpstream<EthereumApi>?
                 ?: return Mono.error(SilentException.UnsupportedBlockchain(addr.chain))
         return up.getApi(Selector.empty)
                 .flatMap { api -> api.executeAndConvert(Commands.eth().getBalance(addr.address, BlockTag.LATEST)) }

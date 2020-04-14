@@ -17,31 +17,30 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.data.BlockContainer
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import java.time.Duration
 
 class EthereumHeadLagObserver(
         master: EthereumHead,
-        followers: Collection<Upstream<EthereumApi, BlockJson<TransactionRefJson>>>
-) : HeadLagObserver<EthereumApi, BlockJson<TransactionRefJson>>(master, followers) {
+        followers: Collection<Upstream<EthereumApi>>
+) : HeadLagObserver<EthereumApi>(master, followers) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumHeadLagObserver::class.java)
     }
 
-    override fun getCurrentBlocks(up: Upstream<EthereumApi, BlockJson<TransactionRefJson>>): Flux<BlockJson<TransactionRefJson>> {
+    override fun getCurrentBlocks(up: Upstream<EthereumApi>): Flux<BlockContainer> {
         val head = up.getHead()
-        return Flux.from(head.getFlux()).take(Duration.ofSeconds(1))
+        return head.getFlux().take(Duration.ofSeconds(1))
     }
 
-    override fun extractDistance(top: BlockJson<TransactionRefJson>, curr: BlockJson<TransactionRefJson>): Long {
+    override fun extractDistance(top: BlockContainer, curr: BlockContainer): Long {
         return when {
-            curr.number > top.number -> if (curr.totalDifficulty >= top.totalDifficulty) 0 else forkDistance(top, curr)
-            curr.number == top.number -> if (curr.totalDifficulty == top.totalDifficulty) 0 else forkDistance(top, curr)
-            else -> top.number - curr.number
+            curr.height > top.height -> if (curr.difficulty >= top.difficulty) 0 else forkDistance(top, curr)
+            curr.height == top.height -> if (curr.difficulty == top.difficulty) 0 else forkDistance(top, curr)
+            else -> top.height - curr.height
         }
     }
 }

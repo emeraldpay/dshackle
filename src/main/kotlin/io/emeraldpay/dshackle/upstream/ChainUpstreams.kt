@@ -26,24 +26,24 @@ import reactor.core.publisher.Mono
 /**
  * General interface to upstream(s) to a single chain
  */
-abstract class ChainUpstreams<U : UpstreamApi, B>(
+abstract class ChainUpstreams<U : UpstreamApi>(
         val chain: Chain,
-        private val upstreams: MutableList<Upstream<U, B>>,
+        private val upstreams: MutableList<Upstream<U>>,
         caches: Caches,
         objectMapper: ObjectMapper
-) : AggregatedUpstream<U, B>(objectMapper, caches), Lifecycle {
+) : AggregatedUpstream<U>(objectMapper, caches), Lifecycle {
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
-    protected var lagObserver: HeadLagObserver<U, B>? = null
+    protected var lagObserver: HeadLagObserver<U>? = null
     private var subscription: Disposable? = null
 
     open fun init() {
         onUpstreamsUpdated()
     }
 
-    abstract fun updateHead(): Head<B>
-    abstract fun setHead(head: Head<B>)
+    abstract fun updateHead(): Head
+    abstract fun setHead(head: Head)
 
     override fun getId(): String {
         return "!all:${chain.chainCode}"
@@ -72,11 +72,11 @@ abstract class ChainUpstreams<U : UpstreamApi, B>(
         lagObserver?.stop()
     }
 
-    override fun getAll(): List<Upstream<U, B>> {
+    override fun getAll(): List<Upstream<U>> {
         return upstreams
     }
 
-    override fun addUpstream(upstream: Upstream<U, B>) {
+    override fun addUpstream(upstream: Upstream<U>) {
         upstreams.add(upstream)
         setHead(updateHead())
         onUpstreamsUpdated()

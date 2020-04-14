@@ -1,14 +1,22 @@
 package io.emeraldpay.dshackle.cache
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import spock.lang.Specification
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 class BlockByHeightSpec extends Specification {
 
     String hash1 = "0xd3f34def3c56ba4e701540d15edaff9acd2a1c968a7ff83b3300ab5dfd5f6aab"
     String hash2 = "0x4aabdaff9acd2f30d15e00ab5dfd5f6c56ba4ea1c968a7ff8d3f34de70153b33"
+
+    ObjectMapper objectMapper = TestingCommons.objectMapper()
 
     def "Fetch with all data available"() {
         setup:
@@ -18,16 +26,22 @@ class BlockByHeightSpec extends Specification {
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.hash = BlockHash.from(hash1)
+        block.totalDifficulty = BigInteger.ONE
+        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block.uncles = []
+        block.transactions = []
 
-        blocks.add(block)
-        heights.add(block)
+        BlockContainer.from(block, objectMapper).with {
+            blocks.add(it)
+            heights.add(it)
+        }
 
         def blocksByHeight = new BlockByHeight(heights, blocks)
 
         when:
         def act = blocksByHeight.read(100).block()
         then:
-        act == block
+        objectMapper.readValue(act.json, BlockJson) == block
     }
 
     def "Fetch correct blocks if multiple"() {
@@ -38,26 +52,40 @@ class BlockByHeightSpec extends Specification {
         def block1 = new BlockJson<TransactionRefJson>()
         block1.number = 100
         block1.hash = BlockHash.from(hash1)
+        block1.totalDifficulty = BigInteger.ONE
+        block1.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block1.uncles = []
+        block1.transactions = []
+
         def block2 = new BlockJson<TransactionRefJson>()
         block2.number = 101
         block2.hash = BlockHash.from(hash2)
+        block2.totalDifficulty = BigInteger.ONE
+        block2.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block2.uncles = []
+        block2.transactions = []
 
-        blocks.add(block1)
-        heights.add(block1)
-        blocks.add(block2)
-        heights.add(block2)
+
+        BlockContainer.from(block1, objectMapper).with {
+            blocks.add(it)
+            heights.add(it)
+        }
+        BlockContainer.from(block2, objectMapper).with {
+            blocks.add(it)
+            heights.add(it)
+        }
 
         def blocksByHeight = new BlockByHeight(heights, blocks)
 
         when:
         def act = blocksByHeight.read(100).block()
         then:
-        act == block1
+        objectMapper.readValue(act.json, BlockJson) == block1
 
         when:
         act = blocksByHeight.read(101).block()
         then:
-        act == block2
+        objectMapper.readValue(act.json, BlockJson) == block2
     }
 
     def "Fetch last block if updated"() {
@@ -68,21 +96,34 @@ class BlockByHeightSpec extends Specification {
         def block1 = new BlockJson<TransactionRefJson>()
         block1.number = 100
         block1.hash = BlockHash.from(hash1)
+        block1.totalDifficulty = BigInteger.ONE
+        block1.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block1.uncles = []
+        block1.transactions = []
+
         def block2 = new BlockJson<TransactionRefJson>()
         block2.number = 100
         block2.hash = BlockHash.from(hash2)
+        block2.totalDifficulty = BigInteger.ONE
+        block2.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block2.uncles = []
+        block2.transactions = []
 
-        blocks.add(block1)
-        heights.add(block1)
-        blocks.add(block2)
-        heights.add(block2)
+        BlockContainer.from(block1, objectMapper).with {
+            blocks.add(it)
+            heights.add(it)
+        }
+        BlockContainer.from(block2, objectMapper).with {
+            blocks.add(it)
+            heights.add(it)
+        }
 
         def blocksByHeight = new BlockByHeight(heights, blocks)
 
         when:
         def act = blocksByHeight.read(100).block()
         then:
-        act == block2
+        objectMapper.readValue(act.json, BlockJson) == block2
     }
 
     def "Fetch nothing if block expired"() {
@@ -93,9 +134,13 @@ class BlockByHeightSpec extends Specification {
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.hash = BlockHash.from(hash1)
+        block.totalDifficulty = BigInteger.ONE
+        block.timestamp = Instant.now()
 
         // add only to heights
-        heights.add(block)
+        BlockContainer.from(block, objectMapper).with {
+            heights.add(it)
+        }
 
         def blocksByHeight = new BlockByHeight(heights, blocks)
 
@@ -113,9 +158,13 @@ class BlockByHeightSpec extends Specification {
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.hash = BlockHash.from(hash1)
+        block.totalDifficulty = BigInteger.ONE
+        block.timestamp = Instant.now()
 
         // add only to blocks
-        blocks.add(block)
+        BlockContainer.from(block, objectMapper).with {
+            blocks.add(it)
+        }
 
         def blocksByHeight = new BlockByHeight(heights, blocks)
 

@@ -34,7 +34,7 @@ abstract class EthereumApi(
     }
 
     private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
-    var upstream: Upstream<EthereumApi, BlockJson<TransactionRefJson>>? = null
+    var upstream: Upstream<EthereumApi>? = null
 
     fun <JS, RS> execute(rpcCall: RpcCall<JS, RS>): Mono<ByteArray> {
         return execute(0, rpcCall.method, rpcCall.params as List<Any>)

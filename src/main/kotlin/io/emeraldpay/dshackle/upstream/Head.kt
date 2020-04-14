@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.data.BlockContainer
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
-interface Head<out T> {
-    fun getFlux(): Flux<out T>
+interface Head {
+    fun getFlux(): Flux<BlockContainer>
 }

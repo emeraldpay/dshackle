@@ -1,23 +1,25 @@
 package io.emeraldpay.dshackle.cache
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.Reader
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
 
 open class Caches(
         private val memBlocksByHash: BlocksMemCache,
         private val blocksByHeight: HeightCache,
         private val memTxsByHash: TxMemCache,
         private val redisBlocksByHash: BlocksRedisCache?,
-        private val redisTxsByHash: TxRedisCache?
+        private val redisTxsByHash: TxRedisCache?,
+        private val objectMapper: ObjectMapper
 ) {
 
     companion object {
@@ -29,13 +31,13 @@ open class Caches(
         }
 
         @JvmStatic
-        fun default(): Caches {
-            return newBuilder().build()
+        fun default(objectMapper: ObjectMapper): Caches {
+            return newBuilder().setObjectMapper(objectMapper).build()
         }
     }
 
-    private val blocksByHash: Reader<BlockHash, BlockJson<TransactionRefJson>>
-    private val txsByHash: Reader<TransactionId, TransactionJson>
+    private val blocksByHash: Reader<BlockId, BlockContainer>
+    private val txsByHash: Reader<TxId, TxContainer>
 
     init {
         blocksByHash = if (redisBlocksByHash == null) {
@@ -54,25 +56,25 @@ open class Caches(
      * Cache data that was just requested
      */
     fun cacheRequested(data: Any) {
-        if (data is TransactionJson) {
+        if (data is TxContainer) {
             cache(Tag.REQUESTED, data)
-        } else if (data is BlockJson<*>) {
-            cache(Tag.REQUESTED, data as BlockJson<TransactionRefJson>)
+        } else if (data is BlockContainer) {
+            cache(Tag.REQUESTED, data)
         }
     }
 
-    fun cache(tag: Tag, tx: TransactionJson) {
+    fun cache(tag: Tag, tx: TxContainer) {
         //do not cache transactions that are not in a block yet
-        if (tx.blockHash == null) {
+        if (tx.blockId == null) {
             return
         }
         memTxsByHash.add(tx)
-        memBlocksByHash.get(tx.blockHash)?.let { block ->
+        memBlocksByHash.get(tx.blockId)?.let { block ->
             redisTxsByHash?.add(tx, block)
         }
     }
 
-    fun cache(tag: Tag, block: BlockJson<TransactionRefJson>) {
+    fun cache(tag: Tag, block: BlockContainer) {
         val job = ArrayList<Mono<Void>>()
         if (tag == Tag.LATEST) {
             //for LATEST data cache in memory, it will be short living so better to avoid Redis
@@ -92,45 +94,60 @@ open class Caches(
                 }
             }
         } else if (tag == Tag.REQUESTED) {
-            //shouldn't cache block json with transactions, separate txes and blocks with refs
-            val blockOnly = block.withoutTransactionDetails()
-            memBlocksByHash.add(blockOnly)
-            redisBlocksByHash?.add(blockOnly)?.let(job::add)
+            var blockOnlyContainer: BlockContainer? = null
+            var jsonValue: BlockJson<*>? = null
+            if (block.full) {
+                jsonValue = objectMapper.readValue<BlockJson<*>>(block.json, BlockJson::class.java)
+                //shouldn't cache block json with transactions, separate txes and blocks with refs
+                val blockOnly = jsonValue.withoutTransactionDetails()
+                blockOnlyContainer = BlockContainer.from(blockOnly, objectMapper)
+            } else {
+                blockOnlyContainer = block
+            }
+            memBlocksByHash.add(blockOnlyContainer)
+            redisBlocksByHash?.add(blockOnlyContainer)?.let(job::add)
 
             // now cache only transactions
-            val transactions = block.transactions.filterIsInstance<TransactionJson>()
-            if (transactions.isNotEmpty()) {
-                transactions.forEach { cache(Tag.REQUESTED, it) }
-                if (redisTxsByHash != null) {
-                    job.add(Flux.fromIterable(transactions).flatMap { redisTxsByHash.add(it, block) }.then())
+            jsonValue?.let { jsonValue ->
+                val plainTransactions = jsonValue.transactions.filterIsInstance<TransactionJson>()
+                if (plainTransactions.isNotEmpty()) {
+                    val transactions = plainTransactions.map { tx ->
+                        TxContainer.from(tx, objectMapper)
+                    }
+                    transactions.forEach {
+                        cache(Tag.REQUESTED, it)
+                    }
+                    if (redisTxsByHash != null) {
+                        job.add(Flux.fromIterable(transactions).flatMap { redisTxsByHash.add(it, block) }.then())
+                    }
                 }
             }
         }
         Flux.fromIterable(job).flatMap { it }.subscribe() //TODO move out to a caller
     }
 
-    fun getBlocksByHash(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
+    fun getBlocksByHash(): Reader<BlockId, BlockContainer> {
         return blocksByHash
     }
 
-    fun getBlockHashByHeight(): Reader<Long, BlockHash> {
+    fun getBlockHashByHeight(): Reader<Long, BlockId> {
         return blocksByHeight
     }
 
-    fun getBlocksByHeight(): Reader<Long, BlockJson<TransactionRefJson>> {
+    fun getBlocksByHeight(): Reader<Long, BlockContainer> {
         return BlockByHeight(blocksByHeight, blocksByHash)
     }
 
-    fun getTxByHash(): Reader<TransactionId, TransactionJson> {
+    fun getTxByHash(): Reader<TxId, TxContainer> {
         return txsByHash
     }
 
-    fun getFullBlocks(): Reader<BlockHash, BlockJson<TransactionJson>> {
-        return BlocksWithTxCache(blocksByHash, txsByHash)
+    fun getFullBlocks(): Reader<BlockId, BlockContainer> {
+        return EthereumBlocksWithTxCache(objectMapper, blocksByHash, txsByHash)
     }
 
-    fun getFullBlocksByHeight(): Reader<Long, BlockJson<TransactionJson>> {
-        return BlockByHeight(blocksByHeight, BlocksWithTxCache(blocksByHash, txsByHash))
+    fun getFullBlocksByHeight(): Reader<Long, BlockContainer> {
+        return BlockByHeight(blocksByHeight, EthereumBlocksWithTxCache(objectMapper, blocksByHash, txsByHash))
     }
 
     enum class Tag {
@@ -138,6 +155,7 @@ open class Caches(
          * Latest data produced by blockchain
          */
         LATEST,
+
         /**
          * Data requested by client
          */
@@ -150,6 +168,7 @@ open class Caches(
         private var txsByHash: TxMemCache? = null
         private var redisBlocksByHash: BlocksRedisCache? = null
         private var redisTxsByHash: TxRedisCache? = null
+        private var objectMapper: ObjectMapper? = null
 
         fun setBlockByHash(cache: BlocksMemCache): Builder {
             blocksByHash = cache
@@ -176,6 +195,11 @@ open class Caches(
             return this
         }
 
+        fun setObjectMapper(value: ObjectMapper): Builder {
+            objectMapper = value
+            return this
+        }
+
         fun build(): Caches {
             if (blocksByHash == null) {
                 blocksByHash = BlocksMemCache()
@@ -186,7 +210,10 @@ open class Caches(
             if (txsByHash == null) {
                 txsByHash = TxMemCache()
             }
-            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, redisBlocksByHash, redisTxsByHash)
+            if (objectMapper == null) {
+                throw IllegalStateException("ObjectMapper is not set")
+            }
+            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, redisBlocksByHash, redisTxsByHash, objectMapper!!)
         }
     }
 }

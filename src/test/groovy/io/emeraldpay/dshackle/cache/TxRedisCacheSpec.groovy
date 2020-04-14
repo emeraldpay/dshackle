@@ -1,5 +1,9 @@
 package io.emeraldpay.dshackle.cache
 
+
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
@@ -26,6 +30,8 @@ class TxRedisCacheSpec extends Specification {
     String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
     TxRedisCache cache
 
+    def objectMapper = TestingCommons.objectMapper()
+
     def setup() {
         RedisClient client = IntegrationTestingCommons.redis()
         StatefulRedisConnection<String, String> connection = client.connect();
@@ -39,6 +45,7 @@ class TxRedisCacheSpec extends Specification {
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block.totalDifficulty = BigInteger.ONE
         block.hash = BlockHash.from(hash1)
         block.transactions = []
         block.uncles = []
@@ -51,10 +58,11 @@ class TxRedisCacheSpec extends Specification {
         tx.nonce = 0
 
         when:
-        cache.add(tx, block).subscribe()
-        def act = cache.read(TransactionId.from(hash1)).block()
+        cache.add(TxContainer.from(tx, objectMapper), BlockContainer.from(block, objectMapper)).subscribe()
+        def act = cache.read(TxId.from(hash1)).block()
         then:
-        act == tx
+        act != null
+        objectMapper.readValue(act.json, TransactionJson) == tx
     }
 
     def "Evict single tx"() {
@@ -62,6 +70,7 @@ class TxRedisCacheSpec extends Specification {
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block.totalDifficulty = BigInteger.ONE
         block.hash = BlockHash.from(hash2)
         block.transactions = []
         block.uncles = []
@@ -74,14 +83,15 @@ class TxRedisCacheSpec extends Specification {
         tx.nonce = 0
 
         when:
-        cache.add(tx, block).subscribe()
-        def act = cache.read(tx.hash).block()
+        cache.add(TxContainer.from(tx, objectMapper), BlockContainer.from(block, objectMapper)).subscribe()
+        def act = cache.read(TxId.from(tx.hash)).block()
         then:
-        act == tx
+        act != null
+        objectMapper.readValue(act.json, TransactionJson) == tx
 
         when:
-        cache.evict(tx.hash).subscribe()
-        act = cache.read(tx.hash).block()
+        cache.evict(TxId.from(tx.hash)).subscribe()
+        act = cache.read(TxId.from(tx.hash)).block()
         then:
         act == null
     }
@@ -92,6 +102,7 @@ class TxRedisCacheSpec extends Specification {
         block1.hash = BlockHash.from(hash1)
         block1.number = 100
         block1.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block1.totalDifficulty = BigInteger.ONE
         block1.transactions = [
                 new TransactionRefJson(TransactionId.from(hash1)),
                 new TransactionRefJson(TransactionId.from(hash2)),
@@ -100,6 +111,7 @@ class TxRedisCacheSpec extends Specification {
         block2.hash = BlockHash.from(hash2)
         block2.number = 101
         block2.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
+        block2.totalDifficulty = BigInteger.ONE
         block2.transactions = [
                 new TransactionRefJson(TransactionId.from(hash3)),
                 new TransactionRefJson(TransactionId.from(hash4)),
@@ -112,7 +124,7 @@ class TxRedisCacheSpec extends Specification {
             tx.hash = TransactionId.from(hash)
             tx.value = Wei.ofEthers(i)
             tx.nonce = 0
-            cache.add(tx, block1).subscribe()
+            cache.add(TxContainer.from(tx, objectMapper), BlockContainer.from(block1, objectMapper)).subscribe()
         }
         [hash3, hash4].eachWithIndex{ String hash, int i ->
             def tx = new TransactionJson()
@@ -121,16 +133,16 @@ class TxRedisCacheSpec extends Specification {
             tx.hash = TransactionId.from(hash)
             tx.value = Wei.ofEthers(i)
             tx.nonce = 0
-            cache.add(tx, block2).subscribe()
+            cache.add(TxContainer.from(tx, objectMapper), BlockContainer.from(block2, objectMapper)).subscribe()
         }
 
 
-        cache.evict(block1).subscribe()
+        cache.evict(BlockContainer.from(block1, objectMapper)).subscribe()
 
-        def act1 = cache.read(TransactionId.from(hash1)).block()
-        def act2 = cache.read(TransactionId.from(hash2)).block()
-        def act3 = cache.read(TransactionId.from(hash3)).block()
-        def act4 = cache.read(TransactionId.from(hash4)).block()
+        def act1 = cache.read(TxId.from(hash1)).block()
+        def act2 = cache.read(TxId.from(hash2)).block()
+        def act3 = cache.read(TxId.from(hash3)).block()
+        def act4 = cache.read(TxId.from(hash4)).block()
 
         then:
         act1 == null

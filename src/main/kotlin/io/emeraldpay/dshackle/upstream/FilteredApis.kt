@@ -26,7 +26,7 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 class FilteredApis<U : UpstreamApi>(
-        allUpstreams: List<Upstream<U, *>>,
+        allUpstreams: List<Upstream<U>>,
         private val matcher: Selector.Matcher,
         pos: Int,
         private val repeatLimit: Long,
@@ -38,15 +38,15 @@ class FilteredApis<U : UpstreamApi>(
         private const val MAX_WAIT_MILLIS = 5000L
     }
 
-    constructor(allUpstreams: List<Upstream<U, *>>,
+    constructor(allUpstreams: List<Upstream<U>>,
                 matcher: Selector.Matcher,
                 pos: Int) : this(allUpstreams, matcher, pos, 10, 7)
 
-    constructor(allUpstreams: List<Upstream<U, *>>,
+    constructor(allUpstreams: List<Upstream<U>>,
                 matcher: Selector.Matcher) : this(allUpstreams, matcher, 0, 10, 10)
 
     private val delay: Int
-    private val upstreams: List<Upstream<UpstreamApi, *>>
+    private val upstreams: List<Upstream<UpstreamApi>>
 
     private val control = EmitterProcessor.create<Boolean>(32, false)
 
@@ -81,7 +81,7 @@ class FilteredApis<U : UpstreamApi>(
         }.let { Flux.concat(it) }
 
         Flux.concat(first, retries)
-                .filter(Upstream<UpstreamApi, *>::isAvailable)
+                .filter(Upstream<UpstreamApi>::isAvailable)
                 .filter(matcher::matches)
                 .flatMap { it.getApi(matcher) }
                 .zipWith(control).map { it.t1 }

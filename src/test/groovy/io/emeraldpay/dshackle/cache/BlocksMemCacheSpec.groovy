@@ -15,11 +15,17 @@
  */
 package io.emeraldpay.dshackle.cache
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import spock.lang.Specification
+
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class BlocksMemCacheSpec extends Specification {
 
@@ -28,18 +34,24 @@ class BlocksMemCacheSpec extends Specification {
     String hash3 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
 
+    ObjectMapper objectMapper = TestingCommons.objectMapper()
+
     def "Add and read"() {
         setup:
         def cache = new BlocksMemCache()
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.hash = BlockHash.from(hash1)
+        block.totalDifficulty = BigInteger.ONE
+        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block.uncles = []
+        block.transactions = []
 
         when:
-        cache.add(block)
-        def act = cache.read(BlockHash.from(hash1)).block()
+        cache.add(BlockContainer.from(block, objectMapper))
+        def act = cache.read(BlockId.from(hash1)).block()
         then:
-        act == block
+        objectMapper.readValue(act.json, BlockJson) == block
     }
 
     def "Keeps only configured amount"() {
@@ -48,17 +60,22 @@ class BlocksMemCacheSpec extends Specification {
         [hash1]
 
         when:
-        [hash1, hash2, hash3, hash4].eachWithIndex{ String hash, int i ->
+        [hash1, hash2, hash3, hash4].eachWithIndex { String hash, int i ->
             def block = new BlockJson<TransactionRefJson>()
             block.number = 100 + i
             block.hash = BlockHash.from(hash)
-            cache.add(block)
+            block.totalDifficulty = BigInteger.ONE
+            block.timestamp = Instant.now()
+            block.uncles = []
+            block.transactions = []
+
+            cache.add(BlockContainer.from(block, objectMapper))
         }
 
-        def act1 = cache.read(BlockHash.from(hash1)).block()
-        def act2 = cache.read(BlockHash.from(hash2)).block()
-        def act3 = cache.read(BlockHash.from(hash3)).block()
-        def act4 = cache.read(BlockHash.from(hash4)).block()
+        def act1 = cache.read(BlockId.from(hash1)).block()
+        def act2 = cache.read(BlockId.from(hash2)).block()
+        def act3 = cache.read(BlockId.from(hash3)).block()
+        def act4 = cache.read(BlockId.from(hash4)).block()
         then:
         act2.hash.toHex() == hash2
         act3.hash.toHex() == hash3

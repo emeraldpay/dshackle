@@ -15,18 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
-import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.cache.CachesEnabled
-import io.emeraldpay.dshackle.reader.EmptyReader
-import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.CachingEthereumApi
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.Batch
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.infinitape.etherjar.rpc.Commands
-import io.infinitape.etherjar.rpc.ReactorBatch
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -38,8 +30,9 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class EthereumRpcHead(
-    private val api: DirectEthereumApi,
-    private val interval: Duration = Duration.ofSeconds(10)
+        private val api: DirectEthereumApi,
+        private val objectMapper: ObjectMapper,
+        private val interval: Duration = Duration.ofSeconds(10)
 ): DefaultEthereumHead(), Lifecycle {
 
     companion object {
@@ -66,6 +59,9 @@ class EthereumRpcHead(
                             .execute(Commands.eth().getBlock(it))
                             .subscribeOn(scheduler)
                             .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
+                }
+                .map {
+                    BlockContainer.from(it, objectMapper)
                 }
                 .onErrorContinue { err, _ ->
                     log.debug("RPC error ${err.message}")

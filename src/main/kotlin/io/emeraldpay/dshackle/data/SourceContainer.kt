@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 ETCDEV GmbH
+ * Copyright (c) 2020 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.data
 
-import io.emeraldpay.dshackle.data.BlockContainer
-import reactor.core.publisher.Flux
+abstract class SourceContainer(
+        val json: ByteArray?
+) {
 
-class EmptyEthereumHead : EthereumHead {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is SourceContainer) return false
 
-    override fun getFlux(): Flux<BlockContainer> {
-        return Flux.empty()
+        if (json != null) {
+            if (other.json == null) return false
+            if (!json.contentEquals(other.json)) return false
+        } else if (other.json != null) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return json?.contentHashCode() ?: 0
     }
 }

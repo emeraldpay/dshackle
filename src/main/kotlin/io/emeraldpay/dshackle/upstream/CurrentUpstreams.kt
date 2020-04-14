@@ -46,7 +46,7 @@ class CurrentUpstreams(
 
     private val log = LoggerFactory.getLogger(CurrentUpstreams::class.java)
 
-    private val chainMapping = ConcurrentHashMap<Chain, ChainUpstreams<*, *>>()
+    private val chainMapping = ConcurrentHashMap<Chain, ChainUpstreams<*>>()
     private val chainsBus = TopicProcessor.create<Chain>()
     private val callTargets = HashMap<Chain, CallMethods>()
     private val updateLock = ReentrantLock()
@@ -55,8 +55,8 @@ class CurrentUpstreams(
         updateLock.withLock {
             val chain = change.chain
             val up = change.upstream
-                    .cast(EthereumUpstream::class.java, EthereumApi::class.java, BlockJson::class.java) as Upstream<EthereumApi, BlockJson<TransactionRefJson>>
-            val current = chainMapping[chain] as ChainUpstreams<EthereumApi, BlockJson<TransactionRefJson>>?
+                    .cast(EthereumUpstream::class.java, EthereumApi::class.java) as Upstream<EthereumApi>
+            val current = chainMapping[chain] as ChainUpstreams<EthereumApi>?
             if (change.type == UpstreamChange.ChangeType.REMOVED) {
                 current?.removeUpstream(up.getId())
                 log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
@@ -84,7 +84,7 @@ class CurrentUpstreams(
         }
     }
 
-    override fun getUpstream(chain: Chain): AggregatedUpstream<*, *>? {
+    override fun getUpstream(chain: Chain): AggregatedUpstream<*>? {
         return chainMapping[chain]
     }
 
