@@ -1,0 +1,40 @@
+syntax = "proto3";
+package emerald.dshackle;
+option java_package = "io.emeraldpay.dshackle.proto";
+option java_outer_classname = "CachesProto";
+
+message ValueContainer {
+    ValueType type = 1;
+    Compression compression = 2;
+    bytes value = 3;
+
+    oneof meta_type {
+        BlockMeta block_meta = 4;
+        TxMeta tx_meta = 5;
+    }
+
+    enum ValueType {
+        UNKNOWN = 0;
+        BLOCK = 1;
+        TX = 2;
+    }
+
+    enum Compression {
+        NONE = 0;
+    }
+}
+
+message BlockMeta {
+    uint64 height = 1;
+    bytes hash = 2;
+    bytes difficulty = 3;
+    uint64 timestamp = 4;
+    repeated bytes tx_hashes = 5;
+}
+
+message TxMeta {
+    uint64 height = 1;
+    bytes hash = 2;
+    bytes block_hash = 3;
+}
+

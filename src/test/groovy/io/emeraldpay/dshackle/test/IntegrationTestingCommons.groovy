@@ -1,6 +1,10 @@
 package io.emeraldpay.dshackle.test
 
 import io.lettuce.core.RedisClient
+import io.lettuce.core.api.StatefulRedisConnection
+import io.lettuce.core.codec.ByteArrayCodec
+import io.lettuce.core.codec.RedisCodec
+import io.lettuce.core.codec.StringCodec
 
 class IntegrationTestingCommons {
 
@@ -22,4 +26,7 @@ class IntegrationTestingCommons {
         return RedisClient.create("redis://${host}:${port}")
     }
 
+    static StatefulRedisConnection<String, byte[]> redisConnection() {
+        return redis().connect(RedisCodec.of(StringCodec.ASCII, ByteArrayCodec.INSTANCE))
+    }
 }

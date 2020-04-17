@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.cache
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
@@ -20,7 +21,8 @@ import java.time.temporal.ChronoUnit
 @IgnoreIf({ IntegrationTestingCommons.isDisabled("redis") })
 class BlocksRedisCacheSpec extends Specification {
 
-    StatefulRedisConnection<String, String> redis
+    StatefulRedisConnection<String, byte[]> redis
+    BlocksRedisCache cache
 
     String hash1 = "0xd3f34def3c56ba4e701540d15edaff9acd2a1c968a7ff83b3300ab5dfd5f6aab"
     String hash2 = "0x4aabdaff9acd2f30d15e00ab5dfd5f6c56ba4ea1c968a7ff8d3f34de70153b33"
@@ -30,17 +32,43 @@ class BlocksRedisCacheSpec extends Specification {
     ObjectMapper objectMapper = TestingCommons.objectMapper()
 
     def setup() {
-        RedisClient client = IntegrationTestingCommons.redis()
-        StatefulRedisConnection<String, String> connection = client.connect();
-        connection.sync().flushdb()
-        redis = connection
+        redis = IntegrationTestingCommons.redisConnection()
+        redis.sync().flushdb()
+        cache = new BlocksRedisCache(
+                redis.reactive(), Chain.ETHEREUM
+        )
+    }
+
+    def "Decode encoded"() {
+        setup:
+        BlockContainer cont = new BlockContainer(
+                100,
+                BlockId.from(hash3),
+                BigInteger.valueOf(10515),
+                Instant.ofEpochSecond(10501050),
+                false,
+                "test".bytes,
+                [TxId.from(hash2), TxId.from(hash1)]
+        )
+
+        when:
+        def enc = cache.toProto(cont)
+        def dec = cache.fromProto(enc)
+
+        then:
+        dec.height == 100
+        dec.hash.toHex() == hash3
+        dec.difficulty.toString() == "10515"
+        dec.timestamp == Instant.ofEpochSecond(10501050)
+        dec.json == "test".bytes
+        dec.transactions.size() == 2
+        dec.transactions[0].toHex() == hash2
+        dec.transactions[1].toHex() == hash1
+        dec == cont
     }
 
     def "Add and read"() {
         setup:
-        def cache = new BlocksRedisCache(
-                redis.reactive(), Chain.ETHEREUM, TestingCommons.objectMapper()
-        )
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
@@ -59,9 +87,6 @@ class BlocksRedisCacheSpec extends Specification {
 
     def "Evict existing block"() {
         setup:
-        def cache = new BlocksRedisCache(
-                redis.reactive(), Chain.ETHEREUM, TestingCommons.objectMapper()
-        )
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)
@@ -86,9 +111,6 @@ class BlocksRedisCacheSpec extends Specification {
 
     def "Evict non-existing block"() {
         setup:
-        def cache = new BlocksRedisCache(
-                redis.reactive(), Chain.ETHEREUM, TestingCommons.objectMapper()
-        )
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
         block.timestamp = Instant.now().minusSeconds(100).truncatedTo(ChronoUnit.SECONDS)

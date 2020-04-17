@@ -1,14 +1,15 @@
 package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.ByteString
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.dshackle.proto.CachesProto
 import io.lettuce.core.api.reactive.RedisReactiveCommands
-import org.apache.commons.codec.binary.Base64
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.util.function.Tuples
@@ -20,9 +21,8 @@ import kotlin.math.min
  * Cache transactions in Redis, up to 24 hours.
  */
 class TxRedisCache(
-        private val redis: RedisReactiveCommands<String, String>,
-        private val chain: Chain,
-        private val objectMapper: ObjectMapper
+        private val redis: RedisReactiveCommands<String, ByteArray>,
+        private val chain: Chain
 ) : Reader<TxId, TxContainer> {
 
     companion object {
@@ -35,12 +35,44 @@ class TxRedisCache(
     override fun read(key: TxId): Mono<TxContainer> {
         return redis.get(key(key))
                 .map { data ->
-                    val json = data
-                    val tx = objectMapper.readValue(json, TransactionJson::class.java)
-                    TxContainer.from(tx, objectMapper)
+                    fromProto(data)
                 }.onErrorResume {
                     Mono.empty()
                 }
+    }
+
+    fun toProto(value: TxContainer): ByteArray {
+        val meta = CachesProto.TxMeta.newBuilder()
+                .setHash(ByteString.copyFrom(value.hash.value))
+                .setHeight(value.height)
+
+        value.blockId?.value?.let {
+            meta.setBlockHash(ByteString.copyFrom(it))
+        }
+
+        return CachesProto.ValueContainer.newBuilder()
+                .setType(CachesProto.ValueContainer.ValueType.TX)
+                .setValue(ByteString.copyFrom(value.json!!))
+                .setTxMeta(meta)
+                .build()
+                .toByteArray()
+    }
+
+    fun fromProto(msg: ByteArray): TxContainer {
+        val value = CachesProto.ValueContainer.parseFrom(msg)
+        if (value.type != CachesProto.ValueContainer.ValueType.TX) {
+            throw IllegalArgumentException("Expect TX value, receive ${value.type}")
+        }
+        if (!value.hasTxMeta()) {
+            throw IllegalArgumentException("Container doesn't have Tx Meta")
+        }
+        val meta = value.txMeta
+        return TxContainer(
+                meta.height,
+                TxId(meta.hash.toByteArray()),
+                BlockId(meta.blockHash.toByteArray()),
+                value.value.toByteArray()
+        )
     }
 
     fun evict(block: BlockContainer): Mono<Void> {
@@ -68,16 +100,18 @@ class TxRedisCache(
         }
         return Mono.just(Tuples.of(tx, block))
                 .flatMap {
-                    val data = String(it.t1.json!!)
+                    val key = key(it.t1.hash)
+                    val value = toProto(it.t1)
                     //default caching time is age of the block, i.e. block create hour ago
                     //keep for hour, but block create 10 seconds ago cache for 10 seconds, as it
                     //still can be replaced in the blockchain
                     val age = Instant.now().epochSecond - it.t2.timestamp!!.epochSecond
                     val ttl = min(age, TimeUnit.HOURS.toSeconds(MAX_CACHE_TIME_HOURS))
-                    redis.setex(key(it.t1.hash), ttl, data)
+                    //store
+                    redis.setex(key, ttl, value)
                 }
                 .doOnError {
-                    log.warn("Failed to save to Redis: ${it.message}")
+                    log.warn("Failed to save TX to Redis: ${it.message}", it)
                 }
                 //if failed to cache, just continue without it
                 .onErrorResume {

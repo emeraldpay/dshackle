@@ -2,20 +2,18 @@ package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.CacheConfig
-import io.emeraldpay.dshackle.config.EnvVariables
 import io.emeraldpay.grpc.Chain
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
 import io.lettuce.core.api.StatefulRedisConnection
+import io.lettuce.core.codec.ByteArrayCodec
+import io.lettuce.core.codec.RedisCodec
+import io.lettuce.core.codec.StringCodec
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.core.env.Environment
 import org.springframework.stereotype.Repository
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import javax.annotation.PostConstruct
-import kotlin.collections.HashMap
 
 
 @Repository
@@ -29,7 +27,7 @@ class CachesFactory(
         private const val CONFIG_PREFIX = "cache.redis"
     }
 
-    private var redis: StatefulRedisConnection<String, String>? = null
+    private var redis: StatefulRedisConnection<String, ByteArray>? = null
     private val all = EnumMap<Chain, Caches>(io.emeraldpay.grpc.Chain::class.java)
 
     @PostConstruct
@@ -56,15 +54,15 @@ class CachesFactory(
         if (ping != "PONG") {
             throw IllegalStateException("Redis connection is not configured. Response: $ping")
         }
-        redis = client.connect()
+        redis = client.connect(RedisCodec.of(StringCodec.ASCII, ByteArrayCodec.INSTANCE))
     }
 
     private fun initCache(chain: Chain): Caches {
         val caches = Caches.newBuilder()
                 .setObjectMapper(objectMapper)
         redis?.let { redis ->
-            caches.setBlockByHash(BlocksRedisCache(redis.reactive(), chain, objectMapper))
-            caches.setTxByHash(TxRedisCache(redis.reactive(), chain, objectMapper))
+            caches.setBlockByHash(BlocksRedisCache(redis.reactive(), chain))
+            caches.setTxByHash(TxRedisCache(redis.reactive(), chain))
         }
         return caches.build()
     }

@@ -10,6 +10,7 @@ buildscript {
     }
     dependencies {
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.70'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.12'
     }
 }
 
@@ -25,6 +26,7 @@ plugins {
     id 'org.springframework.boot' version '2.1.4.RELEASE'
     id 'io.spring.dependency-management' version '1.0.6.RELEASE'
     id 'com.palantir.git-version' version '0.12.2'
+    id "com.google.protobuf" version "0.8.12"
 }
 
 
@@ -165,6 +167,15 @@ jar {
 afterEvaluate {
     distZip.dependsOn(jar)
     compileKotlin.dependsOn(generateVersion)
+    generateProto.dependsOn(clean)
+}
+
+protobuf {
+    protoc { artifact = "com.google.protobuf:protoc:${protocVersion}" }
+    plugins {
+    }
+    generateProtoTasks {
+    }
 }
 
 task generateVersion()  {

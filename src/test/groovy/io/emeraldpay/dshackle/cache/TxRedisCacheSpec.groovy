@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.cache
 
 
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
@@ -15,6 +16,9 @@ import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import io.lettuce.core.RedisClient
 import io.lettuce.core.api.StatefulRedisConnection
+import io.lettuce.core.codec.ByteArrayCodec
+import io.lettuce.core.codec.RedisCodec
+import io.lettuce.core.codec.StringCodec
 import spock.lang.IgnoreIf
 import spock.lang.Specification
 
@@ -33,11 +37,29 @@ class TxRedisCacheSpec extends Specification {
     def objectMapper = TestingCommons.objectMapper()
 
     def setup() {
-        RedisClient client = IntegrationTestingCommons.redis()
-        StatefulRedisConnection<String, String> connection = client.connect();
-        connection.sync().flushdb()
-        StatefulRedisConnection<String, String> redis = connection
-        cache = new TxRedisCache(redis.reactive(), Chain.ETHEREUM, TestingCommons.objectMapper())
+        StatefulRedisConnection<String, byte[]> redis = IntegrationTestingCommons.redisConnection()
+        redis.sync().flushdb()
+        cache = new TxRedisCache(redis.reactive(), Chain.ETHEREUM)
+    }
+
+    def "Decode encoded"() {
+        setup:
+        TxContainer cont = new TxContainer(
+                2000,
+                TxId.from(hash1),
+                BlockId.from(hash2),
+                "test".bytes
+        )
+        when:
+        def enc = cache.toProto(cont)
+        def dec = cache.fromProto(enc)
+
+        then:
+        dec.height == 2000
+        dec.hash.toHex() == hash1
+        dec.blockId.toHex() == hash2
+        dec.json == "test".bytes
+        dec == cont
     }
 
     def "Add and read"() {

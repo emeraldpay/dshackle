@@ -1,15 +1,16 @@
 package io.emeraldpay.dshackle.cache
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.ByteString
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.TxId
+import io.emeraldpay.dshackle.proto.CachesProto
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.json.BlockJson
 import io.lettuce.core.api.reactive.RedisReactiveCommands
-import org.apache.commons.codec.binary.Base64
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
+import java.math.BigInteger
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
@@ -18,9 +19,8 @@ import kotlin.math.min
  * Cache blocks in Redis database
  */
 class BlocksRedisCache(
-        private val redis: RedisReactiveCommands<String, String>,
-        private val chain: Chain,
-        private val objectMapper: ObjectMapper
+        private val redis: RedisReactiveCommands<String, ByteArray>,
+        private val chain: Chain
 ) : Reader<BlockId, BlockContainer> {
 
     companion object {
@@ -34,11 +34,54 @@ class BlocksRedisCache(
     override fun read(key: BlockId): Mono<BlockContainer> {
         return redis.get(key(key))
                 .map { data ->
-                    val block = objectMapper.readValue(data, BlockJson::class.java)
-                    BlockContainer.from(block, objectMapper)
+                    fromProto(data)
                 }.onErrorResume {
                     Mono.empty()
                 }
+    }
+
+    fun toProto(value: BlockContainer): ByteArray {
+        if (value.full) {
+            throw IllegalArgumentException("Full Block is not supposed to be cached")
+        }
+        val meta = CachesProto.BlockMeta.newBuilder()
+                .setHash(ByteString.copyFrom(value.hash.value))
+                .setHeight(value.height)
+                .setDifficulty(ByteString.copyFrom(value.difficulty.toByteArray()))
+                .setTimestamp(value.timestamp.toEpochMilli())
+
+        value.transactions.forEach {
+            meta.addTxHashes(ByteString.copyFrom(it.value))
+        }
+
+        return CachesProto.ValueContainer.newBuilder()
+                .setType(CachesProto.ValueContainer.ValueType.BLOCK)
+                .setValue(ByteString.copyFrom(value.json!!))
+                .setBlockMeta(meta)
+                .build()
+                .toByteArray()
+    }
+
+    fun fromProto(msg: ByteArray): BlockContainer {
+        val value = CachesProto.ValueContainer.parseFrom(msg)
+        if (value.type != CachesProto.ValueContainer.ValueType.BLOCK) {
+            throw IllegalArgumentException("Expect BLOCK value, receive ${value.type}")
+        }
+        if (!value.hasBlockMeta()) {
+            throw IllegalArgumentException("Container doesn't have Block Meta")
+        }
+        val meta = value.blockMeta
+        return BlockContainer(
+                meta.height,
+                BlockId(meta.hash.toByteArray()),
+                BigInteger(meta.difficulty.toByteArray()),
+                Instant.ofEpochMilli(meta.timestamp),
+                false,
+                value.value.toByteArray(),
+                meta.txHashesList.map {
+                    TxId(it.toByteArray())
+                }
+        )
     }
 
     fun evict(id: BlockId): Mono<Void> {
@@ -59,20 +102,21 @@ class BlocksRedisCache(
         }
         return Mono.just(block)
                 .flatMap { block ->
-                    val data = String(block.json!!)
                     //default caching time is age of the block, i.e. block create hour ago
                     //keep for hour, but block create 10 seconds ago cache for 10 seconds, as it
                     //still can be replaced in the blockchain
                     val age = Instant.now().epochSecond - block.timestamp!!.epochSecond
                     val ttl = min(age, TimeUnit.MINUTES.toSeconds(MAX_CACHE_TIME_MINUTES))
                     if (ttl > MIN_CACHE_TIME_SECONDS) {
-                        redis.setex(key(block.hash), ttl, data)
+                        val key = key(block.hash)
+                        val value = toProto(block)
+                        redis.setex(key, ttl, value)
                     } else {
                         Mono.empty()
                     }
                 }
                 .doOnError {
-                    log.warn("Failed to save to Redis: ${it.message}")
+                    log.warn("Failed to save Block to Redis: ${it.message}")
                 }
                 //if failed to cache, just continue without it
                 .onErrorResume {
