@@ -15,19 +15,28 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import reactor.core.publisher.Flux
 import reactor.core.publisher.TopicProcessor
 import java.util.concurrent.atomic.AtomicReference
 
 abstract class DefaultUpstream<U : UpstreamApi>(
+        private val id: String,
         defaultLag: Long,
-        defaultAvail: UpstreamAvailability
+        defaultAvail: UpstreamAvailability,
+        private val options: UpstreamsConfig.Options,
+        private val targets: CallMethods?
 ) : Upstream<U> {
 
-    constructor() : this(Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE)
+    constructor(id: String, options: UpstreamsConfig.Options, targets: CallMethods?) : this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, targets)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
+
+    override fun isAvailable(): Boolean {
+        return getStatus() == UpstreamAvailability.OK
+    }
 
     override fun getStatus(): UpstreamAvailability {
         return status.get().status
@@ -65,6 +74,18 @@ abstract class DefaultUpstream<U : UpstreamApi>(
 
     override fun getLag(): Long {
         return this.status.get().lag
+    }
+
+    override fun getId(): String {
+        return id
+    }
+
+    override fun getOptions(): UpstreamsConfig.Options {
+        return options
+    }
+
+    override fun getMethods(): CallMethods {
+        return targets ?: throw IllegalStateException("Methods are not set")
     }
 
     class Status(val lag: Long, val avail: UpstreamAvailability, val status: UpstreamAvailability)

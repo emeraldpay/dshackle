@@ -33,7 +33,6 @@ import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DefaultEthereumHead
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.*
@@ -59,13 +58,16 @@ open class EthereumGrpcUpstream(
         private val blockchainStub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
         private val rpcClient: ReactorEmeraldClient
-) : DefaultUpstream<EthereumApi>(), CachesEnabled, Lifecycle {
+) : DefaultUpstream<EthereumApi>(
+        "$parentId/${chain.chainCode}",
+        UpstreamsConfig.Options.getDefaults(),
+        null
+), CachesEnabled, Lifecycle {
 
     private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
     private var caches: Caches? = null
 
-    private val options = UpstreamsConfig.Options.getDefaults()
     private val nodes = AtomicReference<QuorumForLabels>(QuorumForLabels())
     private val head = DefaultEthereumHead()
     private var targets: CallMethods? = null
@@ -82,10 +84,6 @@ open class EthereumGrpcUpstream(
             it.upstream = this
             it
         }
-    }
-
-    override fun getId(): String {
-        return "$parentId/${chain.chainCode}"
     }
 
     override fun start() {
@@ -200,21 +198,17 @@ open class EthereumGrpcUpstream(
     }
 
     override fun isAvailable(): Boolean {
-        return getStatus() == UpstreamAvailability.OK && head.getCurrent() != null && nodes.get().getAll().any {
+        return super.isAvailable() && head.getCurrent() != null && nodes.get().getAll().any {
             it.quorum > 0
         }
     }
 
-    override fun getHead(): EthereumHead {
+    override fun getHead(): Head {
         return head
     }
 
     override fun getApi(matcher: Selector.Matcher): Mono<DirectEthereumApi> {
         return Mono.just(createApi(matcher))
-    }
-
-    override fun getOptions(): UpstreamsConfig.Options {
-        return options
     }
 
     override fun setCaches(caches: Caches) {
@@ -231,5 +225,4 @@ open class EthereumGrpcUpstream(
         }
         return this as T
     }
-
 }

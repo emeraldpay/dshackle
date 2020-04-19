@@ -18,9 +18,7 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.data.*
-import io.emeraldpay.dshackle.upstream.ethereum.EmptyEthereumHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -30,7 +28,7 @@ import java.util.function.Function
 open class CachingEthereumApi(
         private val objectMapper: ObjectMapper,
         private val caches: Caches,
-        private val head: EthereumHead
+        private val head: Head
 ): EthereumApi(objectMapper) {
 
     companion object {
@@ -41,7 +39,7 @@ open class CachingEthereumApi(
          */
         @JvmStatic
         fun empty(objectMapper: ObjectMapper): CachingEthereumApi {
-            return CachingEthereumApi(objectMapper, Caches.default(objectMapper), EmptyEthereumHead())
+            return CachingEthereumApi(objectMapper, Caches.default(objectMapper), EmptyHead())
         }
     }
 

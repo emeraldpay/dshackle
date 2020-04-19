@@ -38,10 +38,10 @@ class HeightCacheSpec extends Specification {
         def act3 = cache.read(102).block()
         def act4 = cache.read(103).block()
         then:
-        act1.toHex() == hash1
-        act2.toHex() == hash2
-        act3.toHex() == hash3
-        act4.toHex() == hash4
+        act1.toHex() == hash1.substring(2)
+        act2.toHex() == hash2.substring(2)
+        act3.toHex() == hash3.substring(2)
+        act4.toHex() == hash4.substring(2)
     }
 
     def "Keeps only configured amount"() {
@@ -65,8 +65,8 @@ class HeightCacheSpec extends Specification {
         def act4 = cache.read(103).block()
         then:
         act1 == null
-        act2.toHex() == hash2
-        act3.toHex() == hash3
-        act4.toHex() == hash4
+        act2.toHex() == hash2.substring(2)
+        act3.toHex() == hash3.substring(2)
+        act4.toHex() == hash4.substring(2)
     }
 }

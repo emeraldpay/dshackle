@@ -24,8 +24,6 @@ import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -33,15 +31,15 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 
 open class EthereumUpstream(
-        private val id: String,
+        id: String,
         val chain: Chain,
         private val api: DirectEthereumApi,
         private val ethereumWs: EthereumWs? = null,
-        private val options: UpstreamsConfig.Options,
+        options: UpstreamsConfig.Options,
         val node: QuorumForLabels.QuorumItem,
-        private val targets: CallMethods,
+        targets: CallMethods,
         private val objectMapper: ObjectMapper
-) : DefaultUpstream<EthereumApi>(), Upstream<EthereumApi>, CachesEnabled, Lifecycle {
+) : DefaultUpstream<EthereumApi>(id, options, targets), Upstream<EthereumApi>, CachesEnabled, Lifecycle {
 
     constructor(id: String, chain: Chain, api: DirectEthereumApi, objectMapper: ObjectMapper) : this(id, chain, api, null,
             UpstreamsConfig.Options.getDefaults(), QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
@@ -50,7 +48,7 @@ open class EthereumUpstream(
 
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
 
-    private val head: EthereumHead = this.createHead()
+    private val head: Head = this.createHead()
     private var validatorSubscription: Disposable? = null
 
     init {
@@ -64,18 +62,14 @@ open class EthereumUpstream(
         }
     }
 
-    override fun getId(): String {
-        return id
-    }
-
     override fun start() {
         log.info("Configured for ${chain.chainName}")
 
-        if (options.disableValidation != null && options.disableValidation!!) {
+        if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)
         } else {
-            val validator = UpstreamValidator(this, options)
+            val validator = EthereumUpstreamValidator(this, getOptions())
             validatorSubscription = validator.start()
                     .subscribe(this::setStatus)
         }
@@ -93,7 +87,7 @@ open class EthereumUpstream(
         }
     }
 
-    open fun createHead(): EthereumHead {
+    open fun createHead(): Head {
         return if (ethereumWs != null) {
             val ws = EthereumWsHead(ethereumWs).apply {
                 this.start()
@@ -102,22 +96,18 @@ open class EthereumUpstream(
             val rpc = EthereumRpcHead(api, objectMapper, Duration.ofSeconds(30)).apply {
                 this.start()
             }
-            EthereumHeadMerge(listOf(rpc, ws)).apply {
+            MergedHead(listOf(rpc, ws)).apply {
                 this.start()
             }
         } else {
-            log.warn("Setting up upstream $id with RPC-only access, less effective than WS+RPC")
+            log.warn("Setting up upstream ${this.getId()} with RPC-only access, less effective than WS+RPC")
             EthereumRpcHead(api, objectMapper).apply {
                 this.start()
             }
         }
     }
 
-    override fun isAvailable(): Boolean {
-        return getStatus() == UpstreamAvailability.OK
-    }
-
-    override fun getHead(): EthereumHead {
+    override fun getHead(): Head {
         return head
     }
 
@@ -125,16 +115,8 @@ open class EthereumUpstream(
         return Mono.just(api)
     }
 
-    override fun getOptions(): UpstreamsConfig.Options {
-        return options
-    }
-
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return listOf(node.labels)
-    }
-
-    override fun getMethods(): CallMethods {
-        return targets
     }
 
     @Suppress("unchecked")

@@ -17,11 +17,11 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.grpc.Chain
@@ -58,12 +58,12 @@ class EthereumUpstreamMock extends EthereumUpstream {
     }
 
     @Override
-    EthereumHead createHead() {
+    Head createHead() {
         return ethereumHeadMock
     }
 
     @Override
-    EthereumHead getHead() {
+    Head getHead() {
         return ethereumHeadMock
     }
 }

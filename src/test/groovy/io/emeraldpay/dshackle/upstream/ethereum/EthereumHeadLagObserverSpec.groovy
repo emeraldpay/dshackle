@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.BlockHash
@@ -37,10 +38,10 @@ class EthereumHeadLagObserverSpec extends Specification {
 
     def "Updates lag distance"() {
         setup:
-        EthereumHead master = Mock()
+        Head master = Mock()
 
-        EthereumHead head1 = Mock()
-        EthereumHead head2 = Mock()
+        Head head1 = Mock()
+        Head head2 = Mock()
 
         Upstream up1 = Mock {
             _ * getHead() >> head1
@@ -89,7 +90,7 @@ class EthereumHeadLagObserverSpec extends Specification {
 
     def "Probes until there is no difference"() {
         setup:
-        EthereumHead master = Mock()
+        Head master = Mock()
         HeadLagObserver observer = new EthereumHeadLagObserver(master, [])
         Upstream up = Mock()
 
@@ -118,7 +119,7 @@ class EthereumHeadLagObserverSpec extends Specification {
 
     def "Correct distance"() {
         setup:
-        EthereumHead master = Mock()
+        Head master = Mock()
         HeadLagObserver observer = new EthereumHeadLagObserver(master, [])
         expect:
         def top = new BlockJson().with {

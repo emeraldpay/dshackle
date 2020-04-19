@@ -18,12 +18,13 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.Head
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import java.time.Duration
 
 class EthereumHeadLagObserver(
-        master: EthereumHead,
+        master: Head,
         followers: Collection<Upstream<EthereumApi>>
 ) : HeadLagObserver<EthereumApi>(master, followers) {
 

@@ -17,11 +17,14 @@ package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Mono
+import java.lang.IllegalStateException
+import java.time.Duration
 
 /**
  * General interface to upstream(s) to a single chain
@@ -111,5 +114,22 @@ abstract class ChainUpstreams<U : UpstreamApi>(
         return 0
     }
 
-    abstract fun printStatus()
+    fun printStatus() {
+        var height: Long? = null
+        try {
+            height = getHead().getFlux().next().block(Duration.ofSeconds(1))?.height
+        } catch (e: IllegalStateException) {
+            //timout
+        } catch (e: Exception) {
+            log.warn("Head processing error: ${e.javaClass} ${e.message}")
+        }
+        val statuses = upstreams.map { it.getStatus() }
+                .groupBy { it }
+                .map { "${it.key.name}/${it.value.size}" }
+                .joinToString(",")
+        val lag = upstreams.map { it.getLag() }
+                .joinToString(", ")
+
+        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=$statuses, lag=[$lag]")
+    }
 }

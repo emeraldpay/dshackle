@@ -22,10 +22,10 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
  * Configuration that uses [AlwaysQuorum] for all available methods. The methods list itself
  * is provided in constructor (or empty otherwise)
  */
-class DirectCallMethods(private val methods: Set<String>) : CallMethods {
+open class DirectCallMethods(private val methods: Set<String>) : CallMethods {
 
-    constructor(): this(emptySet())
-    constructor(methods: Collection<String>): this(methods.toSet())
+    constructor() : this(emptySet())
+    constructor(methods: Collection<String>) : this(methods.toSet())
 
     override fun getQuorumFor(method: String): CallQuorum {
         return AlwaysQuorum()

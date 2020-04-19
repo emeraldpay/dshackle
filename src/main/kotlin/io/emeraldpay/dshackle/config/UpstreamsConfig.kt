@@ -96,6 +96,10 @@ class UpstreamsConfig {
         var ws: WsEndpoint? = null
     }
 
+    class BitcoinConnection : UpstreamConnection() {
+        var rpc: HttpEndpoint? = null
+    }
+
     class HttpEndpoint(val url: URI) {
         var basicAuth: AuthConfig.ClientBasicAuth? = null
         var tls: AuthConfig.ClientTlsAuth? = null
@@ -124,6 +128,7 @@ class UpstreamsConfig {
 
     enum class UpstreamType private constructor(vararg code: String) {
         ETHEREUM_JSON_RPC("ethereum"),
+        BITCOIN_JSON_RPC("bitcoin"),
         DSHACKLE("dshackle", "grpc"),
         UNKNOWN("unknown");
 

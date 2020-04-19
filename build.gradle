@@ -84,6 +84,7 @@ dependencies {
     compile "io.infinitape:etherjar-rpc-ws:$etherjarVersion"
     compile "io.infinitape:etherjar-rpc-emerald:$etherjarVersion"
     compile "io.infinitape:etherjar-tx:$etherjarVersion"
+    compile 'org.bitcoinj:bitcoinj-core:0.15.8'
 
     compile 'org.apache.httpcomponents:httpmime:4.5.8'
     compile 'org.apache.httpcomponents:httpclient:4.5.8'
@@ -108,9 +109,11 @@ dependencies {
     testCompile "org.codehaus.groovy:groovy:$groovyVersion"
     testCompile 'cglib:cglib-nodep:3.2.12'
     testCompile "org.spockframework:spock-core:$spockVersion"
+    testCompile 'de.jodamob.kotlin:kotlin-runner-spock:0.3.1'
     testCompile "io.grpc:grpc-testing:${grpcVersion}"
     testCompile "io.projectreactor:reactor-test:$reactorVersion"
     testCompile 'org.objenesis:objenesis:3.0.1'
+    testCompile 'org.mock-server:mockserver-netty:5.10'
 }
 
 compileKotlin {
