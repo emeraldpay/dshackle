@@ -33,5 +33,6 @@ interface Upstream<out T : UpstreamApi> {
     fun getMethods(): CallMethods
     fun getId(): String
 
-    fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T
+    fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A>
+    fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T
 }

@@ -86,14 +86,18 @@ class EthereumChainUpstreams(
     }
 
     @SuppressWarnings("unchecked")
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T {
+    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        if (!upstreamType.isAssignableFrom(EthereumApi::class.java)) {
-            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $upstreamType")
+        return castApi(apiType) as T
+    }
+
+    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
+        if (!apiType.isAssignableFrom(EthereumApi::class.java)) {
+            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
         }
-        return this as T
+        return this as Upstream<A>
     }
 
 }

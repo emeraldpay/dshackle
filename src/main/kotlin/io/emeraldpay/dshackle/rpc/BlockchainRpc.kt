@@ -19,6 +19,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -31,7 +32,7 @@ class BlockchainRpc(
         @Autowired private val nativeCall: NativeCall,
         @Autowired private val streamHead: StreamHead,
         @Autowired private val trackEthereumTx: TrackEthereumTx,
-        @Autowired private val trackEthereumAddress: TrackEthereumAddress,
+        @Autowired private val trackAddress: List<TrackAddress>,
         @Autowired private val describe: Describe,
         @Autowired private val subscribeStatus: SubscribeStatus
 ): ReactorBlockchainGrpc.BlockchainImplBase() {
@@ -50,12 +51,20 @@ class BlockchainRpc(
         return trackEthereumTx.add(request)
     }
 
-    override fun subscribeBalance(request: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return trackEthereumAddress.subscribe(request)
+    override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
+        return requestMono.flatMapMany { request ->
+            val chain = Chain.byId(request.asset.chainValue)
+            trackAddress.find { it.isSupported(chain) }?.subscribe(request)
+                    ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+        }
     }
 
-    override fun getBalance(request: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return trackEthereumAddress.getBalance(request)
+    override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
+        return requestMono.flatMapMany { request ->
+            val chain = Chain.byId(request.asset.chainValue)
+            trackAddress.find { it.isSupported(chain) }?.getBalance(request)
+                    ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+        }
     }
 
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {

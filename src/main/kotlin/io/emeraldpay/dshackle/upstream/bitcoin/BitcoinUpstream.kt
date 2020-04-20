@@ -3,7 +3,6 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.*
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -44,14 +43,18 @@ class BitcoinUpstream(
         return listOf(UpstreamsConfig.Labels())
     }
 
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T {
+    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        if (!upstreamType.isAssignableFrom(BitcoinApi::class.java)) {
-            throw ClassCastException("Cannot cast ${BitcoinApi::class.java} to $upstreamType")
+        return castApi(apiType) as T
+    }
+
+    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
+        if (!apiType.isAssignableFrom(BitcoinApi::class.java)) {
+            throw ClassCastException("Cannot cast ${BitcoinApi::class.java} to $apiType")
         }
-        return this as T
+        return this as Upstream<A>
     }
 
     override fun isRunning(): Boolean {
@@ -87,5 +90,6 @@ class BitcoinUpstream(
         }
         validatorSubscription?.dispose()
     }
+
 
 }

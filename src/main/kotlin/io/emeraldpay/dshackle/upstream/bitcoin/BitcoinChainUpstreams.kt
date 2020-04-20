@@ -5,7 +5,6 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHeadLagObserver
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -66,14 +65,18 @@ class BitcoinChainUpstreams(
         return upstreams.flatMap { it.getLabels() }
     }
 
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T {
+    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
+        if (!apiType.isAssignableFrom(BitcoinApi::class.java)) {
+            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
+        }
+        return this as Upstream<A>
+    }
+
+    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        if (!upstreamType.isAssignableFrom(BitcoinApi::class.java)) {
-            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $upstreamType")
-        }
-        return this as T
+        return castApi(apiType) as T
     }
 
 }
