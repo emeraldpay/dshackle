@@ -16,6 +16,7 @@ import reactor.util.function.Tuples
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.util.*
+import kotlin.collections.HashMap
 
 @Service
 class TrackBitcoinAddress(
@@ -30,35 +31,42 @@ class TrackBitcoinAddress(
         return BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && upstreams.isAvailable(chain)
     }
 
-    override fun getBalance(req: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
-        if (!req.hasAddress()) {
-            return Flux.error(SilentException("Address not provided"))
+    fun allAddresses(request: BlockchainOuterClass.BalanceRequest): List<String>? {
+        if (!request.hasAddress()) {
+            return null
         }
-        val chain = Chain.byId(req.asset.chainValue)
-        val upstream = upstreams.getUpstream(chain)?.castApi(BitcoinApi::class.java)
-                ?: return Flux.error(SilentException.UnsupportedBlockchain(req.asset.chainValue))
-        val addressesAll = when {
-            req.address.hasAddressSingle() -> {
-                listOf(req.address.addressSingle.address)
+        return when {
+            request.address.hasAddressSingle() -> {
+                listOf(request.address.addressSingle.address)
             }
-            req.address.hasAddressMulti() -> {
-                req.address.addressMulti.addressesList
+            request.address.hasAddressMulti() -> {
+                request.address.addressMulti.addressesList
                         .map { addr -> addr.address }
+                        .sorted()
             }
-            else -> {
-                return Flux.error(SilentException("Unsupported address"))
-            }
+            else -> null
+        }
+    }
+
+    fun requestBalances(chain: Chain, api: BitcoinApi, addresses: List<String>): Flux<AddressBalance> {
+        return api.executeAndResult(0, "listunspent", emptyList(), List::class.java)
+                .flatMapMany { unspents ->
+                    val result = getTotal(chain, addresses, unspents)
+                    Flux.fromIterable(result)
+                }
+    }
+
+    override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
+        val chain = Chain.byId(request.asset.chainValue)
+        val upstream = upstreams.getUpstream(chain)?.castApi(BitcoinApi::class.java)
+                ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
+        val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
+        if (addresses.isEmpty()) {
+            return Flux.empty()
         }
         val result = upstream.getApi(Selector.empty).flatMapMany { api ->
-            val addresses = addressesAll.sorted()
-            val results = api.executeAndResult(0, "listunspent", emptyList(), List::class.java)
-                    .flatMapMany { unspents ->
-                        val result = getTotal(chain, addresses, unspents)
-                        Flux.fromIterable(result)
-                    }
-            results.map { addr ->
-                buildResponse(addr)
-            }
+            requestBalances(chain, api, addresses)
+                    .map(this@TrackBitcoinAddress::buildResponse)
         }
         return result
     }
@@ -98,23 +106,49 @@ class TrackBitcoinAddress(
 
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
-        return Flux.error(SilentException("Not Implemented"))
+        val chain = Chain.byId(request.asset.chainValue)
+        val upstream = upstreams.getUpstream(chain)?.castApi(BitcoinApi::class.java)
+                ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
+        val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
+        if (addresses.isEmpty()) {
+            return Flux.empty()
+        }
+        val initial = upstream.getApi(Selector.empty).flatMapMany { api ->
+            requestBalances(chain, api, addresses)
+        }
+        val following = upstream.getHead().getFlux()
+                .flatMap { block ->
+                    upstream.getApi(Selector.empty).flatMapMany { api ->
+                        requestBalances(chain, api, addresses)
+                    }
+                }
+        val last = HashMap<Address, BigInteger>()
+        val result = Flux.merge(initial, following)
+                .filter { curr ->
+                    val prev = last[curr.address]
+                    val updated = prev == null || curr.balance != prev
+                    last[curr.address] = curr.balance
+                    updated
+                }
+
+        return result.map(this@TrackBitcoinAddress::buildResponse)
     }
 
     private fun buildResponse(address: AddressBalance): BlockchainOuterClass.AddressBalance {
         return BlockchainOuterClass.AddressBalance.newBuilder()
                 .setBalance(address.balance.toString(10))
                 .setAsset(Common.Asset.newBuilder()
-                        .setChainValue(address.chain.id)
+                        .setChainValue(address.address.chain.id)
                         .setCode("BTC"))
-                .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address))
+                .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.address))
                 .build()
     }
 
-    open class AddressBalance(val chain: Chain, val address: String, var balance: BigInteger = BigInteger.ZERO) {
-        open fun withBalance(balance: BigInteger) = AddressBalance(chain, address, balance)
+    open class AddressBalance(val address: Address, var balance: BigInteger = BigInteger.ZERO) {
+        constructor(chain: Chain, address: String, balance: BigInteger) : this(Address(chain, address), balance)
 
-        open fun plus(other: AddressBalance) = AddressBalance(chain, address, balance + other.balance)
-
+        fun plus(other: AddressBalance) = AddressBalance(address, balance + other.balance)
     }
+
+    data class Address(val chain: Chain, val address: String)
 }
