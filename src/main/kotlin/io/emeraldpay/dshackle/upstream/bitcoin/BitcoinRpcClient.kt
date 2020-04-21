@@ -10,7 +10,7 @@ import reactor.netty.http.client.HttpClient
 import java.util.*
 import java.util.function.Consumer
 
-class BitcoinRpcClient(
+open class BitcoinRpcClient(
         private val target: String,
         basicAuth: AuthConfig.ClientBasicAuth?
 ) {

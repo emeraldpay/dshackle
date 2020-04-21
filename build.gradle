@@ -107,12 +107,11 @@ dependencies {
 
 
     testCompile "org.codehaus.groovy:groovy:$groovyVersion"
-    testCompile 'cglib:cglib-nodep:3.2.12'
+    testCompile 'cglib:cglib-nodep:3.3.0'
     testCompile "org.spockframework:spock-core:$spockVersion"
-    testCompile 'de.jodamob.kotlin:kotlin-runner-spock:0.3.1'
     testCompile "io.grpc:grpc-testing:${grpcVersion}"
     testCompile "io.projectreactor:reactor-test:$reactorVersion"
-    testCompile 'org.objenesis:objenesis:3.0.1'
+    testCompile 'org.objenesis:objenesis:3.1'
     testCompile 'org.mock-server:mockserver-netty:5.10'
 }
 

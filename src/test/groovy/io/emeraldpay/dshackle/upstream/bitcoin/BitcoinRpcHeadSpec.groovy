@@ -1,21 +1,13 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
-import de.jodamob.kotlin.testrunner.OpenedClasses
-import de.jodamob.kotlin.testrunner.SpotlinTestRunner
 import io.emeraldpay.dshackle.test.TestingCommons
-import org.junit.runner.RunWith
-import org.mockserver.integration.ClientAndServer
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
 
-@RunWith(SpotlinTestRunner)
-@OpenedClasses(BitcoinApi)
 class BitcoinRpcHeadSpec extends Specification {
-
-    ClientAndServer mockServer
 
     def "Follow 2 blocks created over 3 requests"() {
         setup:
