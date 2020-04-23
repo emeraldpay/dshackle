@@ -41,4 +41,16 @@ open class BitcoinApi(
                     }
                 }
     }
+
+    open fun getBlock(hash: String): Mono<Map<String, Any>> {
+        return executeAndResult(0, "getblock", listOf(hash), Map::class.java) as Mono<Map<String, Any>>
+    }
+
+    open fun getTx(txid: String): Mono<Map<String, Any>> {
+        return executeAndResult(0, "getrawtransaction", listOf(txid, true), Map::class.java) as Mono<Map<String, Any>>
+    }
+
+    open fun getMempool(): Mono<List<String>> {
+        return executeAndResult(0, "getrawmempool", emptyList(), List::class.java) as Mono<List<String>>
+    }
 }

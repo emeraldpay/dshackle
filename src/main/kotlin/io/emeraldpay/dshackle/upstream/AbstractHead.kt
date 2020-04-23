@@ -49,4 +49,5 @@ abstract class AbstractHead : Head {
     fun getCurrent(): BlockContainer? {
         return head.get()
     }
+
 }

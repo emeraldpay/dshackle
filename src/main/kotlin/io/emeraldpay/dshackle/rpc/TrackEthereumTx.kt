@@ -58,7 +58,7 @@ import kotlin.math.min
 class TrackEthereumTx(
         @Autowired private val upstreams: Upstreams,
         @Autowired private val upstreamScheduler: Scheduler
-) {
+) : TrackTx {
 
     companion object {
         private val ZERO_BLOCK = BlockHash.from("0x0000000000000000000000000000000000000000000000000000000000000000")
@@ -74,6 +74,10 @@ class TrackEthereumTx(
     private val seq = AtomicLong(0)
 
     val notFound = ConcurrentLinkedQueue<TrackedTx>()
+
+    override fun isSupported(chain: Chain): Boolean {
+        return BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && upstreams.isAvailable(chain)
+    }
 
     @PostConstruct
     fun init() {
@@ -165,7 +169,7 @@ class TrackEthereumTx(
 
     fun streamAllUpdates(tx: TxDetails): Flux<BlockchainOuterClass.TxStatus> {
         val current = checkForUpdate(tx)
-                .doOnNext (this::onFirstUpdate)
+                .doOnNext(this::onFirstUpdate)
                 .map { Notification(it, asProto(it)) }
         val updates = Flux.from(tx.bus)
 
@@ -175,12 +179,9 @@ class TrackEthereumTx(
                 .map { it.proto }
     }
 
-    fun add(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
-        return requestMono.map { request ->
-            prepareTracking(request)
-        }.flatMapMany { tx ->
-            streamAllUpdates(tx)
-        }
+    override fun subscribe(request: BlockchainOuterClass.TxStatusRequest): Flux<BlockchainOuterClass.TxStatus> {
+        val tx = prepareTracking(request)
+        return streamAllUpdates(tx)
     }
 
     private fun verifyAll(chain: Chain) {

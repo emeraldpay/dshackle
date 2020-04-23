@@ -31,7 +31,7 @@ import reactor.core.publisher.Mono
 class BlockchainRpc(
         @Autowired private val nativeCall: NativeCall,
         @Autowired private val streamHead: StreamHead,
-        @Autowired private val trackEthereumTx: TrackEthereumTx,
+        @Autowired private val trackTx: List<TrackTx>,
         @Autowired private val trackAddress: List<TrackAddress>,
         @Autowired private val describe: Describe,
         @Autowired private val subscribeStatus: SubscribeStatus
@@ -48,7 +48,11 @@ class BlockchainRpc(
     }
 
     override fun subscribeTxStatus(request: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
-        return trackEthereumTx.add(request)
+        return request.flatMapMany { request ->
+            val chain = Chain.byId(request.chainValue)
+            trackTx.find { it.isSupported(chain) }?.subscribe(request)
+                    ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+        }
     }
 
     override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
