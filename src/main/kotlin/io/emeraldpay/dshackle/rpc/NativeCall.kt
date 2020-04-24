@@ -23,11 +23,8 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -88,17 +85,18 @@ open class NativeCall(
         if (chain == Chain.UNSPECIFIED) {
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
         }
-        if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
+
+        if (!upstreams.isAvailable(chain)) {
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
         }
 
         val upstream = upstreams.getUpstream(chain)
                 ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
-        return prepareCall(request, upstream as AggregatedUpstream<EthereumApi>)
+        return prepareCall(request, upstream)
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream<EthereumApi>): Flux<CallContext<RawCallDetails>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream<*>): Flux<CallContext<RawCallDetails>> {
         return request.itemsList.toFlux().map {
             val method = it.method
             val params = it.payload.toStringUtf8()
@@ -137,7 +135,7 @@ open class NativeCall(
         var failures = 0
         return Flux.from(apis)
                 .flatMap { api ->
-                    val upstream = api.upstream!!
+                    val upstream = ctx.upstream
                     api.execute(ctx.id, ctx.payload.method, ctx.payload.params)
                             // on error notify quorum, it may use error message or other details
                             .doOnError { err ->
@@ -205,7 +203,7 @@ open class NativeCall(
     }
 
     open class CallContext<T>(val id: Int,
-                              val upstream: AggregatedUpstream<EthereumApi>,
+                              val upstream: AggregatedUpstream<*>,
                               val matcher: Selector.Matcher,
                               val callQuorum: CallQuorum,
                               val payload: T) {
@@ -213,7 +211,7 @@ open class NativeCall(
             return CallContext(id, upstream, matcher, callQuorum, payload)
         }
 
-        fun getApis(): ApiSource<EthereumApi> {
+        fun getApis(): ApiSource<*> {
             return upstream.getApis(matcher)
         }
     }
