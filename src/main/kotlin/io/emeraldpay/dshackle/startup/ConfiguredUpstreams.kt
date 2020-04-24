@@ -129,7 +129,9 @@ open class ConfiguredUpstreams(
         }
         rpcApi?.let { api ->
             val upstream = BitcoinUpstream(config.id
-                    ?: "bitcoin-${seq.getAndIncrement()}", chain, api, options, objectMapper)
+                    ?: "bitcoin-${seq.getAndIncrement()}", chain, api,
+                    options, QuorumForLabels.QuorumItem(1, config.labels),
+                    objectMapper)
 
             upstream.start()
             currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))

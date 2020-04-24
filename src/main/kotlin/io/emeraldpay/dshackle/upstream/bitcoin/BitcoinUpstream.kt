@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
@@ -14,6 +15,7 @@ class BitcoinUpstream(
         val chain: Chain,
         private val api: BitcoinApi,
         options: UpstreamsConfig.Options,
+        val node: QuorumForLabels.QuorumItem,
         private val objectMapper: ObjectMapper
 ) : DefaultUpstream<BitcoinApi>(id, options, DefaultBitcoinMethods()), Lifecycle {
 
