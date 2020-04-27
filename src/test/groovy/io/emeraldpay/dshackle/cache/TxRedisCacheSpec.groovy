@@ -56,8 +56,8 @@ class TxRedisCacheSpec extends Specification {
 
         then:
         dec.height == 2000
-        dec.hash.toHex() == hash1
-        dec.blockId.toHex() == hash2
+        dec.hash.toHex() == hash1.substring(2)
+        dec.blockId.toHex() == hash2.substring(2)
         dec.json == "test".bytes
         dec == cont
     }
@@ -170,8 +170,8 @@ class TxRedisCacheSpec extends Specification {
         act1 == null
         act2 == null
         act3 != null
-        act3.hash.toHex() == hash3
+        act3.hash.toHex() == hash3.substring(2)
         act4 != null
-        act4.hash.toHex() == hash4
+        act4.hash.toHex() == hash4.substring(2)
     }
 }
