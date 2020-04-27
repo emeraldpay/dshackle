@@ -19,7 +19,7 @@ class BitcoinApiSpec extends Specification {
         mockServer = ClientAndServer.startClientAndServer(18332);
         api = new BitcoinApi(
                 new BitcoinRpcClient("localhost:18332", null),
-                TestingCommons.objectMapper()
+                TestingCommons.objectMapper(), new DefaultBitcoinMethods(TestingCommons.objectMapper())
         )
     }
 

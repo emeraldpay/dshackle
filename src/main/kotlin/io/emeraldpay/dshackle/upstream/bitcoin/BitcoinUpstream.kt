@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -16,8 +18,9 @@ class BitcoinUpstream(
         private val api: BitcoinApi,
         options: UpstreamsConfig.Options,
         val node: QuorumForLabels.QuorumItem,
-        private val objectMapper: ObjectMapper
-) : DefaultUpstream<BitcoinApi>(id, options, DefaultBitcoinMethods()), Lifecycle {
+        private val objectMapper: ObjectMapper,
+        callMethods: CallMethods
+) : DefaultUpstream<BitcoinApi>(id, options, callMethods), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstream::class.java)

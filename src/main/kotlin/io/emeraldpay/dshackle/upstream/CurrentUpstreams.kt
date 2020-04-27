@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinApi
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
+import io.emeraldpay.dshackle.upstream.bitcoin.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
@@ -136,7 +137,11 @@ class CurrentUpstreams(
     }
 
     fun setupDefaultMethods(chain: Chain): CallMethods {
-        val created = DefaultEthereumMethods(objectMapper, chain)
+        val created = when (BlockchainType.fromBlockchain(chain)) {
+            BlockchainType.ETHEREUM -> DefaultEthereumMethods(objectMapper, chain)
+            BlockchainType.BITCOIN -> DefaultBitcoinMethods(objectMapper)
+            else -> throw IllegalStateException("Unsupported chain: $chain")
+        }
         callTargets[chain] = created
         return created
     }

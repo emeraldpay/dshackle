@@ -23,6 +23,8 @@ import io.emeraldpay.dshackle.upstream.CurrentUpstreams
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinApi
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcClient
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
+import io.emeraldpay.dshackle.upstream.bitcoin.DefaultBitcoinMethods
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
@@ -116,22 +118,33 @@ open class ConfiguredUpstreams(
         return defaultOptions
     }
 
+    private fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
+        return if (config.methods != null) {
+            ManagedCallMethods(currentUpstreams.getDefaultMethods(chain),
+                    config.methods!!.enabled.map { it.name }.toSet(),
+                    config.methods!!.disabled.map { it.name }.toSet()
+            )
+        } else {
+            currentUpstreams.getDefaultMethods(chain)
+        }
+    }
+
     private fun buildBitcoinUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>,
                                      chain: Chain,
                                      options: UpstreamsConfig.Options) {
 
         val conn = config.connection!!
         var rpcApi: BitcoinApi? = null
-
+        val methods = buildMethods(config, chain)
         conn.rpc?.let { endpoint ->
             val rpcClient = BitcoinRpcClient(endpoint.url.toString(), endpoint.basicAuth!!)
-            rpcApi = BitcoinApi(rpcClient, objectMapper)
+            rpcApi = BitcoinApi(rpcClient, objectMapper, methods)
         }
         rpcApi?.let { api ->
             val upstream = BitcoinUpstream(config.id
                     ?: "bitcoin-${seq.getAndIncrement()}", chain, api,
                     options, QuorumForLabels.QuorumItem(1, config.labels),
-                    objectMapper)
+                    objectMapper, methods)
 
             upstream.start()
             currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
@@ -145,14 +158,7 @@ open class ConfiguredUpstreams(
         val conn = config.connection!!
         var rpcApi: DirectEthereumApi? = null
         val urls = ArrayList<URI>()
-        val methods = if (config.methods != null) {
-            ManagedCallMethods(currentUpstreams.getDefaultMethods(chain),
-                    config.methods!!.enabled.map { it.name }.toSet(),
-                    config.methods!!.disabled.map { it.name }.toSet()
-            )
-        } else {
-            currentUpstreams.getDefaultMethods(chain)
-        }
+        val methods = buildMethods(config, chain)
         conn.rpc?.let { endpoint ->
             val rpcClient = ReactorHttpRpcClient.newBuilder()
                     .connectTo(endpoint.url)
