@@ -14,7 +14,7 @@ class BitcoinChainUpstreams(
         val upstreams: MutableList<BitcoinUpstream>,
         caches: Caches,
         objectMapper: ObjectMapper
-) : ChainUpstreams<BitcoinApi>(chain, upstreams as MutableList<Upstream<BitcoinApi>>, caches, objectMapper) {
+) : ChainUpstreams<DirectBitcoinApi>(chain, upstreams as MutableList<Upstream<DirectBitcoinApi>>, caches, objectMapper) {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinChainUpstreams::class.java)
@@ -66,7 +66,7 @@ class BitcoinChainUpstreams(
     }
 
     override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
-        if (!apiType.isAssignableFrom(BitcoinApi::class.java)) {
+        if (!apiType.isAssignableFrom(DirectBitcoinApi::class.java)) {
             throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
         }
         return this as Upstream<A>

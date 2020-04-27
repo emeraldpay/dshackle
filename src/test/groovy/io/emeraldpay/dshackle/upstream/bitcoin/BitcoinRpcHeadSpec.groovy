@@ -59,7 +59,7 @@ class BitcoinRpcHeadSpec extends Specification {
             }        
         """
 
-        BitcoinApi api = Mock(BitcoinApi) {
+        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
             _ * executeAndResult(_, "getbestblockhash", _, String) >>> [
                     Mono.just(hash1), Mono.just(hash1), Mono.just(hash2)
             ]

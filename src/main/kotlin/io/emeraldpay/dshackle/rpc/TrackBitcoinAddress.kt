@@ -6,7 +6,7 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinApi
+import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -48,7 +48,7 @@ class TrackBitcoinAddress(
         }
     }
 
-    fun requestBalances(chain: Chain, api: BitcoinApi, addresses: List<String>): Flux<AddressBalance> {
+    fun requestBalances(chain: Chain, api: DirectBitcoinApi, addresses: List<String>): Flux<AddressBalance> {
         return api.executeAndResult(0, "listunspent", emptyList(), List::class.java)
                 .flatMapMany { unspents ->
                     val result = getTotal(chain, addresses, unspents)
@@ -58,7 +58,7 @@ class TrackBitcoinAddress(
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
-        val upstream = upstreams.getUpstream(chain)?.castApi(BitcoinApi::class.java)
+        val upstream = upstreams.getUpstream(chain)?.castApi(DirectBitcoinApi::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
         if (addresses.isEmpty()) {
@@ -107,7 +107,7 @@ class TrackBitcoinAddress(
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
-        val upstream = upstreams.getUpstream(chain)?.castApi(BitcoinApi::class.java)
+        val upstream = upstreams.getUpstream(chain)?.castApi(DirectBitcoinApi::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
         if (addresses.isEmpty()) {

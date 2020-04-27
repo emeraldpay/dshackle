@@ -9,7 +9,7 @@ import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinApi
+import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -201,7 +201,7 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Get update for a balance"() {
         setup:
 
-        BitcoinApi api = Mock(BitcoinApi) {
+        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
             2 * executeAndResult(0, "listunspent", [], List) >>> [
                     Mono.just([]), Mono.just([[address: "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", amount: 0.0123]])
             ]

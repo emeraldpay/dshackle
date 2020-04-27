@@ -1,0 +1,71 @@
+package io.emeraldpay.dshackle.upstream.bitcoin
+
+import io.emeraldpay.dshackle.upstream.Head
+import org.slf4j.LoggerFactory
+import org.springframework.context.Lifecycle
+import reactor.core.Disposable
+import reactor.core.publisher.Mono
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
+
+open class CachingMempoolData(
+        private val api: DirectBitcoinApi,
+        private val head: Head
+) : Lifecycle {
+
+    companion object {
+        private val log = LoggerFactory.getLogger(CachingMempoolData::class.java)
+        private val TTL = Duration.ofSeconds(15)
+    }
+
+    private val current = AtomicReference<Container>(Container.empty())
+    private val updateLock = ReentrantLock()
+    private var headListener: Disposable? = null
+
+    open fun get(): Mono<List<String>> {
+        val value = current.get()
+        return if (value.since < Instant.now().minus(TTL)) {
+            updateLock.lock()
+            fetchFromUpstream()
+                    .timeout(Duration.ofSeconds(3), Mono.empty())
+                    .doOnNext {
+                        current.set(Container(Instant.now(), it))
+                    }.doFinally {
+                        updateLock.unlock()
+                    }
+        } else {
+            Mono.just(value.value)
+        }
+    }
+
+    fun fetchFromUpstream(): Mono<List<String>> {
+        return api.executeAndResult(0, "getrawmempool", emptyList(), List::class.java) as Mono<List<String>>
+    }
+
+    class Container(val since: Instant, val value: List<String>) {
+        companion object {
+            fun empty(): Container {
+                return Container(Instant.MIN, emptyList())
+            }
+        }
+    }
+
+    override fun isRunning(): Boolean {
+        return headListener != null
+    }
+
+    override fun start() {
+        headListener?.dispose()
+        headListener = head.getFlux().doOnNext {
+            current.set(Container.empty())
+        }.subscribe()
+    }
+
+    override fun stop() {
+        headListener?.dispose()
+        headListener = null
+    }
+
+}

@@ -3,7 +3,6 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcHead
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -15,7 +14,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class BitcoinRpcHead(
-        private val api: BitcoinApi,
+        private val api: DirectBitcoinApi,
         private val extractBlock: ExtractBlock,
         private val interval: Duration = Duration.ofSeconds(15)
 ) : Head, AbstractHead(), Lifecycle {

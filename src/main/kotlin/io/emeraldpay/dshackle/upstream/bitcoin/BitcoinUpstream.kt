@@ -6,21 +6,20 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Mono
 
-class BitcoinUpstream(
+open class BitcoinUpstream(
         id: String,
         val chain: Chain,
-        private val api: BitcoinApi,
+        private val api: DirectBitcoinApi,
         options: UpstreamsConfig.Options,
         val node: QuorumForLabels.QuorumItem,
         private val objectMapper: ObjectMapper,
         callMethods: CallMethods
-) : DefaultUpstream<BitcoinApi>(id, options, callMethods), Lifecycle {
+) : DefaultUpstream<DirectBitcoinApi>(id, options, callMethods), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstream::class.java)
@@ -28,6 +27,7 @@ class BitcoinUpstream(
 
     private val head: Head = createHead()
     private var validatorSubscription: Disposable? = null
+    private val data = BitcoinData(api, head)
 
     private fun createHead(): Head {
         return BitcoinRpcHead(
@@ -36,11 +36,15 @@ class BitcoinUpstream(
         )
     }
 
+    open fun getData(): BitcoinData {
+        return data
+    }
+
     override fun getHead(): Head {
         return head
     }
 
-    override fun getApi(matcher: Selector.Matcher): Mono<out BitcoinApi> {
+    override fun getApi(matcher: Selector.Matcher): Mono<out DirectBitcoinApi> {
         return Mono.just(api)
     }
 
@@ -56,8 +60,8 @@ class BitcoinUpstream(
     }
 
     override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
-        if (!apiType.isAssignableFrom(BitcoinApi::class.java)) {
-            throw ClassCastException("Cannot cast ${BitcoinApi::class.java} to $apiType")
+        if (!apiType.isAssignableFrom(DirectBitcoinApi::class.java)) {
+            throw ClassCastException("Cannot cast ${DirectBitcoinApi::class.java} to $apiType")
         }
         return this as Upstream<A>
     }
@@ -67,6 +71,7 @@ class BitcoinUpstream(
         if (head is Lifecycle) {
             runningAny = runningAny || head.isRunning
         }
+        runningAny = runningAny || data.isRunning
         return runningAny
     }
 
@@ -77,6 +82,8 @@ class BitcoinUpstream(
                 head.start()
             }
         }
+        data.start()
+
         validatorSubscription?.dispose()
 
         if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
@@ -93,6 +100,7 @@ class BitcoinUpstream(
         if (head is Lifecycle) {
             head.stop()
         }
+        data.stop()
         validatorSubscription?.dispose()
     }
 

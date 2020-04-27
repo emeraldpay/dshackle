@@ -20,10 +20,9 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.CurrentUpstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinApi
+import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcClient
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
-import io.emeraldpay.dshackle.upstream.bitcoin.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
@@ -134,11 +133,11 @@ open class ConfiguredUpstreams(
                                      options: UpstreamsConfig.Options) {
 
         val conn = config.connection!!
-        var rpcApi: BitcoinApi? = null
+        var rpcApi: DirectBitcoinApi? = null
         val methods = buildMethods(config, chain)
         conn.rpc?.let { endpoint ->
             val rpcClient = BitcoinRpcClient(endpoint.url.toString(), endpoint.basicAuth!!)
-            rpcApi = BitcoinApi(rpcClient, objectMapper, methods)
+            rpcApi = DirectBitcoinApi(rpcClient, objectMapper, methods)
         }
         rpcApi?.let { api ->
             val upstream = BitcoinUpstream(config.id

@@ -14,14 +14,14 @@ import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
-open class BitcoinApi(
+open class DirectBitcoinApi(
         val bitcoinRpcClient: BitcoinRpcClient,
         val objectMapper: ObjectMapper,
         val targets: CallMethods
 ) : UpstreamApi {
 
     companion object {
-        private val log = LoggerFactory.getLogger(BitcoinApi::class.java)
+        private val log = LoggerFactory.getLogger(DirectBitcoinApi::class.java)
     }
 
     open override fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray> {
@@ -104,7 +104,4 @@ open class BitcoinApi(
         return executeAndResult(0, "getrawtransaction", listOf(txid, true), Map::class.java) as Mono<Map<String, Any>>
     }
 
-    open fun getMempool(): Mono<List<String>> {
-        return executeAndResult(0, "getrawmempool", emptyList(), List::class.java) as Mono<List<String>>
-    }
 }

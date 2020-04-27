@@ -1,10 +1,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
-import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.infinitape.etherjar.rpc.Commands
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
@@ -14,7 +11,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class BitcoinUpstreamValidator(
-        private val api: BitcoinApi,
+        private val api: DirectBitcoinApi,
         private val options: UpstreamsConfig.Options
 ) {
 

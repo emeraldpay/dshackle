@@ -10,14 +10,14 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class BitcoinApiSpec extends Specification {
+class DirectBitcoinApiSpec extends Specification {
 
     ClientAndServer mockServer
-    BitcoinApi api
+    DirectBitcoinApi api
 
     def setup() {
         mockServer = ClientAndServer.startClientAndServer(18332);
-        api = new BitcoinApi(
+        api = new DirectBitcoinApi(
                 new BitcoinRpcClient("localhost:18332", null),
                 TestingCommons.objectMapper(), new DefaultBitcoinMethods(TestingCommons.objectMapper())
         )

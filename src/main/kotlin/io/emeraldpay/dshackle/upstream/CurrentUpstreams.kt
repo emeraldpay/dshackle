@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinApi
+import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.DefaultBitcoinMethods
@@ -70,10 +70,10 @@ class CurrentUpstreams(
                 }
                 BlockchainType.BITCOIN -> {
                     val up = change.upstream
-                            .cast(BitcoinUpstream::class.java, BitcoinApi::class.java)
-                    val current = chainMapping[chain] as ChainUpstreams<BitcoinApi>?
+                            .cast(BitcoinUpstream::class.java, DirectBitcoinApi::class.java)
+                    val current = chainMapping[chain] as ChainUpstreams<DirectBitcoinApi>?
                     val factory = Callable {
-                        BitcoinChainUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as ChainUpstreams<BitcoinApi>
+                        BitcoinChainUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as ChainUpstreams<DirectBitcoinApi>
                     }
                     processUpdate(change, up, current, factory)
                 }
