@@ -169,7 +169,6 @@ jar {
 afterEvaluate {
     distZip.dependsOn(jar)
     compileKotlin.dependsOn(generateVersion)
-    generateProto.dependsOn(clean)
 }
 
 protobuf {
