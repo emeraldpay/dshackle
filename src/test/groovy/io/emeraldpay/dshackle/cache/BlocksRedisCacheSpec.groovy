@@ -57,13 +57,13 @@ class BlocksRedisCacheSpec extends Specification {
 
         then:
         dec.height == 100
-        dec.hash.toHex() == hash3
+        dec.hash.toHex() == hash3.substring(2)
         dec.difficulty.toString() == "10515"
         dec.timestamp == Instant.ofEpochSecond(10501050)
         dec.json == "test".bytes
         dec.transactions.size() == 2
-        dec.transactions[0].toHex() == hash2
-        dec.transactions[1].toHex() == hash1
+        dec.transactions[0].toHex() == hash2.substring(2)
+        dec.transactions[1].toHex() == hash1.substring(2)
         dec == cont
     }
 

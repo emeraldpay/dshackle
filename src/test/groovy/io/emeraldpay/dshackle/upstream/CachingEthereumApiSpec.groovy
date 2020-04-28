@@ -10,7 +10,6 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
@@ -30,7 +29,7 @@ class CachingEthereumApiSpec extends Specification {
 
     def "Get blockNumber from head"() {
         setup:
-        def head = Mock(EthereumHead.class)
+        def head = Mock(Head.class)
         def api = new CachingEthereumApi(
                 objectMapper,
                 Caches.default(objectMapper),
@@ -58,7 +57,7 @@ class CachingEthereumApiSpec extends Specification {
 
     def "Return empty if block is not cached"() {
         setup:
-        def head = Mock(EthereumHead.class)
+        def head = Mock(Head.class)
         def api = new CachingEthereumApi(
                 objectMapper,
                 Caches.default(objectMapper),
@@ -76,7 +75,7 @@ class CachingEthereumApiSpec extends Specification {
     def "Return block by hash when cached"() {
         setup:
         def cache = new BlocksMemCache();
-        def head = Mock(EthereumHead.class)
+        def head = Mock(Head.class)
         def api = new CachingEthereumApi(
                 objectMapper,
                 Caches.newBuilder().setObjectMapper(objectMapper).setBlockByHash(cache).build(),
@@ -106,7 +105,7 @@ class CachingEthereumApiSpec extends Specification {
         setup:
         def blocksCache = new BlocksMemCache()
         def heightCache = new HeightCache()
-        def head = Mock(EthereumHead.class)
+        def head = Mock(Head.class)
         def api = new CachingEthereumApi(
                 objectMapper,
                 Caches.newBuilder().setObjectMapper(objectMapper).setBlockByHash(blocksCache).setBlockByHeight(heightCache).build(),
@@ -135,7 +134,7 @@ class CachingEthereumApiSpec extends Specification {
         setup:
         def blocksCache = Mock(BlocksMemCache)
         def txCache = Mock(TxMemCache)
-        def head = Mock(EthereumHead.class)
+        def head = Mock(Head.class)
         def api = new CachingEthereumApi(
                 objectMapper,
                 Caches.newBuilder().setObjectMapper(objectMapper).setBlockByHash(blocksCache).setTxByHash(txCache).build(),
@@ -161,7 +160,7 @@ class CachingEthereumApiSpec extends Specification {
         setup:
         def blocksCache = Mock(BlocksMemCache)
         def txCache = Mock(TxMemCache)
-        def head = Mock(EthereumHead.class)
+        def head = Mock(Head.class)
         def api = new CachingEthereumApi(
                 objectMapper,
                 Caches.newBuilder().setObjectMapper(objectMapper).setBlockByHash(blocksCache).setTxByHash(txCache).build(),
@@ -191,7 +190,7 @@ class CachingEthereumApiSpec extends Specification {
         def blocksCache = Mock(BlocksMemCache)
         def txCache = Mock(TxMemCache)
         def heightCache = Mock(HeightCache)
-        def head = Mock(EthereumHead.class)
+        def head = Mock(Head.class)
         def api = new CachingEthereumApi(
                 objectMapper,
                 Caches.newBuilder().setObjectMapper(objectMapper).setBlockByHash(blocksCache).setTxByHash(txCache).setBlockByHeight(heightCache).build(),
@@ -219,7 +218,7 @@ class CachingEthereumApiSpec extends Specification {
         def blocksCache = Mock(BlocksMemCache)
         def txCache = Mock(TxMemCache)
         def heightCache = Mock(HeightCache)
-        def head = Mock(EthereumHead.class)
+        def head = Mock(Head.class)
         def api = new CachingEthereumApi(
                 objectMapper,
                 Caches.newBuilder().setObjectMapper(objectMapper).setBlockByHash(blocksCache).setTxByHash(txCache).setBlockByHeight(heightCache).build(),

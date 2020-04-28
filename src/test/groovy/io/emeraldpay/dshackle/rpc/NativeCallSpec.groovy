@@ -259,7 +259,7 @@ class NativeCallSpec extends Specification {
                             .build()
                 })
                 .build()
-        1 * upstreams.getUpstream(Chain.TESTNET_MORDEN) >> null
+        1 * upstreams.isAvailable(Chain.TESTNET_MORDEN) >> false
         when:
         def resp = nativeCall.prepareCall(req)
         then:

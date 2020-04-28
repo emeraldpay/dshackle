@@ -51,7 +51,7 @@ import javax.annotation.PostConstruct
 class TrackEthereumAddress(
         @Autowired private val upstreams: Upstreams,
         @Autowired private val upstreamScheduler: Scheduler
-) {
+) : TrackAddress {
 
     private val log = LoggerFactory.getLogger(TrackEthereumAddress::class.java)
     private val clients = HashMap<Chain, ConcurrentLinkedQueue<TrackedAddress>>()
@@ -83,6 +83,10 @@ class TrackEthereumAddress(
         }
     }
 
+    override fun isSupported(chain: Chain): Boolean {
+        return BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && upstreams.isAvailable(chain)
+    }
+
     private fun startTracking(client: TrackedAddress) {
         clients[client.chain]?.add(client) ?: log.warn("Chain ${client.chain} is not available for tracking")
     }
@@ -99,9 +103,6 @@ class TrackEthereumAddress(
 
     private fun initializeSimple(request: BlockchainOuterClass.BalanceRequest): Flux<SimpleAddress> {
         val chain = Chain.byId(request.asset.chainValue)
-        if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
-            return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-        }
         if (!upstreams.isAvailable(chain)) {
             return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         }
@@ -128,43 +129,35 @@ class TrackEthereumAddress(
                 }
     }
 
-    fun subscribe(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return requestMono.flatMapMany { request ->
-            val chain = Chain.byId(request.asset.chainValue)
-            if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
-                return@flatMapMany Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-            }
-            val bus = TopicProcessor.create<BlockchainOuterClass.AddressBalance>()
-            initializeSubscription(request, bus)
-                    .flatMap { tracked ->
-                        val current = getBalance(tracked).map {
-                            tracked.withBalance(it)
-                        }.doOnNext {
-                            startTracking(it)
-                        }.map {
-                            buildResponse(it)
-                        }
-                        Flux.merge(current, bus).doFinally { stopTracking(tracked) }
+    override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
+        val bus = TopicProcessor.create<BlockchainOuterClass.AddressBalance>()
+        return initializeSubscription(request, bus)
+                .flatMap { tracked ->
+                    val current = getBalance(tracked).map {
+                        tracked.withBalance(it)
+                    }.doOnNext {
+                        startTracking(it)
+                    }.map {
+                        buildResponse(it)
                     }
-                    .doOnError { t ->
-                        if (t is SilentException) {
-                            if (t is SilentException.UnsupportedBlockchain) {
-                                log.warn("Unsupported blockchain: ${t.blockchainId}")
-                            }
-                            log.debug("Failed to process subscription", t)
-                        } else {
-                            log.warn("Failed to process subscription", t)
+                    Flux.merge(current, bus).doFinally { stopTracking(tracked) }
+                }
+                .doOnError { t ->
+                    if (t is SilentException) {
+                        if (t is SilentException.UnsupportedBlockchain) {
+                            log.warn("Unsupported blockchain: ${t.blockchainId}")
                         }
+                        log.debug("Failed to process subscription", t)
+                    } else {
+                        log.warn("Failed to process subscription", t)
                     }
-        }
+                }
     }
 
-    fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return requestMono.flatMapMany { request ->
-            initializeSimple(request)
-                    .flatMap { a -> getBalance(a).map { a.withBalance(it) } }
-                    .map { buildResponse(it) }
-        }
+    override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
+        return initializeSimple(request)
+                .flatMap { a -> getBalance(a).map { a.withBalance(it) } }
+                .map { buildResponse(it) }
     }
 
     private fun simpleAddress(address: Common.SingleAddress, chain: Chain): SimpleAddress {

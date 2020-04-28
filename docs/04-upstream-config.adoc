@@ -10,7 +10,22 @@ Supported upstream protocols:
 
 Those protocols can be configures with additional security, TLS and authentication.
 
-=== Example
+=== Notes on upstream configuration
+
+==== Ethereum
+
+- Most of Ethereum nodes support WebSocket connection, in addition to the JSON RPC.
+If it's available on your node, it's suggested to configure both JSON RPC and WebSocket connection
+
+==== Bitcoin
+
+- Bitcoind needs to be configured to index/track addresses that you're going to request.
+Make sure you configure it to index your addresses with `importaddress`.
+If you request balance for an address that is not indexed then it returns 0 balance.
+- To track all transactions you need to setup index for transactions, which is disabled by default.
+Run it with `-reindex` option, or set `txindex=1` in the config.
+
+=== Example Configuration
 
 .upstreams.yaml
 [source,yaml]
@@ -104,9 +119,28 @@ Dshackle currently supports
 - `ws` websocket connection (supposed to be used in addition to `rpc` connection)
 - `grpc` connects to another Dshackle instance
 
-=== Methods
+=== Bitcoin Methods
 
-.By default an ethereum upstream supports following JSON RPC methods:
+.By default an ethereum upstream allows call to the following JSON RPC methods:
+- `getbestblockhash`
+- `getblock`
+- `getblocknumber`
+- `getblockcount`
+- `gettransaction`
+- `getrawtransaction`
+- `gettxout`
+- `getreceivedbyaddress`
+- `listunspent`
+- `sendrawtransaction`
+
+.Plus following methods are answered directly by Dshackle
+- `getmemorypool`
+- `getconnectioncount`
+- `getnetworkinfo`
+
+=== Ethereum Methods
+
+.By default an ethereum upstream allows calls to the following JSON RPC methods:
 - `eth_gasPrice`
 - `eth_call`
 - `eth_estimateGas`

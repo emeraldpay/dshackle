@@ -21,7 +21,7 @@ import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.test.MockServer
+import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.grpc.Chain
@@ -38,7 +38,7 @@ import java.util.concurrent.CompletableFuture
 
 class EthereumGrpcUpstreamSpec extends Specification {
 
-    MockServer mockServer = new MockServer()
+    MockGrpcServer mockServer = new MockGrpcServer()
     ObjectMapper objectMapper = TestingCommons.objectMapper()
 
     def "Subscribe to head"() {

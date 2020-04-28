@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
@@ -21,9 +21,9 @@ import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
-class EthereumHeadMerge(
-        private val sources: Iterable<EthereumHead>
-): DefaultEthereumHead(), Lifecycle, CachesEnabled {
+class MergedHead(
+        private val sources: Iterable<Head>
+) : AbstractHead(), Lifecycle, CachesEnabled {
 
     private var subscription: Disposable? = null
 

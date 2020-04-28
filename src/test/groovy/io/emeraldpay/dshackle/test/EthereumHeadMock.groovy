@@ -16,12 +16,12 @@
 package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumHead
+import io.emeraldpay.dshackle.upstream.Head
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 
-class EthereumHeadMock implements EthereumHead {
+class EthereumHeadMock implements Head {
 
     private TopicProcessor<BlockContainer> bus = TopicProcessor.create()
     private BlockContainer latest

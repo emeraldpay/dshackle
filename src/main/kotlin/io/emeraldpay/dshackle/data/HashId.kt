@@ -28,11 +28,9 @@ open class HashId(
     }
 
     fun toHex(): String {
-        val hex = CharArray(value.size * 2 + 2)
-        hex[0] = '0'
-        hex[1] = 'x'
+        val hex = CharArray(value.size * 2)
         var i = 0
-        var j = 2
+        var j = 0
         while (i < value.size) {
             hex[j++] = HEX_DIGITS[0xF0 and value[i].toInt() ushr 4]
             hex[j++] = HEX_DIGITS[0x0F and value[i].toInt()]

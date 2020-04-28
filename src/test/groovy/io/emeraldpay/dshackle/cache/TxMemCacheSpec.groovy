@@ -57,9 +57,9 @@ class TxMemCacheSpec extends Specification {
         def act3 = cache.read(TxId.from(hash3)).block()
         def act4 = cache.read(TxId.from(hash4)).block()
         then:
-        act2.hash.toHex() == hash2
-        act3.hash.toHex() == hash3
-        act4.hash.toHex() == hash4
+        act2.hash.toHex() == hash2.substring(2)
+        act3.hash.toHex() == hash3.substring(2)
+        act4.hash.toHex() == hash4.substring(2)
         act1 == null
     }
 
@@ -93,8 +93,8 @@ class TxMemCacheSpec extends Specification {
         then:
         act1 == null
         act2 == null
-        act3.hash.toHex() == hash3
-        act4.hash.toHex() == hash4
+        act3.hash.toHex() == hash3.substring(2)
+        act4.hash.toHex() == hash4.substring(2)
     }
 
     def "Evict all by block data"() {
@@ -137,7 +137,7 @@ class TxMemCacheSpec extends Specification {
         then:
         act1 == null
         act2 == null
-        act3.hash.toHex() == hash3
-        act4.hash.toHex() == hash4
+        act3.hash.toHex() == hash3.substring(2)
+        act4.hash.toHex() == hash4.substring(2)
     }
 }

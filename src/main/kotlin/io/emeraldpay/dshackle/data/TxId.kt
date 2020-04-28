@@ -17,6 +17,8 @@ package io.emeraldpay.dshackle.data
 
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.TransactionJson
+import org.bouncycastle.util.encoders.Hex
+import java.math.BigInteger
 
 class TxId(
         value: ByteArray
@@ -35,7 +37,13 @@ class TxId(
 
         @JvmStatic
         fun from(id: String): TxId {
-            return from(TransactionId.from(id))
+            val clean = if (id.startsWith("0x")) {
+                id.substring(2)
+            } else {
+                id
+            }
+            val bytes = Hex.decode(clean)
+            return TxId(bytes)
         }
     }
 }

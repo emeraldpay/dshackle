@@ -1,9 +1,12 @@
-== Methods
+== Enhanced Methods
 
-IMPORTANT: Dshackle provides an unified API based on gRPC and Protobuf.
+IMPORTANT: Dshackle provides an enhanced API based on gRPC and Protobuf, in addition to JSON RPC proxy
 
-Dshackle provides an unified API based on gRPC and Protobuf. I.e. it's not standard JSON RPC but client libraries could
-be generated for all major libraries, and there're official libraries for Java and Javascript.
+Dshackle provides an enhanced and unified API based on HTTP2, gRPC and Protobuf.
+It works in addition to JSON RPC proxy and can be used separately.
+Clients can be generated for all major programming languages, and there're official libraries for Java and Javascript.
+
+NOTE: It's not necessary to use gRPC, as Dshackle can provide standard JSON RPC proxy, but Dshackle gRPC interface improves performance and provides additional features.
 
 === gRPC definition
 
@@ -25,8 +28,7 @@ service Blockchain {
 
 === Wrapped JSON RPC methods
 
-Standard JSON RPC methods provided by Ethereum nodes are available wrapped into gRPC/Protobuf with additional features.
-To call standard methods you use `NativeCall` method.
+To call standard JSON RPC methods provided by Ethereum/Bitcoin you use `NativeCall` wrapping method, which provides additional flexibility and configuration for the calls.
 
 .NativeCallRequest
 [source,proto]
@@ -72,13 +74,13 @@ Where:
 - `payload` is JSON response for a particular call, encoded into a string (when `succeed` is true)
 - or `error` if request failed (`succeed` is false)
 
-NOTE: Reply Items comes right after their execution on an upstream, therefore streaming response. It allows to build
-      non-blocking queries
+NOTE: Reply Items comes right after their execution on an upstream, therefore streaming response.
+It allows to build non-blocking queries
 
 === SubscribeHead
 
-Subscribes to new blocks on the specified chain. Returns stream of blocks right after it was accepted (and verified by
-Dshackle) by any of the upstreams.
+This methods provides subscription to the new blocks on the specified chain.
+Returns stream of blocks right after it was accepted (and verified by Dshackle) by any of the upstreams.
 
 .ChainHead
 [source,proto]
@@ -104,7 +106,7 @@ Where:
 
 === SubscribeBalance or GetBalance
 
-Subscribes to changes of the balance for a single address or a set of addresses
+Subscribes to changes (`SubscribeBalance`) or get current (`GetBalance`) balance for a single address or a set of addresses.
 
 .Request
 [source,proto]
@@ -136,8 +138,9 @@ message AddressBalance {
 
 ==== SubscribeTxStatus
 
-Subscribes to transaction confirmations. Allows to send a transactions and then listen to all changes until it
-gets enough confirmations. Changes is `NOTFOUND -> BROADCASTED <- -> MINED <- -> CONFIRMED`
+Subscribes to transaction confirmations.
+Allows to send a transactions and then listen to all changes until it gets enough confirmations.
+Changes are `NOTFOUND -> BROADCASTED <- -> MINED <- -> CONFIRMED`
 
 .Request
 [source,proto]
@@ -161,3 +164,6 @@ message TxStatus {
 }
 ----
 
+=== gRPC Client Libraries
+
+See link:10-client-libraries.adoc[Client Libraries] documentation.

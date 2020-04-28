@@ -9,10 +9,11 @@ image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square[
 image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License",link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
 image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
 
-_Dshackle is an L7 Blockchain API Load Balancer._ It provided a high level aggregated API on top of several underlying upstreams, i.e., blockchain nodes or providers, such as Geth, Parity, Infura, etc.
-It automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or sent data successfully broadcasted to the network.
+_Dshackle is an L7 Blockchain API Load Balancer._ It provides a high level aggregated API on top of several underlying upstreams.
+I.e. on top of blockchain nodes such as Bitcoind, Geth, Parity, or providers like Infura, and so on.
+It automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or data successfully broadcasted to the network.
 
-- Standard Ethereum JSON RPC API, plus advanced gRPC-based API
+- Standard Bitcoin and Ethereum JSON RPC API, plus enhanced gRPC-based API
 - **Secure** TLS with optional client authentication
 - Blockchain-aware **caching** in memory and in Redis
 - Routing based on **data availability** (peers, height, sync status)
@@ -22,6 +23,13 @@ It automatically verifies their availability and the current status of the netwo
 
 Dshackle allows to build a mesh network of interconnected Dshackle servers for building blockchain based services that needs to have fast, secure, stable and fail-proof access to blockchain APIs.
 
+Blockchain support:
+
+- Ethereum, Ethereum Classic and Kovan testnet
+- Bitcoin and Bitcoin Testnet
+
+WARNING: The project is still under development, please use with caution.
+
 Dshackle connects to several upstreams via JSON RPC, Websockets, or gRPC protocol.
 The server verifies if a node ("upstream") is fully synchronized (not in initial sync mode), has enough peers, and its height is not behind other nodes.
 If upstream lags behind others, lost peers below required, started to resync or went down, then Dshackle temporarily excludes it from requests and returns it when the upstream problem is fixed.
@@ -30,7 +38,6 @@ image::dshackle-intro.png[alt="",width=80%,align="center"]
 
 == Roadmap
 
-- [ ] Support Bitcoin RPC
 - [ ] External logging
 - [ ] Access to ERC-20 tokens on asset level
 - [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
@@ -58,8 +65,8 @@ proxy:
   routes:
     - id: eth
       blockchain: ethereum
-    - id: kovan
-      blockchain: kovan
+    - id: btc
+      blockchain: bitcoin
 
 cluster:
   upstreams:
@@ -71,12 +78,15 @@ cluster:
             url: "https://mainnet.infura.io/v3/${INFURA_USER}"
           ws:
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-    - id: infura-kovan
-      chain: kovan
+    - id: bitcoin-main
+      chain: bitcoin
       connection:
-        ethereum:
+        bitcoin:
           rpc:
-            url: "https://kovan.infura.io/v3/${INFURA_USER}"
+            url: "http://localhost:8332"
+            basic-auth:
+              username: bitcoin
+              password: mypassword
 ----
 
 Which sets the following:
@@ -85,11 +95,11 @@ Which sets the following:
 ** TLS security is disabled (_please don't use in production!_)
 - JSON RPC access through 0.0.0.0:8545
 ** proxy requests to Ethereum and Kovan upstreams
-** request path for Ethereum Mainnet is `/eth`, for Kovan is `/kovan`
-** i.e. call Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
+** request path for Ethereum Mainnet is `/eth`, for bitcoin is `/btc`
+** i.e. call Ethereum Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
 - two upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
-- for Ethereum Mainnet it connects using JSON RPC and Websockets connections, for Kovan only JSON RPC is used
-- Infura authentication config is omitted for this demo
+- for Ethereum Mainnet it connects using JSON RPC and Websockets connections,
+- for Bitcoin Mainet only JSON RPC is used
 - `${INFURA_USER}` will be provided through environment variable
 
 
@@ -137,14 +147,19 @@ curl --request POST \
 
 ==== Access using gRPC
 
+NOTE: It's not necessary to use gRPC, as Dshackle can provide standard JSON RPC proxy, but Dshackle gRPC interface improves performance and provides additional features.
+
 Dshackle provides a custom gRPC based API, which provides additional methods and other features such as streaming responses.
 Please refer to the documentation: link:docs/06-methods.adoc[gRPC Methods]
 
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
 ----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 io.emeraldpay.api.Blockchain/SubscribeHead
+grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeHead
 ----
+
+`type: 100` specifies the blockchain id, and 100 means Ethereum Mainnet. `1` is for Bitcoin Mainnet.
+There we use Ethereum because it creates new blocks every 14 seconds, which works better for demo purposes, but the same request applied to Bitcoin as well.
 
 .Output would be like
 ----
@@ -166,8 +181,42 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plai
 ...
 ----
 
-The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet.
-It's one of services provided by Dshackle, in additional to standard methods provided by RPC JSON of underlying nodes.
+The output above is for a _streaming subscription_ to all new blocks on the Ethereum Mainnet.
+
+It's one of the services provided by Dshackle, in addition to standard methods provided by RPC JSON of underlying nodes.
+
+.You can also subscribe to balances changes of the balance on an address:
+[source,bash]
+----
+grpcurl -import-path ./proto/ -proto blockchain.proto -d '{"asset": {"chain": "100", "code": "ether"}, "address": {"address_single": {"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"}}}' -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeBalance
+----
+
+.and see how balance of the contract responsible for Wrapped Ether is changing:
+----
+{
+  "asset": {
+    "chain": "CHAIN_ETHEREUM",
+    "code": "ETHER"
+  },
+  "address": {
+    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+  },
+  "balance": "2410941696896999943701015"
+}
+{
+  "asset": {
+    "chain": "CHAIN_ETHEREUM",
+    "code": "ETHER"
+  },
+  "address": {
+    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+  },
+  "balance": "2410930748488073834320430"
+}
+...
+----
+
+See other enhanced methods in the link:docs/06-methods.adoc[Documentation for Enhanced Methods]
 
 == Documentation
 
@@ -213,6 +262,8 @@ https://github.com/emeraldpay/emerald-js-grpc
 See more in the documentation for link:docs/10-client-libraries.adoc[Client Libraries].
 
 == Development
+
+WARNING: The code in `master` branch is considered a development version, which may lack proper testing and should not be used in production.
 
 === Setting up environment
 

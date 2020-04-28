@@ -15,7 +15,9 @@
  */
 package io.emeraldpay.dshackle.data
 
+import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
+import org.bouncycastle.util.encoders.Hex
 
 class BlockId(
         value: ByteArray
@@ -23,7 +25,7 @@ class BlockId(
 
     companion object {
         @JvmStatic
-        fun from(hash: io.infinitape.etherjar.domain.BlockHash): BlockId {
+        fun from(hash: BlockHash): BlockId {
             return BlockId(hash.bytes)
         }
 
@@ -34,7 +36,13 @@ class BlockId(
 
         @JvmStatic
         fun from(id: String): BlockId {
-            return from(io.infinitape.etherjar.domain.BlockHash.from(id))
+            val clean = if (id.startsWith("0x")) {
+                id.substring(2)
+            } else {
+                id
+            }
+            val bytes = Hex.decode(clean)
+            return BlockId(bytes)
         }
     }
 

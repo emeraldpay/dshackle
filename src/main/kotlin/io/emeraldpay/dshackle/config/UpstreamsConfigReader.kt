@@ -87,7 +87,7 @@ class UpstreamsConfigReader(
                 val connConfigNode = getMapping(connNode, "ethereum")!!
                 val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>()
                 readUpstreamCommon(upNode, upstream)
-                readUpstreamEthereum(upNode, upstream)
+                readUpstreamStandard(upNode, upstream)
                 if (isValid(upstream)) {
                     config.upstreams.add(upstream)
                     val connection = UpstreamsConfig.EthereumConnection()
@@ -108,6 +108,26 @@ class UpstreamsConfigReader(
                                 ws.origin = URI(origin)
                             }
                             ws.basicAuth = authConfigReader.readClientBasicAuth(node)
+                        }
+                    }
+                } else {
+                    log.error("Upstream at #0 has invalid configuration")
+                }
+            } else if (hasAny(connNode, "bitcoin")) {
+                val connConfigNode = getMapping(connNode, "bitcoin")!!
+                val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>()
+                readUpstreamCommon(upNode, upstream)
+                readUpstreamStandard(upNode, upstream)
+                if (isValid(upstream)) {
+                    config.upstreams.add(upstream)
+                    val connection = UpstreamsConfig.BitcoinConnection()
+                    upstream.connection = connection
+                    getMapping(connConfigNode, "rpc")?.let { node ->
+                        getValueAsString(node, "url")?.let { url ->
+                            val http = UpstreamsConfig.HttpEndpoint(URI(url))
+                            connection.rpc = http
+                            http.basicAuth = authConfigReader.readClientBasicAuth(node)
+                            http.tls = authConfigReader.readClientTls(node)
                         }
                     }
                 } else {
@@ -162,13 +182,13 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun readUpstreamEthereum(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>) {
+    internal fun readUpstreamStandard(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
         upstream.chain = getValueAsString(upNode, "chain")
         if (hasAny(upNode, "labels")) {
             getMapping(upNode, "labels")?.let { labels ->
                 labels.value.stream()
                         .filter { n -> n.keyNode is ScalarNode && n.valueNode is ScalarNode }
-                        .map { n -> Tuples.of((n.keyNode as ScalarNode).value, (n.valueNode as ScalarNode).value)}
+                        .map { n -> Tuples.of((n.keyNode as ScalarNode).value, (n.valueNode as ScalarNode).value) }
                         .map { kv -> Tuples.of(kv.t1.trim(), kv.t2.trim()) }
                         .filter { kv -> StringUtils.isNotEmpty(kv.t1) && StringUtils.isNotEmpty(kv.t2) }
                         .forEach { kv ->

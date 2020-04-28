@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.infinitape.etherjar.rpc.*
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -27,13 +28,13 @@ import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.util.concurrent.Executors
 
-class UpstreamValidator(
+class EthereumUpstreamValidator(
         private val ethereumUpstream: EthereumUpstream,
         private val options: UpstreamsConfig.Options
 ) {
     companion object {
-        private val log = LoggerFactory.getLogger(UpstreamValidator::class.java)
-        val scheduler = Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("validator")))
+        private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
+        val scheduler = Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-validator")))
     }
 
     fun validate(): Mono<UpstreamAvailability> {

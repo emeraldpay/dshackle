@@ -20,6 +20,10 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.CurrentUpstreams
+import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcClient
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
@@ -32,6 +36,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import java.net.URI
 import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
 import javax.annotation.PostConstruct
 import kotlin.collections.HashMap
 
@@ -44,6 +49,7 @@ open class ConfiguredUpstreams(
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
+    private var seq = AtomicInteger(0)
 
     private val chainNames = mapOf(
             "ethereum" to Chain.ETHEREUM,
@@ -51,7 +57,10 @@ open class ConfiguredUpstreams(
             "eth" to Chain.ETHEREUM,
             "etc" to Chain.ETHEREUM_CLASSIC,
             "morden" to Chain.TESTNET_MORDEN,
-            "kovan" to Chain.TESTNET_KOVAN
+            "kovan" to Chain.TESTNET_KOVAN,
+            "kovan-testnet" to Chain.TESTNET_KOVAN,
+            "bitcoin" to Chain.BITCOIN,
+            "bitcoin-testnet" to Chain.TESTNET_BITCOIN
     )
 
     @PostConstruct
@@ -69,13 +78,20 @@ open class ConfiguredUpstreams(
                     log.error("Chain is unknown: ${up.chain}")
                     return@forEach
                 }
-                if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
-                    log.error("Chain is unsupported: ${up.chain}")
-                    return@forEach
-                }
                 val options = (up.options ?: UpstreamsConfig.Options())
                         .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
-                buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
+                when (BlockchainType.fromBlockchain(chain)) {
+                    BlockchainType.ETHEREUM -> {
+                        buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
+                    }
+                    BlockchainType.BITCOIN -> {
+                        buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options)
+                    }
+                    else -> {
+                        log.error("Chain is unsupported: ${up.chain}")
+                        return@forEach
+                    }
+                }
             }
         }
     }
@@ -101,14 +117,8 @@ open class ConfiguredUpstreams(
         return defaultOptions
     }
 
-    private fun buildEthereumUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
-                                      chain: Chain,
-                                      options: UpstreamsConfig.Options
-                                      ) {
-        val conn = config.connection!!
-        var rpcApi: DirectEthereumApi? = null
-        val urls = ArrayList<URI>()
-        val methods = if (config.methods != null) {
+    private fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
+        return if (config.methods != null) {
             ManagedCallMethods(currentUpstreams.getDefaultMethods(chain),
                     config.methods!!.enabled.map { it.name }.toSet(),
                     config.methods!!.disabled.map { it.name }.toSet()
@@ -116,6 +126,38 @@ open class ConfiguredUpstreams(
         } else {
             currentUpstreams.getDefaultMethods(chain)
         }
+    }
+
+    private fun buildBitcoinUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>,
+                                     chain: Chain,
+                                     options: UpstreamsConfig.Options) {
+
+        val conn = config.connection!!
+        var rpcApi: DirectBitcoinApi? = null
+        val methods = buildMethods(config, chain)
+        conn.rpc?.let { endpoint ->
+            val rpcClient = BitcoinRpcClient(endpoint.url.toString(), endpoint.basicAuth!!)
+            rpcApi = DirectBitcoinApi(rpcClient, objectMapper, methods)
+        }
+        rpcApi?.let { api ->
+            val upstream = BitcoinUpstream(config.id
+                    ?: "bitcoin-${seq.getAndIncrement()}", chain, api,
+                    options, QuorumForLabels.QuorumItem(1, config.labels),
+                    objectMapper, methods)
+
+            upstream.start()
+            currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
+        }
+
+    }
+
+    private fun buildEthereumUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
+                                      chain: Chain,
+                                      options: UpstreamsConfig.Options) {
+        val conn = config.connection!!
+        var rpcApi: DirectEthereumApi? = null
+        val urls = ArrayList<URI>()
+        val methods = buildMethods(config, chain)
         conn.rpc?.let { endpoint ->
             val rpcClient = ReactorHttpRpcClient.newBuilder()
                     .connectTo(endpoint.url)

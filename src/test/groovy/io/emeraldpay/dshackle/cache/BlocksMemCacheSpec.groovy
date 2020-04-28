@@ -77,9 +77,9 @@ class BlocksMemCacheSpec extends Specification {
         def act3 = cache.read(BlockId.from(hash3)).block()
         def act4 = cache.read(BlockId.from(hash4)).block()
         then:
-        act2.hash.toHex() == hash2
-        act3.hash.toHex() == hash3
-        act4.hash.toHex() == hash4
+        act2.hash.toHex() == hash2.substring(2)
+        act3.hash.toHex() == hash3.substring(2)
+        act4.hash.toHex() == hash4.substring(2)
         act1 == null
     }
 

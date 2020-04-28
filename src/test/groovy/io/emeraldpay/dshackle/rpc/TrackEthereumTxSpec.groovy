@@ -103,7 +103,7 @@ class TrackEthereumTxSpec extends Specification {
         upstreamMock.nextBlock(BlockContainer.from(blockHeadJson, TestingCommons.objectMapper()))
 
         when:
-        def flux = trackTx.add(Mono.just(req))
+        def flux = trackTx.subscribe(req)
         then:
         StepVerifier.create(flux)
                 .expectNext(exp1)
@@ -134,7 +134,7 @@ class TrackEthereumTxSpec extends Specification {
 
         when:
         def act = StepVerifier.withVirtualTime {
-            return trackTx.add(Mono.just(req))
+            return trackTx.subscribe(req)
         }
         then:
         act
@@ -192,7 +192,7 @@ class TrackEthereumTxSpec extends Specification {
 
         when:
         def act = StepVerifier.withVirtualTime {
-            return trackTx.add(Mono.just(req))
+            return trackTx.subscribe(req)
         }
         then:
         act
@@ -301,7 +301,7 @@ class TrackEthereumTxSpec extends Specification {
         }
 
         when:
-        def flux = trackTx.add(Mono.just(req))
+        def flux = trackTx.subscribe(req)
         then:
         StepVerifier.create(flux)
                 .expectNext(exp1.build())

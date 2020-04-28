@@ -20,13 +20,8 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
-import java.lang.IllegalStateException
-import java.time.Duration
 
 class EthereumChainUpstreams(
         chain: Chain,
@@ -39,7 +34,7 @@ class EthereumChainUpstreams(
         private val log = LoggerFactory.getLogger(EthereumChainUpstreams::class.java)
     }
 
-    private var head: EthereumHead? = null
+    private var head: Head? = null
 
     init {
         this.init()
@@ -52,15 +47,15 @@ class EthereumChainUpstreams(
         super.init()
     }
 
-    override fun getHead(): EthereumHead {
+    override fun getHead(): Head {
         return head!!
     }
 
     override fun setHead(head: Head) {
-        this.head = head as EthereumHead
+        this.head = head
     }
 
-    override fun updateHead(): EthereumHead {
+    override fun updateHead(): Head {
         head?.let {
             if (it is Lifecycle) {
                 it.stop()
@@ -73,7 +68,7 @@ class EthereumChainUpstreams(
             upstream.setLag(0)
             upstream.getHead()
         } else {
-            val newHead = EthereumHeadMerge(upstreams.map { it.getHead() }).apply {
+            val newHead = MergedHead(upstreams.map { it.getHead() }).apply {
                 this.start()
             }
             val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream<EthereumApi>>).apply {
@@ -90,34 +85,19 @@ class EthereumChainUpstreams(
         return upstreams.flatMap { it.getLabels() }
     }
 
-    override fun printStatus() {
-        var height: Long? = null
-        try {
-            height = getHead().getFlux().next().block(Duration.ofSeconds(1))?.height
-        } catch (e: IllegalStateException) {
-            //timout
-        } catch (e: Exception) {
-            log.warn("Head processing error: ${e.javaClass} ${e.message}")
-        }
-        val statuses = upstreams.map { it.getStatus() }
-                .groupBy { it }
-                .map { "${it.key.name}/${it.value.size}" }
-                .joinToString(",")
-        val lag = upstreams.map { it.getLag() }
-                .joinToString(", ")
-
-        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=$statuses, lag=[$lag]")
-    }
-
     @SuppressWarnings("unchecked")
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, upstreamType: Class<TA>): T {
+    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        if (!upstreamType.isAssignableFrom(EthereumApi::class.java)) {
-            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $upstreamType")
+        return castApi(apiType) as T
+    }
+
+    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
+        if (!apiType.isAssignableFrom(EthereumApi::class.java)) {
+            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
         }
-        return this as T
+        return this as Upstream<A>
     }
 
 }

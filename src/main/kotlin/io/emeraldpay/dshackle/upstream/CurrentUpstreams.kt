@@ -16,17 +16,20 @@
 package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
+import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
+import io.emeraldpay.dshackle.upstream.bitcoin.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
@@ -34,6 +37,7 @@ import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.TopicProcessor
 import java.util.*
+import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -54,33 +58,57 @@ class CurrentUpstreams(
     fun update(change: UpstreamChange) {
         updateLock.withLock {
             val chain = change.chain
-            val up = change.upstream
-                    .cast(EthereumUpstream::class.java, EthereumApi::class.java) as Upstream<EthereumApi>
-            val current = chainMapping[chain] as ChainUpstreams<EthereumApi>?
-            if (change.type == UpstreamChange.ChangeType.REMOVED) {
-                current?.removeUpstream(up.getId())
-                log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
-            } else {
-                if (current == null) {
-                    val created = EthereumChainUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper)
-                    if (up is CachesEnabled) {
-                        up.setCaches(created.caches)
+            when (BlockchainType.fromBlockchain(chain)) {
+                BlockchainType.ETHEREUM -> {
+                    val up = change.upstream
+                            .cast(EthereumUpstream::class.java, EthereumApi::class.java) as Upstream<EthereumApi>
+                    val current = chainMapping[chain] as ChainUpstreams<EthereumApi>?
+                    val factory = Callable {
+                        EthereumChainUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as ChainUpstreams<EthereumApi>
                     }
-                    created.addUpstream(up)
-                    created.start()
-                    chainMapping[chain] = created
-                    chainsBus.onNext(chain)
-                } else {
-                    if (up is CachesEnabled) {
-                        up.setCaches(current.caches)
+                    processUpdate(change, up, current, factory)
+                }
+                BlockchainType.BITCOIN -> {
+                    val up = change.upstream
+                            .cast(BitcoinUpstream::class.java, DirectBitcoinApi::class.java)
+                    val current = chainMapping[chain] as ChainUpstreams<DirectBitcoinApi>?
+                    val factory = Callable {
+                        BitcoinChainUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as ChainUpstreams<DirectBitcoinApi>
                     }
-                    current.addUpstream(up)
+                    processUpdate(change, up, current, factory)
                 }
-                if (!callTargets.containsKey(chain)) {
-                    setupDefaultMethods(chain)
+                else -> {
+                    log.error("Update for unsupported chain: $chain")
                 }
-                log.info("Upstream ${change.upstream.getId()} with chain $chain has been added")
             }
+        }
+    }
+
+    fun <A : UpstreamApi> processUpdate(change: UpstreamChange, up: Upstream<A>, current: ChainUpstreams<A>?, factory: Callable<ChainUpstreams<A>>) {
+        val chain = change.chain
+        if (change.type == UpstreamChange.ChangeType.REMOVED) {
+            current?.removeUpstream(up.getId())
+            log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
+        } else {
+            if (current == null) {
+                val created = factory.call()
+                if (up is CachesEnabled) {
+                    up.setCaches(created.caches)
+                }
+                created.addUpstream(up)
+                created.start()
+                chainMapping[chain] = created
+                chainsBus.onNext(chain)
+            } else {
+                if (up is CachesEnabled) {
+                    up.setCaches(current.caches)
+                }
+                current.addUpstream(up)
+            }
+            if (!callTargets.containsKey(chain)) {
+                setupDefaultMethods(chain)
+            }
+            log.info("Upstream ${change.upstream.getId()} with chain $chain has been added")
         }
     }
 
@@ -109,7 +137,11 @@ class CurrentUpstreams(
     }
 
     fun setupDefaultMethods(chain: Chain): CallMethods {
-        val created = DefaultEthereumMethods(objectMapper, chain)
+        val created = when (BlockchainType.fromBlockchain(chain)) {
+            BlockchainType.ETHEREUM -> DefaultEthereumMethods(objectMapper, chain)
+            BlockchainType.BITCOIN -> DefaultBitcoinMethods(objectMapper)
+            else -> throw IllegalStateException("Unsupported chain: $chain")
+        }
         callTargets[chain] = created
         return created
     }
