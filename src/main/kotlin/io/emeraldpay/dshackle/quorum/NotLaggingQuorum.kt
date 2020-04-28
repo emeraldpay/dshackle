@@ -1,4 +1,5 @@
 /**
+ * Copyright (c) 2020 EmeraldPay, Inc
  * Copyright (c) 2019 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
