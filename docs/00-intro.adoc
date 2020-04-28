@@ -3,14 +3,13 @@
 Dshackle is an L7 Blockchain API Load Balancer with automatic discovery and health checking, authentication, and TLS termination.
 It is designed to work as an edge proxy, middle proxy, or API gateway.
 
-Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers, such
-as Geth, Parity, Infura, etc), it automatically verifies their availability and the current status of the network, executes
-commands making sure that the response is consistent and/or data successfully broadcasted to the network.
+Dshackle provides a high level aggregated API on top of several underlying upstreams.
+I.e. to blockchain nodes such as Bitcoind, Geth, Parity, or providers like Infura, and so on.
+It automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or data successfully broadcasted to the network.
 
 Example use cases:
 
-- Read a _transaction_ - Dshackle tries to find it on different nodes and retries until it's found or there is a
-  consistent answer from upstreams that the transaction doesn't exist
+- Read a _transaction_ - Dshackle tries to find it on different nodes and retries until it's found or there is a consistent answer from upstreams that the transaction doesn't exist
 - Get _nonce_ to send a transaction - Dshackle makes sure it finds the highest value across several nodes
 - Send _transaction_ - Dshackle distributes it to several nodes in parallel
 

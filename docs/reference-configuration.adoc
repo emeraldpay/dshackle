@@ -89,6 +89,15 @@ cluster:
             basic-auth:
               username: 4fc258fe41a68149c199ad8f281f2015
               password: 1a68f20154fc258fe4149c199ad8f281
+    - id: bitcoin
+      chain: bitcoin
+      connection:
+        bitcoin:
+          rpc:
+            url: "http://localhost:8332"
+            basic-auth:
+              username: bitcoin
+              password: e984af45bb888428207c290
     - id: remote
       connection:
         grpc:
@@ -357,7 +366,7 @@ configuration, and may be omitted for most of the situations.
 
 | `chain`
 | yes
-| Blockchain which is the provided by the upstream. `ethereum`, `ethereum_classic`, `kovan`
+| Blockchain which is the provided by the upstream. `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, or `kovan`
 
 | `labels`
 | no
@@ -369,7 +378,11 @@ configuration, and may be omitted for most of the situations.
 
 | `connection.ethereum`
 | yes
-| Connection configuration for Ethereum JSON RPC API
+| Connection configuration for Ethereum API
+
+| `connection.bitcoin`
+| yes
+| Connection configuration for Bitcoin API
 
 |===
 

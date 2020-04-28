@@ -36,15 +36,18 @@ cluster:
       connection:
         ethereum:
           rpc: # <6>
-            url: "https://mainnet.infura.io/v3/${INFURA_USER}"
-          ws: # <7>
+            url: "https://mainnet.infura.io/v3/${INFURA_USER}" <7>
+          ws: # <8>
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-    - id: infura-kovan
-      chain: kovan # <8>
+    - id: bitcoin-main
+      chain: bitcoin # <9>
       connection:
-        ethereum:
+        bitcoin:
           rpc:
-            url: "https://kovan.infura.io/v3/${INFURA_USER}" # <9>
+            url: "http://localhost:8332"
+            basic-auth: # <10>
+              username: bitcoin
+              password: test
 ----
 <1> application listen for gRPC connections on 0.0.0.0:2449
 <2> with TLS security for gRPC disabled (_never use in production!_)
@@ -52,12 +55,12 @@ cluster:
 <4> sets up 2 upstreams
 <5> one for Ethereum Mainnet, using
 <6> HTTP and
-<7> Websocket conection
-<8> and another for Kovan Testnet
-<9> `${INFURA_USER}` value is provided through environment variable
+<7> `${INFURA_USER}` value is provided through environment variable
+<8> Websocket conection
+<9> and another for Bitcoin <10> with Basic Auth for bitcoin node connection
 
-Both upstreams are configured for Infura for demo purposes, but you can use other compatible endpoints.
-Infura authentication is omitted for this demo
+
+See detailed link:reference-configuration.adoc[Configuration Reference]
 
 ==== Run as docker
 
@@ -99,8 +102,10 @@ curl --request POST \
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
 ----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 io.emeraldpay.api.Blockchain/SubscribeHead
+grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeHead
 ----
+
+`type: 100` specifies the blockchain id, and 100 means Ethereum Mainnet.
 
 .Output would be like
 ----
@@ -123,4 +128,37 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plai
 ----
 
 The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet.
-It's a method provided by Dshackle, available in additional to methods provided by RPC JSON of underlying nodes.
+It's one of the services provided by Dshackle, in addition to standard methods provided by RPC JSON of underlying nodes.
+
+.You can also subscribe to balances changes of the balance on an address:
+[source,bash]
+----
+grpcurl -import-path ./proto/ -proto blockchain.proto -d '{"asset": {"chain": "100", "code": "ether"}, "address": {"address_single": {"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"}}}' -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeBalance
+----
+
+.and see how balance of the contract responsible for Wrapped Ether is changing:
+----
+{
+  "asset": {
+    "chain": "CHAIN_ETHEREUM",
+    "code": "ETHER"
+  },
+  "address": {
+    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+  },
+  "balance": "2410941696896999943701015"
+}
+{
+  "asset": {
+    "chain": "CHAIN_ETHEREUM",
+    "code": "ETHER"
+  },
+  "address": {
+    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+  },
+  "balance": "2410930748488073834320430"
+}
+...
+----
+
+See other enhanced methods in the link:06-methods.adoc[Documentation for Enhanced Methods]
