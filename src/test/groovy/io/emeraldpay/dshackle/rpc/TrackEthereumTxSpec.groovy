@@ -20,9 +20,15 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.UpstreamsMock
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -30,9 +36,10 @@ import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
-import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
+import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
+import reactor.test.scheduler.VirtualTimeScheduler
+import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.time.Duration
@@ -96,8 +103,7 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
-        trackTx.init()
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
         apiMock.answer("eth_getBlockByHash", [blockJson.hash.toHex(), false], blockJson)
@@ -112,54 +118,36 @@ class TrackEthereumTxSpec extends Specification {
                 .verify(Duration.ofSeconds(4))
     }
 
-    def "Closes for unknown transaction"() {
+    def "Wait for unknown transaction"() {
         setup:
-        def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
-                .setChain(chain)
-                .setConfirmationLimit(6)
-                .setTxId(txId)
-                .build()
-        def exp1 = BlockchainOuterClass.TxStatus.newBuilder()
-                .setTxId(txId)
-                .setBroadcasted(false)
-                .setMined(false)
-                .build()
-
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
-        trackTx.init()
+        ((EthereumChainUpstreams) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
+            _ * getFlux() >> Flux.empty()
+        }
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
+        def scheduler = VirtualTimeScheduler.create(true)
+        trackTx.scheduler = scheduler
 
         apiMock.answer("eth_getTransactionByHash", [txId], null)
 
         when:
-        def act = StepVerifier.withVirtualTime {
-            return trackTx.subscribe(req)
-        }
+        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
+        def act = StepVerifier.withVirtualTime(
+                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM).castApi(EthereumApi.class)) },
+                { scheduler },
+                5)
+
         then:
         act
-                .expectNext(exp1)
-                .then {
-                    assert trackTx.notFound.any { it.tx.txid.toHex() == txId }
-                }
-                .expectNoEvent(Duration.ofSeconds(30))
-                .then {
-                    def track = trackTx.notFound.iterator().next()
-                    track.tx
-                            .copy(Instant.now() - Duration.ofHours(1), track, track.tx.status, Instant.now() - Duration.ofMinutes(15))
-                            .makeCurrent()
-                    trackTx.recheckNotFound()
-                }
-                .expectNext(exp1)
-                .then {
-                    assert !trackTx.notFound.any { it.tx.txid.toHex() == txId }
-                }
+                .expectSubscription()
+                .expectNoEvent(Duration.ofSeconds(20)).as("Waited for updates")
                 .expectComplete()
-                .verify(Duration.ofSeconds(4))
+                .verify(Duration.ofSeconds(3))
     }
 
-    def "Closes for known transaction if not mined"() {
+    def "Known transaction when not mined"() {
         setup:
         def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
                 .setChain(chain)
@@ -185,47 +173,68 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
-        trackTx.init()
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
+        def scheduler = VirtualTimeScheduler.create(true)
+        trackTx.scheduler = scheduler
 
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
 
         when:
-        def act = StepVerifier.withVirtualTime {
-            return trackTx.subscribe(req)
-        }
+        def act = StepVerifier.withVirtualTime({
+            return trackTx.subscribe(req).take(2)
+        }, { scheduler }, 5)
         then:
         act
-                .expectNext(exp1)
-                .then {
-                    assert trackTx.notFound.any { it.tx.txid.toHex() == txId }
-                }
-                .expectNoEvent(Duration.ofSeconds(20))
-
-                .then {
-                    def track = trackTx.notFound.iterator().next()
-                    track.tx
-                            .copy(Instant.now() - Duration.ofSeconds(119), track, track.tx.status, Instant.now() - Duration.ofMinutes(15))
-                            .makeCurrent()
-                    trackTx.recheckNotFound()
-                }
-                .expectNext(exp2)
-                .then {
-                    assert trackTx.notFound.any { it.tx.txid.toHex() == txId }
-                }
-                .expectNoEvent(Duration.ofSeconds(20))
-
-                .then {
-                    def track = trackTx.notFound.iterator().next()
-                    track.tx
-                            .copy(Instant.now() - Duration.ofSeconds(121), track, track.tx.status, Instant.now() - Duration.ofMinutes(15))
-                            .makeCurrent()
-                    trackTx.recheckNotFound()
-                }
-                .expectNext(exp2)
+                .expectSubscription()
+                .expectNext(exp1).as("Unknown tx")
+                .expectNext(exp2).as("Found in mempool")
                 .expectComplete()
                 .verify(Duration.ofSeconds(4))
+    }
+
+    def "New block makes tx mined"() {
+        setup:
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
+
+        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
+        def block = new BlockContainer(
+                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes,
+                [TxId.from(txId)]
+        )
+
+        when:
+        def act = trackTx.onNewBlock(tx, block)
+        then:
+        StepVerifier.create(act)
+                .expectNext(tx.withStatus(true, 100, true, BlockHash.from(txId), block.timestamp, BigInteger.ONE, 1))
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "New block without current tx requires a call"() {
+        setup:
+        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def upstreamMock = TestingCommons.upstream(apiMock)
+        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
+
+        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
+        def block = new BlockContainer(
+                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes,
+                [TxId.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")]
+        )
+        apiMock.answer("eth_getTransactionByHash", [txId], null)
+
+        when:
+        def act = trackTx.onNewBlock(tx, block)
+        then:
+        StepVerifier.create(act)
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
     }
 
     def "Starts to follow new transaction"() {
@@ -284,10 +293,10 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
-        trackTx.init()
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
+        apiMock.answerOnce("eth_getTransactionByHash", [txId], txJsonBroadcasted)
         apiMock.answerOnce("eth_getTransactionByHash", [txId], txJsonBroadcasted)
         apiMock.answer("eth_getTransactionByHash", [txId], txJsonMined)
         blocks.forEach { block ->
@@ -305,11 +314,11 @@ class TrackEthereumTxSpec extends Specification {
         def flux = trackTx.subscribe(req)
         then:
         StepVerifier.create(flux)
-                .expectNext(exp1.build())
+                .expectNext(exp1.build()).as("Just empty")
                 .then(nextBlock(1))
-                .expectNext(exp1.setBroadcasted(true).build())
+                .expectNext(exp1.setBroadcasted(true).build()).as("Found in mempool")
                 .then(nextBlock(2))
-                .expectNext(exp2.setConfirmations(1).build())
+                .expectNext(exp2.setConfirmations(1).build()).as("Mined")
                 .then(nextBlock(3))
                 .expectNext(exp2.setConfirmations(2).build())
                 .then(nextBlock(4))
@@ -320,59 +329,4 @@ class TrackEthereumTxSpec extends Specification {
                 .verify(Duration.ofSeconds(4))
     }
 
-    def "Tracked after first load"() {
-        setup:
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
-        def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
-        trackTx.init()
-
-        def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
-                .setChain(chain)
-                .setConfirmationLimit(6)
-                .setTxId(txId)
-                .build()
-        def tx = trackTx.prepareTracking(req)
-        when:
-        trackTx.onFirstUpdate(tx)
-        then:
-        trackTx.notFound.any { it.tx.txid == TransactionId.from(txId) }
-        trackTx.trackedForChain(Chain.ETHEREUM).any { it.txid == TransactionId.from(txId) }
-    }
-
-    def "Update of last notified keeps everything else"() {
-        setup:
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
-        def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.immediate())
-        trackTx.init()
-
-        def req = BlockchainOuterClass.TxStatusRequest.newBuilder()
-                .setChain(chain)
-                .setConfirmationLimit(6)
-                .setTxId(txId)
-                .build()
-        def tx = trackTx.prepareTracking(req)
-        when:
-        tx = tx.withStatus(true, 100,
-                true, BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22"), Instant.now(),
-                1000 as BigInteger, 15L)
-        then:
-        tx.status.found
-        tx.notifiedAt.isBefore(Instant.now() - Duration.ofSeconds(5))
-        when:
-        def c = tx.justNotified()
-        then:
-        tx.notifiedAt.isBefore(Instant.now() - Duration.ofSeconds(5))
-        c.notifiedAt.isAfter(Instant.now() - Duration.ofSeconds(5))
-        c.status.found
-        c.status.height == 100
-        c.status.mined
-        c.status.blockHash.toHex() == "0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22"
-        c.status.blockTime.isAfter(Instant.now() - Duration.ofSeconds(5))
-        c.status.blockTotalDifficulty == 1000 as BigInteger
-        c.status.confirmations == 15L
-    }
 }
