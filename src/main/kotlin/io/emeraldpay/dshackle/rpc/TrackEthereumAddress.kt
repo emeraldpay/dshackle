@@ -29,119 +29,50 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.Wei
 import io.infinitape.etherjar.rpc.Commands
-import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.BlockTag
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
-import reactor.core.publisher.toFlux
-import reactor.core.scheduler.Scheduler
-import java.time.Duration
-import java.time.Instant
-import java.util.*
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.atomic.AtomicLong
-import javax.annotation.PostConstruct
 
 @Service
 class TrackEthereumAddress(
-        @Autowired private val upstreams: Upstreams,
-        @Autowired private val upstreamScheduler: Scheduler
+        @Autowired private val upstreams: Upstreams
 ) : TrackAddress {
 
     private val log = LoggerFactory.getLogger(TrackEthereumAddress::class.java)
-    private val clients = HashMap<Chain, ConcurrentLinkedQueue<TrackedAddress>>()
-    private val seq = AtomicLong(0)
-
-    @PostConstruct
-    fun init() {
-        upstreams.observeChains().subscribe { chain ->
-            if (!clients.containsKey(chain)) {
-                clients[chain] = ConcurrentLinkedQueue()
-                upstreams.getUpstream(chain)?.getHead()?.let { head ->
-                    head.getFlux().subscribe { updateBalancesAll(chain) }
-                }
-            }
-        }
-    }
-
-    @Scheduled(fixedDelay = 120_000)
-    fun pingOld() {
-        val period = Duration.ofMinutes(15)
-        upstreams.getAvailable().forEach { chain ->
-            clients[chain]?.let { clients ->
-                clients.toFlux().filter {
-                    it.lastPing < Instant.now().minus(period)
-                }.subscribe {
-                    notify(it)
-                }
-            }
-        }
-    }
 
     override fun isSupported(chain: Chain): Boolean {
         return BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && upstreams.isAvailable(chain)
     }
 
-    private fun startTracking(client: TrackedAddress) {
-        clients[client.chain]?.add(client) ?: log.warn("Chain ${client.chain} is not available for tracking")
-    }
-
-    private fun stopTracking(client: TrackedAddress) {
-        clients[client.chain]?.removeIf {
-            it.id == client.id
-        } ?: log.warn("Chain ${client.chain} is not available for tracking")
-    }
-
-    fun isTracked(chain: Chain, address: Address): Boolean {
-        return clients[chain]?.any { it.address == address } ?: false
-    }
-
-    private fun initializeSimple(request: BlockchainOuterClass.BalanceRequest): Flux<SimpleAddress> {
-        val chain = Chain.byId(request.asset.chainValue)
-        if (!upstreams.isAvailable(chain)) {
-            return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-        }
-        if (request.asset.code?.toLowerCase() != "ether") {
-            return Flux.error(SilentException("Unsupported asset ${request.asset.code}"))
-        }
-        return when {
-            request.address.addrTypeCase == Common.AnyAddress.AddrTypeCase.ADDRESS_SINGLE ->
-                Flux.just(simpleAddress(request.address.addressSingle, chain))
-            request.address.addrTypeCase == Common.AnyAddress.AddrTypeCase.ADDRESS_MULTI ->
-                Flux.fromIterable(request.address.addressMulti.addressesList)
-                        .map { simpleAddress(it, chain) }
-            else -> {
-                log.error("Unsupported address type: ${request.address.addrTypeCase}")
-                Flux.empty()
-            }
-        }
-    }
-
-    private fun initializeSubscription(request: BlockchainOuterClass.BalanceRequest, observer: TopicProcessor<BlockchainOuterClass.AddressBalance>): Flux<TrackedAddress> {
-        return initializeSimple(request)
-                .map {
-                    it.asTracked(observer, seq.incrementAndGet())
-                }
+    override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
+        return initAddress(request)
+                .flatMap { a -> getBalance(a).map { a.withBalance(it) } }
+                .map { buildResponse(it) }
     }
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
-        val bus = TopicProcessor.create<BlockchainOuterClass.AddressBalance>()
-        return initializeSubscription(request, bus)
+        val chain = Chain.byId(request.asset.chainValue)
+        val head = upstreams.getUpstream(chain)?.getHead()?.getFlux() ?: Flux.empty()
+        val balances = initAddress(request)
                 .flatMap { tracked ->
-                    val current = getBalance(tracked).map {
-                        tracked.withBalance(it)
-                    }.doOnNext {
-                        startTracking(it)
-                    }.map {
-                        buildResponse(it)
-                    }
-                    Flux.merge(current, bus).doFinally { stopTracking(tracked) }
+                    val current = getBalance(tracked)
+                            .map {
+                                tracked.withBalance(it)
+                            }
+                    val updates = head
+                            .flatMap {
+                                getBalance(tracked)
+                            }.map {
+                                tracked.withBalance(it)
+                            }
+
+                    Flux.concat(current, updates)
+                            .distinctUntilChanged {
+                                it.balance ?: Wei.ZERO
+                            }
                 }
                 .doOnError { t ->
                     if (t is SilentException) {
@@ -153,34 +84,42 @@ class TrackEthereumAddress(
                         log.warn("Failed to process subscription", t)
                     }
                 }
+
+        return balances.map {
+            buildResponse(it)
+        }
     }
 
-    override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
-        return initializeSimple(request)
-                .flatMap { a -> getBalance(a).map { a.withBalance(it) } }
-                .map { buildResponse(it) }
+    private fun initAddress(request: BlockchainOuterClass.BalanceRequest): Flux<TrackedAddress> {
+        val chain = Chain.byId(request.asset.chainValue)
+        if (!upstreams.isAvailable(chain)) {
+            return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
+        }
+        if (request.asset.code?.toLowerCase() != "ether") {
+            return Flux.error(SilentException("Unsupported asset ${request.asset.code}"))
+        }
+        return when (request.address.addrTypeCase) {
+            Common.AnyAddress.AddrTypeCase.ADDRESS_SINGLE ->
+                Flux.just(createAddress(request.address.addressSingle, chain))
+            Common.AnyAddress.AddrTypeCase.ADDRESS_MULTI ->
+                Flux.fromIterable(request.address.addressMulti.addressesList)
+                        .map { createAddress(it, chain) }
+            else -> {
+                log.error("Unsupported address type: ${request.address.addrTypeCase}")
+                Flux.empty()
+            }
+        }
     }
 
-    private fun simpleAddress(address: Common.SingleAddress, chain: Chain): SimpleAddress {
+    private fun createAddress(address: Common.SingleAddress, chain: Chain): TrackedAddress {
         val addressParsed = Address.from(address.address)
-        return SimpleAddress(
+        return TrackedAddress(
                 chain,
                 addressParsed
         )
     }
 
-    private fun updateBalancesAll(chain: Chain) {
-        clients[chain]?.let { all ->
-            all.toFlux()
-                    .buffer(20)
-                    .map { group ->
-                        updateBalances(chain, group).subscribe { updated -> notify(updated) }
-                    }
-                    .subscribe()
-        }
-    }
-
-    fun getBalance(addr: SimpleAddress): Mono<Wei> {
+    fun getBalance(addr: TrackedAddress): Mono<Wei> {
         val up = upstreams.getUpstream(addr.chain) as AggregatedUpstream<EthereumApi>?
                 ?: return Mono.error(SilentException.UnsupportedBlockchain(addr.chain))
         return up.getApi(Selector.empty)
@@ -188,26 +127,7 @@ class TrackEthereumAddress(
                 .timeout(Defaults.timeout)
     }
 
-    private fun updateBalances(chain: Chain, group: List<TrackedAddress>): Flux<TrackedAddress> {
-        val up = upstreams.getUpstream(chain) ?: return Flux.empty<TrackedAddress>()
-        return group.toFlux()
-                .parallel(8).runOn(upstreamScheduler)
-                .flatMap { a ->
-                    getBalance(a).map { Update(a, it) }
-                }
-                .sequential()
-                .filter {
-                    it.addr.balance == null || it.addr.balance != it.value
-                }
-                .doOnNext {
-                    it.addr.balance = it.value
-                }
-                .map {
-                    it.addr
-                }
-    }
-
-    private fun buildResponse(address: SimpleAddress): BlockchainOuterClass.AddressBalance {
+    private fun buildResponse(address: TrackedAddress): BlockchainOuterClass.AddressBalance {
         return BlockchainOuterClass.AddressBalance.newBuilder()
                 .setBalance(address.balance!!.amount!!.toString(10))
                 .setAsset(Common.Asset.newBuilder()
@@ -217,28 +137,10 @@ class TrackEthereumAddress(
                 .build()
     }
 
-    private fun notify(address: TrackedAddress) {
-        address.lastPing = Instant.now()
-        address.stream.onNext(buildResponse(address))
-    }
-
-    class Update(val addr: TrackedAddress, val value: Wei)
-
-    open class SimpleAddress(val chain: Chain, val address: Address, var balance: Wei? = null) {
-        fun asTracked(stream: TopicProcessor<BlockchainOuterClass.AddressBalance>, id: Long): TrackedAddress {
-            return TrackedAddress(chain, stream, address, balance = this.balance, id = id)
-        }
-
-        open fun withBalance(balance: Wei) = SimpleAddress(chain, address, balance)
-    }
-
-    class TrackedAddress(chain: Chain,
-                         val stream: TopicProcessor<BlockchainOuterClass.AddressBalance>,
-                         address: Address,
-                         var lastPing: Instant = Instant.now(),
-                         balance: Wei? = null,
-                         val id: Long
-    ): SimpleAddress(chain, address, balance) {
-        override fun withBalance(balance: Wei) = TrackedAddress(chain, stream, address, lastPing, balance, id)
+    class TrackedAddress(val chain: Chain,
+                         val address: Address,
+                         val balance: Wei? = null
+    ) {
+        fun withBalance(balance: Wei) = TrackedAddress(chain, address, balance)
     }
 }

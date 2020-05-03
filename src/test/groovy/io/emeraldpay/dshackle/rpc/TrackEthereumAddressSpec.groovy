@@ -63,8 +63,7 @@ class TrackEthereumAddressSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams, Schedulers.immediate())
-        trackAddress.init()
+        TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)
 
         apiMock.answer("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
         when:
@@ -74,7 +73,6 @@ class TrackEthereumAddressSpec extends Specification {
             .expectNext(exp)
             .expectComplete()
             .verify(Duration.ofSeconds(3))
-        !trackAddress.isTracked(Chain.ETHEREUM, Address.from(address1))
     }
 
     def "recheck address after each block"() {
@@ -102,12 +100,10 @@ class TrackEthereumAddressSpec extends Specification {
             return it
         }
 
-        def blocksBus = TopicProcessor.create()
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams, Schedulers.immediate())
-        trackAddress.init()
+        TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)
 
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0xff98")
@@ -117,15 +113,10 @@ class TrackEthereumAddressSpec extends Specification {
         StepVerifier.create(flux)
                 .expectNext(exp1)
                 .then {
-                    assert trackAddress.isTracked(Chain.ETHEREUM, Address.from(address1))
-                }
-                .then {
                     upstreamMock.nextBlock(BlockContainer.from(block2, TestingCommons.objectMapper()))
                 }
                 .expectNext(exp2)
                 .thenCancel()
                 .verify(Duration.ofSeconds(3))
-        Thread.sleep(50)
-        !trackAddress.isTracked(Chain.ETHEREUM, Address.from(address1))
     }
 }
