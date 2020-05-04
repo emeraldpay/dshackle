@@ -29,6 +29,7 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.jetbrains.annotations.NotNull
+import org.reactivestreams.Publisher
 
 class EthereumUpstreamMock extends EthereumUpstream {
 
@@ -56,6 +57,10 @@ class EthereumUpstreamMock extends EthereumUpstream {
 
     void nextBlock(BlockContainer block) {
         ethereumHeadMock.nextBlock(block)
+    }
+
+    void setBlocks(Publisher<BlockContainer> blocks) {
+        ethereumHeadMock.predefined = blocks
     }
 
     @Override

@@ -303,30 +303,23 @@ class TrackEthereumTxSpec extends Specification {
             apiMock.answer("eth_getBlockByHash", [block.hash.toHex(), false], block)
         }
 
-        def nextBlock = { int i ->
-            return {
-                println("block $i");
-                upstreamMock.nextBlock(BlockContainer.from(blocks[i], TestingCommons.objectMapper()))
-            } as Runnable
-        }
+        upstreamMock.blocks = Flux.fromIterable(blocks)
+                .map { block ->
+                    BlockContainer.from(block, TestingCommons.objectMapper())
+                }
 
         when:
         def flux = trackTx.subscribe(req)
         then:
         StepVerifier.create(flux)
                 .expectNext(exp1.build()).as("Just empty")
-                .then(nextBlock(1))
                 .expectNext(exp1.setBroadcasted(true).build()).as("Found in mempool")
-                .then(nextBlock(2))
                 .expectNext(exp2.setConfirmations(1).build()).as("Mined")
-                .then(nextBlock(3))
-                .expectNext(exp2.setConfirmations(2).build())
-                .then(nextBlock(4))
-                .expectNext(exp2.setConfirmations(3).build())
-                .then(nextBlock(5))
-                .expectNext(exp2.setConfirmations(4).build())
+                .expectNext(exp2.setConfirmations(2).build()).as("Confirmed 2")
+                .expectNext(exp2.setConfirmations(3).build()).as("Confirmed 3")
+                .expectNext(exp2.setConfirmations(4).build()).as("Confirmed 4")
                 .expectComplete()
-                .verify(Duration.ofSeconds(4))
+                .verify(Duration.ofSeconds(1))
     }
 
 }

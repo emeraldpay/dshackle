@@ -209,11 +209,11 @@ class TrackEthereumTx(
                 }
     }
 
-    fun updateFromBlock(upstream: Upstream<EthereumApi>, tx: TxDetails, it: TransactionJson): Mono<TxDetails> {
-        return if (it.blockNumber != null && it.blockHash != null && it.blockHash != ZERO_BLOCK) {
+    fun updateFromBlock(upstream: Upstream<EthereumApi>, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
+        return if (blockTx.blockNumber != null && blockTx.blockHash != null && blockTx.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
-                    blockHash = it.blockHash,
-                    height = it.blockNumber,
+                    blockHash = blockTx.blockHash,
+                    height = blockTx.blockNumber,
                     found = true,
                     mined = true,
                     confirmations = 1

@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
+import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
@@ -25,6 +26,7 @@ import reactor.core.publisher.TopicProcessor
 class EthereumHeadMock implements Head {
 
     private TopicProcessor<BlockContainer> bus = TopicProcessor.create()
+    private Publisher<BlockContainer> predefined = null
     private BlockContainer latest
 
     void nextBlock(BlockContainer block) {
@@ -33,8 +35,20 @@ class EthereumHeadMock implements Head {
         bus.onNext(block)
     }
 
+    void setPredefined(Publisher<BlockContainer> predefined) {
+        this.predefined = Flux.from(predefined)
+                .publish()
+                .refCount(1)
+                .doOnNext { latest = it }
+        // keep the current block as latest, because getFlux is also used to get the current height
+    }
+
     @Override
     Flux<BlockContainer> getFlux() {
-        return Flux.concat(Mono.justOrEmpty(latest), bus).distinctUntilChanged()
+        if (predefined != null) {
+            return Flux.concat(Mono.justOrEmpty(latest), Flux.from(predefined))
+        } else {
+            return Flux.concat(Mono.justOrEmpty(latest), bus).distinctUntilChanged()
+        }
     }
 }
