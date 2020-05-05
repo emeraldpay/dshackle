@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinData
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
 import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.CachingMempoolData
@@ -46,7 +46,7 @@ class TrackBitcoinTxSpec extends Specification {
             ])
         }
         BitcoinUpstream upstream = Mock(BitcoinUpstream) {
-            _ * getData() >> Mock(BitcoinData) {
+            _ * getData() >> Mock(BitcoinReader) {
                 _ * getMempool() >> mempoolAccess
             }
         }
@@ -72,7 +72,7 @@ class TrackBitcoinTxSpec extends Specification {
             ])
         }
         BitcoinUpstream upstream = Mock(BitcoinUpstream) {
-            _ * getData() >> Mock(BitcoinData) {
+            _ * getData() >> Mock(BitcoinReader) {
                 _ * getMempool() >> mempoolAccess
             }
         }
@@ -231,7 +231,7 @@ class TrackBitcoinTxSpec extends Specification {
         BitcoinUpstream upstream = Mock(BitcoinUpstream) {
             _ * getApi(_) >> Mono.just(api)
             _ * getHead() >> head
-            _ * getData() >> Mock(BitcoinData) {
+            _ * getData() >> Mock(BitcoinReader) {
                 _ * getMempool() >> mempoolAccess
             }
         }

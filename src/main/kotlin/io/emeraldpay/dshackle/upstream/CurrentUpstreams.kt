@@ -28,7 +28,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
@@ -65,7 +65,7 @@ class CurrentUpstreams(
                             .cast(EthereumUpstream::class.java, EthereumApi::class.java) as Upstream<EthereumApi>
                     val current = chainMapping[chain] as ChainUpstreams<EthereumApi>?
                     val factory = Callable {
-                        EthereumChainUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as ChainUpstreams<EthereumApi>
+                        AggregatedEthereumUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as ChainUpstreams<EthereumApi>
                     }
                     processUpdate(change, up, current, factory)
                 }

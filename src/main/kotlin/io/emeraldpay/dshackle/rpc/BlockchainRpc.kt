@@ -51,24 +51,39 @@ class BlockchainRpc(
     override fun subscribeTxStatus(request: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
         return request.flatMapMany { request ->
             val chain = Chain.byId(request.chainValue)
-            trackTx.find { it.isSupported(chain) }?.subscribe(request)
-                    ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+            try {
+                trackTx.find { it.isSupported(chain) }?.subscribe(request)
+                        ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+            } catch (t: Throwable) {
+                log.error("Internal error during Tx Subscription", t)
+                Flux.error<BlockchainOuterClass.TxStatus>(IllegalStateException("Internal Error"))
+            }
         }
     }
 
     override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
         return requestMono.flatMapMany { request ->
             val chain = Chain.byId(request.asset.chainValue)
-            trackAddress.find { it.isSupported(chain) }?.subscribe(request)
-                    ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+            try {
+                trackAddress.find { it.isSupported(chain) }?.subscribe(request)
+                        ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+            } catch (t: Throwable) {
+                log.error("Internal error during Balance Subscription", t)
+                Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
+            }
         }
     }
 
     override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
         return requestMono.flatMapMany { request ->
             val chain = Chain.byId(request.asset.chainValue)
-            trackAddress.find { it.isSupported(chain) }?.getBalance(request)
-                    ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+            try {
+                trackAddress.find { it.isSupported(chain) }?.getBalance(request)
+                        ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+            } catch (t: Throwable) {
+                log.error("Internal error during Balance Request", t)
+                Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
+            }
         }
     }
 

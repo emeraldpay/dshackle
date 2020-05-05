@@ -19,13 +19,13 @@ import io.emeraldpay.dshackle.upstream.Head
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 
-open class BitcoinData(
+open class BitcoinReader(
         api: DirectBitcoinApi,
         head: Head
 ) : Lifecycle {
 
     companion object {
-        private val log = LoggerFactory.getLogger(BitcoinData::class.java)
+        private val log = LoggerFactory.getLogger(BitcoinReader::class.java)
     }
 
     private val mempool = CachingMempoolData(api, head)

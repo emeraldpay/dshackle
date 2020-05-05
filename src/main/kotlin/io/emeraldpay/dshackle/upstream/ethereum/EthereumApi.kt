@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamApi
 import io.infinitape.etherjar.rpc.*
@@ -36,6 +37,14 @@ abstract class EthereumApi(
 
     private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
     var upstream: Upstream<EthereumApi>? = null
+
+    fun <JS, RS> reader(): Reader<RpcCall<JS, RS>, RS> {
+        return object : Reader<RpcCall<JS, RS>, RS> {
+            override fun read(key: RpcCall<JS, RS>): Mono<RS> {
+                return this@EthereumApi.executeAndConvert(key)
+            }
+        }
+    }
 
     fun <JS, RS> execute(rpcCall: RpcCall<JS, RS>): Mono<ByteArray> {
         return execute(0, rpcCall.method, rpcCall.params as List<Any>)

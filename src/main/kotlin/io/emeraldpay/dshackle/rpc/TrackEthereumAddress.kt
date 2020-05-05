@@ -21,15 +21,12 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.upstream.AggregatedUpstream
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.Wei
-import io.infinitape.etherjar.rpc.Commands
-import io.infinitape.etherjar.rpc.json.BlockTag
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -90,6 +87,11 @@ class TrackEthereumAddress(
         }
     }
 
+    fun getUpstream(chain: Chain): AggregatedEthereumUpstreams {
+        return upstreams.getUpstream(chain)?.cast(AggregatedEthereumUpstreams::class.java, EthereumApi::class.java)
+                ?: throw SilentException.UnsupportedBlockchain(chain)
+    }
+
     private fun initAddress(request: BlockchainOuterClass.BalanceRequest): Flux<TrackedAddress> {
         val chain = Chain.byId(request.asset.chainValue)
         if (!upstreams.isAvailable(chain)) {
@@ -120,10 +122,10 @@ class TrackEthereumAddress(
     }
 
     fun getBalance(addr: TrackedAddress): Mono<Wei> {
-        val up = upstreams.getUpstream(addr.chain) as AggregatedUpstream<EthereumApi>?
-                ?: return Mono.error(SilentException.UnsupportedBlockchain(addr.chain))
-        return up.getApi(Selector.empty)
-                .flatMap { api -> api.executeAndConvert(Commands.eth().getBalance(addr.address, BlockTag.LATEST)) }
+        return getUpstream(addr.chain)
+                .getReader()
+                .balance()
+                .read(addr.address)
                 .timeout(Defaults.timeout)
     }
 

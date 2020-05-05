@@ -24,7 +24,7 @@ import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 
-class EthereumChainUpstreams(
+open class AggregatedEthereumUpstreams(
         chain: Chain,
         val upstreams: MutableList<EthereumUpstream>,
         caches: Caches,
@@ -32,10 +32,12 @@ class EthereumChainUpstreams(
 ) : ChainUpstreams<EthereumApi>(chain, upstreams as MutableList<Upstream<EthereumApi>>, caches, objectMapper) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumChainUpstreams::class.java)
+        private val log = LoggerFactory.getLogger(AggregatedEthereumUpstreams::class.java)
     }
 
     private var head: Head? = null
+
+    private val reader: EthereumReader = EthereumReader(this, this.caches, objectMapper)
 
     init {
         this.init()
@@ -46,6 +48,24 @@ class EthereumChainUpstreams(
             head = updateHead()
         }
         super.init()
+    }
+
+    override fun start() {
+        super.start()
+        reader.start()
+    }
+
+    override fun stop() {
+        super.stop()
+        reader.stop()
+    }
+
+    override fun isRunning(): Boolean {
+        return super.isRunning() || reader.isRunning
+    }
+
+    open fun getReader(): EthereumReader {
+        return reader
     }
 
     override fun getHead(): Head {

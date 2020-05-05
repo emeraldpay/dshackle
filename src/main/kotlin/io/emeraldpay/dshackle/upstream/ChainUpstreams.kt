@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle

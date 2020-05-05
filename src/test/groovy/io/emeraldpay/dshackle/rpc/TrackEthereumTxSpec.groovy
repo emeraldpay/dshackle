@@ -27,8 +27,7 @@ import io.emeraldpay.dshackle.test.UpstreamsMock
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
+import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -39,7 +38,6 @@ import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import reactor.test.scheduler.VirtualTimeScheduler
-import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.time.Duration
@@ -68,7 +66,7 @@ class TrackEthereumTxSpec extends Specification {
         }
 
         def blockHeadJson = new BlockJson().with {
-            it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
+            it.hash = BlockHash.from("0x552d882f16f34a9dba2ccdc05c0a6a27c22a0e65cbc1b52a8ca60562112c6060")
             it.timestamp = Instant.ofEpochMilli(156400200000)
             it.number = 108
             it.totalDifficulty = BigInteger.valueOf(800)
@@ -123,7 +121,7 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        ((EthereumChainUpstreams) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
+        ((AggregatedEthereumUpstreams) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
             _ * getFlux() >> Flux.empty()
         }
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)

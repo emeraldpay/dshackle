@@ -16,8 +16,11 @@
  */
 package io.emeraldpay.dshackle.reader
 
+import io.emeraldpay.dshackle.Defaults
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.time.Duration
 
 /**
  * Composition of multiple readers. Reader returns first value returned by any of the source readers.
@@ -26,12 +29,21 @@ class CompoundReader<K, D>(
         private vararg val readers: Reader<K, D>
 ): Reader<K, D> {
 
+    companion object {
+        private val log = LoggerFactory.getLogger(CompoundReader::class.java)
+    }
+
     override fun read(key: K): Mono<D> {
         if (readers.isEmpty()) {
             return Mono.empty()
         }
         return Flux.fromIterable(readers.asIterable())
-                .flatMap { it.read(key) }.next()
+                .flatMap { rdr ->
+                    rdr.read(key)
+                            .timeout(Defaults.timeoutInternal, Mono.empty())
+                            .doOnError { t -> log.warn("Failed to read from $rdr", t) }
+                            .onErrorResume { Mono.empty() }
+                }.next()
     }
 
 }

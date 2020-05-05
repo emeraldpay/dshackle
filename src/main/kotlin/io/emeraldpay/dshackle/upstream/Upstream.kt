@@ -21,12 +21,12 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-interface Upstream<out T : UpstreamApi> {
+interface Upstream<out A : UpstreamApi> {
     fun isAvailable(): Boolean
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
     fun getHead(): Head
-    fun getApi(matcher: Selector.Matcher): Mono<out T>
+    fun getApi(matcher: Selector.Matcher): Mono<out A>
     fun getOptions(): UpstreamsConfig.Options
     fun setLag(lag: Long)
     fun getLag(): Long
@@ -34,6 +34,6 @@ interface Upstream<out T : UpstreamApi> {
     fun getMethods(): CallMethods
     fun getId(): String
 
-    fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A>
+    fun <TA : UpstreamApi> castApi(apiType: Class<TA>): Upstream<TA>
     fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T
 }

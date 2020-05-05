@@ -42,7 +42,7 @@ open class BitcoinUpstream(
 
     private val head: Head = createHead()
     private var validatorSubscription: Disposable? = null
-    private val data = BitcoinData(api, head)
+    private val data = BitcoinReader(api, head)
 
     private fun createHead(): Head {
         return BitcoinRpcHead(
@@ -51,7 +51,7 @@ open class BitcoinUpstream(
         )
     }
 
-    open fun getData(): BitcoinData {
+    open fun getData(): BitcoinReader {
         return data
     }
 

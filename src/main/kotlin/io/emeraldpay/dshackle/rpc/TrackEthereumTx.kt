@@ -23,15 +23,13 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.upstream.AggregatedUpstream
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.Commands
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
@@ -72,8 +70,7 @@ class TrackEthereumTx(
 
     override fun subscribe(request: BlockchainOuterClass.TxStatusRequest): Flux<BlockchainOuterClass.TxStatus> {
         val base = prepareTracking(request)
-        val up = upstreams.getUpstream(base.chain)?.castApi(EthereumApi::class.java)
-                ?: return Flux.empty()
+        val up = getUpstream(base.chain)
         return update(base)
                 .defaultIfEmpty(base)
                 .flatMapMany {
@@ -82,9 +79,18 @@ class TrackEthereumTx(
                             .map(this@TrackEthereumTx::asProto)
                             .subscribeOn(scheduler)
                 }
+                .doOnError { t ->
+                    log.error("Subscription error", t)
+                }
     }
 
-    fun subscribe(base: TxDetails, up: Upstream<EthereumApi>): Flux<TxDetails> {
+
+    fun getUpstream(chain: Chain): AggregatedEthereumUpstreams {
+        return upstreams.getUpstream(chain)?.cast(AggregatedEthereumUpstreams::class.java, EthereumApi::class.java)
+                ?: throw SilentException.UnsupportedBlockchain(chain)
+    }
+
+    fun subscribe(base: TxDetails, up: AggregatedEthereumUpstreams): Flux<TxDetails> {
         var latestTx = base
 
         val untilFound = Mono.just(latestTx)
@@ -151,11 +157,9 @@ class TrackEthereumTx(
 
     private fun update(tx: TxDetails): Mono<TxDetails> {
         val initialStatus = tx.status
-        val upstream = upstreams.getUpstream(tx.chain) as AggregatedUpstream<EthereumApi>?
-                ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
-        val execution = upstream.getApi(Selector.empty)
-                .flatMap { api -> api.executeAndConvert(Commands.eth().getTransaction(tx.txid)) }
-        return execution
+        val upstream = getUpstream(tx.chain)
+        return upstream.getReader()
+                .txByHash().read(tx.txid)
                 .onErrorResume(RpcException::class.java) { t ->
                     log.warn("Upstream error, ignoring. {}", t.rpcMessage)
                     Mono.empty<TransactionJson>()
@@ -198,10 +202,12 @@ class TrackEthereumTx(
     }
 
     private fun loadWeight(tx: TxDetails): Mono<TxDetails> {
-        val upstream = upstreams.getUpstream(tx.chain) as AggregatedUpstream<EthereumApi>?
-                ?: return Mono.error(SilentException.UnsupportedBlockchain(tx.chain))
-        return upstream.getApi(Selector.empty)
-                .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(tx.status.blockHash)) }
+        val upstream = getUpstream(tx.chain)
+        if (tx.status.blockHash == null) {
+            return Mono.empty()
+        }
+        return upstream.getReader()
+                .blocksByHash().read(tx.status.blockHash)
                 .map { block ->
                     setBlockDetails(tx, block)
                 }.doOnError { t ->
@@ -209,7 +215,7 @@ class TrackEthereumTx(
                 }
     }
 
-    fun updateFromBlock(upstream: Upstream<EthereumApi>, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
+    fun updateFromBlock(upstream: AggregatedEthereumUpstreams, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
         return if (blockTx.blockNumber != null && blockTx.blockHash != null && blockTx.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
                     blockHash = blockTx.blockHash,

@@ -19,14 +19,18 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.UpstreamsMock
 import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.ReactorRpcClient
+import io.infinitape.etherjar.rpc.RpcCall
 import io.infinitape.etherjar.rpc.json.BlockJson
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
 import reactor.core.scheduler.Schedulers
@@ -111,12 +115,12 @@ class TrackEthereumAddressSpec extends Specification {
         def flux = trackAddress.subscribe(req)
         then:
         StepVerifier.create(flux)
-                .expectNext(exp1)
+                .expectNext(exp1).as("First block")
                 .then {
                     upstreamMock.nextBlock(BlockContainer.from(block2, TestingCommons.objectMapper()))
                 }
-                .expectNext(exp2)
+                .expectNext(exp2).as("Second block")
                 .thenCancel()
-                .verify(Duration.ofSeconds(3))
+                .verify(Duration.ofSeconds(1))
     }
 }

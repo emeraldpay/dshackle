@@ -128,7 +128,6 @@ class TrackBitcoinTx(
     }
 
     fun loadMempool(upstream: BitcoinUpstream, txid: String): Mono<TxStatus> {
-        println("access: ${upstream.getData()}")
         val mempool = upstream.getData().getMempool().get()
         return mempool.map {
             if (it.contains(txid)) {

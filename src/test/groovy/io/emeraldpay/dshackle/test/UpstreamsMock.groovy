@@ -16,13 +16,15 @@
  */
 package io.emeraldpay.dshackle.test
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
-import io.emeraldpay.dshackle.upstream.ChainUpstreams
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
@@ -30,7 +32,7 @@ import reactor.core.publisher.Flux
 class UpstreamsMock implements Upstreams {
 
     private Map<Chain, DefaultEthereumMethods> target = [:]
-    private Map<Chain, AggregatedUpstream> upstreams = [:]
+    private Map<Chain, AggregatedEthereumUpstreamsMock> upstreams = [:]
 
     UpstreamsMock(Chain chain, Upstream up) {
         addUpstream(chain, up)
@@ -40,13 +42,18 @@ class UpstreamsMock implements Upstreams {
         addUpstream(chain2, up2)
     }
 
-    AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
+    AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull EthereumUpstream up) {
         if (!upstreams.containsKey(chain)) {
-            upstreams[chain] = new EthereumChainUpstreams(chain, [up], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
+            upstreams[chain] = new AggregatedEthereumUpstreamsMock(chain, [up], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
+            upstreams[chain].start()
         } else {
             upstreams[chain].addUpstream(up)
         }
         return upstreams[chain]
+    }
+
+    void setReader(@NotNull Chain chain, EthereumReader reader) {
+        upstreams[chain].customReader = reader
     }
 
     @Override
@@ -76,6 +83,23 @@ class UpstreamsMock implements Upstreams {
     @Override
     boolean isAvailable(@NotNull Chain chain) {
         return upstreams.containsKey(chain)
+    }
+
+    static class AggregatedEthereumUpstreamsMock extends AggregatedEthereumUpstreams {
+
+        EthereumReader customReader = null
+
+        AggregatedEthereumUpstreamsMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams, @NotNull Caches caches, @NotNull ObjectMapper objectMapper) {
+            super(chain, upstreams, caches, objectMapper)
+        }
+
+        @Override
+        EthereumReader getReader() {
+            if (customReader != null) {
+                return customReader
+            }
+            return super.getReader()
+        }
     }
 
 }
