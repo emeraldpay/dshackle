@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.*
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
@@ -24,6 +23,8 @@ import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.grpc.Chain
+import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -38,33 +39,70 @@ import kotlin.concurrent.withLock
 /**
  * Aggregation of multiple upstreams responding to a single blockchain
  */
-abstract class AggregatedUpstream(
+abstract class Multistream(
+        val chain: Chain,
+        private val upstreams: MutableList<Upstream>,
         val caches: Caches
 ) : Upstream, Lifecycle {
+
+    companion object {
+        private val log = LoggerFactory.getLogger(Multistream::class.java)
+    }
 
     private var cacheSubscription: Disposable? = null
     private val reconfigLock = ReentrantLock()
     private var callMethods: CallMethods? = null
+    private var seq = 0
+    protected var lagObserver: HeadLagObserver? = null
+    private var subscription: Disposable? = null
+
+    open fun init() {
+        onUpstreamsUpdated()
+    }
 
     /**
      * Get list of all underlying upstreams
      */
-    abstract fun getAll(): List<Upstream>
+    fun getAll(): List<Upstream> {
+        return upstreams
+    }
 
     /**
      * Add an upstream
      */
-    abstract fun addUpstream(upstream: Upstream)
+    fun addUpstream(upstream: Upstream) {
+        upstreams.add(upstream)
+        setHead(updateHead())
+        onUpstreamsUpdated()
+    }
+
+    fun removeUpstream(id: String) {
+        if (upstreams.removeIf { it.getId() == id }) {
+            setHead(updateHead())
+            onUpstreamsUpdated()
+        }
+    }
 
     /**
      * Get a source for direct APIs
      */
-    abstract fun getApiSource(matcher: Selector.Matcher): ApiSource
+    fun getApiSource(matcher: Selector.Matcher): ApiSource {
+        val i = seq++
+        if (seq >= Int.MAX_VALUE / 2) {
+            seq = 0
+        }
+        return FilteredApis(upstreams, matcher, i)
+    }
 
     /**
      * Finds an API that executed directly on a remote.
      */
-    abstract fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>>
+    fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+        val apis = getApiSource(matcher)
+        apis.request(1)
+        return Mono.from(apis)
+                .switchIfEmpty(Mono.error(Exception("No API available")))
+    }
 
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
@@ -109,11 +147,22 @@ abstract class AggregatedUpstream(
     }
 
     override fun start() {
+        subscription = observeStatus()
+                .distinctUntilChanged()
+                .subscribe { printStatus() }
     }
 
     override fun stop() {
         cacheSubscription?.dispose()
         cacheSubscription = null
+        subscription?.dispose()
+        subscription = null
+        getHead().let {
+            if (it is Lifecycle) {
+                it.stop()
+            }
+        }
+        lagObserver?.stop()
     }
 
     fun onHeadUpdated(head: Head) {
@@ -123,6 +172,43 @@ abstract class AggregatedUpstream(
                 caches.cache(Caches.Tag.LATEST, it)
             }
         }
+    }
+
+    abstract fun updateHead(): Head
+    abstract fun setHead(head: Head)
+
+    override fun getId(): String {
+        return "!all:${chain.chainCode}"
+    }
+
+    override fun isRunning(): Boolean {
+        return subscription != null
+    }
+
+    override fun setLag(lag: Long) {
+    }
+
+    override fun getLag(): Long {
+        return 0
+    }
+
+    fun printStatus() {
+        var height: Long? = null
+        try {
+            height = getHead().getFlux().next().block(Duration.ofSeconds(1))?.height
+        } catch (e: java.lang.IllegalStateException) {
+            //timout
+        } catch (e: Exception) {
+            log.warn("Head processing error: ${e.javaClass} ${e.message}")
+        }
+        val statuses = upstreams.map { it.getStatus() }
+                .groupBy { it }
+                .map { "${it.key.name}/${it.value.size}" }
+                .joinToString(",")
+        val lag = upstreams.map { it.getLag() }
+                .joinToString(", ")
+
+        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=$statuses, lag=[$lag]")
     }
 
     // --------------------------------------------------------------------------------------------------------

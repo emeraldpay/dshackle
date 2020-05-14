@@ -21,8 +21,8 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.Wei
@@ -34,13 +34,13 @@ import reactor.core.publisher.Mono
 
 @Service
 class TrackEthereumAddress(
-        @Autowired private val upstreams: Upstreams
+        @Autowired private val multistreamHolder: MultistreamHolder
 ) : TrackAddress {
 
     private val log = LoggerFactory.getLogger(TrackEthereumAddress::class.java)
 
     override fun isSupported(chain: Chain): Boolean {
-        return BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && upstreams.isAvailable(chain)
+        return BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
@@ -51,7 +51,7 @@ class TrackEthereumAddress(
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
-        val head = upstreams.getUpstream(chain)?.getHead()?.getFlux() ?: Flux.empty()
+        val head = multistreamHolder.getUpstream(chain)?.getHead()?.getFlux() ?: Flux.empty()
         val balances = initAddress(request)
                 .flatMap { tracked ->
                     val current = getBalance(tracked)
@@ -86,14 +86,14 @@ class TrackEthereumAddress(
         }
     }
 
-    fun getUpstream(chain: Chain): EthereumChainUpstream {
-        return upstreams.getUpstream(chain)?.cast(EthereumChainUpstream::class.java)
+    fun getUpstream(chain: Chain): EthereumMultistream {
+        return multistreamHolder.getUpstream(chain)?.cast(EthereumMultistream::class.java)
                 ?: throw SilentException.UnsupportedBlockchain(chain)
     }
 
     private fun initAddress(request: BlockchainOuterClass.BalanceRequest): Flux<TrackedAddress> {
         val chain = Chain.byId(request.asset.chainValue)
-        if (!upstreams.isAvailable(chain)) {
+        if (!multistreamHolder.isAvailable(chain)) {
             return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         }
         if (request.asset.code?.toLowerCase() != "ether") {

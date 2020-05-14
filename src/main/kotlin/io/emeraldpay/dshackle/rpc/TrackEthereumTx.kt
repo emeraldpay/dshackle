@@ -23,8 +23,8 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -48,7 +48,7 @@ import kotlin.math.min
 
 @Service
 class TrackEthereumTx(
-        @Autowired private val upstreams: Upstreams
+        @Autowired private val multistreamHolder: MultistreamHolder
 ) : TrackTx {
 
     companion object {
@@ -63,7 +63,7 @@ class TrackEthereumTx(
     private val log = LoggerFactory.getLogger(TrackEthereumTx::class.java)
 
     override fun isSupported(chain: Chain): Boolean {
-        return BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && upstreams.isAvailable(chain)
+        return BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
     }
 
     override fun subscribe(request: BlockchainOuterClass.TxStatusRequest): Flux<BlockchainOuterClass.TxStatus> {
@@ -83,12 +83,12 @@ class TrackEthereumTx(
     }
 
 
-    fun getUpstream(chain: Chain): EthereumChainUpstream {
-        return upstreams.getUpstream(chain)?.cast(EthereumChainUpstream::class.java)
+    fun getUpstream(chain: Chain): EthereumMultistream {
+        return multistreamHolder.getUpstream(chain)?.cast(EthereumMultistream::class.java)
                 ?: throw SilentException.UnsupportedBlockchain(chain)
     }
 
-    fun subscribe(base: TxDetails, up: EthereumChainUpstream): Flux<TxDetails> {
+    fun subscribe(base: TxDetails, up: EthereumMultistream): Flux<TxDetails> {
         var latestTx = base
 
         val untilFound = Mono.just(latestTx)
@@ -213,7 +213,7 @@ class TrackEthereumTx(
                 }
     }
 
-    fun updateFromBlock(upstream: EthereumChainUpstream, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
+    fun updateFromBlock(upstream: EthereumMultistream, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
         return if (blockTx.blockNumber != null && blockTx.blockHash != null && blockTx.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
                     blockHash = blockTx.blockHash,

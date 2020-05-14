@@ -19,21 +19,12 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.test.UpstreamsMock
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
+import io.emeraldpay.dshackle.test.MultistreamHolderMock
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.ReactorRpcClient
-import io.infinitape.etherjar.rpc.RpcCall
 import io.infinitape.etherjar.rpc.json.BlockJson
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
-import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -66,7 +57,7 @@ class TrackEthereumAddressSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)
 
         apiMock.answer("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
@@ -106,7 +97,7 @@ class TrackEthereumAddressSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)
 
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")

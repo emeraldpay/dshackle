@@ -17,26 +17,18 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.cache.BlocksMemCache
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.cache.HeightCache
 import io.emeraldpay.dshackle.cache.TxMemCache
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
-import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.test.UpstreamsMock
-import io.emeraldpay.dshackle.upstream.AggregatedUpstream
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.domain.Wei
-import io.infinitape.etherjar.rpc.ReactorRpcClient
-import io.infinitape.etherjar.rpc.RpcException
-import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
@@ -44,7 +36,6 @@ import reactor.core.publisher.Mono
 import spock.lang.Specification
 
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 class EthereumReaderSpec extends Specification {
 
@@ -73,7 +64,7 @@ class EthereumReaderSpec extends Specification {
                 .setBlockByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(AggregatedUpstream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(Multistream), caches, TestingCommons.objectMapper())
 
         when:
         def act = reader.blocksById().read(blockId).block()
@@ -135,7 +126,7 @@ class EthereumReaderSpec extends Specification {
                 .setBlockByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(AggregatedUpstream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(Multistream), caches, TestingCommons.objectMapper())
 
         when:
         def act = reader.blocksByHash().read(blockJson.hash).block()
@@ -174,7 +165,7 @@ class EthereumReaderSpec extends Specification {
                 .setTxByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(AggregatedUpstream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(Multistream), caches, TestingCommons.objectMapper())
 
         when:
         def act = reader.txByHash().read(txJson.hash).block()

@@ -20,9 +20,8 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
@@ -38,7 +37,7 @@ import kotlin.math.min
 
 @Service
 class TrackBitcoinTx(
-        @Autowired private val upstreams: Upstreams
+        @Autowired private val multistreamHolder: MultistreamHolder
 ) : TrackTx {
 
     companion object {
@@ -46,12 +45,12 @@ class TrackBitcoinTx(
     }
 
     override fun isSupported(chain: Chain): Boolean {
-        return BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && upstreams.isAvailable(chain)
+        return BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
     }
 
     override fun subscribe(request: BlockchainOuterClass.TxStatusRequest): Flux<BlockchainOuterClass.TxStatus> {
         val chain = Chain.byId(request.chainValue)
-        val upstream = upstreams.getUpstream(chain)?.cast(BitcoinChainUpstreams::class.java)
+        val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
         val txid = request.txId
         val confirmations = max(min(1, request.confirmationLimit), 12)
@@ -61,7 +60,7 @@ class TrackBitcoinTx(
                 }.map(this::asProto)
     }
 
-    fun subscribe(chain: Chain, upstream: BitcoinChainUpstreams, txid: String): Flux<TxStatus> {
+    fun subscribe(chain: Chain, upstream: BitcoinMultistream, txid: String): Flux<TxStatus> {
         return loadExisting(upstream, txid)
                 .flatMapMany { status ->
                     if (status.mined) {
@@ -83,7 +82,7 @@ class TrackBitcoinTx(
                 }
     }
 
-    fun continueWithMined(upstream: BitcoinChainUpstreams, status: TxStatus): Flux<TxStatus> {
+    fun continueWithMined(upstream: BitcoinMultistream, status: TxStatus): Flux<TxStatus> {
         return upstream.getReader().getBlock(status.blockHash!!)
                 .map { block ->
                     TxStatus(status.txid, true, ExtractBlock.getHeight(block), true, status.blockHash, ExtractBlock.getTime(block), ExtractBlock.getDifficulty(block))
@@ -92,7 +91,7 @@ class TrackBitcoinTx(
                 }
     }
 
-    fun untilFound(chain: Chain, upstream: BitcoinChainUpstreams, txid: String): Flux<TxStatus> {
+    fun untilFound(chain: Chain, upstream: BitcoinMultistream, txid: String): Flux<TxStatus> {
         return Flux.interval(Duration.ofSeconds(1))
                 .take(Duration.ofMinutes(10))
                 .flatMap { loadMempool(upstream, txid) }
@@ -103,20 +102,20 @@ class TrackBitcoinTx(
                 }
     }
 
-    fun untilMined(upstream: BitcoinChainUpstreams, tx: TxStatus): Mono<TxStatus> {
+    fun untilMined(upstream: BitcoinMultistream, tx: TxStatus): Mono<TxStatus> {
         return upstream.getHead().getFlux().flatMap {
             loadExisting(upstream, tx.txid)
                     .filter { it.mined }
         }.single()
     }
 
-    fun withConfirmations(upstream: BitcoinChainUpstreams, tx: TxStatus): Flux<TxStatus> {
+    fun withConfirmations(upstream: BitcoinMultistream, tx: TxStatus): Flux<TxStatus> {
         return upstream.getHead().getFlux().map {
             tx.withHead(it.height)
         }
     }
 
-    fun loadExisting(api: BitcoinChainUpstreams, txid: String): Mono<TxStatus> {
+    fun loadExisting(api: BitcoinMultistream, txid: String): Mono<TxStatus> {
         val mined = api.getReader().getTx(txid)
         return mined.map {
             val block = it["blockhash"] as String?
@@ -124,7 +123,7 @@ class TrackBitcoinTx(
         }
     }
 
-    fun loadMempool(upstream: BitcoinChainUpstreams, txid: String): Mono<TxStatus> {
+    fun loadMempool(upstream: BitcoinMultistream, txid: String): Mono<TxStatus> {
         val mempool = upstream.getReader().getMempool().get()
         return mempool.map {
             if (it.contains(txid)) {

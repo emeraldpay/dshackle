@@ -17,13 +17,10 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.CachingMempoolData
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
@@ -38,7 +35,7 @@ class TrackBitcoinTxSpec extends Specification {
 
     def "loadMempool() returns not found when not found"() {
         setup:
-        TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
+        TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
 
         CachingMempoolData mempoolAccess = Mock(CachingMempoolData) {
             1 * get() >> Mono.just([
@@ -46,7 +43,7 @@ class TrackBitcoinTxSpec extends Specification {
                     "d296c6d47335a7f283574b06f1d6303b30ac75631e081ab128346a549ad93350"
             ])
         }
-        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+        BitcoinMultistream upstream = Mock(BitcoinMultistream) {
             _ * getReader() >> Mock(BitcoinReader) {
                 _ * getMempool() >> mempoolAccess
             }
@@ -65,14 +62,14 @@ class TrackBitcoinTxSpec extends Specification {
 
     def "loadMempool() returns ok when found"() {
         setup:
-        TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
+        TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         CachingMempoolData mempoolAccess = Mock(CachingMempoolData) {
             1 * get() >> Mono.just([
                     "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9",
                     "d296c6d47335a7f283574b06f1d6303b30ac75631e081ab128346a549ad93350"
             ])
         }
-        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+        BitcoinMultistream upstream = Mock(BitcoinMultistream) {
             _ * getReader() >> Mock(BitcoinReader) {
                 _ * getMempool() >> mempoolAccess
             }
@@ -91,9 +88,9 @@ class TrackBitcoinTxSpec extends Specification {
 
     def "loadExiting() returns not found if not mined"() {
         setup:
-        TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
+        TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
-        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+        BitcoinMultistream upstream = Mock(BitcoinMultistream) {
             _ * getReader() >> Mock(BitcoinReader) {
                 1 * getTx(txid) >> Mono.just([
                         txid: txid
@@ -114,9 +111,9 @@ class TrackBitcoinTxSpec extends Specification {
 
     def "loadExiting() returns block if mined"() {
         setup:
-        TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
+        TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
-        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+        BitcoinMultistream upstream = Mock(BitcoinMultistream) {
             _ * getReader() >> Mock(BitcoinReader) {
                 1 * getTx(txid) >> Mono.just([
                         txid     : txid,
@@ -141,7 +138,7 @@ class TrackBitcoinTxSpec extends Specification {
 
     def "Goes with confirmations"() {
         setup:
-        TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
+        TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         // start with the current block
         def next = Flux.fromIterable([10, 12, 13, 14, 15]).map { h ->
@@ -150,7 +147,7 @@ class TrackBitcoinTxSpec extends Specification {
         Head head = Mock(Head) {
             1 * getFlux() >> next
         }
-        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+        BitcoinMultistream upstream = Mock(BitcoinMultistream) {
             1 * getHead() >> head
         }
         def status = new TrackBitcoinTx.TxStatus(
@@ -172,7 +169,7 @@ class TrackBitcoinTxSpec extends Specification {
 
     def "Wait until mined"() {
         setup:
-        TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
+        TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         // start with the current block
         def next = Flux.fromIterable([10, 12, 13]).map { h ->
@@ -196,7 +193,7 @@ class TrackBitcoinTxSpec extends Specification {
                     ])
             ]
         }
-        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+        BitcoinMultistream upstream = Mock(BitcoinMultistream) {
             1 * getHead() >> head
             _ * getReader() >> api
         }
@@ -215,7 +212,7 @@ class TrackBitcoinTxSpec extends Specification {
 
     def "Check mempool until found"() {
         setup:
-        TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
+        TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
 
         Head head = Mock(Head) {
@@ -235,7 +232,7 @@ class TrackBitcoinTxSpec extends Specification {
             ])
             _ * getMempool() >> mempoolAccess
         }
-        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+        BitcoinMultistream upstream = Mock(BitcoinMultistream) {
             _ * getHead() >> head
             _ * getReader() >> api
         }
@@ -256,7 +253,7 @@ class TrackBitcoinTxSpec extends Specification {
 
     def "Subscribe to an existing tx"() {
         setup:
-        TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
+        TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         BitcoinReader api = Mock(BitcoinReader) {
             _ * getTx(txid) >> Mono.just([
@@ -276,7 +273,7 @@ class TrackBitcoinTxSpec extends Specification {
         Head head = Mock(Head) {
             _ * getFlux() >> next
         }
-        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+        BitcoinMultistream upstream = Mock(BitcoinMultistream) {
             _ * getReader() >> api
             _ * getHead() >> head
         }

@@ -19,9 +19,8 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -35,7 +34,7 @@ import kotlin.collections.HashMap
 
 @Service
 class TrackBitcoinAddress(
-        @Autowired private val upstreams: Upstreams
+        @Autowired private val multistreamHolder: MultistreamHolder
 ) : TrackAddress {
 
     companion object {
@@ -43,7 +42,7 @@ class TrackBitcoinAddress(
     }
 
     override fun isSupported(chain: Chain): Boolean {
-        return BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && upstreams.isAvailable(chain)
+        return BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
     }
 
     fun allAddresses(request: BlockchainOuterClass.BalanceRequest): List<String>? {
@@ -63,7 +62,7 @@ class TrackBitcoinAddress(
         }
     }
 
-    fun requestBalances(chain: Chain, api: BitcoinChainUpstreams, addresses: List<String>): Flux<AddressBalance> {
+    fun requestBalances(chain: Chain, api: BitcoinMultistream, addresses: List<String>): Flux<AddressBalance> {
         return api.getReader().listUnspent()
                 .flatMapMany { unspents ->
                     val result = getTotal(chain, addresses, unspents)
@@ -73,7 +72,7 @@ class TrackBitcoinAddress(
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
-        val upstream = upstreams.getUpstream(chain)?.cast(BitcoinChainUpstreams::class.java)
+        val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
         if (addresses.isEmpty()) {
@@ -119,9 +118,9 @@ class TrackBitcoinAddress(
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
-        println("up: ${upstreams.getUpstream(chain)}")
-        println("up cast: ${upstreams.getUpstream(chain)?.cast(BitcoinChainUpstreams::class.java)}")
-        val upstream = upstreams.getUpstream(chain)?.cast(BitcoinChainUpstreams::class.java)
+        println("up: ${multistreamHolder.getUpstream(chain)}")
+        println("up cast: ${multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)}")
+        val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
         if (addresses.isEmpty()) {

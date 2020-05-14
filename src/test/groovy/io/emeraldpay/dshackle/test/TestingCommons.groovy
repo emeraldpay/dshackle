@@ -25,9 +25,9 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.AggregatedUpstream
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -71,12 +71,12 @@ class TestingCommons {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api, new DirectCallMethods(methods))
     }
 
-    static AggregatedUpstream aggregatedUpstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    static Multistream aggregatedUpstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
         return aggregatedUpstream(upstream(api))
     }
 
-    static AggregatedUpstream aggregatedUpstream(EthereumUpstream up) {
-        return new EthereumChainUpstream(Chain.ETHEREUM, [up], Caches.default(objectMapper()), objectMapper())
+    static Multistream aggregatedUpstream(EthereumUpstream up) {
+        return new EthereumMultistream(Chain.ETHEREUM, [up], Caches.default(objectMapper()), objectMapper())
     }
 
     static CachesFactory emptyCaches() {

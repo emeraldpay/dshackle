@@ -16,47 +16,47 @@
  */
 package io.emeraldpay.dshackle.test
 
-import com.fasterxml.jackson.databind.ObjectMapper
+
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.upstream.AggregatedUpstream
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
+import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 
-class UpstreamsMock implements Upstreams {
+class MultistreamHolderMock implements MultistreamHolder {
 
     private Map<Chain, DefaultEthereumMethods> target = [:]
-    private Map<Chain, AggregatedUpstream> upstreams = [:]
+    private Map<Chain, Multistream> upstreams = [:]
 
-    UpstreamsMock(Chain chain, Upstream up) {
+    MultistreamHolderMock(Chain chain, Upstream up) {
         addUpstream(chain, up)
     }
 
-    AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
+    Multistream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
             if (BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM) {
-                if (up instanceof EthereumChainUpstream) {
+                if (up instanceof EthereumMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof EthereumUpstream) {
-                    upstreams[chain] = new EthereumChainUpstreamMock(chain, [up as EthereumUpstream], Caches.default(TestingCommons.objectMapper()))
+                    upstreams[chain] = new EthereumMultistreamMock(chain, [up as EthereumUpstream], Caches.default(TestingCommons.objectMapper()))
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
                 upstreams[chain].start()
             } else if (BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN) {
-                if (up instanceof BitcoinChainUpstreams) {
+                if (up instanceof BitcoinMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof BitcoinUpstream) {
-                    upstreams[chain] = new BitcoinChainUpstreams(chain, [up as BitcoinUpstream], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
+                    upstreams[chain] = new BitcoinMultistream(chain, [up as BitcoinUpstream], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -69,7 +69,7 @@ class UpstreamsMock implements Upstreams {
     }
 
     @Override
-    AggregatedUpstream getUpstream(@NotNull Chain chain) {
+    Multistream getUpstream(@NotNull Chain chain) {
         return upstreams[chain]
     }
 
@@ -97,11 +97,11 @@ class UpstreamsMock implements Upstreams {
         return upstreams.containsKey(chain)
     }
 
-    static class EthereumChainUpstreamMock extends EthereumChainUpstream {
+    static class EthereumMultistreamMock extends EthereumMultistream {
 
         EthereumReader customReader = null
 
-        EthereumChainUpstreamMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams, @NotNull Caches caches) {
+        EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams, @NotNull Caches caches) {
             super(chain, upstreams, caches, TestingCommons.objectMapper())
         }
 

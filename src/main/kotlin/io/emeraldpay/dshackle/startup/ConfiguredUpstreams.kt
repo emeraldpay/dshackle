@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.CurrentUpstreams
+import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
@@ -45,7 +45,7 @@ import kotlin.collections.HashMap
 @Repository
 open class ConfiguredUpstreams(
         @Autowired private val objectMapper: ObjectMapper,
-        @Autowired private val currentUpstreams: CurrentUpstreams,
+        @Autowired private val currentUpstreams: CurrentMultistreamHolder,
         @Autowired private val fileResolver: FileResolver,
         @Autowired private val config: UpstreamsConfig,
         @Autowired private val cachesFactory: CachesFactory
@@ -201,8 +201,7 @@ open class ConfiguredUpstreams(
                 endpoint.port ?: 2449,
                 objectMapper,
                 endpoint.auth,
-                fileResolver,
-                cachesFactory
+                fileResolver
         ).apply {
             timeout = options.timeout
         }
@@ -213,7 +212,6 @@ open class ConfiguredUpstreams(
                 }
                 .subscribe(currentUpstreams::update)
     }
-
 
     private fun buildHttpClient(config: UpstreamsConfig.Upstream<out UpstreamsConfig.RpcConnection>): JsonRpcHttpClient? {
         val conn = config.connection!!

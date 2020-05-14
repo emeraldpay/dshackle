@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 
 open class CachingMempoolData(
-        private val upstreams: BitcoinChainUpstreams,
+        private val upstreams: BitcoinMultistream,
         private val head: Head,
         private val objectMapper: ObjectMapper
 ) : Lifecycle {

@@ -19,14 +19,13 @@ import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.ReactorRpcClient
 import spock.lang.Specification
 
-class CurrentUpstreamsSpec extends Specification {
+class CurrentMultistreamHolderSpec extends Specification {
 
     def "add upstream"() {
         setup:
-        def current = new CurrentUpstreams(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
+        def current = new CurrentMultistreamHolder(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
         def up = new EthereumUpstreamMock("test", Chain.ETHEREUM, TestingCommons.api())
         when:
         current.update(new UpstreamChange(Chain.ETHEREUM, up, UpstreamChange.ChangeType.ADDED))
@@ -37,7 +36,7 @@ class CurrentUpstreamsSpec extends Specification {
 
     def "add multiple upstreams"() {
         setup:
-        def current = new CurrentUpstreams(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
+        def current = new CurrentMultistreamHolder(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api())
         def up2 = new EthereumUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api())
         def up3 = new EthereumUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api())
@@ -53,7 +52,7 @@ class CurrentUpstreamsSpec extends Specification {
 
     def "remove upstream"() {
         setup:
-        def current = new CurrentUpstreams(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
+        def current = new CurrentMultistreamHolder(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api())
         def up2 = new EthereumUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api())
         def up3 = new EthereumUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api())
@@ -71,7 +70,7 @@ class CurrentUpstreamsSpec extends Specification {
 
     def "available after adding"() {
         setup:
-        def current = new CurrentUpstreams(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
+        def current = new CurrentMultistreamHolder(TestingCommons.objectMapper(), TestingCommons.emptyCaches())
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api())
 
         when:

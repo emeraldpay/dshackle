@@ -22,7 +22,6 @@ import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
-import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.startup.UpstreamChange
@@ -30,7 +29,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
-import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
@@ -50,8 +48,7 @@ class GrpcUpstreams(
         private val port: Int,
         private val objectMapper: ObjectMapper,
         private val auth: AuthConfig.ClientTlsAuth? = null,
-        private val fileResolver: FileResolver,
-        private val cachesFactory: CachesFactory
+        private val fileResolver: FileResolver
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 

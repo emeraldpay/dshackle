@@ -26,7 +26,7 @@ import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.cast
 
 open class BitcoinReader(
-        private val upstreams: BitcoinChainUpstreams,
+        private val upstreams: BitcoinMultistream,
         head: Head,
         private val objectMapper: ObjectMapper
 ) : Lifecycle {

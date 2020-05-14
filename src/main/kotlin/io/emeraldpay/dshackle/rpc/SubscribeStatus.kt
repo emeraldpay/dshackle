@@ -27,13 +27,13 @@ import reactor.core.publisher.Mono
 
 @Service
 class SubscribeStatus(
-        @Autowired private val upstreams: Upstreams
+        @Autowired private val multistreamHolder: MultistreamHolder
 ) {
 
     fun subscribeStatus(requestMono: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
         return requestMono.flatMapMany {
-            val ups = upstreams.getAvailable().mapNotNull { chain ->
-                val chainUpstream = upstreams.getUpstream(chain)
+            val ups = multistreamHolder.getAvailable().mapNotNull { chain ->
+                val chainUpstream = multistreamHolder.getUpstream(chain)
                 chainUpstream?.observeStatus()?.map { avail ->
                     ChainSubscription(chain, chainUpstream, avail)
                 }
@@ -60,6 +60,6 @@ class SubscribeStatus(
                 .build()
     }
 
-    class ChainSubscription(val chain: Chain, val up: AggregatedUpstream, val avail: UpstreamAvailability)
+    class ChainSubscription(val chain: Chain, val up: Multistream, val avail: UpstreamAvailability)
 
 }

@@ -23,10 +23,10 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.test.UpstreamsMock
+import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -98,7 +98,7 @@ class TrackEthereumTxSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
@@ -118,8 +118,8 @@ class TrackEthereumTxSpec extends Specification {
         setup:
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        ((EthereumChainUpstream) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
+        ((EthereumMultistream) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
             _ * getFlux() >> Flux.empty()
         }
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
@@ -131,7 +131,7 @@ class TrackEthereumTxSpec extends Specification {
         when:
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def act = StepVerifier.withVirtualTime(
-                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM).cast(EthereumChainUpstream)) },
+                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM).cast(EthereumMultistream)) },
                 { scheduler },
                 5)
 
@@ -168,7 +168,7 @@ class TrackEthereumTxSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
         def scheduler = VirtualTimeScheduler.create(true)
         trackTx.scheduler = scheduler
@@ -193,7 +193,7 @@ class TrackEthereumTxSpec extends Specification {
         setup:
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
@@ -215,7 +215,7 @@ class TrackEthereumTxSpec extends Specification {
         setup:
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
@@ -288,7 +288,7 @@ class TrackEthereumTxSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)

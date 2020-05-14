@@ -23,7 +23,7 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.test.UpstreamsMock
+import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
@@ -42,7 +42,7 @@ class StreamHeadSpec extends Specification {
 
     def "Errors on unavailable chain"() {
         setup:
-        def upstreams = new UpstreamsMock(Chain.ETHEREUM, Stub(EthereumUpstream))
+        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM, Stub(EthereumUpstream))
         def streamHead = new StreamHead(upstreams)
         when:
         def flux = streamHead.add(
@@ -78,7 +78,7 @@ class StreamHeadSpec extends Specification {
         }
 
         def upstream = new EthereumUpstreamMock(Chain.ETHEREUM, TestingCommons.api())
-        def upstreams = new UpstreamsMock(Chain.ETHEREUM, upstream)
+        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstream)
         def streamHead = new StreamHead(upstreams)
         when:
         def flux = streamHead.add(

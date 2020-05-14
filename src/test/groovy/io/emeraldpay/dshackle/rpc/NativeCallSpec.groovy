@@ -23,8 +23,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcException
@@ -44,7 +43,7 @@ class NativeCallSpec extends Specification {
     def "Quorum is applied"() {
         setup:
         def quorum = Spy(new AlwaysQuorum())
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def apiMock = TestingCommons.api()
 
         apiMock.answer("eth_test", [], "foo")
@@ -67,7 +66,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
 
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def apiMock = TestingCommons.api()
 
         apiMock.answerOnce("eth_test", [], null)
@@ -93,7 +92,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
 
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def apiMock = TestingCommons.api()
 
         apiMock.answerOnce("eth_test", [], null)
@@ -119,7 +118,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
 
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
         def apiMock = TestingCommons.api()
 
@@ -143,7 +142,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
 
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
         def apiMock = TestingCommons.api()
 
@@ -167,7 +166,7 @@ class NativeCallSpec extends Specification {
 
     def "Packs call exception into response with id"() {
         setup:
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
         when:
         def resp = nativeCall.processException(new NativeCall.CallFailure(5, new IllegalArgumentException("test test")))
@@ -184,7 +183,7 @@ class NativeCallSpec extends Specification {
 
     def "Packs unknown exception into response"() {
         setup:
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
         when:
         def resp = nativeCall.processException(new IllegalArgumentException("test test"))
@@ -200,7 +199,7 @@ class NativeCallSpec extends Specification {
 
     def "Builds normal response"() {
         setup:
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
         def json = [jsonrpc:"2.0", id:1, result: "foo"]
 
@@ -216,7 +215,7 @@ class NativeCallSpec extends Specification {
 
     def "Returns error for invalid chain"() {
         setup:
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
@@ -239,7 +238,7 @@ class NativeCallSpec extends Specification {
 
     def "Returns error for unsupported chain"() {
         setup:
-        def upstreams =  Mock(Upstreams)
+        def upstreams = Mock(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
@@ -265,7 +264,7 @@ class NativeCallSpec extends Specification {
     //TODO
     def "Calls cache before remote"() {
         setup:
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
         def api = TestingCommons.api()
         def upstream = TestingCommons.aggregatedUpstream(api)
@@ -284,7 +283,7 @@ class NativeCallSpec extends Specification {
     //TODO
     def "Uses cached value"() {
         setup:
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
         def upstream = TestingCommons.aggregatedUpstream(TestingCommons.api())
 
@@ -303,7 +302,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = Spy(new AlwaysQuorum())
 
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def apiMock = TestingCommons.api()
 
         apiMock.answer("eth_test", [], null, 1, new TimeoutException("test 1"))
@@ -329,7 +328,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = Spy(new BroadcastQuorum(TestingCommons.objectMapper(), 3))
 
-        def upstreams = Stub(Upstreams)
+        def upstreams = Stub(MultistreamHolder)
         def apiMock = TestingCommons.api()
 
         apiMock.answer("eth_sendRawTransaction", ["0x1234"],

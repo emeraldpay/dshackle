@@ -37,7 +37,7 @@ import java.lang.Exception
 
 @Service
 open class NativeCall(
-        @Autowired private val upstreams: Upstreams,
+        @Autowired private val multistreamHolder: MultistreamHolder,
         @Autowired private val objectMapper: ObjectMapper
 ) {
 
@@ -88,17 +88,17 @@ open class NativeCall(
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
         }
 
-        if (!upstreams.isAvailable(chain)) {
+        if (!multistreamHolder.isAvailable(chain)) {
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
         }
 
-        val upstream = upstreams.getUpstream(chain)
+        val upstream = multistreamHolder.getUpstream(chain)
                 ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
         return prepareCall(request, upstream)
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream): Flux<CallContext<RawCallDetails>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: Multistream): Flux<CallContext<RawCallDetails>> {
         return request.itemsList.toFlux().map {
             val method = it.method
             val params = it.payload.toStringUtf8()
@@ -202,7 +202,7 @@ open class NativeCall(
     }
 
     open class CallContext<T>(val id: Int,
-                              val upstream: AggregatedUpstream,
+                              val upstream: Multistream,
                               val matcher: Selector.Matcher,
                               val callQuorum: CallQuorum,
                               val payload: T) {

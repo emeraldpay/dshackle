@@ -21,10 +21,8 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.data.*
 import io.emeraldpay.dshackle.reader.*
-import io.emeraldpay.dshackle.upstream.AggregatedUpstream
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.Upstreams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.domain.Address
@@ -35,7 +33,6 @@ import io.infinitape.etherjar.hex.HexQuantity
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.BlockTag
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
@@ -48,7 +45,7 @@ import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
 open class EthereumReader(
-        private val up: AggregatedUpstream,
+        private val up: Multistream,
         private val caches: Caches,
         private val objectMapper: ObjectMapper
 ) : Lifecycle {

@@ -81,7 +81,6 @@ dependencies {
     implementation "io.infinitape:etherjar-hex:$etherjarVersion"
     implementation "io.infinitape:etherjar-rpc-http:$etherjarVersion"
     implementation "io.infinitape:etherjar-rpc-ws:$etherjarVersion"
-    implementation "io.infinitape:etherjar-rpc-emerald:$etherjarVersion"
     implementation "io.infinitape:etherjar-tx:$etherjarVersion"
     implementation 'org.bitcoinj:bitcoinj-core:0.15.8'
 

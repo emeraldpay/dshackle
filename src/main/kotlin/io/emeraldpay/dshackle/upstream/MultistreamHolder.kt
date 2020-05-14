@@ -16,16 +16,15 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
-interface Upstreams {
-    fun getUpstream(chain: Chain): AggregatedUpstream?
+/**
+ * Holds Multistreams configured for a chain.
+ */
+interface MultistreamHolder {
+    fun getUpstream(chain: Chain): Multistream?
     fun getAvailable(): List<Chain>
     fun observeChains(): Flux<Chain>
     fun getDefaultMethods(chain: Chain): CallMethods
