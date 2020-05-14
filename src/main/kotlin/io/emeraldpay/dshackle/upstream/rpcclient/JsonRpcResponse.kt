@@ -18,11 +18,61 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
+import io.infinitape.etherjar.rpc.RpcException
+import reactor.core.publisher.Mono
 
 class JsonRpcResponse(
-        val result: ByteArray?,
+        private val result: ByteArray?,
         val error: ResponseError?
 ) {
+
+    companion object {
+        private val NULL_VALUE = "null".toByteArray()
+    }
+
+    fun hasResult(): Boolean {
+        return result != null
+    }
+
+    fun hasError(): Boolean {
+        return error != null
+    }
+
+    fun isNull(): Boolean {
+        return result != null && NULL_VALUE.contentEquals(result)
+    }
+
+    fun getResult(): ByteArray {
+        return result ?: ByteArray(0)
+    }
+
+    fun getResultAsRawString(): String {
+        return String(getResult())
+    }
+
+    fun getResultAsProcessedString(): String {
+        val str = getResultAsRawString()
+        if (str.startsWith("\"") && str.endsWith("\"")) {
+            return str.substring(1, str.length - 1)
+        }
+        throw IllegalStateException("Not as JS string")
+    }
+
+    fun requireResult(): Mono<ByteArray> {
+        return if (error != null) {
+            Mono.error(error.asException())
+        } else {
+            Mono.just(getResult())
+        }
+    }
+
+    fun requireStringResult(): Mono<String> {
+        return if (error != null) {
+            Mono.error(error.asException())
+        } else {
+            Mono.just(getResultAsProcessedString())
+        }
+    }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -43,7 +93,11 @@ class JsonRpcResponse(
         return result1
     }
 
-    class ResponseError(val code: Int, val message: String)
+    class ResponseError(val code: Int, val message: String) {
+        fun asException(): RpcException {
+            return RpcException(code, message)
+        }
+    }
 
     class ResponseJsonSerializer : JsonSerializer<JsonRpcResponse>() {
         override fun serialize(value: JsonRpcResponse, gen: JsonGenerator, serializers: SerializerProvider) {

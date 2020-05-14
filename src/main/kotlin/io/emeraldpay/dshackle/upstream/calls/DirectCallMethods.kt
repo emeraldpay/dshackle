@@ -44,7 +44,7 @@ open class DirectCallMethods(private val methods: Set<String>) : CallMethods {
         return false
     }
 
-    override fun executeHardcoded(method: String): Any {
-        return "unsupported"
+    override fun executeHardcoded(method: String): ByteArray {
+        return "unsupported".toByteArray()
     }
 }

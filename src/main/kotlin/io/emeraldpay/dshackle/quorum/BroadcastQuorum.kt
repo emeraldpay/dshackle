@@ -16,14 +16,15 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 
 open class BroadcastQuorum(
-        jacksonRpcConverter: JacksonRpcConverter,
+        objectMapper: ObjectMapper,
         val quorum: Int = 3
-): CallQuorum, ValueAwareQuorum<String>(jacksonRpcConverter, String::class.java) {
+) : CallQuorum, ValueAwareQuorum<String>(objectMapper, String::class.java) {
 
     private var result: ByteArray? = null
     private var txid: String? = null
@@ -40,7 +41,7 @@ open class BroadcastQuorum(
         return result
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream<*>) {
+    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream) {
         calls++
         if (txid == null && responseValue != null) {
             txid = responseValue
@@ -48,7 +49,7 @@ open class BroadcastQuorum(
         }
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*>) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream) {
         // can be "message: known transaction: TXID", "Transaction with the same hash was already imported" or "message: Nonce too low"
         calls++
         if (result == null) {

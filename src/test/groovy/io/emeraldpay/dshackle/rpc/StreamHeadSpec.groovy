@@ -24,12 +24,9 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.UpstreamsMock
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Mono
@@ -80,7 +77,7 @@ class StreamHeadSpec extends Specification {
                 .build()
         }
 
-        def upstream = new EthereumUpstreamMock(Chain.ETHEREUM, Stub(DirectEthereumApi.class))
+        def upstream = new EthereumUpstreamMock(Chain.ETHEREUM, TestingCommons.api())
         def upstreams = new UpstreamsMock(Chain.ETHEREUM, upstream)
         def streamHead = new StreamHead(upstreams)
         when:

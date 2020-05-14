@@ -46,5 +46,5 @@ interface CallMethods {
     /**
      * Read [supposed to be predefined] method from this config
      */
-    fun executeHardcoded(method: String): Any
+    fun executeHardcoded(method: String): ByteArray
 }

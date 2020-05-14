@@ -1,6 +1,5 @@
 /**
  * Copyright (c) 2020 EmeraldPay, Inc
- * Copyright (c) 2020 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.test
 
+import io.emeraldpay.dshackle.reader.Reader
 import reactor.core.publisher.Mono
 
-/**
- * A general interface to make a request to an Upstream API
- */
-interface UpstreamApi {
+class ReaderMock<K, D> implements Reader<K, D> {
 
-    /**
-     * @param id an internal uniq id, if multiple requests are made in batch
-     * @param method JSON RPC method name
-     * @param params JSON RPC parameters, must be serializable into a JSON array
-     */
-    fun execute(id: Int, method: String, params: List<Any>): Mono<ByteArray>
+    private Map<K, D> mapping = new HashMap<K, D>()
 
+    ReaderMock() {
+    }
+
+    ReaderMock with(K key, D data) {
+        mapping[key] = data
+        return this
+    }
+
+    @Override
+    Mono<D> read(K key) {
+        return Mono.justOrEmpty(mapping.get(key))
+    }
 }

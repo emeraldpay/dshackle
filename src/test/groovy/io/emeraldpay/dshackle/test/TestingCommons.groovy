@@ -24,14 +24,15 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
-import io.infinitape.etherjar.rpc.ReactorRpcClient
 
 import java.text.SimpleDateFormat
 
@@ -50,32 +51,32 @@ class TestingCommons {
         return objectMapper
     }
 
-    static EthereumApiMock api(ReactorRpcClient rpcClient) {
-        return new EthereumApiMock(rpcClient, objectMapper(), Chain.ETHEREUM)
+    static EthereumApiMock api() {
+        return new EthereumApiMock(objectMapper())
     }
 
     static JacksonRpcConverter rpcConverter() {
         return new JacksonRpcConverter(objectMapper())
     }
 
-    static EthereumUpstreamMock upstream(DirectEthereumApi api) {
+    static EthereumUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api)
     }
 
-    static EthereumUpstreamMock upstream(DirectEthereumApi api, String method) {
+    static EthereumUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, String method) {
         return upstream(api, [method])
     }
 
-    static EthereumUpstreamMock upstream(DirectEthereumApi api, List<String> methods) {
+    static EthereumUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, List<String> methods) {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api, new DirectCallMethods(methods))
     }
 
-    static AggregatedUpstream aggregatedUpstream(DirectEthereumApi api) {
+    static AggregatedUpstream aggregatedUpstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
         return aggregatedUpstream(upstream(api))
     }
 
     static AggregatedUpstream aggregatedUpstream(EthereumUpstream up) {
-        return new AggregatedEthereumUpstreams(Chain.ETHEREUM, [up], Caches.default(objectMapper()), objectMapper())
+        return new EthereumChainUpstream(Chain.ETHEREUM, [up], Caches.default(objectMapper()), objectMapper())
     }
 
     static CachesFactory emptyCaches() {

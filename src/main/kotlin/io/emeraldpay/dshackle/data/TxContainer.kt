@@ -20,20 +20,26 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.infinitape.etherjar.rpc.json.TransactionJson
 
 class TxContainer(
-        val height: Long,
+        val height: Long?,
         val hash: TxId,
         val blockId: BlockId?,
-        json: ByteArray?
-) : SourceContainer(json) {
+        json: ByteArray?,
+        parsed: Any? = null
+) : SourceContainer(json, parsed) {
 
     companion object {
         @JvmStatic
         fun from(tx: TransactionJson, objectMapper: ObjectMapper): TxContainer {
+            return from(tx, objectMapper.writeValueAsBytes(tx))
+        }
+
+        fun from(tx: TransactionJson, raw: ByteArray): TxContainer {
             return TxContainer(
                     tx.blockNumber,
                     TxId.from(tx.hash),
-                    BlockId.from(tx.blockHash),
-                    objectMapper.writeValueAsBytes(tx)
+                    tx.blockHash?.let { BlockId.from(it) },
+                    raw,
+                    tx
             )
         }
     }

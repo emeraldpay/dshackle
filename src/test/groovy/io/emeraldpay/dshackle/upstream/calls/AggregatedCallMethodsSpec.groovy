@@ -124,6 +124,6 @@ class AggregatedCallMethodsSpec extends Specification {
         when:
         def act = aggregate.executeHardcoded("eth_test")
         then:
-        act == "hello"
+        new String(act) == "hello"
     }
 }

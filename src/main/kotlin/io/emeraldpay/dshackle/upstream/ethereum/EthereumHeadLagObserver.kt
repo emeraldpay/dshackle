@@ -26,14 +26,14 @@ import java.time.Duration
 
 class EthereumHeadLagObserver(
         master: Head,
-        followers: Collection<Upstream<EthereumApi>>
-) : HeadLagObserver<EthereumApi>(master, followers) {
+        followers: Collection<Upstream>
+) : HeadLagObserver(master, followers) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumHeadLagObserver::class.java)
     }
 
-    override fun getCurrentBlocks(up: Upstream<EthereumApi>): Flux<BlockContainer> {
+    override fun getCurrentBlocks(up: Upstream): Flux<BlockContainer> {
         val head = up.getHead()
         return head.getFlux().take(Duration.ofSeconds(1))
     }

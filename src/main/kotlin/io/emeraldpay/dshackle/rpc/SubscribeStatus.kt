@@ -46,7 +46,7 @@ class SubscribeStatus(
         }
     }
 
-    fun chainStatus(chain: Chain, ups: List<Upstream<*>>): BlockchainOuterClass.ChainStatus {
+    fun chainStatus(chain: Chain, ups: List<Upstream>): BlockchainOuterClass.ChainStatus {
         val available = ups.map { u ->
             u.getStatus()
         }.min() ?: UpstreamAvailability.UNAVAILABLE
@@ -60,6 +60,6 @@ class SubscribeStatus(
                 .build()
     }
 
-    class ChainSubscription(val chain: Chain, val up: AggregatedUpstream<*>, val avail: UpstreamAvailability)
+    class ChainSubscription(val chain: Chain, val up: AggregatedUpstream, val avail: UpstreamAvailability)
 
 }

@@ -17,17 +17,26 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.cache.BlocksMemCache
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.HeightCache
 import io.emeraldpay.dshackle.cache.TxMemCache
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
+import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.test.UpstreamsMock
+import io.emeraldpay.dshackle.upstream.AggregatedUpstream
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.domain.Wei
 import io.infinitape.etherjar.rpc.ReactorRpcClient
+import io.infinitape.etherjar.rpc.RpcException
+import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
@@ -35,6 +44,7 @@ import reactor.core.publisher.Mono
 import spock.lang.Specification
 
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class EthereumReaderSpec extends Specification {
 
@@ -63,7 +73,7 @@ class EthereumReaderSpec extends Specification {
                 .setBlockByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(Upstream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(AggregatedUpstream), caches, TestingCommons.objectMapper())
 
         when:
         def act = reader.blocksById().read(blockId).block()
@@ -81,8 +91,7 @@ class EthereumReaderSpec extends Specification {
                 .setBlockByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def rpcClient = Stub(ReactorRpcClient)
-        def api = TestingCommons.api(rpcClient)
+        def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
 
         def upstream = TestingCommons.aggregatedUpstream(api)
@@ -104,8 +113,7 @@ class EthereumReaderSpec extends Specification {
                 .setBlockByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def rpcClient = Stub(ReactorRpcClient)
-        def api = TestingCommons.api(rpcClient)
+        def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
 
         def upstream = TestingCommons.aggregatedUpstream(api)
@@ -127,7 +135,7 @@ class EthereumReaderSpec extends Specification {
                 .setBlockByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(Upstream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(AggregatedUpstream), caches, TestingCommons.objectMapper())
 
         when:
         def act = reader.blocksByHash().read(blockJson.hash).block()
@@ -145,8 +153,7 @@ class EthereumReaderSpec extends Specification {
                 .setBlockByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def rpcClient = Stub(ReactorRpcClient)
-        def api = TestingCommons.api(rpcClient)
+        def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
         def upstream = TestingCommons.aggregatedUpstream(api)
         def reader = new EthereumReader(upstream, caches, TestingCommons.objectMapper())
@@ -167,7 +174,7 @@ class EthereumReaderSpec extends Specification {
                 .setTxByHash(memCache)
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(Upstream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(AggregatedUpstream), caches, TestingCommons.objectMapper())
 
         when:
         def act = reader.txByHash().read(txJson.hash).block()
@@ -186,8 +193,7 @@ class EthereumReaderSpec extends Specification {
                 .setObjectMapper(TestingCommons.objectMapper())
                 .build()
 
-        def rpcClient = Stub(ReactorRpcClient)
-        def api = TestingCommons.api(rpcClient)
+        def api = TestingCommons.api()
         api.answer("eth_getTransactionByHash", [txJson.hash.toHex()], txJson)
         def upstream = TestingCommons.aggregatedUpstream(api)
         def reader = new EthereumReader(upstream, caches, TestingCommons.objectMapper())
@@ -201,12 +207,12 @@ class EthereumReaderSpec extends Specification {
 
     def "Caches balance until block mined"() {
         setup:
-        def rpcClient = Stub(ReactorRpcClient)
-        def api = TestingCommons.api(rpcClient)
+        def api = TestingCommons.api()
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "latest"], "0x10")
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "latest"], "0xff")
-        def upstream = TestingCommons.upstream(api)
-        def reader = new EthereumReader(upstream, Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
+        EthereumUpstreamMock upstream = new EthereumUpstreamMock(Chain.ETHEREUM, api)
+        def upstreams = TestingCommons.aggregatedUpstream(upstream)
+        def reader = new EthereumReader(upstreams, Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
         reader.start()
 
         when:

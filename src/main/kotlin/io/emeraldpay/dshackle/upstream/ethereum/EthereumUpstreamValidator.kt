@@ -16,11 +16,13 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.infinitape.etherjar.rpc.*
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.infinitape.etherjar.rpc.json.SyncingJson
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
@@ -30,8 +32,9 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class EthereumUpstreamValidator(
-        private val ethereumUpstream: EthereumUpstream,
-        private val options: UpstreamsConfig.Options
+        private val upstream: EthereumUpstream,
+        private val options: UpstreamsConfig.Options,
+        private val objectMapper: ObjectMapper
 ) {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
@@ -39,30 +42,32 @@ class EthereumUpstreamValidator(
     }
 
     fun validate(): Mono<UpstreamAvailability> {
-        return ethereumUpstream
-                .getApi(Selector.empty)
-                .flatMapMany { api ->
-                    api.rpcClient
-                            .execute(Commands.eth().syncing())
-                            .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Syncing")))
-                            .flatMap { value ->
-                                if (value.isSyncing) {
-                                    Mono.just(UpstreamAvailability.SYNCING)
-                                } else {
-                                    api.rpcClient.execute(Commands.net().peerCount())
-                                            .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Peers")))
-                                            .map { count ->
-                                                val minPeers = options.minPeers ?: 1
-                                                if (count < minPeers) {
-                                                    UpstreamAvailability.IMMATURE
-                                                } else {
-                                                    UpstreamAvailability.OK
-                                                }
-                                            }
+        return upstream
+                .getApi()
+                .read(JsonRpcRequest("eth_syncing", listOf()))
+                .flatMap(JsonRpcResponse::requireResult)
+                .map { objectMapper.readValue(it, SyncingJson::class.java) }
+                .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Syncing")))
+                .flatMap { value ->
+                    if (value.isSyncing) {
+                        Mono.just(UpstreamAvailability.SYNCING)
+                    } else {
+                        upstream
+                                .getApi()
+                                .read(JsonRpcRequest("net_peerCount", listOf()))
+                                .flatMap(JsonRpcResponse::requireStringResult)
+                                .map(Integer::decode)
+                                .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Peers")))
+                                .map { count ->
+                                    val minPeers = options.minPeers ?: 1
+                                    if (count < minPeers) {
+                                        UpstreamAvailability.IMMATURE
+                                    } else {
+                                        UpstreamAvailability.OK
+                                    }
                                 }
-                            }
+                    }
                 }
-                .single()
                 .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 

@@ -16,8 +16,10 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -29,16 +31,15 @@ import java.time.Duration
 /**
  * General interface to upstream(s) to a single chain
  */
-abstract class ChainUpstreams<U : UpstreamApi>(
+abstract class ChainUpstreams(
         val chain: Chain,
-        private val upstreams: MutableList<Upstream<U>>,
-        caches: Caches,
-        objectMapper: ObjectMapper
-) : AggregatedUpstream<U>(objectMapper, caches), Lifecycle {
+        private val upstreams: MutableList<Upstream>,
+        caches: Caches
+) : AggregatedUpstream(caches), Lifecycle {
 
     private val log = LoggerFactory.getLogger(ChainUpstreams::class.java)
     private var seq = 0
-    protected var lagObserver: HeadLagObserver<U>? = null
+    protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
 
     open fun init() {
@@ -75,11 +76,11 @@ abstract class ChainUpstreams<U : UpstreamApi>(
         lagObserver?.stop()
     }
 
-    override fun getAll(): List<Upstream<U>> {
+    override fun getAll(): List<Upstream> {
         return upstreams
     }
 
-    override fun addUpstream(upstream: Upstream<U>) {
+    override fun addUpstream(upstream: Upstream) {
         upstreams.add(upstream)
         setHead(updateHead())
         onUpstreamsUpdated()
@@ -92,7 +93,7 @@ abstract class ChainUpstreams<U : UpstreamApi>(
         }
     }
 
-    override fun getApis(matcher: Selector.Matcher): ApiSource<U> {
+    override fun getApiSource(matcher: Selector.Matcher): ApiSource {
         val i = seq++
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
@@ -100,11 +101,11 @@ abstract class ChainUpstreams<U : UpstreamApi>(
         return FilteredApis(upstreams, matcher, i)
     }
 
-    override fun getApi(matcher: Selector.Matcher): Mono<U> {
-        val apis = getApis(matcher)
+    override fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+        val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
-                .switchIfEmpty(Mono.error<U>(Exception("No API available")))
+                .switchIfEmpty(Mono.error(Exception("No API available")))
     }
 
     override fun setLag(lag: Long) {

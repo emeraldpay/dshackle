@@ -15,29 +15,32 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
+import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.test.TestingCommons
 import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
+import org.mockserver.model.MediaType
+import reactor.test.StepVerifier
 import spock.lang.Specification
 
-class JsonRpcClientSpec extends Specification {
+import java.time.Duration
+
+class JsonRpcHttpClientSpec extends Specification {
 
     ClientAndServer mockServer
-    JsonRpcClient client
 
     def setup() {
         mockServer = ClientAndServer.startClientAndServer(18332);
-        client = new JsonRpcClient("localhost:18332", TestingCommons.objectMapper(), null)
     }
 
     def cleanup() {
         mockServer.stop()
     }
 
-
     def "Make a request"() {
         setup:
+        JsonRpcHttpClient client = new JsonRpcHttpClient("localhost:18332", TestingCommons.objectMapper(), null, null)
         def resp = '{' +
                 '  "jsonrpc": "2.0",' +
                 '  "result": "0x98de45",' +
@@ -50,10 +53,39 @@ class JsonRpcClientSpec extends Specification {
                 HttpResponse.response(resp)
         )
         when:
-        def act = client.execute(new JsonRpcRequest("test", [])).block()
+        def act = client.read(new JsonRpcRequest("test", [])).block()
         then:
         act.error == null
         new String(act.result) == '"0x98de45"'
+    }
+
+    def "Make request with basic auth"() {
+        setup:
+        def auth = new AuthConfig.ClientBasicAuth("user", "passwd")
+        def client = new JsonRpcHttpClient("localhost:18332", TestingCommons.objectMapper(), auth, null)
+
+        mockServer.when(
+                HttpRequest.request()
+                        .withMethod("POST")
+                        .withBody("ping")
+        ).respond(
+                HttpResponse.response()
+                        .withBody("pong")
+        )
+        when:
+        def act = client.execute("ping".bytes).map { new String(it) }
+        then:
+        StepVerifier.create(act)
+                .expectNext("pong")
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+        mockServer.verify(
+                HttpRequest.request()
+                        .withMethod("POST")
+                        .withBody("ping")
+                        .withContentType(MediaType.APPLICATION_JSON)
+                        .withHeader("authorization", "Basic dXNlcjpwYXNzd2Q=")
+        )
     }
 
 }

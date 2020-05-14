@@ -17,11 +17,12 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
-import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.CachingMempoolData
 import io.emeraldpay.grpc.Chain
@@ -45,8 +46,8 @@ class TrackBitcoinTxSpec extends Specification {
                     "d296c6d47335a7f283574b06f1d6303b30ac75631e081ab128346a549ad93350"
             ])
         }
-        BitcoinUpstream upstream = Mock(BitcoinUpstream) {
-            _ * getData() >> Mock(BitcoinReader) {
+        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+            _ * getReader() >> Mock(BitcoinReader) {
                 _ * getMempool() >> mempoolAccess
             }
         }
@@ -71,8 +72,8 @@ class TrackBitcoinTxSpec extends Specification {
                     "d296c6d47335a7f283574b06f1d6303b30ac75631e081ab128346a549ad93350"
             ])
         }
-        BitcoinUpstream upstream = Mock(BitcoinUpstream) {
-            _ * getData() >> Mock(BitcoinReader) {
+        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+            _ * getReader() >> Mock(BitcoinReader) {
                 _ * getMempool() >> mempoolAccess
             }
         }
@@ -92,13 +93,15 @@ class TrackBitcoinTxSpec extends Specification {
         setup:
         TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
-        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
-            1 * getTx(txid) >> Mono.just([
-                    txid: txid
-            ])
+        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+            _ * getReader() >> Mock(BitcoinReader) {
+                1 * getTx(txid) >> Mono.just([
+                        txid: txid
+                ])
+            }
         }
         when:
-        def act = track.loadExisting(api, txid)
+        def act = track.loadExisting(upstream, txid)
 
         then:
         StepVerifier.create(act)
@@ -113,15 +116,17 @@ class TrackBitcoinTxSpec extends Specification {
         setup:
         TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
-        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
-            1 * getTx(txid) >> Mono.just([
-                    txid     : txid,
-                    blockhash: "0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f",
-                    height   : 100
-            ])
+        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+            _ * getReader() >> Mock(BitcoinReader) {
+                1 * getTx(txid) >> Mono.just([
+                        txid     : txid,
+                        blockhash: "0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f",
+                        height   : 100
+                ])
+            }
         }
         when:
-        def act = track.loadExisting(api, txid)
+        def act = track.loadExisting(upstream, txid)
 
         then:
         StepVerifier.create(act)
@@ -140,12 +145,12 @@ class TrackBitcoinTxSpec extends Specification {
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         // start with the current block
         def next = Flux.fromIterable([10, 12, 13, 14, 15]).map { h ->
-            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, [])
+            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, null, [])
         }
         Head head = Mock(Head) {
             1 * getFlux() >> next
         }
-        Upstream upstream = Mock(BitcoinUpstream) {
+        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
             1 * getHead() >> head
         }
         def status = new TrackBitcoinTx.TxStatus(
@@ -171,12 +176,12 @@ class TrackBitcoinTxSpec extends Specification {
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         // start with the current block
         def next = Flux.fromIterable([10, 12, 13]).map { h ->
-            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, [])
+            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, null, [])
         }
         Head head = Mock(Head) {
             1 * getFlux() >> next
         }
-        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
+        BitcoinReader api = Mock(BitcoinReader) {
             3 * getTx(txid) >>> [
                     Mono.just([
                             txid: txid
@@ -191,9 +196,9 @@ class TrackBitcoinTxSpec extends Specification {
                     ])
             ]
         }
-        Upstream upstream = Mock(BitcoinUpstream) {
+        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
             1 * getHead() >> head
-            _ * getApi(_) >> Mono.just(api)
+            _ * getReader() >> api
         }
         def status = new TrackBitcoinTx.TxStatus(
                 txid, false, null, false, null, null, null, 0
@@ -212,11 +217,7 @@ class TrackBitcoinTxSpec extends Specification {
         setup:
         TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
-        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
-            1 * getTx(txid) >> Mono.just([
-                    txid: txid
-            ])
-        }
+
         Head head = Mock(Head) {
             _ * getFlux() >> Flux.empty()
         }
@@ -228,17 +229,20 @@ class TrackBitcoinTxSpec extends Specification {
                     Mono.just(["4523c7ac0c5c1e5628f025474529c69cd44d7c641db82e6982f5ffe64527efc9", txid]) //second call when started over
             ]
         }
-        BitcoinUpstream upstream = Mock(BitcoinUpstream) {
-            _ * getApi(_) >> Mono.just(api)
+        BitcoinReader api = Mock(BitcoinReader) {
+            1 * getTx(txid) >> Mono.just([
+                    txid: txid
+            ])
+            _ * getMempool() >> mempoolAccess
+        }
+        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
             _ * getHead() >> head
-            _ * getData() >> Mock(BitcoinReader) {
-                _ * getMempool() >> mempoolAccess
-            }
+            _ * getReader() >> api
         }
 
         when:
         def steps = StepVerifier.withVirtualTime {
-            track.untilFound(Chain.BITCOIN, api, upstream, txid).take(1)
+            track.untilFound(Chain.BITCOIN, upstream, txid).take(1)
         }
 
         then:
@@ -254,7 +258,7 @@ class TrackBitcoinTxSpec extends Specification {
         setup:
         TrackBitcoinTx track = new TrackBitcoinTx(Stub(Upstreams))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
-        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
+        BitcoinReader api = Mock(BitcoinReader) {
             _ * getTx(txid) >> Mono.just([
                     txid     : txid,
                     blockhash: "0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f",
@@ -267,18 +271,18 @@ class TrackBitcoinTxSpec extends Specification {
             ])
         }
         def next = Flux.fromIterable([10, 11, 12]).map { h ->
-            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, [])
+            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, null, [])
         }
         Head head = Mock(Head) {
             _ * getFlux() >> next
         }
-        BitcoinUpstream upstream = Mock(BitcoinUpstream) {
-            _ * getApi(_) >> Mono.just(api)
+        BitcoinChainUpstreams upstream = Mock(BitcoinChainUpstreams) {
+            _ * getReader() >> api
             _ * getHead() >> head
         }
 
         when:
-        def act = track.subscribe(Chain.BITCOIN, api, upstream, txid)
+        def act = track.subscribe(Chain.BITCOIN, upstream, txid)
 
         then:
         StepVerifier.create(act)

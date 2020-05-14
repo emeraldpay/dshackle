@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumFullBlocksReader
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import org.slf4j.LoggerFactory
@@ -158,11 +159,11 @@ open class Caches(
     }
 
     fun getFullBlocks(): Reader<BlockId, BlockContainer> {
-        return EthereumBlocksWithTxCache(objectMapper, blocksByHash, txsByHash)
+        return EthereumFullBlocksReader(objectMapper, blocksByHash, txsByHash)
     }
 
     fun getFullBlocksByHeight(): Reader<Long, BlockContainer> {
-        return BlockByHeight(blocksByHeight, EthereumBlocksWithTxCache(objectMapper, blocksByHash, txsByHash))
+        return BlockByHeight(blocksByHeight, EthereumFullBlocksReader(objectMapper, blocksByHash, txsByHash))
     }
 
     enum class Tag {

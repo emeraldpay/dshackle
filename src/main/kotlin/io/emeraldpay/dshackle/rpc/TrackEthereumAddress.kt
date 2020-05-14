@@ -22,8 +22,7 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.Wei
@@ -87,8 +86,8 @@ class TrackEthereumAddress(
         }
     }
 
-    fun getUpstream(chain: Chain): AggregatedEthereumUpstreams {
-        return upstreams.getUpstream(chain)?.cast(AggregatedEthereumUpstreams::class.java, EthereumApi::class.java)
+    fun getUpstream(chain: Chain): EthereumChainUpstream {
+        return upstreams.getUpstream(chain)?.cast(EthereumChainUpstream::class.java)
                 ?: throw SilentException.UnsupportedBlockchain(chain)
     }
 

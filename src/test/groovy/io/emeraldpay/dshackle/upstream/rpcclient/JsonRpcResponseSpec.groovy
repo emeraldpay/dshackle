@@ -28,4 +28,32 @@ class JsonRpcResponseSpec extends Specification {
         then:
         act == true
     }
+
+    def "Extract processed string without quoted"() {
+        when:
+        def act = new JsonRpcResponse("\"hello\"".bytes, null).resultAsProcessedString
+        then:
+        act == "hello"
+    }
+
+    def "Extract raw string with quoted"() {
+        when:
+        def act = new JsonRpcResponse("\"hello\"".bytes, null).resultAsRawString
+        then:
+        act == "\"hello\""
+    }
+
+    def "Fails to extract processed string if not quoted"() {
+        when:
+        def act = new JsonRpcResponse("{\"hello\": 1}".bytes, null).resultAsProcessedString
+        then:
+        thrown(IllegalStateException)
+    }
+
+    def "Recognizes null"() {
+        when:
+        def act = new JsonRpcResponse("null".bytes, null)
+        then:
+        act.isNull()
+    }
 }

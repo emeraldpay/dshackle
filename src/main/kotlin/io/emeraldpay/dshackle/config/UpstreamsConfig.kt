@@ -86,19 +86,21 @@ class UpstreamsConfig {
 
     open class UpstreamConnection
 
+    open class RpcConnection : UpstreamConnection() {
+        var rpc: HttpEndpoint? = null
+    }
+
     class GrpcConnection : UpstreamConnection() {
         var host: String? = null
         var port: Int = 0
         var auth: AuthConfig.ClientTlsAuth? = null
     }
 
-    class EthereumConnection : UpstreamConnection() {
-        var rpc: HttpEndpoint? = null
+    class EthereumConnection : RpcConnection() {
         var ws: WsEndpoint? = null
     }
 
-    class BitcoinConnection : UpstreamConnection() {
-        var rpc: HttpEndpoint? = null
+    class BitcoinConnection : RpcConnection() {
     }
 
     class HttpEndpoint(val url: URI) {

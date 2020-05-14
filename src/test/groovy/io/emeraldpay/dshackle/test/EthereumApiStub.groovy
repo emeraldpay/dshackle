@@ -16,28 +16,20 @@
  */
 package io.emeraldpay.dshackle.test
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.infinitape.etherjar.rpc.ReactorBatch
-import io.infinitape.etherjar.rpc.ReactorRpcClient
-import io.infinitape.etherjar.rpc.RpcCall
-import io.infinitape.etherjar.rpc.RpcCallResponse
-import reactor.core.publisher.Flux
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Mono
 
-class EthereumApiStub extends DirectEthereumApi {
+class EthereumApiStub implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
     private String id
-    private static ObjectMapper objectMapper = TestingCommons.objectMapper()
-    private static ReactorRpcClient rpcClient = new RpcClientMock();
 
     EthereumApiStub(Integer id) {
         this(id.toString())
     }
 
     EthereumApiStub(String id) {
-        super(rpcClient, null, objectMapper, new DirectCallMethods())
         this.id = id
     }
 
@@ -46,16 +38,9 @@ class EthereumApiStub extends DirectEthereumApi {
         return "API Stub $id"
     }
 
-    static class RpcClientMock implements ReactorRpcClient {
-
-        @Override
-        Flux<RpcCallResponse> execute(ReactorBatch batch) {
-            return Flux.error(new Exception("Not implemented in mock"))
-        }
-
-        @Override
-        def <JS, RES> Mono<RES> execute(RpcCall<JS, RES> call) {
-            return Mono.error(new Exception("Not implemented in mock"))
-        }
+    @Override
+    Mono<JsonRpcResponse> read(JsonRpcRequest key) {
+        return Mono.error(new Exception("Not implemented in mock"))
     }
+
 }

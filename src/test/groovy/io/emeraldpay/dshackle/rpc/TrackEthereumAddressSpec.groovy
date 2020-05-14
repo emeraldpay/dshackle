@@ -64,7 +64,7 @@ class TrackEthereumAddressSpec extends Specification {
             .setBalance("1234567890")
             .build()
 
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)
@@ -104,7 +104,7 @@ class TrackEthereumAddressSpec extends Specification {
             return it
         }
 
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
         Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)

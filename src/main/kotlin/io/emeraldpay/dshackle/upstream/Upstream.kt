@@ -17,16 +17,19 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-interface Upstream<out A : UpstreamApi> {
+interface Upstream {
     fun isAvailable(): Boolean
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
     fun getHead(): Head
-    fun getApi(matcher: Selector.Matcher): Mono<out A>
+    fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse>
     fun getOptions(): UpstreamsConfig.Options
     fun setLag(lag: Long)
     fun getLag(): Long
@@ -34,6 +37,5 @@ interface Upstream<out A : UpstreamApi> {
     fun getMethods(): CallMethods
     fun getId(): String
 
-    fun <TA : UpstreamApi> castApi(apiType: Class<TA>): Upstream<TA>
-    fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T
+    fun <T : Upstream> cast(selfType: Class<T>): T
 }

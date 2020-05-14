@@ -63,6 +63,7 @@ class ExtractBlock(
                 getTime(data) ?: throw IllegalArgumentException("Block JSON has no time"),
                 false,
                 json,
+                data,
                 transactions
         )
     }

@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.cache
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.cache.BlocksMemCache
+import io.emeraldpay.dshackle.cache.TxMemCache
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
@@ -29,7 +31,7 @@ import spock.lang.Specification
 
 import java.time.Instant
 
-class EthereumBlocksWithTxCacheSpec extends Specification {
+class EthereumFullBlocksReaderSpec extends Specification {
 
     // sorted
     String hash1 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
@@ -119,7 +121,7 @@ class EthereumBlocksWithTxCacheSpec extends Specification {
         blocks.add(BlockContainer.from(block2, objectMapper))
         blocks.add(BlockContainer.from(block3, objectMapper))
 
-        def full = new EthereumBlocksWithTxCache(objectMapper, blocks, txes)
+        def full = new EthereumFullBlocksReader(objectMapper, blocks, txes)
 
         when:
         def act = full.read(BlockId.from(block1.hash)).block()
@@ -185,7 +187,7 @@ class EthereumBlocksWithTxCacheSpec extends Specification {
         blocks.add(BlockContainer.from(block2, objectMapper))
         blocks.add(BlockContainer.from(block3, objectMapper))
 
-        def full = new EthereumBlocksWithTxCache(objectMapper, blocks, txes)
+        def full = new EthereumFullBlocksReader(objectMapper, blocks, txes)
 
         when:
         def act = full.read(BlockId.from(block3.hash)).block()
@@ -205,7 +207,7 @@ class EthereumBlocksWithTxCacheSpec extends Specification {
         txes.add(TxContainer.from(tx1, objectMapper))
         blocks.add(BlockContainer.from(block1, objectMapper)) //missing tx2 in cache
 
-        def full = new EthereumBlocksWithTxCache(objectMapper, blocks, txes)
+        def full = new EthereumFullBlocksReader(objectMapper, blocks, txes)
 
         when:
         def act = full.read(BlockId.from(block1.hash)).block()
@@ -223,7 +225,7 @@ class EthereumBlocksWithTxCacheSpec extends Specification {
         txes.add(TxContainer.from(tx2, objectMapper))
         txes.add(TxContainer.from(tx3, objectMapper))
 
-        def full = new EthereumBlocksWithTxCache(objectMapper, blocks, txes)
+        def full = new EthereumFullBlocksReader(objectMapper, blocks, txes)
 
         when:
         def act = full.read(BlockId.from(block1.hash)).block()

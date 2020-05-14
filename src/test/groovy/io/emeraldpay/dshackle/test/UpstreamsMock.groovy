@@ -17,12 +17,15 @@
 package io.emeraldpay.dshackle.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
@@ -32,28 +35,37 @@ import reactor.core.publisher.Flux
 class UpstreamsMock implements Upstreams {
 
     private Map<Chain, DefaultEthereumMethods> target = [:]
-    private Map<Chain, AggregatedEthereumUpstreamsMock> upstreams = [:]
+    private Map<Chain, AggregatedUpstream> upstreams = [:]
 
     UpstreamsMock(Chain chain, Upstream up) {
         addUpstream(chain, up)
     }
-    UpstreamsMock(Chain chain1, Upstream up1, Chain chain2, Upstream up2) {
-        addUpstream(chain1, up1)
-        addUpstream(chain2, up2)
-    }
 
-    AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull EthereumUpstream up) {
+    AggregatedUpstream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            upstreams[chain] = new AggregatedEthereumUpstreamsMock(chain, [up], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
-            upstreams[chain].start()
+            if (BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM) {
+                if (up instanceof EthereumChainUpstream) {
+                    upstreams[chain] = up
+                } else if (up instanceof EthereumUpstream) {
+                    upstreams[chain] = new EthereumChainUpstreamMock(chain, [up as EthereumUpstream], Caches.default(TestingCommons.objectMapper()))
+                } else {
+                    throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
+                }
+                upstreams[chain].start()
+            } else if (BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN) {
+                if (up instanceof BitcoinChainUpstreams) {
+                    upstreams[chain] = up
+                } else if (up instanceof BitcoinUpstream) {
+                    upstreams[chain] = new BitcoinChainUpstreams(chain, [up as BitcoinUpstream], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
+                } else {
+                    throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
+                }
+                upstreams[chain].start()
+            }
         } else {
             upstreams[chain].addUpstream(up)
         }
         return upstreams[chain]
-    }
-
-    void setReader(@NotNull Chain chain, EthereumReader reader) {
-        upstreams[chain].customReader = reader
     }
 
     @Override
@@ -85,12 +97,12 @@ class UpstreamsMock implements Upstreams {
         return upstreams.containsKey(chain)
     }
 
-    static class AggregatedEthereumUpstreamsMock extends AggregatedEthereumUpstreams {
+    static class EthereumChainUpstreamMock extends EthereumChainUpstream {
 
         EthereumReader customReader = null
 
-        AggregatedEthereumUpstreamsMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams, @NotNull Caches caches, @NotNull ObjectMapper objectMapper) {
-            super(chain, upstreams, caches, objectMapper)
+        EthereumChainUpstreamMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams, @NotNull Caches caches) {
+            super(chain, upstreams, caches, TestingCommons.objectMapper())
         }
 
         @Override

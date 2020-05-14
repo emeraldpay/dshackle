@@ -68,7 +68,7 @@ class AggregatedCallMethods(
     /**
      * Executed the method on the first delegate that supports it as a hardcoded method
      */
-    override fun executeHardcoded(method: String): Any {
+    override fun executeHardcoded(method: String): ByteArray {
         return delegates.find {
             it.isAllowed(method) && it.isHardcoded(method)
         }?.executeHardcoded(method) ?: throw IllegalStateException("No hardcoded for $method")

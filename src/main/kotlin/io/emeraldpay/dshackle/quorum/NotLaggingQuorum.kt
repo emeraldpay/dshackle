@@ -32,7 +32,7 @@ class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
         return result.get() != null
     }
 
-    override fun record(response: ByteArray, upstream: Upstream<*>): Boolean {
+    override fun record(response: ByteArray, upstream: Upstream): Boolean {
         val lagging = upstream.getLag() > maxLag
         if (!lagging) {
             result.set(response)
@@ -41,9 +41,8 @@ class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
         return false
     }
 
-    override fun record(error: RpcException, upstream: Upstream<*>) {
+    override fun record(error: RpcException, upstream: Upstream) {
     }
-
 
     override fun getResult(): ByteArray {
         return result.get()

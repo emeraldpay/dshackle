@@ -18,22 +18,22 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
-import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.data.TxContainer
-import io.emeraldpay.dshackle.data.TxId
+import io.emeraldpay.dshackle.data.*
 import io.emeraldpay.dshackle.reader.*
-import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.domain.Wei
-import io.infinitape.etherjar.rpc.Commands
-import io.infinitape.etherjar.rpc.RpcCall
+import io.infinitape.etherjar.hex.HexQuantity
+import io.infinitape.etherjar.rpc.RpcException
+import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.BlockTag
 import io.infinitape.etherjar.rpc.json.TransactionJson
@@ -48,7 +48,7 @@ import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
 open class EthereumReader(
-        private val up: Upstream<EthereumApi>,
+        private val up: AggregatedUpstream,
         private val caches: Caches,
         private val objectMapper: ObjectMapper
 ) : Lifecycle {
@@ -60,48 +60,107 @@ open class EthereumReader(
     private var headListener: Disposable? = null
     private val balanceCache = CurrentBlockCache<Address, Wei>()
 
-    private val extractBlock = Function<BlockContainer, BlockJson<TransactionRefJson>> { block ->
-        objectMapper
-                .readValue(block.json, BlockJson::class.java)
-                .withoutTransactionDetails()
+    val extractBlock = Function<BlockContainer, BlockJson<TransactionRefJson>> { block ->
+        val existing = block.getParsed(BlockJson::class.java)
+        if (existing != null) {
+            existing.withoutTransactionDetails()
+        } else {
+            objectMapper
+                    .readValue(block.json, BlockJson::class.java)
+                    .withoutTransactionDetails()
+        }
     }
 
-    private val extractTx = Function<TxContainer, TransactionJson> { tx ->
-        objectMapper
-                .readValue(tx.json, TransactionJson::class.java)
+    val extractTx = Function<TxContainer, TransactionJson> { tx ->
+        tx.getParsed(TransactionJson::class.java) ?: objectMapper.readValue(tx.json, TransactionJson::class.java)
     }
 
-    private val blocksDirect: Reader<BlockHash, BlockJson<TransactionRefJson>>
-    private val txDirect: Reader<TransactionId, TransactionJson>
+    val asRaw = Function<SourceContainer, ByteArray> { tx ->
+        tx.json ?: ByteArray(0)
+    }
+
+    val jsonToRaw = Function<Any, ByteArray> { json ->
+        objectMapper.writeValueAsBytes(json)
+    }
+
+    val blockAsContainer = Function<BlockJson<*>, BlockContainer> { block ->
+        BlockContainer.from(block.withoutTransactionDetails(), objectMapper)
+    }
+    val txAsContainer = Function<TransactionJson, TxContainer> { tx ->
+        TxContainer.from(tx, objectMapper)
+    }
+
+    private val blocksDirect: Reader<BlockHash, BlockContainer>
+    private val blocksByHeightDirect: Reader<Long, BlockContainer>
+    private val txDirect: Reader<TransactionId, TxContainer>
     private val balanceDirect: Reader<Address, Wei>
 
     private val idToBlockHash = Function<BlockId, BlockHash> { id -> BlockHash.from(id.value) }
     private val blockHashToId = Function<BlockHash, BlockId> { hash -> BlockId.from(hash) }
 
     private val txHashToId = Function<TransactionId, TxId> { hash -> TxId.from(hash) }
+    private val idToTxHash = Function<TxId, TransactionId> { id -> TransactionId.from(id.value) }
+
+    private val directResponseBytes = Function<JsonRpcResponse, ByteArray> { resp ->
+        if (resp.error != null) {
+            throw resp.error.asException()
+        } else {
+            resp.getResult()
+        }
+    }
 
     init {
-        blocksDirect = object : Reader<BlockHash, BlockJson<TransactionRefJson>> {
-            override fun read(key: BlockHash): Mono<BlockJson<TransactionRefJson>> {
-                return up.getApi(Selector.empty).flatMap { api ->
-                    api.executeAndConvert(Commands.eth().getBlock(key))
+        blocksDirect = object : Reader<BlockHash, BlockContainer> {
+            override fun read(key: BlockHash): Mono<BlockContainer> {
+                return up.getDirectApi(Selector.empty).flatMap { api ->
+                    val request = JsonRpcRequest("eth_getBlockByHash", listOf(key.toHex(), false))
+                    api.read(request)
                             .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $key")))
+                            .map(directResponseBytes)
                             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                            .map { blockbytes ->
+                                val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>
+                                BlockContainer.from(block, blockbytes)
+                            }
                             .doOnNext { block ->
-                                caches.cache(Caches.Tag.REQUESTED, BlockContainer.from(block, objectMapper))
+                                caches.cache(Caches.Tag.REQUESTED, block)
                             }
                 }
             }
         }
-        txDirect = object : Reader<TransactionId, TransactionJson> {
-            override fun read(key: TransactionId): Mono<TransactionJson> {
-                return up.getApi(Selector.empty).flatMap { api ->
-                    api.executeAndConvert(Commands.eth().getTransaction(key))
-                            .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
+        blocksByHeightDirect = object : Reader<Long, BlockContainer> {
+            override fun read(key: Long): Mono<BlockContainer> {
+                return up.getDirectApi(Selector.empty).flatMap { api ->
+                    val request = JsonRpcRequest("eth_getBlockByNumber", listOf(HexQuantity.from(key).toHex(), false))
+                    api.read(request)
+                            .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $key")))
+                            .map(directResponseBytes)
                             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                            .map { blockbytes ->
+                                val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>
+                                BlockContainer.from(block, blockbytes)
+                            }
+                            .doOnNext { block ->
+                                caches.cache(Caches.Tag.REQUESTED, block)
+                            }
+                }
+            }
+        }
+        txDirect = object : Reader<TransactionId, TxContainer> {
+            override fun read(key: TransactionId): Mono<TxContainer> {
+                return up.getDirectApi(Selector.empty).flatMap { api ->
+                    val request = JsonRpcRequest("eth_getTransactionByHash", listOf(key.toHex()))
+                    api.read(request)
+                            .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
+                            .map(directResponseBytes)
+                            .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                            .map { txbytes ->
+                                val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
+                                TxContainer.from(tx, txbytes)
+                            }
                             .doOnNext { tx ->
-                                if (tx.blockNumber != null && tx.blockHash != null) {
-                                    caches.cache(Caches.Tag.REQUESTED, TxContainer.from(tx, objectMapper))
+                                if (tx.blockId != null) {
+                                    caches.cache(Caches.Tag.REQUESTED, tx)
                                 }
                             }
                 }
@@ -109,9 +168,19 @@ open class EthereumReader(
         }
         balanceDirect = object : Reader<Address, Wei> {
             override fun read(key: Address): Mono<Wei> {
-                return up.getApi(Selector.empty).flatMap { api ->
-                    api.executeAndConvert(Commands.eth().getBalance(key, BlockTag.LATEST))
+                return up.getDirectApi(Selector.empty).flatMap { api ->
+                    val request = JsonRpcRequest("eth_getBalance", listOf(key.toHex(), "latest"))
+                    api.read(request)
                             .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Balance not read $key")))
+                            .map(directResponseBytes)
+                            .map {
+                                val str = String(it)
+                                if (str.startsWith("\"") && str.endsWith("\"")) {
+                                    Wei.from(str.substring(1, str.length - 1))
+                                } else {
+                                    throw RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Not Wei value")
+                                }
+                            }
                             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
                             .doOnNext { value ->
                                 balanceCache.put(key, value)
@@ -121,30 +190,61 @@ open class EthereumReader(
         }
     }
 
-    fun blocksById(): Reader<BlockId, BlockJson<TransactionRefJson>> {
-        return CompoundReader(
-                TransformingReader(caches.getBlocksByHash(), extractBlock),
-                RekeyingReader(idToBlockHash, blocksDirect)
+    fun blocksByHash(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
+        return TransformingReader(
+                CompoundReader(
+                        RekeyingReader(blockHashToId, caches.getBlocksByHash()),
+                        blocksDirect
+                ),
+                extractBlock
         )
     }
 
-    fun blocksByHash(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
-        return CompoundReader(
-                RekeyingReader(
-                        blockHashToId,
-                        TransformingReader(caches.getBlocksByHash(), extractBlock)
+    fun blocksById(): Reader<BlockId, BlockJson<TransactionRefJson>> {
+        return TransformingReader(
+                CompoundReader(
+                        caches.getBlocksByHash(),
+                        RekeyingReader(idToBlockHash, blocksDirect)
                 ),
-                blocksDirect
+                extractBlock
+        )
+    }
+
+    fun blocksByHashAsCont(): Reader<BlockHash, BlockContainer> {
+        return TransformingReader(
+                blocksByHash(),
+                blockAsContainer
+        )
+    }
+
+    fun blocksByIdAsCont(): Reader<BlockId, BlockContainer> {
+        return TransformingReader(
+                blocksById(),
+                blockAsContainer
+        )
+    }
+
+    fun blocksByHeightAsCont(): Reader<Long, BlockContainer> {
+        return CompoundReader(
+                caches.getBlocksByHeight(),
+                blocksByHeightDirect
         )
     }
 
     fun txByHash(): Reader<TransactionId, TransactionJson> {
-        return CompoundReader(
-                RekeyingReader(
-                        txHashToId,
-                        TransformingReader(caches.getTxByHash(), extractTx)
+        return TransformingReader(
+                CompoundReader(
+                        RekeyingReader(txHashToId, caches.getTxByHash()),
+                        txDirect
                 ),
-                txDirect
+                extractTx
+        )
+    }
+
+    fun txByHashAsCont(): Reader<TxId, TxContainer> {
+        return CompoundReader(
+                caches.getTxByHash(),
+                RekeyingReader(idToTxHash, txDirect)
         )
     }
 

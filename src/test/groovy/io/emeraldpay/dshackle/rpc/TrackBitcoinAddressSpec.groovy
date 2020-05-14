@@ -19,12 +19,18 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.test.ReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.test.UpstreamsMock
 import io.emeraldpay.dshackle.upstream.AggregatedUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -216,24 +222,24 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Get update for a balance"() {
         setup:
 
-        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
-            2 * executeAndResult(0, "listunspent", [], List) >>> [
-                    Mono.just([]), Mono.just([[address: "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", amount: 0.0123]])
-            ]
-        }
         def blocks = TopicProcessor.create()
         Head head = Mock(Head) {
             1 * getFlux() >> Flux.from(blocks)
         }
-        Upstream upstream
-        upstream = Mock(AggregatedUpstream) {
-            _ * getApi(_) >> Mono.just(api)
+        def upstream = null
+        upstream = Mock(BitcoinChainUpstreams) {
+            _ * getReader() >> Mock(BitcoinReader) {
+                2 * listUnspent() >>> [
+                        Mono.just([]),
+                        Mono.just([[address: "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", amount: 0.0123]])
+                ]
+            }
             _ * getHead() >> head
-            _ * castApi(_) >> { return upstream }
+            _ * cast(_) >> {
+                upstream
+            }
         }
-        Upstreams upstreams = Mock(Upstreams) {
-            _ * getUpstream(Chain.BITCOIN) >> upstream
-        }
+        Upstreams upstreams = new UpstreamsMock(Chain.BITCOIN, upstream)
         TrackBitcoinAddress track = new TrackBitcoinAddress(upstreams)
 
         when:
@@ -253,7 +259,7 @@ class TrackBitcoinAddressSpec extends Specification {
         StepVerifier.create(resp)
                 .expectNext("0")
                 .then {
-                    blocks.onNext(new BlockContainer(1L, BlockId.from(hash1), BigInteger.ONE, Instant.now(), false, null, []))
+                    blocks.onNext(new BlockContainer(1L, BlockId.from(hash1), BigInteger.ONE, Instant.now(), false, null, null, []))
                 }
                 .expectNext("1230000")
                 .then {

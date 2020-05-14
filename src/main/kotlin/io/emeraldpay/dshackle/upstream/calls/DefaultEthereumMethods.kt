@@ -32,8 +32,6 @@ class DefaultEthereumMethods(
         private val chain: Chain
 ) : CallMethods {
 
-    private val jacksonRpcConverter = JacksonRpcConverter(objectMapper)
-
     private val anyResponseMethods = listOf(
             "eth_gasPrice",
             "eth_call",
@@ -90,9 +88,9 @@ class DefaultEthereumMethods(
             headVerifiedMethods.contains(method) -> NotLaggingQuorum(1)
             specialMethods.contains(method) -> {
                 when (method) {
-                    "eth_getTransactionCount" -> NonceQuorum(jacksonRpcConverter)
+                    "eth_getTransactionCount" -> NonceQuorum(objectMapper)
                     "eth_getBalance" -> NotLaggingQuorum(1)
-                    "eth_sendRawTransaction" -> BroadcastQuorum(jacksonRpcConverter)
+                    "eth_sendRawTransaction" -> BroadcastQuorum(objectMapper)
                     else -> AlwaysQuorum()
                 }
             }
@@ -108,50 +106,55 @@ class DefaultEthereumMethods(
         return hardcodedMethods.contains(method)
     }
 
-    override fun executeHardcoded(method: String): Any {
-        if ("net_version" == method) {
-            if (Chain.ETHEREUM == chain) {
-                return "1"
+    override fun executeHardcoded(method: String): ByteArray {
+        val json = when (method) {
+            "net_version" -> {
+                when {
+                    Chain.ETHEREUM == chain -> {
+                        "1"
+                    }
+                    Chain.ETHEREUM_CLASSIC == chain -> {
+                        "1"
+                    }
+                    Chain.TESTNET_MORDEN == chain -> {
+                        "2"
+                    }
+                    Chain.TESTNET_KOVAN == chain -> {
+                        "42"
+                    }
+                    else -> throw RpcException(-32602, "Invalid chain")
+                }
             }
-            if (Chain.ETHEREUM_CLASSIC == chain) {
-                return "1"
+            "net_peerCount" -> {
+                "\"0x2a\""
             }
-            if (Chain.TESTNET_MORDEN == chain) {
-                return "2"
+            "net_listening" -> {
+                "true"
             }
-            if (Chain.TESTNET_KOVAN == chain) {
-                return "42"
+            "web3_clientVersion" -> {
+                "\"EmeraldDshackle/v0.2\""
             }
-            throw RpcException(-32602, "Invalid chain")
+            "eth_protocolVersion" -> {
+                "\"0x3f\""
+            }
+            "eth_syncing" -> {
+                "false"
+            }
+            "eth_coinbase" -> {
+                "\"0x0000000000000000000000000000000000000000\""
+            }
+            "eth_mining" -> {
+                "false"
+            }
+            "eth_hashrate" -> {
+                "\"0x0\""
+            }
+            "eth_accounts" -> {
+                "[]"
+            }
+            else -> throw RpcException(-32601, "Method not found")
         }
-        if ("net_peerCount" == method) {
-            return "0x2a"
-        }
-        if ("net_listening" == method) {
-            return true
-        }
-        if ("web3_clientVersion" == method) {
-            return "EmeraldDshackle/v0.2"
-        }
-        if ("eth_protocolVersion" == method) {
-            return "0x3f"
-        }
-        if ("eth_syncing" == method) {
-            return false
-        }
-        if ("eth_coinbase" == method) {
-            return "0x0000000000000000000000000000000000000000"
-        }
-        if ("eth_mining" == method) {
-            return "false"
-        }
-        if ("eth_hashrate" == method) {
-            return "0x0"
-        }
-        if ("eth_accounts" == method) {
-            return Collections.emptyList<String>()
-        }
-        throw RpcException(-32601, "Method not found")
+        return json.toByteArray()
     }
 
     override fun getSupportedMethods(): Set<String> {

@@ -16,10 +16,12 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.reactivestreams.Publisher
 
-interface ApiSource<U : UpstreamApi> : Publisher<U> {
+interface ApiSource : Publisher<Reader<JsonRpcRequest, JsonRpcResponse>> {
 
     fun resolve()
     fun request(tries: Int)

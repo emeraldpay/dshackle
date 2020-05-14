@@ -19,11 +19,12 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
 import org.apache.commons.lang3.StringUtils
@@ -46,11 +47,11 @@ open class NativeCall(
         return requestMono.flatMapMany(this::prepareCall)
                 .map(this::setupCallParams)
                 .parallel()
-            .flatMap(this::fetch)
-            .sequential()
-            .map(this::buildResponse)
-            .doOnError { e -> log.warn("Error during native call: ${e.message}") }
-            .onErrorResume(this::processException)
+                .flatMap(this::fetch)
+                .sequential()
+                .map(this::buildResponse)
+                .doOnError { e -> log.warn("Error during native call: ${e.message}") }
+                .onErrorResume(this::processException)
     }
 
     fun setupCallParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
@@ -97,7 +98,7 @@ open class NativeCall(
         return prepareCall(request, upstream)
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream<*>): Flux<CallContext<RawCallDetails>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream): Flux<CallContext<RawCallDetails>> {
         return request.itemsList.toFlux().map {
             val method = it.method
             val params = it.payload.toStringUtf8()
@@ -115,29 +116,26 @@ open class NativeCall(
     }
 
     fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
-        return fetchFromCache(ctx)
-                .onErrorResume { t ->
-                    log.warn("Failed to read from cache", t);
-                    Mono.empty()
-                }
-                .switchIfEmpty(
-                        Mono.just(ctx).flatMap(this::executeOnRemote)
-                )
-    }
-
-    fun fetchFromCache(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
-        val cachingApi = ctx.upstream.cache
-        return cachingApi.execute(ctx.id, ctx.payload.method, ctx.payload.params).map { ctx.withPayload(it) }
+//        ctx.upstream.getRoutedApi(ctx.matcher)
+//                .flatMap { api ->
+//                    api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+//                }.switchIfEmpty(
+//                        Mono.just(ctx).flatMap(this::executeOnRemote)
+//                )
+        //TODO use routed api
+        return executeOnRemote(ctx)
     }
 
     fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
+        //TODO move to routed api
         val apis = ctx.getApis()
         apis.request(1)
         var failures = 0
         return Flux.from(apis)
                 .flatMap { api ->
                     val upstream = ctx.upstream
-                    api.execute(ctx.id, ctx.payload.method, ctx.payload.params)
+                    api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+                            .flatMap(JsonRpcResponse::requireResult)
                             // on error notify quorum, it may use error message or other details
                             .doOnError { err ->
                                 if (err is RpcException) {
@@ -204,7 +202,7 @@ open class NativeCall(
     }
 
     open class CallContext<T>(val id: Int,
-                              val upstream: AggregatedUpstream<*>,
+                              val upstream: AggregatedUpstream,
                               val matcher: Selector.Matcher,
                               val callQuorum: CallQuorum,
                               val payload: T) {
@@ -212,8 +210,8 @@ open class NativeCall(
             return CallContext(id, upstream, matcher, callQuorum, payload)
         }
 
-        fun getApis(): ApiSource<*> {
-            return upstream.getApis(matcher)
+        fun getApis(): ApiSource {
+            return upstream.getApiSource(matcher)
         }
     }
 

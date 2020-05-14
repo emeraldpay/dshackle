@@ -16,14 +16,14 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import reactor.test.StepVerifier
@@ -40,6 +40,7 @@ class FilteredApisSpec extends Specification {
 
     def "Verifies labels"() {
         setup:
+        def i = 0
         List<EthereumUpstream> upstreams = [
                 [test: "foo"],
                 [test: "bar"],
@@ -50,8 +51,8 @@ class FilteredApisSpec extends Specification {
             new EthereumUpstream(
                     "test",
                     Chain.ETHEREUM,
-                    new DirectEthereumApi(rpcClient, null, objectMapper, ethereumTargets),
-                    (EthereumWs) null,
+                    TestingCommons.api().tap { it.id = "${i++}" },
+                    (EthereumWsFactory) null,
                     new UpstreamsConfig.Options(),
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     ethereumTargets, TestingCommons.objectMapper()
@@ -143,8 +144,8 @@ class FilteredApisSpec extends Specification {
 
     def "Makes pause between batches"() {
         when:
-        def api1 = TestingCommons.api(Stub(ReactorRpcClient))
-        def api2 = TestingCommons.api(Stub(ReactorRpcClient))
+        def api1 = TestingCommons.api()
+        def api2 = TestingCommons.api()
         def up1 = TestingCommons.upstream(api1)
         def up2 = TestingCommons.upstream(api2)
         then:
@@ -153,8 +154,8 @@ class FilteredApisSpec extends Specification {
             apis.request(10)
             return apis
         })
-        .expectNext(api1, api2).as("Batch 1")
-        .expectNoEvent(Duration.ofMillis(100)).as("Wait 1")
+                .expectNext(api1, api2).as("Batch 1")
+                .expectNoEvent(Duration.ofMillis(100)).as("Wait 1")
         .expectNext(api1, api2).as("Batch 2")
         .expectNoEvent(Duration.ofMillis(400)).as("Wait 2")
         .expectNext(api1, api2).as("Batch 3")

@@ -19,20 +19,24 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import reactor.core.publisher.Mono
 
-open class AggregatedEthereumUpstreams(
+open class EthereumChainUpstream(
         chain: Chain,
         val upstreams: MutableList<EthereumUpstream>,
         caches: Caches,
-        objectMapper: ObjectMapper
-) : ChainUpstreams<EthereumApi>(chain, upstreams as MutableList<Upstream<EthereumApi>>, caches, objectMapper) {
+        private val objectMapper: ObjectMapper
+) : ChainUpstreams(chain, upstreams as MutableList<Upstream>, caches) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(AggregatedEthereumUpstreams::class.java)
+        private val log = LoggerFactory.getLogger(EthereumChainUpstream::class.java)
     }
 
     private var head: Head? = null
@@ -92,7 +96,7 @@ open class AggregatedEthereumUpstreams(
             val newHead = MergedHead(upstreams.map { it.getHead() }).apply {
                 this.start()
             }
-            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream<EthereumApi>>).apply {
+            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>).apply {
                 this.start()
             }
             this.lagObserver = lagObserver
@@ -107,18 +111,17 @@ open class AggregatedEthereumUpstreams(
     }
 
     @SuppressWarnings("unchecked")
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
+    override fun <T : Upstream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        return castApi(apiType) as T
+        return this as T
     }
 
-    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
-        if (!apiType.isAssignableFrom(EthereumApi::class.java)) {
-            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
+    override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+        return getDirectApi(matcher).map { api ->
+            NativeCallRouter(objectMapper, reader, api, getMethods())
         }
-        return this as Upstream<A>
     }
 
 }

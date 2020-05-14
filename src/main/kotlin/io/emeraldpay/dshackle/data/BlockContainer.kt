@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import org.apache.commons.codec.binary.Hex
 import java.math.BigInteger
 import java.time.Instant
 
@@ -30,12 +31,13 @@ class BlockContainer(
         val timestamp: Instant,
         val full: Boolean,
         json: ByteArray?,
+        val parsed: Any?,
         val transactions: List<TxId> = emptyList()
-) : SourceContainer(json) {
+) : SourceContainer(json, parsed) {
 
     companion object {
         @JvmStatic
-        fun from(block: BlockJson<*>, objectMapper: ObjectMapper): BlockContainer {
+        fun from(block: BlockJson<*>, raw: ByteArray): BlockContainer {
             val hasTransactions = block.transactions?.filterIsInstance<TransactionJson>()?.count() ?: 0 > 0
             return BlockContainer(
                     block.number,
@@ -43,9 +45,21 @@ class BlockContainer(
                     block.totalDifficulty,
                     block.timestamp,
                     hasTransactions,
-                    objectMapper.writeValueAsBytes(block),
+                    raw,
+                    block,
                     block.transactions?.map { TxId.from(it.hash) } ?: emptyList()
             )
+        }
+
+        @JvmStatic
+        fun from(block: BlockJson<*>, objectMapper: ObjectMapper): BlockContainer {
+            return from(block, objectMapper.writeValueAsBytes(block))
+        }
+
+        @JvmStatic
+        fun from(raw: ByteArray, objectMapper: ObjectMapper): BlockContainer {
+            val block = objectMapper.readValue(raw, BlockJson::class.java)
+            return from(block, raw)
         }
     }
 

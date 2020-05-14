@@ -19,11 +19,15 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.*
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -34,19 +38,42 @@ import kotlin.concurrent.withLock
 /**
  * Aggregation of multiple upstreams responding to a single blockchain
  */
-abstract class AggregatedUpstream<U : UpstreamApi>(
-        private val objectMapper: ObjectMapper,
+abstract class AggregatedUpstream(
         val caches: Caches
-) : Upstream<U>, Lifecycle {
+) : Upstream, Lifecycle {
 
     private var cacheSubscription: Disposable? = null
-    var cache: CachingEthereumApi = CachingEthereumApi.empty(objectMapper)
     private val reconfigLock = ReentrantLock()
     private var callMethods: CallMethods? = null
 
-    abstract fun getAll(): List<Upstream<U>>
-    abstract fun addUpstream(upstream: Upstream<U>)
-    abstract fun getApis(matcher: Selector.Matcher): ApiSource<U>
+    /**
+     * Get list of all underlying upstreams
+     */
+    abstract fun getAll(): List<Upstream>
+
+    /**
+     * Add an upstream
+     */
+    abstract fun addUpstream(upstream: Upstream)
+
+    /**
+     * Get a source for direct APIs
+     */
+    abstract fun getApiSource(matcher: Selector.Matcher): ApiSource
+
+    /**
+     * Finds an API that executed directly on a remote.
+     */
+    abstract fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>>
+
+    /**
+     * Finds an API that leverages caches and other optimizations/transformations of the request.
+     */
+    abstract fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>>
+
+    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+        throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
+    }
 
     fun onUpstreamsUpdated() {
         reconfigLock.withLock {
@@ -95,13 +122,12 @@ abstract class AggregatedUpstream<U : UpstreamApi>(
             cacheSubscription = head.getFlux().subscribe {
                 caches.cache(Caches.Tag.LATEST, it)
             }
-            cache = CachingEthereumApi(objectMapper, caches, head)
         }
     }
 
     // --------------------------------------------------------------------------------------------------------
 
-    class UpstreamStatus(val upstream: Upstream<UpstreamApi>, val status: UpstreamAvailability, val ts: Instant = Instant.now())
+    class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())
 
     class FilterBestAvailability() : Predicate<UpstreamStatus> {
         private val lastRef = AtomicReference<UpstreamStatus>()

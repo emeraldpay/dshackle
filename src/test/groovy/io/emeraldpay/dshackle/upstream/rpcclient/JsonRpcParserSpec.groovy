@@ -173,7 +173,8 @@ class JsonRpcParserSpec extends Specification {
         act.error != null
         act.error.code == -1111
         act.error.message == "test"
-        act.result == null
+        act.hasError()
+        !act.hasResult()
     }
 
 }

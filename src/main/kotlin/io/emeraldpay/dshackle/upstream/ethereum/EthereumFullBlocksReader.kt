@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.cache
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -30,20 +30,20 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 /**
- * Reads blocks with full transactions details. Based on data contained in cashes for blocks
- * and transactions, i.e. two separate caches that must be provided.
+ * Reads blocks with full transactions details. Based on data contained in readers for blocks
+ * and transactions, i.e. two separate readers that must be provided.
  *
  * If source block, with just transaction hashes is not available, it returns empty
  * If any of the expected block transactions is not available it returns empty
  */
-class EthereumBlocksWithTxCache(
+class EthereumFullBlocksReader(
         private val objectMapper: ObjectMapper,
         private val blocks: Reader<BlockId, BlockContainer>,
         private val txes: Reader<TxId, TxContainer>
 ) : Reader<BlockId, BlockContainer> {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumBlocksWithTxCache::class.java)
+        private val log = LoggerFactory.getLogger(EthereumFullBlocksReader::class.java)
     }
 
     override fun read(key: BlockId): Mono<BlockContainer> {

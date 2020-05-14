@@ -23,10 +23,8 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainUpstream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -85,12 +83,12 @@ class TrackEthereumTx(
     }
 
 
-    fun getUpstream(chain: Chain): AggregatedEthereumUpstreams {
-        return upstreams.getUpstream(chain)?.cast(AggregatedEthereumUpstreams::class.java, EthereumApi::class.java)
+    fun getUpstream(chain: Chain): EthereumChainUpstream {
+        return upstreams.getUpstream(chain)?.cast(EthereumChainUpstream::class.java)
                 ?: throw SilentException.UnsupportedBlockchain(chain)
     }
 
-    fun subscribe(base: TxDetails, up: AggregatedEthereumUpstreams): Flux<TxDetails> {
+    fun subscribe(base: TxDetails, up: EthereumChainUpstream): Flux<TxDetails> {
         var latestTx = base
 
         val untilFound = Mono.just(latestTx)
@@ -215,7 +213,7 @@ class TrackEthereumTx(
                 }
     }
 
-    fun updateFromBlock(upstream: AggregatedEthereumUpstreams, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
+    fun updateFromBlock(upstream: EthereumChainUpstream, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
         return if (blockTx.blockNumber != null && blockTx.blockHash != null && blockTx.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
                     blockHash = blockTx.blockHash,
