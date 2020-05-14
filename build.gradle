@@ -125,7 +125,7 @@ compileTestKotlin {
 
 test {
     jvmArgs '-ea'
-    testLogging.showStandardStreams = true
+    testLogging.showStandardStreams = false
     testLogging.exceptionFormat = 'full'
 }
 
@@ -198,5 +198,39 @@ task generateVersion()  {
                 "version.date=${DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneId.of('UTC')).format(Instant.now().truncatedTo(ChronoUnit.SECONDS))} UTC"
         ].join("\n")
 
+    }
+}
+
+// Show the list of failed tests and output only for them, helpful for CI
+ext.failedTests = []
+tasks.withType(Test) {
+    def stdout = new LinkedList<String>()
+    beforeTest { TestDescriptor td ->
+        stdout.clear()
+    }
+    onOutput { TestDescriptor td, TestOutputEvent toe ->
+        stdout.addAll(toe.getMessage().split('(?m)$'))
+        while (stdout.size() > 100) {
+            stdout.remove()
+        }
+    }
+    afterTest { TestDescriptor descriptor, TestResult result ->
+        if(result.resultType == org.gradle.api.tasks.testing.TestResult.ResultType.FAILURE){
+            failedTests << "${descriptor.className} > ${descriptor.name}"
+            if (!stdout.isEmpty()) {
+                println("-------- ${descriptor.className} > ${descriptor.name} OUTPUT ".padRight(120, "-"))
+                stdout.each { print(it) }
+                println("================".padRight(120, "="))
+            }
+        }
+    }
+}
+gradle.buildFinished {
+    if(!failedTests.empty){
+        println "Failed tests for ${project.name}:"
+        failedTests.each { failedTest ->
+            println failedTest
+        }
+        println ""
     }
 }
