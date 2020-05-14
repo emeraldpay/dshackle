@@ -235,6 +235,7 @@ class EthereumReaderSpec extends Specification {
             it.totalDifficulty = BigInteger.TWO
         }
         upstream.nextBlock(BlockContainer.from(block2, TestingCommons.objectMapper()))
+        Thread.sleep(50)
         act = reader.balance().read(Address.from("0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c")).block()
 
         then:
