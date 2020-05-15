@@ -16,13 +16,16 @@
  */
 package io.emeraldpay.dshackle.test
 
-import io.emeraldpay.dshackle.cache.Caches
+
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.startup.QuorumForLabels
+import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
+import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -36,12 +39,20 @@ class EthereumUpstreamMock extends EthereumUpstream {
 
     EthereumHeadMock ethereumHeadMock = new EthereumHeadMock()
 
+    static CallMethods allMethods() {
+        new AggregatedCallMethods([
+                new DefaultEthereumMethods(TestingCommons.objectMapper(), Chain.ETHEREUM),
+                new DefaultBitcoinMethods(TestingCommons.objectMapper()),
+                new DirectCallMethods(["eth_test"])
+        ])
+    }
+
     EthereumUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        this(chain, api, new DefaultEthereumMethods(TestingCommons.objectMapper(), chain))
+        this(chain, api, allMethods())
     }
 
     EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        this(id, chain, api, new DefaultEthereumMethods(TestingCommons.objectMapper(), chain))
+        this(id, chain, api, allMethods())
     }
 
     EthereumUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {

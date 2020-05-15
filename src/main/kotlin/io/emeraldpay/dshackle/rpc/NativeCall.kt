@@ -19,14 +19,17 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
+import io.infinitape.etherjar.rpc.RpcResponseError
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -116,17 +119,25 @@ open class NativeCall(
     }
 
     fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
-//        ctx.upstream.getRoutedApi(ctx.matcher)
-//                .flatMap { api ->
-//                    api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
-//                }.switchIfEmpty(
-//                        Mono.just(ctx).flatMap(this::executeOnRemote)
-//                )
-        //TODO use routed api
-        return executeOnRemote(ctx)
+        return ctx.upstream.getRoutedApi(ctx.matcher)
+                .flatMap { api ->
+                    api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+                            .flatMap(JsonRpcResponse::requireResult)
+                            .map {
+                                ctx.withPayload(it)
+                            }
+                }.switchIfEmpty(
+                        Mono.just(ctx).flatMap(this::executeOnRemote)
+                )
+                .onErrorMap {
+                    CallFailure(ctx.id, it)
+                }
     }
 
     fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
+        if (!ctx.upstream.getMethods().isAllowed(ctx.payload.method)) {
+            return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
+        }
         //TODO move to routed api
         val apis = ctx.getApis()
         apis.request(1)

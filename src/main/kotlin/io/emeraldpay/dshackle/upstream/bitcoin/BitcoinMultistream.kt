@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -74,7 +75,7 @@ open class BitcoinMultistream(
 
     override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
         //TODO
-        return getDirectApi(matcher)
+        return Mono.just(EmptyReader())
     }
 
     open fun getReader(): BitcoinReader {

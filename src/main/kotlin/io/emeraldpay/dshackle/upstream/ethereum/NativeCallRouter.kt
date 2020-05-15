@@ -32,7 +32,6 @@ import java.math.BigInteger
 class NativeCallRouter(
         private val objectMapper: ObjectMapper,
         private val reader: EthereumReader,
-        private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
         private val methods: CallMethods
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 

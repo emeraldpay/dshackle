@@ -19,11 +19,16 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.ethereum.NativeCallRouter
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcException
@@ -39,6 +44,55 @@ import java.util.concurrent.TimeoutException
 class NativeCallSpec extends Specification {
 
     def objectMapper = TestingCommons.objectMapper()
+
+    def "Tries router first"() {
+        def routedApi = Mock(Reader) {
+            1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.just(new JsonRpcResponse("1".bytes, null))
+        }
+        def upstream = Mock(Multistream) {
+            1 * getRoutedApi(_) >> Mono.just(routedApi)
+        }
+        def upstreams = Stub(MultistreamHolder)
+
+        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(
+                1, upstream, Selector.empty, new AlwaysQuorum(),
+                new NativeCall.ParsedCallDetails("eth_test", [])
+        )
+
+        when:
+        def act = nativeCall.fetch(ctx).block(Duration.ofSeconds(1))
+        then:
+        act.payload == "1".bytes
+    }
+
+    def "Return error if router denied the requests"() {
+        def routedApi = Mock(Reader) {
+            1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.error(new RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Test message"))
+        }
+        def upstream = Mock(Multistream) {
+            1 * getRoutedApi(_) >> Mono.just(routedApi)
+        }
+        def upstreams = Stub(MultistreamHolder)
+
+        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(
+                15, upstream, Selector.empty, new AlwaysQuorum(),
+                new NativeCall.ParsedCallDetails("eth_test", [])
+        )
+
+        when:
+        def act = nativeCall.fetch(ctx) //.block(Duration.ofSeconds(1))
+        then:
+        StepVerifier.create(act)
+                .expectErrorMatches { t ->
+                    t instanceof NativeCall.CallFailure &&
+                            t.id == 15 &&
+                            t.reason instanceof RpcException &&
+                            t.reason.rpcMessage == "Test message"
+                }
+                .verify(Duration.ofSeconds(1))
+    }
 
     def "Quorum is applied"() {
         setup:

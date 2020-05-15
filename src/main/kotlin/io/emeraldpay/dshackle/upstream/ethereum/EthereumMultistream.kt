@@ -119,9 +119,7 @@ open class EthereumMultistream(
     }
 
     override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        return getDirectApi(matcher).map { api ->
-            NativeCallRouter(objectMapper, reader, api, getMethods())
-        }
+        return Mono.just(NativeCallRouter(objectMapper, reader, getMethods()))
     }
 
 }

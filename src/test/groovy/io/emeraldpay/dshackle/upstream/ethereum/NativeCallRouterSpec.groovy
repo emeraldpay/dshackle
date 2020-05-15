@@ -23,7 +23,6 @@ class NativeCallRouterSpec extends Specification {
                         Caches.default(TestingCommons.objectMapper()),
                         TestingCommons.objectMapper()
                 ),
-                new EmptyReader<JsonRpcRequest, JsonRpcResponse>(),
                 methods
         )
         when:
