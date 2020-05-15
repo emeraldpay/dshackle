@@ -84,16 +84,34 @@ class AggregatedCallMethodsSpec extends Specification {
         setup:
         def delegate1 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_no_test", "foo_bar"]
-            1 * isAllowed("eth_test") >> false
-            1 * isAllowed("eth_no_test") >> true
-
             1 * isHardcoded("eth_no_test") >> false
         }
         def delegate2 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_test", "foo_bar"]
-            1 * isAllowed("eth_test") >> true
-            1 * isAllowed("eth_no_test") >> false
+            1 * isHardcoded("eth_test") >> true
+        }
+        def aggregate = new AggregatedCallMethods([delegate1, delegate2])
+        when:
+        def act = aggregate.isHardcoded("eth_test")
+        then:
+        act
 
+        when:
+        act = aggregate.isHardcoded("eth_no_test")
+        then:
+        !act
+    }
+
+    def "Can be hardcoded if not allowed"() {
+        setup:
+        def delegate1 = Mock(CallMethods) {
+            _ * getSupportedMethods() >> ["eth_no_test", "foo_bar"]
+            _ * isAllowed(_) >> false
+            1 * isHardcoded("eth_no_test") >> false
+        }
+        def delegate2 = Mock(CallMethods) {
+            _ * getSupportedMethods() >> ["eth_test", "foo_bar"]
+            _ * isAllowed(_) >> false
             1 * isHardcoded("eth_test") >> true
         }
         def aggregate = new AggregatedCallMethods([delegate1, delegate2])
@@ -112,11 +130,10 @@ class AggregatedCallMethodsSpec extends Specification {
         setup:
         def delegate1 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_no_test", "foo_bar"]
-            1 * isAllowed("eth_test") >> false
+            1 * isHardcoded("eth_test") >> false
         }
         def delegate2 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_test", "foo_bar"]
-            1 * isAllowed("eth_test") >> true
             1 * isHardcoded("eth_test") >> true
             1 * executeHardcoded("eth_test") >> "hello"
         }

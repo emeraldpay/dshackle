@@ -40,7 +40,7 @@ class AggregatedCallMethods(
      */
     override fun getQuorumFor(method: String): CallQuorum {
         return delegates.find {
-            it.isAllowed(method)
+            it.isAllowed(method) || it.isHardcoded(method)
         }?.getQuorumFor(method) ?: throw IllegalStateException("No quorum for $method")
     }
 
@@ -62,7 +62,7 @@ class AggregatedCallMethods(
      * @return true if there is at least one delegate that allows the method and it's hardcoded on that delegate
      */
     override fun isHardcoded(method: String): Boolean {
-        return delegates.any { it.isAllowed(method) && it.isHardcoded(method) }
+        return delegates.any { it.isHardcoded(method) }
     }
 
     /**
@@ -70,7 +70,7 @@ class AggregatedCallMethods(
      */
     override fun executeHardcoded(method: String): ByteArray {
         return delegates.find {
-            it.isAllowed(method) && it.isHardcoded(method)
+            it.isHardcoded(method)
         }?.executeHardcoded(method) ?: throw IllegalStateException("No hardcoded for $method")
     }
 }

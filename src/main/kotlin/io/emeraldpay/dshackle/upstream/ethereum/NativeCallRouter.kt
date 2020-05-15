@@ -47,18 +47,18 @@ class NativeCallRouter(
     )
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
-        if (!methods.isAllowed(key.method)) {
-            return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
-        }
         if (methods.isHardcoded(key.method)) {
             return Mono.just(methods.executeHardcoded(key.method))
                     .map { JsonRpcResponse(it, null) }
+        }
+        if (!methods.isAllowed(key.method)) {
+            return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
         val common = commonRequests(key)
         if (common != null) {
             return common.map { JsonRpcResponse(it, null) }
         }
-        return directApi.read(key)
+        return Mono.empty()
     }
 
     /**
