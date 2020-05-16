@@ -33,7 +33,6 @@ class JsonRpcParser() {
         val parser: JsonParser = jsonFactory.createParser(json)
         parser.nextToken()
         if (parser.currentToken != JsonToken.START_OBJECT) {
-            println("token ${parser.currentToken}")
             return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON"))
         }
         var nullResponse: JsonRpcResponse? = null

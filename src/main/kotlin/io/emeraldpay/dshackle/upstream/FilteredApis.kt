@@ -97,7 +97,6 @@ class FilteredApis(
     }
 
     override fun request(tries: Int) {
-        println("requested ${tries}")
         //TODO check the buffer size before submitting
         repeat(tries) {
             control.onNext(true)

@@ -118,8 +118,6 @@ class TrackBitcoinAddress(
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
-        println("up: ${multistreamHolder.getUpstream(chain)}")
-        println("up cast: ${multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)}")
         val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
