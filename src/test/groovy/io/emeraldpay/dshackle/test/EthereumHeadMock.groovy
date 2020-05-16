@@ -31,6 +31,7 @@ class EthereumHeadMock implements Head {
 
     void nextBlock(BlockContainer block) {
         assert block != null
+        println("New block: ${block.height} / ${block.hash}")
         latest = block
         bus.onNext(block)
     }

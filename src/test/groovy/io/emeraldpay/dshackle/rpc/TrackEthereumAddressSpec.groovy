@@ -113,6 +113,6 @@ class TrackEthereumAddressSpec extends Specification {
                 }
                 .expectNext(exp2).as("Second block")
                 .thenCancel()
-                .verify(Duration.ofSeconds(1))
+                .verify(Duration.ofSeconds(2))
     }
 }

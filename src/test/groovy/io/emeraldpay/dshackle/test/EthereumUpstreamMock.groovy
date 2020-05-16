@@ -65,6 +65,7 @@ class EthereumUpstreamMock extends EthereumUpstream {
                 methods, TestingCommons.objectMapper())
         setLag(0)
         setStatus(UpstreamAvailability.OK)
+        start()
     }
 
     void nextBlock(BlockContainer block) {
