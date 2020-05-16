@@ -68,9 +68,9 @@ class FilteredApisSpec extends Specification {
         iter.request(10)
         then:
         StepVerifier.create(iter)
-            .expectNext(upstreams[0].api)
-            .expectNext(upstreams[2].api)
-            .expectNext(upstreams[3].api)
+                .expectNext(upstreams[0])
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
             .expectComplete()
             .verify(Duration.ofSeconds(1))
 
@@ -79,9 +79,9 @@ class FilteredApisSpec extends Specification {
         iter.request(10)
         then:
         StepVerifier.create(iter)
-                .expectNext(upstreams[2].api)
-                .expectNext(upstreams[3].api)
-                .expectNext(upstreams[0].api)
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
+                .expectNext(upstreams[0])
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
 
@@ -90,12 +90,12 @@ class FilteredApisSpec extends Specification {
         iter.request(10)
         then:
         StepVerifier.create(iter)
-                .expectNext(upstreams[2].api)
-                .expectNext(upstreams[3].api)
-                .expectNext(upstreams[0].api)
-                .expectNext(upstreams[2].api)
-                .expectNext(upstreams[3].api)
-                .expectNext(upstreams[0].api)
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
+                .expectNext(upstreams[0])
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
+                .expectNext(upstreams[0])
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
@@ -154,13 +154,13 @@ class FilteredApisSpec extends Specification {
             apis.request(10)
             return apis
         })
-                .expectNext(api1, api2).as("Batch 1")
+                .expectNext(up1, up2).as("Batch 1")
                 .expectNoEvent(Duration.ofMillis(100)).as("Wait 1")
-        .expectNext(api1, api2).as("Batch 2")
-        .expectNoEvent(Duration.ofMillis(400)).as("Wait 2")
-        .expectNext(api1, api2).as("Batch 3")
-        .expectNoEvent(Duration.ofMillis(900)).as("Wait 3")
-        .expectNext(api1, api2).as("Batch 4")
+                .expectNext(up1, up2).as("Batch 2")
+                .expectNoEvent(Duration.ofMillis(400)).as("Wait 2")
+                .expectNext(up1, up2).as("Batch 3")
+                .expectNoEvent(Duration.ofMillis(900)).as("Wait 3")
+                .expectNext(up1, up2).as("Batch 4")
         .expectComplete()
         .verify(Duration.ofSeconds(10))
     }
@@ -178,7 +178,7 @@ class FilteredApisSpec extends Specification {
         act.request(10)
         then:
         StepVerifier.create(act)
-            .expectNext(apis[2], apis[3], apis[4], apis[5], apis[0], apis[1])
+                .expectNext(ups[2], ups[3], ups[4], ups[5], ups[0], ups[1])
             .expectComplete()
             .verify(Duration.ofSeconds(1))
     }

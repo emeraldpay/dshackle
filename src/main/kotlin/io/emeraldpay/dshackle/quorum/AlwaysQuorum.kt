@@ -32,6 +32,10 @@ open class AlwaysQuorum: CallQuorum {
         return resolved
     }
 
+    override fun isFailed(): Boolean {
+        return false
+    }
+
     override fun record(response: ByteArray, upstream: Upstream): Boolean {
         result = response
         resolved = true

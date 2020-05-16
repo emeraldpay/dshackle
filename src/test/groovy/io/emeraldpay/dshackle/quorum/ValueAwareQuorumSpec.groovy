@@ -89,5 +89,10 @@ class ValueAwareQuorumSpec extends Specification {
         byte[] getResult() {
             return new byte[0]
         }
+
+        @Override
+        boolean isFailed() {
+            return false
+        }
     }
 }

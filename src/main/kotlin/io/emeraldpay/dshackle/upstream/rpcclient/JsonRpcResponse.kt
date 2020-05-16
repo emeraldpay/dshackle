@@ -28,6 +28,21 @@ class JsonRpcResponse(
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
+
+        @JvmStatic
+        fun ok(value: ByteArray): JsonRpcResponse {
+            return JsonRpcResponse(value, null)
+        }
+
+        @JvmStatic
+        fun ok(value: String): JsonRpcResponse {
+            return JsonRpcResponse(value.toByteArray(), null)
+        }
+
+        @JvmStatic
+        fun error(code: Int, msg: String): JsonRpcResponse {
+            return JsonRpcResponse(null, ResponseError(code, msg))
+        }
     }
 
     fun hasResult(): Boolean {

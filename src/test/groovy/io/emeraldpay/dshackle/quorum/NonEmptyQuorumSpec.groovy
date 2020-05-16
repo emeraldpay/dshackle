@@ -1,5 +1,4 @@
 /**
- * Copyright (c) 2019 ETCDEV GmbH
  * Copyright (c) 2020 EmeraldPay, Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,87 +18,14 @@ package io.emeraldpay.dshackle.quorum
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.quorum.NonceQuorum
 import io.infinitape.etherjar.rpc.RpcException
 import spock.lang.Specification
 
-class NonceQuorumSpec extends Specification {
-
-    def objectMapper = TestingCommons.objectMapper()
-
-    def "Gets max value"() {
-        setup:
-        def q = Spy(new NonceQuorum(objectMapper, 3))
-        def upstream1 = Stub(Upstream)
-        def upstream2 = Stub(Upstream)
-        def upstream3 = Stub(Upstream)
-
-        when:
-        q.init(Stub(Head))
-        then:
-        !q.isResolved()
-
-        when:
-        q.record('"0x10"'.bytes, upstream1)
-        then:
-        !q.isResolved()
-        1 * q.recordValue(_, "0x10", _)
-
-        when:
-        q.record('"0x11"'.bytes, upstream2)
-        then:
-        !q.isResolved()
-        1 * q.recordValue(_, "0x11", _)
-
-        when:
-        q.record('"0x10"'.bytes, upstream3)
-        then:
-        1 * q.recordValue(_, "0x10", _)
-        q.isResolved()
-        objectMapper.readValue(q.result, Object) == "0x11"
-    }
-
-    def "Ignores errors"() {
-        setup:
-        def q = Spy(new NonceQuorum(objectMapper, 3))
-        def upstream1 = Stub(Upstream)
-        def upstream2 = Stub(Upstream)
-        def upstream3 = Stub(Upstream)
-
-        when:
-        q.init(Stub(Head))
-        then:
-        !q.isResolved()
-
-        when:
-        q.record(new RpcException(1, "Internal"), upstream1)
-        then:
-        !q.isResolved()
-        1 * q.recordError(_, _, _)
-
-        when:
-        q.record('"0x11"'.bytes, upstream2)
-        then:
-        !q.isResolved()
-        1 * q.recordValue(_, "0x11", _)
-
-        when:
-        q.record('"0x10"'.bytes, upstream3)
-        then:
-        1 * q.recordValue(_, "0x10", _)
-        !q.isResolved()
-
-        when:
-        q.record('"0x11"'.bytes, upstream1)
-        then:
-        1 * q.recordValue(_, "0x11", _)
-        q.isResolved()
-        objectMapper.readValue(q.result, Object) == "0x11"
-    }
+class NonEmptyQuorumSpec extends Specification {
 
     def "Fail if too many errors"() {
         setup:
-        def q = Spy(new NonceQuorum(objectMapper, 3))
+        def q = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -128,4 +54,80 @@ class NonceQuorumSpec extends Specification {
         q.isFailed()
         !q.isResolved()
     }
+
+    def "Fail first if not error"() {
+        setup:
+        def q = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def upstream1 = Stub(Upstream)
+        def upstream2 = Stub(Upstream)
+        def upstream3 = Stub(Upstream)
+
+        when:
+        q.init(Stub(Head))
+        then:
+        !q.isResolved()
+        !q.isFailed()
+
+        when:
+        q.record('"0x11"'.bytes, upstream1)
+        then:
+        q.isResolved()
+        !q.isFailed()
+    }
+
+    def "Fail second if first is error"() {
+        setup:
+        def q = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def upstream1 = Stub(Upstream)
+        def upstream2 = Stub(Upstream)
+        def upstream3 = Stub(Upstream)
+
+        when:
+        q.init(Stub(Head))
+        then:
+        !q.isResolved()
+        !q.isFailed()
+
+        when:
+        q.record(new RpcException(1, "Internal"), upstream1)
+        then:
+        !q.isFailed()
+        !q.isResolved()
+
+
+        when:
+        q.record('"0x11"'.bytes, upstream2)
+        then:
+        q.isResolved()
+        !q.isFailed()
+    }
+
+    def "Fail second if first is null"() {
+        setup:
+        def q = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def upstream1 = Stub(Upstream)
+        def upstream2 = Stub(Upstream)
+        def upstream3 = Stub(Upstream)
+
+        when:
+        q.init(Stub(Head))
+        then:
+        !q.isResolved()
+        !q.isFailed()
+
+        when:
+        q.record('null'.bytes, upstream2)
+        then:
+        !q.isFailed()
+        !q.isResolved()
+
+
+        when:
+        q.record('"0x11"'.bytes, upstream2)
+        then:
+        q.isResolved()
+        !q.isFailed()
+    }
+
+
 }

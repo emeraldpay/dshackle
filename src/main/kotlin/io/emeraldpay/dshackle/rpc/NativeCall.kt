@@ -24,6 +24,8 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -45,6 +47,8 @@ open class NativeCall(
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
+
+    var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return requestMono.flatMapMany(this::prepareCall)
@@ -138,61 +142,10 @@ open class NativeCall(
         if (!ctx.upstream.getMethods().isAllowed(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
-        //TODO move to routed api
-        val apis = ctx.getApis()
-        apis.request(1)
-        var failures = 0
-        return Flux.from(apis)
-                .flatMap { api ->
-                    val upstream = ctx.upstream
-                    api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
-                            .flatMap(JsonRpcResponse::requireResult)
-                            // on error notify quorum, it may use error message or other details
-                            .doOnError { err ->
-                                if (err is RpcException) {
-                                    ctx.callQuorum.record(err, upstream)
-                                }
-                            }
-                            .map { Tuples.of(it, upstream) }
-                }
-                .retry {
-                    failures++
-                    if (ctx.callQuorum.isResolved()) {
-                        false
-                    } else if (failures < 3) {
-                        apis.request(1)
-                        true
-                    } else {
-                        false
-                    }
-                }
-                // record all correct responses until quorum reached
-                .reduce(ctx.callQuorum, {res, a ->
-                    if (res.record(a.t1, a.t2)) {
-                        apis.resolve()
-                    } else {
-                        apis.request(1)
-                    }
-                    res
-                })
-                // if last call resulted in error it's still possible that request was resolved correctly. i.e. for BroadcastQuorum
-                .onErrorResume { err ->
-                    if (ctx.callQuorum.isResolved()) {
-                        Mono.just(ctx.callQuorum)
-                    } else {
-                        Mono.error(err)
-                    }
-                }
-                .doOnNext {
-                    if (!it.isResolved()) {
-                        log.debug("No quorum for ${ctx.payload.method} as ${ctx.callQuorum}")
-                    }
-                }
-                .filter { it.isResolved() }
+        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum)
+        return reader.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
                 .map {
-                    val result  = it.getResult()
-                            ?: throw CallFailure(ctx.id, Exception("No response from upstream for ${ctx.payload.method}"))
-                    ctx.withPayload(result)
+                    ctx.withPayload(it.value)
                 }
                 .onErrorMap {
                     log.error("Failed to make a call", it)

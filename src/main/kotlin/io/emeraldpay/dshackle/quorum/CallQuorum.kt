@@ -31,6 +31,8 @@ interface CallQuorum {
     fun init(head: Head)
 
     fun isResolved(): Boolean
+    fun isFailed(): Boolean
+
     fun record(response: ByteArray, upstream: Upstream): Boolean
     fun record(error: RpcException, upstream: Upstream)
     fun getResult(): ByteArray?

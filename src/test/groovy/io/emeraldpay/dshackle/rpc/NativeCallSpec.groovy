@@ -19,6 +19,8 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
+import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
@@ -96,126 +98,43 @@ class NativeCallSpec extends Specification {
 
     def "Quorum is applied"() {
         setup:
-        def quorum = Spy(new AlwaysQuorum())
-        def upstreams = Stub(MultistreamHolder)
-        def apiMock = TestingCommons.api()
+        def quorum = new AlwaysQuorum()
 
-        apiMock.answer("eth_test", [], "foo")
-
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
-                Selector.empty, quorum,
+        def nativeCall = new NativeCall(Stub(MultistreamHolder), TestingCommons.objectMapper())
+        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _) >> Mock(Reader) {
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, 1))
+            }
+        }
+        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
-        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
+        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
         def act = objectMapper.readValue(resp.payload, Object)
         then:
         act == "foo"
-        1 * quorum.record(_, _)
-        1 * quorum.getResult()
-    }
-
-    def "Quorum may return not first received value"() {
-        setup:
-        def quorum = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
-
-        def upstreams = Stub(MultistreamHolder)
-        def apiMock = TestingCommons.api()
-
-        apiMock.answerOnce("eth_test", [], null)
-        apiMock.answerOnce("eth_test", [], "bar")
-        apiMock.answerOnce("eth_test", [], null)
-
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
-                Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []))
-
-
-        when:
-        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
-        def act = objectMapper.readValue(resp.payload, Object)
-        then:
-        act == "bar"
-        2 * quorum.record(_, _)
-        1 * quorum.getResult()
-    }
-
-    def "Have pause between repeats"() {
-        setup:
-        def quorum = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
-
-        def upstreams = Stub(MultistreamHolder)
-        def apiMock = TestingCommons.api()
-
-        apiMock.answerOnce("eth_test", [], null)
-        apiMock.answerOnce("eth_test", [], "bar")
-
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
-                Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []))
-
-
-        when:
-        def t1 = System.currentTimeMillis()
-        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
-        def delta = System.currentTimeMillis() - t1
-        def act = objectMapper.readValue(resp.payload, Object)
-        then:
-        delta > 95 // should be 100, but sometimes gives less ???
-        act == "bar"
-    }
-
-    def "One call has no pause"() {
-        setup:
-        def quorum = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
-
-        def upstreams = Stub(MultistreamHolder)
-        ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
-        def apiMock = TestingCommons.api()
-
-        apiMock.answerOnce("eth_test", [], "bar")
-
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
-                Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []))
-
-
-        when:
-        def t1 = System.currentTimeMillis()
-        nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
-        def delta = System.currentTimeMillis() - t1
-        then:
-        delta < 50
     }
 
     def "Returns error if no quorum"() {
         setup:
-        def quorum = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def quorum = new AlwaysQuorum()
 
-        def upstreams = Stub(MultistreamHolder)
-        ReactorRpcClient rpcClient = Stub(ReactorRpcClient)
-        def apiMock = TestingCommons.api()
-
-        apiMock.answer("eth_test", [], null, 3)
-        apiMock.answerOnce("eth_test", [], "foo")
-
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock), Selector.empty, quorum,
+        def nativeCall = new NativeCall(Stub(MultistreamHolder), TestingCommons.objectMapper())
+        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _) >> Mock(Reader) {
+                1 * read(_) >> Mono.empty()
+            }
+        }
+        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
-
-        3 * quorum.record(_, _)
-        1 * quorum.getResult()
 
         when:
         def resp = nativeCall.executeOnRemote(call)
         then:
         StepVerifier.create(resp)
-            .expectErrorMatches({t -> t instanceof NativeCall.CallFailure && t.id == 1})
-            .verify(Duration.ofSeconds(1))
+                .expectErrorMatches({ t -> t instanceof NativeCall.CallFailure && t.id == 1 })
+                .verify(Duration.ofSeconds(1))
     }
 
     def "Packs call exception into response with id"() {
@@ -350,60 +269,5 @@ class NativeCallSpec extends Specification {
         then:
         1 * cacheMock.execute(10, "eth_test", []) >> Mono.just('{"result": "foo"}'.bytes)
         new String(act.block().payload) == '{"result": "foo"}'
-    }
-
-    def "Retries on error"() {
-        setup:
-        def quorum = Spy(new AlwaysQuorum())
-
-        def upstreams = Stub(MultistreamHolder)
-        def apiMock = TestingCommons.api()
-
-        apiMock.answer("eth_test", [], null, 1, new TimeoutException("test 1"))
-        apiMock.answer("eth_test", [], null, 1, new TimeoutException("test 2"))
-        apiMock.answerOnce("eth_test", [], "bar")
-
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
-                Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []))
-
-
-        when:
-        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
-        def act = objectMapper.readValue(resp.payload, Object)
-        then:
-        act == "bar"
-        1 * quorum.record(_, _)
-        1 * quorum.getResult()
-    }
-
-    def "Send raw retries 3 times"() {
-        setup:
-        def quorum = Spy(new BroadcastQuorum(TestingCommons.objectMapper(), 3))
-
-        def upstreams = Stub(MultistreamHolder)
-        def apiMock = TestingCommons.api()
-
-        apiMock.answer("eth_sendRawTransaction", ["0x1234"],
-                "0x4b66b555df9faed6f0711f2104d183736c8e2dc7434626dd2622e243f041d41b", 1)
-        apiMock.answer("eth_sendRawTransaction", ["0x1234"], null, 10,
-                new RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Transaction with the same hash was already imported"))
-//        apiMock.answer("eth_sendRawTransaction", ["0x1234"],
-//                new RpcResponseError(RpcResponseError.CODE_INVALID_REQUEST, "Transaction with the same hash was already imported"), 10)
-
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(apiMock),
-                Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_sendRawTransaction", ["0x1234"]))
-
-
-        when:
-        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(2))
-        def act = objectMapper.readValue(resp.payload, Object)
-        then:
-        act == "0x4b66b555df9faed6f0711f2104d183736c8e2dc7434626dd2622e243f041d41b"
-        1 * quorum.record(_ as byte[], _)
-        2 * quorum.record(_ as RpcException, _)
     }
 }

@@ -37,6 +37,10 @@ open class BroadcastQuorum(
         return calls >= quorum
     }
 
+    override fun isFailed(): Boolean {
+        return false
+    }
+
     override fun getResult(): ByteArray? {
         return result
     }

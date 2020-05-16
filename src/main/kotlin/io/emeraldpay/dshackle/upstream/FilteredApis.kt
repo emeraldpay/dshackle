@@ -78,7 +78,7 @@ class FilteredApis(
         return Duration.ofMillis(time)
     }
 
-    override fun subscribe(subscriber: Subscriber<in Reader<JsonRpcRequest, JsonRpcResponse>>) {
+    override fun subscribe(subscriber: Subscriber<in Upstream>) {
         val first = Flux.fromIterable(upstreams)
         val retries = (1 until repeatLimit).map { r ->
             Flux.fromIterable(upstreams).delaySubscription(waitDuration(r))
@@ -87,7 +87,6 @@ class FilteredApis(
         Flux.concat(first, retries)
                 .filter(Upstream::isAvailable)
                 .filter(matcher::matches)
-                .map { it.getApi() }
                 .zipWith(control)
                 .map { it.t1 }
                 .subscribe(subscriber)
@@ -98,6 +97,7 @@ class FilteredApis(
     }
 
     override fun request(tries: Int) {
+        println("requested ${tries}")
         //TODO check the buffer size before submitting
         repeat(tries) {
             control.onNext(true)

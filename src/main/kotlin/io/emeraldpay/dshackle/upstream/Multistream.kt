@@ -101,6 +101,7 @@ abstract class Multistream(
         val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
+                .map(Upstream::getApi)
                 .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 

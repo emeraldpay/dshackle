@@ -1,6 +1,5 @@
 /**
  * Copyright (c) 2020 EmeraldPay, Inc
- * Copyright (c) 2019 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import org.reactivestreams.Publisher
 
-interface ApiSource : Publisher<Upstream> {
+// creates instance of a Quorum based reader
+interface QuorumReaderFactory {
 
-    fun resolve()
-    fun request(tries: Int)
+    companion object {
+        fun default(): QuorumReaderFactory {
+            return Default()
+        }
+    }
 
+    fun create(apis: ApiSource, quorum: CallQuorum): Reader<JsonRpcRequest, QuorumRpcReader.Result>
+
+    class Default : QuorumReaderFactory {
+        override fun create(apis: ApiSource, quorum: CallQuorum): Reader<JsonRpcRequest, QuorumRpcReader.Result> {
+            return QuorumRpcReader(apis, quorum)
+        }
+    }
 }

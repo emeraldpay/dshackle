@@ -41,8 +41,12 @@ open class NonceQuorum(
 
     override fun isResolved(): Boolean {
         lock.withLock {
-            return receivedTimes >= tries || errors >= tries
+            return receivedTimes >= tries && !isFailed()
         }
+    }
+
+    override fun isFailed(): Boolean {
+        return errors >= tries
     }
 
     override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream) {
