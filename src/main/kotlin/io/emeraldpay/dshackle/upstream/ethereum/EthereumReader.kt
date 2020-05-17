@@ -54,7 +54,6 @@ open class EthereumReader(
         private val log = LoggerFactory.getLogger(EthereumReader::class.java)
     }
 
-    private var headListener: Disposable? = null
     private val balanceCache = CurrentBlockCache<Address, Wei>()
 
     val extractBlock = Function<BlockContainer, BlockJson<TransactionRefJson>> { block ->
@@ -252,18 +251,17 @@ open class EthereumReader(
     }
 
     override fun isRunning(): Boolean {
-        return this.headListener != null
+        //TODO should be always running?
+        return up.isRunning
     }
 
     override fun start() {
-        this.headListener = up.getHead().getFlux().subscribe {
+        val evictCaches: Runnable = Runnable {
             balanceCache.evict()
         }
+        up.getHead().onBeforeBlock(evictCaches)
     }
 
     override fun stop() {
-        val headListener = this.headListener
-        this.headListener = null
-        headListener?.dispose()
     }
 }

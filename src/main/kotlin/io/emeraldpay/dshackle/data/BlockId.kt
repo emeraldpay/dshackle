@@ -26,6 +26,11 @@ class BlockId(
 
     companion object {
         @JvmStatic
+        fun from(hash: ByteArray): BlockId {
+            return BlockId(hash)
+        }
+
+        @JvmStatic
         fun from(hash: BlockHash): BlockId {
             return BlockId(hash.bytes)
         }

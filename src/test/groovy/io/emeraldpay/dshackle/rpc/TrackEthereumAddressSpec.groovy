@@ -109,7 +109,6 @@ class TrackEthereumAddressSpec extends Specification {
                 .expectNext(exp1).as("First block")
                 .then {
                     upstreamMock.nextBlock(BlockContainer.from(block2, TestingCommons.objectMapper()))
-                    Thread.sleep(50)
                 }
                 .expectNext(exp2).as("Second block")
                 .thenCancel()

@@ -63,6 +63,10 @@ class BlockContainer(
         }
     }
 
+    override fun toString(): String {
+        return "Block $height = $hash"
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

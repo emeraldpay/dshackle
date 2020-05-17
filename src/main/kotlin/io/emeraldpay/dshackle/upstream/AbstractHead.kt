@@ -31,15 +31,24 @@ abstract class AbstractHead : Head {
 
     private val head = AtomicReference<BlockContainer>(null)
     private val stream: TopicProcessor<BlockContainer> = TopicProcessor.create()
+    private val beforeBlockHandlers = ArrayList<Runnable>()
 
     fun follow(source: Flux<BlockContainer>): Disposable {
-        return source.distinctUntilChanged {
-            it.hash
-        }.filter { block ->
-            val curr = head.get()
-            curr == null || curr.difficulty < block.difficulty
-        }
+        return source
+                .distinctUntilChanged {
+                    it.hash
+                }.filter { block ->
+                    val curr = head.get()
+                    curr == null || curr.difficulty < block.difficulty
+                }
+                .doFinally {
+                    // close internal stream if upstream is finished, otherwise it gets stuck
+                    // but technically is should never happen during normal work, only when the Head
+                    // is stopping
+                    stream.onComplete()
+                }
                 .subscribe { block ->
+                    notifyBeforeBlock()
                     val prev = head.getAndUpdate { curr ->
                         if (curr == null || curr.difficulty < block.difficulty) {
                             block
@@ -52,6 +61,20 @@ abstract class AbstractHead : Head {
                         stream.onNext(block)
                     }
                 }
+    }
+
+    fun notifyBeforeBlock() {
+        beforeBlockHandlers.forEach { handler ->
+            try {
+                handler.run()
+            } catch (t: Throwable) {
+                log.warn("Before Block handler error", t)
+            }
+        }
+    }
+
+    override fun onBeforeBlock(handler: Runnable) {
+        beforeBlockHandlers.add(handler)
     }
 
     override fun getFlux(): Flux<BlockContainer> {
