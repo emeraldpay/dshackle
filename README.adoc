@@ -7,7 +7,7 @@ endif::[]
 image:https://github.com/emeraldpay/dshackle/workflows/Tests/badge.svg["Unit Tests"]
 image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square["Docker",link="https://hub.docker.com/r/emeraldpay/dshackle"]
 image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License",link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
-image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
+image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge"]
 
 _Dshackle is an L7 Blockchain API Load Balancer._ It provides a high level aggregated API on top of several underlying upstreams.
 I.e. on top of blockchain nodes such as Bitcoind, Geth, Parity, or providers like Infura, and so on.
