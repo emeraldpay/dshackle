@@ -16,14 +16,14 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.ReactorRpcClient
 import reactor.test.StepVerifier
@@ -40,6 +40,7 @@ class FilteredApisSpec extends Specification {
 
     def "Verifies labels"() {
         setup:
+        def i = 0
         List<EthereumUpstream> upstreams = [
                 [test: "foo"],
                 [test: "bar"],
@@ -50,8 +51,8 @@ class FilteredApisSpec extends Specification {
             new EthereumUpstream(
                     "test",
                     Chain.ETHEREUM,
-                    new DirectEthereumApi(rpcClient, null, objectMapper, ethereumTargets),
-                    (EthereumWs) null,
+                    TestingCommons.api().tap { it.id = "${i++}" },
+                    (EthereumWsFactory) null,
                     new UpstreamsConfig.Options(),
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     ethereumTargets, TestingCommons.objectMapper()
@@ -67,9 +68,9 @@ class FilteredApisSpec extends Specification {
         iter.request(10)
         then:
         StepVerifier.create(iter)
-            .expectNext(upstreams[0].api)
-            .expectNext(upstreams[2].api)
-            .expectNext(upstreams[3].api)
+                .expectNext(upstreams[0])
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
             .expectComplete()
             .verify(Duration.ofSeconds(1))
 
@@ -78,9 +79,9 @@ class FilteredApisSpec extends Specification {
         iter.request(10)
         then:
         StepVerifier.create(iter)
-                .expectNext(upstreams[2].api)
-                .expectNext(upstreams[3].api)
-                .expectNext(upstreams[0].api)
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
+                .expectNext(upstreams[0])
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
 
@@ -89,12 +90,12 @@ class FilteredApisSpec extends Specification {
         iter.request(10)
         then:
         StepVerifier.create(iter)
-                .expectNext(upstreams[2].api)
-                .expectNext(upstreams[3].api)
-                .expectNext(upstreams[0].api)
-                .expectNext(upstreams[2].api)
-                .expectNext(upstreams[3].api)
-                .expectNext(upstreams[0].api)
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
+                .expectNext(upstreams[0])
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
+                .expectNext(upstreams[0])
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
@@ -143,8 +144,8 @@ class FilteredApisSpec extends Specification {
 
     def "Makes pause between batches"() {
         when:
-        def api1 = TestingCommons.api(Stub(ReactorRpcClient))
-        def api2 = TestingCommons.api(Stub(ReactorRpcClient))
+        def api1 = TestingCommons.api()
+        def api2 = TestingCommons.api()
         def up1 = TestingCommons.upstream(api1)
         def up2 = TestingCommons.upstream(api2)
         then:
@@ -153,13 +154,13 @@ class FilteredApisSpec extends Specification {
             apis.request(10)
             return apis
         })
-        .expectNext(api1, api2).as("Batch 1")
-        .expectNoEvent(Duration.ofMillis(100)).as("Wait 1")
-        .expectNext(api1, api2).as("Batch 2")
-        .expectNoEvent(Duration.ofMillis(400)).as("Wait 2")
-        .expectNext(api1, api2).as("Batch 3")
-        .expectNoEvent(Duration.ofMillis(900)).as("Wait 3")
-        .expectNext(api1, api2).as("Batch 4")
+                .expectNext(up1, up2).as("Batch 1")
+                .expectNoEvent(Duration.ofMillis(100)).as("Wait 1")
+                .expectNext(up1, up2).as("Batch 2")
+                .expectNoEvent(Duration.ofMillis(400)).as("Wait 2")
+                .expectNext(up1, up2).as("Batch 3")
+                .expectNoEvent(Duration.ofMillis(900)).as("Wait 3")
+                .expectNext(up1, up2).as("Batch 4")
         .expectComplete()
         .verify(Duration.ofSeconds(10))
     }
@@ -177,7 +178,7 @@ class FilteredApisSpec extends Specification {
         act.request(10)
         then:
         StepVerifier.create(act)
-            .expectNext(apis[2], apis[3], apis[4], apis[5], apis[0], apis[1])
+                .expectNext(ups[2], ups[3], ups[4], ups[5], ups[0], ups[1])
             .expectComplete()
             .verify(Duration.ofSeconds(1))
     }

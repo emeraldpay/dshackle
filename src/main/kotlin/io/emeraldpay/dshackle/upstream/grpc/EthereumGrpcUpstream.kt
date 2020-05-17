@@ -22,22 +22,21 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Defaults
-import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.DefaultEthereumHead
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
+import io.emeraldpay.dshackle.upstream.ethereum.*
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.*
-import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -58,16 +57,15 @@ open class EthereumGrpcUpstream(
         private val chain: Chain,
         private val blockchainStub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val objectMapper: ObjectMapper,
-        private val rpcClient: ReactorEmeraldClient
-) : DefaultUpstream<EthereumApi>(
+        private val client: JsonRpcGrpcClient
+) : DefaultUpstream(
         "$parentId/${chain.chainCode}",
         UpstreamsConfig.Options.getDefaults(),
         null
-), CachesEnabled, Lifecycle {
+), Lifecycle {
 
     private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
-    private var caches: Caches? = null
 
     private val nodes = AtomicReference<QuorumForLabels>(QuorumForLabels())
     private val head = DefaultEthereumHead()
@@ -76,16 +74,7 @@ open class EthereumGrpcUpstream(
 
     var timeout = Defaults.timeout
 
-    open fun createApi(matcher: Selector.Matcher): DirectEthereumApi {
-        val targets = this.getMethods()
-        val client = Selector.extractLabels(matcher)?.let { selector ->
-            rpcClient.copyWithSelector(selector.asProto())
-        } ?: rpcClient
-        return DirectEthereumApi(client, caches, objectMapper, targets).let {
-            it.upstream = this
-            it
-        }
-    }
+    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
 
     override fun start() {
         if (this.isRunning) return
@@ -123,6 +112,7 @@ open class EthereumGrpcUpstream(
                     BigInteger(1, value.weight.toByteArray()),
                     Instant.ofEpochMilli(value.timestamp),
                     false,
+                    null,
                     null
             )
             block
@@ -132,9 +122,11 @@ open class EthereumGrpcUpstream(
             val curr = head.getCurrent()
             curr == null || curr.difficulty < block.difficulty
         }.flatMap {
-            getApi(Selector.EmptyMatcher())
-                    .flatMap { api -> api.executeAndConvert(Commands.eth().getBlock(BlockHash(it.hash.value))) }
-                    .map { BlockContainer.from(it, objectMapper) }
+            defaultReader.read(JsonRpcRequest("eth_getBlockByHash", listOf(it.hash.toHexWithPrefix(), false)))
+                    .flatMap(JsonRpcResponse::requireResult)
+                    .map {
+                        BlockContainer.from(it, objectMapper)
+                    }
                     .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
                     .doOnError { t ->
                         setStatus(UpstreamAvailability.UNAVAILABLE)
@@ -208,26 +200,16 @@ open class EthereumGrpcUpstream(
         return head
     }
 
-    override fun getApi(matcher: Selector.Matcher): Mono<DirectEthereumApi> {
-        return Mono.just(createApi(matcher))
-    }
-
-    override fun setCaches(caches: Caches) {
-        this.caches = caches
+    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+        return defaultReader
     }
 
     @SuppressWarnings("unchecked")
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
+    override fun <T : Upstream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        return castApi(apiType) as T
+        return this as T
     }
 
-    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
-        if (!apiType.isAssignableFrom(EthereumApi::class.java)) {
-            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
-        }
-        return this as Upstream<A>
-    }
 }

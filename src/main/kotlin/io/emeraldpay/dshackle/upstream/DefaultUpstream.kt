@@ -22,13 +22,13 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.TopicProcessor
 import java.util.concurrent.atomic.AtomicReference
 
-abstract class DefaultUpstream<U : UpstreamApi>(
+abstract class DefaultUpstream(
         private val id: String,
         defaultLag: Long,
         defaultAvail: UpstreamAvailability,
         private val options: UpstreamsConfig.Options,
         private val targets: CallMethods?
-) : Upstream<U> {
+) : Upstream {
 
     constructor(id: String, options: UpstreamsConfig.Options, targets: CallMethods?) : this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, targets)
 

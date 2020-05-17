@@ -20,16 +20,16 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
+import io.infinitape.etherjar.rpc.RpcException
 import spock.lang.Specification
 
 class BroadcastQuorumSpec extends Specification {
 
-    def rpcConverted = TestingCommons.rpcConverter()
     def objectMapper = TestingCommons.objectMapper()
 
     def "Resolved with first after 3 tries"() {
         setup:
-        def q = Spy(new BroadcastQuorum(rpcConverted, 3))
+        def q = Spy(new BroadcastQuorum(objectMapper, 3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -40,28 +40,28 @@ class BroadcastQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record(objectMapper.writeValueAsBytes([result: "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"]), upstream1)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, upstream1)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _)
 
         when:
-        q.record(objectMapper.writeValueAsBytes([result: "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"]), upstream2)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, upstream2)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _)
 
         when:
-        q.record(objectMapper.writeValueAsBytes([error: [message: "Nonce too low"]]), upstream3)
+        q.record(new RpcException(1, "Nonce too low"), upstream3)
         then:
         1 * q.recordError(_, _, _)
         q.isResolved()
-        objectMapper.readValue(q.result, Map) == [result: "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"]
+        objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
     }
 
     def "Remembers first response"() {
         setup:
-        def q = Spy(new BroadcastQuorum(rpcConverted, 3))
+        def q = Spy(new BroadcastQuorum(objectMapper, 3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -72,22 +72,22 @@ class BroadcastQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record(objectMapper.writeValueAsBytes([error: [message: "Internal error"]]), upstream1)
+        q.record(new RpcException(1, "Internal error"), upstream1)
         then:
         !q.isResolved()
         1 * q.recordError(_, _, _)
 
         when:
-        q.record(objectMapper.writeValueAsBytes([result: "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"]), upstream2)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, upstream2)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _)
 
         when:
-        q.record(objectMapper.writeValueAsBytes([error: [message: "Nonce too low"]]), upstream3)
+        q.record(new RpcException(1, "Nonce too low"), upstream3)
         then:
         1 * q.recordError(_, _, _)
         q.isResolved()
-        objectMapper.readValue(q.result, Map) == [result: "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"]
+        objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
     }
 }

@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.hex.HexQuantity
@@ -25,9 +26,9 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 open class NonceQuorum(
-        jacksonRpcConverter: JacksonRpcConverter,
+        objectMapper: ObjectMapper,
         val tries: Int = 3
-): CallQuorum, ValueAwareQuorum<String>(jacksonRpcConverter, String::class.java) {
+) : CallQuorum, ValueAwareQuorum<String>(objectMapper, String::class.java) {
 
     private val lock = ReentrantLock()
     private var resultValue = 0L
@@ -40,11 +41,15 @@ open class NonceQuorum(
 
     override fun isResolved(): Boolean {
         lock.withLock {
-            return receivedTimes >= tries || errors >= tries
+            return receivedTimes >= tries && !isFailed()
         }
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream<*>) {
+    override fun isFailed(): Boolean {
+        return errors >= tries
+    }
+
+    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream) {
         val value = responseValue?.let { str ->
             HexQuantity.from(str).value.toLong()
         }
@@ -63,11 +68,7 @@ open class NonceQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream<*>) {
-        errors++
-    }
-
-    override fun record(error: RpcException, upstream: Upstream<*>) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream) {
         errors++
     }
 

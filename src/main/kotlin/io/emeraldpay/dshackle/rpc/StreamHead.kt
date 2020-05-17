@@ -21,10 +21,8 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.upstream.Upstreams
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -33,7 +31,7 @@ import reactor.core.publisher.Mono
 
 @Service
 class StreamHead(
-        @Autowired private val upstreams: Upstreams
+        @Autowired private val multistreamHolder: MultistreamHolder
 ) {
 
     private val log = LoggerFactory.getLogger(StreamHead::class.java)
@@ -42,7 +40,7 @@ class StreamHead(
         return requestMono.map { request ->
             Chain.byId(request.type.number)
         }.flatMapMany { chain ->
-            val up = upstreams.getUpstream(chain)
+            val up = multistreamHolder.getUpstream(chain)
                     ?: return@flatMapMany Flux.error<BlockchainOuterClass.ChainHead>(Exception("Unavailable chain: $chain"))
             up.getHead()
                     .getFlux()
@@ -64,7 +62,7 @@ class StreamHead(
         return BlockchainOuterClass.ChainHead.newBuilder()
                 .setChainValue(chain.id)
                 .setHeight(block.height)
-                .setTimestamp(block.timestamp!!.toEpochMilli())
+                .setTimestamp(block.timestamp.toEpochMilli())
                 .setWeight(ByteString.copyFrom(block.difficulty.toByteArray()))
                 .setBlockId(block.hash.toHex())
                 .build()

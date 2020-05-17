@@ -15,23 +15,42 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.cast
 
 open class BitcoinReader(
-        api: DirectBitcoinApi,
-        head: Head
+        private val upstreams: BitcoinMultistream,
+        head: Head,
+        private val objectMapper: ObjectMapper
 ) : Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinReader::class.java)
     }
 
-    private val mempool = CachingMempoolData(api, head)
+    private val mempool = CachingMempoolData(upstreams, head, objectMapper)
 
     open fun getMempool(): CachingMempoolData {
         return mempool
+    }
+
+    open fun getBlock(hash: String): Mono<Map<String, Any>> {
+        return castedRead(JsonRpcRequest("getblock", listOf(hash)), Map::class.java).cast()
+    }
+
+    open fun getTx(txid: String): Mono<Map<String, Any>> {
+        return castedRead(JsonRpcRequest("getrawtransaction", listOf(txid, true)), Map::class.java).cast()
+    }
+
+    open fun listUnspent(): Mono<List<String>> {
+        return castedRead(JsonRpcRequest("listunspent", emptyList()), List::class.java).cast()
     }
 
     override fun isRunning(): Boolean {
@@ -44,5 +63,15 @@ open class BitcoinReader(
 
     override fun stop() {
         mempool.stop()
+    }
+
+    fun <T> castedRead(req: JsonRpcRequest, clazz: Class<T>): Mono<T> {
+        return upstreams.getDirectApi(Selector.empty).flatMap { api ->
+            api.read(req)
+                    .flatMap(JsonRpcResponse::requireResult)
+                    .map {
+                        objectMapper.readValue(it, clazz) as T
+                    }
+        }
     }
 }

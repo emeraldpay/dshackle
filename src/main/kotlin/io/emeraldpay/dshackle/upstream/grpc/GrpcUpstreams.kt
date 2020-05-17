@@ -25,10 +25,10 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.startup.UpstreamChange
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
-import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
@@ -57,7 +57,6 @@ class GrpcUpstreams(
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
     private val known = HashMap<Chain, EthereumGrpcUpstream>()
     private val lock = ReentrantLock()
-    private var grpcTransport: ReactorEmeraldClient? = null
 
     fun start(): Flux<UpstreamChange> {
         val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
@@ -74,10 +73,6 @@ class GrpcUpstreams(
 
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
         this.client = client
-        this.grpcTransport = ReactorEmeraldClient.newBuilder()
-                .connectUsing(client.channel)
-                .objectMapper(objectMapper)
-                .build()
 
         val statusSubscription = AtomicReference<Disposable>()
 
@@ -162,7 +157,8 @@ class GrpcUpstreams(
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val created = EthereumGrpcUpstream(id, chain, client!!, objectMapper, grpcTransport!!.copyForChain(chain))
+                val rpcClient = JsonRpcGrpcClient(client!!, chain, objectMapper)
+                val created = EthereumGrpcUpstream(id, chain, client!!, objectMapper, rpcClient)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()

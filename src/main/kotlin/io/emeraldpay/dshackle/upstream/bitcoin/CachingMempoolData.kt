@@ -15,7 +15,11 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -26,8 +30,9 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 
 open class CachingMempoolData(
-        private val api: DirectBitcoinApi,
-        private val head: Head
+        private val upstreams: BitcoinMultistream,
+        private val head: Head,
+        private val objectMapper: ObjectMapper
 ) : Lifecycle {
 
     companion object {
@@ -56,7 +61,11 @@ open class CachingMempoolData(
     }
 
     fun fetchFromUpstream(): Mono<List<String>> {
-        return api.executeAndResult(0, "getrawmempool", emptyList(), List::class.java) as Mono<List<String>>
+        return upstreams.getDirectApi(Selector.empty).flatMap { api ->
+            api.read(JsonRpcRequest("getrawmempool", emptyList()))
+                    .flatMap(JsonRpcResponse::requireResult)
+                    .map { objectMapper.readValue(it, List::class.java) as List<String> }
+        }
     }
 
     class Container(val since: Instant, val value: List<String>) {

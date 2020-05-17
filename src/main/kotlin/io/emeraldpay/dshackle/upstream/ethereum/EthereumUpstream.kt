@@ -20,10 +20,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -34,15 +37,15 @@ import java.time.Duration
 open class EthereumUpstream(
         id: String,
         val chain: Chain,
-        private val api: DirectEthereumApi,
-        private val ethereumWs: EthereumWs? = null,
+        private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
+        private val ethereumWsFactory: EthereumWsFactory? = null,
         options: UpstreamsConfig.Options,
         val node: QuorumForLabels.QuorumItem,
         targets: CallMethods,
         private val objectMapper: ObjectMapper
-) : DefaultUpstream<EthereumApi>(id, options, targets), Upstream<EthereumApi>, CachesEnabled, Lifecycle {
+) : DefaultUpstream(id, options, targets), Upstream, CachesEnabled, Lifecycle {
 
-    constructor(id: String, chain: Chain, api: DirectEthereumApi, objectMapper: ObjectMapper) : this(id, chain, api, null,
+    constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>, objectMapper: ObjectMapper) : this(id, chain, api, null,
             UpstreamsConfig.Options.getDefaults(), QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
             DirectCallMethods(), objectMapper)
 
@@ -52,12 +55,7 @@ open class EthereumUpstream(
     private val head: Head = this.createHead()
     private var validatorSubscription: Disposable? = null
 
-    init {
-        api.upstream = this
-    }
-
     override fun setCaches(caches: Caches) {
-        api.caches = caches;
         if (head is CachesEnabled) {
             head.setCaches(caches)
         }
@@ -70,7 +68,7 @@ open class EthereumUpstream(
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)
         } else {
-            val validator = EthereumUpstreamValidator(this, getOptions())
+            val validator = EthereumUpstreamValidator(this, getOptions(), objectMapper)
             validatorSubscription = validator.start()
                     .subscribe(this::setStatus)
         }
@@ -89,21 +87,24 @@ open class EthereumUpstream(
     }
 
     open fun createHead(): Head {
-        return if (ethereumWs != null) {
-            val ws = EthereumWsHead(ethereumWs).apply {
-                this.start()
+        return if (ethereumWsFactory != null) {
+            val ws = ethereumWsFactory.create(this).apply {
+                connect()
             }
-            // receive bew blocks through Websockets, but periodically verify with RPC
-            val rpc = EthereumRpcHead(api, objectMapper, Duration.ofSeconds(30)).apply {
-                this.start()
+            val wsHead = EthereumWsHead(ws).apply {
+                start()
             }
-            MergedHead(listOf(rpc, ws)).apply {
-                this.start()
+            // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
+            val rpcHead = EthereumRpcHead(getApi(), objectMapper, Duration.ofSeconds(60)).apply {
+                start()
+            }
+            MergedHead(listOf(rpcHead, wsHead)).apply {
+                start()
             }
         } else {
             log.warn("Setting up upstream ${this.getId()} with RPC-only access, less effective than WS+RPC")
-            EthereumRpcHead(api, objectMapper).apply {
-                this.start()
+            EthereumRpcHead(getApi(), objectMapper).apply {
+                start()
             }
         }
     }
@@ -112,8 +113,8 @@ open class EthereumUpstream(
         return head
     }
 
-    override fun getApi(matcher: Selector.Matcher): Mono<DirectEthereumApi> {
-        return Mono.just(api)
+    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+        return directReader
     }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
@@ -121,18 +122,11 @@ open class EthereumUpstream(
     }
 
     @Suppress("unchecked")
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
+    override fun <T : Upstream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        return castApi(apiType) as T
-    }
-
-    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
-        if (!apiType.isAssignableFrom(EthereumApi::class.java)) {
-            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
-        }
-        return this as Upstream<A>
+        return this as T
     }
 
 }

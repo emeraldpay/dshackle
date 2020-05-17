@@ -19,19 +19,20 @@ package io.emeraldpay.dshackle.startup
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.upstream.CurrentUpstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcClient
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWs
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.http.ReactorHttpRpcClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
@@ -44,9 +45,10 @@ import kotlin.collections.HashMap
 @Repository
 open class ConfiguredUpstreams(
         @Autowired private val objectMapper: ObjectMapper,
-        @Autowired private val currentUpstreams: CurrentUpstreams,
+        @Autowired private val currentUpstreams: CurrentMultistreamHolder,
         @Autowired private val fileResolver: FileResolver,
-        @Autowired private val config: UpstreamsConfig
+        @Autowired private val config: UpstreamsConfig,
+        @Autowired private val cachesFactory: CachesFactory
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -134,80 +136,61 @@ open class ConfiguredUpstreams(
                                      options: UpstreamsConfig.Options) {
 
         val conn = config.connection!!
-        var rpcApi: DirectBitcoinApi? = null
+        val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
+        if (directApi == null) {
+            log.warn("Upstream doesn't have API configuration")
+            return
+        }
+
         val methods = buildMethods(config, chain)
-        conn.rpc?.let { endpoint ->
-            val rpcClient = BitcoinRpcClient(endpoint.url.toString(), endpoint.basicAuth!!)
-            rpcApi = DirectBitcoinApi(rpcClient, objectMapper, methods)
-        }
-        rpcApi?.let { api ->
-            val upstream = BitcoinUpstream(config.id
-                    ?: "bitcoin-${seq.getAndIncrement()}", chain, api,
-                    options, QuorumForLabels.QuorumItem(1, config.labels),
-                    objectMapper, methods)
+        val upstream = BitcoinUpstream(config.id
+                ?: "bitcoin-${seq.getAndIncrement()}", chain, directApi,
+                options, QuorumForLabels.QuorumItem(1, config.labels),
+                objectMapper, methods)
 
-            upstream.start()
-            currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
-        }
-
+        upstream.start()
+        currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
     }
 
     private fun buildEthereumUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
                                       chain: Chain,
                                       options: UpstreamsConfig.Options) {
         val conn = config.connection!!
-        var rpcApi: DirectEthereumApi? = null
+        val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
+        if (directApi == null) {
+            log.warn("Upstream doesn't have API configuration")
+            return
+        }
+
         val urls = ArrayList<URI>()
         val methods = buildMethods(config, chain)
         conn.rpc?.let { endpoint ->
-            val rpcClient = ReactorHttpRpcClient.newBuilder()
-                    .connectTo(endpoint.url)
-                    .alwaysSeparate()
-            conn.rpc?.basicAuth?.let { auth ->
-                rpcClient.basicAuth(auth.username, auth.password)
-            }
-            conn.rpc?.tls?.let { tls ->
-                tls.ca?.let { ca ->
-                    fileResolver.resolve(ca).inputStream().use { cert -> rpcClient.trustedCertificate(cert) }
-                }
-            }
-            rpcApi = DirectEthereumApi(
-                    rpcClient.build(),
-                    null,
-                    objectMapper,
-                    methods
-            ).apply {
-                timeout = options.timeout
-            }
-
             urls.add(endpoint.url)
         }
-        if (rpcApi != null) {
-            val wsApi: EthereumWs? = conn.ws?.let { endpoint ->
-                val wsApi = EthereumWs(
-                        endpoint.url,
-                        endpoint.origin ?: URI("http://localhost"),
-                        rpcApi!!,
-                        objectMapper
-                )
-                endpoint.basicAuth?.let { auth ->
-                    wsApi.basicAuth = auth
-                }
-                wsApi.connect()
-                urls.add(endpoint.url)
-                wsApi
-            }
 
-            log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-            val ethereumUpstream = EthereumUpstream(
-                    config.id!!,
-                    chain, rpcApi!!, wsApi, options,
-                    QuorumForLabels.QuorumItem(1, config.labels),
-                    methods,
-                    objectMapper)
-            ethereumUpstream.start()
-            currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
+        val wsFactoryApi: EthereumWsFactory? = conn.ws?.let { endpoint ->
+            val wsApi = EthereumWsFactory(
+                    endpoint.url,
+                    endpoint.origin ?: URI("http://localhost"),
+                    objectMapper
+            )
+            endpoint.basicAuth?.let { auth ->
+                wsApi.basicAuth = auth
+            }
+            urls.add(endpoint.url)
+            wsApi
         }
+
+        log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
+        val ethereumUpstream = EthereumUpstream(
+                config.id!!,
+                chain, directApi, wsFactoryApi, options,
+                QuorumForLabels.QuorumItem(1, config.labels),
+                methods,
+                objectMapper
+        )
+        ethereumUpstream.start()
+        currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
     }
 
     private fun buildGrpcUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>, options: UpstreamsConfig.Options) {
@@ -230,5 +213,22 @@ open class ConfiguredUpstreams(
                 .subscribe(currentUpstreams::update)
     }
 
-
+    private fun buildHttpClient(config: UpstreamsConfig.Upstream<out UpstreamsConfig.RpcConnection>): JsonRpcHttpClient? {
+        val conn = config.connection!!
+        val urls = ArrayList<URI>()
+        return conn.rpc?.let { endpoint ->
+            val tls = conn.rpc?.tls?.let { tls ->
+                tls.ca?.let { ca ->
+                    fileResolver.resolve(ca).readBytes()
+                }
+            }
+            urls.add(endpoint.url)
+            JsonRpcHttpClient(
+                    endpoint.url.toString(),
+                    objectMapper,
+                    conn.rpc?.basicAuth,
+                    tls
+            )
+        }
+    }
 }

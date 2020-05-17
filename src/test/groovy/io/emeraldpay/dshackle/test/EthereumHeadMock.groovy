@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
+import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -28,9 +29,14 @@ class EthereumHeadMock implements Head {
     private TopicProcessor<BlockContainer> bus = TopicProcessor.create()
     private Publisher<BlockContainer> predefined = null
     private BlockContainer latest
+    private List<Runnable> handlers = []
 
     void nextBlock(BlockContainer block) {
+        handlers.forEach {
+            it.run()
+        }
         assert block != null
+        println("New block: ${block.height} / ${block.hash}")
         latest = block
         bus.onNext(block)
     }
@@ -50,5 +56,10 @@ class EthereumHeadMock implements Head {
         } else {
             return Flux.concat(Mono.justOrEmpty(latest), bus).distinctUntilChanged()
         }
+    }
+
+    @Override
+    void onBeforeBlock(@NotNull Runnable handler) {
+        handlers.add(handler)
     }
 }

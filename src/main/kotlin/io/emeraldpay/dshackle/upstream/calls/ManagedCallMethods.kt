@@ -55,7 +55,7 @@ class ManagedCallMethods(
         return delegate.isHardcoded(method)
     }
 
-    override fun executeHardcoded(method: String): Any {
+    override fun executeHardcoded(method: String): ByteArray {
         return delegate.executeHardcoded(method)
     }
 }

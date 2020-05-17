@@ -23,15 +23,13 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.test.UpstreamsMock
+import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
@@ -98,9 +96,9 @@ class TrackEthereumTxSpec extends Specification {
                         .setTimestamp(blockJson.timestamp.toEpochMilli())
             ).build()
 
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
@@ -118,10 +116,10 @@ class TrackEthereumTxSpec extends Specification {
 
     def "Wait for unknown transaction"() {
         setup:
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
-        ((AggregatedEthereumUpstreams) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
+        ((EthereumMultistream) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
             _ * getFlux() >> Flux.empty()
         }
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
@@ -133,7 +131,7 @@ class TrackEthereumTxSpec extends Specification {
         when:
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def act = StepVerifier.withVirtualTime(
-                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM).castApi(EthereumApi.class)) },
+                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM).cast(EthereumMultistream)) },
                 { scheduler },
                 5)
 
@@ -168,9 +166,9 @@ class TrackEthereumTxSpec extends Specification {
             it
         }
 
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
         def scheduler = VirtualTimeScheduler.create(true)
         trackTx.scheduler = scheduler
@@ -193,14 +191,14 @@ class TrackEthereumTxSpec extends Specification {
 
     def "New block makes tx mined"() {
         setup:
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
-                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes,
+                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null,
                 [TxId.from(txId)]
         )
 
@@ -215,14 +213,14 @@ class TrackEthereumTxSpec extends Specification {
 
     def "New block without current tx requires a call"() {
         setup:
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
-                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes,
+                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null,
                 [TxId.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")]
         )
         apiMock.answer("eth_getTransactionByHash", [txId], null)
@@ -288,9 +286,9 @@ class TrackEthereumTxSpec extends Specification {
                 )
 
 
-        def apiMock = TestingCommons.api(Stub(ReactorRpcClient))
+        def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        Upstreams upstreams = new UpstreamsMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
 
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)

@@ -59,7 +59,10 @@ class TxRedisCache(
     fun toProto(value: TxContainer): ByteArray {
         val meta = CachesProto.TxMeta.newBuilder()
                 .setHash(ByteString.copyFrom(value.hash.value))
-                .setHeight(value.height)
+
+        value.height?.let {
+            meta.setHeight(it)
+        }
 
         value.blockId?.value?.let {
             meta.setBlockHash(ByteString.copyFrom(it))

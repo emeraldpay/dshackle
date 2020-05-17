@@ -15,7 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -26,8 +29,8 @@ class BitcoinRpcHeadSpec extends Specification {
 
     def "Follow 2 blocks created over 3 requests"() {
         setup:
-        String hash1 = "0000000000000000000cf5a5d4dfc4347c0c1a863ec5fdb429b02b2162e50001"
-        String hash2 = "0000000000000000000cf5a5d4dfc4347c0c1a863ec5fdb429b02b2162e50002"
+        String hash1 = "1000000000000000000cf5a5d4dfc4347c0c1a863ec5fdb429b02b2162e50001"
+        String hash2 = "2000000000000000000cf5a5d4dfc4347c0c1a863ec5fdb429b02b2162e50002"
 
         def block1 = """
             {
@@ -74,12 +77,14 @@ class BitcoinRpcHeadSpec extends Specification {
             }        
         """
 
-        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
-            _ * executeAndResult(_, "getbestblockhash", _, String) >>> [
-                    Mono.just(hash1), Mono.just(hash1), Mono.just(hash2)
+        def api = Mock(Reader) {
+            _ * read(new JsonRpcRequest("getbestblockhash", [])) >>> [
+                    Mono.just(new JsonRpcResponse("\"$hash1\"".bytes, null)),
+                    Mono.just(new JsonRpcResponse("\"$hash1\"".bytes, null)),
+                    Mono.just(new JsonRpcResponse("\"$hash2\"".bytes, null))
             ]
-            _ * execute(_, "getblock", [hash1]) >> Mono.just(block1.bytes)
-            _ * execute(_, "getblock", [hash2]) >> Mono.just(block2.bytes)
+            _ * read(new JsonRpcRequest("getblock", [hash1])) >> Mono.just(new JsonRpcResponse(block1.bytes, null))
+            _ * read(new JsonRpcRequest("getblock", [hash2])) >> Mono.just(new JsonRpcResponse(block2.bytes, null))
         }
         BitcoinRpcHead head = new BitcoinRpcHead(api, new ExtractBlock(TestingCommons.objectMapper()), Duration.ofMillis(200))
 

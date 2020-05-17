@@ -19,11 +19,10 @@ package io.emeraldpay.dshackle.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.DirectEthereumApi
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.grpc.stub.StreamObserver
-import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.jetbrains.annotations.NotNull
@@ -31,16 +30,18 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
+import java.time.Duration
 import java.util.concurrent.Callable
 
-class EthereumApiMock extends DirectEthereumApi {
+class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
     private static final Logger log = LoggerFactory.getLogger(this)
     List<PredefinedResponse> predefined = []
     private ObjectMapper objectMapper
 
-    EthereumApiMock(@NotNull ReactorRpcClient rpcClient, @NotNull ObjectMapper objectMapper, @NotNull Chain chain) {
-        super(rpcClient, null, objectMapper, new DirectCallMethods())
+    String id = "default"
+
+    EthereumApiMock(@NotNull ObjectMapper objectMapper) {
         this.objectMapper = objectMapper
     }
 
@@ -55,10 +56,11 @@ class EthereumApiMock extends DirectEthereumApi {
     }
 
     @Override
-    Mono<byte[]> execute(int id, @NotNull String method, @NotNull List<?> params) {
-        Callable<byte[]> call = {
-            def predefined = predefined.find { it.isSame(id, method, params) }
-            ResponseJson json = new ResponseJson<Object, Integer>(id: id)
+    Mono<JsonRpcResponse> read(JsonRpcRequest request) {
+        Callable<JsonRpcResponse> call = {
+            def predefined = predefined.find { it.isSame(request.method, request.params) }
+            byte[] result = null
+            JsonRpcResponse.ResponseError error = null
             if (predefined != null) {
                 if (predefined.exception != null) {
                     predefined.onCalled()
@@ -66,32 +68,37 @@ class EthereumApiMock extends DirectEthereumApi {
                     throw predefined.exception
                 }
                 if (predefined.result instanceof RpcResponseError) {
-                    json.error = predefined.result
+                    ((RpcResponseError) predefined.result).with { err ->
+                        error = new JsonRpcResponse.ResponseError(err.code, err.message)
+                    }
                 } else {
-                    json.result = predefined.result
+//                    ResponseJson json = new ResponseJson<Object, Integer>(id: 1, result: predefined.result)
+                    result = objectMapper.writeValueAsBytes(predefined.result)
                 }
                 predefined.onCalled()
                 predefined.print()
             } else {
-                log.error("Method ${method} with ${params} is not mocked")
-                json.error = new RpcResponseError(-32601, "Method ${method} with ${params} is not mocked")
+                log.error("Method ${request.method} with ${request.params} is not mocked")
+                error = new JsonRpcResponse.ResponseError(-32601, "Method ${request.method} with ${request.params} is not mocked")
             }
-            byte[] result = objectMapper.writeValueAsBytes(json)
-            return result
-        } as Callable<byte[]>
+            return new JsonRpcResponse(result, error)
+        } as Callable<JsonRpcResponse>
         return Mono.fromCallable(call)
     }
 
     def nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {
         request.itemsList.forEach { req ->
-            def resp = execute(req.id, req.method, objectMapper.readerFor(List).readValue(req.payload.toByteArray()))
-            resp.subscribe {
-                def proto = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(req.id)
-                        .setSucceed(true)
-                        .setPayload(ByteString.copyFrom(resp.block()))
-                responseObserver.onNext(proto.build())
+            JsonRpcResponse resp = read(new JsonRpcRequest(req.method, objectMapper.readerFor(List).readValue(req.payload.toByteArray())))
+                    .block(Duration.ofSeconds(5))
+            def proto = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
+                    .setId(req.id)
+                    .setSucceed(resp.hasResult())
+                    .setPayload(ByteString.copyFrom(resp.getResult()))
+
+            resp.error?.with { err ->
+                proto.setErrorMessage(err.message)
             }
+            responseObserver.onNext(proto.build())
         }
         responseObserver.onCompleted()
     }
@@ -103,7 +110,7 @@ class EthereumApiMock extends DirectEthereumApi {
         Integer limit
         Throwable exception
 
-        boolean isSame(int id, String method, List<?> params) {
+        boolean isSame(String method, List<?> params) {
             if (limit != null) {
                 if (limit <= 0) {
                     return false

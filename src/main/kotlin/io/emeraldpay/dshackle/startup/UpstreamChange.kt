@@ -32,7 +32,7 @@ class UpstreamChange(
         /**
          * Corresponding upstream
          */
-        val upstream: Upstream<*>,
+        val upstream: Upstream,
         /**
          * Type of the change
          */

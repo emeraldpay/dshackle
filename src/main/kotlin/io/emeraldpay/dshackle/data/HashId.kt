@@ -40,6 +40,10 @@ open class HashId(
         return String(hex)
     }
 
+    fun toHexWithPrefix(): String {
+        return "0x" + toHex()
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is HashId) return false

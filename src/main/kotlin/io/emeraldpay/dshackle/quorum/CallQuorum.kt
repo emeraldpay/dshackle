@@ -31,8 +31,10 @@ interface CallQuorum {
     fun init(head: Head)
 
     fun isResolved(): Boolean
-    fun record(response: ByteArray, upstream: Upstream<*>): Boolean
-    fun record(error: RpcException, upstream: Upstream<*>)
+    fun isFailed(): Boolean
+
+    fun record(response: ByteArray, upstream: Upstream): Boolean
+    fun record(error: RpcException, upstream: Upstream)
     fun getResult(): ByteArray?
 
     companion object {
@@ -42,8 +44,8 @@ interface CallQuorum {
             }
         }
 
-        fun asReducer(): BiFunction<CallQuorum, Tuple2<ByteArray, Upstream<*>>, CallQuorum> {
-            return BiFunction<CallQuorum, Tuple2<ByteArray, Upstream<*>>, CallQuorum> { a, b ->
+        fun asReducer(): BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> {
+            return BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> { a, b ->
                 a.record(b.t1, b.t2)
                 return@BiFunction a
             }

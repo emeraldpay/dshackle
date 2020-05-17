@@ -28,9 +28,9 @@ import reactor.util.function.Tuples
  * Observer group of upstreams and defined a distance in blocks (lag) between a leader (best height/difficulty) and
  * other upstreams.
  */
-abstract class HeadLagObserver<A : UpstreamApi>(
+abstract class HeadLagObserver(
         private val master: Head,
-        private val followers: Collection<Upstream<A>>
+        private val followers: Collection<Upstream>
 ) : Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
@@ -58,7 +58,7 @@ abstract class HeadLagObserver<A : UpstreamApi>(
                 }
     }
 
-    fun probeFollowers(top: BlockContainer): Flux<Tuple2<Long, Upstream<A>>> {
+    fun probeFollowers(top: BlockContainer): Flux<Tuple2<Long, Upstream>> {
         return Flux.fromIterable(followers)
                 .parallel(followers.size)
                 .flatMap { mapLagging(top, it, getCurrentBlocks(it)) }
@@ -66,9 +66,9 @@ abstract class HeadLagObserver<A : UpstreamApi>(
                 .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
     }
 
-    abstract fun getCurrentBlocks(up: Upstream<A>): Flux<BlockContainer>
+    abstract fun getCurrentBlocks(up: Upstream): Flux<BlockContainer>
 
-    fun mapLagging(top: BlockContainer, up: Upstream<A>, blocks: Flux<BlockContainer>): Flux<Tuple2<Long, Upstream<A>>> {
+    fun mapLagging(top: BlockContainer, up: Upstream, blocks: Flux<BlockContainer>): Flux<Tuple2<Long, Upstream>> {
         return blocks
                 .map { extractDistance(top, it) }
                 .takeUntil { lag -> lag <= 0L }

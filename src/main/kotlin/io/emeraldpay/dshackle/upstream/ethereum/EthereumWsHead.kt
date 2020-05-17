@@ -16,15 +16,13 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.cache.CachesEnabled
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 
 class EthereumWsHead(
-        private val ws: EthereumWs
-): DefaultEthereumHead(), Lifecycle, CachesEnabled {
+        private val ws: EthereumWsFactory.EthereumWs
+) : DefaultEthereumHead(), Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 
@@ -41,10 +39,6 @@ class EthereumWsHead(
     override fun stop() {
         subscription?.dispose()
         subscription = null
-    }
-
-    override fun setCaches(caches: Caches) {
-        ws.setCaches(caches)
     }
 
 }

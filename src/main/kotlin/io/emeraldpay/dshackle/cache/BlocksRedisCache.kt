@@ -93,6 +93,7 @@ class BlocksRedisCache(
                 Instant.ofEpochMilli(meta.timestamp),
                 false,
                 value.value.toByteArray(),
+                null,
                 meta.txHashesList.map {
                     TxId(it.toByteArray())
                 }

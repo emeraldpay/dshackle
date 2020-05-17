@@ -24,8 +24,14 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.quorum.QuorumRpcReader
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
+import io.infinitape.etherjar.rpc.RpcResponseError
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,21 +42,23 @@ import java.lang.Exception
 
 @Service
 open class NativeCall(
-        @Autowired private val upstreams: Upstreams,
+        @Autowired private val multistreamHolder: MultistreamHolder,
         @Autowired private val objectMapper: ObjectMapper
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
 
+    var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
+
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return requestMono.flatMapMany(this::prepareCall)
                 .map(this::setupCallParams)
                 .parallel()
-            .flatMap(this::fetch)
-            .sequential()
-            .map(this::buildResponse)
-            .doOnError { e -> log.warn("Error during native call: ${e.message}") }
-            .onErrorResume(this::processException)
+                .flatMap(this::fetch)
+                .sequential()
+                .map(this::buildResponse)
+                .doOnError { e -> log.warn("Error during native call: ${e.message}") }
+                .onErrorResume(this::processException)
     }
 
     fun setupCallParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
@@ -87,17 +95,17 @@ open class NativeCall(
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
         }
 
-        if (!upstreams.isAvailable(chain)) {
+        if (!multistreamHolder.isAvailable(chain)) {
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
         }
 
-        val upstream = upstreams.getUpstream(chain)
+        val upstream = multistreamHolder.getUpstream(chain)
                 ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
         return prepareCall(request, upstream)
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: AggregatedUpstream<*>): Flux<CallContext<RawCallDetails>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: Multistream): Flux<CallContext<RawCallDetails>> {
         return request.itemsList.toFlux().map {
             val method = it.method
             val params = it.payload.toStringUtf8()
@@ -115,75 +123,29 @@ open class NativeCall(
     }
 
     fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
-        return fetchFromCache(ctx)
-                .onErrorResume { t ->
-                    log.warn("Failed to read from cache", t);
-                    Mono.empty()
-                }
-                .switchIfEmpty(
+        return ctx.upstream.getRoutedApi(ctx.matcher)
+                .flatMap { api ->
+                    api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+                            .flatMap(JsonRpcResponse::requireResult)
+                            .map {
+                                ctx.withPayload(it)
+                            }
+                }.switchIfEmpty(
                         Mono.just(ctx).flatMap(this::executeOnRemote)
                 )
-    }
-
-    fun fetchFromCache(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
-        val cachingApi = ctx.upstream.cache
-        return cachingApi.execute(ctx.id, ctx.payload.method, ctx.payload.params).map { ctx.withPayload(it) }
+                .onErrorMap {
+                    CallFailure(ctx.id, it)
+                }
     }
 
     fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
-        val apis = ctx.getApis()
-        apis.request(1)
-        var failures = 0
-        return Flux.from(apis)
-                .flatMap { api ->
-                    val upstream = ctx.upstream
-                    api.execute(ctx.id, ctx.payload.method, ctx.payload.params)
-                            // on error notify quorum, it may use error message or other details
-                            .doOnError { err ->
-                                if (err is RpcException) {
-                                    ctx.callQuorum.record(err, upstream)
-                                }
-                            }
-                            .map { Tuples.of(it, upstream) }
-                }
-                .retry {
-                    failures++
-                    if (ctx.callQuorum.isResolved()) {
-                        false
-                    } else if (failures < 3) {
-                        apis.request(1)
-                        true
-                    } else {
-                        false
-                    }
-                }
-                // record all correct responses until quorum reached
-                .reduce(ctx.callQuorum, {res, a ->
-                    if (res.record(a.t1, a.t2)) {
-                        apis.resolve()
-                    } else {
-                        apis.request(1)
-                    }
-                    res
-                })
-                // if last call resulted in error it's still possible that request was resolved correctly. i.e. for BroadcastQuorum
-                .onErrorResume { err ->
-                    if (ctx.callQuorum.isResolved()) {
-                        Mono.just(ctx.callQuorum)
-                    } else {
-                        Mono.error(err)
-                    }
-                }
-                .doOnNext {
-                    if (!it.isResolved()) {
-                        log.debug("No quorum for ${ctx.payload.method} as ${ctx.callQuorum}")
-                    }
-                }
-                .filter { it.isResolved() }
+        if (!ctx.upstream.getMethods().isAllowed(ctx.payload.method)) {
+            return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
+        }
+        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum)
+        return reader.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
                 .map {
-                    val result  = it.getResult()
-                            ?: throw CallFailure(ctx.id, Exception("No response from upstream for ${ctx.payload.method}"))
-                    ctx.withPayload(result)
+                    ctx.withPayload(it.value)
                 }
                 .onErrorMap {
                     log.error("Failed to make a call", it)
@@ -204,7 +166,7 @@ open class NativeCall(
     }
 
     open class CallContext<T>(val id: Int,
-                              val upstream: AggregatedUpstream<*>,
+                              val upstream: Multistream,
                               val matcher: Selector.Matcher,
                               val callQuorum: CallQuorum,
                               val payload: T) {
@@ -212,8 +174,8 @@ open class NativeCall(
             return CallContext(id, upstream, matcher, callQuorum, payload)
         }
 
-        fun getApis(): ApiSource<*> {
-            return upstream.getApis(matcher)
+        fun getApis(): ApiSource {
+            return upstream.getApiSource(matcher)
         }
     }
 

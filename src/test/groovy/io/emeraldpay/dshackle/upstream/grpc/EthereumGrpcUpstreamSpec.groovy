@@ -25,11 +25,10 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.ReactorRpcClient
-import io.infinitape.etherjar.rpc.emerald.ReactorEmeraldClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import spock.lang.Specification
 
@@ -46,7 +45,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         setup:
         def callData = [:]
         def chain = Chain.ETHEREUM
-        def api = TestingCommons.api(Stub(ReactorRpcClient))
+        def api = TestingCommons.api()
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -73,8 +72,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
-        def upstream = new EthereumGrpcUpstream("test", chain, client, objectMapper, transport)
+        def upstream = new EthereumGrpcUpstream("test", chain, client, objectMapper, new JsonRpcGrpcClient(client, chain, objectMapper))
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -90,7 +88,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
 
     def "Follows difficulty, ignores less difficult"() {
         setup:
-        def api = TestingCommons.api(Stub(ReactorRpcClient))
+        def api = TestingCommons.api()
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -131,8 +129,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
-        def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, objectMapper, transport)
+        def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, objectMapper, new JsonRpcGrpcClient(client, Chain.ETHEREUM, objectMapper))
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -151,7 +148,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         def callData = [:]
         def finished = new CompletableFuture<Boolean>()
         def chain = Chain.ETHEREUM
-        def api = TestingCommons.api(Stub(ReactorRpcClient))
+        def api = TestingCommons.api()
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -193,8 +190,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def transport = ReactorEmeraldClient.newBuilder().connectUsing(client.channel).build()
-        def upstream = new EthereumGrpcUpstream("test", chain, client, objectMapper, transport)
+        def upstream = new EthereumGrpcUpstream("test", chain, client, objectMapper, new JsonRpcGrpcClient(client, chain, objectMapper))
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])

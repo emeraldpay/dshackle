@@ -20,11 +20,11 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.AggregatedUpstream
+import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.Upstreams
-import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -43,7 +43,7 @@ class TrackBitcoinAddressSpec extends Specification {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-one-addr.json")
         def unspents = TestingCommons.objectMapper().readValue(json, List)
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents)
 
@@ -58,7 +58,7 @@ class TrackBitcoinAddressSpec extends Specification {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
         def unspents = TestingCommons.objectMapper().readValue(json, List)
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents)
 
@@ -73,7 +73,7 @@ class TrackBitcoinAddressSpec extends Specification {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
         def unspents = TestingCommons.objectMapper().readValue(json, List)
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", "35hK24tcLEWcgNA4JxpvbkNkoAcDGqQPsP"], unspents).sort { it.address.address }
 
@@ -93,7 +93,7 @@ class TrackBitcoinAddressSpec extends Specification {
 
     def "Zero for empty unspents"() {
         setup:
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], [])
 
@@ -108,7 +108,7 @@ class TrackBitcoinAddressSpec extends Specification {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
         def unspents = TestingCommons.objectMapper().readValue(json, List)
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["16rCmCmbuWDhPjWTrpQGaU3EPdZF7MTdUk", "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents).sort { it.address.address }
 
@@ -126,7 +126,7 @@ class TrackBitcoinAddressSpec extends Specification {
 
     def "One address for single provided"() {
         setup:
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def req = BlockchainOuterClass.BalanceRequest.newBuilder()
                 .setAddress(
                         Common.AnyAddress.newBuilder()
@@ -144,7 +144,7 @@ class TrackBitcoinAddressSpec extends Specification {
 
     def "Sorted addresses for multiple provided"() {
         setup:
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def req = BlockchainOuterClass.BalanceRequest.newBuilder()
                 .setAddress(
                         Common.AnyAddress.newBuilder()
@@ -165,7 +165,7 @@ class TrackBitcoinAddressSpec extends Specification {
 
     def "Null for no address provided"() {
         setup:
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def req = BlockchainOuterClass.BalanceRequest.newBuilder()
                 .build()
         when:
@@ -176,7 +176,7 @@ class TrackBitcoinAddressSpec extends Specification {
 
     def "Build proto for common balance"() {
         setup:
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.valueOf(123456))
         when:
         def act = track.buildResponse(balance)
@@ -189,7 +189,7 @@ class TrackBitcoinAddressSpec extends Specification {
 
     def "Build proto for zero balance"() {
         setup:
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.ZERO)
         when:
         def act = track.buildResponse(balance)
@@ -202,7 +202,7 @@ class TrackBitcoinAddressSpec extends Specification {
 
     def "Build proto for all bitcoins"() {
         setup:
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(Upstreams))
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.valueOf(21_000_000).multiply(BigInteger.TEN.pow(8)))
         when:
         def act = track.buildResponse(balance)
@@ -216,24 +216,24 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Get update for a balance"() {
         setup:
 
-        DirectBitcoinApi api = Mock(DirectBitcoinApi) {
-            2 * executeAndResult(0, "listunspent", [], List) >>> [
-                    Mono.just([]), Mono.just([[address: "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", amount: 0.0123]])
-            ]
-        }
         def blocks = TopicProcessor.create()
         Head head = Mock(Head) {
             1 * getFlux() >> Flux.from(blocks)
         }
-        Upstream upstream
-        upstream = Mock(AggregatedUpstream) {
-            _ * getApi(_) >> Mono.just(api)
+        def upstream = null
+        upstream = Mock(BitcoinMultistream) {
+            _ * getReader() >> Mock(BitcoinReader) {
+                2 * listUnspent() >>> [
+                        Mono.just([]),
+                        Mono.just([[address: "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", amount: 0.0123]])
+                ]
+            }
             _ * getHead() >> head
-            _ * castApi(_) >> { return upstream }
+            _ * cast(_) >> {
+                upstream
+            }
         }
-        Upstreams upstreams = Mock(Upstreams) {
-            _ * getUpstream(Chain.BITCOIN) >> upstream
-        }
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.BITCOIN, upstream)
         TrackBitcoinAddress track = new TrackBitcoinAddress(upstreams)
 
         when:
@@ -253,7 +253,7 @@ class TrackBitcoinAddressSpec extends Specification {
         StepVerifier.create(resp)
                 .expectNext("0")
                 .then {
-                    blocks.onNext(new BlockContainer(1L, BlockId.from(hash1), BigInteger.ONE, Instant.now(), false, null, []))
+                    blocks.onNext(new BlockContainer(1L, BlockId.from(hash1), BigInteger.ONE, Instant.now(), false, null, null, []))
                 }
                 .expectNext("1230000")
                 .then {

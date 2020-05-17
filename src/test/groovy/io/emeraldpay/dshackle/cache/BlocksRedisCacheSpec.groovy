@@ -63,6 +63,7 @@ class BlocksRedisCacheSpec extends Specification {
                 Instant.ofEpochSecond(10501050),
                 false,
                 "test".bytes,
+                null,
                 [TxId.from(hash2), TxId.from(hash1)]
         )
 

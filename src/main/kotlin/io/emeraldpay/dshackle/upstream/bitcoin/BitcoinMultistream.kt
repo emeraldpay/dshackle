@@ -1,6 +1,5 @@
 /**
  * Copyright (c) 2020 EmeraldPay, Inc
- * Copyright (c) 2020 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,66 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.EmptyReader
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import reactor.core.publisher.Mono
 
-open class AggregatedEthereumUpstreams(
+open class BitcoinMultistream(
         chain: Chain,
-        val upstreams: MutableList<EthereumUpstream>,
+        val upstreams: MutableList<BitcoinUpstream>,
         caches: Caches,
-        objectMapper: ObjectMapper
-) : ChainUpstreams<EthereumApi>(chain, upstreams as MutableList<Upstream<EthereumApi>>, caches, objectMapper) {
+        private val objectMapper: ObjectMapper
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches), Lifecycle {
 
     companion object {
-        private val log = LoggerFactory.getLogger(AggregatedEthereumUpstreams::class.java)
+        private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
     }
 
     private var head: Head? = null
-
-    private val reader: EthereumReader = EthereumReader(this, this.caches, objectMapper)
-
-    init {
-        this.init()
-    }
+    private var reader = BitcoinReader(this, EmptyHead(), objectMapper)
 
     override fun init() {
         if (upstreams.size > 0) {
             head = updateHead()
         }
         super.init()
-    }
-
-    override fun start() {
-        super.start()
-        reader.start()
-    }
-
-    override fun stop() {
-        super.stop()
-        reader.stop()
-    }
-
-    override fun isRunning(): Boolean {
-        return super.isRunning() || reader.isRunning
-    }
-
-    open fun getReader(): EthereumReader {
-        return reader
-    }
-
-    override fun getHead(): Head {
-        return head!!
-    }
-
-    override fun setHead(head: Head) {
-        this.head = head
     }
 
     override fun updateHead(): Head {
@@ -92,33 +65,54 @@ open class AggregatedEthereumUpstreams(
             val newHead = MergedHead(upstreams.map { it.getHead() }).apply {
                 this.start()
             }
-            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream<EthereumApi>>).apply {
-                this.start()
-            }
-            this.lagObserver = lagObserver
+//            val lagObserver = TODO
+//            this.lagObserver = lagObserver
             newHead
         }
         onHeadUpdated(head)
         return head
     }
 
+    override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+        //TODO
+        return Mono.just(EmptyReader())
+    }
+
+    open fun getReader(): BitcoinReader {
+        return reader
+    }
+
+    override fun setHead(head: Head) {
+        this.head = head
+        reader = BitcoinReader(this, head, objectMapper)
+    }
+
+    override fun getHead(): Head {
+        return head!!
+    }
+
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return upstreams.flatMap { it.getLabels() }
     }
 
-    @SuppressWarnings("unchecked")
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
+    override fun <T : Upstream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        return castApi(apiType) as T
+        return this as T
     }
 
-    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
-        if (!apiType.isAssignableFrom(EthereumApi::class.java)) {
-            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
-        }
-        return this as Upstream<A>
+    override fun isRunning(): Boolean {
+        return super.isRunning() || reader.isRunning
     }
 
+    override fun start() {
+        super.start()
+        reader.start()
+    }
+
+    override fun stop() {
+        super.stop()
+        reader.stop()
+    }
 }

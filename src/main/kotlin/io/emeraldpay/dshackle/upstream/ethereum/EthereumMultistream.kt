@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2020 EmeraldPay, Inc
+ * Copyright (c) 2020 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,35 +14,70 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.bitcoin
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.*
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import reactor.core.publisher.Mono
 
-class BitcoinChainUpstreams(
+open class EthereumMultistream(
         chain: Chain,
-        val upstreams: MutableList<BitcoinUpstream>,
+        val upstreams: MutableList<EthereumUpstream>,
         caches: Caches,
-        objectMapper: ObjectMapper
-) : ChainUpstreams<DirectBitcoinApi>(chain, upstreams as MutableList<Upstream<DirectBitcoinApi>>, caches, objectMapper) {
+        private val objectMapper: ObjectMapper
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(BitcoinChainUpstreams::class.java)
+        private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
     }
 
     private var head: Head? = null
+
+    private val reader: EthereumReader = EthereumReader(this, this.caches, objectMapper)
+
+    init {
+        this.init()
+    }
 
     override fun init() {
         if (upstreams.size > 0) {
             head = updateHead()
         }
         super.init()
+    }
+
+    override fun start() {
+        super.start()
+        reader.start()
+    }
+
+    override fun stop() {
+        super.stop()
+        reader.stop()
+    }
+
+    override fun isRunning(): Boolean {
+        return super.isRunning() || reader.isRunning
+    }
+
+    open fun getReader(): EthereumReader {
+        return reader
+    }
+
+    override fun getHead(): Head {
+        return head!!
+    }
+
+    override fun setHead(head: Head) {
+        this.head = head
     }
 
     override fun updateHead(): Head {
@@ -60,38 +96,30 @@ class BitcoinChainUpstreams(
             val newHead = MergedHead(upstreams.map { it.getHead() }).apply {
                 this.start()
             }
-//            val lagObserver = TODO
-//            this.lagObserver = lagObserver
+            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>).apply {
+                this.start()
+            }
+            this.lagObserver = lagObserver
             newHead
         }
         onHeadUpdated(head)
         return head
     }
 
-    override fun setHead(head: Head) {
-        this.head = head
-    }
-
-    override fun getHead(): Head {
-        return head!!
-    }
-
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return upstreams.flatMap { it.getLabels() }
     }
 
-    override fun <A : UpstreamApi> castApi(apiType: Class<A>): Upstream<A> {
-        if (!apiType.isAssignableFrom(DirectBitcoinApi::class.java)) {
-            throw ClassCastException("Cannot cast ${EthereumApi::class.java} to $apiType")
-        }
-        return this as Upstream<A>
-    }
-
-    override fun <T : Upstream<TA>, TA : UpstreamApi> cast(selfType: Class<T>, apiType: Class<TA>): T {
+    @SuppressWarnings("unchecked")
+    override fun <T : Upstream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
-        return castApi(apiType) as T
+        return this as T
+    }
+
+    override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+        return Mono.just(NativeCallRouter(objectMapper, reader, getMethods()))
     }
 
 }

@@ -19,6 +19,10 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.infinitape.etherjar.hex.HexQuantity
 import io.infinitape.etherjar.rpc.Commands
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -31,7 +35,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class EthereumRpcHead(
-        private val api: DirectEthereumApi,
+        private val api: Reader<in JsonRpcRequest, out JsonRpcResponse>,
         private val objectMapper: ObjectMapper,
         private val interval: Duration = Duration.ofSeconds(10)
 ): DefaultEthereumHead(), Lifecycle {
@@ -48,21 +52,27 @@ class EthereumRpcHead(
         val base = Flux.interval(interval)
                 .publishOn(scheduler)
                 .flatMap {
-                    api.rpcClient
-                            .execute(Commands.eth().blockNumber)
+                    api.read(JsonRpcRequest("eth_blockNumber", emptyList()))
                             .subscribeOn(scheduler)
                             .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
+                            .flatMap {
+                                if (it.error != null) {
+                                    Mono.error(it.error.asException())
+                                } else {
+                                    val value = it.getResultAsProcessedString()
+                                    Mono.just(HexQuantity.from(value))
+                                }
+                            }
                 }
                 .flatMap {
                     //fetching by Block Height here, critical to use same upstream,
                     //different upstreams may have different blocks on the same height
-                    api.rpcClient
-                            .execute(Commands.eth().getBlock(it))
+                    api.read(JsonRpcRequest("eth_getBlockByNumber", listOf(it.toHex(), false)))
                             .subscribeOn(scheduler)
                             .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
                 }
                 .map {
-                    BlockContainer.from(it, objectMapper)
+                    BlockContainer.from(it.getResult(), objectMapper)
                 }
                 .onErrorContinue { err, _ ->
                     log.debug("RPC error ${err.message}")

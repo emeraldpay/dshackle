@@ -63,7 +63,8 @@ class TxRedisCacheSpec extends Specification {
                 2000,
                 TxId.from(hash1),
                 BlockId.from(hash2),
-                "test".bytes
+                "test".bytes,
+                null
         )
         when:
         def enc = cache.toProto(cont)

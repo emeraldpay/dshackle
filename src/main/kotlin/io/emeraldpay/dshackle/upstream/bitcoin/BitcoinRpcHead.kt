@@ -16,8 +16,11 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -29,7 +32,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class BitcoinRpcHead(
-        private val api: DirectBitcoinApi,
+        private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
         private val extractBlock: ExtractBlock,
         private val interval: Duration = Duration.ofSeconds(15)
 ) : Head, AbstractHead(), Lifecycle {
@@ -53,12 +56,14 @@ class BitcoinRpcHead(
         val base = Flux.interval(interval)
                 .publishOn(scheduler)
                 .flatMap {
-                    api.executeAndResult(0, "getbestblockhash", emptyList(), String::class.java)
+                    api.read(JsonRpcRequest("getbestblockhash", emptyList()))
+                            .flatMap(JsonRpcResponse::requireStringResult)
                             .timeout(Defaults.timeout, Mono.error(Exception("Best block hash is not received")))
                 }
                 .distinctUntilChanged()
                 .flatMap { hash ->
-                    api.execute(0, "getblock", listOf(hash))
+                    api.read(JsonRpcRequest("getblock", listOf(hash)))
+                            .flatMap(JsonRpcResponse::requireResult)
                             .map(extractBlock::extract)
                             .timeout(Defaults.timeout, Mono.error(Exception("Block data is not received")))
                 }

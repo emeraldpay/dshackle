@@ -21,14 +21,12 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
-import io.emeraldpay.dshackle.upstream.bitcoin.DirectBitcoinApi
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinChainUpstreams
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
-import io.emeraldpay.dshackle.upstream.bitcoin.DefaultBitcoinMethods
+import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumApi
-import io.emeraldpay.dshackle.upstream.ethereum.AggregatedEthereumUpstreams
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
@@ -44,14 +42,14 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 @Repository
-class CurrentUpstreams(
+class CurrentMultistreamHolder(
         @Autowired private val objectMapper: ObjectMapper,
         @Autowired private val cachesFactory: CachesFactory
-): Upstreams {
+) : MultistreamHolder {
 
-    private val log = LoggerFactory.getLogger(CurrentUpstreams::class.java)
+    private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
 
-    private val chainMapping = ConcurrentHashMap<Chain, ChainUpstreams<*>>()
+    private val chainMapping = ConcurrentHashMap<Chain, Multistream>()
     private val chainsBus = TopicProcessor.create<Chain>()
     private val callTargets = HashMap<Chain, CallMethods>()
     private val updateLock = ReentrantLock()
@@ -61,20 +59,18 @@ class CurrentUpstreams(
             val chain = change.chain
             when (BlockchainType.fromBlockchain(chain)) {
                 BlockchainType.ETHEREUM -> {
-                    val up = change.upstream
-                            .cast(EthereumUpstream::class.java, EthereumApi::class.java) as Upstream<EthereumApi>
-                    val current = chainMapping[chain] as ChainUpstreams<EthereumApi>?
+                    val up = change.upstream.cast(EthereumUpstream::class.java)
+                    val current = chainMapping[chain] as Multistream?
                     val factory = Callable {
-                        AggregatedEthereumUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as ChainUpstreams<EthereumApi>
+                        EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as Multistream
                     }
                     processUpdate(change, up, current, factory)
                 }
                 BlockchainType.BITCOIN -> {
-                    val up = change.upstream
-                            .cast(BitcoinUpstream::class.java, DirectBitcoinApi::class.java)
-                    val current = chainMapping[chain] as ChainUpstreams<DirectBitcoinApi>?
+                    val up = change.upstream.cast(BitcoinUpstream::class.java)
+                    val current = chainMapping[chain] as Multistream?
                     val factory = Callable {
-                        BitcoinChainUpstreams(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as ChainUpstreams<DirectBitcoinApi>
+                        BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as Multistream
                     }
                     processUpdate(change, up, current, factory)
                 }
@@ -85,7 +81,7 @@ class CurrentUpstreams(
         }
     }
 
-    fun <A : UpstreamApi> processUpdate(change: UpstreamChange, up: Upstream<A>, current: ChainUpstreams<A>?, factory: Callable<ChainUpstreams<A>>) {
+    fun processUpdate(change: UpstreamChange, up: Upstream, current: Multistream?, factory: Callable<Multistream>) {
         val chain = change.chain
         if (change.type == UpstreamChange.ChangeType.REMOVED) {
             current?.removeUpstream(up.getId())
@@ -113,7 +109,7 @@ class CurrentUpstreams(
         }
     }
 
-    override fun getUpstream(chain: Chain): AggregatedUpstream<*>? {
+    override fun getUpstream(chain: Chain): Multistream? {
         return chainMapping[chain]
     }
 

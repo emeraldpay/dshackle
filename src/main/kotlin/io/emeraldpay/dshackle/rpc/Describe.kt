@@ -29,15 +29,15 @@ import reactor.core.publisher.Mono
 
 @Service
 class Describe(
-        @Autowired private val upstreams: Upstreams,
+        @Autowired private val multistreamHolder: MultistreamHolder,
         @Autowired private val subscribeStatus: SubscribeStatus
 ) {
 
     fun describe(requestMono: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
         return requestMono.map { _ ->
             val resp = BlockchainOuterClass.DescribeResponse.newBuilder()
-            upstreams.getAvailable().forEach { chain ->
-                upstreams.getUpstream(chain)?.let { chainUpstreams ->
+            multistreamHolder.getAvailable().forEach { chain ->
+                multistreamHolder.getUpstream(chain)?.let { chainUpstreams ->
                     val status = subscribeStatus.chainStatus(chain, chainUpstreams.getAll())
                     val targets = chainUpstreams.getMethods().getSupportedMethods()
                     val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()

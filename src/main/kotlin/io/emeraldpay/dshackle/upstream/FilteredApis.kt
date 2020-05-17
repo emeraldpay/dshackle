@@ -16,6 +16,9 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.reactivestreams.Subscriber
 import reactor.core.publisher.EmitterProcessor
 import reactor.core.publisher.Flux
@@ -26,28 +29,28 @@ import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.random.Random
 
-class FilteredApis<U : UpstreamApi>(
-        allUpstreams: List<Upstream<U>>,
+class FilteredApis(
+        allUpstreams: List<Upstream>,
         private val matcher: Selector.Matcher,
         pos: Int,
         private val repeatLimit: Long,
         jitter: Int
-) : ApiSource<U> {
+) : ApiSource {
 
     companion object {
         private const val DEFAULT_DELAY_STEP = 100
         private const val MAX_WAIT_MILLIS = 5000L
     }
 
-    constructor(allUpstreams: List<Upstream<U>>,
+    constructor(allUpstreams: List<Upstream>,
                 matcher: Selector.Matcher,
                 pos: Int) : this(allUpstreams, matcher, pos, 10, 7)
 
-    constructor(allUpstreams: List<Upstream<U>>,
+    constructor(allUpstreams: List<Upstream>,
                 matcher: Selector.Matcher) : this(allUpstreams, matcher, 0, 10, 10)
 
     private val delay: Int
-    private val upstreams: List<Upstream<UpstreamApi>>
+    private val upstreams: List<Upstream>
 
     private val control = EmitterProcessor.create<Boolean>(32, false)
 
@@ -75,18 +78,18 @@ class FilteredApis<U : UpstreamApi>(
         return Duration.ofMillis(time)
     }
 
-    override fun subscribe(subscriber: Subscriber<in U>) {
+    override fun subscribe(subscriber: Subscriber<in Upstream>) {
         val first = Flux.fromIterable(upstreams)
         val retries = (1 until repeatLimit).map { r ->
             Flux.fromIterable(upstreams).delaySubscription(waitDuration(r))
         }.let { Flux.concat(it) }
 
         Flux.concat(first, retries)
-                .filter(Upstream<UpstreamApi>::isAvailable)
+                .filter(Upstream::isAvailable)
                 .filter(matcher::matches)
-                .flatMap { it.getApi(matcher) }
-                .zipWith(control).map { it.t1 }
-                .subscribe(subscriber as Subscriber<in UpstreamApi>)
+                .zipWith(control)
+                .map { it.t1 }
+                .subscribe(subscriber)
     }
 
     override fun resolve() {

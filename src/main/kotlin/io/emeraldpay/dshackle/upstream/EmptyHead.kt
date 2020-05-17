@@ -25,4 +25,7 @@ class EmptyHead : Head {
     override fun getFlux(): Flux<BlockContainer> {
         return Flux.empty()
     }
+
+    override fun onBeforeBlock(handler: Runnable) {
+    }
 }
