@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.proxy
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Global
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.RequestJson
@@ -36,7 +37,6 @@ import java.util.stream.Collectors
  */
 @Service
 open class ReadRpcJson(
-        @Autowired private val objectMapper: ObjectMapper
 ) : Function<ByteArray, ProxyCall> {
 
     companion object {
@@ -45,6 +45,7 @@ open class ReadRpcJson(
     }
 
     private val jsonExtractor: Function<Map<*, *>, RequestJson<Any>>
+    private val objectMapper: ObjectMapper = Global.objectMapper
 
     init {
         jsonExtractor = Function { json ->

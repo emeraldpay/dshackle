@@ -103,7 +103,7 @@ class TrackEthereumTxSpec extends Specification {
 
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
         apiMock.answer("eth_getBlockByHash", [blockJson.hash.toHex(), false], blockJson)
-        upstreamMock.nextBlock(BlockContainer.from(blockHeadJson, TestingCommons.objectMapper()))
+        upstreamMock.nextBlock(BlockContainer.from(blockHeadJson))
 
         when:
         def flux = trackTx.subscribe(req)
@@ -301,7 +301,7 @@ class TrackEthereumTxSpec extends Specification {
 
         upstreamMock.blocks = Flux.fromIterable(blocks)
                 .map { block ->
-                    BlockContainer.from(block, TestingCommons.objectMapper())
+                    BlockContainer.from(block)
                 }
 
         when:

@@ -15,8 +15,10 @@
  */
 package io.emeraldpay.dshackle.rpc
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -38,11 +40,12 @@ import java.time.Instant
 class TrackBitcoinAddressSpec extends Specification {
 
     String hash1 = "0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22"
+    ObjectMapper objectMapper = Global.objectMapper
 
     def "Correct sum from multiple"() {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-one-addr.json")
-        def unspents = TestingCommons.objectMapper().readValue(json, List)
+        def unspents = objectMapper.readValue(json, List)
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents)
@@ -57,7 +60,7 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Correct sum when other addresses"() {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
-        def unspents = TestingCommons.objectMapper().readValue(json, List)
+        def unspents = objectMapper.readValue(json, List)
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents)
@@ -72,7 +75,7 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Sum for two addresses"() {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
-        def unspents = TestingCommons.objectMapper().readValue(json, List)
+        def unspents = objectMapper.readValue(json, List)
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", "35hK24tcLEWcgNA4JxpvbkNkoAcDGqQPsP"], unspents).sort { it.address.address }
@@ -107,7 +110,7 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Zero for unknown address"() {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
-        def unspents = TestingCommons.objectMapper().readValue(json, List)
+        def unspents = objectMapper.readValue(json, List)
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         when:
         def total = track.getTotal(Chain.BITCOIN, ["16rCmCmbuWDhPjWTrpQGaU3EPdZF7MTdUk", "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents).sort { it.address.address }

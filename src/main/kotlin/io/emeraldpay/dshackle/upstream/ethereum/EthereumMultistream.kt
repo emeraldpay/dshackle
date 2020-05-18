@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
@@ -31,17 +32,17 @@ import reactor.core.publisher.Mono
 open class EthereumMultistream(
         chain: Chain,
         val upstreams: MutableList<EthereumUpstream>,
-        caches: Caches,
-        private val objectMapper: ObjectMapper
+        caches: Caches
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
     }
 
+    private val objectMapper: ObjectMapper = Global.objectMapper
     private var head: Head? = null
 
-    private val reader: EthereumReader = EthereumReader(this, this.caches, objectMapper)
+    private val reader: EthereumReader = EthereumReader(this, this.caches)
 
     init {
         this.init()
@@ -119,7 +120,7 @@ open class EthereumMultistream(
     }
 
     override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        return Mono.just(NativeCallRouter(objectMapper, reader, getMethods()))
+        return Mono.just(NativeCallRouter(reader, getMethods()))
     }
 
 }

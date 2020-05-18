@@ -47,7 +47,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                 if (up instanceof EthereumMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof EthereumUpstream) {
-                    upstreams[chain] = new EthereumMultistreamMock(chain, [up as EthereumUpstream], Caches.default(TestingCommons.objectMapper()))
+                    upstreams[chain] = new EthereumMultistreamMock(chain, [up as EthereumUpstream], Caches.default())
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -56,7 +56,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                 if (up instanceof BitcoinMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof BitcoinUpstream) {
-                    upstreams[chain] = new BitcoinMultistream(chain, [up as BitcoinUpstream], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
+                    upstreams[chain] = new BitcoinMultistream(chain, [up as BitcoinUpstream], Caches.default())
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -86,7 +86,7 @@ class MultistreamHolderMock implements MultistreamHolder {
     @Override
     DefaultEthereumMethods getDefaultMethods(@NotNull Chain chain) {
         if (target[chain] == null) {
-            DefaultEthereumMethods targets = new DefaultEthereumMethods(TestingCommons.objectMapper(), chain)
+            DefaultEthereumMethods targets = new DefaultEthereumMethods(chain)
             target[chain] = targets
         }
         return target[chain]
@@ -102,7 +102,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         EthereumReader customReader = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches, TestingCommons.objectMapper())
+            super(chain, upstreams, caches)
         }
 
         @Override

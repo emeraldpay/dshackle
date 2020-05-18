@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.data.*
@@ -46,14 +47,14 @@ import java.util.function.Function
 
 open class EthereumReader(
         private val up: Multistream,
-        private val caches: Caches,
-        private val objectMapper: ObjectMapper
+        private val caches: Caches
 ) : Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumReader::class.java)
     }
 
+    private val objectMapper: ObjectMapper = Global.objectMapper
     private val balanceCache = CurrentBlockCache<Address, Wei>()
 
     val extractBlock = Function<BlockContainer, BlockJson<TransactionRefJson>> { block ->
@@ -80,10 +81,10 @@ open class EthereumReader(
     }
 
     val blockAsContainer = Function<BlockJson<*>, BlockContainer> { block ->
-        BlockContainer.from(block.withoutTransactionDetails(), objectMapper)
+        BlockContainer.from(block.withoutTransactionDetails())
     }
     val txAsContainer = Function<TransactionJson, TxContainer> { tx ->
-        TxContainer.from(tx, objectMapper)
+        TxContainer.from(tx)
     }
 
     private val blocksDirect: Reader<BlockHash, BlockContainer>
@@ -150,9 +151,13 @@ open class EthereumReader(
                             .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
                             .map(directResponseBytes)
                             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                            .map { txbytes ->
+                            .flatMap { txbytes ->
                                 val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
-                                TxContainer.from(tx, txbytes)
+                                if (tx == null) {
+                                    Mono.empty()
+                                } else {
+                                    Mono.just(TxContainer.from(tx, txbytes))
+                                }
                             }
                             .doOnNext { tx ->
                                 if (tx.blockId != null) {

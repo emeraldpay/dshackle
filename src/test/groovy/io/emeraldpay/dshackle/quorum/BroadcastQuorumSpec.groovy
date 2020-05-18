@@ -16,6 +16,8 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -25,11 +27,11 @@ import spock.lang.Specification
 
 class BroadcastQuorumSpec extends Specification {
 
-    def objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def "Resolved with first after 3 tries"() {
         setup:
-        def q = Spy(new BroadcastQuorum(objectMapper, 3))
+        def q = Spy(new BroadcastQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -61,7 +63,7 @@ class BroadcastQuorumSpec extends Specification {
 
     def "Remembers first response"() {
         setup:
-        def q = Spy(new BroadcastQuorum(objectMapper, 3))
+        def q = Spy(new BroadcastQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)

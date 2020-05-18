@@ -17,20 +17,20 @@
 package io.emeraldpay.dshackle.quorum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 
 abstract class ValueAwareQuorum<T>(
-        val objectMapper: ObjectMapper,
         val clazz: Class<T>
 ): CallQuorum {
 
     private val log = LoggerFactory.getLogger(ValueAwareQuorum::class.java)
 
     fun extractValue(response: ByteArray, clazz: Class<T>): T? {
-        return objectMapper.readValue(response.inputStream(), clazz)
+        return Global.objectMapper.readValue(response.inputStream(), clazz)
     }
 
     override fun record(response: ByteArray, upstream: Upstream): Boolean {

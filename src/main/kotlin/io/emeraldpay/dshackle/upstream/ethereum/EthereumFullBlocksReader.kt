@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
@@ -37,7 +38,6 @@ import reactor.core.publisher.Mono
  * If any of the expected block transactions is not available it returns empty
  */
 class EthereumFullBlocksReader(
-        private val objectMapper: ObjectMapper,
         private val blocks: Reader<BlockId, BlockContainer>,
         private val txes: Reader<TxId, TxContainer>
 ) : Reader<BlockId, BlockContainer> {
@@ -48,7 +48,7 @@ class EthereumFullBlocksReader(
 
     override fun read(key: BlockId): Mono<BlockContainer> {
         return blocks.read(key).flatMap { block ->
-            val block = objectMapper.readValue(block.json, BlockJson::class.java) as BlockJson<TransactionRefJson>
+            val block = Global.objectMapper.readValue(block.json, BlockJson::class.java) as BlockJson<TransactionRefJson>
             val fullBlock = if (block.transactions == null || block.transactions.isEmpty()) {
                 // in fact it's not necessary to create a copy, made just for code clarity but it may be a performance loss
                 val fullBlock = BlockJson<TransactionJson>()
@@ -66,7 +66,7 @@ class EthereumFullBlocksReader(
                                 val fullBlock = BlockJson<TransactionJson>()
                                 BeanUtils.copyProperties(block, fullBlock)
                                 fullBlock.transactions = list.map {
-                                    objectMapper.readValue(it.json, TransactionJson::class.java)
+                                    Global.objectMapper.readValue(it.json, TransactionJson::class.java)
                                 }
                                 Mono.just(fullBlock)
                             }
@@ -75,7 +75,7 @@ class EthereumFullBlocksReader(
             fullBlock
                     .map { block ->
                         BlockContainer(block.number, BlockId.from(block.hash), block.totalDifficulty, block.timestamp, true,
-                                objectMapper.writeValueAsBytes(block),
+                                Global.objectMapper.writeValueAsBytes(block),
                                 block.transactions.map { tx -> TxId.from(tx) }
                         )
                     }

@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -35,8 +36,6 @@ class BlocksMemCacheSpec extends Specification {
     String hash3 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
 
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
-
     def "Add and read"() {
         setup:
         def cache = new BlocksMemCache()
@@ -49,10 +48,10 @@ class BlocksMemCacheSpec extends Specification {
         block.transactions = []
 
         when:
-        cache.add(BlockContainer.from(block, objectMapper))
+        cache.add(BlockContainer.from(block))
         def act = cache.read(BlockId.from(hash1)).block()
         then:
-        objectMapper.readValue(act.json, BlockJson) == block
+        Global.objectMapper.readValue(act.json, BlockJson) == block
     }
 
     def "Keeps only configured amount"() {
@@ -70,7 +69,7 @@ class BlocksMemCacheSpec extends Specification {
             block.uncles = []
             block.transactions = []
 
-            cache.add(BlockContainer.from(block, objectMapper))
+            cache.add(BlockContainer.from(block))
         }
 
         def act1 = cache.read(BlockId.from(hash1)).block()

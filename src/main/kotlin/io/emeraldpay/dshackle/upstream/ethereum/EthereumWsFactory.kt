@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -37,21 +38,19 @@ import java.time.Duration
 
 class EthereumWsFactory(
         private val uri: URI,
-        private val origin: URI,
-        private val objectMapper: ObjectMapper
+        private val origin: URI
 ) {
 
     var basicAuth: AuthConfig.ClientBasicAuth? = null
 
     fun create(upstream: EthereumUpstream): EthereumWs {
-        return EthereumWs(uri, origin, upstream, objectMapper, basicAuth)
+        return EthereumWs(uri, origin, upstream, basicAuth)
     }
 
     class EthereumWs(
             private val uri: URI,
             private val origin: URI,
             private val upstream: EthereumUpstream,
-            private val objectMapper: ObjectMapper,
             private val basicAuth: AuthConfig.ClientBasicAuth?
     ) {
 
@@ -96,7 +95,7 @@ class EthereumWsFactory(
                                         }
                                     }
                                     .flatMap(JsonRpcResponse::requireResult)
-                                    .map { BlockContainer.from(it, objectMapper) }
+                                    .map { BlockContainer.from(it) }
                         }.repeatWhenEmpty { n ->
                             Repeat.times<Any>(5)
                                     .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(500))
@@ -107,7 +106,7 @@ class EthereumWsFactory(
                         .subscribe(topic::onNext)
 
             } else {
-                topic.onNext(BlockContainer.from(block, objectMapper))
+                topic.onNext(BlockContainer.from(block))
             }
         }
 

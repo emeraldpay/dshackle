@@ -26,9 +26,8 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 open class NonceQuorum(
-        objectMapper: ObjectMapper,
         val tries: Int = 3
-) : CallQuorum, ValueAwareQuorum<String>(objectMapper, String::class.java) {
+) : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
 
     private val lock = ReentrantLock()
     private var resultValue = 0L

@@ -31,8 +31,7 @@ import reactor.core.publisher.Mono
 open class BitcoinMultistream(
         chain: Chain,
         val upstreams: MutableList<BitcoinUpstream>,
-        caches: Caches,
-        private val objectMapper: ObjectMapper
+        caches: Caches
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches), Lifecycle {
 
     companion object {
@@ -40,7 +39,7 @@ open class BitcoinMultistream(
     }
 
     private var head: Head? = null
-    private var reader = BitcoinReader(this, EmptyHead(), objectMapper)
+    private var reader = BitcoinReader(this, EmptyHead())
 
     override fun init() {
         if (upstreams.size > 0) {
@@ -84,7 +83,7 @@ open class BitcoinMultistream(
 
     override fun setHead(head: Head) {
         this.head = head
-        reader = BitcoinReader(this, head, objectMapper)
+        reader = BitcoinReader(this, head)
     }
 
     override fun getHead(): Head {

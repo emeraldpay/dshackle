@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -31,14 +32,15 @@ import java.util.concurrent.locks.ReentrantLock
 
 open class CachingMempoolData(
         private val upstreams: BitcoinMultistream,
-        private val head: Head,
-        private val objectMapper: ObjectMapper
+        private val head: Head
 ) : Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(CachingMempoolData::class.java)
         private val TTL = Duration.ofSeconds(15)
     }
+
+    private val objectMapper: ObjectMapper = Global.objectMapper
 
     private val current = AtomicReference<Container>(Container.empty())
     private val updateLock = ReentrantLock()

@@ -99,7 +99,7 @@ class QuorumRpcReaderSpec extends Specification {
         def apis = new FilteredApis(
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -129,7 +129,7 @@ class QuorumRpcReaderSpec extends Specification {
         def apis = new FilteredApis(
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -159,7 +159,7 @@ class QuorumRpcReaderSpec extends Specification {
         def apis = new FilteredApis(
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -189,7 +189,7 @@ class QuorumRpcReaderSpec extends Specification {
         def apis = new FilteredApis(
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))

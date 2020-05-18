@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -27,15 +28,15 @@ import reactor.kotlin.core.publisher.cast
 
 open class BitcoinReader(
         private val upstreams: BitcoinMultistream,
-        head: Head,
-        private val objectMapper: ObjectMapper
+        head: Head
 ) : Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinReader::class.java)
     }
 
-    private val mempool = CachingMempoolData(upstreams, head, objectMapper)
+    private val objectMapper: ObjectMapper = Global.objectMapper
+    private val mempool = CachingMempoolData(upstreams, head)
 
     open fun getMempool(): CachingMempoolData {
         return mempool

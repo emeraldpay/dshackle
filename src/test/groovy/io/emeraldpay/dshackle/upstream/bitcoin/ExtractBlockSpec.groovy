@@ -20,7 +20,7 @@ import spock.lang.Specification
 
 class ExtractBlockSpec extends Specification {
 
-    ExtractBlock extractBlock = new ExtractBlock(TestingCommons.objectMapper())
+    ExtractBlock extractBlock = new ExtractBlock()
 
     def "Extract standard block"() {
         setup:

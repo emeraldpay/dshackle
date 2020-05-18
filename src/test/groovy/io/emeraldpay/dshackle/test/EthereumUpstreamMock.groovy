@@ -41,8 +41,8 @@ class EthereumUpstreamMock extends EthereumUpstream {
 
     static CallMethods allMethods() {
         new AggregatedCallMethods([
-                new DefaultEthereumMethods(TestingCommons.objectMapper(), Chain.ETHEREUM),
-                new DefaultBitcoinMethods(TestingCommons.objectMapper()),
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultBitcoinMethods(),
                 new DirectCallMethods(["eth_test"])
         ])
     }
@@ -62,7 +62,7 @@ class EthereumUpstreamMock extends EthereumUpstream {
     EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
         super(id, chain, api, null,
                 UpstreamsConfig.Options.getDefaults(), new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
-                methods, TestingCommons.objectMapper())
+                methods)
         setLag(0)
         setStatus(UpstreamAvailability.OK)
         start()

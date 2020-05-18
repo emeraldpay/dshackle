@@ -16,6 +16,8 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -25,11 +27,11 @@ import spock.lang.Specification
 
 class NonceQuorumSpec extends Specification {
 
-    def objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def "Gets max value"() {
         setup:
-        def q = Spy(new NonceQuorum(objectMapper, 3))
+        def q = Spy(new NonceQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -61,7 +63,7 @@ class NonceQuorumSpec extends Specification {
 
     def "Ignores errors"() {
         setup:
-        def q = Spy(new NonceQuorum(objectMapper, 3))
+        def q = Spy(new NonceQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -99,7 +101,7 @@ class NonceQuorumSpec extends Specification {
 
     def "Fail if too many errors"() {
         setup:
-        def q = Spy(new NonceQuorum(objectMapper, 3))
+        def q = Spy(new NonceQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)

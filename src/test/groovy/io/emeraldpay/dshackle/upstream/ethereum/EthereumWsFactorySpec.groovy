@@ -15,17 +15,12 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.BlocksMemCache
-import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
-import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -35,11 +30,9 @@ import java.time.temporal.ChronoUnit
 
 class EthereumWsFactorySpec extends Specification {
 
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
-
     def "Fetch block"() {
         setup:
-        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"), objectMapper)
+        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
         def blocksCache = Mock(BlocksMemCache)
 
         def block = new BlockJson<TransactionRefJson>()
@@ -61,7 +54,7 @@ class EthereumWsFactorySpec extends Specification {
 
         then:
         StepVerifier.create(ws.flux.take(1))
-                .expectNext(BlockContainer.from(block, objectMapper))
+                .expectNext(BlockContainer.from(block))
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }

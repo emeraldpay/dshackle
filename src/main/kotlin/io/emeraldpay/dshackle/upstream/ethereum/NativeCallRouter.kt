@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
@@ -30,7 +31,6 @@ import reactor.core.publisher.Mono
 import java.math.BigInteger
 
 class NativeCallRouter(
-        private val objectMapper: ObjectMapper,
         private val reader: EthereumReader,
         private val methods: CallMethods
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
@@ -40,7 +40,6 @@ class NativeCallRouter(
     }
 
     private val fullBlocksReader = EthereumFullBlocksReader(
-            objectMapper,
             reader.blocksByIdAsCont(),
             reader.txByHashAsCont()
     )

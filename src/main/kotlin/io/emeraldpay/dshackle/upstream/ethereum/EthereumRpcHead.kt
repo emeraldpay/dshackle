@@ -35,8 +35,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class EthereumRpcHead(
-        private val api: Reader<in JsonRpcRequest, out JsonRpcResponse>,
-        private val objectMapper: ObjectMapper,
+        private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
         private val interval: Duration = Duration.ofSeconds(10)
 ): DefaultEthereumHead(), Lifecycle {
 
@@ -72,7 +71,7 @@ class EthereumRpcHead(
                             .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
                 }
                 .map {
-                    BlockContainer.from(it.getResult(), objectMapper)
+                    BlockContainer.from(it.getResult())
                 }
                 .onErrorContinue { err, _ ->
                     log.debug("RPC error ${err.message}")

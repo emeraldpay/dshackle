@@ -15,7 +15,8 @@
  */
 package io.emeraldpay.dshackle.cache
 
-
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
@@ -49,7 +50,7 @@ class TxRedisCacheSpec extends Specification {
     String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
     TxRedisCache cache
 
-    def objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def setup() {
         StatefulRedisConnection<String, byte[]> redis = IntegrationTestingCommons.redisConnection()
@@ -96,7 +97,7 @@ class TxRedisCacheSpec extends Specification {
         tx.nonce = 0
 
         when:
-        cache.add(TxContainer.from(tx, objectMapper), BlockContainer.from(block, objectMapper)).subscribe()
+        cache.add(TxContainer.from(tx), BlockContainer.from(block)).subscribe()
         def act = cache.read(TxId.from(hash1)).block()
         then:
         act != null
@@ -121,7 +122,7 @@ class TxRedisCacheSpec extends Specification {
         tx.nonce = 0
 
         when:
-        cache.add(TxContainer.from(tx, objectMapper), BlockContainer.from(block, objectMapper)).subscribe()
+        cache.add(TxContainer.from(tx), BlockContainer.from(block)).subscribe()
         def act = cache.read(TxId.from(tx.hash)).block()
         then:
         act != null
@@ -162,7 +163,7 @@ class TxRedisCacheSpec extends Specification {
             tx.hash = TransactionId.from(hash)
             tx.value = Wei.ofEthers(i)
             tx.nonce = 0
-            cache.add(TxContainer.from(tx, objectMapper), BlockContainer.from(block1, objectMapper)).subscribe()
+            cache.add(TxContainer.from(tx), BlockContainer.from(block1)).subscribe()
         }
         [hash3, hash4].eachWithIndex{ String hash, int i ->
             def tx = new TransactionJson()
@@ -171,11 +172,11 @@ class TxRedisCacheSpec extends Specification {
             tx.hash = TransactionId.from(hash)
             tx.value = Wei.ofEthers(i)
             tx.nonce = 0
-            cache.add(TxContainer.from(tx, objectMapper), BlockContainer.from(block2, objectMapper)).subscribe()
+            cache.add(TxContainer.from(tx), BlockContainer.from(block2)).subscribe()
         }
 
 
-        cache.evict(BlockContainer.from(block1, objectMapper)).subscribe()
+        cache.evict(BlockContainer.from(block1)).subscribe()
 
         def act1 = cache.read(TxId.from(hash1)).block()
         def act2 = cache.read(TxId.from(hash2)).block()

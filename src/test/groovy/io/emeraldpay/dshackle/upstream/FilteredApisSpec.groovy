@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
@@ -25,7 +24,6 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.ReactorRpcClient
 import reactor.test.StepVerifier
 import spock.lang.Retry
 import spock.lang.Specification
@@ -34,9 +32,7 @@ import java.time.Duration
 
 class FilteredApisSpec extends Specification {
 
-    def rpcClient = Stub(ReactorRpcClient)
-    def objectMapper = TestingCommons.objectMapper()
-    def ethereumTargets = new DefaultEthereumMethods(objectMapper, Chain.ETHEREUM)
+    def ethereumTargets = new DefaultEthereumMethods(Chain.ETHEREUM)
 
     def "Verifies labels"() {
         setup:
@@ -55,7 +51,7 @@ class FilteredApisSpec extends Specification {
                     (EthereumWsFactory) null,
                     new UpstreamsConfig.Options(),
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
-                    ethereumTargets, TestingCommons.objectMapper()
+                    ethereumTargets
             )
         }
         def matcher = new Selector.LabelMatcher("test", ["foo"])

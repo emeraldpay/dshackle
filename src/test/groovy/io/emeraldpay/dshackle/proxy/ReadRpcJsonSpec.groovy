@@ -22,7 +22,7 @@ import spock.lang.Specification
 
 class ReadRpcJsonSpec extends Specification {
 
-    ReadRpcJson reader = new ReadRpcJson(TestingCommons.objectMapper())
+    ReadRpcJson reader = new ReadRpcJson()
 
     def "Get first symbol"() {
         expect:

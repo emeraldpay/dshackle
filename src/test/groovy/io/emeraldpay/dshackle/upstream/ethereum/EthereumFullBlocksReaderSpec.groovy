@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.BlocksMemCache
 import io.emeraldpay.dshackle.cache.TxMemCache
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -39,7 +40,7 @@ class EthereumFullBlocksReaderSpec extends Specification {
     String hash3 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
     String hash4 = "0xd3f34def3c56ba4e701540d15edaff9acd2a1c968a7ff83b3300ab5dfd5f6aab"
 
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def tx1 = new TransactionJson().with {
         it.blockNumber = 100
@@ -113,15 +114,15 @@ class EthereumFullBlocksReaderSpec extends Specification {
         def txes = new TxMemCache()
         def blocks = new BlocksMemCache()
 
-        txes.add(TxContainer.from(tx1, objectMapper))
-        txes.add(TxContainer.from(tx2, objectMapper))
-        txes.add(TxContainer.from(tx3, objectMapper))
-        txes.add(TxContainer.from(tx4, objectMapper))
-        blocks.add(BlockContainer.from(block1, objectMapper))
-        blocks.add(BlockContainer.from(block2, objectMapper))
-        blocks.add(BlockContainer.from(block3, objectMapper))
+        txes.add(TxContainer.from(tx1))
+        txes.add(TxContainer.from(tx2))
+        txes.add(TxContainer.from(tx3))
+        txes.add(TxContainer.from(tx4))
+        blocks.add(BlockContainer.from(block1))
+        blocks.add(BlockContainer.from(block2))
+        blocks.add(BlockContainer.from(block3))
 
-        def full = new EthereumFullBlocksReader(objectMapper, blocks, txes)
+        def full = new EthereumFullBlocksReader(blocks, txes)
 
         when:
         def act = full.read(BlockId.from(block1.hash)).block()
@@ -179,15 +180,15 @@ class EthereumFullBlocksReaderSpec extends Specification {
         def txes = new TxMemCache()
         def blocks = new BlocksMemCache()
 
-        txes.add(TxContainer.from(tx1, objectMapper))
-        txes.add(TxContainer.from(tx2, objectMapper))
-        txes.add(TxContainer.from(tx3, objectMapper))
-        txes.add(TxContainer.from(tx4, objectMapper))
-        blocks.add(BlockContainer.from(block1, objectMapper))
-        blocks.add(BlockContainer.from(block2, objectMapper))
-        blocks.add(BlockContainer.from(block3, objectMapper))
+        txes.add(TxContainer.from(tx1))
+        txes.add(TxContainer.from(tx2))
+        txes.add(TxContainer.from(tx3))
+        txes.add(TxContainer.from(tx4))
+        blocks.add(BlockContainer.from(block1))
+        blocks.add(BlockContainer.from(block2))
+        blocks.add(BlockContainer.from(block3))
 
-        def full = new EthereumFullBlocksReader(objectMapper, blocks, txes)
+        def full = new EthereumFullBlocksReader(blocks, txes)
 
         when:
         def act = full.read(BlockId.from(block3.hash)).block()
@@ -204,10 +205,10 @@ class EthereumFullBlocksReaderSpec extends Specification {
         def txes = new TxMemCache()
         def blocks = new BlocksMemCache()
 
-        txes.add(TxContainer.from(tx1, objectMapper))
-        blocks.add(BlockContainer.from(block1, objectMapper)) //missing tx2 in cache
+        txes.add(TxContainer.from(tx1))
+        blocks.add(BlockContainer.from(block1)) //missing tx2 in cache
 
-        def full = new EthereumFullBlocksReader(objectMapper, blocks, txes)
+        def full = new EthereumFullBlocksReader(blocks, txes)
 
         when:
         def act = full.read(BlockId.from(block1.hash)).block()
@@ -221,11 +222,11 @@ class EthereumFullBlocksReaderSpec extends Specification {
         def txes = new TxMemCache()
         def blocks = new BlocksMemCache()
 
-        txes.add(TxContainer.from(tx1, objectMapper))
-        txes.add(TxContainer.from(tx2, objectMapper))
-        txes.add(TxContainer.from(tx3, objectMapper))
+        txes.add(TxContainer.from(tx1))
+        txes.add(TxContainer.from(tx2))
+        txes.add(TxContainer.from(tx3))
 
-        def full = new EthereumFullBlocksReader(objectMapper, blocks, txes)
+        def full = new EthereumFullBlocksReader(blocks, txes)
 
         when:
         def act = full.read(BlockId.from(block1.hash)).block()

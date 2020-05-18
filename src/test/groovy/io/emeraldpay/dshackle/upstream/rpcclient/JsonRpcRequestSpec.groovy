@@ -24,7 +24,7 @@ class JsonRpcRequestSpec extends Specification {
         setup:
         def req = new JsonRpcRequest("test_foo", [])
         when:
-        def act = req.toJson(TestingCommons.objectMapper())
+        def act = req.toJson()
         then:
         new String(act) == '{"jsonrpc":"2.0","id":1,"method":"test_foo","params":[]}'
     }
@@ -33,7 +33,7 @@ class JsonRpcRequestSpec extends Specification {
         setup:
         def req = new JsonRpcRequest("test_foo", ["0x0000"])
         when:
-        def act = req.toJson(TestingCommons.objectMapper())
+        def act = req.toJson()
         then:
         new String(act) == '{"jsonrpc":"2.0","id":1,"method":"test_foo","params":["0x0000"]}'
     }
@@ -42,7 +42,7 @@ class JsonRpcRequestSpec extends Specification {
         setup:
         def req = new JsonRpcRequest("test_foo", ["0x0000", false])
         when:
-        def act = req.toJson(TestingCommons.objectMapper())
+        def act = req.toJson()
         then:
         new String(act) == '{"jsonrpc":"2.0","id":1,"method":"test_foo","params":["0x0000",false]}'
     }

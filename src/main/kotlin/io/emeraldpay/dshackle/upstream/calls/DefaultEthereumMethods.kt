@@ -28,7 +28,6 @@ import java.util.*
  * hardcoded results for base methods, such as `net_version`, `web3_clientVersion` and similar
  */
 class DefaultEthereumMethods(
-        private val objectMapper: ObjectMapper,
         private val chain: Chain
 ) : CallMethods {
 
@@ -88,9 +87,9 @@ class DefaultEthereumMethods(
             headVerifiedMethods.contains(method) -> NotLaggingQuorum(1)
             specialMethods.contains(method) -> {
                 when (method) {
-                    "eth_getTransactionCount" -> NonceQuorum(objectMapper)
+                    "eth_getTransactionCount" -> NonceQuorum()
                     "eth_getBalance" -> NotLaggingQuorum(1)
-                    "eth_sendRawTransaction" -> BroadcastQuorum(objectMapper)
+                    "eth_sendRawTransaction" -> BroadcastQuorum()
                     else -> AlwaysQuorum()
                 }
             }

@@ -16,11 +16,9 @@
  */
 package io.emeraldpay.dshackle.data
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
-import org.apache.commons.codec.binary.Hex
 import java.math.BigInteger
 import java.time.Instant
 
@@ -52,13 +50,13 @@ class BlockContainer(
         }
 
         @JvmStatic
-        fun from(block: BlockJson<*>, objectMapper: ObjectMapper): BlockContainer {
-            return from(block, objectMapper.writeValueAsBytes(block))
+        fun from(block: BlockJson<*>): BlockContainer {
+            return from(block, Global.objectMapper.writeValueAsBytes(block))
         }
 
         @JvmStatic
-        fun from(raw: ByteArray, objectMapper: ObjectMapper): BlockContainer {
-            val block = objectMapper.readValue(raw, BlockJson::class.java)
+        fun from(raw: ByteArray): BlockContainer {
+            val block = Global.objectMapper.readValue(raw, BlockJson::class.java)
             return from(block, raw)
         }
     }

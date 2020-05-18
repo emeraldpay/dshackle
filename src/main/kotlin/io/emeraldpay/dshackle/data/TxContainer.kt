@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.data
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.infinitape.etherjar.rpc.json.TransactionJson
 
 class TxContainer(
@@ -29,8 +30,8 @@ class TxContainer(
 
     companion object {
         @JvmStatic
-        fun from(tx: TransactionJson, objectMapper: ObjectMapper): TxContainer {
-            return from(tx, objectMapper.writeValueAsBytes(tx))
+        fun from(tx: TransactionJson): TxContainer {
+            return from(tx, Global.objectMapper.writeValueAsBytes(tx))
         }
 
         fun from(tx: TransactionJson, raw: ByteArray): TxContainer {

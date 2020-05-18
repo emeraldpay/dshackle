@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -38,7 +39,7 @@ import java.time.Instant
 
 class StreamHeadSpec extends Specification {
 
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def "Errors on unavailable chain"() {
         setup:
@@ -86,9 +87,9 @@ class StreamHeadSpec extends Specification {
         )
         then:
         StepVerifier.create(flux.take(2))
-                .then { upstream.nextBlock(BlockContainer.from(blocks[0], objectMapper)) }
+                .then { upstream.nextBlock(BlockContainer.from(blocks[0])) }
                 .expectNext(heads[0])
-                .then { upstream.nextBlock(BlockContainer.from(blocks[1], objectMapper)) }
+                .then { upstream.nextBlock(BlockContainer.from(blocks[1])) }
                 .expectNext(heads[1])
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))

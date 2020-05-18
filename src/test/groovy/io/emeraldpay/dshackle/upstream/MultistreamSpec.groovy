@@ -31,7 +31,7 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
         def up2 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(), new DirectCallMethods(["eth_test2", "eth_test3"]))
-        def aggr = new EthereumMultistream(Chain.ETHEREUM, [up1, up2], Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
+        def aggr = new EthereumMultistream(Chain.ETHEREUM, [up1, up2], Caches.default())
         when:
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()

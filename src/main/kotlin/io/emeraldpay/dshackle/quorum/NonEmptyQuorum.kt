@@ -23,9 +23,8 @@ import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcException
 
 open class NonEmptyQuorum(
-        objectMapper: ObjectMapper,
         val maxTries: Int = 3
-) : CallQuorum, ValueAwareQuorum<Any>(objectMapper, Any::class.java) {
+) : CallQuorum, ValueAwareQuorum<Any>(Any::class.java) {
 
     private var result: ByteArray? = null
     private var tries: Int = 0

@@ -22,9 +22,8 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 
 open class BroadcastQuorum(
-        objectMapper: ObjectMapper,
         val quorum: Int = 3
-) : CallQuorum, ValueAwareQuorum<String>(objectMapper, String::class.java) {
+) : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
 
     private var result: ByteArray? = null
     private var txid: String? = null

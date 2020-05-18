@@ -21,6 +21,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -39,7 +40,7 @@ import java.util.concurrent.CompletableFuture
 class EthereumGrpcUpstreamSpec extends Specification {
 
     MockGrpcServer mockServer = new MockGrpcServer()
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def "Subscribe to head"() {
         setup:
@@ -72,7 +73,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", chain, client, objectMapper, new JsonRpcGrpcClient(client, chain, objectMapper))
+        def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain))
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -129,7 +130,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, objectMapper, new JsonRpcGrpcClient(client, Chain.ETHEREUM, objectMapper))
+        def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM))
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])
@@ -190,7 +191,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", chain, client, objectMapper, new JsonRpcGrpcClient(client, chain, objectMapper))
+        def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain))
         upstream.setLag(0)
         upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
                 .addAllSupportedMethods(["eth_getBlockByHash"])

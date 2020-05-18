@@ -26,7 +26,7 @@ import java.time.Duration
 
 class WriteRpcJsonSpec extends Specification {
 
-    WriteRpcJson writer = new WriteRpcJson(TestingCommons.objectMapper())
+    WriteRpcJson writer = new WriteRpcJson()
 
     def "Write empty array"() {
         when:

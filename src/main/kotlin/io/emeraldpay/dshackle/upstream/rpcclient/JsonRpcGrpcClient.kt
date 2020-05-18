@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.grpc.Chain
@@ -30,8 +31,7 @@ import reactor.core.publisher.Mono
 
 class JsonRpcGrpcClient(
         private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
-        private val chain: Chain,
-        private val objectMapper: ObjectMapper
+        private val chain: Chain
 ) {
 
     companion object {
@@ -39,14 +39,13 @@ class JsonRpcGrpcClient(
     }
 
     fun forSelector(matcher: Selector.Matcher): Reader<JsonRpcRequest, JsonRpcResponse> {
-        return Executor(stub, chain, matcher, objectMapper)
+        return Executor(stub, chain, matcher)
     }
 
     class Executor(
             private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
             private val chain: Chain,
-            private val matcher: Selector.Matcher,
-            private val objectMapper: ObjectMapper
+            private val matcher: Selector.Matcher
     ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
         private val parser = JsonRpcParser()
@@ -64,7 +63,7 @@ class JsonRpcGrpcClient(
             BlockchainOuterClass.NativeCallItem.newBuilder()
                     .setId(1)
                     .setMethod(key.method)
-                    .setPayload(ByteString.copyFrom(objectMapper.writeValueAsBytes(key.params)))
+                    .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params)))
                     .build().let {
                         req.addItems(it)
                     }

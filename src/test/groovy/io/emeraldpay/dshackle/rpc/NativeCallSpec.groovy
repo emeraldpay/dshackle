@@ -16,8 +16,9 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
@@ -45,7 +46,7 @@ import java.util.concurrent.TimeoutException
 
 class NativeCallSpec extends Specification {
 
-    def objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def "Tries router first"() {
         def routedApi = Mock(Reader) {
@@ -56,7 +57,7 @@ class NativeCallSpec extends Specification {
         }
         def upstreams = Stub(MultistreamHolder)
 
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
         def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(
                 1, upstream, Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", [])
@@ -77,7 +78,7 @@ class NativeCallSpec extends Specification {
         }
         def upstreams = Stub(MultistreamHolder)
 
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
         def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(
                 15, upstream, Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", [])
@@ -100,7 +101,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = new AlwaysQuorum()
 
-        def nativeCall = new NativeCall(Stub(MultistreamHolder), TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(Stub(MultistreamHolder))
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _) >> Mock(Reader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, 1))
@@ -120,7 +121,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = new AlwaysQuorum()
 
-        def nativeCall = new NativeCall(Stub(MultistreamHolder), TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(Stub(MultistreamHolder))
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _) >> Mock(Reader) {
                 1 * read(_) >> Mono.empty()
@@ -140,7 +141,7 @@ class NativeCallSpec extends Specification {
     def "Packs call exception into response with id"() {
         setup:
         def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
         when:
         def resp = nativeCall.processException(new NativeCall.CallFailure(5, new IllegalArgumentException("test test")))
         then:
@@ -157,7 +158,7 @@ class NativeCallSpec extends Specification {
     def "Packs unknown exception into response"() {
         setup:
         def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
         when:
         def resp = nativeCall.processException(new IllegalArgumentException("test test"))
         then:
@@ -173,7 +174,7 @@ class NativeCallSpec extends Specification {
     def "Builds normal response"() {
         setup:
         def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
         def json = [jsonrpc:"2.0", id:1, result: "foo"]
 
         when:
@@ -189,7 +190,7 @@ class NativeCallSpec extends Specification {
     def "Returns error for invalid chain"() {
         setup:
         def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
             .setChainValue(0)
@@ -212,7 +213,7 @@ class NativeCallSpec extends Specification {
     def "Returns error for unsupported chain"() {
         setup:
         def upstreams = Mock(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChainValue(Chain.TESTNET_MORDEN.id)
@@ -238,7 +239,7 @@ class NativeCallSpec extends Specification {
     def "Calls cache before remote"() {
         setup:
         def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
         def api = TestingCommons.api()
         def upstream = TestingCommons.aggregatedUpstream(api)
 
@@ -257,7 +258,7 @@ class NativeCallSpec extends Specification {
     def "Uses cached value"() {
         setup:
         def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams, TestingCommons.objectMapper())
+        def nativeCall = new NativeCall(upstreams)
         def upstream = TestingCommons.aggregatedUpstream(TestingCommons.api())
 
         def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(10,

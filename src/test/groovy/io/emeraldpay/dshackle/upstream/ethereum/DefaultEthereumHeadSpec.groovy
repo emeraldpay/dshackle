@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
@@ -30,17 +31,16 @@ import java.time.Instant
 class DefaultEthereumHeadSpec extends Specification {
 
     DefaultEthereumHead head = new DefaultEthereumHead()
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def blocks = (10L..20L).collect { i ->
         BlockContainer.from(
-                new BlockJson().with {
+                new BlockJson().tap {
                     it.number = 10000L + i
                     it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec89152" + i)
                     it.totalDifficulty = 11 * i
                     it.timestamp = Instant.now()
-                    return it
-                }, objectMapper)
+                })
     }
 
     def "Starts to follow"() {
@@ -90,13 +90,12 @@ class DefaultEthereumHeadSpec extends Specification {
     def "Ignores less difficult"() {
         when:
         def block3less = BlockContainer.from(
-                new BlockJson().with {
+                new BlockJson().tap {
                     it.number = blocks[3].height
                     it.hash = BlockHash.from(blocks[3].hash.value)
                     it.totalDifficulty = blocks[3].difficulty - 1
                     it.timestamp = Instant.now()
-                    return it
-                }, objectMapper)
+                })
         head.follow(Flux.just(blocks[0], blocks[3], block3less))
         def act = head.flux
         then:
@@ -109,13 +108,12 @@ class DefaultEthereumHeadSpec extends Specification {
     def "Replaces with more difficult"() {
         when:
         def block3less = BlockContainer.from(
-                new BlockJson().with {
+                new BlockJson().tap {
                     it.number = blocks[3].height
                     it.hash = BlockHash.from(blocks[3].hash.value)
                     it.totalDifficulty = blocks[3].difficulty + 1
                     it.timestamp = Instant.now()
-                    return it
-                }, objectMapper)
+                })
         head.follow(Flux.just(blocks[0], blocks[3], block3less))
         def act = head.flux
         then:

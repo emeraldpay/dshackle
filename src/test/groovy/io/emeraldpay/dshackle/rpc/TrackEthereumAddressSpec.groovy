@@ -108,7 +108,7 @@ class TrackEthereumAddressSpec extends Specification {
         StepVerifier.create(flux)
                 .expectNext(exp1).as("First block")
                 .then {
-                    upstreamMock.nextBlock(BlockContainer.from(block2, TestingCommons.objectMapper()))
+                    upstreamMock.nextBlock(BlockContainer.from(block2))
                 }
                 .expectNext(exp2).as("Second block")
                 .thenCancel()

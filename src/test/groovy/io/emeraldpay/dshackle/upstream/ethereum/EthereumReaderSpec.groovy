@@ -58,13 +58,12 @@ class EthereumReaderSpec extends Specification {
     def "Block by Id reads from cache"() {
         setup:
         def memCache = Mock(BlocksMemCache) {
-            1 * read(blockId) >> Mono.just(BlockContainer.from(blockJson, TestingCommons.objectMapper()))
+            1 * read(blockId) >> Mono.just(BlockContainer.from(blockJson))
         }
         def caches = Caches.newBuilder()
                 .setBlockByHash(memCache)
-                .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(Multistream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(Multistream), caches)
 
         when:
         def act = reader.blocksById().read(blockId).block()
@@ -80,13 +79,12 @@ class EthereumReaderSpec extends Specification {
         }
         def caches = Caches.newBuilder()
                 .setBlockByHash(memCache)
-                .setObjectMapper(TestingCommons.objectMapper())
                 .build()
         def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
 
         def upstream = TestingCommons.aggregatedUpstream(api)
-        def reader = new EthereumReader(upstream, caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(upstream, caches)
 
         when:
         def act = reader.blocksById().read(blockId).block()
@@ -102,13 +100,12 @@ class EthereumReaderSpec extends Specification {
         }
         def caches = Caches.newBuilder()
                 .setBlockByHash(memCache)
-                .setObjectMapper(TestingCommons.objectMapper())
                 .build()
         def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
 
         def upstream = TestingCommons.aggregatedUpstream(api)
-        def reader = new EthereumReader(upstream, caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(upstream, caches)
 
         when:
         def act = reader.blocksById().read(blockId).block()
@@ -120,13 +117,12 @@ class EthereumReaderSpec extends Specification {
     def "Block by Hash reads from cache"() {
         setup:
         def memCache = Mock(BlocksMemCache) {
-            1 * read(blockId) >> Mono.just(BlockContainer.from(blockJson, TestingCommons.objectMapper()))
+            1 * read(blockId) >> Mono.just(BlockContainer.from(blockJson))
         }
         def caches = Caches.newBuilder()
                 .setBlockByHash(memCache)
-                .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(Multistream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(Multistream), caches)
 
         when:
         def act = reader.blocksByHash().read(blockJson.hash).block()
@@ -142,12 +138,11 @@ class EthereumReaderSpec extends Specification {
         }
         def caches = Caches.newBuilder()
                 .setBlockByHash(memCache)
-                .setObjectMapper(TestingCommons.objectMapper())
                 .build()
         def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
         def upstream = TestingCommons.aggregatedUpstream(api)
-        def reader = new EthereumReader(upstream, caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(upstream, caches)
 
         when:
         def act = reader.blocksByHash().read(blockJson.hash).block()
@@ -159,13 +154,12 @@ class EthereumReaderSpec extends Specification {
     def "Tx by Hash reads from cache"() {
         setup:
         def memCache = Mock(TxMemCache) {
-            1 * read(txId) >> Mono.just(TxContainer.from(txJson, TestingCommons.objectMapper()))
+            1 * read(txId) >> Mono.just(TxContainer.from(txJson))
         }
         def caches = Caches.newBuilder()
                 .setTxByHash(memCache)
-                .setObjectMapper(TestingCommons.objectMapper())
                 .build()
-        def reader = new EthereumReader(Stub(Multistream), caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(Stub(Multistream), caches)
 
         when:
         def act = reader.txByHash().read(txJson.hash).block()
@@ -181,13 +175,12 @@ class EthereumReaderSpec extends Specification {
         }
         def caches = Caches.newBuilder()
                 .setTxByHash(memCache)
-                .setObjectMapper(TestingCommons.objectMapper())
                 .build()
 
         def api = TestingCommons.api()
         api.answer("eth_getTransactionByHash", [txJson.hash.toHex()], txJson)
         def upstream = TestingCommons.aggregatedUpstream(api)
-        def reader = new EthereumReader(upstream, caches, TestingCommons.objectMapper())
+        def reader = new EthereumReader(upstream, caches)
 
         when:
         def act = reader.txByHash().read(txJson.hash).block()
@@ -203,7 +196,7 @@ class EthereumReaderSpec extends Specification {
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "latest"], "0xff")
         EthereumUpstreamMock upstream = new EthereumUpstreamMock(Chain.ETHEREUM, api)
         def upstreams = TestingCommons.aggregatedUpstream(upstream)
-        def reader = new EthereumReader(upstreams, Caches.default(TestingCommons.objectMapper()), TestingCommons.objectMapper())
+        def reader = new EthereumReader(upstreams, Caches.default())
         reader.start()
 
         when:
@@ -225,7 +218,7 @@ class EthereumReaderSpec extends Specification {
             it.number++
             it.totalDifficulty = BigInteger.TWO
         }
-        upstream.nextBlock(BlockContainer.from(block2, TestingCommons.objectMapper()))
+        upstream.nextBlock(BlockContainer.from(block2))
         Thread.sleep(50)
         act = reader.balance().read(Address.from("0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c")).block()
 

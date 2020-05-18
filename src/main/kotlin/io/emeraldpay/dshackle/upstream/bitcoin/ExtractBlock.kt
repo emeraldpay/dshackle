@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
@@ -24,9 +25,7 @@ import org.slf4j.LoggerFactory
 import java.math.BigInteger
 import java.time.Instant
 
-class ExtractBlock(
-        private val objectMapper: ObjectMapper
-) {
+class ExtractBlock() {
 
     companion object {
         private val log = LoggerFactory.getLogger(ExtractBlock::class.java)
@@ -49,6 +48,8 @@ class ExtractBlock(
             return BigInteger(1, Hex.decodeHex(chainwork))
         }
     }
+
+    private val objectMapper: ObjectMapper = Global.objectMapper
 
     fun extract(json: ByteArray): BlockContainer {
         val data = objectMapper.readValue(json, Map::class.java) as Map<String, Any>

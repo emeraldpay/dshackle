@@ -41,13 +41,12 @@ open class EthereumUpstream(
         private val ethereumWsFactory: EthereumWsFactory? = null,
         options: UpstreamsConfig.Options,
         val node: QuorumForLabels.QuorumItem,
-        targets: CallMethods,
-        private val objectMapper: ObjectMapper
+        targets: CallMethods
 ) : DefaultUpstream(id, options, targets), Upstream, CachesEnabled, Lifecycle {
 
-    constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>, objectMapper: ObjectMapper) : this(id, chain, api, null,
+    constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>) : this(id, chain, api, null,
             UpstreamsConfig.Options.getDefaults(), QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
-            DirectCallMethods(), objectMapper)
+            DirectCallMethods())
 
 
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)
@@ -68,7 +67,7 @@ open class EthereumUpstream(
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)
         } else {
-            val validator = EthereumUpstreamValidator(this, getOptions(), objectMapper)
+            val validator = EthereumUpstreamValidator(this, getOptions())
             validatorSubscription = validator.start()
                     .subscribe(this::setStatus)
         }
@@ -95,7 +94,7 @@ open class EthereumUpstream(
                 start()
             }
             // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(getApi(), objectMapper, Duration.ofSeconds(60)).apply {
+            val rpcHead = EthereumRpcHead(getApi(), Duration.ofSeconds(60)).apply {
                 start()
             }
             MergedHead(listOf(rpcHead, wsHead)).apply {
@@ -103,7 +102,7 @@ open class EthereumUpstream(
             }
         } else {
             log.warn("Setting up upstream ${this.getId()} with RPC-only access, less effective than WS+RPC")
-            EthereumRpcHead(getApi(), objectMapper).apply {
+            EthereumRpcHead(getApi()).apply {
                 start()
             }
         }

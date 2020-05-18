@@ -25,7 +25,7 @@ class NonEmptyQuorumSpec extends Specification {
 
     def "Fail if too many errors"() {
         setup:
-        def q = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def q = Spy(new NonEmptyQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -57,7 +57,7 @@ class NonEmptyQuorumSpec extends Specification {
 
     def "Fail first if not error"() {
         setup:
-        def q = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def q = Spy(new NonEmptyQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -77,7 +77,7 @@ class NonEmptyQuorumSpec extends Specification {
 
     def "Fail second if first is error"() {
         setup:
-        def q = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def q = Spy(new NonEmptyQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
@@ -104,7 +104,7 @@ class NonEmptyQuorumSpec extends Specification {
 
     def "Fail second if first is null"() {
         setup:
-        def q = Spy(new NonEmptyQuorum(TestingCommons.objectMapper(), 3))
+        def q = Spy(new NonEmptyQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)

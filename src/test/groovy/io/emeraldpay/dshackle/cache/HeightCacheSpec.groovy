@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
@@ -32,8 +33,6 @@ class HeightCacheSpec extends Specification {
     String hash3 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
 
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
-
     def "Add and read"() {
         setup:
         def cache = new HeightCache()
@@ -45,7 +44,7 @@ class HeightCacheSpec extends Specification {
             block.hash = BlockHash.from(hash)
             block.totalDifficulty = BigInteger.ONE
             block.timestamp = Instant.now()
-            cache.add(BlockContainer.from(block, objectMapper))
+            cache.add(BlockContainer.from(block))
         }
 
         def act1 = cache.read(100).block()
@@ -71,7 +70,7 @@ class HeightCacheSpec extends Specification {
             block.hash = BlockHash.from(hash)
             block.totalDifficulty = BigInteger.ONE
             block.timestamp = Instant.now()
-            cache.add(BlockContainer.from(block, objectMapper))
+            cache.add(BlockContainer.from(block))
         }
 
         def act1 = cache.read(100).block()

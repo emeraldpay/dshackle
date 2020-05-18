@@ -16,9 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -34,8 +32,6 @@ import java.time.Duration
 import java.time.Instant
 
 class EthereumHeadLagObserverSpec extends Specification {
-
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
 
     def "Updates lag distance"() {
         setup:
@@ -53,14 +49,12 @@ class EthereumHeadLagObserverSpec extends Specification {
 
         def blocks = [100, 101, 102].collect { i ->
             return BlockContainer.from(
-                    new BlockJson().with {
+                    new BlockJson().tap {
                         it.number = i
                         it.totalDifficulty = 2000 + i
                         it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915" + i)
                         it.timestamp = Instant.now()
-                        return it
-                    },
-                    objectMapper)
+                    })
         }
 
         def masterBus = TopicProcessor.create()
@@ -97,14 +91,12 @@ class EthereumHeadLagObserverSpec extends Specification {
 
         def blocks = [100, 101, 102].collect { i ->
             return BlockContainer.from(
-                    new BlockJson().with {
+                    new BlockJson().tap {
                         it.number = i
                         it.totalDifficulty = 2000 + i
                         it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915" + i)
                         it.timestamp = Instant.now()
-                        return it
-                    },
-                    objectMapper)
+                    })
         }
 
         def upblocks = Flux.fromIterable(blocks)
@@ -137,7 +129,7 @@ class EthereumHeadLagObserverSpec extends Specification {
             it.timestamp = Instant.now()
             return it
         }
-        delta as Long == observer.extractDistance(BlockContainer.from(top, objectMapper), BlockContainer.from(curr, objectMapper))
+        delta as Long == observer.extractDistance(BlockContainer.from(top), BlockContainer.from(curr))
         where:
         topHeight | topDiff | currHeight | currDiff | delta
         100       | 1000    | 100        | 1000     | 0

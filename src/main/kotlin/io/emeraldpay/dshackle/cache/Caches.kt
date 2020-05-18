@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
@@ -34,8 +35,7 @@ open class Caches(
         private val blocksByHeight: HeightCache,
         private val memTxsByHash: TxMemCache,
         private val redisBlocksByHash: BlocksRedisCache?,
-        private val redisTxsByHash: TxRedisCache?,
-        private val objectMapper: ObjectMapper
+        private val redisTxsByHash: TxRedisCache?
 ) {
 
     companion object {
@@ -47,8 +47,8 @@ open class Caches(
         }
 
         @JvmStatic
-        fun default(objectMapper: ObjectMapper): Caches {
-            return newBuilder().setObjectMapper(objectMapper).build()
+        fun default(): Caches {
+            return newBuilder().build()
         }
     }
 
@@ -113,10 +113,10 @@ open class Caches(
             var blockOnlyContainer: BlockContainer? = null
             var jsonValue: BlockJson<*>? = null
             if (block.full) {
-                jsonValue = objectMapper.readValue<BlockJson<*>>(block.json, BlockJson::class.java)
+                jsonValue = Global.objectMapper.readValue<BlockJson<*>>(block.json, BlockJson::class.java)
                 //shouldn't cache block json with transactions, separate txes and blocks with refs
                 val blockOnly = jsonValue.withoutTransactionDetails()
-                blockOnlyContainer = BlockContainer.from(blockOnly, objectMapper)
+                blockOnlyContainer = BlockContainer.from(blockOnly)
             } else {
                 blockOnlyContainer = block
             }
@@ -128,7 +128,7 @@ open class Caches(
                 val plainTransactions = jsonValue.transactions.filterIsInstance<TransactionJson>()
                 if (plainTransactions.isNotEmpty()) {
                     val transactions = plainTransactions.map { tx ->
-                        TxContainer.from(tx, objectMapper)
+                        TxContainer.from(tx)
                     }
                     transactions.forEach {
                         cache(Tag.REQUESTED, it)
@@ -159,11 +159,11 @@ open class Caches(
     }
 
     fun getFullBlocks(): Reader<BlockId, BlockContainer> {
-        return EthereumFullBlocksReader(objectMapper, blocksByHash, txsByHash)
+        return EthereumFullBlocksReader(blocksByHash, txsByHash)
     }
 
     fun getFullBlocksByHeight(): Reader<Long, BlockContainer> {
-        return BlockByHeight(blocksByHeight, EthereumFullBlocksReader(objectMapper, blocksByHash, txsByHash))
+        return BlockByHeight(blocksByHeight, EthereumFullBlocksReader(blocksByHash, txsByHash))
     }
 
     enum class Tag {
@@ -184,7 +184,6 @@ open class Caches(
         private var txsByHash: TxMemCache? = null
         private var redisBlocksByHash: BlocksRedisCache? = null
         private var redisTxsByHash: TxRedisCache? = null
-        private var objectMapper: ObjectMapper? = null
 
         fun setBlockByHash(cache: BlocksMemCache): Builder {
             blocksByHash = cache
@@ -211,11 +210,6 @@ open class Caches(
             return this
         }
 
-        fun setObjectMapper(value: ObjectMapper): Builder {
-            objectMapper = value
-            return this
-        }
-
         fun build(): Caches {
             if (blocksByHash == null) {
                 blocksByHash = BlocksMemCache()
@@ -226,10 +220,7 @@ open class Caches(
             if (txsByHash == null) {
                 txsByHash = TxMemCache()
             }
-            if (objectMapper == null) {
-                throw IllegalStateException("ObjectMapper is not set")
-            }
-            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, redisBlocksByHash, redisTxsByHash, objectMapper!!)
+            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, redisBlocksByHash, redisTxsByHash)
         }
     }
 }

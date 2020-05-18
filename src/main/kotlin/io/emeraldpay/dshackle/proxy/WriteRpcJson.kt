@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.proxy
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Global
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.ResponseJson
 import org.slf4j.LoggerFactory
@@ -33,13 +34,13 @@ import java.util.function.Function
  * Writer for JSON RPC requests
  */
 @Service
-open class WriteRpcJson(
-        @Autowired private val objectMapper: ObjectMapper
-) {
+open class WriteRpcJson() {
 
     companion object {
         private val log = LoggerFactory.getLogger(WriteRpcJson::class.java)
     }
+
+    private val objectMapper: ObjectMapper = Global.objectMapper
 
     /**
      * Convert Dshackle protobuf based responses to JSON RPC formatted as strings

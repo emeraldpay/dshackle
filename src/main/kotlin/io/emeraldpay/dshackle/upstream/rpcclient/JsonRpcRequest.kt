@@ -15,21 +15,21 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 
 class JsonRpcRequest(
         val method: String,
         val params: List<Any>
 ) {
 
-    fun toJson(objectMapper: ObjectMapper): ByteArray {
+    fun toJson(): ByteArray {
         val json = mapOf(
                 "jsonrpc" to "2.0",
                 "id" to 1,
                 "method" to method,
                 "params" to params
         )
-        return objectMapper.writeValueAsBytes(json)
+        return Global.objectMapper.writeValueAsBytes(json)
     }
 
     override fun equals(other: Any?): Boolean {

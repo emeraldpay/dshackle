@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.startup
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
@@ -44,7 +45,6 @@ import kotlin.collections.HashMap
 
 @Repository
 open class ConfiguredUpstreams(
-        @Autowired private val objectMapper: ObjectMapper,
         @Autowired private val currentUpstreams: CurrentMultistreamHolder,
         @Autowired private val fileResolver: FileResolver,
         @Autowired private val config: UpstreamsConfig,
@@ -146,7 +146,7 @@ open class ConfiguredUpstreams(
         val upstream = BitcoinUpstream(config.id
                 ?: "bitcoin-${seq.getAndIncrement()}", chain, directApi,
                 options, QuorumForLabels.QuorumItem(1, config.labels),
-                objectMapper, methods)
+                methods)
 
         upstream.start()
         currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
@@ -171,8 +171,7 @@ open class ConfiguredUpstreams(
         val wsFactoryApi: EthereumWsFactory? = conn.ws?.let { endpoint ->
             val wsApi = EthereumWsFactory(
                     endpoint.url,
-                    endpoint.origin ?: URI("http://localhost"),
-                    objectMapper
+                    endpoint.origin ?: URI("http://localhost")
             )
             endpoint.basicAuth?.let { auth ->
                 wsApi.basicAuth = auth
@@ -186,8 +185,7 @@ open class ConfiguredUpstreams(
                 config.id!!,
                 chain, directApi, wsFactoryApi, options,
                 QuorumForLabels.QuorumItem(1, config.labels),
-                methods,
-                objectMapper
+                methods
         )
         ethereumUpstream.start()
         currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
@@ -199,7 +197,6 @@ open class ConfiguredUpstreams(
                 config.id!!,
                 endpoint.host!!,
                 endpoint.port ?: 2449,
-                objectMapper,
                 endpoint.auth,
                 fileResolver
         ).apply {
@@ -225,7 +222,6 @@ open class ConfiguredUpstreams(
             urls.add(endpoint.url)
             JsonRpcHttpClient(
                     endpoint.url.toString(),
-                    objectMapper,
                     conn.rpc?.basicAuth,
                     tls
             )

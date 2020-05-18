@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
@@ -44,7 +45,7 @@ class BlocksRedisCacheSpec extends Specification {
     String hash3 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
 
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def setup() {
         redis = IntegrationTestingCommons.redisConnection()
@@ -94,7 +95,7 @@ class BlocksRedisCacheSpec extends Specification {
         block.uncles = []
 
         when:
-        cache.add(BlockContainer.from(block, objectMapper)).subscribe()
+        cache.add(BlockContainer.from(block)).subscribe()
         def act = cache.read(BlockId.from(hash1)).block()
         then:
         act != null
@@ -112,7 +113,7 @@ class BlocksRedisCacheSpec extends Specification {
         block.uncles = []
 
         when:
-        cache.add(BlockContainer.from(block, objectMapper)).subscribe()
+        cache.add(BlockContainer.from(block)).subscribe()
         def act = cache.read(BlockId.from(hash2)).block()
         then:
         objectMapper.readValue(act.json, BlockJson) == block
@@ -136,7 +137,7 @@ class BlocksRedisCacheSpec extends Specification {
         block.uncles = []
 
         when:
-        cache.add(BlockContainer.from(block, objectMapper)).subscribe()
+        cache.add(BlockContainer.from(block)).subscribe()
         def act = cache.read(BlockId.from(hash2)).block()
         then:
         act != null

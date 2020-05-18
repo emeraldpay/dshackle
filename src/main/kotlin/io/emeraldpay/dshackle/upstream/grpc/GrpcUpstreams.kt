@@ -46,7 +46,6 @@ class GrpcUpstreams(
         private val id: String,
         private val host: String,
         private val port: Int,
-        private val objectMapper: ObjectMapper,
         private val auth: AuthConfig.ClientTlsAuth? = null,
         private val fileResolver: FileResolver
 ) {
@@ -157,8 +156,8 @@ class GrpcUpstreams(
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val rpcClient = JsonRpcGrpcClient(client!!, chain, objectMapper)
-                val created = EthereumGrpcUpstream(id, chain, client!!, objectMapper, rpcClient)
+                val rpcClient = JsonRpcGrpcClient(client!!, chain)
+                val created = EthereumGrpcUpstream(id, chain, client!!, rpcClient)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.CacheConfig
@@ -38,27 +39,9 @@ import java.text.SimpleDateFormat
 
 class TestingCommons {
 
-    static ObjectMapper objectMapper() {
-        def module = new SimpleModule("EmeraldDShackle", new Version(1, 0, 0, null, null, null))
-
-        def objectMapper = new ObjectMapper()
-        objectMapper.registerModule(module)
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-        objectMapper
-                .setDateFormat(new SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm:ss.SSS"))
-                .setTimeZone(TimeZone.getTimeZone("UTC"))
-
-        return objectMapper
-    }
-
     static EthereumApiMock api() {
-        return new EthereumApiMock(objectMapper())
+        return new EthereumApiMock()
     }
-
-    static JacksonRpcConverter rpcConverter() {
-        return new JacksonRpcConverter(objectMapper())
-    }
-
     static EthereumUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api)
     }
@@ -76,13 +59,13 @@ class TestingCommons {
     }
 
     static Multistream aggregatedUpstream(EthereumUpstream up) {
-        return new EthereumMultistream(Chain.ETHEREUM, [up], Caches.default(objectMapper()), objectMapper()).tap {
+        return new EthereumMultistream(Chain.ETHEREUM, [up], Caches.default()).tap {
             start()
         }
     }
 
     static CachesFactory emptyCaches() {
-        return new CachesFactory(objectMapper(), new CacheConfig())
+        return new CachesFactory(new CacheConfig())
     }
 
     static FileResolver fileResolver() {

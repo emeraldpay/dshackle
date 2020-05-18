@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -33,13 +34,14 @@ import java.util.concurrent.Executors
 
 class EthereumUpstreamValidator(
         private val upstream: EthereumUpstream,
-        private val options: UpstreamsConfig.Options,
-        private val objectMapper: ObjectMapper
+        private val options: UpstreamsConfig.Options
 ) {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
         val scheduler = Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-validator")))
     }
+
+    private val objectMapper: ObjectMapper = Global.objectMapper
 
     fun validate(): Mono<UpstreamAvailability> {
         return upstream

@@ -20,9 +20,7 @@ import io.emeraldpay.dshackle.quorum.*
 import io.infinitape.etherjar.rpc.RpcException
 import java.util.*
 
-class DefaultBitcoinMethods(
-        private val objectMapper: ObjectMapper
-) : CallMethods {
+class DefaultBitcoinMethods() : CallMethods {
 
     private val anyResponseMethods = listOf(
             "getblock",
@@ -50,7 +48,7 @@ class DefaultBitcoinMethods(
             Collections.binarySearch(hardcodedMethods, method) >= 0 -> AlwaysQuorum()
             Collections.binarySearch(anyResponseMethods, method) >= 0 -> NotLaggingQuorum(2)
             Collections.binarySearch(headVerifiedMethods, method) >= 0 -> NotLaggingQuorum(0)
-            Collections.binarySearch(broadcastMethods, method) >= 0 -> BroadcastQuorum(objectMapper)
+            Collections.binarySearch(broadcastMethods, method) >= 0 -> BroadcastQuorum()
             else -> AlwaysQuorum()
         }
     }

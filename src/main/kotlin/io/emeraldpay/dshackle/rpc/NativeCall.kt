@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
@@ -42,11 +43,11 @@ import java.lang.Exception
 
 @Service
 open class NativeCall(
-        @Autowired private val multistreamHolder: MultistreamHolder,
-        @Autowired private val objectMapper: ObjectMapper
+        @Autowired private val multistreamHolder: MultistreamHolder
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
+    private val objectMapper: ObjectMapper = Global.objectMapper
 
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
 

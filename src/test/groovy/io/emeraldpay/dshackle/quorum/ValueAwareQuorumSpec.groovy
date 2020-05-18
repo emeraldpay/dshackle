@@ -62,7 +62,7 @@ class ValueAwareQuorumSpec extends Specification {
 
     class ValueAwareQuorumImpl extends ValueAwareQuorum {
         ValueAwareQuorumImpl() {
-            super(TestingCommons.objectMapper(), Object)
+            super(Object)
         }
 
         @Override

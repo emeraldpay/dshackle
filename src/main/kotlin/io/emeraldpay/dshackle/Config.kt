@@ -73,20 +73,6 @@ open class Config(
         return target
     }
 
-    @Bean
-    open fun objectMapper(): ObjectMapper {
-        val module = SimpleModule("EmeraldDshackle", Version(1, 0, 0, null, null, null))
-
-        val objectMapper = ObjectMapper()
-        objectMapper.registerModule(module)
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-        objectMapper
-                .setDateFormat(SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm:ss.SSS"))
-                .setTimeZone(TimeZone.getTimeZone("UTC"))
-
-        return objectMapper
-    }
-
     @Bean @Qualifier("upstreamScheduler")
     open fun upstreamScheduler(): Scheduler {
         return Schedulers.fromExecutorService(Executors.newFixedThreadPool(16))

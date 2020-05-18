@@ -35,7 +35,6 @@ open class BitcoinUpstream(
         private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
         options: UpstreamsConfig.Options,
         val node: QuorumForLabels.QuorumItem,
-        private val objectMapper: ObjectMapper,
         callMethods: CallMethods
 ) : DefaultUpstream(id, options, callMethods), Lifecycle {
 
@@ -49,7 +48,7 @@ open class BitcoinUpstream(
     private fun createHead(): Head {
         return BitcoinRpcHead(
                 directApi,
-                ExtractBlock(objectMapper)
+                ExtractBlock()
         )
     }
 

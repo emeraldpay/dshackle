@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
@@ -43,11 +44,12 @@ import kotlin.concurrent.withLock
 
 @Repository
 class CurrentMultistreamHolder(
-        @Autowired private val objectMapper: ObjectMapper,
         @Autowired private val cachesFactory: CachesFactory
 ) : MultistreamHolder {
 
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
+
+    private val objectMapper: ObjectMapper = Global.objectMapper
 
     private val chainMapping = ConcurrentHashMap<Chain, Multistream>()
     private val chainsBus = TopicProcessor.create<Chain>()
@@ -62,7 +64,7 @@ class CurrentMultistreamHolder(
                     val up = change.upstream.cast(EthereumUpstream::class.java)
                     val current = chainMapping[chain] as Multistream?
                     val factory = Callable {
-                        EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as Multistream
+                        EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain)) as Multistream
                     }
                     processUpdate(change, up, current, factory)
                 }
@@ -70,7 +72,7 @@ class CurrentMultistreamHolder(
                     val up = change.upstream.cast(BitcoinUpstream::class.java)
                     val current = chainMapping[chain] as Multistream?
                     val factory = Callable {
-                        BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), objectMapper) as Multistream
+                        BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain)) as Multistream
                     }
                     processUpdate(change, up, current, factory)
                 }
@@ -135,8 +137,8 @@ class CurrentMultistreamHolder(
 
     fun setupDefaultMethods(chain: Chain): CallMethods {
         val created = when (BlockchainType.fromBlockchain(chain)) {
-            BlockchainType.ETHEREUM -> DefaultEthereumMethods(objectMapper, chain)
-            BlockchainType.BITCOIN -> DefaultBitcoinMethods(objectMapper)
+            BlockchainType.ETHEREUM -> DefaultEthereumMethods(chain)
+            BlockchainType.BITCOIN -> DefaultBitcoinMethods()
             else -> throw IllegalStateException("Unsupported chain: $chain")
         }
         callTargets[chain] = created

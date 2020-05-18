@@ -33,7 +33,6 @@ import javax.annotation.PostConstruct
 
 @Repository
 class CachesFactory(
-        @Autowired private val objectMapper: ObjectMapper,
         @Autowired private val cacheConfig: CacheConfig
 ) {
 
@@ -74,7 +73,6 @@ class CachesFactory(
 
     private fun initCache(chain: Chain): Caches {
         val caches = Caches.newBuilder()
-                .setObjectMapper(objectMapper)
         redis?.let { redis ->
             caches.setBlockByHash(BlocksRedisCache(redis.reactive(), chain))
             caches.setTxByHash(TxRedisCache(redis.reactive(), chain))

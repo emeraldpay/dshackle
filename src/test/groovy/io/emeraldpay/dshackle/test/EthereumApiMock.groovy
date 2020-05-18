@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -37,12 +38,11 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
     private static final Logger log = LoggerFactory.getLogger(this)
     List<PredefinedResponse> predefined = []
-    private ObjectMapper objectMapper
+    private final ObjectMapper objectMapper = Global.objectMapper
 
     String id = "default"
 
-    EthereumApiMock(@NotNull ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper
+    EthereumApiMock() {
     }
 
     EthereumApiMock answerOnce(@NotNull String method, List<Object> params, Object result) {

@@ -38,7 +38,6 @@ import java.util.function.Consumer
  */
 class JsonRpcHttpClient(
         private val target: String,
-        private val objectMapper: ObjectMapper,
         basicAuth: AuthConfig.ClientBasicAuth? = null,
         tlsCAAuth: ByteArray? = null
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
@@ -94,7 +93,7 @@ class JsonRpcHttpClient(
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         return Mono.just(key)
-                .map { it.toJson(objectMapper) }
+                .map(JsonRpcRequest::toJson)
                 .flatMap(this@JsonRpcHttpClient::execute)
                 .map(parser::parse)
     }

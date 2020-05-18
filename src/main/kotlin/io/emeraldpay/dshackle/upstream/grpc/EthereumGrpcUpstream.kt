@@ -56,7 +56,6 @@ open class EthereumGrpcUpstream(
         private val parentId: String,
         private val chain: Chain,
         private val blockchainStub: ReactorBlockchainGrpc.ReactorBlockchainStub,
-        private val objectMapper: ObjectMapper,
         private val client: JsonRpcGrpcClient
 ) : DefaultUpstream(
         "$parentId/${chain.chainCode}",
@@ -125,7 +124,7 @@ open class EthereumGrpcUpstream(
             defaultReader.read(JsonRpcRequest("eth_getBlockByHash", listOf(it.hash.toHexWithPrefix(), false)))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
-                        BlockContainer.from(it, objectMapper)
+                        BlockContainer.from(it)
                     }
                     .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
                     .doOnError { t ->

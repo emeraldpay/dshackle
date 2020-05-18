@@ -40,7 +40,7 @@ class JsonRpcHttpClientSpec extends Specification {
 
     def "Make a request"() {
         setup:
-        JsonRpcHttpClient client = new JsonRpcHttpClient("localhost:18332", TestingCommons.objectMapper(), null, null)
+        JsonRpcHttpClient client = new JsonRpcHttpClient("localhost:18332", null, null)
         def resp = '{' +
                 '  "jsonrpc": "2.0",' +
                 '  "result": "0x98de45",' +
@@ -62,7 +62,7 @@ class JsonRpcHttpClientSpec extends Specification {
     def "Make request with basic auth"() {
         setup:
         def auth = new AuthConfig.ClientBasicAuth("user", "passwd")
-        def client = new JsonRpcHttpClient("localhost:18332", TestingCommons.objectMapper(), auth, null)
+        def client = new JsonRpcHttpClient("localhost:18332", auth, null)
 
         mockServer.when(
                 HttpRequest.request()

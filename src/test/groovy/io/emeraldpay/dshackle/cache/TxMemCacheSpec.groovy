@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
@@ -37,7 +38,7 @@ class TxMemCacheSpec extends Specification {
     String hash3 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
 
-    ObjectMapper objectMapper = TestingCommons.objectMapper()
+    ObjectMapper objectMapper = Global.objectMapper
 
     def "Add and read"() {
         setup:
@@ -48,7 +49,7 @@ class TxMemCacheSpec extends Specification {
         tx.blockNumber = 100
 
         when:
-        cache.add(TxContainer.from(tx, objectMapper))
+        cache.add(TxContainer.from(tx))
         def act = cache.read(TxId.from(hash1)).block()
         then:
         objectMapper.readValue(act.json, TransactionJson.class) == tx
@@ -64,7 +65,7 @@ class TxMemCacheSpec extends Specification {
             tx.blockNumber = 100 + i
             tx.blockHash = BlockHash.from(hash)
             tx.hash = TransactionId.from(hash)
-            cache.add(TxContainer.from(tx, objectMapper))
+            cache.add(TxContainer.from(tx))
         }
 
         def act1 = cache.read(TxId.from(hash1)).block()
@@ -88,14 +89,14 @@ class TxMemCacheSpec extends Specification {
             tx.blockNumber = 100
             tx.blockHash = BlockHash.from(hash1)
             tx.hash = TransactionId.from(hash)
-            cache.add(TxContainer.from(tx, objectMapper))
+            cache.add(TxContainer.from(tx))
         }
         [hash3, hash4].eachWithIndex { String hash, int i ->
             def tx = new TransactionJson()
             tx.blockNumber = 101
             tx.blockHash = BlockHash.from(hash2)
             tx.hash = TransactionId.from(hash)
-            cache.add(TxContainer.from(tx, objectMapper))
+            cache.add(TxContainer.from(tx))
         }
 
         cache.evict(BlockId.from(hash1))
@@ -122,14 +123,14 @@ class TxMemCacheSpec extends Specification {
             tx.blockNumber = 100
             tx.blockHash = BlockHash.from(hash1)
             tx.hash = TransactionId.from(hash)
-            cache.add(TxContainer.from(tx, objectMapper))
+            cache.add(TxContainer.from(tx))
         }
         [hash3, hash4].eachWithIndex{ String hash, int i ->
             def tx = new TransactionJson()
             tx.blockNumber = 100
             tx.blockHash = BlockHash.from(hash2)
             tx.hash = TransactionId.from(hash)
-            cache.add(TxContainer.from(tx, objectMapper))
+            cache.add(TxContainer.from(tx))
         }
 
         def block = new BlockJson<TransactionRefJson>()
@@ -142,7 +143,7 @@ class TxMemCacheSpec extends Specification {
                 new TransactionRefJson(TransactionId.from(hash2)),
         ]
 
-        cache.evict(BlockContainer.from(block, objectMapper))
+        cache.evict(BlockContainer.from(block))
 
         def act1 = cache.read(TxId.from(hash1)).block()
         def act2 = cache.read(TxId.from(hash2)).block()

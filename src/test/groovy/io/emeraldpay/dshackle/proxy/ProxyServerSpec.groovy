@@ -42,7 +42,7 @@ class ProxyServerSpec extends Specification {
 
         ProxyServer server = new ProxyServer(
                 new ProxyConfig(),
-                new ReadRpcJson(TestingCommons.objectMapper()),
+                new ReadRpcJson(),
                 writeRpcJson,
                 nativeCall,
                 new TlsSetup(TestingCommons.fileResolver())
