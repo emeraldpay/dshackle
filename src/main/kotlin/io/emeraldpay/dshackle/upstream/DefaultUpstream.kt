@@ -19,7 +19,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import reactor.core.publisher.Flux
-import reactor.core.publisher.TopicProcessor
+import reactor.extra.processor.TopicProcessor
 import java.util.concurrent.atomic.AtomicReference
 
 abstract class DefaultUpstream(

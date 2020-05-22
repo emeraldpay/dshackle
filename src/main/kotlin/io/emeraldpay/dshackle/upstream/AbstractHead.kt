@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
+import reactor.extra.processor.TopicProcessor
 import java.util.concurrent.atomic.AtomicReference
 
 abstract class AbstractHead : Head {

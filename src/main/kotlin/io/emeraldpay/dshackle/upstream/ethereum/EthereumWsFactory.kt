@@ -16,13 +16,10 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.rpc.json.BlockJson
@@ -31,7 +28,7 @@ import io.infinitape.etherjar.rpc.ws.WebsocketClient
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
+import reactor.extra.processor.TopicProcessor
 import reactor.retry.Repeat
 import java.net.URI
 import java.time.Duration

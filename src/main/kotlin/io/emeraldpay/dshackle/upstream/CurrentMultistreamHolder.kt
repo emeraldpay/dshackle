@@ -35,7 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
-import reactor.core.publisher.TopicProcessor
+import reactor.extra.processor.TopicProcessor
 import java.util.*
 import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
