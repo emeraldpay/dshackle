@@ -21,6 +21,7 @@ import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.ClientAuth
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslContextBuilder
+import io.netty.handler.ssl.SslProvider
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -61,6 +62,10 @@ class TlsSetup(
         }
         if (mustBeSecure || (!tlsDisabled && hasServerCertificate)) {
             log.info("Using TLS for $category")
+            if (SslContext.defaultServerProvider() == SslProvider.JDK) {
+                log.warn("Using JDK TLS implementation. Install OpenSSL to better performance")
+            }
+
             val sslContextBuilder = if (grpc) {
                 GrpcSslContexts.forServer(
                         fileResolver.resolve(config.certificate!!),
@@ -85,7 +90,10 @@ class TlsSetup(
             } else {
                 log.warn("Trust all clients for $category")
             }
-            return sslContextBuilder.build()
+            val sslContext = sslContextBuilder
+                    .sslProvider(SslProvider.OPENSSL)
+                    .build()
+            return sslContext
         } else {
             log.warn("Using insecure transport for $category")
         }
