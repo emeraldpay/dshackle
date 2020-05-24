@@ -90,10 +90,7 @@ class TlsSetup(
             } else {
                 log.warn("Trust all clients for $category")
             }
-            val sslContext = sslContextBuilder
-                    .sslProvider(SslProvider.OPENSSL)
-                    .build()
-            return sslContext
+            return sslContextBuilder.build()
         } else {
             log.warn("Using insecure transport for $category")
         }
