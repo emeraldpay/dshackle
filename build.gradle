@@ -57,7 +57,8 @@ dependencies {
     implementation "io.grpc:grpc-protobuf:${grpcVersion}"
     implementation "io.grpc:grpc-stub:${grpcVersion}"
     implementation "io.grpc:grpc-netty:${grpcVersion}"
-    implementation "io.netty:netty-tcnative-boringssl-static:2.0.29.Final"
+    implementation "io.netty:netty-tcnative:2.0.30.Final:linux-x86_64@jar"
+    implementation "io.netty:netty-tcnative-boringssl-static:2.0.30.Final:linux-x86_64@jar"
     implementation "io.netty:netty-handler:$nettyVersion"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"

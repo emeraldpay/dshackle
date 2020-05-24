@@ -13,9 +13,6 @@ jobs:
         with:
           java-version: 11
 
-      - name: Instal system libs
-        run: sudo apt-get install openssl
-
       - name: Check
         uses: eskatos/gradle-command-action@v1
         with:
@@ -41,9 +38,6 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 11
-
-      - name: Instal system libs
-        run: sudo apt-get install openssl
 
       - name: Check
         uses: eskatos/gradle-command-action@v1
