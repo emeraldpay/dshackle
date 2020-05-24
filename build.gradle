@@ -56,7 +56,11 @@ dependencies {
     compile "io.grpc:grpc-protobuf:${grpcVersion}"
     compile "io.grpc:grpc-stub:${grpcVersion}"
     compile "io.grpc:grpc-netty:${grpcVersion}"
-    compile "io.netty:netty-tcnative-boringssl-static:2.0.29.Final"
+    compile "io.netty:netty-transport:$nettyVersion"
+    compile "io.netty:netty-common:$nettyVersion"
+    compile "io.netty:netty-handler:$nettyVersion"
+    compile "io.netty:netty-tcnative:2.0.30.Final:linux-x86_64@jar"
+    compile "io.netty:netty-tcnative-boringssl-static:2.0.30.Final:linux-x86_64@jar"
 
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     compile "org.jetbrains.kotlin:kotlin-reflect"

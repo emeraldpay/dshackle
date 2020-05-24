@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.netty.handler.ssl.ClientAuth
 import io.netty.handler.ssl.OpenSslServerContext
+import io.netty.handler.ssl.SslContext
 import spock.lang.Specification
 import sun.security.x509.X509CertImpl
 
@@ -72,8 +73,10 @@ class TlsSetupSpec extends Specification {
         act != null
         act.server
         !act.client
+
+        // run test on OS with OpenSSL installed
         with((OpenSslServerContext) act) {
-            act.clientAuth == ClientAuth.REQUIRE
+            clientAuth == ClientAuth.REQUIRE
             with((X509CertImpl) keyCertChain[0]) {
                 getIssuerDN().name == "CN=ca.myhost.dev, OU=Blockchain CA, O=My Company"
             }
