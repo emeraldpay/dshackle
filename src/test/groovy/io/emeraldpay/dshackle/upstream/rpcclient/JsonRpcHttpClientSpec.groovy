@@ -17,6 +17,8 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.infinitape.etherjar.rpc.RpcException
+import io.infinitape.etherjar.rpc.RpcResponseError
 import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
@@ -86,6 +88,27 @@ class JsonRpcHttpClientSpec extends Specification {
                         .withContentType(MediaType.APPLICATION_JSON)
                         .withHeader("authorization", "Basic dXNlcjpwYXNzd2Q=")
         )
+    }
+
+    def "Produces RPC Exception on error status code"() {
+        setup:
+        def client = new JsonRpcHttpClient("localhost:18332", null, null)
+
+        mockServer.when(
+                HttpRequest.request()
+        ).respond(
+                HttpResponse.response()
+                        .withStatusCode(500)
+                        .withBody("pong")
+        )
+        when:
+        def act = client.execute("ping".bytes).map { new String(it) }
+        then:
+        StepVerifier.create(act)
+                .expectErrorMatches { t ->
+                    t instanceof RpcException && t.code == RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
+                }
+                .verify(Duration.ofSeconds(1))
     }
 
 }

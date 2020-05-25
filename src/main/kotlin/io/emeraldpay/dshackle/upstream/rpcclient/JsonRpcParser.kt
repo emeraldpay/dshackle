@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
 import com.fasterxml.jackson.core.JsonFactory
+import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import io.infinitape.etherjar.rpc.RpcResponseError
@@ -30,48 +31,52 @@ class JsonRpcParser() {
     private val jsonFactory = JsonFactory()
 
     fun parse(json: ByteArray): JsonRpcResponse {
-        val parser: JsonParser = jsonFactory.createParser(json)
-        parser.nextToken()
-        if (parser.currentToken != JsonToken.START_OBJECT) {
-            return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON"))
-        }
-        var nullResponse: JsonRpcResponse? = null
-        while (parser.nextToken() != JsonToken.END_OBJECT) {
-            val field = parser.currentName
-            if (field == "jsonrpc" || field == "id") {
-                if (!parser.nextToken().isScalarValue) {
-                    return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON (id/type)"))
-                }
-                // just skip the field
-            } else if (field == "result") {
-                val value = parser.nextToken()
-                val start = parser.tokenLocation
-                if (value.isScalarValue) {
-                    val text = parser.text
-                    if (value == JsonToken.VALUE_STRING) {
-                        return JsonRpcResponse(("\"" + text + "\"").toByteArray(), null)
-                    } else if (value == JsonToken.VALUE_NULL) {
-                        //if null we should check if error is present
-                        nullResponse = JsonRpcResponse(text.toByteArray(), null)
-                    } else {
-                        return JsonRpcResponse(text.toByteArray(), null)
+        try {
+            val parser: JsonParser = jsonFactory.createParser(json)
+            parser.nextToken()
+            if (parser.currentToken != JsonToken.START_OBJECT) {
+                return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON"))
+            }
+            var nullResponse: JsonRpcResponse? = null
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                val field = parser.currentName
+                if (field == "jsonrpc" || field == "id") {
+                    if (!parser.nextToken().isScalarValue) {
+                        return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON (id/type)"))
                     }
-                } else if (value == JsonToken.START_OBJECT || value == JsonToken.START_ARRAY) {
-                    parser.skipChildren()
-                    val end = parser.currentLocation.byteOffset.toInt()
-                    val copy = ByteArray((end - start.byteOffset).toInt())
-                    System.arraycopy(json, start.byteOffset.toInt(), copy, 0, copy.size)
-                    return JsonRpcResponse(copy, null)
-                }
-            } else if (field == "error") {
-                val err = readError(parser)
-                if (err != null) {
-                    return JsonRpcResponse(null, err)
+                    // just skip the field
+                } else if (field == "result") {
+                    val value = parser.nextToken()
+                    val start = parser.tokenLocation
+                    if (value.isScalarValue) {
+                        val text = parser.text
+                        if (value == JsonToken.VALUE_STRING) {
+                            return JsonRpcResponse(("\"" + text + "\"").toByteArray(), null)
+                        } else if (value == JsonToken.VALUE_NULL) {
+                            //if null we should check if error is present
+                            nullResponse = JsonRpcResponse(text.toByteArray(), null)
+                        } else {
+                            return JsonRpcResponse(text.toByteArray(), null)
+                        }
+                    } else if (value == JsonToken.START_OBJECT || value == JsonToken.START_ARRAY) {
+                        parser.skipChildren()
+                        val end = parser.currentLocation.byteOffset.toInt()
+                        val copy = ByteArray((end - start.byteOffset).toInt())
+                        System.arraycopy(json, start.byteOffset.toInt(), copy, 0, copy.size)
+                        return JsonRpcResponse(copy, null)
+                    }
+                } else if (field == "error") {
+                    val err = readError(parser)
+                    if (err != null) {
+                        return JsonRpcResponse(null, err)
+                    }
                 }
             }
-        }
-        if (nullResponse != null) {
-            return nullResponse
+            if (nullResponse != null) {
+                return nullResponse
+            }
+        } catch (e: JsonParseException) {
+            log.warn("Failed to parse JSON from upstream: ${e.message}")
         }
         return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON structure"))
     }

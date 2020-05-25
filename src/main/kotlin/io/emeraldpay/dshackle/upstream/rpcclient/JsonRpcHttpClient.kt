@@ -15,9 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.reader.Reader
+import io.infinitape.etherjar.rpc.RpcException
+import io.infinitape.etherjar.rpc.RpcResponseError
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpHeaders
@@ -25,7 +26,6 @@ import io.netty.handler.ssl.SslContextBuilder
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.netty.http.client.HttpClient
-import reactor.netty.tcp.SslProvider
 import java.io.ByteArrayInputStream
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
@@ -86,9 +86,13 @@ class JsonRpcHttpClient(
                 .uri(target)
                 .send(Mono.just(request).map { Unpooled.wrappedBuffer(it) })
 
-        return response.responseContent()
-                .aggregate()
-                .asByteArray()
+        return response.response { header, bytes ->
+            if (header.status().code() != 200) {
+                Mono.error(RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "HTTP Code: ${header.status().code()}"))
+            } else {
+                bytes.aggregate().asByteArray()
+            }
+        }.single()
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
@@ -96,5 +100,13 @@ class JsonRpcHttpClient(
                 .map(JsonRpcRequest::toJson)
                 .flatMap(this@JsonRpcHttpClient::execute)
                 .map(parser::parse)
+                .onErrorResume { t ->
+                    val err = if (t is RpcException) {
+                        JsonRpcResponse.error(t.code, t.rpcMessage)
+                    } else {
+                        JsonRpcResponse.error(1, t.message ?: t.javaClass.name)
+                    }
+                    Mono.just(err)
+                }
     }
 }

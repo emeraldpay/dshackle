@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
+import io.infinitape.etherjar.rpc.RpcResponseError
 import spock.lang.Specification
 
 class JsonRpcParserSpec extends Specification {
@@ -173,6 +174,18 @@ class JsonRpcParserSpec extends Specification {
         act.error != null
         act.error.code == -1111
         act.error.message == "test"
+        act.hasError()
+        !act.hasResult()
+    }
+
+    def "Handle non-json with producing an error response"() {
+        setup:
+        def json = 'NOT JSON'
+        when:
+        def act = parser.parse(json.getBytes())
+        then:
+        act.error != null
+        act.error.code == RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
         act.hasError()
         !act.hasResult()
     }
