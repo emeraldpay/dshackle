@@ -19,6 +19,7 @@ plugins {
     id 'groovy'
     id 'idea'
     id 'application'
+    id 'jacoco'
 
     id 'org.jetbrains.kotlin.jvm' version '1.3.70'
     id "com.google.cloud.tools.jib" version "1.3.0"
@@ -126,6 +127,7 @@ test {
     jvmArgs '-ea'
     testLogging.showStandardStreams = false
     testLogging.exceptionFormat = 'full'
+    finalizedBy jacocoTestReport
 }
 
 application {
@@ -232,4 +234,20 @@ gradle.buildFinished {
         }
         println ""
     }
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.enabled true
+        html.enabled true
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: 'io/emeraldpay/dshackle/proto/**')
+        }))
+    }
+}
+jacoco {
+    toolVersion = "0.8.5"
 }
