@@ -23,7 +23,7 @@ import java.util.*
 class DefaultBitcoinMethods() : CallMethods {
 
     private val anyResponseMethods = listOf(
-            "getblock",
+            "getblock", "getblockhash",
             "gettransaction", "getrawtransaction", "gettxout",
             "getmemorypool"
     ).sorted()
