@@ -88,8 +88,9 @@ class DefaultEthereumMethods(
             specialMethods.contains(method) -> {
                 when (method) {
                     "eth_getTransactionCount" -> NonceQuorum()
-                    "eth_getBalance" -> NotLaggingQuorum(1)
+                    "eth_getBalance" -> NotLaggingQuorum(0)
                     "eth_sendRawTransaction" -> BroadcastQuorum()
+                    "eth_blockNumber" -> NotLaggingQuorum(0)
                     else -> AlwaysQuorum()
                 }
             }
