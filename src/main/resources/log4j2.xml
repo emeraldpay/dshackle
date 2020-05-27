@@ -2,7 +2,8 @@
 <Configuration status="WARN">
 
     <Properties>
-        <Property name="dfltPattern">%d{HH:mm:ss.SSS} [%-20.20t] %-5level %24.24c{1} | %msg%n</Property>
+        <Property name="dfltPattern">%d{yyyy-dd-MM HH:mm:ss.SSS} | %-5level | %20.20c{1} | %msg%n</Property>
+        <!--        <Property name="dfltPattern">%d{HH:mm:ss.SSS} [%-20.20t] %-5level %24.24c{1} | %msg%n</Property>-->
     </Properties>
 
     <Appenders>
