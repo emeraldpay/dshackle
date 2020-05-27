@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.grpc.Chain
+import org.apache.commons.collections4.functors.ConstantFactory
 import spock.lang.Specification
 
 import java.time.Duration
@@ -17,7 +18,8 @@ class NativeCallRouterSpec extends Specification {
         def router = new NativeCallRouter(
                 new EthereumReader(
                         TestingCommons.aggregatedUpstream(TestingCommons.api()),
-                        Caches.default()
+                        Caches.default(),
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
                 ),
                 methods
         )
