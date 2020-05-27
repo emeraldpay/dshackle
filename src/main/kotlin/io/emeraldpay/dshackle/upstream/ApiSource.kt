@@ -16,9 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.reactivestreams.Publisher
 
 interface ApiSource : Publisher<Upstream> {

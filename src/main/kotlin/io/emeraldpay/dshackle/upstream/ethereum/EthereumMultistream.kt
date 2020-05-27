@@ -16,8 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
@@ -39,10 +37,9 @@ open class EthereumMultistream(
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
     }
 
-    private val objectMapper: ObjectMapper = Global.objectMapper
     private var head: Head? = null
 
-    private val reader: EthereumReader = EthereumReader(this, this.caches)
+    private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
 
     init {
         this.init()

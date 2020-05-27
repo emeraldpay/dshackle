@@ -24,6 +24,8 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
+import org.apache.commons.collections4.Factory
+import org.apache.commons.collections4.FunctorException
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -52,6 +54,9 @@ abstract class Multistream(
     private var cacheSubscription: Disposable? = null
     private val reconfigLock = ReentrantLock()
     private var callMethods: CallMethods? = null
+    private var callMethodsFactory: Factory<CallMethods> = Factory {
+        return@Factory callMethods ?: throw FunctorException("Not initialized yet")
+    }
     private var seq = 0
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
@@ -86,7 +91,7 @@ abstract class Multistream(
     /**
      * Get a source for direct APIs
      */
-    fun getApiSource(matcher: Selector.Matcher): ApiSource {
+    open fun getApiSource(matcher: Selector.Matcher): ApiSource {
         val i = seq++
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
@@ -117,6 +122,7 @@ abstract class Multistream(
     fun onUpstreamsUpdated() {
         reconfigLock.withLock {
             getAll().map { it.getMethods() }.let {
+                //TODO made list of uniq instances, and then if only one, just use it directly
                 callMethods = AggregatedCallMethods(it)
             }
         }
@@ -145,6 +151,10 @@ abstract class Multistream(
 
     override fun getMethods(): CallMethods {
         return callMethods ?: throw IllegalStateException("Methods are not initialized yet")
+    }
+
+    fun getMethodsFactory(): Factory<CallMethods> {
+        return callMethodsFactory
     }
 
     override fun start() {
