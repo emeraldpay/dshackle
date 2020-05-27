@@ -10,7 +10,10 @@ image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square[
 image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License",link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
 image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge"]
 
-_Dshackle is an L7 Blockchain API Load Balancer._ It provides a high level aggregated API on top of several underlying upstreams.
+[.lead]
+_Emerald Dshackle is a Fault Tolerant Load Balancer for Blockchain API._
+
+Dshackle provides a high level aggregated API on top of several underlying upstreams.
 I.e. on top of blockchain nodes such as Bitcoind, Geth, Parity, or providers like Infura, and so on.
 It automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or data successfully broadcasted to the network.
 
