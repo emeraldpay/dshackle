@@ -31,7 +31,11 @@ plugins {
 
 
 group = 'io.emeraldpay.dshackle'
-version = '0.7.0'
+
+// Version schema:
+//    x.x.x for production, following SemVer model
+//    x.x-SNAPSHOT for development
+version = '0.8-SNAPSHOT'
 
 targetCompatibility = '11'
 sourceCompatibility = '11'
