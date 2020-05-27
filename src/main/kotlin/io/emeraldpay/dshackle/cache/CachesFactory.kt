@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.grpc.Chain
 import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisConnectionException
 import io.lettuce.core.RedisURI
 import io.lettuce.core.api.StatefulRedisConnection
 import io.lettuce.core.codec.ByteArrayCodec
@@ -29,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import java.util.*
 import javax.annotation.PostConstruct
+import kotlin.system.exitProcess
 
 
 @Repository
@@ -64,11 +66,29 @@ class CachesFactory(
         }
 
         val client = RedisClient.create(uri.build())
-        val ping = client.connect().sync().ping()
-        if (ping != "PONG") {
-            throw IllegalStateException("Redis connection is not configured. Response: $ping")
+        try {
+            val ping = client.connect().sync().ping()
+            if (ping != "PONG") {
+                throw IllegalStateException("Redis connection is not configured. Response: $ping")
+            }
+            log.info("Connection to Redis established")
+            redis = client.connect(RedisCodec.of(StringCodec.ASCII, ByteArrayCodec.INSTANCE))
+        } catch (e: RedisConnectionException) {
+            log.error("Unable to establish connection to the Redis server")
+            log.error("Redis error: ${e.message}")
+            log.error("Redis config: ")
+            log.error("  uri: ${redisConfig.host}:${redisConfig.port}")
+            redisConfig.db?.let {
+                log.error("  db: $it")
+            }
+            if (redisConfig.password != null && redisConfig.password!!.isNotBlank()) {
+                log.error("  password: (set)")
+            } else {
+                log.error("  password: (not set)")
+            }
+            log.error("Stopping the server...")
+            exitProcess(1)
         }
-        redis = client.connect(RedisCodec.of(StringCodec.ASCII, ByteArrayCodec.INSTANCE))
     }
 
     private fun initCache(chain: Chain): Caches {
