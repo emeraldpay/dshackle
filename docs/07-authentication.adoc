@@ -3,11 +3,11 @@
 === Server authentication
 
 Dshackle server supports both server and client certificate authentication, and it's strongly recommended to use TLS to
-connect to Dshackle server. More to that, the server uses gRPC, which is based on HTTP/2, and most of 3rd party tools and
+connect to Dshackle server.More to that, the server uses gRPC, which is based on HTTP/2, and most of 3rd party tools and
 libraries expect it to be encrypted.
 
 Please note that for most of use cases for Dshackle, which is designed to be an internal load balancer, a self-signed
-Certificates would be enough. In the example below, a https://github.com/square/certstrap[certstrap] tool is used to
+Certificates would be enough.In the example below, a https://github.com/square/certstrap[certstrap] tool is used to
 generate certificates, but the traditional `openssl` tool can be used as well.
 
 ==== Setup Server certificate
@@ -90,7 +90,7 @@ openssl pkcs8 -topk8 -inform PEM -outform PEM -in out/$CLIENT_ID.key -out out/$C
 In addition to files mentioned above you got few new files in `out` directory, including:
 
 - `client-ca.myhost.dev.crt` a certificate to validate connecting clients, all their keys much be signed by that
-  certificate. Server don't need a private key for that certificate because it's used for verification only.
+certificate.Server don't need a private key for that certificate because it's used for verification only.
 - `client_1.crt` certificate for a client that will connect to the server
 - `client_1.p8.key` private key for that certificate, needed by client
 
@@ -131,24 +131,25 @@ tls:
   enabled: false
 ----
 
-At this case we run another server on port 3449 in unsecure mode. But to connect to an upstream is still uses a TLS
+At this case we run another server on port 3449 in unsecure mode.But to connect to an upstream is still uses a TLS
 certificate as described below
 
 [source,yaml]
 ----
 version: v1
-upstreams:
-  - id: ds
-    chain: auto
-    provider: dshackle
-    connection:
-      grpc:
-        host: 127.0.0.1
-        port: 2449
-        tls:
-          ca: ca.myhost.dev.crt
-          certificate: client_1.crt
-          key: client_1.p8.key
+cluster:
+  upstreams:
+    - id: ds
+      chain: auto
+      provider: dshackle
+      connection:
+        grpc:
+          host: 127.0.0.1
+          port: 2449
+          tls:
+            ca: ca.myhost.dev.crt
+            certificate: client_1.crt
+            key: client_1.p8.key
 ----
 
 Now if you run second server it will connect to first server ("upstream") running on port 2449, will verify upstream with certificate `ca.myhost.dev.crt` and authenticate itself by using pair of `client_1.crt` and `client_1.p8.key`

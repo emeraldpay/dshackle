@@ -1,7 +1,7 @@
 == Server Configuration
 
 Dshackle server tries to load its configuration from `/etc/dshackle/dshackle.yaml`, if it can't find a file at that path
-it tries to load file `dshackle.yaml` from current working directory. If none of them found server fails to run with an error.
+it tries to load file `dshackle.yaml` from current working directory.If none of them found server fails to run with an error.
 
 .Example dshackle.yaml configuration:
 [source,yaml]
@@ -69,8 +69,8 @@ proxy:
     - id: eth
       blockchain: ethereum
 
-upstreams:
-  config: "upstreams.yaml"
+cluster:
+  include: "upstreams.yaml"
 ----
 
 With that configuration Dshackle starts a JSON RPC proxy:
