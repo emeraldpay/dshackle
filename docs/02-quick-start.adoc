@@ -36,16 +36,24 @@ cluster:
       connection:
         ethereum:
           rpc: # <6>
-            url: "https://mainnet.infura.io/v3/${INFURA_USER}" <7>
+            url: "https://mainnet.infura.io/v3/${INFURA_USER}" # <7>
           ws: # <8>
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+    - id: local-eth # <9>
+      chain: ethereum
+      connection:
+        ethereum:
+          rpc:
+            url: "http://192.168.1.100:8545/" # <10>
+          ws:
+            url: "ws://192.168.1.100:8546"
     - id: bitcoin-main
-      chain: bitcoin # <9>
+      chain: bitcoin # <11>
       connection:
         bitcoin:
           rpc:
             url: "http://localhost:8332"
-            basic-auth: # <10>
+            basic-auth: # <12>
               username: bitcoin
               password: test
 ----
@@ -56,9 +64,14 @@ cluster:
 <5> one for Ethereum Mainnet, using
 <6> HTTP and
 <7> `${INFURA_USER}` value is provided through environment variable
-<8> Websocket conection
-<9> and another for Bitcoin <10> with Basic Auth for bitcoin node connection
+<8> in addition to HTTPS is uses Websocket protocol to connect to Infura, used to subscribe to updates
+<9> setup another upstream for Ethereum Mainnet
+<10> which connects to a node in the internal networks, without any authentication at this case
+<11> and another for Bitcoin
+<12> with Basic Auth for bitcoin node connection
 
+The configuration above sets up the Dshackle to provide a fault-tolerant access to Bitcoin and Ethereum blockchain.
+And for Ethereum, at this particular example, it uses a Round Robin Load Balancing over the Infura and the local node.
 
 See detailed link:reference-configuration.adoc[Configuration Reference]
 

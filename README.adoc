@@ -103,6 +103,12 @@ Which sets the following:
 - for Bitcoin Mainet only JSON RPC is used
 - `${INFURA_USER}` will be provided through environment variable
 
+Please note that you can configure many upstreams for a single blockchains.
+If there is more that one upstream, then Dshackle makes requests to them with Round Robin Load Balancing.
+If one of them goes down, Dshackle continues to use only active nodes.
+
+I.e. you can set up a node in the local network, and the Infura, and if anything happened to you local node, you'll still be able to have access to a consistent state of the Ethereum blockchain.
+
 
 link:docs[See full documentations].
 

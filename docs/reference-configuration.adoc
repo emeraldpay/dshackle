@@ -286,7 +286,7 @@ cache:
 [#cluster]
 == Cluster
 
-The cluster config is the main part that defines all connection to nodes and other servers
+The cluster config is the main part, that defines all connection to nodes and other servers
 
 [source,yaml]
 ----
@@ -334,25 +334,25 @@ configuration, and may be omitted for most of the situations.
 
 [source,yaml]
 ----
-    - id: local
-      chain: ethereum
-      labels:
-        fullnode: true
-      methods:
-        enabled:
-          - name: "parity_trace"
-        disabled:
-          - name: "admin_shutdown"
-      connection:
-        ethereum:
-          rpc:
-            url: "http://localhost:8545"
-          ws:
-            url: "ws://localhost:8546"
-            origin: "http://localhost"
-            basic-auth:
-              username: 9c199ad8f281f20154fc258fe41a6814
-              password: 258fe4149c199ad8f2811a68f20154fc
+- id: local
+  chain: ethereum
+  labels:
+    fullnode: true
+  methods:
+    enabled:
+      - name: "parity_trace"
+    disabled:
+      - name: "admin_shutdown"
+  connection:
+    ethereum:
+      rpc:
+        url: "http://localhost:8545"
+      ws:
+        url: "ws://localhost:8546"
+        origin: "http://localhost"
+        basic-auth:
+          username: 9c199ad8f281f20154fc258fe41a6814
+          password: 258fe4149c199ad8f2811a68f20154fc
 ----
 
 .Main Config
@@ -366,11 +366,15 @@ configuration, and may be omitted for most of the situations.
 
 | `chain`
 | yes
-| Blockchain which is the provided by the upstream. `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, or `kovan`
+| Blockchain which is the provided by the upstream.
+Cluster may have multiple upstreams for a single blockchain.
+Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, or `kovan`
 
 | `labels`
 | no
-| Key-Value pairs that are assigned to the upstream. Used to select an upstream per-request. See link:08-quorum-and-selectors.adoc[Quorum and Selectors]
+| Key-Value pairs that are assigned to the upstream.
+Used to select an upstream per-request.
+See link:08-quorum-and-selectors.adoc[Quorum and Selectors]
 
 | `methods`
 | no
