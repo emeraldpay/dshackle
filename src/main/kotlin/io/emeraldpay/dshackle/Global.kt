@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -31,6 +32,7 @@ class Global {
 
         private fun createObjectMapper(): ObjectMapper {
             val module = SimpleModule("EmeraldDshackle", Version(1, 0, 0, null, null, null))
+            module.addSerializer(JsonRpcResponse::class.java, JsonRpcResponse.ResponseJsonSerializer())
 
             val objectMapper = ObjectMapper()
             objectMapper.registerModule(module)

@@ -15,9 +15,13 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Global
 import spock.lang.Specification
 
 class JsonRpcResponseSpec extends Specification {
+
+    ObjectMapper objectMapper = Global.objectMapper
 
     def "Same responses are equal"() {
         setup:
@@ -55,5 +59,79 @@ class JsonRpcResponseSpec extends Specification {
         def act = new JsonRpcResponse("null".bytes, null)
         then:
         act.isNull()
+    }
+
+    def "Serialize int id and null result"() {
+        setup:
+        def json = new JsonRpcResponse("null".bytes, null, new JsonRpcResponse.IntId(1))
+        when:
+        def act = objectMapper.writeValueAsString(json)
+        then:
+        act == '{"jsonrpc":"2.0","id":1,"result":null}'
+    }
+
+    def "Serialize int id and string result"() {
+        setup:
+        def json = new JsonRpcResponse('"Hello World"'.bytes, null, new JsonRpcResponse.IntId(10))
+        when:
+        def act = objectMapper.writeValueAsString(json)
+        then:
+        act == '{"jsonrpc":"2.0","id":10,"result":"Hello World"}'
+    }
+
+    def "Serialize int id and object result"() {
+        setup:
+        def json = new JsonRpcResponse('{"foo": "Hello World", "bar": 1}'.bytes, null, new JsonRpcResponse.IntId(101))
+        when:
+        def act = objectMapper.writeValueAsString(json)
+        then:
+        act == '{"jsonrpc":"2.0","id":101,"result":{"foo": "Hello World", "bar": 1}}'
+    }
+
+    def "Serialize int id and error"() {
+        setup:
+        def json = new JsonRpcResponse(null, new JsonRpcResponse.ResponseError(-32041, "Oooops"), new JsonRpcResponse.IntId(101))
+        when:
+        def act = objectMapper.writeValueAsString(json)
+        then:
+        act == '{"jsonrpc":"2.0","id":101,"error":{"code":-32041,"message":"Oooops"}}'
+    }
+
+    def "Serialize string id and null result"() {
+        setup:
+        def json = new JsonRpcResponse("null".bytes, null, new JsonRpcResponse.StringId("asf01t1gg"))
+        when:
+        def act = objectMapper.writeValueAsString(json)
+        then:
+        act == '{"jsonrpc":"2.0","id":"asf01t1gg","result":null}'
+    }
+
+    def "Serialize string id and string result"() {
+        setup:
+        def json = new JsonRpcResponse('"Hello World"'.bytes, null, new JsonRpcResponse.StringId("10"))
+        when:
+        def act = objectMapper.writeValueAsString(json)
+        then:
+        act == '{"jsonrpc":"2.0","id":"10","result":"Hello World"}'
+    }
+
+    def "Serialize string id and object result"() {
+        setup:
+        def json = new JsonRpcResponse('{"foo": "Hello World", "bar": 1}'.bytes, null, new JsonRpcResponse.StringId("g8gk19g"))
+        when:
+        def act = objectMapper.writeValueAsString(json)
+        then:
+        act == '{"jsonrpc":"2.0","id":"g8gk19g","result":{"foo": "Hello World", "bar": 1}}'
+    }
+
+    def "Serialize string id and error"() {
+        setup:
+        def json = new JsonRpcResponse(null,
+                new JsonRpcResponse.ResponseError(-32041, "Oooops"),
+                new JsonRpcResponse.StringId("9kbo29gkaasf"))
+        when:
+        def act = objectMapper.writeValueAsString(json)
+        then:
+        act == '{"jsonrpc":"2.0","id":"9kbo29gkaasf","error":{"code":-32041,"message":"Oooops"}}'
     }
 }

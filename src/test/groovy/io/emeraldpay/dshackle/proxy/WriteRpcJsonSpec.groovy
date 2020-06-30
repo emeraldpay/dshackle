@@ -84,41 +84,18 @@ class WriteRpcJsonSpec extends Specification {
     def "Convert basic to JSON"() {
         setup:
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
-        call.ids[1] = "aaa"
+        call.ids[1] = 105
         def data = [
                 BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                         .setId(1)
                         .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('{"jsonrpc": "2.0", "id": 1, "result": "0x98dbb1"}', 'UTF-8'))
+                        .setPayload(ByteString.copyFrom('"0x98dbb1"', 'UTF-8'))
                         .build()
         ]
         when:
-        def act = Flux.fromIterable(data)
-                .transform(writer.toJsons(call))
-                .collectList()
-                .block(Duration.ofSeconds(1))
+        def act = writer.toJson(call, data[0])
         then:
-        act == ['{"jsonrpc":"2.0","id":"aaa","result":"0x98dbb1"}']
-    }
-
-    def "Convert error to JSON"() {
-        setup:
-        def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
-        call.ids[1] = 1
-        def data = [
-                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(1)
-                        .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('{"jsonrpc": "2.0", "id": 1, "error": {"code": -32001, "message": "oops"}}', 'UTF-8'))
-                        .build()
-        ]
-        when:
-        def act = Flux.fromIterable(data)
-                .transform(writer.toJsons(call))
-                .collectList()
-                .block(Duration.ofSeconds(1))
-        then:
-        act == ['{"jsonrpc":"2.0","id":1,"error":{"code":-32001,"message":"oops"}}']
+        act == '{"jsonrpc":"2.0","id":105,"result":"0x98dbb1"}'
     }
 
     def "Convert gRPC error to JSON"() {
@@ -133,12 +110,26 @@ class WriteRpcJsonSpec extends Specification {
                         .build()
         ]
         when:
-        def act = Flux.fromIterable(data)
-                .transform(writer.toJsons(call))
-                .collectList()
-                .block(Duration.ofSeconds(1))
+        def act = writer.toJson(call, data[0])
         then:
-        act == ['{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Internal Error"}}']
+        act == '{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Internal Error"}}'
+    }
+
+    def "Convert basic to JSON with string id"() {
+        setup:
+        def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
+        call.ids[1] = "aaa"
+        def data = [
+                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
+                        .setId(1)
+                        .setSucceed(true)
+                        .setPayload(ByteString.copyFrom('"0x98dbb1"', 'UTF-8'))
+                        .build()
+        ]
+        when:
+        def act = writer.toJson(call, data[0])
+        then:
+        act == '{"jsonrpc":"2.0","id":"aaa","result":"0x98dbb1"}'
     }
 
     def "Convert few items to JSON"() {
@@ -151,17 +142,17 @@ class WriteRpcJsonSpec extends Specification {
                 BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                         .setId(1)
                         .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('{"jsonrpc": "2.0", "id": 1, "result": "0x98dbb1"}', 'UTF-8'))
+                        .setPayload(ByteString.copyFrom('"0x98dbb1"', 'UTF-8'))
                         .build(),
                 BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                         .setId(2)
-                        .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('{"jsonrpc": "2.0", "id": 2, "error": {"code": -32001, "message": "oops"}}', 'UTF-8'))
+                        .setSucceed(false)
+                        .setErrorMessage("oops")
                         .build(),
                 BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                         .setId(3)
                         .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('{"jsonrpc": "2.0", "id": 3, "result": {"hash": "0x2484f459dc"}}', 'UTF-8'))
+                        .setPayload(ByteString.copyFrom('{"hash": "0x2484f459dc"}', 'UTF-8'))
                         .build(),
         ]
         when:
@@ -170,10 +161,9 @@ class WriteRpcJsonSpec extends Specification {
                 .collectList()
                 .block(Duration.ofSeconds(1))
         then:
-        act == [
-                '{"jsonrpc":"2.0","id":10,"result":"0x98dbb1"}',
-                '{"jsonrpc":"2.0","id":11,"error":{"code":-32001,"message":"oops"}}',
-                '{"jsonrpc":"2.0","id":15,"result":{"hash":"0x2484f459dc"}}'
-        ]
+        act.size() == 3
+        act[0] == '{"jsonrpc":"2.0","id":10,"result":"0x98dbb1"}'
+        act[1] == '{"jsonrpc":"2.0","id":11,"error":{"code":-32002,"message":"oops"}}'
+        act[2] == '{"jsonrpc":"2.0","id":15,"result":{"hash": "0x2484f459dc"}}'
     }
 }
