@@ -16,15 +16,12 @@
  */
 package io.emeraldpay.dshackle.test
 
-import com.fasterxml.jackson.core.Version
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.module.SimpleModule
+
 import io.emeraldpay.dshackle.FileResolver
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
@@ -33,9 +30,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.JacksonRpcConverter
-
-import java.text.SimpleDateFormat
 
 class TestingCommons {
 
@@ -54,14 +48,18 @@ class TestingCommons {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api, new DirectCallMethods(methods))
     }
 
-    static Multistream aggregatedUpstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        return aggregatedUpstream(upstream(api))
+    static Multistream multistream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
+        return multistream(upstream(api))
     }
 
-    static Multistream aggregatedUpstream(EthereumUpstream up) {
+    static Multistream multistream(EthereumUpstream up) {
         return new EthereumMultistream(Chain.ETHEREUM, [up], Caches.default()).tap {
             start()
         }
+    }
+
+    static Multistream emptyMultistream() {
+        return multistream(new EmptyReader<JsonRpcRequest, JsonRpcResponse>())
     }
 
     static CachesFactory emptyCaches() {

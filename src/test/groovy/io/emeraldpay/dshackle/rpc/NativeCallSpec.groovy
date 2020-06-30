@@ -17,23 +17,21 @@
 package io.emeraldpay.dshackle.rpc
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
-import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.ethereum.NativeCallRouter
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.ReactorRpcClient
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
 import reactor.core.publisher.Mono
@@ -42,7 +40,6 @@ import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.time.Duration
-import java.util.concurrent.TimeoutException
 
 class NativeCallSpec extends Specification {
 
@@ -107,7 +104,7 @@ class NativeCallSpec extends Specification {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, 1))
             }
         }
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.CallContext(1, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
@@ -127,7 +124,7 @@ class NativeCallSpec extends Specification {
                 1 * read(_) >> Mono.empty()
             }
         }
-        def call = new NativeCall.CallContext(1, TestingCommons.aggregatedUpstream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.CallContext(1, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
@@ -179,7 +176,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallContext<byte[]>(1561, TestingCommons.aggregatedUpstream(TestingCommons.api()), Selector.empty, new AlwaysQuorum(), objectMapper.writeValueAsBytes(json))
+                new NativeCall.CallContext<byte[]>(1561, TestingCommons.multistream(TestingCommons.api()), Selector.empty, new AlwaysQuorum(), objectMapper.writeValueAsBytes(json))
         )
         then:
         resp.id == 1561
@@ -229,9 +226,112 @@ class NativeCallSpec extends Specification {
         def resp = nativeCall.prepareCall(req)
         then:
         StepVerifier.create(resp)
-                .expectErrorMatches({t -> t instanceof NativeCall.CallFailure && t.id == 0})
+                .expectErrorMatches({ t -> t instanceof NativeCall.CallFailure && t.id == 0 })
 //                .expectComplete()
                 .verify(Duration.ofSeconds(1))
+    }
+
+    def "Prepare call"() {
+        setup:
+        def upstreams = Mock(MultistreamHolder)
+        def nativeCall = new NativeCall(upstreams)
+
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(
+                        BlockchainOuterClass.NativeCallItem.newBuilder()
+                                .setId(1)
+                                .setMethod("eth_test")
+                                .setPayload(ByteString.copyFromUtf8("[]"))
+                )
+                .build()
+        when:
+        def act = nativeCall.prepareCall(req, TestingCommons.emptyMultistream())
+                .collectList().block(Duration.ofSeconds(1))
+        then:
+        act.size() == 1
+        with(act[0]) {
+            id == 1
+            payload.method == "eth_test"
+            payload.params == "[]"
+        }
+    }
+
+    def "Prepare call without payload"() {
+        setup:
+        def upstreams = Mock(MultistreamHolder)
+        def nativeCall = new NativeCall(upstreams)
+
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(
+                        BlockchainOuterClass.NativeCallItem.newBuilder()
+                                .setId(1)
+                                .setMethod("eth_test")
+                )
+                .build()
+        when:
+        def act = nativeCall.prepareCall(req, TestingCommons.emptyMultistream())
+                .collectList().block(Duration.ofSeconds(1))
+        then:
+        act.size() == 1
+        with(act[0]) {
+            id == 1
+            payload.method == "eth_test"
+            payload.params == ""
+        }
+    }
+
+    def "Parse empty params"() {
+        setup:
+        def nativeCall = new NativeCall(Stub(MultistreamHolder))
+        def ctx = new NativeCall.CallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+                new NativeCall.RawCallDetails("eth_test", "[]"))
+        when:
+        def act = nativeCall.parseParams(ctx)
+        then:
+        act.id == 1
+        act.payload.params == []
+        act.payload.method == "eth_test"
+    }
+
+    def "Parse none params"() {
+        setup:
+        def nativeCall = new NativeCall(Stub(MultistreamHolder))
+        def ctx = new NativeCall.CallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+                new NativeCall.RawCallDetails("eth_test", ""))
+        when:
+        def act = nativeCall.parseParams(ctx)
+        then:
+        act.id == 1
+        act.payload.params == []
+        act.payload.method == "eth_test"
+    }
+
+    def "Parse single param"() {
+        setup:
+        def nativeCall = new NativeCall(Stub(MultistreamHolder))
+        def ctx = new NativeCall.CallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+                new NativeCall.RawCallDetails("eth_test", "[false]"))
+        when:
+        def act = nativeCall.parseParams(ctx)
+        then:
+        act.id == 1
+        act.payload.params == [false]
+        act.payload.method == "eth_test"
+    }
+
+    def "Parse multi param"() {
+        setup:
+        def nativeCall = new NativeCall(Stub(MultistreamHolder))
+        def ctx = new NativeCall.CallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+                new NativeCall.RawCallDetails("eth_test", "[false, 123]"))
+        when:
+        def act = nativeCall.parseParams(ctx)
+        then:
+        act.id == 1
+        act.payload.params == [false, 123]
+        act.payload.method == "eth_test"
     }
 
     @Ignore
@@ -241,7 +341,7 @@ class NativeCallSpec extends Specification {
         def upstreams = Stub(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams)
         def api = TestingCommons.api()
-        def upstream = TestingCommons.aggregatedUpstream(api)
+        def upstream = TestingCommons.multistream(api)
 
         def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(10,
                 upstream,
@@ -259,7 +359,7 @@ class NativeCallSpec extends Specification {
         setup:
         def upstreams = Stub(MultistreamHolder)
         def nativeCall = new NativeCall(upstreams)
-        def upstream = TestingCommons.aggregatedUpstream(TestingCommons.api())
+        def upstream = TestingCommons.multistream(TestingCommons.api())
 
         def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(10,
                 upstream,

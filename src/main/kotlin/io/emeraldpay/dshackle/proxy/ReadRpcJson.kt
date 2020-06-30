@@ -64,7 +64,8 @@ open class ReadRpcJson(
             }
             RequestJson<Any>(
                     json["method"].toString(),
-                    json["params"] as List<*>,
+                    //params MAY be omitted
+                    (json["params"] ?: emptyList<Any>()) as List<*>,
                     id
             )
         }

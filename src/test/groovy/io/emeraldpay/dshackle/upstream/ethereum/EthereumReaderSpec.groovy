@@ -88,7 +88,7 @@ class EthereumReaderSpec extends Specification {
         def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
 
-        def upstream = TestingCommons.aggregatedUpstream(api)
+        def upstream = TestingCommons.multistream(api)
         def reader = new EthereumReader(upstream, caches, calls)
 
         when:
@@ -109,7 +109,7 @@ class EthereumReaderSpec extends Specification {
         def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
 
-        def upstream = TestingCommons.aggregatedUpstream(api)
+        def upstream = TestingCommons.multistream(api)
         def reader = new EthereumReader(upstream, caches, calls)
 
         when:
@@ -146,7 +146,7 @@ class EthereumReaderSpec extends Specification {
                 .build()
         def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
-        def upstream = TestingCommons.aggregatedUpstream(api)
+        def upstream = TestingCommons.multistream(api)
         def reader = new EthereumReader(upstream, caches, calls)
 
         when:
@@ -184,7 +184,7 @@ class EthereumReaderSpec extends Specification {
 
         def api = TestingCommons.api()
         api.answer("eth_getTransactionByHash", [txJson.hash.toHex()], txJson)
-        def upstream = TestingCommons.aggregatedUpstream(api)
+        def upstream = TestingCommons.multistream(api)
         def reader = new EthereumReader(upstream, caches, calls)
 
         when:
@@ -200,7 +200,7 @@ class EthereumReaderSpec extends Specification {
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "latest"], "0x10")
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "latest"], "0xff")
         EthereumUpstreamMock upstream = new EthereumUpstreamMock(Chain.ETHEREUM, api)
-        def upstreams = TestingCommons.aggregatedUpstream(upstream)
+        def upstreams = TestingCommons.multistream(upstream)
         def reader = new EthereumReader(upstreams, Caches.default(), calls)
         reader.start()
 

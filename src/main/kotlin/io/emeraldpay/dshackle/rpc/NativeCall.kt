@@ -19,15 +19,12 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
-import io.emeraldpay.dshackle.quorum.QuorumRpcReader
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -38,7 +35,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.*
-import reactor.util.function.Tuples
 import java.lang.Exception
 
 @Service
@@ -53,7 +49,7 @@ open class NativeCall(
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return requestMono.flatMapMany(this::prepareCall)
-                .map(this::setupCallParams)
+                .map(this::parseParams)
                 .parallel()
                 .flatMap(this::fetch)
                 .sequential()
@@ -62,7 +58,7 @@ open class NativeCall(
                 .onErrorResume(this::processException)
     }
 
-    fun setupCallParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
+    fun parseParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
         val params = extractParams(it.payload.params)
         return it.withPayload(ParsedCallDetails(it.payload.method, params))
     }
