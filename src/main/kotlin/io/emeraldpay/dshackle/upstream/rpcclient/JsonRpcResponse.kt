@@ -23,8 +23,11 @@ import reactor.core.publisher.Mono
 
 class JsonRpcResponse(
         private val result: ByteArray?,
-        val error: ResponseError?
+        val error: ResponseError?,
+        val id: Id
 ) {
+
+    constructor(result: ByteArray?, error: ResponseError?) : this(result, error, IntId(0))
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
@@ -35,6 +38,11 @@ class JsonRpcResponse(
         }
 
         @JvmStatic
+        fun ok(value: ByteArray, id: Id): JsonRpcResponse {
+            return JsonRpcResponse(value, null, id);
+        }
+
+        @JvmStatic
         fun ok(value: String): JsonRpcResponse {
             return JsonRpcResponse(value.toByteArray(), null)
         }
@@ -42,6 +50,11 @@ class JsonRpcResponse(
         @JvmStatic
         fun error(code: Int, msg: String): JsonRpcResponse {
             return JsonRpcResponse(null, ResponseError(code, msg))
+        }
+
+        @JvmStatic
+        fun error(code: Int, msg: String, id: Id): JsonRpcResponse {
+            return JsonRpcResponse(null, ResponseError(code, msg), id)
         }
     }
 
@@ -114,11 +127,67 @@ class JsonRpcResponse(
         }
     }
 
+    /**
+     * JSON RPC wrapper. Makes sure that the id is either Int or String
+     */
+    interface Id {
+        fun asInt(): Int
+        fun asString(): String
+        fun isInt(): Boolean
+
+        companion object {
+            fun from(id: Any): Id {
+                if (id is Int) {
+                    return IntId(id)
+                }
+                if (id is Number) {
+                    return IntId(id.toInt())
+                }
+                if (id is String) {
+                    return StringId(id)
+                }
+                throw IllegalArgumentException("Id must be Int or String")
+            }
+        }
+    }
+
+    class IntId(val id: Int) : Id {
+        override fun asInt(): Int {
+            return id
+        }
+
+        override fun asString(): String {
+            throw IllegalStateException("Not string")
+        }
+
+        override fun isInt(): Boolean {
+            return true
+        }
+    }
+
+    class StringId(val id: String) : Id {
+        override fun asInt(): Int {
+            throw IllegalStateException("Not int")
+        }
+
+        override fun asString(): String {
+            return id
+        }
+
+        override fun isInt(): Boolean {
+            return false
+        }
+    }
+
     class ResponseJsonSerializer : JsonSerializer<JsonRpcResponse>() {
         override fun serialize(value: JsonRpcResponse, gen: JsonGenerator, serializers: SerializerProvider) {
             gen.writeStartObject()
             gen.writeStringField("jsonrpc", "2.0")
-            gen.writeNumberField("id", 0)
+            if (value.id.isInt()) {
+                gen.writeNumberField("id", value.id.asInt())
+            } else {
+                gen.writeStringField("id", value.id.asString())
+            }
             if (value.error != null) {
                 gen.writeObjectFieldStart("error")
                 gen.writeNumberField("code", value.error.code)
@@ -128,7 +197,9 @@ class JsonRpcResponse(
                 if (value.result == null) {
                     throw IllegalStateException("No result set")
                 }
-                gen.writeRawUTF8String(value.result, 0, value.result.size)
+                gen.writeFieldName("result")
+                gen.writeRaw(":")
+                gen.writeRaw(String(value.result))
             }
             gen.writeEndObject()
         }

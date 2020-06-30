@@ -19,15 +19,11 @@ package io.emeraldpay.dshackle.proxy
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
-import io.infinitape.etherjar.rpc.RpcResponseError
-import io.infinitape.etherjar.rpc.json.ResponseJson
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.lang.StringBuilder
-import java.time.Duration
 import java.util.function.Function
 
 /**
@@ -48,27 +44,30 @@ open class WriteRpcJson() {
     open fun toJsons(call: ProxyCall): Function<Flux<BlockchainOuterClass.NativeCallReplyItem>, Flux<String>> {
         return Function { flux ->
             flux.flatMap { response ->
-                val json = ResponseJson<Any, Any>()
                 if (!call.ids.containsKey(response.id)) {
                     log.warn("ID wasn't requested: ${response.id}")
                     return@flatMap Flux.empty<String>()
                 }
-                json.id = call.ids[response.id]
-                if (response.succeed) {
-                    val payload = objectMapper.readValue(response.payload.toByteArray(), ResponseJson::class.java)
-                    if (payload.error != null) {
-                        json.error = payload.error
-                    } else {
-                        json.result = payload.result
-                    }
+                val json = toJson(call, response)
+                if (json == null) {
+                    Flux.empty<String>()
                 } else {
-                    json.error = RpcResponseError(-32002, response.errorMessage)
+                    Flux.just(json)
                 }
-                Flux.just(objectMapper.writeValueAsString(json))
             }.onErrorContinue { t, u ->
                 log.warn("Failed to convert to JSON", t)
             }
         }
+    }
+
+    open fun toJson(call: ProxyCall, response: BlockchainOuterClass.NativeCallReplyItem): String? {
+        val id = call.ids[response.id] ?: return null;
+        val json = if (response.succeed) {
+            JsonRpcResponse.ok(response.payload.toByteArray(), JsonRpcResponse.Id.from(id))
+        } else {
+            JsonRpcResponse.error(-32002, response.errorMessage, JsonRpcResponse.Id.from(id))
+        }
+        return objectMapper.writeValueAsString(json)
     }
 
     /**
