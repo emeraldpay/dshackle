@@ -36,4 +36,15 @@ class CacheConfigReaderSpec extends Specification {
             password == "HelloWorld!1"
         }
     }
+
+    def "Read disabled"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("cache-redis-disabled.yaml")
+        when:
+        def act = reader.read(config)
+
+        then:
+        //later may be not null if we support something else besides Redis
+        act == null
+    }
 }

@@ -1,0 +1,7 @@
+cache:
+  redis:
+    enabled: false
+    host: redis-master
+    port: 1234
+    db: 5
+    password: HelloWorld!1

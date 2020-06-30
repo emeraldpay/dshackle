@@ -35,19 +35,22 @@ class CacheConfigReader : YamlConfigReader(), ConfigReader<CacheConfig> {
             val config = CacheConfig()
             getMapping(node, "redis")?.let { node ->
                 val redis = CacheConfig.Redis()
-                getValueAsString(node, "host")?.let {
-                    redis.host = it
+                val enabled = getValueAsBool(node, "enabled") ?: true
+                if (enabled) {
+                    getValueAsString(node, "host")?.let {
+                        redis.host = it
+                    }
+                    getValueAsInt(node, "port")?.let {
+                        redis.port = it
+                    }
+                    getValueAsInt(node, "db")?.let {
+                        redis.db = it
+                    }
+                    getValueAsString(node, "password")?.let {
+                        redis.password = it
+                    }
+                    config.redis = redis
                 }
-                getValueAsInt(node, "port")?.let {
-                    redis.port = it
-                }
-                getValueAsInt(node, "db")?.let {
-                    redis.db = it
-                }
-                getValueAsString(node, "password")?.let {
-                    redis.password = it
-                }
-                config.redis = redis
             }
             if (config.redis == null) {
                 return null
