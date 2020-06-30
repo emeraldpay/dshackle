@@ -17,7 +17,7 @@ class NativeCallRouterSpec extends Specification {
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
         def router = new NativeCallRouter(
                 new EthereumReader(
-                        TestingCommons.aggregatedUpstream(TestingCommons.api()),
+                        TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
                         ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
                 ),
