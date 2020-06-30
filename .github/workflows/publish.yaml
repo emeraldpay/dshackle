@@ -22,7 +22,7 @@ jobs:
       - name: Upload to Docker
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: jib -Platest=true
+          arguments: jib
         env:
           DOCKER_KEY: ${{ secrets.DOCKER_KEY }}
 

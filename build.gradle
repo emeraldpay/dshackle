@@ -142,17 +142,22 @@ jib {
     from {
     }
     to {
-        // execute with -Platest=true
-        // $ gradle jib -Platest=true
+        // by default publish as:
+        //  dshackle:shapshot,
+        //  dshackle:t<yyyyMMddHHmm>,
+        //  dshackle:<versionFull> and
+        //  dshackle:<versionMajor.versionMinor>
+        //  dshackle:latest only when publishing first version with zero patch (ex. 1.2.0)
         image = [
                 project.hasProperty('docker') ? project.property('docker') : 'emeraldpay',
                 '/dshackle:',
-                (project.hasProperty('latest') && project.property('latest') == 'true') ? 'latest' : 'snapshot'
+                'snapshot'
         ].join('')
         tags = [project.version].with (true) {
-            if (!project.hasProperty('latest') || project.property('latest') != 'true') {
-                add "t"+ DateTimeFormatter.ofPattern("yyyyMMddHHmm").withZone(ZoneId.of('UTC')).format(Instant.now())
+            if (project.version.toString().endsWith(".0")) {
+                add "latest"
             }
+            add "t"+ DateTimeFormatter.ofPattern("yyyyMMddHHmm").withZone(ZoneId.of('UTC')).format(Instant.now())
             add project.version.toString().replaceAll('(\\d+\\.\\d+).+', '$1')
         }
         auth {
