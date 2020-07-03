@@ -36,4 +36,6 @@ interface Head {
      * @see getFlux
      */
     fun onBeforeBlock(handler: Runnable)
+
+    fun getCurrentHeight(): Long?
 }

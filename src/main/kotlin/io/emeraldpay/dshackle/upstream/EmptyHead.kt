@@ -28,4 +28,8 @@ class EmptyHead : Head {
 
     override fun onBeforeBlock(handler: Runnable) {
     }
+
+    override fun getCurrentHeight(): Long? {
+        return null
+    }
 }

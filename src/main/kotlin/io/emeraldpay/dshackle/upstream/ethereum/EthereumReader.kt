@@ -115,14 +115,14 @@ open class EthereumReader(
         )
     }
 
-    fun blocksByIdAsCont(): Reader<BlockId, BlockContainer> {
+    open fun blocksByIdAsCont(): Reader<BlockId, BlockContainer> {
         return TransformingReader(
                 blocksById(),
                 blockAsContainer
         )
     }
 
-    fun blocksByHeightAsCont(): Reader<Long, BlockContainer> {
+    open fun blocksByHeightAsCont(): Reader<Long, BlockContainer> {
         return CompoundReader(
                 caches.getBlocksByHeight(),
                 directReader.blockByHeightReader
@@ -139,7 +139,7 @@ open class EthereumReader(
         )
     }
 
-    fun txByHashAsCont(): Reader<TxId, TxContainer> {
+    open fun txByHashAsCont(): Reader<TxId, TxContainer> {
         return CompoundReader(
                 caches.getTxByHash(),
                 RekeyingReader(idToTxHash, directReader.txReader)

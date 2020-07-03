@@ -15,11 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -32,7 +31,8 @@ import java.math.BigInteger
 
 class NativeCallRouter(
         private val reader: EthereumReader,
-        private val methods: CallMethods
+        private val methods: CallMethods,
+        private val head: Head
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
     companion object {
@@ -98,12 +98,22 @@ class NativeCallRouter(
                 }
             }
             method == "eth_getBlockByNumber" -> {
-                if (params.size != 2) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
-                }
-                val number: Long
-                try {
-                    val quantity = HexQuantity.from(params[0].toString()) ?: throw IllegalArgumentException()
+                getBlockByNumber(params)
+            }
+            else -> null
+        }
+    }
+
+    fun getBlockByNumber(params: List<Any>): Mono<ByteArray>? {
+        if (params.size != 2) {
+            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
+        }
+        val number: Long
+        try {
+            val blockRef = params[0].toString()
+            when {
+                blockRef.startsWith("0x") -> {
+                    val quantity = HexQuantity.from(blockRef) ?: throw IllegalArgumentException()
                     number = quantity.value.let {
                         if (it < BigInteger.valueOf(Long.MAX_VALUE) && it >= BigInteger.ZERO) {
                             it.toLong()
@@ -111,18 +121,29 @@ class NativeCallRouter(
                             throw IllegalArgumentException()
                         }
                     }
-                } catch (e: IllegalArgumentException) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be block number")
                 }
-                val withTx = params[1].toString().toBoolean()
-                if (withTx) {
-                    log.warn("Block by number is not implemented")
-                    null
-                } else {
-                    reader.blocksByHeightAsCont().read(number).map { it.json!! }
+                blockRef == "latest" -> {
+                    number = head.getCurrentHeight() ?: return null
+                }
+                blockRef == "earliest" -> {
+                    number = 0
+                }
+                blockRef == "pending" -> {
+                    return null
+                }
+                else -> {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Block number is invalid")
                 }
             }
-            else -> null
+        } catch (e: IllegalArgumentException) {
+            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be block number")
+        }
+        val withTx = params[1].toString().toBoolean()
+        return if (withTx) {
+            log.warn("Block by number is not implemented")
+            null
+        } else {
+            reader.blocksByHeightAsCont().read(number).map { it.json!! }
         }
     }
 }

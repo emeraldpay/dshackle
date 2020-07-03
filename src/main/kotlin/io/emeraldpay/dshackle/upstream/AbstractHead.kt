@@ -88,4 +88,7 @@ abstract class AbstractHead : Head {
         return head.get()
     }
 
+    override fun getCurrentHeight(): Long? {
+        return getCurrent()?.height
+    }
 }
