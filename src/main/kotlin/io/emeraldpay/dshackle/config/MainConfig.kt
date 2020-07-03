@@ -22,5 +22,6 @@ class MainConfig {
     var cache: CacheConfig? = null
     var proxy: ProxyConfig? = null
     var upstreams: UpstreamsConfig? = null
+    var tokens: TokensConfig? = null
 
 }

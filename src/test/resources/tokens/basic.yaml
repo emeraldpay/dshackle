@@ -1,0 +1,11 @@
+tokens:
+  - id: dai
+    blockchain: ethereum
+    name: DAI
+    type: ERC-20
+    address: 0x6B175474E89094C44Da98b954EedeAC495271d0F
+  - id: tether
+    blockchain: ethereum
+    name: Tether
+    type: ERC-20
+    address: 0xdac17f958d2ee523a2206206994597c13d831ec7
