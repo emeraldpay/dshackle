@@ -31,7 +31,7 @@ plugins {
 
 
 group = 'io.emeraldpay.dshackle'
-version = '0.7.1'
+version = '0.7.2'
 
 targetCompatibility = '11'
 sourceCompatibility = '11'
