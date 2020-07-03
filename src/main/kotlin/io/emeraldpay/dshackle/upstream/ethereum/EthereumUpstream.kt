@@ -64,9 +64,11 @@ open class EthereumUpstream(
         log.info("Configured for ${chain.chainName}")
 
         if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
+            log.warn("Disable validation for upstream ${this.getId()}")
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)
         } else {
+            log.debug("Start validation for upstream ${this.getId()}")
             val validator = EthereumUpstreamValidator(this, getOptions())
             validatorSubscription = validator.start()
                     .subscribe(this::setStatus)
