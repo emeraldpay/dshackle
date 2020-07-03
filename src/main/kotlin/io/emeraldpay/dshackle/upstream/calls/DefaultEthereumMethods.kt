@@ -129,16 +129,16 @@ class DefaultEthereumMethods(
             "eth_chainId" -> {
                 when {
                     Chain.ETHEREUM == chain -> {
-                        "0x0"
+                        "\"0x0\""
                     }
                     Chain.ETHEREUM_CLASSIC == chain -> {
-                        "0x3d"
+                        "\"0x3d\""
                     }
                     Chain.TESTNET_MORDEN == chain -> {
-                        "0x3c"
+                        "\"0x3c\""
                     }
                     Chain.TESTNET_KOVAN == chain -> {
-                        "0x2a"
+                        "\"0x2a\""
                     }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
