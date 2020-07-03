@@ -76,7 +76,8 @@ class DefaultEthereumMethods(
             "eth_coinbase",
             "eth_mining",
             "eth_hashrate",
-            "eth_accounts"
+            "eth_accounts",
+            "eth_chainId"
     )
 
     override fun getQuorumFor(method: String): CallQuorum {
@@ -121,6 +122,23 @@ class DefaultEthereumMethods(
                     }
                     Chain.TESTNET_KOVAN == chain -> {
                         "42"
+                    }
+                    else -> throw RpcException(-32602, "Invalid chain")
+                }
+            }
+            "eth_chainId" -> {
+                when {
+                    Chain.ETHEREUM == chain -> {
+                        "0x0"
+                    }
+                    Chain.ETHEREUM_CLASSIC == chain -> {
+                        "0x3d"
+                    }
+                    Chain.TESTNET_MORDEN == chain -> {
+                        "0x3c"
+                    }
+                    Chain.TESTNET_KOVAN == chain -> {
+                        "0x2a"
                     }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
