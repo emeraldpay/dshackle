@@ -21,6 +21,8 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -30,12 +32,17 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
+import io.infinitape.etherjar.domain.BlockHash
+import io.infinitape.etherjar.rpc.json.BlockJson
+
+import java.time.Instant
 
 class TestingCommons {
 
     static EthereumApiMock api() {
         return new EthereumApiMock()
     }
+
     static EthereumUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api)
     }
@@ -69,4 +76,15 @@ class TestingCommons {
     static FileResolver fileResolver() {
         return new FileResolver(new File("src/test/resources"))
     }
+
+    static BlockContainer blockForEthereum(Long height) {
+        BlockJson block = new BlockJson().tap {
+            setNumber(height)
+            setHash(BlockHash.from("0xc4b01774e426325b50f0c709753ec7cf1f1774439d587dfb91f2a4eeb8179cde"))
+            setTotalDifficulty(BigInteger.ONE)
+            setTimestamp(Instant.now())
+        }
+        return BlockContainer.from(block)
+    }
+
 }

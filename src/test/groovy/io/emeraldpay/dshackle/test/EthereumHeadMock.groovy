@@ -62,4 +62,9 @@ class EthereumHeadMock implements Head {
     void onBeforeBlock(@NotNull Runnable handler) {
         handlers.add(handler)
     }
+
+    @Override
+    Long getCurrentHeight() {
+        return latest?.height
+    }
 }
