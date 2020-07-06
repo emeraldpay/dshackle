@@ -46,6 +46,18 @@ proxy:
     - id: kovan
       blockchain: kovan
 
+tokens:
+  - id: dai
+    blockchain: ethereum
+    name: DAI
+    type: ERC-20
+    address: 0x6B175474E89094C44Da98b954EedeAC495271d0F
+  - id: tether
+    blockchain: ethereum
+    name: Tether
+    type: ERC-20
+    address: 0xdac17f958d2ee523a2206206994597c13d831ec7
+
 cluster:
   defaults:
     - chains:
@@ -129,6 +141,11 @@ cluster:
 | `proxy`
 |
 | Setup HTTP proxy that emulates all standard JSON RPC requests. See <<proxy>> section
+
+| `tokens`
+|
+| Configure tokens for tracking balance. See <<tokens>> section
+
 
 | `cache`
 |
@@ -239,6 +256,49 @@ a| Routing paths for Proxy. The proxy will handle requests as `https://${HOST}:$
 | `blockchain`
 |
 | A blockchain that must be used to handle that route.
+
+|===
+
+[#tokens]
+== Tokens config
+
+[source,yaml]
+----
+tokens:
+  - id: dai
+    blockchain: ethereum
+    name: DAI
+    type: ERC-20
+    address: 0x6B175474E89094C44Da98b954EedeAC495271d0F
+  - id: tether
+    blockchain: ethereum
+    name: Tether
+    type: ERC-20
+    address: 0xdac17f958d2ee523a2206206994597c13d831ec7
+----
+
+Tokens config enables tracking of a balance amount in the configured tokens.
+After making the configuration above you can request balance (`GetBalance`), or subscribe to balance changes (`SubscribeBalance`), using link:06-methods.adoc[enhanced protocol]
+
+.Token config
+[cols="2a,7"]
+|===
+| Option | Description
+
+| `id`
+| Internal id for reference (used in logging, etc)
+
+| `blockchain`
+| An ethereum-based blockchain where the contract is deployed
+
+| `name`
+| Name of the token, used for balance response as asset code (as converted to UPPERCASE)
+
+| `type`
+| Type of token. Only `ERC-20` is supported at this moment
+
+| `address`
+| Address of the deployed contract
 
 |===
 

@@ -43,9 +43,8 @@ image::dshackle-intro.png[alt="",width=80%,align="center"]
 == Roadmap
 
 - [ ] External logging
-- [ ] Access to ERC-20 tokens on asset level
-- [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
 - [ ] Prometheus monitoring
+- [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
 - [ ] BIP-32 Pubkey
 - [ ] Lightweight sidecar node connector
 - [ ] Configurable upstream roles
@@ -226,7 +225,10 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d '{\"asset\": {\"chain\"
 ...
 ----
 
-See other enhanced methods in the link:docs/06-methods.adoc[Documentation for Enhanced Methods]
+The balance subscription works with main coin (_ether_, _bticoin_), or with tokens like ERC-20 if configured additionally.
+See link:docs/reference-configuration.adoc[Configuration Reference].
+
+See other enhanced methods in the link:docs/06-methods.adoc[Documentation for Enhanced Methods].
 
 == Documentation
 
