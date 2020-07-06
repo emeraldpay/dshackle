@@ -165,7 +165,7 @@ Please refer to the documentation: link:docs/06-methods.adoc[gRPC Methods]
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
 ----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeHead
+grpcurl -import-path ./proto/ -proto blockchain.proto -d '{\"type\": 100}' -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeHead
 ----
 
 `type: 100` specifies the blockchain id, and 100 means Ethereum Mainnet. `1` is for Bitcoin Mainnet.
@@ -198,7 +198,7 @@ It's one of the services provided by Dshackle, in addition to standard methods p
 .You can also subscribe to balances changes of the balance on an address:
 [source,bash]
 ----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d '{"asset": {"chain": "100", "code": "ether"}, "address": {"address_single": {"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"}}}' -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeBalance
+grpcurl -import-path ./proto/ -proto blockchain.proto -d '{\"asset\": {\"chain\": \"100\", \"code\": \"ether\"}, \"address\": {\"address_single\": {\"address\": \"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2\"}}}' -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeBalance
 ----
 
 .and see how balance of the contract responsible for Wrapped Ether is changing:
