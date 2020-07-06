@@ -20,10 +20,7 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
-import io.emeraldpay.dshackle.config.CacheConfig
-import io.emeraldpay.dshackle.config.MainConfig
-import io.emeraldpay.dshackle.config.MainConfigReader
-import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.config.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
@@ -101,6 +98,11 @@ open class Config(
     @Bean
     open fun cacheConfig(@Autowired mainConfig: MainConfig): CacheConfig {
         return mainConfig.cache ?: CacheConfig()
+    }
+
+    @Bean
+    open fun tokensConfig(@Autowired mainConfig: MainConfig): TokensConfig {
+        return mainConfig.tokens ?: TokensConfig(emptyList())
     }
 
 }

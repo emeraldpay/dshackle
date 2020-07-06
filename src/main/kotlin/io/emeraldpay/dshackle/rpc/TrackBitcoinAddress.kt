@@ -41,8 +41,9 @@ class TrackBitcoinAddress(
         private val log = LoggerFactory.getLogger(TrackBitcoinAddress::class.java)
     }
 
-    override fun isSupported(chain: Chain): Boolean {
-        return BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
+    override fun isSupported(chain: Chain, asset: String): Boolean {
+        return (asset == "bitcoin" || asset == "btc" || asset == "satoshi")
+                && BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
     }
 
     fun allAddresses(request: BlockchainOuterClass.BalanceRequest): List<String>? {

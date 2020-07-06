@@ -90,6 +90,8 @@ dependencies {
     implementation "io.infinitape:etherjar-rpc-http:$etherjarVersion"
     implementation "io.infinitape:etherjar-rpc-ws:$etherjarVersion"
     implementation "io.infinitape:etherjar-tx:$etherjarVersion"
+    implementation "io.infinitape:etherjar-contract:$etherjarVersion"
+    implementation "io.infinitape:etherjar-erc20:$etherjarVersion"
     implementation 'org.bitcoinj:bitcoinj-core:0.15.8'
 
     implementation 'org.yaml:snakeyaml:1.24'

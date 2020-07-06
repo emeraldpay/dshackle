@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono
  */
 interface TrackAddress {
 
-    fun isSupported(chain: Chain): Boolean
+    fun isSupported(chain: Chain, asset: String): Boolean
     fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance>
     fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance>
 

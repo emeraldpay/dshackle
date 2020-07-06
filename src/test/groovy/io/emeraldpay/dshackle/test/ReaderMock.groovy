@@ -32,6 +32,10 @@ class ReaderMock<K, D> implements Reader<K, D> {
 
     @Override
     Mono<D> read(K key) {
-        return Mono.justOrEmpty(mapping.get(key))
+        def value = mapping.get(key)
+        if (value == null) {
+            println("No mocked value for request: $key")
+        }
+        return Mono.justOrEmpty(value)
     }
 }
