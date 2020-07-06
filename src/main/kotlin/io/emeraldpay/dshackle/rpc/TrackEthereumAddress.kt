@@ -38,9 +38,11 @@ class TrackEthereumAddress(
 ) : TrackAddress {
 
     private val log = LoggerFactory.getLogger(TrackEthereumAddress::class.java)
+    private val ethereumAddresses = EthereumAddresses()
 
-    override fun isSupported(chain: Chain): Boolean {
-        return BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
+    override fun isSupported(chain: Chain, asset: String): Boolean {
+        return asset == "ether" &&
+                BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
@@ -99,16 +101,8 @@ class TrackEthereumAddress(
         if (request.asset.code?.toLowerCase() != "ether") {
             return Flux.error(SilentException("Unsupported asset ${request.asset.code}"))
         }
-        return when (request.address.addrTypeCase) {
-            Common.AnyAddress.AddrTypeCase.ADDRESS_SINGLE ->
-                Flux.just(createAddress(request.address.addressSingle, chain))
-            Common.AnyAddress.AddrTypeCase.ADDRESS_MULTI ->
-                Flux.fromIterable(request.address.addressMulti.addressesList)
-                        .map { createAddress(it, chain) }
-            else -> {
-                log.error("Unsupported address type: ${request.address.addrTypeCase}")
-                Flux.empty()
-            }
+        return ethereumAddresses.extract(request.address).map {
+            TrackedAddress(chain, it)
         }
     }
 

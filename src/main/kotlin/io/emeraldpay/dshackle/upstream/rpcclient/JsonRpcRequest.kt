@@ -48,5 +48,7 @@ class JsonRpcRequest(
         return result
     }
 
-
+    override fun toString(): String {
+        return String(this.toJson())
+    }
 }
