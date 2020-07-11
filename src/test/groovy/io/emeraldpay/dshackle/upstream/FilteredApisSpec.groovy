@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.grpc.Chain
+import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Retry
 import spock.lang.Specification
@@ -50,6 +51,7 @@ class FilteredApisSpec extends Specification {
                     TestingCommons.api().tap { it.id = "${i++}" },
                     (EthereumWsFactory) null,
                     new UpstreamsConfig.Options(),
+                    UpstreamsConfig.UpstreamRole.STANDARD,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     ethereumTargets
             )
@@ -175,7 +177,52 @@ class FilteredApisSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectNext(ups[2], ups[3], ups[4], ups[5], ups[0], ups[1])
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Start with offset"() {
+        expect:
+        FilteredApis.startFrom([0, 1, 2, 3, 4], pos) == exp
+        where:
+        pos | exp
+        0   | [0, 1, 2, 3, 4]
+        1   | [1, 2, 3, 4, 0]
+        2   | [2, 3, 4, 0, 1]
+        3   | [3, 4, 0, 1, 2]
+        4   | [4, 0, 1, 2, 3]
+        5   | [0, 1, 2, 3, 4]
+        6   | [1, 2, 3, 4, 0]
+    }
+
+    def "Starts with standard"() {
+        setup:
+        List<Upstream> standard = (0..1).collect {
+            TestingCommons.upstream(
+                    it.toString(),
+                    new EthereumApiStub(it)
+            )
+        }
+        def fallback = [
+                Mock(Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.FALLBACK
+                    _ * isAvailable() >> true
+                }
+        ]
+        when:
+        def act = new FilteredApis([] + fallback + standard,
+                Selector.empty, 0, 3, 0)
+        act.request(10)
+        then:
+        StepVerifier.create(act)
+                .expectNext(standard[0], standard[1]).as("Initial requests")
+
+                .expectNext(standard[0], standard[1]).as("Retry with standard")
+                .expectNext(fallback[0]).as("Retry with fallback")
+
+                .expectNext(standard[0], standard[1]).as("Second retry with standard")
+                .expectNext(fallback[0]).as("Second retry with fallback")
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
     }
 }

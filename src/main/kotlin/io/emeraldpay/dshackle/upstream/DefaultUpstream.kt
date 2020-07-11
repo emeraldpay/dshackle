@@ -27,10 +27,12 @@ abstract class DefaultUpstream(
         defaultLag: Long,
         defaultAvail: UpstreamAvailability,
         private val options: UpstreamsConfig.Options,
+        private val role: UpstreamsConfig.UpstreamRole,
         private val targets: CallMethods?
 ) : Upstream {
 
-    constructor(id: String, options: UpstreamsConfig.Options, targets: CallMethods?) : this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, targets)
+    constructor(id: String, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, targets: CallMethods?) :
+            this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
@@ -83,6 +85,10 @@ abstract class DefaultUpstream(
 
     override fun getOptions(): UpstreamsConfig.Options {
         return options
+    }
+
+    override fun getRole(): UpstreamsConfig.UpstreamRole {
+        return role;
     }
 
     override fun getMethods(): CallMethods {

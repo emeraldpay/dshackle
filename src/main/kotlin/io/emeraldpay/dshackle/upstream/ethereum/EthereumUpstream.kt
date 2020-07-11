@@ -40,13 +40,16 @@ open class EthereumUpstream(
         private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
         private val ethereumWsFactory: EthereumWsFactory? = null,
         options: UpstreamsConfig.Options,
+        role: UpstreamsConfig.UpstreamRole,
         val node: QuorumForLabels.QuorumItem,
         targets: CallMethods
-) : DefaultUpstream(id, options, targets), Upstream, CachesEnabled, Lifecycle {
+) : DefaultUpstream(id, options, role, targets), Upstream, CachesEnabled, Lifecycle {
 
-    constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>) : this(id, chain, api, null,
-            UpstreamsConfig.Options.getDefaults(), QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
-            DirectCallMethods())
+    constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>) :
+            this(id, chain, api, null,
+                    UpstreamsConfig.Options.getDefaults(), UpstreamsConfig.UpstreamRole.STANDARD,
+                    QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
+                    DirectCallMethods())
 
 
     private val log = LoggerFactory.getLogger(EthereumUpstream::class.java)

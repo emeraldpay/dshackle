@@ -31,6 +31,7 @@ interface Upstream {
     fun getHead(): Head
     fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse>
     fun getOptions(): UpstreamsConfig.Options
+    fun getRole(): UpstreamsConfig.UpstreamRole
     fun setLag(lag: Long)
     fun getLag(): Long
     fun getLabels(): Collection<UpstreamsConfig.Labels>

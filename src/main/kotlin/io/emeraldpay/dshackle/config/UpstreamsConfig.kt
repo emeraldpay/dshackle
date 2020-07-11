@@ -74,6 +74,7 @@ class UpstreamsConfig {
         var connection: T? = null
         val labels = Labels()
         var methods: Methods? = null
+        var role: UpstreamRole = UpstreamRole.STANDARD
 
         @Suppress("unchecked")
         fun <Z : UpstreamConnection> cast(type: Class<Z>): Upstream<Z> {
@@ -82,6 +83,11 @@ class UpstreamsConfig {
             }
             throw ClassCastException("Cannot cast ${connection?.javaClass} to $type")
         }
+    }
+
+    enum class UpstreamRole {
+        STANDARD,
+        FALLBACK
     }
 
     open class UpstreamConnection

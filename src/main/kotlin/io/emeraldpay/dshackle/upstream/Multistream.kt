@@ -145,8 +145,14 @@ abstract class Multistream(
         else upstreams.map { it.getStatus() }.min()!!
     }
 
+    //TODO options for multistream are useless
     override fun getOptions(): UpstreamsConfig.Options {
         return UpstreamsConfig.Options()
+    }
+
+    //TODO roles for multistream are useless
+    override fun getRole(): UpstreamsConfig.UpstreamRole {
+        return UpstreamsConfig.UpstreamRole.STANDARD
     }
 
     override fun getMethods(): CallMethods {
