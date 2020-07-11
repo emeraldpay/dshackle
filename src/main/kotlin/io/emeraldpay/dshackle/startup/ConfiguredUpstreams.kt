@@ -145,7 +145,8 @@ open class ConfiguredUpstreams(
         val methods = buildMethods(config, chain)
         val upstream = BitcoinUpstream(config.id
                 ?: "bitcoin-${seq.getAndIncrement()}", chain, directApi,
-                options, QuorumForLabels.QuorumItem(1, config.labels),
+                options, config.role,
+                QuorumForLabels.QuorumItem(1, config.labels),
                 methods)
 
         upstream.start()
@@ -183,7 +184,8 @@ open class ConfiguredUpstreams(
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
         val ethereumUpstream = EthereumUpstream(
                 config.id!!,
-                chain, directApi, wsFactoryApi, options,
+                chain, directApi, wsFactoryApi,
+                options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods
         )

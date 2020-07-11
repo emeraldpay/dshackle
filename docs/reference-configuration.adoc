@@ -396,6 +396,7 @@ configuration, and may be omitted for most of the situations.
 ----
 - id: local
   chain: ethereum
+  role: standard
   labels:
     fullnode: true
   methods:
@@ -423,6 +424,11 @@ configuration, and may be omitted for most of the situations.
 | `id`
 | yes
 | Per-cluster identifier of an upstream
+
+| `role`
+| no
+| `standard` (default) or `fallback`.
+Fallback role mean that the upstream is used only after other upstreams failed or didn't return quorum
 
 | `chain`
 | yes

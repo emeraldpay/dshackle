@@ -23,6 +23,7 @@ import org.yaml.snakeyaml.nodes.MappingNode
 import org.yaml.snakeyaml.nodes.ScalarNode
 import reactor.util.function.Tuples
 import java.io.InputStream
+import java.lang.IllegalArgumentException
 import java.net.URI
 import java.time.Duration
 
@@ -185,6 +186,15 @@ class UpstreamsConfigReader(
 
     internal fun readUpstreamStandard(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
         upstream.chain = getValueAsString(upNode, "chain")
+        getValueAsString(upNode, "role")?.let {
+            val name = it.trim()
+            try {
+                val role = UpstreamsConfig.UpstreamRole.valueOf(name.toUpperCase())
+                upstream.role = role
+            } catch (e: IllegalArgumentException) {
+                log.warn("Unsupported role `$name` for upstream ${upstream.id}")
+            }
+        }
         if (hasAny(upNode, "labels")) {
             getMapping(upNode, "labels")?.let { labels ->
                 labels.value.stream()

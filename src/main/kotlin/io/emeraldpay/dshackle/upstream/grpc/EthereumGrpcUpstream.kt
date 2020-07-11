@@ -60,6 +60,7 @@ open class EthereumGrpcUpstream(
 ) : DefaultUpstream(
         "$parentId/${chain.chainCode}",
         UpstreamsConfig.Options.getDefaults(),
+        UpstreamsConfig.UpstreamRole.STANDARD,
         null
 ), Lifecycle {
 

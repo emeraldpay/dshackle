@@ -202,4 +202,40 @@ class UpstreamsConfigReaderSpec extends Specification {
         where:
         id << ["test", "test_test", "test-test", "test123", "test1test", "foo_bar_12"]
     }
+
+    def "Parse config without fallback role"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-basic.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 2
+        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.STANDARD
+        act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.STANDARD
+    }
+
+    def "Parse config with fallback role"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-roles.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 2
+        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.STANDARD
+        act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.FALLBACK
+    }
+
+    def "Parse config with invalid role"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-roles-invalid.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 2
+        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.STANDARD
+        act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.STANDARD
+    }
 }

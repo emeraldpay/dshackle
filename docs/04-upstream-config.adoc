@@ -55,6 +55,7 @@ cluster:
             key: client.p8.key
     - id: infura-eth
       chain: ethereum
+      role: fallback
       labels:
         provider: infura
       options:
@@ -80,22 +81,37 @@ There're two main segments for upstreams configuration:
 
 In the example above we have:
 
-- default configuration for _Ethereum Mainnet_ which accepts upstream as valid when it not in fast synchronization mode
-and has at least 10 peers.For _Kovan Testnet_ nodes the requirements are much relieved
+- default configuration for _Ethereum Mainnet_ which accepts upstream as valid when it not in fast synchronization mode and has at least 10 peers.For _Kovan Testnet_ nodes the requirements are much relieved
 - as upstreams it has 2 configurations
 * balancer connects to another Dshackle/another machine by using gRPC protocol
 ** accepts (i.e. proxies) any blockchain available on that remote
 ** verifies TLS certificate of the server
-** uses client certificate for authentication, i.e. remote server is accepting only clients authenticated by a
-certificate
+** uses client certificate for authentication, i.e. remote server is accepting only clients authenticated by a certificate
 * connects to Infura provided _Ethereum Mainnet_
-** configuration is using placeholders for `${INFURA_USER}` and `${INFURA_PASSWD}` which will be replaced with
-corresponding environment variables values
+** as a _fallback_ upstream, which means that it's used only if `us-nodes` fails
+** configuration is using placeholders for `${INFURA_USER}` and `${INFURA_PASSWD}` which will be replaced with corresponding environment variables values
 ** uses Basic Authentication to authenticate requests on Infura
-** label `[provider: infura]` is set for that particular upstream, which can be selected during a request.For example for
-some requests you may want to use nodes with that label only, i.e. _"send that tx to infura nodes only"_,
-or _"read only from archive node, with label [archive: true]"_
+** label `[provider: infura]` is set for that particular upstream, which can be selected during a request.For example for some requests you may want to use nodes with that label only, i.e. _"send that tx to infura nodes only"_, or _"read only from archive node, with label [archive: true]"_
 ** upstream validation (peers, sync status, etc) is disabled for that particular upstream
+
+=== Fallback upstream
+
+By default, the Dshackle connects to each upstream in a Round-Robin basis, i.e. sequentially one by one.
+But if an upstream have `role: fallback` then it's used only in additional to other (_standard_) upstreams when their responses are not enough to finalize the request.
+
+Dshackle always starts with making requests to standard upstreams.
+If all of them failed, if responses are inconsistent (ex. for `eth_getTransactionCount`), or when it needs to broadcast to wider networks (`sendrawtransaction`), then upstreams with role `fallback` are also used.
+
+The internal request order is:
+
+1. connect to each standard upstream
+2. delay
+3. try again to connect to standard upstreams
+4. try to connect to fallback upstreams
+
+Steps 2-4 are repeated until a valid response received, or timeout for the original request is reached.
+
+In general, you set role `fallback` only to external nodes provided by a third party, when you want to use it as a last resort.
 
 === Configuration options
 
@@ -106,7 +122,7 @@ Options (default or as part of upstream config):
 | Option | Default | Description
 
 | `disable-validation` | false | if `true` then Dshackle will not try to verify status of the upstream (could be useful for a trusted cloud
-   provider such as Infura, but disabling it is not recommended for a normal node)
+provider such as Infura, but disabling it is not recommended for a normal node)
 | `min-peers` | 3 | specify minimum amount of connected peers, Dshackle will not use upstream with less than specified number
 | `timeout` | 60 | timeout in seconds after which request to the upstream will be discarded (and may be retried on an another upstream)
 |===

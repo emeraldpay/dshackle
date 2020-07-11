@@ -61,7 +61,9 @@ class EthereumUpstreamMock extends EthereumUpstream {
 
     EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
         super(id, chain, api, null,
-                UpstreamsConfig.Options.getDefaults(), new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
+                UpstreamsConfig.Options.getDefaults(),
+                UpstreamsConfig.UpstreamRole.STANDARD,
+                new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
                 methods)
         setLag(0)
         setStatus(UpstreamAvailability.OK)
@@ -84,5 +86,10 @@ class EthereumUpstreamMock extends EthereumUpstream {
     @Override
     Head getHead() {
         return ethereumHeadMock
+    }
+
+    @Override
+    String toString() {
+        return "Upstream mock ${getId()}"
     }
 }

@@ -16,9 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import org.reactivestreams.Subscriber
 import reactor.core.publisher.EmitterProcessor
 import reactor.core.publisher.Flux
@@ -33,13 +31,26 @@ class FilteredApis(
         allUpstreams: List<Upstream>,
         private val matcher: Selector.Matcher,
         pos: Int,
-        private val repeatLimit: Long,
+        /**
+         * Limit of retries
+         */
+        private val retryLimit: Long,
         jitter: Int
 ) : ApiSource {
 
     companion object {
         private const val DEFAULT_DELAY_STEP = 100
         private const val MAX_WAIT_MILLIS = 5000L
+
+        @JvmStatic
+        fun <T> startFrom(upstreams: List<T>, pos: Int): List<T> {
+            return if (upstreams.size <= 1 || pos == 0) {
+                upstreams
+            } else {
+                val safePosition = pos % upstreams.size
+                upstreams.subList(safePosition, upstreams.size) + upstreams.subList(0, safePosition)
+            }
+        }
     }
 
     constructor(allUpstreams: List<Upstream>,
@@ -50,7 +61,8 @@ class FilteredApis(
                 matcher: Selector.Matcher) : this(allUpstreams, matcher, 0, 10, 10)
 
     private val delay: Int
-    private val upstreams: List<Upstream>
+    private val standardUpstreams: List<Upstream>
+    private val standardWithFallback: List<Upstream>
 
     private val control = EmitterProcessor.create<Boolean>(32, false)
 
@@ -61,12 +73,20 @@ class FilteredApis(
             DEFAULT_DELAY_STEP
         }
 
-        upstreams = if (allUpstreams.size == 1 || pos == 0 || allUpstreams.isEmpty()) {
-            allUpstreams
-        } else {
-            val safePosition = pos % allUpstreams.size
-            allUpstreams.subList(safePosition, allUpstreams.size) + allUpstreams.subList(0, safePosition)
+        standardUpstreams = allUpstreams.filter {
+            it.getRole() == UpstreamsConfig.UpstreamRole.STANDARD
+        }.let {
+            startFrom(it, pos)
         }
+        val fallbackUpstreams = allUpstreams.filter {
+            it.getRole() == UpstreamsConfig.UpstreamRole.FALLBACK
+        }.let {
+            startFrom(it, pos)
+        }
+        standardWithFallback = emptyList<Upstream>()
+                .plus(standardUpstreams)
+                .plus(fallbackUpstreams)
+
     }
 
     fun waitDuration(rawn: Long): Duration {
@@ -79,9 +99,15 @@ class FilteredApis(
     }
 
     override fun subscribe(subscriber: Subscriber<in Upstream>) {
-        val first = Flux.fromIterable(upstreams)
-        val retries = (1 until repeatLimit).map { r ->
-            Flux.fromIterable(upstreams).delaySubscription(waitDuration(r))
+        // initially try only standard upstreams
+        val first = Flux.fromIterable(standardUpstreams)
+        // if all failed, try both standard and fallback upstreams, repeating in cycle
+        val retries = (0 until (retryLimit - 1)).map { r ->
+            Flux.fromIterable(standardWithFallback)
+                    // add delay to let upstream to restore if it's a temp failure
+                    // but delay only start of the check, not between upstreams
+                    // i.e. if all upstreams failed -> wait -> check all without waiting in between
+                    .delaySubscription(waitDuration(r + 1))
         }.let { Flux.concat(it) }
 
         Flux.concat(first, retries)
