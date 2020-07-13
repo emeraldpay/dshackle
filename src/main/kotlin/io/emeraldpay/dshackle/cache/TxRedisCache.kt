@@ -38,28 +38,15 @@ import kotlin.math.min
 class TxRedisCache(
         private val redis: RedisReactiveCommands<String, ByteArray>,
         private val chain: Chain
-) : Reader<TxId, TxContainer> {
+) : Reader<TxId, TxContainer>,
+        OnTxRedisCache<TxContainer>(redis, chain, CachesProto.ValueContainer.ValueType.TX) {
 
     companion object {
         private val log = LoggerFactory.getLogger(TxRedisCache::class.java)
-
-        // max caching time is 24 hours
-        private const val MAX_CACHE_TIME_HOURS = 24L
     }
 
-    override fun read(key: TxId): Mono<TxContainer> {
-        return redis.get(key(key))
-                .map { data ->
-                    fromProto(data)
-                }.onErrorResume {
-                    Mono.empty()
-                }
-    }
-
-    fun toProto(value: TxContainer): ByteArray {
-        val meta = CachesProto.TxMeta.newBuilder()
-                .setHash(ByteString.copyFrom(value.hash.value))
-
+    override fun buildMeta(id: TxId, value: TxContainer): CachesProto.TxMeta.Builder {
+        val meta = super.buildMeta(id, value)
         value.height?.let {
             meta.setHeight(it)
         }
@@ -67,20 +54,14 @@ class TxRedisCache(
         value.blockId?.value?.let {
             meta.setBlockHash(ByteString.copyFrom(it))
         }
-
-        return CachesProto.ValueContainer.newBuilder()
-                .setType(CachesProto.ValueContainer.ValueType.TX)
-                .setValue(ByteString.copyFrom(value.json!!))
-                .setTxMeta(meta)
-                .build()
-                .toByteArray()
+        return meta
     }
 
-    fun fromProto(msg: ByteArray): TxContainer {
-        val value = CachesProto.ValueContainer.parseFrom(msg)
-        if (value.type != CachesProto.ValueContainer.ValueType.TX) {
-            throw IllegalArgumentException("Expect TX value, receive ${value.type}")
-        }
+    override fun serializeValue(value: TxContainer): ByteArray {
+        return value.json!!
+    }
+
+    override fun deserializeValue(value: CachesProto.ValueContainer): TxContainer {
         if (!value.hasTxMeta()) {
             throw IllegalArgumentException("Container doesn't have Tx Meta")
         }
@@ -93,55 +74,8 @@ class TxRedisCache(
         )
     }
 
-    fun evict(block: BlockContainer): Mono<Void> {
-        return Mono.just(block)
-                .map { block ->
-                    block.transactions.map {
-                        key(it)
-                    }.toTypedArray()
-                }.flatMap { keys ->
-                    redis.del(*keys)
-                }.then()
-    }
-
-    fun evict(id: TxId): Mono<Void> {
-        return Mono.just(id)
-                .flatMap {
-                    redis.del(key(it))
-                }
-                .then()
-    }
-
     fun add(tx: TxContainer, block: BlockContainer): Mono<Void> {
-        if (tx.blockId == null || block.hash == null || tx.blockId != block.hash || block.timestamp == null) {
-            return Mono.empty()
-        }
-        return Mono.just(Tuples.of(tx, block))
-                .flatMap {
-                    val key = key(it.t1.hash)
-                    val value = toProto(it.t1)
-                    //default caching time is age of the block, i.e. block create hour ago
-                    //keep for hour, but block create 10 seconds ago cache for 10 seconds, as it
-                    //still can be replaced in the blockchain
-                    val age = Instant.now().epochSecond - it.t2.timestamp!!.epochSecond
-                    val ttl = min(age, TimeUnit.HOURS.toSeconds(MAX_CACHE_TIME_HOURS))
-                    //store
-                    redis.setex(key, ttl, value)
-                }
-                .doOnError {
-                    log.warn("Failed to save TX to Redis: ${it.message}", it)
-                }
-                //if failed to cache, just continue without it
-                .onErrorResume {
-                    Mono.empty()
-                }
-                .then()
+        return super.add(tx.hash, tx, block, tx.height)
     }
 
-    /**
-     * Key in Redis
-     */
-    fun key(hash: TxId): String {
-        return "tx:${chain.id}:${hash.toHex()}"
-    }
 }

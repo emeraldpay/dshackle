@@ -44,7 +44,8 @@ import kotlin.concurrent.withLock
 abstract class Multistream(
         val chain: Chain,
         private val upstreams: MutableList<Upstream>,
-        val caches: Caches
+        val caches: Caches,
+        val postprocessor: RequestPostprocessor
 ) : Upstream, Lifecycle {
 
     companion object {
@@ -189,6 +190,7 @@ abstract class Multistream(
                 caches.cache(Caches.Tag.LATEST, it)
             }
         }
+        caches.setHead(head)
     }
 
     abstract fun updateHead(): Head

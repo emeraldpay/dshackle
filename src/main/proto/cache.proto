@@ -17,6 +17,7 @@ message ValueContainer {
         UNKNOWN = 0;
         BLOCK = 1;
         TX = 2;
+        TX_RECEIPT = 3;
     }
 
     enum Compression {

@@ -144,6 +144,10 @@ open class NativeCall(
                 .map {
                     ctx.withPayload(it.value)
                 }
+                .doOnNext {
+                    ctx.upstream.postprocessor
+                            .onReceive(ctx.payload.method, ctx.payload.params, it.payload)
+                }
                 .onErrorMap {
                     log.error("Failed to make a call", it)
                     if (it is CallFailure) it

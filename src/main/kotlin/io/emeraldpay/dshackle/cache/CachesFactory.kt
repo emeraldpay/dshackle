@@ -15,7 +15,6 @@
  */
 package io.emeraldpay.dshackle.cache
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.grpc.Chain
 import io.lettuce.core.RedisClient
@@ -96,6 +95,7 @@ class CachesFactory(
         redis?.let { redis ->
             caches.setBlockByHash(BlocksRedisCache(redis.reactive(), chain))
             caches.setTxByHash(TxRedisCache(redis.reactive(), chain))
+            caches.setReceipts(ReceiptRedisCache(redis.reactive(), chain))
         }
         return caches.build()
     }

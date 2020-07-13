@@ -152,6 +152,10 @@ open class EthereumReader(
         )
     }
 
+    fun receipts(): Reader<TxId, ByteArray> {
+        return caches.getReceipts()
+    }
+
     override fun isRunning(): Boolean {
         //TODO should be always running?
         return up.isRunning

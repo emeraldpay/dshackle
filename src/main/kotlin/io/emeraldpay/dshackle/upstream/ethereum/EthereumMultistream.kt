@@ -31,7 +31,7 @@ open class EthereumMultistream(
         chain: Chain,
         val upstreams: MutableList<EthereumUpstream>,
         caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)

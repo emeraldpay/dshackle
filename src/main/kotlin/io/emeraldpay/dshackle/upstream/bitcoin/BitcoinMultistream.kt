@@ -32,7 +32,7 @@ open class BitcoinMultistream(
         chain: Chain,
         val upstreams: MutableList<BitcoinUpstream>,
         caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches), Lifecycle {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
