@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig

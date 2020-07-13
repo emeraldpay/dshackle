@@ -68,7 +68,7 @@ class TxRedisCacheSpec extends Specification {
                 null
         )
         when:
-        def enc = cache.toProto(cont)
+        def enc = cache.toProto(cont.hash, cont)
         def dec = cache.fromProto(enc)
 
         then:

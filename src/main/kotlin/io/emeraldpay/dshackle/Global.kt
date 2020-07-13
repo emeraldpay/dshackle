@@ -20,6 +20,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.infinitape.etherjar.rpc.json.TransactionReceiptJson
+import io.infinitape.etherjar.rpc.json.TransactionReceiptJsonDeserializer
 import java.text.SimpleDateFormat
 import java.util.*
 

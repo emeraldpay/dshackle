@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.data
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.infinitape.etherjar.rpc.json.TransactionJson
 

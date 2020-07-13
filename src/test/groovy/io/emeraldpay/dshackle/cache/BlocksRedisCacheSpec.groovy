@@ -21,12 +21,10 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
-import io.lettuce.core.RedisClient
 import io.lettuce.core.api.StatefulRedisConnection
 import spock.lang.IgnoreIf
 import spock.lang.Specification
@@ -69,8 +67,8 @@ class BlocksRedisCacheSpec extends Specification {
         )
 
         when:
-        def enc = cache.toProto(cont)
-        def dec = cache.fromProto(enc)
+        def enc = cache.toProto(cont, cont)
+        def dec = cache.deserializeValue(enc)
 
         then:
         dec.height == 100

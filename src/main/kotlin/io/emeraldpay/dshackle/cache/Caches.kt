@@ -15,17 +15,16 @@
  */
 package io.emeraldpay.dshackle.cache
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.data.TxContainer
-import io.emeraldpay.dshackle.data.TxId
+import io.emeraldpay.dshackle.data.*
 import io.emeraldpay.dshackle.reader.CompoundReader
+import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumFullBlocksReader
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
+import io.infinitape.etherjar.rpc.json.TransactionReceiptJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -35,7 +34,8 @@ open class Caches(
         private val blocksByHeight: HeightCache,
         private val memTxsByHash: TxMemCache,
         private val redisBlocksByHash: BlocksRedisCache?,
-        private val redisTxsByHash: TxRedisCache?
+        private val redisTxsByHash: TxRedisCache?,
+        private val redisReceipts: ReceiptRedisCache?
 ) {
 
     companion object {
@@ -54,6 +54,7 @@ open class Caches(
 
     private val blocksByHash: Reader<BlockId, BlockContainer>
     private val txsByHash: Reader<TxId, TxContainer>
+    private val receiptByHash: Reader<TxId, ByteArray>
 
     init {
         blocksByHash = if (redisBlocksByHash == null) {
@@ -66,6 +67,12 @@ open class Caches(
         } else {
             CompoundReader(memTxsByHash, redisTxsByHash)
         }
+        receiptByHash = redisReceipts ?: EmptyReader()
+    }
+
+    fun setHead(head: Head) {
+        redisTxsByHash?.head = head
+        redisReceipts?.head = head
     }
 
     /**
@@ -77,6 +84,11 @@ open class Caches(
         } else if (data is BlockContainer) {
             cache(Tag.REQUESTED, data)
         }
+    }
+
+    open fun cacheReceipt(tag: Tag, data: DefaultContainer<TransactionReceiptJson>) {
+        //TODO move subscription to the caller
+        redisReceipts?.add(data)?.subscribe()
     }
 
     fun cache(tag: Tag, tx: TxContainer) {
@@ -166,6 +178,10 @@ open class Caches(
         return BlockByHeight(blocksByHeight, EthereumFullBlocksReader(blocksByHash, txsByHash))
     }
 
+    fun getReceipts(): Reader<TxId, ByteArray> {
+        return receiptByHash
+    }
+
     enum class Tag {
         /**
          * Latest data produced by blockchain
@@ -184,6 +200,7 @@ open class Caches(
         private var txsByHash: TxMemCache? = null
         private var redisBlocksByHash: BlocksRedisCache? = null
         private var redisTxsByHash: TxRedisCache? = null
+        private var redisReceiptCache: ReceiptRedisCache? = null
 
         fun setBlockByHash(cache: BlocksMemCache): Builder {
             blocksByHash = cache
@@ -210,6 +227,11 @@ open class Caches(
             return this
         }
 
+        fun setReceipts(cache: ReceiptRedisCache): Builder {
+            redisReceiptCache = cache
+            return this
+        }
+
         fun build(): Caches {
             if (blocksByHash == null) {
                 blocksByHash = BlocksMemCache()
@@ -220,7 +242,7 @@ open class Caches(
             if (txsByHash == null) {
                 txsByHash = TxMemCache()
             }
-            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, redisBlocksByHash, redisTxsByHash)
+            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, redisBlocksByHash, redisTxsByHash, redisReceiptCache)
         }
     }
 }

@@ -29,6 +29,13 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.math.BigInteger
 
+/**
+ * Reader for JSON RPC requests. Verifies if the method is allowed, transforms if necessary, and calls EthereumReader for data.
+ * It provides data only if it's available through the router (cached, head, etc).
+ * If data is not available locally then it returns `empty`; at this case the caller should call the remote node for actual data.
+ *
+ * @see EthereumReader
+ */
 class NativeCallRouter(
         private val reader: EthereumReader,
         private val methods: CallMethods,
@@ -99,6 +106,18 @@ class NativeCallRouter(
             }
             method == "eth_getBlockByNumber" -> {
                 getBlockByNumber(params)
+            }
+            method == "eth_getTransactionReceipt" -> {
+                if (params.size != 1) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 1 parameter")
+                }
+                val hash: TxId
+                try {
+                    hash = TxId.from(params[0].toString())
+                } catch (e: IllegalArgumentException) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
+                }
+                reader.receipts().read(hash)
             }
             else -> null
         }
