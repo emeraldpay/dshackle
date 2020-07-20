@@ -116,7 +116,7 @@ link:docs[See full documentations].
 
 ==== Run docker image
 
-Official Docker image you can find at: emeraldpay/dshackle
+Official Docker image you can find at: https://hub.docker.com/r/emeraldpay/dshackle[emeraldpay/dshackle]
 
 .Setup Infura username
 [source,bash]
