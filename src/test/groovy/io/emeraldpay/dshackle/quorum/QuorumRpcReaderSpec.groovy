@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.infinitape.etherjar.rpc.RpcException
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -60,15 +61,16 @@ class QuorumRpcReaderSpec extends Specification {
 
     def "always-quorum - retry upstream error"() {
         setup:
+        def api = Mock(Reader) {
+            2 * read(new JsonRpcRequest("eth_test", [])) >>> [
+                    Mono.just(JsonRpcResponse.error(1, "test")),
+                    Mono.just(JsonRpcResponse.ok("1"))
+            ]
+        }
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
             _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
-            _ * getApi() >> Mock(Reader) {
-                2 * read(new JsonRpcRequest("eth_test", [])) >>> [
-                        Mono.just(JsonRpcResponse.error(1, "test")),
-                        Mono.just(JsonRpcResponse.ok("1"))
-                ]
-            }
+            _ * getApi() >> api
         }
         def apis = new FilteredApis(
                 [up], Selector.empty
@@ -180,18 +182,19 @@ class QuorumRpcReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
-    def "non-empty-quorum - no result if all failed"() {
+    def "non-empty-quorum - error if all failed"() {
         setup:
+        def api = Mock(Reader) {
+            3 * read(new JsonRpcRequest("eth_test", [])) >>> [
+                    Mono.just(JsonRpcResponse.ok("null")),
+                    Mono.just(JsonRpcResponse.error(1, "test")),
+                    Mono.just(JsonRpcResponse.ok("null"))
+            ]
+        }
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
             _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
-            _ * getApi() >> Mock(Reader) {
-                3 * read(new JsonRpcRequest("eth_test", [])) >>> [
-                        Mono.just(JsonRpcResponse.ok("null")),
-                        Mono.just(JsonRpcResponse.error(1, "test")),
-                        Mono.just(JsonRpcResponse.ok("null"))
-                ]
-            }
+            _ * getApi() >> api
         }
         def apis = new FilteredApis(
                 [up], Selector.empty
@@ -206,7 +209,35 @@ class QuorumRpcReaderSpec extends Specification {
 
         then:
         StepVerifier.create(act)
-                .expectComplete()
+                .expectError()
+                .verify(Duration.ofSeconds(2))
+    }
+
+    def "Return error is upstream returned it"() {
+        setup:
+        def up = Mock(Upstream) {
+            _ * getLag() >> 0
+            _ * isAvailable() >> true
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
+            _ * getApi() >> Mock(Reader) {
+                _ * read(new JsonRpcRequest("eth_test", [])) >>> [
+                        Mono.just(JsonRpcResponse.error(-3010, "test")),
+                ]
+            }
+        }
+        def apis = new FilteredApis(
+                [up], Selector.empty
+        )
+        def reader = new QuorumRpcReader(apis, new NotLaggingQuorum(1))
+
+        when:
+        def act = reader.read(new JsonRpcRequest("eth_test", []))
+
+        then:
+        StepVerifier.create(act)
+                .expectError()
+        //TODO verify
+        //.expectErrorMatches { t -> t instanceof RpcException && t.code == -3010}
                 .verify(Duration.ofSeconds(1))
     }
 

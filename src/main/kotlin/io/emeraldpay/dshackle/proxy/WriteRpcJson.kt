@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.proxy
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -43,20 +44,29 @@ open class WriteRpcJson() {
      */
     open fun toJsons(call: ProxyCall): Function<Flux<BlockchainOuterClass.NativeCallReplyItem>, Flux<String>> {
         return Function { flux ->
-            flux.flatMap { response ->
-                if (!call.ids.containsKey(response.id)) {
-                    log.warn("ID wasn't requested: ${response.id}")
-                    return@flatMap Flux.empty<String>()
-                }
-                val json = toJson(call, response)
-                if (json == null) {
-                    Flux.empty<String>()
-                } else {
-                    Flux.just(json)
-                }
-            }.onErrorContinue { t, u ->
-                log.warn("Failed to convert to JSON", t)
-            }
+            flux
+                    .flatMap { response ->
+                        if (!call.ids.containsKey(response.id)) {
+                            log.warn("ID wasn't requested: ${response.id}")
+                            return@flatMap Flux.empty<String>()
+                        }
+                        val json = toJson(call, response)
+                        if (json == null) {
+                            Flux.empty<String>()
+                        } else {
+                            Flux.just(json)
+                        }
+                    }
+                    .onErrorResume { t ->
+                        if (t is NativeCall.CallFailure) {
+                            Mono.just(toJson(call, t)!!)
+                        } else {
+                            Mono.empty()
+                        }
+                    }
+                    .onErrorContinue { t, _ ->
+                        log.warn("Failed to convert to JSON", t)
+                    }
         }
     }
 
@@ -67,6 +77,12 @@ open class WriteRpcJson() {
         } else {
             JsonRpcResponse.error(-32002, response.errorMessage, JsonRpcResponse.Id.from(id))
         }
+        return objectMapper.writeValueAsString(json)
+    }
+
+    fun toJson(call: ProxyCall, error: NativeCall.CallFailure): String? {
+        val id = call.ids[error.id] ?: return null;
+        val json = JsonRpcResponse.error(-32002, error.reason.message ?: "", JsonRpcResponse.Id.from(id))
         return objectMapper.writeValueAsString(json)
     }
 

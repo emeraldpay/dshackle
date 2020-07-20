@@ -51,10 +51,12 @@ open class NativeCall(
         return requestMono.flatMapMany(this::prepareCall)
                 .map(this::parseParams)
                 .parallel()
-                .flatMap(this::fetch)
+                .flatMap {
+                    this.fetch(it)
+                            .doOnError { e -> log.warn("Error during native call: ${e.message}") }
+                }
                 .sequential()
                 .map(this::buildResponse)
-                .doOnError { e -> log.warn("Error during native call: ${e.message}") }
                 .onErrorResume(this::processException)
     }
 
@@ -63,17 +65,24 @@ open class NativeCall(
         return it.withPayload(ParsedCallDetails(it.payload.method, params))
     }
 
-    fun buildResponse(it: CallContext<ByteArray>): BlockchainOuterClass.NativeCallReplyItem {
-        return BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                .setSucceed(true)
+    fun buildResponse(it: CallResult): BlockchainOuterClass.NativeCallReplyItem {
+        val result = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
+                .setSucceed(!it.isError())
                 .setId(it.id)
-                .setPayload(ByteString.copyFrom(it.payload))
-                .build()
+        if (it.isError()) {
+            it.error?.let { error ->
+                result.setErrorMessage(error.message)
+            }
+        } else {
+            result.setPayload(ByteString.copyFrom(it.result))
+        }
+
+        return result.build()
     }
 
     fun processException(it: Throwable?): Mono<BlockchainOuterClass.NativeCallReplyItem> {
-        val id: Int = if (it != null && CallFailure::class.isInstance(it)) {
-            (it as CallFailure).id
+        val id: Int = if (it != null && it is CallFailure) {
+            it.id
         } else {
             log.error("Lost context for a native call", it)
             0
@@ -119,42 +128,52 @@ open class NativeCall(
         }
     }
 
-    fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
+    fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getRoutedApi(ctx.matcher)
                 .flatMap { api ->
                     api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
                             .flatMap(JsonRpcResponse::requireResult)
                             .map {
-                                ctx.withPayload(it)
+                                CallResult.ok(ctx.id, it)
                             }
                 }.switchIfEmpty(
                         Mono.just(ctx).flatMap(this::executeOnRemote)
                 )
-                .onErrorMap {
-                    CallFailure(ctx.id, it)
+                .onErrorResume {
+                    if (it is CallFailure) {
+                        Mono.just(CallResult.fail(it.id, it.reason))
+                    } else {
+                        Mono.just(CallResult.fail(ctx.id, it))
+                    }
                 }
     }
 
-    fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallContext<ByteArray>> {
+    fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallResult> {
         if (!ctx.upstream.getMethods().isAllowed(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
         val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum)
-        return reader.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+        return reader
+                .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
                 .map {
-                    ctx.withPayload(it.value)
+                    CallResult(ctx.id, it.value, null)
                 }
                 .doOnNext {
-                    ctx.upstream.postprocessor
-                            .onReceive(ctx.payload.method, ctx.payload.params, it.payload)
+                    it.result?.let { value ->
+                        ctx.upstream.postprocessor
+                                .onReceive(ctx.payload.method, ctx.payload.params, value)
+                    }
                 }
-                .onErrorMap {
-                    log.error("Failed to make a call", it)
-                    if (it is CallFailure) it
-                    else CallFailure(ctx.id, it)
+                .onErrorResume { t ->
+                    val failure = if (t is CallFailure) {
+                        CallResult.fail(t.id, t.reason)
+                    } else {
+                        CallResult.fail(ctx.id, t)
+                    }
+                    Mono.just(failure)
                 }
                 .switchIfEmpty(
-                        Mono.error(CallFailure(ctx.id, Exception("No response or no available upstream for ${ctx.payload.method}")) as Throwable)
+                        Mono.just(CallResult.fail(ctx.id, 1, "No response or no available upstream for ${ctx.payload.method}"))
                 )
     }
 
@@ -180,7 +199,39 @@ open class NativeCall(
         }
     }
 
-    open class CallFailure(val id: Int, val reason: Throwable): Exception("Failed to call $id: ${reason.message}")
+    open class CallFailure(val id: Int, val reason: Throwable) : Exception("Failed to call $id: ${reason.message}")
+
+    open class CallError(val id: Int, val message: String) {
+        companion object {
+            fun from(t: Throwable): CallError {
+                return when (t) {
+                    is RpcException -> CallError(t.code, t.rpcMessage)
+                    is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error")
+                    else -> CallError(1, t.message ?: "Upstream Error")
+                }
+            }
+        }
+    }
+
+    open class CallResult(val id: Int, val result: ByteArray?, val error: CallError?) {
+        companion object {
+            fun ok(id: Int, result: ByteArray): CallResult {
+                return CallResult(id, result, null)
+            }
+
+            fun fail(id: Int, errorCore: Int, errorMessage: String): CallResult {
+                return CallResult(id, null, CallError(errorCore, errorMessage))
+            }
+
+            fun fail(id: Int, error: Throwable): CallResult {
+                return CallResult(id, null, CallError.from(error))
+            }
+        }
+
+        fun isError(): Boolean {
+            return error != null
+        }
+    }
 
     class RawCallDetails(val method: String, val params: String)
     class ParsedCallDetails(val method: String, val params: List<Any>)
