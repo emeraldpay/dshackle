@@ -24,16 +24,17 @@ import java.util.concurrent.atomic.AtomicReference
 class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
 
     private val result: AtomicReference<ByteArray> = AtomicReference()
+    private val failed = AtomicReference(false)
 
     override fun init(head: Head) {
     }
 
     override fun isResolved(): Boolean {
-        return result.get() != null
+        return !isFailed() && result.get() != null
     }
 
     override fun isFailed(): Boolean {
-        return false
+        return failed.get()
     }
 
     override fun record(response: ByteArray, upstream: Upstream): Boolean {
@@ -46,6 +47,10 @@ class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
     }
 
     override fun record(error: RpcException, upstream: Upstream) {
+        val lagging = upstream.getLag() > maxLag
+        if (!lagging && result.get() == null) {
+            failed.set(true)
+        }
     }
 
     override fun getResult(): ByteArray {

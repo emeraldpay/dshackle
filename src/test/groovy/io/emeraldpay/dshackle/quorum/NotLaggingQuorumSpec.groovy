@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
+import io.infinitape.etherjar.rpc.RpcException
 import spock.lang.Specification
 
 class NotLaggingQuorumSpec extends Specification {
@@ -33,6 +34,7 @@ class NotLaggingQuorumSpec extends Specification {
         then:
         1 * up.getLag() >> 0
         quorum.isResolved()
+        !quorum.isFailed()
         quorum.result == value
     }
 
@@ -47,6 +49,7 @@ class NotLaggingQuorumSpec extends Specification {
         then:
         1 * up.getLag() >> 1
         quorum.isResolved()
+        !quorum.isFailed()
         quorum.result == value
     }
 
@@ -61,5 +64,20 @@ class NotLaggingQuorumSpec extends Specification {
         then:
         1 * up.getLag() >> 2
         !quorum.isResolved()
+        !quorum.isFailed()
+    }
+
+    def "Fails if no lag and error response received"() {
+        setup:
+        def up = Mock(Upstream)
+        def value = "foo".getBytes()
+        def quorum = new NotLaggingQuorum(1)
+
+        when:
+        quorum.record(new RpcException(-100, "test error"), up)
+        then:
+        1 * up.getLag() >> 1
+        !quorum.isResolved()
+        quorum.isFailed()
     }
 }

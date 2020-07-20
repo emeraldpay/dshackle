@@ -54,15 +54,40 @@ class QuorumRpcReader(
             }
         }
 
+        val defaultResult: Mono<Result> = Mono.just(quorum).flatMap { q ->
+            if (q.isFailed()) {
+                //TODO record and return actual error details
+                Mono.error<Result>(RpcException(-32000, "Upstream error"))
+            } else {
+                log.warn("Empty result for ${key.method} as ${q}")
+                Mono.empty<Result>()
+            }
+        }
+
         return Flux.from(apis)
+                .takeUntil {
+                    quorum.isFailed() || quorum.isResolved()
+                }
                 .flatMap { api ->
-                    api.getApi().read(key)
-                            .flatMap(JsonRpcResponse::requireResult)
-                            // on error notify quorum, it may use error message or other details
-                            .doOnError { err ->
-                                if (err is RpcException) {
-                                    quorum.record(err, api)
-                                }
+                    api.getApi()
+                            .read(key)
+                            .flatMap { response ->
+                                response.requireResult()
+                                        .onErrorResume { err ->
+                                            if (err is RpcException) {
+                                                // on error notify quorum, it may use error message or other details
+                                                quorum.record(err, api)
+                                                // it it's failed after that, then we don't need more calls, stop api source
+                                                if (quorum.isFailed()) {
+                                                    apis.resolve()
+                                                } else {
+                                                    apis.request(1)
+                                                }
+                                            } else {
+                                                log.warn("Result processing error", err)
+                                            }
+                                            Mono.empty()
+                                        }
                             }
                             .map { Tuples.of(it, api) }
                 }
@@ -95,6 +120,7 @@ class QuorumRpcReader(
                     // TODO find actual quorum number
                     QuorumRpcReader.Result(it.getResult()!!, 1)
                 }
+                .switchIfEmpty(defaultResult)
     }
 
 

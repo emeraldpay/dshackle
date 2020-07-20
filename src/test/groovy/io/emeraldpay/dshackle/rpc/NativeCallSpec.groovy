@@ -63,7 +63,7 @@ class NativeCallSpec extends Specification {
         when:
         def act = nativeCall.fetch(ctx).block(Duration.ofSeconds(1))
         then:
-        act.payload == "1".bytes
+        act.result == "1".bytes
     }
 
     def "Return error if router denied the requests"() {
@@ -85,12 +85,10 @@ class NativeCallSpec extends Specification {
         def act = nativeCall.fetch(ctx) //.block(Duration.ofSeconds(1))
         then:
         StepVerifier.create(act)
-                .expectErrorMatches { t ->
-                    t instanceof NativeCall.CallFailure &&
-                            t.id == 15 &&
-                            t.reason instanceof RpcException &&
-                            t.reason.rpcMessage == "Test message"
+                .expectNextMatches { result ->
+                    result.id == 15 && result.isError()
                 }
+                .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
 
@@ -109,7 +107,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
-        def act = objectMapper.readValue(resp.payload, Object)
+        def act = objectMapper.readValue(resp.result, Object)
         then:
         act == "foo"
     }
@@ -131,7 +129,10 @@ class NativeCallSpec extends Specification {
         def resp = nativeCall.executeOnRemote(call)
         then:
         StepVerifier.create(resp)
-                .expectErrorMatches({ t -> t instanceof NativeCall.CallFailure && t.id == 1 })
+                .expectNextMatches { result ->
+                    result.isError()
+                }
+                .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
 
@@ -176,7 +177,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallContext<byte[]>(1561, TestingCommons.multistream(TestingCommons.api()), Selector.empty, new AlwaysQuorum(), objectMapper.writeValueAsBytes(json))
+                new NativeCall.CallResult(1561, objectMapper.writeValueAsBytes(json), null)
         )
         then:
         resp.id == 1561

@@ -136,6 +136,7 @@ class JsonRpcResponse(
         fun isInt(): Boolean
 
         companion object {
+            @JvmStatic
             fun from(id: Any): Id {
                 if (id is Int) {
                     return IntId(id)
