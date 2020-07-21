@@ -97,9 +97,10 @@ open class Caches(
             return
         }
         memTxsByHash.add(tx)
-        memBlocksByHash.get(tx.blockId)?.let { block ->
-            redisTxsByHash?.add(tx, block)
-        }
+        //TODO move subscription to the caller
+        getBlocksByHash().read(tx.blockId).flatMap { block ->
+            redisTxsByHash?.add(tx, block) ?: Mono.empty()
+        }.subscribe()
     }
 
     fun cache(tag: Tag, block: BlockContainer) {
@@ -142,11 +143,11 @@ open class Caches(
                     val transactions = plainTransactions.map { tx ->
                         TxContainer.from(tx)
                     }
-                    transactions.forEach {
-                        cache(Tag.REQUESTED, it)
-                    }
                     if (redisTxsByHash != null) {
-                        job.add(Flux.fromIterable(transactions).flatMap { redisTxsByHash.add(it, block) }.then())
+                        job.add(Flux.fromIterable(transactions)
+                                .doOnNext { memTxsByHash.add(it) }
+                                .flatMap { redisTxsByHash.add(it, block) }
+                                .then())
                     }
                 }
             }

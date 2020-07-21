@@ -35,7 +35,7 @@ import kotlin.math.min
 /**
  * Cache transactions in Redis, up to 24 hours.
  */
-class TxRedisCache(
+open class TxRedisCache(
         private val redis: RedisReactiveCommands<String, ByteArray>,
         private val chain: Chain
 ) : Reader<TxId, TxContainer>,
@@ -74,7 +74,7 @@ class TxRedisCache(
         )
     }
 
-    fun add(tx: TxContainer, block: BlockContainer): Mono<Void> {
+    open fun add(tx: TxContainer, block: BlockContainer): Mono<Void> {
         return super.add(tx.hash, tx, block, tx.height)
     }
 

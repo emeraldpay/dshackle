@@ -117,7 +117,7 @@ abstract class OnTxRedisCache<T>(
                 }
     }
 
-    fun add(id: TxId, value: T, block: BlockContainer?, blockHeight: Long?): Mono<Void> {
+    open fun add(id: TxId, value: T, block: BlockContainer?, blockHeight: Long?): Mono<Void> {
         return Mono.just(id)
                 .flatMap {
                     val key = key(it)
