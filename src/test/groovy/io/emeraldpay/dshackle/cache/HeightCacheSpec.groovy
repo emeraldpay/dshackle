@@ -72,6 +72,7 @@ class HeightCacheSpec extends Specification {
             block.timestamp = Instant.now()
             cache.add(BlockContainer.from(block))
         }
+        cache.purge()
 
         def act1 = cache.read(100).block()
         def act2 = cache.read(101).block()
