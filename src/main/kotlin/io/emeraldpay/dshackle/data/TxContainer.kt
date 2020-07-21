@@ -29,6 +29,12 @@ class TxContainer(
 
     companion object {
         @JvmStatic
+        fun from(raw: ByteArray): TxContainer {
+            val tx = Global.objectMapper.readValue(raw, TransactionJson::class.java)
+            return from(tx, raw)
+        }
+
+        @JvmStatic
         fun from(tx: TransactionJson): TxContainer {
             return from(tx, Global.objectMapper.writeValueAsBytes(tx))
         }
