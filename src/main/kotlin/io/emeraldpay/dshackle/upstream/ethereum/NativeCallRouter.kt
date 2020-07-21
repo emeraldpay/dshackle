@@ -158,11 +158,15 @@ class NativeCallRouter(
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be block number")
         }
         val withTx = params[1].toString().toBoolean()
-        return if (withTx) {
-            log.warn("Block by number is not implemented")
-            null
+        var block = reader.blocksByHeightAsCont()
+                .read(number)
+        block = if (withTx) {
+            block.flatMap {
+                fullBlocksReader.read(it.hash)
+            }
         } else {
-            reader.blocksByHeightAsCont().read(number).map { it.json!! }
+            block
         }
+        return block.map { it.json!! }
     }
 }

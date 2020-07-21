@@ -71,6 +71,7 @@ class BlocksMemCacheSpec extends Specification {
 
             cache.add(BlockContainer.from(block))
         }
+        cache.purge()
 
         def act1 = cache.read(BlockId.from(hash1)).block()
         def act2 = cache.read(BlockId.from(hash2)).block()

@@ -67,6 +67,7 @@ class TxMemCacheSpec extends Specification {
             tx.hash = TransactionId.from(hash)
             cache.add(TxContainer.from(tx))
         }
+        cache.purge()
 
         def act1 = cache.read(TxId.from(hash1)).block()
         def act2 = cache.read(TxId.from(hash2)).block()

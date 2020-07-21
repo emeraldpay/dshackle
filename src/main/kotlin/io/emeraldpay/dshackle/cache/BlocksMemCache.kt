@@ -16,36 +16,33 @@
  */
 package io.emeraldpay.dshackle.cache
 
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import reactor.core.publisher.Mono
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 
 open class BlocksMemCache(
-        val maxSize: Int = 64
+        maxSize: Int = 64
 ) : Reader<BlockId, BlockContainer> {
 
-    private val mapping = ConcurrentHashMap<BlockId, BlockContainer>()
-    private val queue = ConcurrentLinkedQueue<BlockId>()
+    private val mapping = Caffeine.newBuilder()
+            .maximumSize(maxSize.toLong())
+            .build<BlockId, BlockContainer>()
 
     override fun read(key: BlockId): Mono<BlockContainer> {
-        return Mono.justOrEmpty(mapping[key])
+        return Mono.justOrEmpty(get(key))
     }
 
     open fun get(key: BlockId): BlockContainer? {
-        return mapping[key]
+        return mapping.getIfPresent(key)
     }
 
     open fun add(block: BlockContainer) {
         mapping.put(block.hash, block)
-        queue.add(block.hash)
-
-        while (queue.size > maxSize) {
-            val old = queue.remove()
-            mapping.remove(old)
-        }
     }
 
+    open fun purge() {
+        mapping.cleanUp()
+    }
 }

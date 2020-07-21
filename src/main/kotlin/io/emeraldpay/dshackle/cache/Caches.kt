@@ -97,30 +97,17 @@ open class Caches(
             return
         }
         memTxsByHash.add(tx)
-        memBlocksByHash.get(tx.blockId)?.let { block ->
-            redisTxsByHash?.add(tx, block)
-        }
+        //TODO move subscription to the caller
+        getBlocksByHash().read(tx.blockId).flatMap { block ->
+            redisTxsByHash?.add(tx, block) ?: Mono.empty()
+        }.subscribe()
     }
 
     fun cache(tag: Tag, block: BlockContainer) {
         val job = ArrayList<Mono<Void>>()
         if (tag == Tag.LATEST) {
-            //for LATEST data cache in memory, it will be short living so better to avoid Redis
-            memBlocksByHash.add(block)
-            val replaced = blocksByHeight.add(block)
-            //evict cached transactions if an existing block was updated
-            replaced?.let { replacedBlockHash ->
-                var evicted = false
-                redisBlocksByHash?.evict(replacedBlockHash)
-                memBlocksByHash.get(replacedBlockHash)?.let { block ->
-                    memTxsByHash.evict(block)
-                    redisTxsByHash?.evict(block)
-                    evicted = true
-                }
-                if (!evicted) {
-                    memTxsByHash.evict(replacedBlockHash)
-                }
-            }
+            //for LATEST data cache it in memory, it may be short living so better to avoid Redis
+            memoizeBlock(block)
         } else if (tag == Tag.REQUESTED) {
             var blockOnlyContainer: BlockContainer? = null
             var jsonValue: BlockJson<*>? = null
@@ -132,6 +119,7 @@ open class Caches(
             } else {
                 blockOnlyContainer = block
             }
+            memoizeBlock(blockOnlyContainer)
             memBlocksByHash.add(blockOnlyContainer)
             redisBlocksByHash?.add(blockOnlyContainer)?.let(job::add)
 
@@ -142,16 +130,39 @@ open class Caches(
                     val transactions = plainTransactions.map { tx ->
                         TxContainer.from(tx)
                     }
-                    transactions.forEach {
-                        cache(Tag.REQUESTED, it)
-                    }
                     if (redisTxsByHash != null) {
-                        job.add(Flux.fromIterable(transactions).flatMap { redisTxsByHash.add(it, block) }.then())
+                        job.add(Flux.fromIterable(transactions)
+                                .doOnNext { memTxsByHash.add(it) }
+                                .flatMap { redisTxsByHash.add(it, block) }
+                                .then())
                     }
                 }
             }
         }
         Flux.fromIterable(job).flatMap { it }.subscribe() //TODO move out to a caller
+    }
+
+    /**
+     * Cache the block only in memory
+     */
+    fun memoizeBlock(block: BlockContainer) {
+        memBlocksByHash.add(block)
+        val replaced = blocksByHeight.add(block)
+        //evict cached transactions if an existing block was updated
+        replaced?.let { evict(it) }
+    }
+
+    fun evict(blockId: BlockId) {
+        var evicted = false
+        redisBlocksByHash?.evict(blockId)
+        memBlocksByHash.get(blockId)?.let { block ->
+            memTxsByHash.evict(block)
+            redisTxsByHash?.evict(block)
+            evicted = true
+        }
+        if (!evicted) {
+            memTxsByHash.evict(blockId)
+        }
     }
 
     fun getBlocksByHash(): Reader<BlockId, BlockContainer> {
