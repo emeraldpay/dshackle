@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.cache
 
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
@@ -22,8 +23,6 @@ import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * Memory cache for transactions
@@ -37,24 +36,25 @@ open class TxMemCache(
         private val log = LoggerFactory.getLogger(TxMemCache::class.java)
     }
 
-    private val mapping = ConcurrentHashMap<TxId, TxContainer>()
-    private val queue = ConcurrentLinkedQueue<TxId>()
+    private val mapping = Caffeine.newBuilder()
+            .maximumSize(maxSize.toLong())
+            .build<TxId, TxContainer>()
 
     override fun read(key: TxId): Mono<TxContainer> {
-        return Mono.justOrEmpty(mapping[key])
+        return Mono.justOrEmpty(mapping.getIfPresent(key))
     }
 
     open fun evict(block: BlockContainer) {
         block.transactions.forEach {
-            mapping.remove(it)
+            mapping.invalidate(it)
         }
     }
 
     open fun evict(block: BlockId) {
-        val ids = mapping.filter { it.value.blockId == block }
-        ids.forEach {
-            mapping.remove(it.key)
-        }
+        val ids = mapping.asMap()
+                .filter { it.value.blockId == block }
+                .map { it.key }
+        mapping.invalidateAll(ids)
     }
 
     open fun add(tx: TxContainer) {
@@ -63,12 +63,9 @@ open class TxMemCache(
             return
         }
         mapping.put(tx.hash, tx)
-        queue.add(tx.hash)
-
-        while (queue.size > maxSize) {
-            val old = queue.remove()
-            mapping.remove(old)
-        }
     }
 
+    open fun purge() {
+        mapping.cleanUp()
+    }
 }
