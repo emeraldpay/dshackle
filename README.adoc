@@ -160,6 +160,7 @@ NOTE: It's not necessary to use gRPC, as Dshackle can provide standard JSON RPC 
 
 Dshackle provides a custom gRPC based API, which provides additional methods and other features such as streaming responses.
 Please refer to the documentation: link:docs/06-methods.adoc[gRPC Methods]
+The Protobuf definitions could be found in link:proto/[./proto].
 
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
