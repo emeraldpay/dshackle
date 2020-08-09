@@ -22,7 +22,10 @@ import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.infinitape.etherjar.rpc.RpcException
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -62,6 +65,26 @@ class ProxyServerSpec extends Specification {
         1 * nativeCall.nativeCall(_) >> Flux.just(BlockchainOuterClass.NativeCallReplyItem.newBuilder().build())
         StepVerifier.create(act)
                 .expectNext("hello")
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Return error on invalid request"() {
+        setup:
+        ReadRpcJson read = Mock(ReadRpcJson) {
+            1 * apply(_) >> { throw new RpcException(-32123, "test", new JsonRpcResponse.IntId(4)) }
+        }
+        def server = new ProxyServer(
+                Stub(ProxyConfig),
+                read,
+                Stub(WriteRpcJson), Stub(NativeCall), Stub(TlsSetup)
+        )
+        when:
+        def act = server.processRequest(Common.ChainRef.CHAIN_ETHEREUM, Mono.just("".bytes))
+                .map { new String(it.array()) }
+        then:
+        StepVerifier.create(act)
+                .expectNext('{"jsonrpc":"2.0","id":4,"error":{"code":-32123,"message":"test"}}')
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }

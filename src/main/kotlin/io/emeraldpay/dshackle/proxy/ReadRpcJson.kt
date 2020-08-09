@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
 import io.infinitape.etherjar.rpc.json.RequestJson
@@ -36,8 +37,7 @@ import java.util.stream.Collectors
  * Reader for JSON RPC request
  */
 @Service
-open class ReadRpcJson(
-) : Function<ByteArray, ProxyCall> {
+open class ReadRpcJson() : Function<ByteArray, ProxyCall> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ReadRpcJson::class.java)
@@ -49,18 +49,21 @@ open class ReadRpcJson(
 
     init {
         jsonExtractor = Function { json ->
-            if ("2.0" != json["jsonrpc"]) {
-                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Unsupported JSON RPC version")
-            }
             if (json["id"] == null) {
-                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "ID not set")
+                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "ID is not set")
             }
             val id = json["id"]
+            if ("2.0" != json["jsonrpc"]) {
+                if (json["jsonrpc"] == null) {
+                    throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "jsonrpc version is not set", id?.let { JsonRpcResponse.Id.from(it) })
+                }
+                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Unsupported JSON RPC version: " + json["jsonrpc"].toString(), id?.let { JsonRpcResponse.Id.from(it) })
+            }
             if (!(json["method"] != null && json["method"] is String)) {
-                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "ID not set")
+                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Method is not set", id?.let { JsonRpcResponse.Id.from(it) })
             }
             if (json.containsKey("params") && json["params"] !is List<*>) {
-                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Params must be an array")
+                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Params must be an array", id?.let { JsonRpcResponse.Id.from(it) })
             }
             RequestJson<Any>(
                     json["method"].toString(),

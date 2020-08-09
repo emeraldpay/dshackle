@@ -21,7 +21,7 @@ import io.emeraldpay.grpc.Chain
 /**
  * Configure HTTP Proxy to Upstreams
  */
-class ProxyConfig {
+open class ProxyConfig {
 
     companion object {
         public const val CONFIG_ID = "parsed.proxy"

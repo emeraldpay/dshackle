@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.rpc.RpcException
 import spock.lang.Specification
 
@@ -173,5 +174,54 @@ class ReadRpcJsonSpec extends Specification {
             method == "foo_bar"
             payload.toStringUtf8() == '[143,false]'
         }
+    }
+
+    def "Error if id is not set"() {
+        when:
+        reader.apply('{"jsonrpc":"2.0", "method":"net_peerCount", "params":[]}'.bytes)
+        then:
+        def t = thrown(RpcException)
+        t.code == -32600
+        t.rpcMessage.toLowerCase() == "id is not set"
+    }
+
+    def "Error if jsonrpc is not set"() {
+        when:
+        reader.apply('{"id":2, "method":"net_peerCount", "params":[]}'.bytes)
+        then:
+        def t = thrown(RpcException)
+        t.code == -32600
+        t.rpcMessage.toLowerCase() == "jsonrpc version is not set"
+        t.details == new JsonRpcResponse.IntId(2)
+    }
+
+    def "Error if jsonrpc version is invalid"() {
+        when:
+        reader.apply('{"id":2, "jsonrpc":"3.0", "method":"net_peerCount", "params":[]}'.bytes)
+        then:
+        def t = thrown(RpcException)
+        t.code == -32600
+        t.rpcMessage.toLowerCase() == "unsupported json rpc version: 3.0"
+        t.details == new JsonRpcResponse.IntId(2)
+    }
+
+    def "Error if method is not set"() {
+        when:
+        reader.apply('{"id":2,  "jsonrpc":"2.0", "params":[]}'.bytes)
+        then:
+        def t = thrown(RpcException)
+        t.code == -32600
+        t.rpcMessage.toLowerCase() == "method is not set"
+        t.details == new JsonRpcResponse.IntId(2)
+    }
+
+    def "Error if params is not array"() {
+        when:
+        reader.apply('{"id":2, "jsonrpc":"2.0", "method":"test", "params":123}'.bytes)
+        then:
+        def t = thrown(RpcException)
+        t.code == -32600
+        t.rpcMessage.toLowerCase() == "params must be an array"
+        t.details == new JsonRpcResponse.IntId(2)
     }
 }
