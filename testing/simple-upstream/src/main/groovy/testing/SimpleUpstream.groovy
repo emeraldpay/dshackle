@@ -13,7 +13,7 @@ class SimpleUpstream {
     void prepare() {
         objectMapper = new ObjectMapper()
 
-        handlers << new TestcaseHandler()
+        handlers << new TestcaseHandler(objectMapper)
         handlers << new CommonHandlers()
         handlers << new BlocksHandler(objectMapper)
         handlers << new InvalidCallHandler()

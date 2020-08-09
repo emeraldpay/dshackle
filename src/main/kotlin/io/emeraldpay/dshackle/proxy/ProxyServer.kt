@@ -18,14 +18,19 @@ package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.rpc.NativeCall
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.infinitape.etherjar.rpc.RpcException
+import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.handler.ssl.SslContextBuilder
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.netty.DisposableServer
 import reactor.netty.http.server.HttpServer
@@ -90,15 +95,27 @@ class ProxyServer(
         }
     }
 
+    fun processRequest(chain: Common.ChainRef, request: Mono<ByteArray>): Flux<ByteBuf> {
+        return request.map(readRpcJson)
+                .flatMapMany { call -> execute(chain, call) }
+                .onErrorResume(RpcException::class.java) { err ->
+                    val id = err.details?.let {
+                        if (it is JsonRpcResponse.Id) it else JsonRpcResponse.IntId(-1)
+                    } ?: JsonRpcResponse.IntId(-1)
+
+                    val json = JsonRpcResponse.error(err.code, err.rpcMessage, id)
+                    Mono.just(Global.objectMapper.writeValueAsString(json))
+                }
+                .map { Unpooled.wrappedBuffer(it.toByteArray()) }
+    }
+
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
         val chain = Common.ChainRef.forNumber(routeConfig.blockchain.id)
         return BiFunction { req, resp ->
-            val results = req.receive()
+            val request = req.receive()
                     .aggregate()
                     .asByteArray()
-                    .map(readRpcJson)
-                    .flatMapMany { call -> execute(chain, call) }
-                    .map { Unpooled.wrappedBuffer(it.toByteArray()) }
+            val results = processRequest(chain, request)
             resp.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                     .send(results)
         }

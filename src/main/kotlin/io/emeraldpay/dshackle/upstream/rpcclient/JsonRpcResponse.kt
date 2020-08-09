@@ -164,6 +164,19 @@ class JsonRpcResponse(
         override fun isInt(): Boolean {
             return true
         }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is IntId) return false
+
+            if (id != other.id) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            return id
+        }
     }
 
     class StringId(val id: String) : Id {
@@ -178,6 +191,20 @@ class JsonRpcResponse(
         override fun isInt(): Boolean {
             return false
         }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is StringId) return false
+
+            if (id != other.id) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            return id.hashCode()
+        }
+
     }
 
     class ResponseJsonSerializer : JsonSerializer<JsonRpcResponse>() {
