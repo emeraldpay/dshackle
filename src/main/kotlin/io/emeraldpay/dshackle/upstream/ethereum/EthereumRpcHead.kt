@@ -56,7 +56,7 @@ class EthereumRpcHead(
                             .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
                             .flatMap {
                                 if (it.error != null) {
-                                    Mono.error(it.error.asException())
+                                    Mono.error(it.error.asException(null))
                                 } else {
                                     val value = it.getResultAsProcessedString()
                                     Mono.just(HexQuantity.from(value))

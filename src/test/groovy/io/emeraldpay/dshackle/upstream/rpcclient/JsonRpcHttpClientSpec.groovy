@@ -106,7 +106,7 @@ class JsonRpcHttpClientSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectErrorMatches { t ->
-                    t instanceof RpcException && t.code == RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
+                    t instanceof JsonRpcException && t.error.code == RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
                 }
                 .verify(Duration.ofSeconds(1))
     }

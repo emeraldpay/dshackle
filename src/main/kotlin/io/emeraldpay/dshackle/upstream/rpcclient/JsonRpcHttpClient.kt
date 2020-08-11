@@ -88,7 +88,9 @@ class JsonRpcHttpClient(
 
         return response.response { header, bytes ->
             if (header.status().code() != 200) {
-                Mono.error(RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "HTTP Code: ${header.status().code()}"))
+                Mono.error(JsonRpcException(JsonRpcResponse.IntId(-2),
+                        JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "HTTP Code: ${header.status().code()}"))
+                )
             } else {
                 bytes.aggregate().asByteArray()
             }
@@ -101,10 +103,10 @@ class JsonRpcHttpClient(
                 .flatMap(this@JsonRpcHttpClient::execute)
                 .map(parser::parse)
                 .onErrorResume { t ->
-                    val err = if (t is RpcException) {
-                        JsonRpcResponse.error(t.code, t.rpcMessage)
-                    } else {
-                        JsonRpcResponse.error(1, t.message ?: t.javaClass.name)
+                    val err = when (t) {
+                        is RpcException -> JsonRpcResponse.error(t.code, t.rpcMessage)
+                        is JsonRpcException -> JsonRpcResponse.error(t.error, JsonRpcResponse.IntId(1))
+                        else -> JsonRpcResponse.error(1, t.message ?: t.javaClass.name)
                     }
                     Mono.just(err)
                 }

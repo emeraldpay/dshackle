@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
+import io.emeraldpay.dshackle.Global
 import io.infinitape.etherjar.rpc.RpcResponseError
 import org.slf4j.LoggerFactory
 
@@ -35,14 +36,14 @@ class JsonRpcParser() {
             val parser: JsonParser = jsonFactory.createParser(json)
             parser.nextToken()
             if (parser.currentToken != JsonToken.START_OBJECT) {
-                return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON"))
+                return JsonRpcResponse(null, JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON"))
             }
             var nullResponse: JsonRpcResponse? = null
             while (parser.nextToken() != JsonToken.END_OBJECT) {
                 val field = parser.currentName
                 if (field == "jsonrpc" || field == "id") {
                     if (!parser.nextToken().isScalarValue) {
-                        return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON (id/type)"))
+                        return JsonRpcResponse(null, JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON (id or jsonrpc value)"))
                     }
                     // just skip the field
                 } else if (field == "result") {
@@ -78,12 +79,13 @@ class JsonRpcParser() {
         } catch (e: JsonParseException) {
             log.warn("Failed to parse JSON from upstream: ${e.message}")
         }
-        return JsonRpcResponse(null, JsonRpcResponse.ResponseError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON structure"))
+        return JsonRpcResponse(null, JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON structure"))
     }
 
-    fun readError(parser: JsonParser): JsonRpcResponse.ResponseError? {
+    fun readError(parser: JsonParser): JsonRpcError? {
         var code = 0
         var message = ""
+        var details: Any? = null
 
         while (parser.nextToken() != JsonToken.END_OBJECT) {
             if (parser.currentToken() == JsonToken.VALUE_NULL) {
@@ -95,9 +97,15 @@ class JsonRpcParser() {
                 code = parser.intValue
             } else if (field == "message" && parser.currentToken == JsonToken.VALUE_STRING) {
                 message = parser.valueAsString
+            } else if (field == "data") {
+                when (val value = parser.nextToken()) {
+                    JsonToken.VALUE_NULL -> details = null
+                    JsonToken.VALUE_STRING -> details = parser.valueAsString
+                    JsonToken.START_OBJECT -> details = Global.objectMapper.readValue(parser, java.util.Map::class.java)
+                    else -> log.warn("Unsupported error data type $value")
+                }
             }
         }
-
-        return JsonRpcResponse.ResponseError(code, message)
+        return JsonRpcError(code, message, details)
     }
 }

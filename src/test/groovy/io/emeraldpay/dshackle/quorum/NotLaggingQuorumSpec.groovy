@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.infinitape.etherjar.rpc.RpcException
 import spock.lang.Specification
 
@@ -74,7 +75,7 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(new RpcException(-100, "test error"), up)
+        quorum.record(new JsonRpcException(-100, "test error"), up)
         then:
         1 * up.getLag() >> 1
         !quorum.isResolved()

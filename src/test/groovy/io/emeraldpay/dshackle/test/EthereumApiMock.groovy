@@ -21,6 +21,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.grpc.stub.StreamObserver
@@ -60,7 +61,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
         Callable<JsonRpcResponse> call = {
             def predefined = predefined.find { it.isSame(request.method, request.params) }
             byte[] result = null
-            JsonRpcResponse.ResponseError error = null
+            JsonRpcError error = null
             if (predefined != null) {
                 if (predefined.exception != null) {
                     predefined.onCalled()
@@ -69,7 +70,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                 }
                 if (predefined.result instanceof RpcResponseError) {
                     ((RpcResponseError) predefined.result).with { err ->
-                        error = new JsonRpcResponse.ResponseError(err.code, err.message)
+                        error = new JsonRpcError(err.code, err.message)
                     }
                 } else {
 //                    ResponseJson json = new ResponseJson<Object, Integer>(id: 1, result: predefined.result)
@@ -79,7 +80,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                 predefined.print()
             } else {
                 log.error("Method ${request.method} with ${request.params} is not mocked")
-                error = new JsonRpcResponse.ResponseError(-32601, "Method ${request.method} with ${request.params} is not mocked")
+                error = new JsonRpcError(-32601, "Method ${request.method} with ${request.params} is not mocked")
             }
             return new JsonRpcResponse(result, error)
         } as Callable<JsonRpcResponse>

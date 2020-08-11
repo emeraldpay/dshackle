@@ -18,12 +18,15 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.infinitape.etherjar.rpc.RpcException
 
 open class AlwaysQuorum: CallQuorum {
 
     private var resolved = false
     private var result: ByteArray? = null
+    private var rpcError: JsonRpcError? = null
 
     override fun init(head: Head) {
     }
@@ -42,10 +45,15 @@ open class AlwaysQuorum: CallQuorum {
         return true
     }
 
-    override fun record(error: RpcException, upstream: Upstream) {
+    override fun record(error: JsonRpcException, upstream: Upstream) {
+        this.rpcError = error.error
     }
 
     override fun getResult(): ByteArray? {
         return result
+    }
+
+    override fun getError(): JsonRpcError? {
+        return rpcError
     }
 }

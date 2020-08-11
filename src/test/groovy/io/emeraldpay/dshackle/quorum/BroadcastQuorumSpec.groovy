@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.infinitape.etherjar.rpc.RpcException
 import spock.lang.Specification
 
@@ -54,7 +55,7 @@ class BroadcastQuorumSpec extends Specification {
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _)
 
         when:
-        q.record(new RpcException(1, "Nonce too low"), upstream3)
+        q.record(new JsonRpcException(1, "Nonce too low"), upstream3)
         then:
         1 * q.recordError(_, _, _)
         q.isResolved()
@@ -74,7 +75,7 @@ class BroadcastQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record(new RpcException(1, "Internal error"), upstream1)
+        q.record(new JsonRpcException(1, "Internal error"), upstream1)
         then:
         !q.isResolved()
         1 * q.recordError(_, _, _)
@@ -86,7 +87,7 @@ class BroadcastQuorumSpec extends Specification {
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _)
 
         when:
-        q.record(new RpcException(1, "Nonce too low"), upstream3)
+        q.record(new JsonRpcException(1, "Nonce too low"), upstream3)
         then:
         1 * q.recordError(_, _, _)
         q.isResolved()
