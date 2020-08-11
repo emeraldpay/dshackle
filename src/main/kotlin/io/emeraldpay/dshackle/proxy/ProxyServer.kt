@@ -86,7 +86,7 @@ class ProxyServer(
                 .addAllItems(call.items)
                 .build()
         val jsons = nativeCall
-                .nativeCall(Mono.just(request))
+                .nativeCallResult(Mono.just(request))
                 .transform(writeRpcJson.toJsons(call))
         return if (call.type == ProxyCall.RpcType.SINGLE) {
             jsons.next()

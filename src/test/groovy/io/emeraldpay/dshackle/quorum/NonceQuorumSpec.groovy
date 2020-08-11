@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.quorum.NonceQuorum
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.infinitape.etherjar.rpc.RpcException
 import spock.lang.Specification
 
@@ -74,7 +75,7 @@ class NonceQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record(new RpcException(1, "Internal"), upstream1)
+        q.record(new JsonRpcException(1, "Internal"), upstream1)
         then:
         !q.isResolved()
         1 * q.recordError(_, _, _)
@@ -113,21 +114,23 @@ class NonceQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record(new RpcException(1, "Internal"), upstream1)
+        q.record(new JsonRpcException(1, "Internal"), upstream1)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new RpcException(1, "Internal"), upstream2)
+        q.record(new JsonRpcException(1, "Internal"), upstream2)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new RpcException(1, "Internal"), upstream3)
+        q.record(new JsonRpcException(1, "Internal"), upstream3)
         then:
         q.isFailed()
         !q.isResolved()
+        q.getError() != null
+        q.getError().message == "Internal"
     }
 }

@@ -117,6 +117,7 @@ dependencies {
     testImplementation "io.projectreactor:reactor-test:$reactorVersion"
     testImplementation 'org.objenesis:objenesis:3.1'
     testImplementation 'org.mock-server:mockserver-netty:5.10'
+    testImplementation "nl.jqno.equalsverifier:equalsverifier:3.3"
 }
 
 compileKotlin {

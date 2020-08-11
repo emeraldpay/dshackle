@@ -62,7 +62,7 @@ class ProxyServerSpec extends Specification {
         def act = server.execute(Common.ChainRef.CHAIN_ETHEREUM, call)
 
         then:
-        1 * nativeCall.nativeCall(_) >> Flux.just(BlockchainOuterClass.NativeCallReplyItem.newBuilder().build())
+        1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, "".bytes, null))
         StepVerifier.create(act)
                 .expectNext("hello")
                 .expectComplete()

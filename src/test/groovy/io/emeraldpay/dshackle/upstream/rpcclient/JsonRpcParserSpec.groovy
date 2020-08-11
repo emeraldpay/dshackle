@@ -178,6 +178,36 @@ class JsonRpcParserSpec extends Specification {
         !act.hasResult()
     }
 
+    def "Parse error with data"() {
+        setup:
+        //          0       8       16                32
+        def json = '{"jsonrpc": "2.0", "id": 1, "result": null, "error": {"code": -1111, "message": "test", "data": "just data"}}'
+        when:
+        def act = parser.parse(json.getBytes())
+        then:
+        act.error != null
+        act.error.code == -1111
+        act.error.message == "test"
+        act.error.details == "just data"
+        act.hasError()
+        !act.hasResult()
+    }
+
+    def "Parse error with data struct"() {
+        setup:
+        //          0       8       16                32
+        def json = '{"jsonrpc": "2.0", "id": 1, "result": null, "error": {"code": -1111, "message": "test", "data": {"foo": "just data", "bar": 1}}}'
+        when:
+        def act = parser.parse(json.getBytes())
+        then:
+        act.error != null
+        act.error.code == -1111
+        act.error.message == "test"
+        act.error.details == [foo: "just data", bar: 1]
+        act.hasError()
+        !act.hasResult()
+    }
+
     def "Handle non-json with producing an error response"() {
         setup:
         def json = 'NOT JSON'

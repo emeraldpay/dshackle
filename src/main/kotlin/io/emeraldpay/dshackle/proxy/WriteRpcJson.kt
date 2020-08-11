@@ -42,7 +42,7 @@ open class WriteRpcJson() {
     /**
      * Convert Dshackle protobuf based responses to JSON RPC formatted as strings
      */
-    open fun toJsons(call: ProxyCall): Function<Flux<BlockchainOuterClass.NativeCallReplyItem>, Flux<String>> {
+    open fun toJsons(call: ProxyCall): Function<Flux<NativeCall.CallResult>, Flux<String>> {
         return Function { flux ->
             flux
                     .flatMap { response ->
@@ -70,19 +70,24 @@ open class WriteRpcJson() {
         }
     }
 
-    open fun toJson(call: ProxyCall, response: BlockchainOuterClass.NativeCallReplyItem): String? {
-        val id = call.ids[response.id] ?: return null;
-        val json = if (response.succeed) {
-            JsonRpcResponse.ok(response.payload.toByteArray(), JsonRpcResponse.Id.from(id))
+    open fun toJson(call: ProxyCall, response: NativeCall.CallResult): String? {
+        val id = call.ids[response.id]?.let {
+            JsonRpcResponse.Id.from(it)
+        } ?: return null;
+        val json = if (response.isError()) {
+            val error = response.error!!
+            error.upstreamError?.let { upstreamError ->
+                JsonRpcResponse.error(upstreamError, id)
+            } ?: JsonRpcResponse.error(-32002, error.message, id)
         } else {
-            JsonRpcResponse.error(-32002, response.errorMessage, JsonRpcResponse.Id.from(id))
+            JsonRpcResponse.ok(response.result!!, id)
         }
         return objectMapper.writeValueAsString(json)
     }
 
     fun toJson(call: ProxyCall, error: NativeCall.CallFailure): String? {
         val id = call.ids[error.id] ?: return null;
-        val json = JsonRpcResponse.error(-32002, error.reason.message ?: "", JsonRpcResponse.Id.from(id))
+        val json = JsonRpcResponse.error(-32003, error.reason.message ?: "", JsonRpcResponse.Id.from(id))
         return objectMapper.writeValueAsString(json)
     }
 

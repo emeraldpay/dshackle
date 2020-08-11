@@ -44,6 +44,9 @@ class SimpleUpstream {
                             code   : result.getErrorCode(),
                             message: result.getErrorMessage()
                     ]
+                    if (result.getErrorDetails() != null) {
+                        resultJson["error"]["data"] = result.getErrorDetails()
+                    }
                 }
                 resp.status(200)
                 resp.header("content-type", "application/json")

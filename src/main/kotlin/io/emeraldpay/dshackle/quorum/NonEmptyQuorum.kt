@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.quorum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.infinitape.etherjar.rpc.JacksonRpcConverter
 import io.infinitape.etherjar.rpc.RpcException
 
@@ -55,7 +56,7 @@ open class NonEmptyQuorum(
         tries++
     }
 
-    override fun record(error: RpcException, upstream: Upstream) {
+    override fun record(error: JsonRpcException, upstream: Upstream) {
         tries++
     }
 

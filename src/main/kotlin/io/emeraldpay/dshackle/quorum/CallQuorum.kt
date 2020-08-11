@@ -18,6 +18,8 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.json.BlockJson
@@ -34,8 +36,9 @@ interface CallQuorum {
     fun isFailed(): Boolean
 
     fun record(response: ByteArray, upstream: Upstream): Boolean
-    fun record(error: RpcException, upstream: Upstream)
+    fun record(error: JsonRpcException, upstream: Upstream)
     fun getResult(): ByteArray?
+    fun getError(): JsonRpcError?
 
     companion object {
         fun untilResolved(cq: CallQuorum): Predicate<Any> {

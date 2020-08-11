@@ -25,6 +25,8 @@ import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -48,6 +50,12 @@ open class NativeCall(
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
+        return nativeCallResult(requestMono)
+                .map(this::buildResponse)
+                .onErrorResume(this::processException)
+    }
+
+    open fun nativeCallResult(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<CallResult> {
         return requestMono.flatMapMany(this::prepareCall)
                 .map(this::parseParams)
                 .parallel()
@@ -56,8 +64,6 @@ open class NativeCall(
                             .doOnError { e -> log.warn("Error during native call: ${e.message}") }
                 }
                 .sequential()
-                .map(this::buildResponse)
-                .onErrorResume(this::processException)
     }
 
     fun parseParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
@@ -201,13 +207,14 @@ open class NativeCall(
 
     open class CallFailure(val id: Int, val reason: Throwable) : Exception("Failed to call $id: ${reason.message}")
 
-    open class CallError(val id: Int, val message: String) {
+    open class CallError(val id: Int, val message: String, val upstreamError: JsonRpcError?) {
         companion object {
             fun from(t: Throwable): CallError {
                 return when (t) {
-                    is RpcException -> CallError(t.code, t.rpcMessage)
-                    is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error")
-                    else -> CallError(1, t.message ?: "Upstream Error")
+                    is JsonRpcException -> CallError(t.id.asInt(), t.error.message, t.error)
+                    is RpcException -> CallError(t.code, t.rpcMessage, null)
+                    is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null)
+                    else -> CallError(1, t.message ?: "Upstream Error", null)
                 }
             }
         }
@@ -220,7 +227,7 @@ open class NativeCall(
             }
 
             fun fail(id: Int, errorCore: Int, errorMessage: String): CallResult {
-                return CallResult(id, null, CallError(errorCore, errorMessage))
+                return CallResult(id, null, CallError(errorCore, errorMessage, null))
             }
 
             fun fail(id: Int, error: Throwable): CallResult {
