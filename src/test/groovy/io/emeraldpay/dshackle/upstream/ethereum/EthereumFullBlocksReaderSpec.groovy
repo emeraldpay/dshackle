@@ -15,7 +15,6 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.core.PrettyPrinter
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
@@ -32,8 +31,10 @@ import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import org.apache.commons.codec.binary.Hex
 import spock.lang.Specification
 
+import java.nio.ByteBuffer
 import java.time.Instant
 
 class EthereumFullBlocksReaderSpec extends Specification {
@@ -373,5 +374,43 @@ class EthereumFullBlocksReaderSpec extends Specification {
         then:
         new String(act.getT1()).endsWith('"transactions":[')
         new String(act.getT2()) == ']}'
+    }
+
+    def "Extract from buffer without trailing zeroes"() {
+        setup:
+        def reader = new EthereumFullBlocksReader(Stub(Reader), Stub(Reader))
+        when:
+        def buffer = ByteBuffer.allocate(8)
+        buffer.put(1 as byte)
+        buffer.put(2 as byte)
+        def act = reader.extractContent(buffer)
+        then:
+        act.size() == 2
+        Hex.encodeHexString(act) == "0102"
+
+        when:
+        buffer = ByteBuffer.allocate(8)
+        buffer.put(1 as byte)
+        buffer.put(2 as byte)
+        buffer.put(3 as byte)
+        act = reader.extractContent(buffer)
+        then:
+        act.size() == 3
+        Hex.encodeHexString(act) == "010203"
+
+        when:
+        buffer = ByteBuffer.allocate(8)
+        buffer.put(1 as byte)
+        buffer.put(2 as byte)
+        buffer.put(3 as byte)
+        buffer.put(4 as byte)
+        buffer.put(5 as byte)
+        buffer.put(6 as byte)
+        buffer.put(7 as byte)
+        buffer.put(8 as byte)
+        act = reader.extractContent(buffer)
+        then:
+        act.size() == 8
+        Hex.encodeHexString(act) == "0102030405060708"
     }
 }

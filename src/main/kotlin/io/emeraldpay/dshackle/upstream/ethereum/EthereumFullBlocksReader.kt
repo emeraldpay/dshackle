@@ -81,7 +81,7 @@ class EthereumFullBlocksReader(
                 } else {
                     joinWithTransactions(blockSplit.t1, blockSplit.t2, Flux.fromIterable(transactionsData).map { it.json!! })
                             .reduce(ByteBuffer.allocate(block.json.size * 4), accumulate)
-                            .map { it.flip().array() }
+                            .map(this@EthereumFullBlocksReader::extractContent)
                             .map { json ->
                                 BlockContainer(block.height, block.hash, block.difficulty, block.timestamp,
                                         true,
@@ -93,6 +93,13 @@ class EthereumFullBlocksReader(
                 }
             }
         }
+    }
+
+    fun extractContent(it: ByteBuffer): ByteArray {
+        val pos = it.position()
+        val result = ByteArray(pos)
+        it.flip().get(result, 0, pos)
+        return result
     }
 
     fun splitByTransactions(json: ByteArray): Tuple2<ByteArray, ByteArray> {
