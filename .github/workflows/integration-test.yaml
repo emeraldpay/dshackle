@@ -55,9 +55,7 @@ jobs:
         image: openjdk:11
         volumes:
           - ${{ github.workspace }}/testing/simple-upstream:/opt/app
-        options:
-          - "--workdir /opt/app"
-          - "--entrypoint /opt/app/gradlew run"
+        options: "--workdir /opt/app --entrypoint /opt/app/gradlew run"
 
       dshackle:
         image: openjdk:11
