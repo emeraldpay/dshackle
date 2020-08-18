@@ -54,18 +54,18 @@ jobs:
       fake-upstream:
         image: openjdk:11
         volumes:
-          - ${{ github.workspace }}/testing/simple-upstream:/opt/app
+          - ${{ github.workspace }}/testing/simple-upstream:/app
         options: >-
-          --workdir /opt/app
-          --entrypoint /opt/app/start.sh
+          --workdir /app
+          --entrypoint /app/start.sh
 
       dshackle:
         image: openjdk:11
         volumes:
-          - ${{ github.workspace }}:/opt/app
+          - ${{ github.workspace }}:/app
         options: >-
-          --workdir /opt/app
-          --entrypoint /opt/app/testing/dshackle/start.sh
+          --workdir /app
+          --entrypoint /app/testing/dshackle/start.sh
 
     steps:
       - uses: actions/checkout@v2
