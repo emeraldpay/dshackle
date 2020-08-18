@@ -54,13 +54,13 @@ jobs:
       fake-upstream:
         image: openjdk:11
         volumes:
-          ${{ github.workspace }}/testing/simple-upstream:/opt/app
+          - ${{ github.workspace }}/testing/simple-upstream:/opt/app
         options: "--workdir: /opt/app entrypoint: gradlew run"
 
       dshackle:
         image: openjdk:11
         volumes:
-          ${{ github.workspace }}:/opt/app
+          - ${{ github.workspace }}:/opt/app
         env:
           SPRING_APPLICATION_JSON: '{"configPath":"testing/dshackle/dshackle.yaml"}'
         options: "--workdir: /opt/app entrypoint: gradlew run"
