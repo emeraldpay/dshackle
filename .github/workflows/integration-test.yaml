@@ -55,7 +55,9 @@ jobs:
         image: openjdk:11
         volumes:
           - ${{ github.workspace }}/testing/simple-upstream:/opt/app
-        options: "--workdir: /opt/app entrypoint: gradlew run"
+        options:
+          - "--workdir /opt/app"
+          - "--entrypoint /opt/app/gradlew run"
 
       dshackle:
         image: openjdk:11
@@ -63,7 +65,7 @@ jobs:
           - ${{ github.workspace }}:/opt/app
         env:
           SPRING_APPLICATION_JSON: '{"configPath":"testing/dshackle/dshackle.yaml"}'
-        options: "--workdir: /opt/app entrypoint: gradlew run"
+        options: "--workdir /opt/app --entrypoint /opt/app/gradlew run"
 
     steps:
       - uses: actions/checkout@v2
