@@ -15,17 +15,20 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.quorum.*
 import io.infinitape.etherjar.rpc.RpcException
 import java.util.*
 
 class DefaultBitcoinMethods() : CallMethods {
 
-    private val anyResponseMethods = listOf(
-            "getblock", "getblockhash",
-            "gettransaction", "getrawtransaction", "gettxout",
+    private val freshMethods = listOf(
+            "getblock",
+            "gettransaction", "gettxout",
             "getmemorypool"
+    ).sorted()
+
+    private val anyResponseMethods = listOf(
+            "getblockhash", "getrawtransaction"
     ).sorted()
 
     private val headVerifiedMethods = listOf(
@@ -41,12 +44,13 @@ class DefaultBitcoinMethods() : CallMethods {
             "sendrawtransaction"
     ).sorted()
 
-    private val allowedMethods = (anyResponseMethods + hardcodedMethods + headVerifiedMethods).sorted()
+    private val allowedMethods = (freshMethods + anyResponseMethods + hardcodedMethods + headVerifiedMethods).sorted()
 
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
             Collections.binarySearch(hardcodedMethods, method) >= 0 -> AlwaysQuorum()
-            Collections.binarySearch(anyResponseMethods, method) >= 0 -> NotLaggingQuorum(2)
+            Collections.binarySearch(anyResponseMethods, method) >= 0 -> NonEmptyQuorum()
+            Collections.binarySearch(freshMethods, method) >= 0 -> NotLaggingQuorum(2)
             Collections.binarySearch(headVerifiedMethods, method) >= 0 -> NotLaggingQuorum(0)
             Collections.binarySearch(broadcastMethods, method) >= 0 -> BroadcastQuorum()
             else -> AlwaysQuorum()
