@@ -33,6 +33,8 @@ proxy:
       blockchain: ethereum_classic
     - id: kovan
       blockchain: kovan
+    - id: goerli
+      blockchain: goerli
 
 cluster:
   defaults:

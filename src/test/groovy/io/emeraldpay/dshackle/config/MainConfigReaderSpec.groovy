@@ -64,6 +64,10 @@ class MainConfigReaderSpec extends Specification {
                 id == "kovan"
                 blockchain == Chain.TESTNET_KOVAN
             }
+            with(routes[3]) {
+                id == "goerli"
+                blockchain == Chain.TESTNET_GOERLI
+            }
         }
         act.upstreams != null
         with(act.upstreams) {
