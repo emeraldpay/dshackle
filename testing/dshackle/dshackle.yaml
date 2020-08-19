@@ -8,6 +8,9 @@ cluster:
   upstreams:
     - id: test-1
       chain: ethereum
+      methods:
+        enabled:
+          - name: debug_traceTransaction
       options:
         disable-validation: true
       connection:

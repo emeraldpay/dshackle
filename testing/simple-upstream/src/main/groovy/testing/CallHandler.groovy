@@ -8,19 +8,21 @@ interface CallHandler {
         private Object result
         private Integer errorCode
         private String errorMessage
+        private Object errorDetails
 
-        Result(Object result, Integer errorCode, String errorMessage) {
+        Result(Object result, Integer errorCode, String errorMessage, Object errorDetails) {
             this.result = result
             this.errorCode = errorCode
             this.errorMessage = errorMessage
+            this.errorDetails = errorDetails
         }
 
         static Result ok(Object result) {
-            return new Result(result, null, null)
+            return new Result(result, null, null, null)
         }
 
-        static Result error(int errorCode, String errorMessage) {
-            return new Result(null, errorCode, errorMessage)
+        static Result error(int errorCode, String errorMessage, Object details = null) {
+            return new Result(null, errorCode, errorMessage, details)
         }
 
         boolean isResult() {
@@ -37,6 +39,10 @@ interface CallHandler {
 
         String getErrorMessage() {
             return errorMessage
+        }
+
+        Object getErrorDetails() {
+            return errorDetails
         }
     }
 }

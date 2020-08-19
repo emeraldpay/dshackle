@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.cache
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
@@ -25,6 +26,7 @@ import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import reactor.core.publisher.Mono
 import spock.lang.Specification
 
 import java.time.Instant
@@ -145,14 +147,6 @@ class CachesSpec extends Specification {
 
     def "Cache txes of a requested block"() {
         setup:
-        TxMemCache txCache = Mock()
-        HeightCache heightCache = Mock()
-        BlocksMemCache blocksCache = Mock()
-        def caches = Caches.newBuilder()
-                .setTxByHash(txCache)
-                .setBlockByHeight(heightCache)
-                .setBlockByHash(blocksCache)
-                .build()
 
         def tx1 = new TransactionJson().with {
             hash = TransactionId.from(hash1)
@@ -166,20 +160,71 @@ class CachesSpec extends Specification {
             blockNumber = 100
             it
         }
+        BlockContainer block = new BlockJson().with { block ->
+            block.number = 100
+            block.hash = BlockHash.from(hash1)
+            block.totalDifficulty = BigInteger.ONE
+            block.transactions = [tx1, tx2]
+            block.timestamp = Instant.now()
+            BlockContainer.from(block)
+        }
 
 
-        def block = new BlockJson()
-        block.number = 100
-        block.hash = BlockHash.from(hash1)
-        block.totalDifficulty = BigInteger.ONE
-        block.transactions = [tx1, tx2]
-        block.timestamp = Instant.now()
-        block = BlockContainer.from(block)
+        TxMemCache txCache = Mock()
+        HeightCache heightCache = Mock()
+        BlocksMemCache blocksCache = Mock() {
+            _ * add(block)
+            _ * read(block.hash) >> Mono.just(block)
+        }
+        TxRedisCache txRedisCache = Mock()
+        def caches = Caches.newBuilder()
+                .setTxByHash(txCache)
+                .setBlockByHeight(heightCache)
+                .setBlockByHash(blocksCache)
+                .setTxByHash(txRedisCache)
+                .build()
 
         when:
         caches.cache(Caches.Tag.REQUESTED, block)
         then:
         1 * txCache.add(TxContainer.from(tx1))
         1 * txCache.add(TxContainer.from(tx2))
+        1 * txRedisCache.add(TxContainer.from(tx1), block) >> Mono.just(1).then()
+        1 * txRedisCache.add(TxContainer.from(tx2), block) >> Mono.just(1).then()
+    }
+
+    def "Cache tx with redis"() {
+        setup:
+
+        def tx1 = new TransactionJson().with {
+            hash = TransactionId.from(hash1)
+            blockHash = BlockHash.from(hash1)
+            blockNumber = 100
+            it
+        }
+        BlockContainer block = new BlockJson().with { block ->
+            block.number = 100
+            block.hash = BlockHash.from(hash1)
+            block.totalDifficulty = BigInteger.ONE
+            block.transactions = [tx1]
+            block.timestamp = Instant.now()
+            BlockContainer.from(block)
+        }
+        TxMemCache txCache = Mock()
+        HeightCache heightCache = Mock()
+        BlocksMemCache blocksCache = Mock()
+        TxRedisCache txRedisCache = Mock()
+        def caches = Caches.newBuilder()
+                .setTxByHash(txCache)
+                .setBlockByHeight(heightCache)
+                .setBlockByHash(blocksCache)
+                .setTxByHash(txRedisCache)
+                .build()
+
+        when:
+        caches.cache(Caches.Tag.REQUESTED, TxContainer.from(tx1))
+        then:
+        1 * blocksCache.read(block.hash) >> Mono.just(block)
+        1 * txRedisCache.add(TxContainer.from(tx1), block) >> Mono.just(1).then()
     }
 }

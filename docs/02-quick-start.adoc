@@ -77,7 +77,7 @@ See detailed link:reference-configuration.adoc[Configuration Reference]
 
 ==== Run as docker
 
-Official Docker image you can find at: emeraldpay/dshackle
+Official Docker image you can find at: https://hub.docker.com/r/emeraldpay/dshackle[emeraldpay/dshackle]
 
 .Setup Infura username
 [source,bash]

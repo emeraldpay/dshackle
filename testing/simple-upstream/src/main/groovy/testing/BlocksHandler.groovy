@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper
 class BlocksHandler implements CallHandler {
 
     ObjectMapper objectMapper
+    ResourceResponse resourceResponse
 
     BlocksHandler(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper
+        this.resourceResponse = new ResourceResponse(objectMapper)
     }
 
     @Override
@@ -18,22 +20,13 @@ class BlocksHandler implements CallHandler {
         if (method == "eth_getBlockByNumber") {
             String blockId = params[0]
             println("get block $blockId")
-            def result = getResource("block-${blockId}.json")
-            return Result.ok(result)
+            return resourceResponse.respondWith("block-${blockId}.json")
         }
         if (method == "eth_getTransactionByHash") {
             String txId = params[0]
-            def result = getResource("tx-${txId}.json")
-            return Result.ok(result)
+            return resourceResponse.respondWith("tx-${txId}.json")
         }
         return null
     }
 
-    Object getResource(String name) {
-        String json = BlocksHandler.class.getResourceAsStream("/" + name)?.text
-        if (json == null) {
-            return null
-        }
-        return objectMapper.readValue(json, Map)
-    }
 }

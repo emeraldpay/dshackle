@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.proxy
 
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.test.TestingCommons
 import reactor.core.publisher.Flux
 import spock.lang.Specification
@@ -86,11 +87,7 @@ class WriteRpcJsonSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
         call.ids[1] = 105
         def data = [
-                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(1)
-                        .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('"0x98dbb1"', 'UTF-8'))
-                        .build()
+                new NativeCall.CallResult(1, '"0x98dbb1"'.bytes, null)
         ]
         when:
         def act = writer.toJson(call, data[0])
@@ -103,11 +100,7 @@ class WriteRpcJsonSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
         call.ids[1] = 1
         def data = [
-                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(1)
-                        .setSucceed(false)
-                        .setErrorMessage("Internal Error")
-                        .build()
+                new NativeCall.CallResult(1, null, new NativeCall.CallError(1, "Internal Error", null))
         ]
         when:
         def act = writer.toJson(call, data[0])
@@ -120,11 +113,7 @@ class WriteRpcJsonSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
         call.ids[1] = "aaa"
         def data = [
-                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(1)
-                        .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('"0x98dbb1"', 'UTF-8'))
-                        .build()
+                new NativeCall.CallResult(1, '"0x98dbb1"'.bytes, null)
         ]
         when:
         def act = writer.toJson(call, data[0])
@@ -139,21 +128,9 @@ class WriteRpcJsonSpec extends Specification {
         call.ids[2] = 11
         call.ids[3] = 15
         def data = [
-                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(1)
-                        .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('"0x98dbb1"', 'UTF-8'))
-                        .build(),
-                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(2)
-                        .setSucceed(false)
-                        .setErrorMessage("oops")
-                        .build(),
-                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                        .setId(3)
-                        .setSucceed(true)
-                        .setPayload(ByteString.copyFrom('{"hash": "0x2484f459dc"}', 'UTF-8'))
-                        .build(),
+                new NativeCall.CallResult(1, '"0x98dbb1"'.bytes, null),
+                new NativeCall.CallResult(2, null, new NativeCall.CallError(2, "oops", null)),
+                new NativeCall.CallResult(3, '{"hash": "0x2484f459dc"}'.bytes, null),
         ]
         when:
         def act = Flux.fromIterable(data)

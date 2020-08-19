@@ -1,0 +1,7 @@
+= Emerald Dshackle Protobuf definitions
+
+Protobuf definition for the external interface (i.e. gRPC) of the Emerald Dshackle.
+This gRPC definitions are part of the general Emerald API, please see the project with whole API at https://github.com/emeraldpay/emerald-grpc
+
+Dshakle also has some internal Protobuf schemas, for example to serialize cached values.
+You can find them in link:../src/main/proto/[].

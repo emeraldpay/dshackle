@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ApiSource
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.rpc.RpcException
@@ -56,8 +57,10 @@ class QuorumRpcReader(
 
         val defaultResult: Mono<Result> = Mono.just(quorum).flatMap { q ->
             if (q.isFailed()) {
-                //TODO record and return actual error details
-                Mono.error<Result>(RpcException(-32000, "Upstream error"))
+                Mono.error<Result>(
+                        q.getError()?.asException(JsonRpcResponse.IntId(1))
+                                ?: RpcException(-32000, "Unknown Upstream error")
+                )
             } else {
                 log.warn("Empty result for ${key.method} as ${q}")
                 Mono.empty<Result>()
@@ -74,9 +77,14 @@ class QuorumRpcReader(
                             .flatMap { response ->
                                 response.requireResult()
                                         .onErrorResume { err ->
-                                            if (err is RpcException) {
+                                            if (err is RpcException || err is JsonRpcException) {
                                                 // on error notify quorum, it may use error message or other details
-                                                quorum.record(err, api)
+                                                val cleanErr: JsonRpcException = when (err) {
+                                                    is RpcException -> JsonRpcException.from(err)
+                                                    is JsonRpcException -> err
+                                                    else -> throw IllegalStateException("Cannot convert from exception", err)
+                                                }
+                                                quorum.record(cleanErr, api)
                                                 // it it's failed after that, then we don't need more calls, stop api source
                                                 if (quorum.isFailed()) {
                                                     apis.resolve()
