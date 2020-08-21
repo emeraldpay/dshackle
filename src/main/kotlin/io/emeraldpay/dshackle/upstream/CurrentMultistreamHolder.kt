@@ -50,8 +50,6 @@ class CurrentMultistreamHolder(
 
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
 
-    private val objectMapper: ObjectMapper = Global.objectMapper
-
     private val chainMapping = ConcurrentHashMap<Chain, Multistream>()
     private val chainsBus = TopicProcessor.create<Chain>()
     private val callTargets = HashMap<Chain, CallMethods>()
@@ -59,27 +57,32 @@ class CurrentMultistreamHolder(
 
     fun update(change: UpstreamChange) {
         updateLock.withLock {
+            log.debug("Upstream update: ${change.type} ${change.chain} via ${change.upstream.getId()}")
             val chain = change.chain
-            when (BlockchainType.fromBlockchain(chain)) {
-                BlockchainType.ETHEREUM -> {
-                    val up = change.upstream.cast(EthereumUpstream::class.java)
-                    val current = chainMapping[chain] as Multistream?
-                    val factory = Callable {
-                        EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain)) as Multistream
+            try {
+                when (BlockchainType.fromBlockchain(chain)) {
+                    BlockchainType.ETHEREUM -> {
+                        val up = change.upstream.cast(EthereumUpstream::class.java)
+                        val current = chainMapping[chain] as Multistream?
+                        val factory = Callable {
+                            EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain)) as Multistream
+                        }
+                        processUpdate(change, up, current, factory)
                     }
-                    processUpdate(change, up, current, factory)
-                }
-                BlockchainType.BITCOIN -> {
-                    val up = change.upstream.cast(BitcoinUpstream::class.java)
-                    val current = chainMapping[chain] as Multistream?
-                    val factory = Callable {
-                        BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain)) as Multistream
+                    BlockchainType.BITCOIN -> {
+                        val up = change.upstream.cast(BitcoinUpstream::class.java)
+                        val current = chainMapping[chain] as Multistream?
+                        val factory = Callable {
+                            BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain)) as Multistream
+                        }
+                        processUpdate(change, up, current, factory)
                     }
-                    processUpdate(change, up, current, factory)
+                    else -> {
+                        log.error("Update for unsupported chain: $chain")
+                    }
                 }
-                else -> {
-                    log.error("Update for unsupported chain: $chain")
-                }
+            } catch (e: Throwable) {
+                log.error("Failed to update upstream", e)
             }
         }
     }

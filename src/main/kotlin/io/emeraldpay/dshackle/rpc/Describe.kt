@@ -21,8 +21,6 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.grpc.EthereumGrpcUpstream
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -47,12 +45,8 @@ class Describe(
                     chainUpstreams.getAll().let { ups ->
                         ups.forEach { up ->
                             val nodes = QuorumForLabels()
-                            if (up is EthereumUpstream) {
-                                nodes.add(up.node)
-                            } else if (up is BitcoinUpstream) {
-                                nodes.add(up.node)
-                            } else if (up is EthereumGrpcUpstream) {
-                                nodes.add(up.getNodes())
+                            if (up is DefaultUpstream) {
+                                nodes.add(up.getQuorumByLabel())
                             }
                             nodes.getAll().forEach { node ->
                                 val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()

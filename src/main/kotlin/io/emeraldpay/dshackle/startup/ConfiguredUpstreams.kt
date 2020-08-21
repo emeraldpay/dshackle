@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
@@ -182,7 +183,7 @@ open class ConfiguredUpstreams(
         }
 
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-        val ethereumUpstream = EthereumUpstream(
+        val ethereumUpstream = EthereumRpcUpstream(
                 config.id!!,
                 chain, directApi, wsFactoryApi,
                 options, config.role,

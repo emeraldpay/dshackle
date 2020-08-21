@@ -26,10 +26,14 @@ import kotlin.concurrent.write
 /**
  * Summary details over few upstream nodes. Provides aggregate quorum for nodes with particular label
  */
-class QuorumForLabels {
+class QuorumForLabels() {
 
     private val lock = ReentrantReadWriteLock()
     private val nodes = ArrayList<QuorumItem>()
+
+    constructor(node: QuorumItem) : this() {
+        add(node)
+    }
 
     fun add(node: QuorumItem) {
         lock.read {
@@ -59,6 +63,9 @@ class QuorumForLabels {
      */
     class QuorumItem(val quorum: Int, val labels: UpstreamsConfig.Labels) {
         companion object {
+            fun empty(): QuorumItem {
+                return QuorumItem(0, UpstreamsConfig.Labels())
+            }
         }
     }
 

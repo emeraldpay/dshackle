@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -35,7 +36,7 @@ import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
 
-class EthereumUpstreamMock extends EthereumUpstream {
+class EthereumUpstreamMock extends EthereumRpcUpstream {
 
     EthereumHeadMock ethereumHeadMock = new EthereumHeadMock()
 
