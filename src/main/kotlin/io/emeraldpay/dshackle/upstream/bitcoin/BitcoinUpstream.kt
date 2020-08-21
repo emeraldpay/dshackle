@@ -35,9 +35,9 @@ open class BitcoinUpstream(
         private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
-        val node: QuorumForLabels.QuorumItem,
+        node: QuorumForLabels.QuorumItem,
         callMethods: CallMethods
-) : DefaultUpstream(id, options, role, callMethods), Lifecycle {
+) : DefaultUpstream(id, options, role, callMethods, node), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstream::class.java)

@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream.grpc
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.salesforce.reactorgrpc.GrpcRetry
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
@@ -57,11 +56,11 @@ open class EthereumGrpcUpstream(
         private val chain: Chain,
         private val blockchainStub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val client: JsonRpcGrpcClient
-) : DefaultUpstream(
+) : EthereumUpstream(
         "$parentId/${chain.chainCode}",
         UpstreamsConfig.Options.getDefaults(),
         UpstreamsConfig.UpstreamRole.STANDARD,
-        null
+        null, null
 ), Lifecycle {
 
     private var allLabels: Collection<UpstreamsConfig.Labels> = ArrayList<UpstreamsConfig.Labels>()
@@ -176,7 +175,7 @@ open class EthereumGrpcUpstream(
         )
     }
 
-    fun getNodes(): QuorumForLabels {
+    override fun getQuorumByLabel(): QuorumForLabels {
         return nodes.get()
     }
 

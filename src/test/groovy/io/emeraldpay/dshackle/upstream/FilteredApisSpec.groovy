@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.grpc.Chain
@@ -45,7 +46,7 @@ class FilteredApisSpec extends Specification {
                 [test: "foo"],
                 [test: "baz"]
         ].collect {
-            new EthereumUpstream(
+            new EthereumRpcUpstream(
                     "test",
                     Chain.ETHEREUM,
                     TestingCommons.api().tap { it.id = "${i++}" },

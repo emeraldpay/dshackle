@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import reactor.core.publisher.Flux
 import reactor.extra.processor.TopicProcessor
@@ -28,11 +29,15 @@ abstract class DefaultUpstream(
         defaultAvail: UpstreamAvailability,
         private val options: UpstreamsConfig.Options,
         private val role: UpstreamsConfig.UpstreamRole,
-        private val targets: CallMethods?
+        private val targets: CallMethods?,
+        private val node: QuorumForLabels.QuorumItem?
 ) : Upstream {
 
     constructor(id: String, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, targets: CallMethods?) :
-            this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets)
+            this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, QuorumForLabels.QuorumItem.empty())
+
+    constructor(id: String, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, targets: CallMethods?, node: QuorumForLabels.QuorumItem?) :
+            this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
@@ -93,6 +98,13 @@ abstract class DefaultUpstream(
 
     override fun getMethods(): CallMethods {
         return targets ?: throw IllegalStateException("Methods are not set")
+    }
+
+    private val quorumByLabel = node?.let { QuorumForLabels(it) }
+            ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
+
+    open fun getQuorumByLabel(): QuorumForLabels {
+        return quorumByLabel
     }
 
     class Status(val lag: Long, val avail: UpstreamAvailability, val status: UpstreamAvailability)
