@@ -1,0 +1,82 @@
+name: Integration Tests
+
+on:
+  # if pushed directly to the master
+  push:
+    branches:
+      - master
+      - release/*
+  # on a pull request
+  pull_request:
+    branches:
+      - master
+      - release/*
+jobs:
+  redis-cache:
+    name: Cache with Redis
+    runs-on: ubuntu-latest
+    # Docker Hub image that `container-job` executes in.
+    # Use -buster which comes with Git 2.20, because action/checkout needs Git 2.18+ to make correct clone (needed by Gradle version plugin)
+    container: node:12-buster
+    services:
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Check
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: check
+        env:
+          DSHACKLE_TEST_ENABLED: redis
+          REDIS_HOST: redis
+          REDIS_PORT: 6379
+
+
+  fake-upstream:
+    name: Test with fake upstream
+    runs-on: ubuntu-latest
+    # Use -buster which comes with Git 2.20, because action/checkout needs Git 2.18+ to make correct clone (needed by Gradle version plugin)
+    container: node:12-buster
+    services:
+
+      fake-upstream:
+        image: openjdk:11
+        volumes:
+          - ${{ github.workspace }}/testing/simple-upstream:/app
+        options: >-
+          --workdir /app
+          --entrypoint /app/start.sh
+
+      dshackle:
+        image: openjdk:11
+        volumes:
+          - ${{ github.workspace }}:/app
+        options: >-
+          --workdir /app
+          --entrypoint /app/testing/dshackle/start.sh
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Run trial
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: test
+          build-root-directory: ${{ github.workspace }}/testing/trial
