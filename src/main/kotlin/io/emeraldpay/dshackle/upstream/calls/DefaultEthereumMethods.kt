@@ -108,23 +108,25 @@ class DefaultEthereumMethods(
     }
 
     override fun executeHardcoded(method: String): ByteArray {
+        // note that the value is in json representation, i.e. if it's a string it should be with quotes,
+        // that's why "\"0x0\"", "\"1\"", etc. But just "true" for a boolean, or "[]" for array.
         val json = when (method) {
             "net_version" -> {
                 when {
                     Chain.ETHEREUM == chain -> {
-                        "1"
+                        "\"1\""
                     }
                     Chain.ETHEREUM_CLASSIC == chain -> {
-                        "1"
+                        "\"1\""
                     }
                     Chain.TESTNET_MORDEN == chain -> {
-                        "2"
+                        "\"2\""
                     }
                     Chain.TESTNET_KOVAN == chain -> {
-                        "42"
+                        "\"42\""
                     }
                     Chain.TESTNET_GOERLI == chain -> {
-                        "5"
+                        "\"5\""
                     }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
