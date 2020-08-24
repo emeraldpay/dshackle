@@ -72,7 +72,7 @@ class ProxyServerSpec extends Specification {
     def "Return error on invalid request"() {
         setup:
         ReadRpcJson read = Mock(ReadRpcJson) {
-            1 * apply(_) >> { throw new RpcException(-32123, "test", new JsonRpcResponse.IntId(4)) }
+            1 * apply(_) >> { throw new RpcException(-32123, "test", new JsonRpcResponse.NumberId(4)) }
         }
         def server = new ProxyServer(
                 Stub(ProxyConfig),
