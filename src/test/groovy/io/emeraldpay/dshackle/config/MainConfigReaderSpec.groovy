@@ -51,7 +51,7 @@ class MainConfigReaderSpec extends Specification {
             port == 8082
             tls != null
             routes != null
-            routes.size() == 3
+            routes.size() == 4
             with(routes[0]) {
                 id == "eth"
                 blockchain == Chain.ETHEREUM
