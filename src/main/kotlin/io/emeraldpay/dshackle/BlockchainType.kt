@@ -30,7 +30,7 @@ enum class BlockchainType {
     companion object {
         @JvmStatic
         fun fromBlockchain(blockchain: Chain): BlockchainType {
-            if (blockchain == Chain.ETHEREUM || blockchain == Chain.ETHEREUM_CLASSIC || blockchain == Chain.TESTNET_KOVAN || blockchain == Chain.TESTNET_MORDEN) {
+            if (blockchain == Chain.ETHEREUM || blockchain == Chain.ETHEREUM_CLASSIC || blockchain == Chain.TESTNET_KOVAN || blockchain == Chain.TESTNET_MORDEN || blockchain == Chain.TESTNET_GOERLI) {
                 return ETHEREUM
             }
             if (blockchain == Chain.BITCOIN || blockchain == Chain.TESTNET_BITCOIN) {

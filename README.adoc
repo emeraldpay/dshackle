@@ -29,7 +29,7 @@ Dshackle allows to build a mesh network of interconnected Dshackle servers for b
 
 Blockchain support:
 
-- Ethereum, Ethereum Classic and Kovan testnet
+- Ethereum, Ethereum Classic, Kovan testnet, and Goerli testnet
 - Bitcoin and Bitcoin Testnet
 
 WARNING: The project is still under development, please use with caution.

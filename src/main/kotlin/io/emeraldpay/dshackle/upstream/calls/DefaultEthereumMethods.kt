@@ -123,6 +123,9 @@ class DefaultEthereumMethods(
                     Chain.TESTNET_KOVAN == chain -> {
                         "42"
                     }
+                    Chain.TESTNET_GOERLI == chain -> {
+                        "5"
+                    }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
@@ -139,6 +142,9 @@ class DefaultEthereumMethods(
                     }
                     Chain.TESTNET_KOVAN == chain -> {
                         "\"0x2a\""
+                    }
+                    Chain.TESTNET_GOERLI == chain -> {
+                        "\"0x5\""
                     }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
