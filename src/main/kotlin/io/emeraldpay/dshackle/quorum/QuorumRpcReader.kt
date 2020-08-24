@@ -58,7 +58,7 @@ class QuorumRpcReader(
         val defaultResult: Mono<Result> = Mono.just(quorum).flatMap { q ->
             if (q.isFailed()) {
                 Mono.error<Result>(
-                        q.getError()?.asException(JsonRpcResponse.IntId(1))
+                        q.getError()?.asException(JsonRpcResponse.NumberId(1))
                                 ?: RpcException(-32000, "Unknown Upstream error")
                 )
             } else {

@@ -211,7 +211,7 @@ open class NativeCall(
         companion object {
             fun from(t: Throwable): CallError {
                 return when (t) {
-                    is JsonRpcException -> CallError(t.id.asInt(), t.error.message, t.error)
+                    is JsonRpcException -> CallError(t.id.asNumber().toInt(), t.error.message, t.error)
                     is RpcException -> CallError(t.code, t.rpcMessage, null)
                     is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null)
                     else -> CallError(1, t.message ?: "Upstream Error", null)

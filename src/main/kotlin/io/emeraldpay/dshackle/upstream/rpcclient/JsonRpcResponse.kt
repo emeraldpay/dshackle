@@ -26,7 +26,7 @@ class JsonRpcResponse(
         val id: Id
 ) {
 
-    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, IntId(0))
+    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
@@ -129,29 +129,31 @@ class JsonRpcResponse(
      * JSON RPC wrapper. Makes sure that the id is either Int or String
      */
     interface Id {
-        fun asInt(): Int
+        fun asNumber(): Long
         fun asString(): String
-        fun isInt(): Boolean
+        fun isNumber(): Boolean
 
         companion object {
             @JvmStatic
             fun from(id: Any): Id {
                 if (id is Int) {
-                    return IntId(id)
+                    return NumberId(id)
                 }
                 if (id is Number) {
-                    return IntId(id.toInt())
+                    return NumberId(id.toLong())
                 }
                 if (id is String) {
                     return StringId(id)
                 }
-                throw IllegalArgumentException("Id must be Int or String")
+                throw IllegalArgumentException("Id must be Number or String")
             }
         }
     }
 
-    class IntId(val id: Int) : Id {
-        override fun asInt(): Int {
+    class NumberId(val id: Long) : Id {
+        constructor(id: Int) : this(id.toLong())
+
+        override fun asNumber(): Long {
             return id
         }
 
@@ -159,13 +161,13 @@ class JsonRpcResponse(
             throw IllegalStateException("Not string")
         }
 
-        override fun isInt(): Boolean {
+        override fun isNumber(): Boolean {
             return true
         }
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
-            if (other !is IntId) return false
+            if (other !is NumberId) return false
 
             if (id != other.id) return false
 
@@ -173,20 +175,20 @@ class JsonRpcResponse(
         }
 
         override fun hashCode(): Int {
-            return id
+            return id.hashCode()
         }
     }
 
     class StringId(val id: String) : Id {
-        override fun asInt(): Int {
-            throw IllegalStateException("Not int")
+        override fun asNumber(): Long {
+            throw IllegalStateException("Not a number")
         }
 
         override fun asString(): String {
             return id
         }
 
-        override fun isInt(): Boolean {
+        override fun isNumber(): Boolean {
             return false
         }
 
@@ -209,8 +211,8 @@ class JsonRpcResponse(
         override fun serialize(value: JsonRpcResponse, gen: JsonGenerator, serializers: SerializerProvider) {
             gen.writeStartObject()
             gen.writeStringField("jsonrpc", "2.0")
-            if (value.id.isInt()) {
-                gen.writeNumberField("id", value.id.asInt())
+            if (value.id.isNumber()) {
+                gen.writeNumberField("id", value.id.asNumber())
             } else {
                 gen.writeStringField("id", value.id.asString())
             }
