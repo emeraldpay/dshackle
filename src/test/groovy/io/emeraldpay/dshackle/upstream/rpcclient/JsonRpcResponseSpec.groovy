@@ -63,7 +63,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize int id and null result"() {
         setup:
-        def json = new JsonRpcResponse("null".bytes, null, new JsonRpcResponse.IntId(1))
+        def json = new JsonRpcResponse("null".bytes, null, new JsonRpcResponse.NumberId(1))
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -72,7 +72,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize int id and string result"() {
         setup:
-        def json = new JsonRpcResponse('"Hello World"'.bytes, null, new JsonRpcResponse.IntId(10))
+        def json = new JsonRpcResponse('"Hello World"'.bytes, null, new JsonRpcResponse.NumberId(10))
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -81,7 +81,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize int id and object result"() {
         setup:
-        def json = new JsonRpcResponse('{"foo": "Hello World", "bar": 1}'.bytes, null, new JsonRpcResponse.IntId(101))
+        def json = new JsonRpcResponse('{"foo": "Hello World", "bar": 1}'.bytes, null, new JsonRpcResponse.NumberId(101))
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -90,7 +90,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize int id and error"() {
         setup:
-        def json = new JsonRpcResponse(null, new JsonRpcError(-32041, "Oooops"), new JsonRpcResponse.IntId(101))
+        def json = new JsonRpcResponse(null, new JsonRpcError(-32041, "Oooops"), new JsonRpcResponse.NumberId(101))
         when:
         def act = objectMapper.writeValueAsString(json)
         then:

@@ -26,7 +26,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.rpc.RpcException
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
-import io.netty.handler.ssl.SslContextBuilder
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
@@ -37,7 +36,6 @@ import reactor.netty.http.server.HttpServer
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
-import java.io.File
 import java.util.function.BiFunction
 
 /**
@@ -100,8 +98,8 @@ class ProxyServer(
                 .flatMapMany { call -> execute(chain, call) }
                 .onErrorResume(RpcException::class.java) { err ->
                     val id = err.details?.let {
-                        if (it is JsonRpcResponse.Id) it else JsonRpcResponse.IntId(-1)
-                    } ?: JsonRpcResponse.IntId(-1)
+                        if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
+                    } ?: JsonRpcResponse.NumberId(-1)
 
                     val json = JsonRpcResponse.error(err.code, err.rpcMessage, id)
                     Mono.just(Global.objectMapper.writeValueAsString(json))

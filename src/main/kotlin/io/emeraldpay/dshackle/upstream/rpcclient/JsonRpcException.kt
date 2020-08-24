@@ -22,7 +22,7 @@ class JsonRpcException(
         val error: JsonRpcError
 ) : Exception(error.message) {
 
-    constructor(id: Int, message: String) : this(JsonRpcResponse.IntId(id), JsonRpcError(-32005, message))
+    constructor(id: Int, message: String) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message))
 
     companion object {
         fun from(err: RpcException): JsonRpcException {
@@ -30,9 +30,9 @@ class JsonRpcException(
                 if (it is JsonRpcResponse.Id) {
                     it
                 } else {
-                    JsonRpcResponse.IntId(-3)
+                    JsonRpcResponse.NumberId(-3)
                 }
-            } ?: JsonRpcResponse.IntId(-4)
+            } ?: JsonRpcResponse.NumberId(-4)
             return JsonRpcException(
                     id, JsonRpcError.from(err)
             )
