@@ -19,7 +19,7 @@ class HardcodedCallsSpec extends Specification {
         when:
         def act = client.execute("net_version", [])
         then:
-        act.result == 1
+        act.result == "1"
         act.error == null
     }
 
