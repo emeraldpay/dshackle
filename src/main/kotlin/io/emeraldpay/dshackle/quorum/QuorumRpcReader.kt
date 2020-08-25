@@ -119,7 +119,7 @@ class QuorumRpcReader(
                 }
                 .doOnNext {
                     if (!it.isResolved()) {
-                        log.debug("No quorum for ${key.method} as ${quorum}")
+                        log.debug("No quorum for ${key.method} as ${quorum.javaClass.name}: ${it.getError()?.message ?: ""}")
                     }
                 }
                 // return nothing if not resolved
