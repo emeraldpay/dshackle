@@ -68,6 +68,8 @@ proxy:
   routes:
     - id: eth
       blockchain: ethereum
+    - id: kovan
+      blockchain: kovan
     - id: btc
       blockchain: bitcoin
 
@@ -81,6 +83,14 @@ cluster:
             url: "https://mainnet.infura.io/v3/${INFURA_USER}"
           ws:
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+    - id: infura-kovan
+      chain: kovan
+      connection:
+        ethereum:
+          rpc:
+            url: "https://kovan.infura.io/v3/${INFURA_USER}"
+          ws:
+            url: "wss://kovan.infura.io/ws/v3/${INFURA_USER}"
     - id: bitcoin-main
       chain: bitcoin
       connection:
@@ -98,7 +108,7 @@ Which sets the following:
 ** TLS security is disabled (_please don't use in production!_)
 - JSON RPC access through 0.0.0.0:8545
 ** proxy requests to Ethereum and Kovan upstreams
-** request path for Ethereum Mainnet is `/eth`, for bitcoin is `/btc`
+** request path for Ethereum Mainnet is `/eth`, `/kovan` for Kovan Testnet, and `/btc` for bitcoin
 ** i.e. call Ethereum Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
 - two upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
 - for Ethereum Mainnet it connects using JSON RPC and Websockets connections,
