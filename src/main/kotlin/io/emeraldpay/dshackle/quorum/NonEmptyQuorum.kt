@@ -56,8 +56,4 @@ open class NonEmptyQuorum(
         tries++
     }
 
-    override fun record(error: JsonRpcException, upstream: Upstream) {
-        tries++
-    }
-
 }
