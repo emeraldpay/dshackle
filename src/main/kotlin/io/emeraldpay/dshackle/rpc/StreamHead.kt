@@ -46,19 +46,12 @@ class StreamHead(
                     .getFlux()
                     .map { asProto(chain, it!!) }
                     .onErrorContinue { t, _ ->
-                        log.warn("Head error: ${t.message}")
+                        log.warn("Head subscription error: ${t.message}")
                     }
         }
     }
 
     fun asProto(chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
-        if (BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM) {
-            return asEthereumProto(chain, block)
-        }
-        throw IllegalArgumentException("Unsupported blockchain ${chain}")
-    }
-
-    fun asEthereumProto(chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
         return BlockchainOuterClass.ChainHead.newBuilder()
                 .setChainValue(chain.id)
                 .setHeight(block.height)

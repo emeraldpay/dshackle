@@ -78,7 +78,7 @@ abstract class AbstractHead : Head {
     }
 
     override fun getFlux(): Flux<BlockContainer> {
-        return Flux.merge(
+        return Flux.concat(
                 Mono.justOrEmpty(head.get()),
                 Flux.from(stream)
         ).onBackpressureLatest()
