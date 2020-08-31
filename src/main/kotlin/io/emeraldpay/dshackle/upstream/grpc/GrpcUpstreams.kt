@@ -101,6 +101,8 @@ class GrpcUpstreams(
                         prev?.dispose()
                         subscription
                     }
+                }.doOnError { t ->
+                    log.error("Failed to process update from gRPC upstream $id", t)
                 }
 
         return updates
@@ -109,11 +111,16 @@ class GrpcUpstreams(
     fun processDescription(value: BlockchainOuterClass.DescribeResponse): Flux<UpstreamChange> {
         val current = value.chainsList.filter {
             Chain.byId(it.chain.number) != Chain.UNSPECIFIED
-        }.map { chainDetails ->
-            val chain = Chain.byId(chainDetails.chain.number)
-            val up = getOrCreate(chain)
-            (up.upstream as EthereumGrpcUpstream).init(chainDetails)
-            up
+        }.mapNotNull { chainDetails ->
+            try {
+                val chain = Chain.byId(chainDetails.chain.number)
+                val up = getOrCreate(chain)
+                (up.upstream as EthereumGrpcUpstream).init(chainDetails)
+                up
+            } catch (e: Throwable) {
+                log.warn("Skip unsupported upstream ${chainDetails.chain} on $id: ${e.message}")
+                null
+            }
         }
 
         val added = current.filter {
