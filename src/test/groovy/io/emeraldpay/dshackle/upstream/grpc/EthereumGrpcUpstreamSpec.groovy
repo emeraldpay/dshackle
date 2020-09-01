@@ -75,7 +75,8 @@ class EthereumGrpcUpstreamSpec extends Specification {
         })
         def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain))
         upstream.setLag(0)
-        upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
+        upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
+                .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
                 .addAllSupportedMethods(["eth_getBlockByHash"])
                 .build())
         when:
@@ -132,7 +133,8 @@ class EthereumGrpcUpstreamSpec extends Specification {
         })
         def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM))
         upstream.setLag(0)
-        upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
+        upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
+                .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
                 .addAllSupportedMethods(["eth_getBlockByHash"])
                 .build())
         when:
@@ -193,7 +195,8 @@ class EthereumGrpcUpstreamSpec extends Specification {
         })
         def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain))
         upstream.setLag(0)
-        upstream.init(BlockchainOuterClass.DescribeChain.newBuilder()
+        upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
+                .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
                 .addAllSupportedMethods(["eth_getBlockByHash"])
                 .build())
         when:

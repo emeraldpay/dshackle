@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream.grpc
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.BlockchainType
@@ -25,6 +24,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.startup.UpstreamChange
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
@@ -54,7 +54,7 @@ class GrpcUpstreams(
     var timeout = Defaults.timeout
 
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
-    private val known = HashMap<Chain, EthereumGrpcUpstream>()
+    private val known = HashMap<Chain, DefaultUpstream>()
     private val lock = ReentrantLock()
 
     fun start(): Flux<UpstreamChange> {
@@ -115,7 +115,7 @@ class GrpcUpstreams(
             try {
                 val chain = Chain.byId(chainDetails.chain.number)
                 val up = getOrCreate(chain)
-                (up.upstream as EthereumGrpcUpstream).init(chainDetails)
+                (up.upstream as GrpcUpstream).update(chainDetails)
                 up
             } catch (e: Throwable) {
                 log.warn("Skip unsupported upstream ${chainDetails.chain} on $id: ${e.message}")
@@ -157,9 +157,17 @@ class GrpcUpstreams(
     }
 
     fun getOrCreate(chain: Chain): UpstreamChange {
-        if (BlockchainType.fromBlockchain(chain) != BlockchainType.ETHEREUM) {
+        val blockchainType = BlockchainType.fromBlockchain(chain)
+        if (blockchainType == BlockchainType.ETHEREUM) {
+            return getOrCreateEthereum(chain)
+        } else if (blockchainType == BlockchainType.BITCOIN) {
+            return getOrCreateBitcoin(chain)
+        } else {
             throw IllegalArgumentException("Unsupported blockchain: $chain")
         }
+    }
+
+    fun getOrCreateEthereum(chain: Chain): UpstreamChange {
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
@@ -175,7 +183,23 @@ class GrpcUpstreams(
         }
     }
 
-    fun get(chain: Chain): EthereumGrpcUpstream {
+    fun getOrCreateBitcoin(chain: Chain): UpstreamChange {
+        lock.withLock {
+            val current = known[chain]
+            return if (current == null) {
+                val rpcClient = JsonRpcGrpcClient(client!!, chain)
+                val created = BitcoinGrpcUpstream(id, chain, client!!, rpcClient)
+                created.timeout = this.timeout
+                known[chain] = created
+                created.start()
+                UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)
+            } else {
+                UpstreamChange(chain, current, UpstreamChange.ChangeType.REVALIDATED)
+            }
+        }
+    }
+
+    fun get(chain: Chain): DefaultUpstream {
         return known[chain]!!
     }
 }

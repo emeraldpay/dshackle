@@ -16,14 +16,12 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.BlockchainType
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
-import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods

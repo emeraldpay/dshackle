@@ -92,7 +92,7 @@ class EthereumWsFactory(
                                         }
                                     }
                                     .flatMap(JsonRpcResponse::requireResult)
-                                    .map { BlockContainer.from(it) }
+                                    .map { BlockContainer.fromEthereumJson(it) }
                         }.repeatWhenEmpty { n ->
                             Repeat.times<Any>(5)
                                     .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(500))

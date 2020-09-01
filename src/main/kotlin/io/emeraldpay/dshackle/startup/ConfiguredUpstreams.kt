@@ -16,19 +16,16 @@
  */
 package io.emeraldpay.dshackle.startup
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.FileResolver
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
@@ -146,7 +143,7 @@ open class ConfiguredUpstreams(
         }
 
         val methods = buildMethods(config, chain)
-        val upstream = BitcoinUpstream(config.id
+        val upstream = BitcoinRpcUpstream(config.id
                 ?: "bitcoin-${seq.getAndIncrement()}", chain, directApi,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),

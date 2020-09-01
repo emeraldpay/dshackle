@@ -55,7 +55,7 @@ class BlockContainer(
         }
 
         @JvmStatic
-        fun from(raw: ByteArray): BlockContainer {
+        fun fromEthereumJson(raw: ByteArray): BlockContainer {
             val block = Global.objectMapper.readValue(raw, BlockJson::class.java)
             return from(block, raw)
         }
