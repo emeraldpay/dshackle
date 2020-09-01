@@ -1,12 +1,16 @@
 name: Tests
 
 on:
-  # if pushed directly to the master
+  # if pushed directly
   push:
     branches:
       - master
+      - release/*
   # on a pull request
   pull_request:
+    branches:
+      - master
+      - release/*
 
 jobs:
   unit-test:
