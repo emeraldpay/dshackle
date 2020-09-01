@@ -34,8 +34,12 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
+import org.apache.commons.lang3.StringUtils
 
+import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalUnit
 
 class TestingCommons {
 
@@ -86,9 +90,27 @@ class TestingCommons {
             setNumber(height)
             setHash(BlockHash.from("0xc4b01774e426325b50f0c709753ec7cf1f1774439d587dfb91f2a4eeb8179cde"))
             setTotalDifficulty(BigInteger.ONE)
-            setTimestamp(Instant.now())
+            setTimestamp(predictableTimestamp(height, 14))
         }
         return BlockContainer.from(block)
     }
 
+    static BlockContainer blockForBitcoin(Long height) {
+        return new BlockContainer(
+                height,
+                BlockId.from(StringUtils.leftPad(height.toString(), 64, "0")),
+                BigInteger.valueOf(height),
+                predictableTimestamp(height, 60),
+                false,
+                null,
+                null,
+                []
+        )
+    }
+
+    static Instant predictableTimestamp(Long x, int stepSeconds) {
+        //start from 1 Jan 2020
+        Instant.ofEpochSecond(1577876400)
+                .plusSeconds(x * stepSeconds)
+    }
 }

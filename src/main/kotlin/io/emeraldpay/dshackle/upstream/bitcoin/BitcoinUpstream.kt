@@ -15,97 +15,30 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
-import reactor.core.Disposable
-import reactor.core.publisher.Mono
 
-open class BitcoinUpstream(
+abstract class BitcoinUpstream(
         id: String,
         val chain: Chain,
-        private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
-        node: QuorumForLabels.QuorumItem,
-        callMethods: CallMethods
-) : DefaultUpstream(id, options, role, callMethods, node), Lifecycle {
+        callMethods: CallMethods,
+        node: QuorumForLabels.QuorumItem
+) : DefaultUpstream(id, options, role, callMethods, node) {
+
+    constructor(id: String,
+                chain: Chain,
+                options: UpstreamsConfig.Options,
+                role: UpstreamsConfig.UpstreamRole) : this(id, chain, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty())
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstream::class.java)
-    }
-
-    private val head: Head = createHead()
-    private var validatorSubscription: Disposable? = null
-
-    private fun createHead(): Head {
-        return BitcoinRpcHead(
-                directApi,
-                ExtractBlock()
-        )
-    }
-
-    override fun getHead(): Head {
-        return head
-    }
-
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
-        return directApi
-    }
-
-    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return listOf(UpstreamsConfig.Labels())
-    }
-
-    override fun <T : Upstream> cast(selfType: Class<T>): T {
-        if (!selfType.isAssignableFrom(this.javaClass)) {
-            throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
-        }
-        return this as T
-    }
-
-    override fun isRunning(): Boolean {
-        var runningAny = validatorSubscription != null
-        if (head is Lifecycle) {
-            runningAny = runningAny || head.isRunning
-        }
-        runningAny = runningAny
-        return runningAny
-    }
-
-    override fun start() {
-        log.info("Configured for ${chain.chainName}")
-        if (head is Lifecycle) {
-            if (!head.isRunning) {
-                head.start()
-            }
-        }
-
-        validatorSubscription?.dispose()
-
-        if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
-            this.setLag(0)
-            this.setStatus(UpstreamAvailability.OK)
-        } else {
-            val validator = BitcoinUpstreamValidator(directApi, getOptions())
-            validatorSubscription = validator.start()
-                    .subscribe(this::setStatus)
-        }
-    }
-
-    override fun stop() {
-        if (head is Lifecycle) {
-            head.stop()
-        }
-        validatorSubscription?.dispose()
     }
 
 }

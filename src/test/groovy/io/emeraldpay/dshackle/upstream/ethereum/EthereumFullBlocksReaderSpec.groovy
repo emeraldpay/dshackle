@@ -24,8 +24,6 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.test.ReaderMock
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
 import io.infinitape.etherjar.rpc.json.BlockJson
@@ -258,7 +256,7 @@ class EthereumFullBlocksReaderSpec extends Specification {
             "extraField2": "extraValue2"
         }
         '''
-        blocks.add(BlockContainer.from(blockJson.bytes))
+        blocks.add(BlockContainer.fromEthereumJson(blockJson.bytes))
 
         def tx1 = '''
         {

@@ -58,6 +58,20 @@ class QuorumForLabels() {
         return Collections.unmodifiableList(nodes)
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is QuorumForLabels) return false
+
+        if (nodes != other.nodes) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return nodes.hashCode()
+    }
+
+
     /**
      * Details for a single element (upstream, node or aggregation)
      */
@@ -67,6 +81,24 @@ class QuorumForLabels() {
                 return QuorumItem(0, UpstreamsConfig.Labels())
             }
         }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is QuorumItem) return false
+
+            if (quorum != other.quorum) return false
+            if (labels != other.labels) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = quorum
+            result = 31 * result + labels.hashCode()
+            return result
+        }
+
+
     }
 
 }

@@ -1,6 +1,5 @@
 /**
  * Copyright (c) 2020 EmeraldPay, Inc
- * Copyright (c) 2019 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle
+package io.emeraldpay.dshackle.upstream.grpc
 
-import java.time.Duration
+import io.emeraldpay.api.proto.BlockchainOuterClass
 
-class Defaults {
+interface GrpcUpstream {
 
-    companion object {
-        val timeout: Duration = Duration.ofSeconds(60)
-        val timeoutInternal: Duration = timeout.dividedBy(4)
-        val retryConnection: Duration = Duration.ofSeconds(10)
-    }
+    /**
+     * Update the configuration of the upstream with the new data.
+     * Called on the first creation, and each time a new state received from upstream
+     */
+    fun update(conf: BlockchainOuterClass.DescribeChain)
+
 }

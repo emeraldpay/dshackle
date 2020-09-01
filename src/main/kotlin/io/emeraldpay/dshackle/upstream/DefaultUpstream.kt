@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -44,6 +45,14 @@ abstract class DefaultUpstream(
 
     override fun isAvailable(): Boolean {
         return getStatus() == UpstreamAvailability.OK
+    }
+
+    fun onStatus(value: BlockchainOuterClass.ChainStatus) {
+        val available = value.availability
+        val quorum = value.quorum
+        setStatus(
+                if (available != null) UpstreamAvailability.fromGrpc(available.number) else UpstreamAvailability.UNAVAILABLE
+        )
     }
 
     override fun getStatus(): UpstreamAvailability {

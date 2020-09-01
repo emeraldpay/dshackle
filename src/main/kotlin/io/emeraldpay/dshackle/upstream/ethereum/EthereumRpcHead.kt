@@ -16,14 +16,12 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.hex.HexQuantity
-import io.infinitape.etherjar.rpc.Commands
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -71,7 +69,7 @@ class EthereumRpcHead(
                             .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
                 }
                 .map {
-                    BlockContainer.from(it.getResult())
+                    BlockContainer.fromEthereumJson(it.getResult())
                 }
                 .onErrorContinue { err, _ ->
                     log.debug("RPC error ${err.message}")
