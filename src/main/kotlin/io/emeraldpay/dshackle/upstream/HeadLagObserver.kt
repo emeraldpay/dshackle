@@ -21,8 +21,10 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
 import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
+import java.time.Duration
 
 /**
  * Observer group of upstreams and defined a distance in blocks (lag) between a leader (best height/difficulty) and
@@ -38,6 +40,7 @@ abstract class HeadLagObserver(
     private var current: Disposable? = null
 
     override fun start() {
+        current?.dispose()
         current = subscription().subscribe { }
     }
 
@@ -61,12 +64,15 @@ abstract class HeadLagObserver(
     fun probeFollowers(top: BlockContainer): Flux<Tuple2<Long, Upstream>> {
         return Flux.fromIterable(followers)
                 .parallel(followers.size)
-                .flatMap { mapLagging(top, it, getCurrentBlocks(it)) }
+                .flatMap { up -> mapLagging(top, up, getCurrentBlocks(up)).subscribeOn(Schedulers.elastic()) }
                 .sequential()
                 .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
     }
 
-    abstract fun getCurrentBlocks(up: Upstream): Flux<BlockContainer>
+    open fun getCurrentBlocks(up: Upstream): Flux<BlockContainer> {
+        val head = up.getHead()
+        return head.getFlux().take(Duration.ofSeconds(1))
+    }
 
     fun mapLagging(top: BlockContainer, up: Upstream, blocks: Flux<BlockContainer>): Flux<Tuple2<Long, Upstream>> {
         return blocks
@@ -78,11 +84,14 @@ abstract class HeadLagObserver(
                 }
     }
 
-    abstract fun extractDistance(top: BlockContainer, curr: BlockContainer): Long
-
-    fun forkDistance(top: BlockContainer, curr: BlockContainer): Long {
-        //TODO look for common ancestor? though it may be a corruption
-        return 6
+    open fun extractDistance(top: BlockContainer, curr: BlockContainer): Long {
+        return when {
+            curr.height > top.height -> if (curr.difficulty >= top.difficulty) 0 else forkDistance(top, curr)
+            curr.height == top.height -> if (curr.difficulty == top.difficulty) 0 else forkDistance(top, curr)
+            else -> top.height - curr.height
+        }
     }
+
+    abstract fun forkDistance(top: BlockContainer, curr: BlockContainer): Long
 
 }

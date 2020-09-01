@@ -1,6 +1,5 @@
 /**
  * Copyright (c) 2020 EmeraldPay, Inc
- * Copyright (c) 2020 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,28 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.upstream.bitcoin
 
-import io.emeraldpay.dshackle.upstream.HeadLagObserver
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.HeadLagObserver
+import io.emeraldpay.dshackle.upstream.Upstream
 import org.slf4j.LoggerFactory
-import reactor.core.publisher.Flux
-import java.time.Duration
 
-class EthereumHeadLagObserver(
+class BitcoinHeadLagObserver(
         master: Head,
         followers: Collection<Upstream>
 ) : HeadLagObserver(master, followers) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumHeadLagObserver::class.java)
+        private val log = LoggerFactory.getLogger(BitcoinHeadLagObserver::class.java)
     }
 
     override fun forkDistance(top: BlockContainer, curr: BlockContainer): Long {
-        //TODO look for common ancestor? though it may be a corruption
-        return 6
+        //TODO fetch actual blocks
+        return 3
     }
 
 }

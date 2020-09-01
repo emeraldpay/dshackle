@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
+import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 import reactor.core.publisher.TopicProcessor
 import reactor.test.StepVerifier
@@ -31,7 +32,7 @@ import spock.lang.Specification
 import java.time.Duration
 import java.time.Instant
 
-class EthereumHeadLagObserverSpec extends Specification {
+class HeadLagObserverSpec extends Specification {
 
     def "Updates lag distance"() {
         setup:
@@ -72,7 +73,7 @@ class EthereumHeadLagObserverSpec extends Specification {
         1 * up2.setLag(1)
         1 * up2.setLag(0)
 
-        HeadLagObserver observer = new EthereumHeadLagObserver(master, [up1, up2])
+        HeadLagObserver observer = new TestHeadLagObserver(master, [up1, up2])
         when:
         def act = observer.subscription().take(Duration.ofMillis(1200))
 
@@ -86,7 +87,7 @@ class EthereumHeadLagObserverSpec extends Specification {
     def "Probes until there is no difference"() {
         setup:
         Head master = Mock()
-        HeadLagObserver observer = new EthereumHeadLagObserver(master, [])
+        HeadLagObserver observer = new TestHeadLagObserver(master, [])
         Upstream up = Mock()
 
         def blocks = [100, 101, 102].collect { i ->
@@ -113,7 +114,7 @@ class EthereumHeadLagObserverSpec extends Specification {
     def "Correct distance"() {
         setup:
         Head master = Mock()
-        HeadLagObserver observer = new EthereumHeadLagObserver(master, [])
+        HeadLagObserver observer = new TestHeadLagObserver(master, [])
         expect:
         def top = new BlockJson().with {
             it.number = topHeight
@@ -140,8 +141,20 @@ class EthereumHeadLagObserverSpec extends Specification {
 
         100       | 1000    | 101        | 1010     | 0
         100       | 1000    | 102        | 1020     | 0
-        100       | 1000    | 100        | 1010     | 6
-        100       | 1100    | 100        | 1000     | 6
+        100       | 1000    | 100        | 1010     | 11
+        100       | 1100    | 100        | 1000     | 11
 
+    }
+
+    class TestHeadLagObserver extends HeadLagObserver {
+
+        TestHeadLagObserver(@NotNull Head master, @NotNull Collection<? extends Upstream> followers) {
+            super(master, followers)
+        }
+
+        @Override
+        long forkDistance(@NotNull BlockContainer top, @NotNull BlockContainer curr) {
+            return 11
+        }
     }
 }
