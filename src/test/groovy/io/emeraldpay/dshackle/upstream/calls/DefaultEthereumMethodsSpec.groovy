@@ -19,7 +19,7 @@ class DefaultEthereumMethodsSpec extends Specification {
         new String(new DefaultEthereumMethods(chain).executeHardcoded("eth_chainId")) == id
         where:
         chain                  | id
-        Chain.ETHEREUM         | '"0x0"'
+        Chain.ETHEREUM         | '"0x1"'
         Chain.ETHEREUM_CLASSIC | '"0x3d"'
         Chain.TESTNET_KOVAN    | '"0x2a"'
         Chain.TESTNET_GOERLI    | '"0x5"'
