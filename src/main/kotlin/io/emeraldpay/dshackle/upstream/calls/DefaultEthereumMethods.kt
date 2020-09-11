@@ -134,7 +134,7 @@ class DefaultEthereumMethods(
             "eth_chainId" -> {
                 when {
                     Chain.ETHEREUM == chain -> {
-                        "\"0x0\""
+                        "\"0x1\""
                     }
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"0x3d\""
