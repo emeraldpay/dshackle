@@ -19,8 +19,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
@@ -28,7 +30,8 @@ import reactor.kotlin.core.publisher.cast
 
 open class BitcoinReader(
         private val upstreams: BitcoinMultistream,
-        head: Head
+        head: Head,
+        esploraClient: EsploraClient?
 ) : Lifecycle {
 
     companion object {
@@ -37,6 +40,12 @@ open class BitcoinReader(
 
     private val objectMapper: ObjectMapper = Global.objectMapper
     private val mempool = CachingMempoolData(upstreams, head)
+
+    private val unspentReader: UnspentReader = if (esploraClient != null) {
+        EsploraUnspentReader(esploraClient, head)
+    } else {
+        RpcUnspentReader(upstreams)
+    }
 
     open fun getMempool(): CachingMempoolData {
         return mempool
@@ -50,8 +59,8 @@ open class BitcoinReader(
         return castedRead(JsonRpcRequest("getrawtransaction", listOf(txid, true)), Map::class.java).cast()
     }
 
-    open fun listUnspent(): Mono<List<String>> {
-        return castedRead(JsonRpcRequest("listunspent", emptyList()), List::class.java).cast()
+    open fun listUnspent(address: Address): Mono<List<SimpleUnspent>> {
+        return unspentReader.read(address)
     }
 
     override fun isRunning(): Boolean {

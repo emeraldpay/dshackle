@@ -78,14 +78,14 @@ abstract class Multistream(
      */
     fun addUpstream(upstream: Upstream) {
         upstreams.add(upstream)
-        setHead(updateHead())
         onUpstreamsUpdated()
+        setHead(updateHead())
     }
 
     fun removeUpstream(id: String) {
         if (upstreams.removeIf { it.getId() == id }) {
-            setHead(updateHead())
             onUpstreamsUpdated()
+            setHead(updateHead())
         }
     }
 
@@ -103,7 +103,7 @@ abstract class Multistream(
     /**
      * Finds an API that executed directly on a remote.
      */
-    fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+    open fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
         val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
@@ -120,7 +120,7 @@ abstract class Multistream(
         throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
     }
 
-    fun onUpstreamsUpdated() {
+    open fun onUpstreamsUpdated() {
         reconfigLock.withLock {
             getAll().map { it.getMethods() }.let {
                 //TODO made list of uniq instances, and then if only one, just use it directly

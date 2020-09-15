@@ -21,15 +21,16 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
+import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.grpc.Chain
+import org.bitcoinj.params.MainNetParams
+import org.bitcoinj.params.TestNet3Params
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
-import reactor.util.function.Tuples
-import java.math.BigDecimal
+import reactor.core.publisher.Mono
 import java.math.BigInteger
-import java.util.*
 import kotlin.collections.HashMap
 
 @Service
@@ -64,10 +65,18 @@ class TrackBitcoinAddress(
     }
 
     fun requestBalances(chain: Chain, api: BitcoinMultistream, addresses: List<String>): Flux<AddressBalance> {
-        return api.getReader().listUnspent()
-                .flatMapMany { unspents ->
-                    val result = getTotal(chain, addresses, unspents)
-                    Flux.fromIterable(result)
+        return Flux.fromIterable(addresses)
+                .map { Address(chain, it) }
+                .flatMap { address ->
+                    api.getReader()
+                            .listUnspent(address.bitcoinAddress)
+                            .map { unspents ->
+                                getTotal(address, unspents)
+                            }
+                            .onErrorResume { t ->
+                                log.error("Failed to get unspent", t)
+                                Mono.empty()
+                            }
                 }
     }
 
@@ -83,37 +92,13 @@ class TrackBitcoinAddress(
                 .map(this@TrackBitcoinAddress::buildResponse)
     }
 
-    fun getTotal(chain: Chain, addresses: List<String>, unspents: List<*>): List<AddressBalance> {
-        return unspents.asSequence()
-                .filterIsInstance<Map<String, Any>>()
-                .filter { unspent ->
-                    unspent.containsKey("address")
-                            && Collections.binarySearch(addresses, unspent["address"] as String) >= 0
-                            && unspent.containsKey("amount")
-                }
-                .map {
-                    Tuples.of(it["address"] as String, it["amount"] as Number)
-                }
-                .map {
-                    AddressBalance(chain, it.t1,
-                            //use toString because toDecimal makes rounding
-                            BigDecimal(it.t2.toString()).multiply(BigDecimal.TEN.pow(8)).toBigInteger()
-                    )
-                }
-                .plus(
-                        //add default ZERO value
-                        addresses.map {
-                            AddressBalance(chain, it, BigInteger.ZERO)
-                        }
-                )
-                .groupBy {
-                    it.address
-                }
-                .map {
-                    it.value.reduceRight { x, acc ->
-                        x.plus(acc)
-                    }
-                }.toList()
+    fun getTotal(address: Address, unspents: List<SimpleUnspent>): AddressBalance {
+        val total = if (unspents.isEmpty()) {
+            0L
+        } else {
+            unspents.map { it.value }.reduce(Long::plus)
+        }
+        return AddressBalance(address, BigInteger.valueOf(total))
     }
 
 
@@ -158,5 +143,14 @@ class TrackBitcoinAddress(
         fun plus(other: AddressBalance) = AddressBalance(address, balance + other.balance)
     }
 
-    data class Address(val chain: Chain, val address: String)
+    class Address(val chain: Chain, val address: String) {
+        val network = if (chain == Chain.BITCOIN) {
+            MainNetParams()
+        } else {
+            TestNet3Params()
+        }
+        val bitcoinAddress = org.bitcoinj.core.Address.fromString(
+                network, address
+        )
+    }
 }

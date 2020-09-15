@@ -74,6 +74,61 @@ class UpstreamsConfigReaderSpec extends Specification {
         }
     }
 
+    def "Parse bitcoin upstreams"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-bitcoin.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        with(act.defaultOptions) {
+            size() == 1
+            with(get(0)) {
+                chains == ["bitcoin"]
+                options.minPeers == 3
+            }
+        }
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "local"
+            chain == "bitcoin"
+            connection instanceof UpstreamsConfig.BitcoinConnection
+            with((UpstreamsConfig.BitcoinConnection) connection) {
+                rpc != null
+                rpc.url == new URI("http://localhost:8545")
+                esplora == null
+            }
+        }
+    }
+
+    def "Parse bitcoin upstreams with esplora"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-bitcoin-esplora.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        with(act.defaultOptions) {
+            size() == 1
+            with(get(0)) {
+                chains == ["bitcoin"]
+                options.minPeers == 3
+            }
+        }
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "local"
+            chain == "bitcoin"
+            connection instanceof UpstreamsConfig.BitcoinConnection
+            with((UpstreamsConfig.BitcoinConnection) connection) {
+                rpc != null
+                rpc.url == new URI("http://localhost:8545")
+                esplora != null
+                esplora.url == new URI("http://localhost:3001")
+            }
+        }
+    }
+
     def "Parse ds config"() {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("upstreams-ds.yaml")

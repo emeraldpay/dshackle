@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
+import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -42,89 +43,37 @@ class TrackBitcoinAddressSpec extends Specification {
     String hash1 = "0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22"
     ObjectMapper objectMapper = Global.objectMapper
 
-    def "Correct sum from multiple"() {
+    def "Correct sum for single"() {
         setup:
-        def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-one-addr.json")
-        def unspents = objectMapper.readValue(json, List)
+        def unspents = [
+                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L, 123L)
+        ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
+        def address = new TrackBitcoinAddress.Address(
+                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+        )
         when:
-        def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents)
+        def total = track.getTotal(address, unspents)
 
         then:
-        total.size() == 1
-        total[0].address.chain == Chain.BITCOIN
-        total[0].address.address == "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
-        total[0].balance.toString() == "32928461"
+        total.balance == 100
     }
 
-    def "Correct sum when other addresses"() {
+    def "Correct sum for few"() {
         setup:
-        def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
-        def unspents = objectMapper.readValue(json, List)
+        def unspents = [
+                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L, 123L),
+                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 123L, 123L),
+        ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
+        def address = new TrackBitcoinAddress.Address(
+                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+        )
         when:
-        def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents)
+        def total = track.getTotal(address, unspents)
 
         then:
-        total.size() == 1
-        total[0].address.chain == Chain.BITCOIN
-        total[0].address.address == "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
-        total[0].balance.toString() == "32928461"
-    }
-
-    def "Sum for two addresses"() {
-        setup:
-        def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
-        def unspents = objectMapper.readValue(json, List)
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
-        when:
-        def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", "35hK24tcLEWcgNA4JxpvbkNkoAcDGqQPsP"], unspents).sort { it.address.address }
-
-        then:
-        total.size() == 2
-        with(total[0]) {
-            address.chain == Chain.BITCOIN
-            address.address == "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
-            balance.toString() == "32928461"
-        }
-        with(total[1]) {
-            address.chain == Chain.BITCOIN
-            address.address == "35hK24tcLEWcgNA4JxpvbkNkoAcDGqQPsP"
-            balance.toString() == "25550215615737"
-        }
-    }
-
-    def "Zero for empty unspents"() {
-        setup:
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
-        when:
-        def total = track.getTotal(Chain.BITCOIN, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], [])
-
-        then:
-        total.size() == 1
-        total[0].address.chain == Chain.BITCOIN
-        total[0].address.address == "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
-        total[0].balance.toString() == "0"
-    }
-
-    def "Zero for unknown address"() {
-        setup:
-        def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json")
-        def unspents = objectMapper.readValue(json, List)
-        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
-        when:
-        def total = track.getTotal(Chain.BITCOIN, ["16rCmCmbuWDhPjWTrpQGaU3EPdZF7MTdUk", "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"], unspents).sort { it.address.address }
-
-        then:
-        total.size() == 2
-        with(total[0]) {
-            address.address == "16rCmCmbuWDhPjWTrpQGaU3EPdZF7MTdUk"
-            balance.toString() == "0"
-        }
-        with(total[1]) {
-            address.address == "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
-            balance.toString() == "32928461"
-        }
+        total.balance == 223
     }
 
     def "One address for single provided"() {
@@ -226,9 +175,11 @@ class TrackBitcoinAddressSpec extends Specification {
         def upstream = null
         upstream = Mock(BitcoinMultistream) {
             _ * getReader() >> Mock(BitcoinReader) {
-                2 * listUnspent() >>> [
+                2 * listUnspent(_) >>> [
                         Mono.just([]),
-                        Mono.just([[address: "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", amount: 0.0123]])
+                        Mono.just([
+                                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 1230000L, 123L)
+                        ])
                 ]
             }
             _ * getHead() >> head

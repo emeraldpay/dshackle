@@ -34,8 +34,9 @@ open class BitcoinRpcUpstream(
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
         node: QuorumForLabels.QuorumItem,
-        callMethods: CallMethods
-) : BitcoinUpstream(id, chain, options, role, callMethods, node), Lifecycle {
+        callMethods: CallMethods,
+        esploraClient: EsploraClient? = null
+) : BitcoinUpstream(id, chain, options, role, callMethods, node, esploraClient), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinRpcUpstream::class.java)

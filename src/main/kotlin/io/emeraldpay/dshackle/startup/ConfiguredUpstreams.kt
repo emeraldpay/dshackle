@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
+import io.emeraldpay.dshackle.upstream.bitcoin.EsploraClient
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
@@ -142,12 +143,21 @@ open class ConfiguredUpstreams(
             return
         }
 
+        val esplora = conn.esplora?.let { endpoint ->
+            val tls = endpoint.tls?.let { tls ->
+                tls.ca?.let { ca ->
+                    fileResolver.resolve(ca).readBytes()
+                }
+            }
+            EsploraClient(endpoint.url, endpoint.basicAuth, tls)
+        }
+
         val methods = buildMethods(config, chain)
         val upstream = BitcoinRpcUpstream(config.id
                 ?: "bitcoin-${seq.getAndIncrement()}", chain, directApi,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
-                methods)
+                methods, esplora)
 
         upstream.start()
         currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
