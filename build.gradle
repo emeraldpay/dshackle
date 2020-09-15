@@ -57,7 +57,7 @@ configurations {
 }
 
 dependencies {
-    implementation "io.emeraldpay:emerald-api:0.7.1"
+    implementation "io.emeraldpay:emerald-api:0.8.0"
 
     implementation "io.grpc:grpc-protobuf:${grpcVersion}"
     implementation "io.grpc:grpc-stub:${grpcVersion}"

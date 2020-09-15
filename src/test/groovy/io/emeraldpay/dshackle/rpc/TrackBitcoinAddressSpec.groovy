@@ -53,27 +53,49 @@ class TrackBitcoinAddressSpec extends Specification {
                 Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         when:
-        def total = track.getTotal(address, unspents)
+        def total = track.totalUnspent(address, false, unspents)
 
         then:
         total.balance == 100
+        total.utxo.isEmpty()
     }
 
     def "Correct sum for few"() {
         setup:
         def unspents = [
                 new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L, 123L),
-                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 123L, 123L),
+                new SimpleUnspent("17d1c4adf14b222e652c58d11435fa9ee2ddea000c6f5e20e6b715eb940fc28f", 0, 123L, 123L),
         ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
                 Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         when:
-        def total = track.getTotal(address, unspents)
+        def total = track.totalUnspent(address, false, unspents)
 
         then:
         total.balance == 223
+        total.utxo.isEmpty()
+    }
+
+    def "Correct sum for few with utxo"() {
+        setup:
+        def unspents = [
+                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L, 123L),
+                new SimpleUnspent("17d1c4adf14b222e652c58d11435fa9ee2ddea000c6f5e20e6b715eb940fc28f", 0, 123L, 123L),
+        ]
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
+        def address = new TrackBitcoinAddress.Address(
+                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+        )
+        when:
+        def total = track.totalUnspent(address, true, unspents)
+
+        then:
+        total.balance == 223
+        total.utxo.size() == 2
+        total.utxo[0].txid == "f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef"
+        total.utxo[1].txid == "17d1c4adf14b222e652c58d11435fa9ee2ddea000c6f5e20e6b715eb940fc28f"
     }
 
     def "One address for single provided"() {

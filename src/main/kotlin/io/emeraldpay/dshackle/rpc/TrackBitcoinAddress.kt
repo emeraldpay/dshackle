@@ -64,20 +64,39 @@ class TrackBitcoinAddress(
         }
     }
 
-    fun requestBalances(chain: Chain, api: BitcoinMultistream, addresses: List<String>): Flux<AddressBalance> {
+    fun requestBalances(chain: Chain, api: BitcoinMultistream, addresses: List<String>, includeUtxo: Boolean): Flux<AddressBalance> {
         return Flux.fromIterable(addresses)
                 .map { Address(chain, it) }
                 .flatMap { address ->
-                    api.getReader()
-                            .listUnspent(address.bitcoinAddress)
-                            .map { unspents ->
-                                getTotal(address, unspents)
-                            }
-                            .onErrorResume { t ->
-                                log.error("Failed to get unspent", t)
-                                Mono.empty()
-                            }
+                    balanceForAddress(api, address, includeUtxo)
                 }
+    }
+
+    fun balanceForAddress(api: BitcoinMultistream, address: Address, includeUtxo: Boolean): Mono<AddressBalance> {
+        return api.getReader()
+                .listUnspent(address.bitcoinAddress)
+                .map { unspent ->
+                    totalUnspent(address, includeUtxo, unspent)
+                }
+                .onErrorResume { t ->
+                    log.error("Failed to get unspent", t)
+                    Mono.empty()
+                }
+    }
+
+    fun totalUnspent(address: Address, includeUtxo: Boolean, unspent: List<SimpleUnspent>): AddressBalance {
+        return if (unspent.isEmpty()) {
+            AddressBalance(address, BigInteger.ZERO)
+        } else {
+            unspent.map {
+                AddressBalance(
+                        address,
+                        BigInteger.valueOf(it.value),
+                        if (includeUtxo) listOf(BalanceUtxo(it.txid, it.vout, it.value))
+                        else emptyList()
+                )
+            }.reduce { a, b -> a.plus(b) }
+        }
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
@@ -88,17 +107,8 @@ class TrackBitcoinAddress(
         if (addresses.isEmpty()) {
             return Flux.empty()
         }
-        return requestBalances(chain, upstream, addresses)
+        return requestBalances(chain, upstream, addresses, request.includeUtxo)
                 .map(this@TrackBitcoinAddress::buildResponse)
-    }
-
-    fun getTotal(address: Address, unspents: List<SimpleUnspent>): AddressBalance {
-        val total = if (unspents.isEmpty()) {
-            0L
-        } else {
-            unspents.map { it.value }.reduce(Long::plus)
-        }
-        return AddressBalance(address, BigInteger.valueOf(total))
     }
 
 
@@ -110,10 +120,10 @@ class TrackBitcoinAddress(
         if (addresses.isEmpty()) {
             return Flux.empty()
         }
-        val initial = requestBalances(chain, upstream, addresses)
+        val initial = requestBalances(chain, upstream, addresses, request.includeUtxo)
         val following = upstream.getHead().getFlux()
                 .flatMap { block ->
-                    requestBalances(chain, upstream, addresses)
+                    requestBalances(chain, upstream, addresses, request.includeUtxo)
                 }
         val last = HashMap<Address, BigInteger>()
         val result = Flux.merge(initial, following)
@@ -134,14 +144,25 @@ class TrackBitcoinAddress(
                         .setChainValue(address.address.chain.id)
                         .setCode("BTC"))
                 .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.address))
+                .addAllUtxo(
+                        address.utxo.map { utxo ->
+                            BlockchainOuterClass.Utxo.newBuilder()
+                                    .setBalance(utxo.value.toString())
+                                    .setIndex(utxo.vout.toLong())
+                                    .setTxId(utxo.txid)
+                                    .build()
+                        }
+                )
                 .build()
     }
 
-    open class AddressBalance(val address: Address, var balance: BigInteger = BigInteger.ZERO) {
+    open class AddressBalance(val address: Address, var balance: BigInteger = BigInteger.ZERO, var utxo: List<BalanceUtxo> = emptyList()) {
         constructor(chain: Chain, address: String, balance: BigInteger) : this(Address(chain, address), balance)
 
-        fun plus(other: AddressBalance) = AddressBalance(address, balance + other.balance)
+        fun plus(other: AddressBalance) = AddressBalance(address, balance + other.balance, utxo.plus(other.utxo))
     }
+
+    open class BalanceUtxo(val txid: String, val vout: Int, val value: Long)
 
     class Address(val chain: Chain, val address: String) {
         val network = if (chain == Chain.BITCOIN) {
