@@ -131,19 +131,21 @@ class TrackBitcoinAddress(
         val chain = Chain.byId(request.asset.chainValue)
         val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-        val addresses = allAddresses(upstream, request) ?: return Flux.error(SilentException("Unsupported address"))
-        val initial = requestBalances(chain, upstream, addresses, request.includeUtxo)
+        val addresses = allAddresses(upstream, request).cache()
         val following = upstream.getHead().getFlux()
                 .flatMap { block ->
-                    requestBalances(chain, upstream, addresses, request.includeUtxo)
+                    requestBalances(chain, upstream, Flux.from(addresses), request.includeUtxo)
                 }
-        val last = HashMap<Address, BigInteger>()
-        val result = Flux.merge(initial, following)
+        val last = HashMap<String, BigInteger>()
+        val result = following
                 .filter { curr ->
-                    val prev = last[curr.address]
-                    val updated = prev == null || curr.balance != prev
-                    last[curr.address] = curr.balance
-                    updated
+                    val prev = last[curr.address.address]
+                    //TODO utxo can change without changing balance
+                    val changed = prev == null || curr.balance != prev
+                    if (changed) {
+                        last[curr.address.address] = curr.balance
+                    }
+                    changed
                 }
 
         return result.map(this@TrackBitcoinAddress::buildResponse)

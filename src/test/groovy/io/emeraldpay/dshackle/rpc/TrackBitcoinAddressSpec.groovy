@@ -235,7 +235,12 @@ class TrackBitcoinAddressSpec extends Specification {
 
         def blocks = TopicProcessor.create()
         Head head = Mock(Head) {
-            1 * getFlux() >> Flux.from(blocks)
+            1 * getFlux() >> Flux.concat(
+                    Flux.just(
+                            new BlockContainer(0L, BlockId.from(hash1), BigInteger.ZERO, Instant.now(), false, null, null, [])
+                    ),
+                    Flux.from(blocks)
+            )
         }
         def upstream = null
         upstream = Mock(BitcoinMultistream) {
