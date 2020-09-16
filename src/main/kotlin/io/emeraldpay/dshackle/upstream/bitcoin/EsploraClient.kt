@@ -80,23 +80,39 @@ class EsploraClient(
         val response = httpClient
                 .get()
                 .uri("$url/address/$address/utxo")
-
-        val json = response
-                .response { header, bytes ->
-                    if (header.status().code() != 200) {
-                        Mono.error(EsploraException("HTTP Code: ${header.status().code()}"))
-                    } else {
-                        bytes.aggregate().asByteArray()
-                    }
-                }
-                .single()
-                .map { bytes -> String(bytes) }
+        val json = parseResponse(response)
 
         return json.map {
             val parsed = Global.objectMapper.readerFor(EsploraUnspent::class.java)
                     .readValues<EsploraUnspent>(it);
             parsed.readAll()
         }
+    }
+
+    fun getTransactions(address: Address): Mono<List<Map<String, Any>>> {
+        val response = httpClient
+                .get()
+                .uri("$url/address/$address/txs")
+        val json = parseResponse(response)
+
+        return json.map {
+            val parsed = Global.objectMapper.readerFor(Map::class.java)
+                    .readValues<Map<String, Any>>(it);
+            parsed.readAll()
+        }
+    }
+
+    private fun parseResponse(response: HttpClient.ResponseReceiver<*>): Mono<String> {
+        return response
+                .response { header, bytes ->
+                    if (header.status().code() != 200) {
+                        Mono.error(EsploraException("HTTP Code: ${header.status().code()} for ${header.fullPath()}"))
+                    } else {
+                        bytes.aggregate().asByteArray()
+                    }
+                }
+                .single()
+                .map { bytes -> String(bytes) }
     }
 
     class EsploraException(msg: String) : Exception(msg)

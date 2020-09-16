@@ -40,12 +40,18 @@ open class BitcoinMultistream(
     private var head: Head = EmptyHead()
     private var esplora = upstreams.find { it.esploraClient != null }?.esploraClient
     private var reader = BitcoinReader(this, head, esplora)
+    private var addressActiveCheck: AddressActiveCheck? = null
+    private var xpubAddresses: XpubAddresses? = null
 
     override fun init() {
         if (upstreams.size > 0) {
             head = updateHead()
         }
         super.init()
+    }
+
+    open fun getXpubAddresses(): XpubAddresses? {
+        return xpubAddresses
     }
 
     override fun updateHead(): Head {
@@ -85,6 +91,8 @@ open class BitcoinMultistream(
         super.onUpstreamsUpdated()
         esplora = upstreams.find { it.esploraClient != null }?.esploraClient
         reader = BitcoinReader(this, this.head, esplora)
+        addressActiveCheck = esplora?.let { AddressActiveCheck(it) }
+        xpubAddresses = addressActiveCheck?.let { XpubAddresses(it) }
     }
 
     override fun setHead(head: Head) {

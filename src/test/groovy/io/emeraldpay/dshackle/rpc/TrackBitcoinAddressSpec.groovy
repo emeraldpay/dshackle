@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.rpc
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
@@ -27,8 +28,12 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
+import io.emeraldpay.dshackle.upstream.bitcoin.XpubAddresses
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.grpc.Chain
+import org.bitcoinj.core.Address
+import org.bitcoinj.params.MainNetParams
+import org.bitcoinj.params.TestNet3Params
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.TopicProcessor
@@ -111,7 +116,7 @@ class TrackBitcoinAddressSpec extends Specification {
                 )
                 .build()
         when:
-        def act = track.allAddresses(req)
+        def act = track.allAddresses(Stub(BitcoinMultistream), req).collectList().block()
         then:
         act == ["16rCmCmbuWDhPjWTrpQGaU3EPdZF7MTdUk"]
     }
@@ -132,20 +137,58 @@ class TrackBitcoinAddressSpec extends Specification {
                 )
                 .build()
         when:
-        def act = track.allAddresses(req)
+        def act = track.allAddresses(Stub(BitcoinMultistream), req).collectList().block()
         then:
         act == ["16rCmCmbuWDhPjWTrpQGaU3EPdZF7MTdUk", "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", "3BMqADKWoWHPASsUdHvnUL6E1jpZkMnLZz", "bc1qdthqvt6cllzej7uhdddrltdfsmnt7d0gl5ue5n"]
     }
 
-    def "Null for no address provided"() {
+    def "Empty for no address provided"() {
         setup:
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def req = BlockchainOuterClass.BalanceRequest.newBuilder()
                 .build()
         when:
-        def act = track.allAddresses(req)
+        def act = track.allAddresses(Stub(BitcoinMultistream), req).collectList().block()
         then:
-        act == null
+        act == []
+    }
+
+    def "Use active for xpub"() {
+        setup:
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
+        def req = BlockchainOuterClass.BalanceRequest.newBuilder()
+                .setAddress(
+                        Common.AnyAddress.newBuilder()
+                                .setAddressXpub(
+                                        // seed: chimney battle code relief era plug finish video patch dream pumpkin govern destroy fresh color
+                                        Common.XpubAddress.newBuilder()
+                                                .setXpub(ByteString.copyFromUtf8("zpub6tz4F49K5B4m7r7EyBKYM9K44eGECaQ2AfrCybq1w7ALFatz9856vrXxAPSrteDA4d5sjUPW3ACNq8wB2V3ugXVJxvAPAYPAYHsVm3VAncL"))
+                                                .setLimit(25)
+                                )
+                )
+                .build()
+        def xpubAddresses = Mock(XpubAddresses) {
+            1 * activeAddresses(
+                    "zpub6tz4F49K5B4m7r7EyBKYM9K44eGECaQ2AfrCybq1w7ALFatz9856vrXxAPSrteDA4d5sjUPW3ACNq8wB2V3ugXVJxvAPAYPAYHsVm3VAncL",
+                    0,
+                    25
+            ) >> Flux.fromIterable([
+                    "bc1q25590fu8djhw9lvxxqz8ufjyfwup9h54u8fl6t",
+                    "bc1q3k6e6vawd5l5syu9nlxn2xsch9afgunl8dnz94",
+                    "bc1qu7hd6wycy686kakfps9c093szufjpwnh6rjs9s"
+            ]).map { Address.fromString(MainNetParams.get(), it) }
+        }
+        def multistream = Mock(BitcoinMultistream) {
+            1 * getXpubAddresses() >> xpubAddresses
+        }
+        when:
+        def act = track.allAddresses(multistream, req).collectList().block()
+        then:
+        act == [
+                "bc1q25590fu8djhw9lvxxqz8ufjyfwup9h54u8fl6t",
+                "bc1q3k6e6vawd5l5syu9nlxn2xsch9afgunl8dnz94",
+                "bc1qu7hd6wycy686kakfps9c093szufjpwnh6rjs9s"
+        ]
     }
 
     def "Build proto for common balance"() {

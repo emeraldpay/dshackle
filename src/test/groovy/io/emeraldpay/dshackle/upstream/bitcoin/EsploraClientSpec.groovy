@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
 import org.bitcoinj.core.Address
 import org.bitcoinj.params.MainNetParams
+import org.bitcoinj.params.TestNet3Params
 import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
@@ -80,4 +81,54 @@ class EsploraClientSpec extends Specification {
         actTotal == 309841L
     }
 
+    def "get txs"() {
+        setup:
+        def responseJson = this.class.getClassLoader().getResourceAsStream("bitcoin/esplora-txs-1.json").text
+        mockServer.when(
+                HttpRequest.request()
+                        .withMethod("GET")
+                        .withPath("/address/tb1qyatuwvkfx8thy2ntmtuea6v42vp3zefqvll8kx/txs")
+        ).respond(
+                HttpResponse.response(responseJson)
+        )
+        def client = new EsploraClient(new URI("http://localhost:23001"), null, null)
+        when:
+        def act = client.getTransactions(Address.fromString(TestNet3Params.get(), "tb1qyatuwvkfx8thy2ntmtuea6v42vp3zefqvll8kx"))
+
+        then:
+        StepVerifier.create(act)
+                .expectNextMatches { list ->
+                    def ok = list.size() == 6
+                    if (!ok) println("invalid size")
+                    ok = ok && list[0].txid == "a738f4bd63f785d58acd2e83e8c8c5e84e68dabacac3a1142ee47cb188103aab"
+                    ok = ok && list[1].txid == "4a7066adb2cd8e37f1578d6991f14c12e677e8bc0556992a73a91a26d263f89a"
+                    ok = ok && list[2].txid == "16aa2d98e37e50c4c007a815a3cb8c20026a3df467781a7e97206a730cf4ef01"
+                    ok = ok && list[3].txid == "caaea0ca92343a2d7115c44a0f58cb6574b9349905799854e1b5a6c3b3f33587"
+                    ok = ok && list[4].txid == "a386377a406465423275f51d6dc71a2c245acc55c356a7e851a03b508827bc1e"
+                    ok = ok && list[5].txid == "7944cfcd3d04c58a81aaa7067616f8ac368581a847e03447d5d2917cc75b67d2"
+                    ok
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(3))
+    }
+
+    def "get txs when empty"() {
+        setup:
+        mockServer.when(
+                HttpRequest.request()
+                        .withMethod("GET")
+                        .withPath("/address/tb1qyatuwvkfx8thy2ntmtuea6v42vp3zefqvll8kx/txs")
+        ).respond(
+                HttpResponse.response("[]")
+        )
+        def client = new EsploraClient(new URI("http://localhost:23001"), null, null)
+        when:
+        def act = client.getTransactions(Address.fromString(TestNet3Params.get(), "tb1qyatuwvkfx8thy2ntmtuea6v42vp3zefqvll8kx"))
+
+        then:
+        StepVerifier.create(act)
+                .expectNext([])
+                .expectComplete()
+                .verify(Duration.ofSeconds(3))
+    }
 }
