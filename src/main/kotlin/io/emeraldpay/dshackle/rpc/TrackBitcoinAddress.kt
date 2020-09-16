@@ -21,15 +21,16 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
+import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.grpc.Chain
+import org.bitcoinj.params.MainNetParams
+import org.bitcoinj.params.TestNet3Params
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
-import reactor.util.function.Tuples
-import java.math.BigDecimal
+import reactor.core.publisher.Mono
 import java.math.BigInteger
-import java.util.*
 import kotlin.collections.HashMap
 
 @Service
@@ -46,74 +47,83 @@ class TrackBitcoinAddress(
                 && BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
     }
 
-    fun allAddresses(request: BlockchainOuterClass.BalanceRequest): List<String>? {
+    fun allAddresses(api: BitcoinMultistream, request: BlockchainOuterClass.BalanceRequest): Flux<String> {
         if (!request.hasAddress()) {
-            return null
+            return Flux.empty()
         }
         return when {
+            request.address.hasAddressXpub() -> {
+                val xpubAddresses = api.getXpubAddresses()
+                        ?: return Flux.error(IllegalStateException("Xpub verification is not available"))
+
+                val addressXpub = request.address.addressXpub
+                if (!addressXpub.xpub.isValidUtf8) {
+                    return Flux.error(IllegalArgumentException("Invalid xpub string"))
+                }
+                val xpub = addressXpub.xpub.toStringUtf8()
+                val start = Math.max(0, addressXpub.start).toInt()
+                val limit = Math.min(100, Math.max(1, addressXpub.limit)).toInt()
+                xpubAddresses.activeAddresses(xpub, start, limit)
+                        .map { it.toString() }
+                        .doOnError { t -> log.error("Failed to process xpub. ${t.javaClass}:${t.message}") }
+            }
             request.address.hasAddressSingle() -> {
-                listOf(request.address.addressSingle.address)
+                Flux.just(request.address.addressSingle.address)
             }
             request.address.hasAddressMulti() -> {
-                request.address.addressMulti.addressesList
-                        .map { addr -> addr.address }
-                        .sorted()
+                Flux.fromIterable(
+                        request.address.addressMulti.addressesList
+                                .map { addr -> addr.address }
+                                //TODO why sorted?
+                                .sorted()
+                )
             }
-            else -> null
+            else -> Flux.error(IllegalArgumentException("Unsupported address type"))
         }
     }
 
-    fun requestBalances(chain: Chain, api: BitcoinMultistream, addresses: List<String>): Flux<AddressBalance> {
-        return api.getReader().listUnspent()
-                .flatMapMany { unspents ->
-                    val result = getTotal(chain, addresses, unspents)
-                    Flux.fromIterable(result)
+    fun requestBalances(chain: Chain, api: BitcoinMultistream, addresses: Flux<String>, includeUtxo: Boolean): Flux<AddressBalance> {
+        return addresses
+                .map { Address(chain, it) }
+                .flatMap { address ->
+                    balanceForAddress(api, address, includeUtxo)
                 }
+    }
+
+    fun balanceForAddress(api: BitcoinMultistream, address: Address, includeUtxo: Boolean): Mono<AddressBalance> {
+        return api.getReader()
+                .listUnspent(address.bitcoinAddress)
+                .map { unspent ->
+                    totalUnspent(address, includeUtxo, unspent)
+                }
+                .onErrorResume { t ->
+                    log.error("Failed to get unspent", t)
+                    Mono.empty()
+                }
+    }
+
+    fun totalUnspent(address: Address, includeUtxo: Boolean, unspent: List<SimpleUnspent>): AddressBalance {
+        return if (unspent.isEmpty()) {
+            AddressBalance(address, BigInteger.ZERO)
+        } else {
+            unspent.map {
+                AddressBalance(
+                        address,
+                        BigInteger.valueOf(it.value),
+                        if (includeUtxo) listOf(BalanceUtxo(it.txid, it.vout, it.value))
+                        else emptyList()
+                )
+            }.reduce { a, b -> a.plus(b) }
+        }
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
         val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-        val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
-        if (addresses.isEmpty()) {
-            return Flux.empty()
-        }
-        return requestBalances(chain, upstream, addresses)
+        val addresses = allAddresses(upstream, request) ?: return Flux.error(SilentException("Unsupported address"))
+        return requestBalances(chain, upstream, addresses, request.includeUtxo)
                 .map(this@TrackBitcoinAddress::buildResponse)
-    }
-
-    fun getTotal(chain: Chain, addresses: List<String>, unspents: List<*>): List<AddressBalance> {
-        return unspents.asSequence()
-                .filterIsInstance<Map<String, Any>>()
-                .filter { unspent ->
-                    unspent.containsKey("address")
-                            && Collections.binarySearch(addresses, unspent["address"] as String) >= 0
-                            && unspent.containsKey("amount")
-                }
-                .map {
-                    Tuples.of(it["address"] as String, it["amount"] as Number)
-                }
-                .map {
-                    AddressBalance(chain, it.t1,
-                            //use toString because toDecimal makes rounding
-                            BigDecimal(it.t2.toString()).multiply(BigDecimal.TEN.pow(8)).toBigInteger()
-                    )
-                }
-                .plus(
-                        //add default ZERO value
-                        addresses.map {
-                            AddressBalance(chain, it, BigInteger.ZERO)
-                        }
-                )
-                .groupBy {
-                    it.address
-                }
-                .map {
-                    it.value.reduceRight { x, acc ->
-                        x.plus(acc)
-                    }
-                }.toList()
     }
 
 
@@ -121,22 +131,21 @@ class TrackBitcoinAddress(
         val chain = Chain.byId(request.asset.chainValue)
         val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-        val addresses = allAddresses(request) ?: return Flux.error(SilentException("Unsupported address"))
-        if (addresses.isEmpty()) {
-            return Flux.empty()
-        }
-        val initial = requestBalances(chain, upstream, addresses)
+        val addresses = allAddresses(upstream, request).cache()
         val following = upstream.getHead().getFlux()
                 .flatMap { block ->
-                    requestBalances(chain, upstream, addresses)
+                    requestBalances(chain, upstream, Flux.from(addresses), request.includeUtxo)
                 }
-        val last = HashMap<Address, BigInteger>()
-        val result = Flux.merge(initial, following)
+        val last = HashMap<String, BigInteger>()
+        val result = following
                 .filter { curr ->
-                    val prev = last[curr.address]
-                    val updated = prev == null || curr.balance != prev
-                    last[curr.address] = curr.balance
-                    updated
+                    val prev = last[curr.address.address]
+                    //TODO utxo can change without changing balance
+                    val changed = prev == null || curr.balance != prev
+                    if (changed) {
+                        last[curr.address.address] = curr.balance
+                    }
+                    changed
                 }
 
         return result.map(this@TrackBitcoinAddress::buildResponse)
@@ -149,14 +158,35 @@ class TrackBitcoinAddress(
                         .setChainValue(address.address.chain.id)
                         .setCode("BTC"))
                 .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.address))
+                .addAllUtxo(
+                        address.utxo.map { utxo ->
+                            BlockchainOuterClass.Utxo.newBuilder()
+                                    .setBalance(utxo.value.toString())
+                                    .setIndex(utxo.vout.toLong())
+                                    .setTxId(utxo.txid)
+                                    .build()
+                        }
+                )
                 .build()
     }
 
-    open class AddressBalance(val address: Address, var balance: BigInteger = BigInteger.ZERO) {
+    open class AddressBalance(val address: Address, var balance: BigInteger = BigInteger.ZERO, var utxo: List<BalanceUtxo> = emptyList()) {
         constructor(chain: Chain, address: String, balance: BigInteger) : this(Address(chain, address), balance)
 
-        fun plus(other: AddressBalance) = AddressBalance(address, balance + other.balance)
+        fun plus(other: AddressBalance) = AddressBalance(address, balance + other.balance, utxo.plus(other.utxo))
     }
 
-    data class Address(val chain: Chain, val address: String)
+    open class BalanceUtxo(val txid: String, val vout: Int, val value: Long)
+
+    //TODO use bitcoin class for address
+    class Address(val chain: Chain, val address: String) {
+        val network = if (chain == Chain.BITCOIN) {
+            MainNetParams()
+        } else {
+            TestNet3Params()
+        }
+        val bitcoinAddress = org.bitcoinj.core.Address.fromString(
+                network, address
+        )
+    }
 }

@@ -29,7 +29,8 @@ abstract class BitcoinUpstream(
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
         callMethods: CallMethods,
-        node: QuorumForLabels.QuorumItem
+        node: QuorumForLabels.QuorumItem,
+        val esploraClient: EsploraClient? = null
 ) : DefaultUpstream(id, options, role, callMethods, node) {
 
     constructor(id: String,

@@ -107,6 +107,7 @@ class UpstreamsConfig {
     }
 
     class BitcoinConnection : RpcConnection() {
+        var esplora: HttpEndpoint? = null
     }
 
     class HttpEndpoint(val url: URI) {

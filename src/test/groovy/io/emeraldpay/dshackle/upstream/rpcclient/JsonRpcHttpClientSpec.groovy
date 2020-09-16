@@ -31,9 +31,10 @@ import java.time.Duration
 class JsonRpcHttpClientSpec extends Specification {
 
     ClientAndServer mockServer
+    int port = 19332
 
     def setup() {
-        mockServer = ClientAndServer.startClientAndServer(18332);
+        mockServer = ClientAndServer.startClientAndServer(port);
     }
 
     def cleanup() {
@@ -42,7 +43,7 @@ class JsonRpcHttpClientSpec extends Specification {
 
     def "Make a request"() {
         setup:
-        JsonRpcHttpClient client = new JsonRpcHttpClient("localhost:18332", null, null)
+        JsonRpcHttpClient client = new JsonRpcHttpClient("localhost:${port}", null, null)
         def resp = '{' +
                 '  "jsonrpc": "2.0",' +
                 '  "result": "0x98de45",' +
@@ -64,7 +65,7 @@ class JsonRpcHttpClientSpec extends Specification {
     def "Make request with basic auth"() {
         setup:
         def auth = new AuthConfig.ClientBasicAuth("user", "passwd")
-        def client = new JsonRpcHttpClient("localhost:18332", auth, null)
+        def client = new JsonRpcHttpClient("localhost:${port}", auth, null)
 
         mockServer.when(
                 HttpRequest.request()
@@ -92,7 +93,7 @@ class JsonRpcHttpClientSpec extends Specification {
 
     def "Produces RPC Exception on error status code"() {
         setup:
-        def client = new JsonRpcHttpClient("localhost:18332", null, null)
+        def client = new JsonRpcHttpClient("localhost:${port}", null, null)
 
         mockServer.when(
                 HttpRequest.request()

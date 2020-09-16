@@ -19,9 +19,11 @@ import com.fasterxml.jackson.core.Version
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
+import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
+import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspentDeserializer
+import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
+import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspentDeserializer
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.infinitape.etherjar.rpc.json.TransactionReceiptJson
-import io.infinitape.etherjar.rpc.json.TransactionReceiptJsonDeserializer
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,6 +37,9 @@ class Global {
         private fun createObjectMapper(): ObjectMapper {
             val module = SimpleModule("EmeraldDshackle", Version(1, 0, 0, null, null, null))
             module.addSerializer(JsonRpcResponse::class.java, JsonRpcResponse.ResponseJsonSerializer())
+
+            module.addDeserializer(EsploraUnspent::class.java, EsploraUnspentDeserializer())
+            module.addDeserializer(RpcUnspent::class.java, RpcUnspentDeserializer())
 
             val objectMapper = ObjectMapper()
             objectMapper.registerModule(module)

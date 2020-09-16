@@ -13,3 +13,5 @@ upstreams:
       bitcoin:
         rpc:
           url: "http://localhost:8545"
+        esplora:
+          url: "http://localhost:3001"

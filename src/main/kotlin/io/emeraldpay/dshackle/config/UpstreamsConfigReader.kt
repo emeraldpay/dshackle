@@ -132,6 +132,14 @@ class UpstreamsConfigReader(
                             http.tls = authConfigReader.readClientTls(node)
                         }
                     }
+                    getMapping(connConfigNode, "esplora")?.let { node ->
+                        getValueAsString(node, "url")?.let { url ->
+                            val http = UpstreamsConfig.HttpEndpoint(URI(url))
+                            http.basicAuth = authConfigReader.readClientBasicAuth(node)
+                            http.tls = authConfigReader.readClientTls(node)
+                            connection.esplora = http
+                        }
+                    }
                 } else {
                     log.error("Upstream at #0 has invalid configuration")
                 }

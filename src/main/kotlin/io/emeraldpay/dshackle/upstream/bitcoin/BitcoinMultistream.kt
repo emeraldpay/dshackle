@@ -15,7 +15,6 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.EmptyReader
@@ -38,8 +37,11 @@ open class BitcoinMultistream(
         private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
     }
 
-    private var head: Head? = null
-    private var reader = BitcoinReader(this, EmptyHead())
+    private var head: Head = EmptyHead()
+    private var esplora = upstreams.find { it.esploraClient != null }?.esploraClient
+    private var reader = BitcoinReader(this, head, esplora)
+    private var addressActiveCheck: AddressActiveCheck? = null
+    private var xpubAddresses: XpubAddresses? = null
 
     override fun init() {
         if (upstreams.size > 0) {
@@ -48,8 +50,12 @@ open class BitcoinMultistream(
         super.init()
     }
 
+    open fun getXpubAddresses(): XpubAddresses? {
+        return xpubAddresses
+    }
+
     override fun updateHead(): Head {
-        head?.let {
+        head.let {
             if (it is Lifecycle) {
                 it.stop()
             }
@@ -81,13 +87,21 @@ open class BitcoinMultistream(
         return reader
     }
 
+    override fun onUpstreamsUpdated() {
+        super.onUpstreamsUpdated()
+        esplora = upstreams.find { it.esploraClient != null }?.esploraClient
+        reader = BitcoinReader(this, this.head, esplora)
+        addressActiveCheck = esplora?.let { AddressActiveCheck(it) }
+        xpubAddresses = addressActiveCheck?.let { XpubAddresses(it) }
+    }
+
     override fun setHead(head: Head) {
         this.head = head
-        reader = BitcoinReader(this, head)
+        reader = BitcoinReader(this, head, esplora)
     }
 
     override fun getHead(): Head {
-        return head!!
+        return head
     }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {

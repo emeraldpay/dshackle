@@ -45,7 +45,6 @@ image::dshackle-intro.png[alt="",width=80%,align="center"]
 - [ ] External logging
 - [ ] Prometheus monitoring
 - [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
-- [ ] BIP-32 Pubkey
 - [ ] Lightweight sidecar node connector
 - [ ] Configurable upstream roles
 
