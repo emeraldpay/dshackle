@@ -17,11 +17,16 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
+import io.emeraldpay.dshackle.upstream.grpc.BitcoinGrpcUpstream
 import io.emeraldpay.grpc.Chain
 import org.bitcoinj.params.MainNetParams
 import org.bitcoinj.params.TestNet3Params
@@ -31,6 +36,9 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
+import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+import javax.annotation.PostConstruct
 import kotlin.collections.HashMap
 
 @Service
@@ -45,6 +53,42 @@ class TrackBitcoinAddress(
     override fun isSupported(chain: Chain, asset: String): Boolean {
         return (asset == "bitcoin" || asset == "btc" || asset == "satoshi")
                 && BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
+    }
+
+    /**
+     * Keep tracking of the current state of local upstreams. True for a chain that has an upstream with balance data.
+     */
+    private val balanceAvailable: MutableMap<Chain, Boolean> = ConcurrentHashMap()
+
+    /**
+     * Criteria for a remote grpc upstream that can provide a balance
+     */
+    private val balanceUpstreamMatcher = Selector.LocalAndMatcher(
+            Selector.GrpcMatcher(),
+            Selector.CapabilityMatcher(Capability.BALANCE)
+    )
+
+    @PostConstruct
+    fun listenChains() {
+        multistreamHolder.observeChains().subscribe { chain ->
+            multistreamHolder.getUpstream(chain)?.let { mup ->
+                val available = mup.getAll().any { up ->
+                    !up.isGrpc() && (up.getOptions().providesBalance ?: false)
+                }
+                setBalanceAvailability(chain, available)
+            }
+        }
+    }
+
+    fun setBalanceAvailability(chain: Chain, enabled: Boolean) {
+        balanceAvailable[chain] = enabled
+    }
+
+    /**
+     * @return true if the current instance has data sources to provide the balance
+     */
+    fun isBalanceAvailable(chain: Chain): Boolean {
+        return balanceAvailable[chain] ?: false
     }
 
     fun allAddresses(api: BitcoinMultistream, request: BlockchainOuterClass.BalanceRequest): Flux<String> {
@@ -117,38 +161,74 @@ class TrackBitcoinAddress(
         }
     }
 
+    fun getBalanceGrpc(api: BitcoinMultistream): Mono<ReactorBlockchainGrpc.ReactorBlockchainStub> {
+        val ups = api.getApiSource(balanceUpstreamMatcher)
+        ups.request(1)
+        return Mono.from(ups)
+                .map { up ->
+                    up.cast(BitcoinGrpcUpstream::class.java).remote
+                }
+                .timeout(Defaults.timeoutInternal, Mono.empty())
+                .switchIfEmpty(
+                        Mono.just(0)
+                                .doOnNext {
+                                    log.warn("No upstream providing balance for ${api.chain}")
+                                }
+                                .then(Mono.error(SilentException.DataUnavailable("BALANCE")))
+                )
+    }
+
+    fun getRemoteBalance(api: BitcoinMultistream, request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
+        return getBalanceGrpc(api).flatMapMany { remote ->
+            remote.getBalance(request)
+        }
+    }
+
+    fun subscribeRemoteBalance(api: BitcoinMultistream, request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
+        return getBalanceGrpc(api).flatMapMany { remote ->
+            remote.subscribeBalance(request)
+        }
+    }
+
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
         val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-        val addresses = allAddresses(upstream, request) ?: return Flux.error(SilentException("Unsupported address"))
-        return requestBalances(chain, upstream, addresses, request.includeUtxo)
-                .map(this@TrackBitcoinAddress::buildResponse)
+        return if (isBalanceAvailable(chain)) {
+            val addresses = allAddresses(upstream, request)
+            requestBalances(chain, upstream, addresses, request.includeUtxo)
+                    .map(this@TrackBitcoinAddress::buildResponse)
+        } else {
+            getRemoteBalance(upstream, request)
+        }
     }
-
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
         val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-        val addresses = allAddresses(upstream, request).cache()
-        val following = upstream.getHead().getFlux()
-                .flatMap { block ->
-                    requestBalances(chain, upstream, Flux.from(addresses), request.includeUtxo)
-                }
-        val last = HashMap<String, BigInteger>()
-        val result = following
-                .filter { curr ->
-                    val prev = last[curr.address.address]
-                    //TODO utxo can change without changing balance
-                    val changed = prev == null || curr.balance != prev
-                    if (changed) {
-                        last[curr.address.address] = curr.balance
+        if (isBalanceAvailable(chain)) {
+            val addresses = allAddresses(upstream, request).cache()
+            val following = upstream.getHead().getFlux()
+                    .flatMap { block ->
+                        requestBalances(chain, upstream, Flux.from(addresses), request.includeUtxo)
                     }
-                    changed
-                }
+            val last = HashMap<String, BigInteger>()
+            val result = following
+                    .filter { curr ->
+                        val prev = last[curr.address.address]
+                        //TODO utxo can change without changing balance
+                        val changed = prev == null || curr.balance != prev
+                        if (changed) {
+                            last[curr.address.address] = curr.balance
+                        }
+                        changed
+                    }
 
-        return result.map(this@TrackBitcoinAddress::buildResponse)
+            return result.map(this@TrackBitcoinAddress::buildResponse)
+        } else {
+            return subscribeRemoteBalance(upstream, request)
+        }
     }
 
     private fun buildResponse(address: AddressBalance): BlockchainOuterClass.AddressBalance {

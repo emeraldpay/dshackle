@@ -149,10 +149,18 @@ class Selector {
         }
     }
 
-    class LabelMatcher(val name: String, val values: Collection<String>): LabelSelectorMatcher() {
+    class LocalAndMatcher(vararg val matchers: Matcher) : Matcher {
+
+        override fun matches(up: Upstream): Boolean {
+            return matchers.all { it.matches(up) }
+        }
+
+    }
+
+    class LabelMatcher(val name: String, val values: Collection<String>) : LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return labels.get(name)?.let {
-                labelValue -> values.any { it == labelValue }
+            return labels.get(name)?.let { labelValue ->
+                values.any { it == labelValue }
             } ?: false
         }
 
@@ -221,4 +229,15 @@ class Selector {
         }
     }
 
+    class CapabilityMatcher(val capability: Capability) : Matcher {
+        override fun matches(up: Upstream): Boolean {
+            return up.getCapabilities().contains(capability)
+        }
+    }
+
+    class GrpcMatcher() : Matcher {
+        override fun matches(up: Upstream): Boolean {
+            return up.isGrpc()
+        }
+    }
 }

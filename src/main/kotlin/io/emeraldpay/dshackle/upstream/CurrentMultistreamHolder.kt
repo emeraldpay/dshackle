@@ -127,7 +127,7 @@ class CurrentMultistreamHolder(
     }
 
     override fun observeChains(): Flux<Chain> {
-        return Flux.merge(
+        return Flux.concat(
                 Flux.fromIterable(getAvailable()),
                 Flux.from(chainsBus)
         )

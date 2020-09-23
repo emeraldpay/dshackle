@@ -22,10 +22,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
@@ -45,7 +42,7 @@ import java.util.function.Function
 class BitcoinGrpcUpstream(
         private val parentId: String,
         chain: Chain,
-        private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
+        val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val client: JsonRpcGrpcClient
 ) : BitcoinUpstream(
         "$parentId/${chain.chainCode}",
@@ -92,6 +89,7 @@ class BitcoinGrpcUpstream(
     private val upstreamStatus = GrpcUpstreamStatus()
     private val grpcHead = GrpcHead(chain, this, blockConverter, reloadBlock)
     var timeout = Defaults.timeout
+    private var capabilities: Set<Capability> = emptySet()
 
     override fun getHead(): Head {
         return grpcHead
@@ -103,6 +101,14 @@ class BitcoinGrpcUpstream(
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return upstreamStatus.getLabels()
+    }
+
+    override fun getCapabilities(): Set<Capability> {
+        return capabilities
+    }
+
+    override fun isGrpc(): Boolean {
+        return true
     }
 
     override fun <T : Upstream> cast(selfType: Class<T>): T {
@@ -126,6 +132,7 @@ class BitcoinGrpcUpstream(
 
     override fun update(conf: BlockchainOuterClass.DescribeChain) {
         upstreamStatus.update(conf)
+        this.capabilities = RemoteCapabilities.extract(conf)
         conf.status?.let { status -> onStatus(status) }
     }
 

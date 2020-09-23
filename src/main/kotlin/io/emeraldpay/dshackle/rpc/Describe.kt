@@ -20,7 +20,6 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.*
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -38,6 +37,7 @@ class Describe(
                 multistreamHolder.getUpstream(chain)?.let { chainUpstreams ->
                     val status = subscribeStatus.chainStatus(chain, chainUpstreams.getAll())
                     val targets = chainUpstreams.getMethods().getSupportedMethods()
+                    val capabilities: MutableSet<Capability> = mutableSetOf()
                     val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
                             .setChain(Common.ChainRef.forNumber(chain.id))
                             .addAllSupportedMethods(targets)
@@ -59,8 +59,17 @@ class Describe(
                                         })
                                 chainDescription.addNodes(nodeDetails)
                             }
+                            capabilities.addAll(up.getCapabilities())
                         }
                     }
+                    chainDescription.addAllCapabilities(
+                            capabilities.map {
+                                when (it) {
+                                    Capability.RPC -> BlockchainOuterClass.Capabilities.CAP_CALLS
+                                    Capability.BALANCE -> BlockchainOuterClass.Capabilities.CAP_BALANCE
+                                }
+                            }
+                    )
                     resp.addChains(chainDescription.build())
                 }
             }

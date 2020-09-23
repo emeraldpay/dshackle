@@ -103,6 +103,9 @@ cluster:
               password: 1a68f20154fc258fe4149c199ad8f281
     - id: bitcoin
       chain: bitcoin
+      options:
+        # use the node to fetch balances
+        balance: true
       connection:
         bitcoin:
           rpc:
@@ -110,6 +113,9 @@ cluster:
             basic-auth:
               username: bitcoin
               password: e984af45bb888428207c290
+          # uses Esplora index to fetch balances and utxo for an address
+          esplora:
+            url: "http://localhost:3001"
     - id: remote
       connection:
         grpc:

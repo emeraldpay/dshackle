@@ -45,6 +45,12 @@ open class BitcoinRpcUpstream(
     private val head: Head = createHead()
     private var validatorSubscription: Disposable? = null
 
+    private val capabilities = if (options.providesBalance == true) {
+        setOf(Capability.RPC, Capability.BALANCE)
+    } else {
+        setOf(Capability.RPC)
+    }
+
     private fun createHead(): Head {
         return BitcoinRpcHead(
                 directApi,
@@ -62,6 +68,14 @@ open class BitcoinRpcUpstream(
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return listOf(UpstreamsConfig.Labels())
+    }
+
+    override fun getCapabilities(): Set<Capability> {
+        return capabilities;
+    }
+
+    override fun isGrpc(): Boolean {
+        return false
     }
 
     override fun <T : Upstream> cast(selfType: Class<T>): T {

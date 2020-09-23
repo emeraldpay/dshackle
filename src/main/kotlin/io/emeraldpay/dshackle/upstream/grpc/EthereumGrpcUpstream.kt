@@ -90,6 +90,7 @@ open class EthereumGrpcUpstream(
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
     private val upstreamStatus = GrpcUpstreamStatus()
     private val grpcHead = GrpcHead(chain, this, blockConverter, reloadBlock)
+    private var capabilities: Set<Capability> = emptySet()
 
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
     var timeout = Defaults.timeout
@@ -109,6 +110,7 @@ open class EthereumGrpcUpstream(
 
     override fun update(conf: BlockchainOuterClass.DescribeChain) {
         upstreamStatus.update(conf)
+        capabilities = RemoteCapabilities.extract(conf)
         conf.status?.let { status -> onStatus(status) }
     }
 
@@ -148,4 +150,11 @@ open class EthereumGrpcUpstream(
         return this as T
     }
 
+    override fun getCapabilities(): Set<Capability> {
+        return capabilities
+    }
+
+    override fun isGrpc(): Boolean {
+        return true
+    }
 }

@@ -125,6 +125,7 @@ Options (default or as part of upstream config):
 provider such as Infura, but disabling it is not recommended for a normal node)
 | `min-peers` | 3 | specify minimum amount of connected peers, Dshackle will not use upstream with less than specified number
 | `timeout` | 60 | timeout in seconds after which request to the upstream will be discarded (and may be retried on an another upstream)
+| `balance` | `true` for ethereum, `false` for bitcoin | specify if this node should be used to fetch balance for an address
 |===
 
 === Connection type

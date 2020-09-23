@@ -261,6 +261,9 @@ class UpstreamsConfigReader(
         getValueAsBool(values, "disable-validation")?.let {
             options.disableValidation = it
         }
+        getValueAsBool(values, "balance")?.let {
+            options.providesBalance = it
+        }
         return options
     }
 

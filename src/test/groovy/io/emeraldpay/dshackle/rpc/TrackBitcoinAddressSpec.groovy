@@ -259,6 +259,7 @@ class TrackBitcoinAddressSpec extends Specification {
         }
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.BITCOIN, upstream)
         TrackBitcoinAddress track = new TrackBitcoinAddress(upstreams)
+        track.setBalanceAvailability(Chain.BITCOIN, true)
 
         when:
         def resp = track.subscribe(BlockchainOuterClass.BalanceRequest.newBuilder()
@@ -285,6 +286,5 @@ class TrackBitcoinAddressSpec extends Specification {
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
-
     }
 }

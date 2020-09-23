@@ -92,6 +92,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "local"
             chain == "bitcoin"
+            options == null || options.providesBalance == false
             connection instanceof UpstreamsConfig.BitcoinConnection
             with((UpstreamsConfig.BitcoinConnection) connection) {
                 rpc != null
@@ -119,6 +120,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "local"
             chain == "bitcoin"
+            options.providesBalance == true
             connection instanceof UpstreamsConfig.BitcoinConnection
             with((UpstreamsConfig.BitcoinConnection) connection) {
                 rpc != null

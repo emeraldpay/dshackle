@@ -37,6 +37,8 @@ interface Upstream {
     fun getLabels(): Collection<UpstreamsConfig.Labels>
     fun getMethods(): CallMethods
     fun getId(): String
+    fun getCapabilities(): Set<Capability>
+    fun isGrpc(): Boolean
 
     fun <T : Upstream> cast(selfType: Class<T>): T
 }

@@ -9,6 +9,8 @@ defaults:
 upstreams:
   - id: local
     chain: bitcoin
+    options:
+      balance: true
     connection:
       bitcoin:
         rpc:

@@ -26,7 +26,9 @@ open class SilentException(message: String) : Exception(message) {
     /**
      * Blockchain is not available or not supported by current instance of the Dshackle
      */
-    class UnsupportedBlockchain(val blockchainId: Int): SilentException("Unsupported blockchain $blockchainId") {
+    class UnsupportedBlockchain(val blockchainId: Int) : SilentException("Unsupported blockchain $blockchainId") {
         constructor(chain: Chain) : this(chain.id)
     }
+
+    class DataUnavailable(val code: String) : SilentException("Data is unavailable: $code")
 }

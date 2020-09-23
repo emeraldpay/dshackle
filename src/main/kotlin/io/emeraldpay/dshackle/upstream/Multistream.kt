@@ -61,6 +61,7 @@ abstract class Multistream(
     private var seq = 0
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
+    private var capabilities: Set<Capability> = emptySet()
 
     open fun init() {
         onUpstreamsUpdated()
@@ -122,9 +123,17 @@ abstract class Multistream(
 
     open fun onUpstreamsUpdated() {
         reconfigLock.withLock {
-            getAll().map { it.getMethods() }.let {
+            val upstreams = getAll()
+            upstreams.map { it.getMethods() }.let {
                 //TODO made list of uniq instances, and then if only one, just use it directly
                 callMethods = AggregatedCallMethods(it)
+            }
+            capabilities = if (upstreams.isEmpty()) {
+                emptySet()
+            } else {
+                upstreams.map { up ->
+                    up.getCapabilities()
+                }.reduce { acc, curr -> acc + curr }
             }
         }
     }
@@ -209,6 +218,14 @@ abstract class Multistream(
 
     override fun getLag(): Long {
         return 0
+    }
+
+    override fun getCapabilities(): Set<Capability> {
+        return this.capabilities
+    }
+
+    override fun isGrpc(): Boolean {
+        return false
     }
 
     fun printStatus() {

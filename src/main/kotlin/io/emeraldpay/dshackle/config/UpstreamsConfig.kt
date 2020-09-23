@@ -30,6 +30,7 @@ class UpstreamsConfig {
     open class Options {
         var disableValidation: Boolean? = null
         var timeout = Defaults.timeout
+        var providesBalance: Boolean? = null
 
         var minPeers: Int? = 1
             set(minPeers) {
@@ -46,6 +47,7 @@ class UpstreamsConfig {
             val copy = Options()
             copy.minPeers = if (this.minPeers != null) this.minPeers else additional.minPeers
             copy.disableValidation = if (this.disableValidation != null) this.disableValidation else additional.disableValidation
+            copy.providesBalance = if (this.providesBalance != null) this.providesBalance else additional.providesBalance
             return copy
         }
 
