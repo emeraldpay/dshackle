@@ -60,11 +60,6 @@ jobs:
         with:
           arguments: distZip
 
-      - run: |
-          ls -l build/resources/main
-          ls -l build/generated/version
-          unzip -l build/libs/dshackle-0.9.0-SNAPSHOT.jar
-
-#      - name: Upload to GCP
-#        run: |
-#          gsutil cp -n ./build/distributions/*.zip gs://artifacts.emerald.cash/builds/dshackle/${{ steps.gitversion.outputs.commitDate }}/${{ steps.time.outputs.time }}-${{ steps.gitversion.outputs.shortSha }}/
+      - name: Upload to GCP
+        run: |
+          gsutil cp -n ./build/distributions/*.zip gs://artifacts.emerald.cash/builds/dshackle/${{ steps.gitversion.outputs.commitDate }}/${{ steps.time.outputs.time }}-${{ steps.gitversion.outputs.shortSha }}/
