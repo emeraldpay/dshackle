@@ -1,0 +1,65 @@
+name: Artifacts
+
+on:
+  # if pushed directly
+  push:
+    branches:
+      - master
+      - release/*
+      - ci/*
+  # on a pull request
+  pull_request:
+    branches:
+      - master
+      - release/*
+      - ci/*
+
+jobs:
+
+  publish-gcp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      - name: Setup GCP
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_ARTIFACTS_KEY }}
+          export_default_credentials: true
+
+        # needed for GitVersion
+      - name: Fetch all history
+        run: git fetch --prune --unshallow
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.9.3
+        with:
+          versionSpec: '5.3.x'
+
+        # step id used as reference for output values
+      - name: Use GitVersion
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.9.3
+
+      - name: Get Time
+        id: time
+        uses: nanzm/get-time-action@v1.0
+        with:
+          timeZone: 0
+          format: 'YYYYMMDD-HHmm'
+
+      - name: Build zip
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: distZip
+
+      - name: Upload to GCP
+        run: |
+          gsutil cp -n ./build/distributions/*.zip gs://artifacts.emerald.cash/builds/dshackle/${{ steps.gitversion.outputs.commitDate }}/${{ steps.time.outputs.time }}-${{ steps.gitversion.outputs.shortSha }}/
