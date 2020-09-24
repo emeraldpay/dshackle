@@ -198,13 +198,19 @@ protobuf {
     }
 }
 
+sourceSets {
+    main {
+        resources.srcDirs += project.buildDir.absolutePath + "/generated/version"
+    }
+}
+
 task generateVersion()  {
     group = 'Build'
     description = 'Generate project version'
 
     doLast {
         def version = versionDetails()
-        def resourcesDir = sourceSets.main.output.resourcesDir
+        def resourcesDir = new File(project.buildDir.absolutePath + "/generated/version")
         resourcesDir.mkdirs()
         new File(resourcesDir, "version.properties").text = [
                 "# AUTOMATICALLY GENERATED",
@@ -213,7 +219,6 @@ task generateVersion()  {
                 "version.tag=${version.lastTag}",
                 "version.date=${DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneId.of('UTC')).format(Instant.now().truncatedTo(ChronoUnit.SECONDS))} UTC"
         ].join("\n")
-
     }
 }
 
