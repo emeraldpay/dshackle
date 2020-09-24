@@ -206,14 +206,15 @@ task generateVersion()  {
         def version = versionDetails()
         def resourcesDir = sourceSets.main.output.resourcesDir
         resourcesDir.mkdirs()
-        new File(resourcesDir, "version.properties").text = [
+        def file = new File(resourcesDir, "version.properties")
+        file.text = [
                 "# AUTOMATICALLY GENERATED",
                 "version.app=$project.version",
                 "version.commit=${version.gitHash}",
                 "version.tag=${version.lastTag}",
                 "version.date=${DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneId.of('UTC')).format(Instant.now().truncatedTo(ChronoUnit.SECONDS))} UTC"
         ].join("\n")
-
+        println("version ${file.absolutePath} ${file.exists()}")
     }
 }
 
