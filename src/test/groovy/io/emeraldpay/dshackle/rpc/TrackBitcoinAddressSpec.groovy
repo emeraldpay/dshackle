@@ -83,6 +83,40 @@ class TrackBitcoinAddressSpec extends Specification {
         total.utxo.isEmpty()
     }
 
+    def "Correct sum for none"() {
+        setup:
+        def unspents = []
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
+        def address = new TrackBitcoinAddress.Address(
+                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+        )
+        when:
+        def total = track.totalUnspent(address, false, unspents)
+
+        then:
+        total.balance == 0
+        total.utxo.isEmpty()
+    }
+
+    def "Correct sum for none read"() {
+        setup:
+        TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
+        def address = new TrackBitcoinAddress.Address(
+                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+        )
+        def api = Mock(BitcoinMultistream) {
+            1 * getReader() >> Mock(BitcoinReader) {
+                1 * listUnspent(_) >> Mono.empty()
+            }
+        }
+        when:
+        def total = track.balanceForAddress(api, address, false).block()
+
+        then:
+        total.balance == 0
+        total.utxo.isEmpty()
+    }
+
     def "Correct sum for few with utxo"() {
         setup:
         def unspents = [

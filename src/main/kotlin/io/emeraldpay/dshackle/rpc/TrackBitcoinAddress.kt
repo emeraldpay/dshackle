@@ -140,6 +140,9 @@ class TrackBitcoinAddress(
                 .map { unspent ->
                     totalUnspent(address, includeUtxo, unspent)
                 }
+                .switchIfEmpty(Mono.just(0).map {
+                    AddressBalance(address, BigInteger.ZERO)
+                })
                 .onErrorResume { t ->
                     log.error("Failed to get unspent", t)
                     Mono.empty()
