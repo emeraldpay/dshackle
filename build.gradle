@@ -37,8 +37,10 @@ group = 'io.emeraldpay.dshackle'
 //    x.x-SNAPSHOT for development
 version = '0.9.0-SNAPSHOT'
 
-targetCompatibility = '11'
-sourceCompatibility = '11'
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
 
 repositories {
     mavenLocal()
@@ -57,7 +59,7 @@ configurations {
 }
 
 dependencies {
-    implementation "io.emeraldpay:emerald-api:0.8.0"
+    implementation "io.emeraldpay:emerald-api:0.9.0"
 
     implementation "io.grpc:grpc-protobuf:${grpcVersion}"
     implementation "io.grpc:grpc-stub:${grpcVersion}"
@@ -82,7 +84,7 @@ dependencies {
     implementation "io.projectreactor.netty:reactor-netty:0.9.7.RELEASE"
     implementation 'io.projectreactor.addons:reactor-extra:3.3.3.RELEASE'
     implementation 'io.projectreactor.kotlin:reactor-kotlin-extensions:1.0.2.RELEASE'
-    implementation 'com.salesforce.servicelibs:reactor-grpc:0.10.0'
+    implementation "com.salesforce.servicelibs:reactor-grpc:$reactiveGrpcVersion"
     implementation 'io.lettuce:lettuce-core:5.2.2.RELEASE'
 
     implementation "io.infinitape:etherjar-domain:$etherjarVersion"

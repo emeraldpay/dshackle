@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.grpc.BitcoinGrpcUpstream
 import io.emeraldpay.grpc.Chain
+import org.apache.commons.lang3.StringUtils
 import org.bitcoinj.params.MainNetParams
 import org.bitcoinj.params.TestNet3Params
 import org.slf4j.LoggerFactory
@@ -101,10 +102,10 @@ class TrackBitcoinAddress(
                         ?: return Flux.error(IllegalStateException("Xpub verification is not available"))
 
                 val addressXpub = request.address.addressXpub
-                if (!addressXpub.xpub.isValidUtf8) {
-                    return Flux.error(IllegalArgumentException("Invalid xpub string"))
+                if (StringUtils.isEmpty(addressXpub.xpub)) {
+                    return Flux.error(IllegalArgumentException("xpub string is empty"))
                 }
-                val xpub = addressXpub.xpub.toStringUtf8()
+                val xpub = addressXpub.xpub
                 val start = Math.max(0, addressXpub.start).toInt()
                 val limit = Math.min(100, Math.max(1, addressXpub.limit)).toInt()
                 xpubAddresses.activeAddresses(xpub, start, limit)
@@ -197,12 +198,26 @@ class TrackBitcoinAddress(
         val chain = Chain.byId(request.asset.chainValue)
         val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
+        println("call get balance")
         return if (isBalanceAvailable(chain)) {
             val addresses = allAddresses(upstream, request)
             requestBalances(chain, upstream, addresses, request.includeUtxo)
                     .map(this@TrackBitcoinAddress::buildResponse)
+                    .doOnError { t ->
+                        log.error("Failed to get balance", t)
+                    }
         } else {
+            println("call remote balance")
             getRemoteBalance(upstream, request)
+                    .doOnEach {
+                        println("each ${it.type}")
+                    }
+                    .doOnError { t ->
+                        t.printStackTrace()
+                    }
+                    .doOnComplete {
+                        println("received all")
+                    }
         }
     }
 
