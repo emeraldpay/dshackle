@@ -196,7 +196,7 @@ class TrackBitcoinAddressSpec extends Specification {
                                 .setAddressXpub(
                                         // seed: chimney battle code relief era plug finish video patch dream pumpkin govern destroy fresh color
                                         Common.XpubAddress.newBuilder()
-                                                .setXpub(ByteString.copyFromUtf8("zpub6tz4F49K5B4m7r7EyBKYM9K44eGECaQ2AfrCybq1w7ALFatz9856vrXxAPSrteDA4d5sjUPW3ACNq8wB2V3ugXVJxvAPAYPAYHsVm3VAncL"))
+                                                .setXpub("zpub6tz4F49K5B4m7r7EyBKYM9K44eGECaQ2AfrCybq1w7ALFatz9856vrXxAPSrteDA4d5sjUPW3ACNq8wB2V3ugXVJxvAPAYPAYHsVm3VAncL")
                                                 .setLimit(25)
                                 )
                 )

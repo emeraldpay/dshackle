@@ -198,7 +198,6 @@ class TrackBitcoinAddress(
         val chain = Chain.byId(request.asset.chainValue)
         val upstream = multistreamHolder.getUpstream(chain)?.cast(BitcoinMultistream::class.java)
                 ?: return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
-        println("call get balance")
         return if (isBalanceAvailable(chain)) {
             val addresses = allAddresses(upstream, request)
             requestBalances(chain, upstream, addresses, request.includeUtxo)
@@ -207,16 +206,9 @@ class TrackBitcoinAddress(
                         log.error("Failed to get balance", t)
                     }
         } else {
-            println("call remote balance")
             getRemoteBalance(upstream, request)
-                    .doOnEach {
-                        println("each ${it.type}")
-                    }
                     .doOnError { t ->
-                        t.printStackTrace()
-                    }
-                    .doOnComplete {
-                        println("received all")
+                        log.error("Failed to get balance from remote", t)
                     }
         }
     }
