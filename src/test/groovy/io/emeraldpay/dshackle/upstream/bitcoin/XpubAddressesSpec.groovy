@@ -68,6 +68,33 @@ class XpubAddressesSpec extends Specification {
         act[3].toString() == "tb1q8yg5qknrl5wmc98lw8dyfgrzamzaq8c9l0g44d"
     }
 
+    def "list all for testnet - 2"() {
+        setup:
+        XpubAddresses addresses = new XpubAddresses(Stub(AddressActiveCheck))
+
+        when:
+        def act = addresses.allAddresses(
+                "vpub5arxPHpfH2FKSNnBqyZJctzBtruGzM4sat7YKcQQNoNGgVZehD1tLiYGvhXBhPzKPcRDRjhGw94Dc9Wwob9BpbAMmkMX7Dzdfd5Ly9LHTGQ",
+                0,
+                12
+        ).collectList().block()
+
+        then:
+        act.size() == 12
+        act[0].toString() == "tb1qepcagv9wkp04ygq3ud33qrkk6482ulhkegc333"
+        act[1].toString() == "tb1qtt6qxjk8dfafpr24skplms0fs4kr5m08vvef3l"
+        act[2].toString() == "tb1qmsu5p4jtzhpl097pwafz384meeep7gmv35udya"
+        act[3].toString() == "tb1qc784y7urnu74x250vy70204gdqw32t5kd3z97c"
+        act[4].toString() == "tb1q380kh7jhdgx5248uapp64pp8nltx654hhvs4hp"
+        act[5].toString() == "tb1qert744aljx4t0w2y0crz0q9xhcn64u0t3vveel"
+        act[6].toString() == "tb1q6d7v77wlceknrmc3u86c0j46ynltqs8n4pvvrd"
+        act[7].toString() == "tb1q62y8sxclnvzlyk89nt7spfzwsx8v9qqfdsavwv"
+        act[8].toString() == "tb1q3q0wlg5mjtjwc0rcedj5zhu2wc4rch23fpffg8"
+        act[9].toString() == "tb1qhhl5fty3utag39gspac903sxmmdq2tsxs63vfy"
+        act[10].toString() == "tb1qlse5sm59a8hckv2y7np60ka8egsw05wkj4nhal"
+        act[11].toString() == "tb1ql7y7syltstfn3t5svd56ywff4j65cg0mjylcjp"
+    }
+
     def "list starting from some"() {
         setup:
         XpubAddresses addresses = new XpubAddresses(Stub(AddressActiveCheck))
