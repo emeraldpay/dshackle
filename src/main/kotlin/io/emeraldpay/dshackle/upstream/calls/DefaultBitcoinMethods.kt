@@ -44,7 +44,7 @@ class DefaultBitcoinMethods() : CallMethods {
             "sendrawtransaction"
     ).sorted()
 
-    private val allowedMethods = (freshMethods + anyResponseMethods + hardcodedMethods + headVerifiedMethods).sorted()
+    private val allowedMethods = (freshMethods + anyResponseMethods + headVerifiedMethods + hardcodedMethods + broadcastMethods).sorted()
 
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
