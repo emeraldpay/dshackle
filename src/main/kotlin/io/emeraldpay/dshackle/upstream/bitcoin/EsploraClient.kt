@@ -106,7 +106,7 @@ class EsploraClient(
         return response
                 .response { header, bytes ->
                     if (header.status().code() != 200) {
-                        Mono.error(EsploraException("HTTP Code: ${header.status().code()} for ${header.fullPath()}"))
+                        Mono.error(EsploraException("HTTP Code: ${header.status().code()} for ${url.scheme}://${url.host}${header.fullPath()}"))
                     } else {
                         bytes.aggregate().asByteArray()
                     }
