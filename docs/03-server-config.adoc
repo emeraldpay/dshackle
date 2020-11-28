@@ -1,7 +1,12 @@
 == Server Configuration
 
-Dshackle server tries to load its configuration from `/etc/dshackle/dshackle.yaml`, if it can't find a file at that path
-it tries to load file `dshackle.yaml` from current working directory.If none of them found server fails to run with an error.
+By default, the Dshackle looks for config in the following locations:
+
+1. Path specified by _optional_ `--configPath <...>` command line option
+2. `/etc/dshackle/dshackle.yaml`
+3. `./dshackle.yaml` (i.e. in the current working dir)
+
+If none found the application exists with an error.
 
 .Example dshackle.yaml configuration:
 [source,yaml]
