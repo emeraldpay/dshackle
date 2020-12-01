@@ -26,6 +26,9 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.rpc.RpcException
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
+import io.netty.channel.ChannelHandler
+import io.netty.channel.ChannelHandlerContext
+import io.netty.channel.ChannelOption
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
@@ -53,6 +56,27 @@ class ProxyServer(
         private val log = LoggerFactory.getLogger(ProxyServer::class.java)
     }
 
+    private val errorHandler: ChannelHandler = object : ChannelHandler {
+        override fun handlerAdded(p0: ChannelHandlerContext?) {
+        }
+
+        override fun handlerRemoved(p0: ChannelHandlerContext?) {
+        }
+
+        override fun exceptionCaught(p0: ChannelHandlerContext?, p1: Throwable?) {
+            // HAProxy makes RST,ACK for health probe, which leads to error like:
+            // > 2020-22-09 23:46:34.077 | WARN  |          FluxReceive | [id: 0x228b9b97, L:/172.19.0.3:8545 - R:/172.19.0.5:34856] An exception has been observed post termination, use DEBUG level to see the full stack: io.netty.channel.unix.Errors$NativeIoException: syscall:read(..) failed: Connection reset by peer
+            // The error is just upsetting and nothing you can do about it, so ignore it.
+            // TODO the implementation makes text lookup, there must be a more optimal way to recognize that error
+            p1?.let { t ->
+                val reset = t.message?.contains("Connection reset by peer") ?: false
+                if (!reset) {
+                    log.warn("Connection error. ${p1.javaClass}: ${p1.message}")
+                }
+            }
+        }
+    }
+
     fun start() {
         if (!config.enabled) {
             log.debug("Proxy server is not enabled")
@@ -60,6 +84,11 @@ class ProxyServer(
         }
         log.info("Listening Proxy on ${config.host}:${config.port}")
         var serverBuilder = HttpServer.create()
+                .tcpConfiguration {
+                    it.bootstrap { b ->
+                        b.handler(errorHandler)
+                    }
+                }
                 .host(config.host)
                 .port(config.port)
 
