@@ -48,4 +48,26 @@ class StandardCallsSpec extends Specification {
         }
         act.error == null
     }
+
+    def "returns original block json"() {
+        when:
+        def act = client.execute("eth_getBlockByNumber", ["0x100001", false])
+        then:
+        act.result != null
+        with(act.result) {
+            testFoo == "bar"
+        }
+        act.error == null
+    }
+
+    def "returns original block json with tx"() {
+        when:
+        def act = client.execute("eth_getBlockByNumber", ["0x100001", true])
+        then:
+        act.result != null
+        with(act.result) {
+            testFoo == "bar"
+        }
+        act.error == null
+    }
 }

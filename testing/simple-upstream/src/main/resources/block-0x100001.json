@@ -21,5 +21,6 @@
     "0xe589a39acea3091b584b650158d08b159aa07e97b8e8cddb8f81cb606e13382e"
   ],
   "transactionsRoot": "0xc90078e2af52aef81815cb2a71c22ebd781dd658dd953d9df57f7769a0b2fe51",
-  "uncles": []
+  "uncles": [],
+  "testFoo": "bar"
 }

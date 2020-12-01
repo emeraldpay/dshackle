@@ -71,54 +71,37 @@ open class EthereumReader(
         tx.json ?: ByteArray(0)
     }
 
-    val jsonToRaw = Function<Any, ByteArray> { json ->
-        objectMapper.writeValueAsBytes(json)
-    }
-
-    val blockAsContainer = Function<BlockJson<*>, BlockContainer> { block ->
-        BlockContainer.from(block.withoutTransactionDetails())
-    }
-    val txAsContainer = Function<TransactionJson, TxContainer> { tx ->
-        TxContainer.from(tx)
-    }
-
     private val idToBlockHash = Function<BlockId, BlockHash> { id -> BlockHash.from(id.value) }
     private val blockHashToId = Function<BlockHash, BlockId> { hash -> BlockId.from(hash) }
 
     private val txHashToId = Function<TransactionId, TxId> { hash -> TxId.from(hash) }
     private val idToTxHash = Function<TxId, TransactionId> { id -> TransactionId.from(id.value) }
 
-    fun blocksByHash(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
-        return TransformingReader(
-                CompoundReader(
-                        RekeyingReader(blockHashToId, caches.getBlocksByHash()),
-                        directReader.blockReader
-                ),
-                extractBlock
-        )
-    }
-
-    fun blocksById(): Reader<BlockId, BlockJson<TransactionRefJson>> {
-        return TransformingReader(
-                CompoundReader(
-                        caches.getBlocksByHash(),
-                        RekeyingReader(idToBlockHash, directReader.blockReader)
-                ),
-                extractBlock
-        )
-    }
-
     fun blocksByHashAsCont(): Reader<BlockHash, BlockContainer> {
+        return CompoundReader(
+                RekeyingReader(blockHashToId, caches.getBlocksByHash()),
+                directReader.blockReader
+        )
+    }
+
+    fun blocksByHashParsed(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
         return TransformingReader(
-                blocksByHash(),
-                blockAsContainer
+                blocksByHashAsCont(),
+                extractBlock
+        )
+    }
+
+    fun blocksByIdParsed(): Reader<BlockId, BlockJson<TransactionRefJson>> {
+        return TransformingReader(
+                blocksByIdAsCont(),
+                extractBlock
         )
     }
 
     open fun blocksByIdAsCont(): Reader<BlockId, BlockContainer> {
-        return TransformingReader(
-                blocksById(),
-                blockAsContainer
+        return CompoundReader(
+                caches.getBlocksByHash(),
+                RekeyingReader(idToBlockHash, directReader.blockReader)
         )
     }
 

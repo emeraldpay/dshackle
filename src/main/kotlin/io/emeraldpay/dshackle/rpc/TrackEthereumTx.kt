@@ -205,7 +205,7 @@ class TrackEthereumTx(
             return Mono.empty()
         }
         return upstream.getReader()
-                .blocksByHash().read(tx.status.blockHash)
+                .blocksByHashParsed().read(tx.status.blockHash)
                 .map { block ->
                     setBlockDetails(tx, block)
                 }.doOnError { t ->

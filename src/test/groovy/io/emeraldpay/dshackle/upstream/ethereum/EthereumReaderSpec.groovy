@@ -71,7 +71,7 @@ class EthereumReaderSpec extends Specification {
         def reader = new EthereumReader(Stub(Multistream), caches, calls)
 
         when:
-        def act = reader.blocksById().read(blockId).block()
+        def act = reader.blocksByIdParsed().read(blockId).block()
 
         then:
         act == blockJson
@@ -92,7 +92,7 @@ class EthereumReaderSpec extends Specification {
         def reader = new EthereumReader(upstream, caches, calls)
 
         when:
-        def act = reader.blocksById().read(blockId).block()
+        def act = reader.blocksByIdParsed().read(blockId).block()
 
         then:
         act == blockJson
@@ -113,7 +113,7 @@ class EthereumReaderSpec extends Specification {
         def reader = new EthereumReader(upstream, caches, calls)
 
         when:
-        def act = reader.blocksById().read(blockId).block()
+        def act = reader.blocksByIdParsed().read(blockId).block()
 
         then:
         act == blockJson
@@ -130,7 +130,7 @@ class EthereumReaderSpec extends Specification {
         def reader = new EthereumReader(Stub(Multistream), caches, calls)
 
         when:
-        def act = reader.blocksByHash().read(blockJson.hash).block()
+        def act = reader.blocksByHashParsed().read(blockJson.hash).block()
 
         then:
         act == blockJson
@@ -150,7 +150,7 @@ class EthereumReaderSpec extends Specification {
         def reader = new EthereumReader(upstream, caches, calls)
 
         when:
-        def act = reader.blocksByHash().read(blockJson.hash).block()
+        def act = reader.blocksByHashParsed().read(blockJson.hash).block()
 
         then:
         act == blockJson
