@@ -101,7 +101,7 @@ class TrackEthereumAddressSpec extends Specification {
         TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)
 
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
-        apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0xff98")
+        apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "0x1"], "0xff98")
         when:
         def flux = trackAddress.subscribe(req)
         then:

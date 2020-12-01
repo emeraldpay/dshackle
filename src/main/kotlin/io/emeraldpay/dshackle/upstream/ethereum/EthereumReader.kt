@@ -130,6 +130,7 @@ open class EthereumReader(
     }
 
     fun balance(): Reader<Address, Wei> {
+        //TODO include height as part of cache?
         return CompoundReader(
                 balanceCache, directReader.balanceReader
         )

@@ -89,7 +89,8 @@ class EthereumDirectReader(
         }
         balanceReader = object : Reader<Address, Wei> {
             override fun read(key: Address): Mono<Wei> {
-                val request = JsonRpcRequest("eth_getBalance", listOf(key.toHex(), "latest"))
+                val height = up.getHead().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
+                val request = JsonRpcRequest("eth_getBalance", listOf(key.toHex(), height))
                 return readWithQuorum(request)
                         .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Balance not read $key")))
                         .map {

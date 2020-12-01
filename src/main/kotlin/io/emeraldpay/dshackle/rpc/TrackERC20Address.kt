@@ -5,6 +5,7 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.TokensConfig
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
@@ -14,6 +15,7 @@ import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 import io.infinitape.etherjar.erc20.ERC20Token
 import io.infinitape.etherjar.hex.Hex32
+import io.infinitape.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -84,10 +86,11 @@ class TrackERC20Address(
     }
 
     fun getBalance(addr: TrackedAddress): Mono<BigInteger> {
-        return getUpstream(addr.chain)
+        val upstream = getUpstream(addr.chain)
+        return upstream
                 .getDirectApi(Selector.empty)
                 .flatMap { api ->
-                    api.read(prepareEthCall(addr.token, addr.address))
+                    api.read(prepareEthCall(addr.token, addr.address, upstream.getHead()))
                             .flatMap(JsonRpcResponse::requireStringResult)
                             .map {
                                 Hex32.from(it).asQuantity().value
@@ -95,11 +98,12 @@ class TrackERC20Address(
                 }
     }
 
-    fun prepareEthCall(token: ERC20Token, target: Address): JsonRpcRequest {
+    fun prepareEthCall(token: ERC20Token, target: Address, head: Head): JsonRpcRequest {
         val call = token
                 .readBalanceOf(target)
                 .toJson()
-        return JsonRpcRequest("eth_call", listOf(call, "latest"))
+        val height = head.getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
+        return JsonRpcRequest("eth_call", listOf(call, height))
     }
 
     fun getUpstream(chain: Chain): EthereumMultistream {

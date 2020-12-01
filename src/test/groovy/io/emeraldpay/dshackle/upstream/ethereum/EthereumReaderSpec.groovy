@@ -197,8 +197,10 @@ class EthereumReaderSpec extends Specification {
     def "Caches balance until block mined"() {
         setup:
         def api = TestingCommons.api()
+        // no height
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "latest"], "0x10")
-        api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "latest"], "0xff")
+        // height 101 + 1 => 102 => 0x66
+        api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "0x66"], "0xff")
         EthereumUpstreamMock upstream = new EthereumUpstreamMock(Chain.ETHEREUM, api)
         def upstreams = TestingCommons.multistream(upstream)
         def reader = new EthereumReader(upstreams, Caches.default(), calls)
