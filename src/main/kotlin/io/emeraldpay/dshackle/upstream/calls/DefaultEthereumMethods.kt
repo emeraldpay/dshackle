@@ -170,7 +170,7 @@ class DefaultEthereumMethods(
                 "true"
             }
             "web3_clientVersion" -> {
-                "\"EmeraldDshackle/v0.2\""
+                "\"EmeraldDshackle/v0.9\""
             }
             "eth_protocolVersion" -> {
                 "\"0x3f\""

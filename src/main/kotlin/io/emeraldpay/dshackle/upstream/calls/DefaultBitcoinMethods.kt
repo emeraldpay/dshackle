@@ -72,7 +72,7 @@ class DefaultBitcoinMethods() : CallMethods {
     override fun executeHardcoded(method: String): ByteArray {
         return when (method) {
             "getconnectioncount" -> "42".toByteArray()
-            "getnetworkinfo" -> "{\"version\": 700000, \"subversion\": \"/EmeraldDshackle:v0.7/\"}".toByteArray()
+            "getnetworkinfo" -> "{\"version\": 700000, \"subversion\": \"/EmeraldDshackle:v0.9/\"}".toByteArray()
             else -> throw RpcException(-32601, "Method not found")
         }
     }
