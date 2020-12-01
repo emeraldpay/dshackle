@@ -56,6 +56,8 @@ configurations {
     compile.exclude group: "ch.qos.logback"
     compile.exclude group: "org.slf4j", module: "slf4j-jdk14"
     compile.exclude group: "org.slf4j", module: "log4j-over-slf4j"
+    // should be used only for generation of the stubs, the lib contains grpc classes
+    compile.exclude group: "com.salesforce.servicelibs", module: "reactor-grpc"
 }
 
 dependencies {
@@ -84,7 +86,8 @@ dependencies {
     implementation "io.projectreactor.netty:reactor-netty:0.9.7.RELEASE"
     implementation 'io.projectreactor.addons:reactor-extra:3.3.3.RELEASE'
     implementation 'io.projectreactor.kotlin:reactor-kotlin-extensions:1.0.2.RELEASE'
-    implementation "com.salesforce.servicelibs:reactor-grpc:$reactiveGrpcVersion"
+    implementation "com.salesforce.servicelibs:reactor-grpc-stub:$reactiveGrpcVersion"
+
     implementation 'io.lettuce:lettuce-core:5.2.2.RELEASE'
 
     implementation "io.infinitape:etherjar-domain:$etherjarVersion"
