@@ -63,6 +63,10 @@ open class ConfiguredUpstreams(
             "kovan-testnet" to Chain.TESTNET_KOVAN,
             "goerli" to Chain.TESTNET_GOERLI,
             "goerli-testnet" to Chain.TESTNET_GOERLI,
+            "rinkeby" to Chain.TESTNET_RINKEBY,
+            "rinkeby-testnet" to Chain.TESTNET_RINKEBY,
+            "ropsten" to Chain.TESTNET_ROPSTEN,
+            "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
             "bitcoin" to Chain.BITCOIN,
             "bitcoin-testnet" to Chain.TESTNET_BITCOIN
     )

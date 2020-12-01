@@ -24,7 +24,7 @@ class BlockchainTypeSpec extends Specification {
         expect:
         BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM
         where:
-        chain << [Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC, Chain.TESTNET_KOVAN, Chain.TESTNET_GOERLI, Chain.TESTNET_MORDEN]
+        chain << [Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC, Chain.TESTNET_KOVAN, Chain.TESTNET_GOERLI, Chain.TESTNET_MORDEN, Chain.TESTNET_RINKEBY, Chain.TESTNET_ROPSTEN]
     }
 
     def "Correct type for bitcoin"() {

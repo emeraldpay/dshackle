@@ -122,6 +122,12 @@ class DefaultEthereumMethods(
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"2\""
                     }
+                    Chain.TESTNET_ROPSTEN == chain -> {
+                        "\"3\""
+                    }
+                    Chain.TESTNET_RINKEBY == chain -> {
+                        "\"4\""
+                    }
                     Chain.TESTNET_KOVAN == chain -> {
                         "\"42\""
                     }
@@ -135,6 +141,12 @@ class DefaultEthereumMethods(
                 when {
                     Chain.ETHEREUM == chain -> {
                         "\"0x1\""
+                    }
+                    Chain.TESTNET_ROPSTEN == chain -> {
+                        "\"0x3\""
+                    }
+                    Chain.TESTNET_RINKEBY == chain -> {
+                        "\"0x4\""
                     }
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"0x3d\""

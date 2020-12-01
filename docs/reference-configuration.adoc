@@ -440,7 +440,7 @@ Fallback role mean that the upstream is used only after other upstreams failed o
 | yes
 | Blockchain which is the provided by the upstream.
 Cluster may have multiple upstreams for a single blockchain.
-Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, `kovan`, or `goerli`
+Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, `kovan-testnet`, `rinkeby-testnet`, `ropsten-testnet`, or `goerli-testnet`
 
 | `labels`
 | no

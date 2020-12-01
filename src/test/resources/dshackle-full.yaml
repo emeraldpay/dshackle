@@ -35,6 +35,8 @@ proxy:
       blockchain: kovan
     - id: goerli
       blockchain: goerli
+    - id: rinkeby
+      blockchain: rinkeby
 
 cluster:
   defaults:

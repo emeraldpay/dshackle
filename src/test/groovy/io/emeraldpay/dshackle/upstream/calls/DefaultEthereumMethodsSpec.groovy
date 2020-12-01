@@ -22,6 +22,8 @@ class DefaultEthereumMethodsSpec extends Specification {
         Chain.ETHEREUM         | '"0x1"'
         Chain.ETHEREUM_CLASSIC | '"0x3d"'
         Chain.TESTNET_KOVAN    | '"0x2a"'
-        Chain.TESTNET_GOERLI    | '"0x5"'
+        Chain.TESTNET_GOERLI   | '"0x5"'
+        Chain.TESTNET_RINKEBY  | '"0x4"'
+        Chain.TESTNET_ROPSTEN  | '"0x3"'
     }
 }
