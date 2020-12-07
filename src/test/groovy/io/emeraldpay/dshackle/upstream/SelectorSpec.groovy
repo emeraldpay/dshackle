@@ -292,4 +292,61 @@ class SelectorSpec extends Specification {
                 [test: "foo"],
         ]
     }
+
+    def "Match by height when equal"() {
+        setup:
+        def matcher = new Selector.HeightMatcher(1000)
+        def up = Mock(Upstream) {
+            1 * getHead() >> Mock(Head) {
+                1 * getCurrentHeight() >> 1000
+            }
+        }
+        when:
+        def act = matcher.matches(up)
+        then:
+        act
+    }
+
+    def "Match by height when higher"() {
+        setup:
+        def matcher = new Selector.HeightMatcher(1000)
+        def up = Mock(Upstream) {
+            1 * getHead() >> Mock(Head) {
+                1 * getCurrentHeight() >> 1001
+            }
+        }
+        when:
+        def act = matcher.matches(up)
+        then:
+        act
+    }
+
+    def "No match by height when less"() {
+        setup:
+        def matcher = new Selector.HeightMatcher(1000)
+        def up = Mock(Upstream) {
+            1 * getHead() >> Mock(Head) {
+                1 * getCurrentHeight() >> 999
+            }
+        }
+        when:
+        def act = matcher.matches(up)
+        then:
+        !act
+    }
+
+    def "No match by height when none"() {
+        setup:
+        def matcher = new Selector.HeightMatcher(1000)
+        def up = Mock(Upstream) {
+            1 * getHead() >> Mock(Head) {
+                1 * getCurrentHeight() >> null
+            }
+        }
+        when:
+        def act = matcher.matches(up)
+        then:
+        !act
+    }
+
 }

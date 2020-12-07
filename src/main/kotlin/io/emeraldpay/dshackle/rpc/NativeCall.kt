@@ -25,10 +25,12 @@ import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
@@ -48,6 +50,7 @@ open class NativeCall(
     private val objectMapper: ObjectMapper = Global.objectMapper
 
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
+    private val ethereumCallSelector = EthereumCallSelector()
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return nativeCallResult(requestMono)
@@ -118,11 +121,19 @@ open class NativeCall(
     }
 
     fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: Multistream): Flux<CallContext<RawCallDetails>> {
-        return request.itemsList.toFlux().map {
+        return Flux.fromIterable(request.itemsList).map {
             val method = it.method
             val params = it.payload.toStringUtf8()
 
+            // for ethereum the actual block needed for the call may be specified in the call parameters
+            val callSpecificMather = if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
+                ethereumCallSelector.getMatcher(method, params, upstream.getHead())
+            } else {
+                null
+            }
+
             val matcher = Selector.Builder()
+                    .withMatcher(callSpecificMather)
                     .forMethod(method)
                     .forLabels(Selector.convertToMatcher(request.selector))
                     .build()
