@@ -23,6 +23,7 @@ import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
 import org.mockserver.model.MediaType
+import org.springframework.util.SocketUtils
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -34,6 +35,7 @@ class JsonRpcHttpClientSpec extends Specification {
     int port = 19332
 
     def setup() {
+        port = SocketUtils.findAvailableTcpPort(19332)
         mockServer = ClientAndServer.startClientAndServer(port);
     }
 

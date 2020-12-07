@@ -22,6 +22,7 @@ import org.bitcoinj.params.TestNet3Params
 import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
+import org.springframework.util.SocketUtils
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -31,9 +32,11 @@ import java.time.Instant
 class EsploraClientSpec extends Specification {
 
     ClientAndServer mockServer
+    int port = 23001
 
     def setup() {
-        mockServer = ClientAndServer.startClientAndServer(23001);
+        port = SocketUtils.findAvailableTcpPort(23001)
+        mockServer = ClientAndServer.startClientAndServer(port);
     }
 
     def cleanup() {
@@ -50,7 +53,7 @@ class EsploraClientSpec extends Specification {
         ).respond(
                 HttpResponse.response(responseJson)
         )
-        def client = new EsploraClient(new URI("http://localhost:23001"), null, null)
+        def client = new EsploraClient(new URI("http://localhost:${port}"), null, null)
         when:
         def act = client.getUtxo(Address.fromString(new MainNetParams(), "35vktkPo4wdK8Twu4VMiuPLdCx23XEykGY"))
 
@@ -91,7 +94,7 @@ class EsploraClientSpec extends Specification {
         ).respond(
                 HttpResponse.response(responseJson)
         )
-        def client = new EsploraClient(new URI("http://localhost:23001"), null, null)
+        def client = new EsploraClient(new URI("http://localhost:${port}"), null, null)
         when:
         def act = client.getTransactions(Address.fromString(TestNet3Params.get(), "tb1qyatuwvkfx8thy2ntmtuea6v42vp3zefqvll8kx"))
 
@@ -121,7 +124,7 @@ class EsploraClientSpec extends Specification {
         ).respond(
                 HttpResponse.response("[]")
         )
-        def client = new EsploraClient(new URI("http://localhost:23001"), null, null)
+        def client = new EsploraClient(new URI("http://localhost:${port}"), null, null)
         when:
         def act = client.getTransactions(Address.fromString(TestNet3Params.get(), "tb1qyatuwvkfx8thy2ntmtuea6v42vp3zefqvll8kx"))
 
