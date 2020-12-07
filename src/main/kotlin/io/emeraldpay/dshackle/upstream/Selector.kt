@@ -90,6 +90,13 @@ class Selector {
             return this
         }
 
+        fun withMatcher(matcher: Matcher?): Builder {
+            matcher?.let {
+                matchers.add(it)
+            }
+            return this
+        }
+
         fun build(): Matcher {
             return MultiMatcher(matchers)
         }
@@ -238,6 +245,25 @@ class Selector {
     class GrpcMatcher() : Matcher {
         override fun matches(up: Upstream): Boolean {
             return up.isGrpc()
+        }
+    }
+
+    class HeightMatcher(val height: Long): Matcher {
+        override fun matches(up: Upstream): Boolean {
+            return (up.getHead().getCurrentHeight() ?: 0) >= height
+        }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is HeightMatcher) return false
+
+            if (height != other.height) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            return height.hashCode()
         }
     }
 }
