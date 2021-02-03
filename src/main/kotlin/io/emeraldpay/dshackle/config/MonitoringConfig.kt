@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 EmeraldPay, Inc
+ * Copyright (c) 2021 EmeraldPay, Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,28 @@
  */
 package io.emeraldpay.dshackle.config
 
-class MainConfig {
-    var host = "127.0.0.1"
-    var port = 2449
-    var tls: AuthConfig.ServerTlsAuth? = null
-    var cache: CacheConfig? = null
-    var proxy: ProxyConfig? = null
-    var upstreams: UpstreamsConfig? = null
-    var tokens: TokensConfig? = null
-    var monitoring: MonitoringConfig = MonitoringConfig.default()
+class MonitoringConfig(
+        val enabled: Boolean,
+        val prometheus: PrometheusConfig
+) {
+
+    companion object {
+        fun default(): MonitoringConfig {
+            return MonitoringConfig(true, PrometheusConfig.default())
+        }
+    }
+
+
+    data class PrometheusConfig(
+            val enabled: Boolean,
+            val path: String,
+            val port: Int
+    ) {
+        companion object {
+            fun default(): PrometheusConfig {
+                return PrometheusConfig(true, "/prometheus", 8081)
+            }
+        }
+    }
 
 }

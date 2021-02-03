@@ -105,4 +105,9 @@ open class Config(
         return mainConfig.tokens ?: TokensConfig(emptyList())
     }
 
+    @Bean
+    open fun monitoringConfig(@Autowired mainConfig: MainConfig): MonitoringConfig {
+        return mainConfig.monitoring
+    }
+
 }

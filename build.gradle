@@ -87,7 +87,7 @@ dependencies {
     implementation 'io.projectreactor.addons:reactor-extra:3.3.3.RELEASE'
     implementation 'io.projectreactor.kotlin:reactor-kotlin-extensions:1.0.2.RELEASE'
     implementation "com.salesforce.servicelibs:reactor-grpc-stub:$reactiveGrpcVersion"
-
+    implementation 'io.micrometer:micrometer-registry-prometheus:1.5.6'
     implementation 'io.lettuce:lettuce-core:5.2.2.RELEASE'
 
     implementation "io.infinitape:etherjar-domain:$etherjarVersion"

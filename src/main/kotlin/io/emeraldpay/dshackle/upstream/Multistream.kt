@@ -24,6 +24,8 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
+import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.Tag
 import org.apache.commons.collections4.Factory
 import org.apache.commons.collections4.FunctorException
 import org.slf4j.LoggerFactory
@@ -50,6 +52,7 @@ abstract class Multistream(
 
     companion object {
         private val log = LoggerFactory.getLogger(Multistream::class.java)
+        private const val metrics = "upstreams"
     }
 
     private var cacheSubscription: Disposable? = null
@@ -62,6 +65,24 @@ abstract class Multistream(
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
     private var capabilities: Set<Capability> = emptySet()
+
+    init {
+        UpstreamAvailability.values().forEach { status ->
+            Metrics.gauge("$metrics.availability",
+                    listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.toLowerCase()))
+                    , this) {
+                upstreams.count { it.getStatus() == status }.toDouble()
+            }
+        }
+
+        upstreams.forEach { up ->
+            Metrics.gauge("$metrics.lag",
+                    listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", up.getId()))
+                    , this) {
+                up.getLag().toDouble()
+            }
+        }
+    }
 
     open fun init() {
         onUpstreamsUpdated()
