@@ -24,17 +24,24 @@ class MonitoringConfig(
         fun default(): MonitoringConfig {
             return MonitoringConfig(true, PrometheusConfig.default())
         }
+        fun disabled(): MonitoringConfig {
+            return MonitoringConfig(false, PrometheusConfig.disabled())
+        }
     }
 
 
     data class PrometheusConfig(
             val enabled: Boolean,
             val path: String,
+            val host: String,
             val port: Int
     ) {
         companion object {
             fun default(): PrometheusConfig {
-                return PrometheusConfig(true, "/prometheus", 8081)
+                return PrometheusConfig(true, "/metrics", "127.0.0.1", 8081)
+            }
+            fun disabled(): PrometheusConfig {
+                return PrometheusConfig(false, "/", "127.0.0.1", 0)
             }
         }
     }

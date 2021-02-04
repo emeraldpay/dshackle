@@ -33,6 +33,7 @@ class MainConfigReader(
     private val upstreamsConfigReader = UpstreamsConfigReader(fileResolver)
     private val cacheConfigReader = CacheConfigReader()
     private val tokensConfigReader = TokensConfigReader()
+    private val monitoringConfigReader = MonitoringConfigReader()
 
     fun read(input: InputStream): MainConfig? {
         val configNode = readNode(input)
@@ -62,6 +63,9 @@ class MainConfigReader(
         }
         tokensConfigReader.read(input)?.let {
             config.tokens = it
+        }
+        monitoringConfigReader.read(input).let {
+            config.monitoring = it
         }
         return config
     }

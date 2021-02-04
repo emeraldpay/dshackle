@@ -57,7 +57,7 @@ class MonitoringSetup(
             // use standard JVM server with a single thread blocking processing
             // prometheus is a single thread periodic call, no reason to setup anything complex
             try {
-                val server = HttpServer.create(InetSocketAddress(monitoringConfig.prometheus.port), 0);
+                val server = HttpServer.create(InetSocketAddress(monitoringConfig.prometheus.host, monitoringConfig.prometheus.port), 0);
                 server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
                     val response = prometheusRegistry.scrape()
                     httpExchange.sendResponseHeaders(200, response.toByteArray().size.toLong());

@@ -1,0 +1,7 @@
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    bind: 192.168.0.1
+    port: 8000
+    path: /status/prometheus
