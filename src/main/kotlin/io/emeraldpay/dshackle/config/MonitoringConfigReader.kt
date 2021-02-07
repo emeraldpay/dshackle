@@ -38,7 +38,7 @@ class MonitoringConfigReader: YamlConfigReader(), ConfigReader<MonitoringConfig>
         if (input == null) {
             return MonitoringConfig.default()
         }
-        val enabled = getValueAsBool(input, "enabled") ?: false
+        val enabled = getValueAsBool(input, "enabled") ?: true
         if (!enabled) {
             return MonitoringConfig.disabled()
         }
