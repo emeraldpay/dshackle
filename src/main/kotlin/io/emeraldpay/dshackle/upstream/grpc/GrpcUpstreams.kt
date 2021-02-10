@@ -26,9 +26,14 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
+import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.Tag
+import io.micrometer.core.instrument.Timer
 import io.netty.handler.ssl.*
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
@@ -157,21 +162,40 @@ class GrpcUpstreams(
     }
 
     fun getOrCreate(chain: Chain): UpstreamChange {
+        val metricsTags = listOf(
+                // "unknown" is not supposed to happen
+                Tag.of("upstream", id ?: "unknown"),
+                // UNSPECIFIED shouldn't happen too
+                Tag.of("chain", chain.chainCode)
+        )
+
+        val metrics = RpcMetrics(
+                Timer.builder("upstream.grpc.conn")
+                        .description("Request time through a gRPC connection")
+                        .tags(metricsTags)
+                        .publishPercentileHistogram()
+                        .register(Metrics.globalRegistry),
+                Counter.builder("upstream.grpc.err")
+                        .description("Errors received on request through gRPC connection")
+                        .tags(metricsTags)
+                        .register(Metrics.globalRegistry)
+        )
+
         val blockchainType = BlockchainType.fromBlockchain(chain)
         if (blockchainType == BlockchainType.ETHEREUM) {
-            return getOrCreateEthereum(chain)
+            return getOrCreateEthereum(chain, metrics)
         } else if (blockchainType == BlockchainType.BITCOIN) {
-            return getOrCreateBitcoin(chain)
+            return getOrCreateBitcoin(chain, metrics)
         } else {
             throw IllegalArgumentException("Unsupported blockchain: $chain")
         }
     }
 
-    fun getOrCreateEthereum(chain: Chain): UpstreamChange {
+    fun getOrCreateEthereum(chain: Chain, metrics: RpcMetrics): UpstreamChange {
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val rpcClient = JsonRpcGrpcClient(client!!, chain)
+                val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
                 val created = EthereumGrpcUpstream(id, chain, client!!, rpcClient)
                 created.timeout = this.timeout
                 known[chain] = created
@@ -183,11 +207,11 @@ class GrpcUpstreams(
         }
     }
 
-    fun getOrCreateBitcoin(chain: Chain): UpstreamChange {
+    fun getOrCreateBitcoin(chain: Chain, metrics: RpcMetrics): UpstreamChange {
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val rpcClient = JsonRpcGrpcClient(client!!, chain)
+                val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
                 val created = BitcoinGrpcUpstream(id, chain, client!!, rpcClient)
                 created.timeout = this.timeout
                 known[chain] = created

@@ -19,6 +19,8 @@ import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Timer
 import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
@@ -33,6 +35,10 @@ class JsonRpcHttpClientSpec extends Specification {
 
     ClientAndServer mockServer
     int port = 19332
+    RpcMetrics metrics = new RpcMetrics(
+            Timer.builder("test1").register(TestingCommons.meterRegistry),
+            Counter.builder("test2").register(TestingCommons.meterRegistry)
+    )
 
     def setup() {
         port = SocketUtils.findAvailableTcpPort(19332)
@@ -45,7 +51,7 @@ class JsonRpcHttpClientSpec extends Specification {
 
     def "Make a request"() {
         setup:
-        JsonRpcHttpClient client = new JsonRpcHttpClient("localhost:${port}", null, null)
+        JsonRpcHttpClient client = new JsonRpcHttpClient("localhost:${port}", metrics,null, null)
         def resp = '{' +
                 '  "jsonrpc": "2.0",' +
                 '  "result": "0x98de45",' +
@@ -67,7 +73,7 @@ class JsonRpcHttpClientSpec extends Specification {
     def "Make request with basic auth"() {
         setup:
         def auth = new AuthConfig.ClientBasicAuth("user", "passwd")
-        def client = new JsonRpcHttpClient("localhost:${port}", auth, null)
+        def client = new JsonRpcHttpClient("localhost:${port}", metrics, auth, null)
 
         mockServer.when(
                 HttpRequest.request()
@@ -95,7 +101,7 @@ class JsonRpcHttpClientSpec extends Specification {
 
     def "Produces RPC Exception on error status code"() {
         setup:
-        def client = new JsonRpcHttpClient("localhost:${port}", null, null)
+        def client = new JsonRpcHttpClient("localhost:${port}", metrics, null, null)
 
         mockServer.when(
                 HttpRequest.request()

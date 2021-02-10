@@ -32,10 +32,15 @@ import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.Chain
+import io.micrometer.core.instrument.Counter
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
+import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.Tag
+import io.micrometer.core.instrument.Timer
 import java.net.URI
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
@@ -235,9 +240,27 @@ open class ConfiguredUpstreams(
                     fileResolver.resolve(ca).readBytes()
                 }
             }
+            val metricsTags = listOf(
+                    // "unknown" is not supposed to happen
+                    Tag.of("upstream", config.id ?: "unknown"),
+                    // UNSPECIFIED shouldn't happen too
+                    Tag.of("chain", (chainNames[config.chain ?: ""] ?: Chain.UNSPECIFIED ).chainCode)
+            )
+            val metrics = RpcMetrics(
+                    Timer.builder("upstream.rpc.conn")
+                            .description("Request time through a HTTP JSON RPC connection")
+                            .tags(metricsTags)
+                            .publishPercentileHistogram()
+                            .register(Metrics.globalRegistry),
+                    Counter.builder("upstream.rpc.err")
+                            .description("Errors received on request through HTTP JSON RPC connection")
+                            .tags(metricsTags)
+                            .register(Metrics.globalRegistry)
+            )
             urls.add(endpoint.url)
             JsonRpcHttpClient(
                     endpoint.url.toString(),
+                    metrics,
                     conn.rpc?.basicAuth,
                     tls
             )

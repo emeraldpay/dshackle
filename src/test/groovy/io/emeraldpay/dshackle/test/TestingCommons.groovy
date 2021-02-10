@@ -34,6 +34,8 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.logging.LoggingMeterRegistry
 import org.apache.commons.lang3.StringUtils
 
 import java.time.Duration
@@ -113,4 +115,6 @@ class TestingCommons {
         Instant.ofEpochSecond(1577876400)
                 .plusSeconds(x * stepSeconds)
     }
+
+    static MeterRegistry meterRegistry = new LoggingMeterRegistry()
 }

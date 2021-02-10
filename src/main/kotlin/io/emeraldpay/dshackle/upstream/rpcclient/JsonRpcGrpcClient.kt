@@ -27,11 +27,14 @@ import io.grpc.Channel
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.concurrent.TimeUnit
 
 class JsonRpcGrpcClient(
         private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
-        private val chain: Chain
+        private val chain: Chain,
+        private val metrics: RpcMetrics
 ) {
 
     companion object {
@@ -39,18 +42,18 @@ class JsonRpcGrpcClient(
     }
 
     fun forSelector(matcher: Selector.Matcher): Reader<JsonRpcRequest, JsonRpcResponse> {
-        return Executor(stub, chain, matcher)
+        return Executor(stub, chain, matcher, metrics)
     }
 
     class Executor(
             private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
             private val chain: Chain,
-            private val matcher: Selector.Matcher
+            private val matcher: Selector.Matcher,
+            private val metrics: RpcMetrics
     ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
-        private val parser = JsonRpcParser()
-
         override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
+            var startTime: Long = 0
             val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                     .setChainValue(chain.id)
 
@@ -68,14 +71,26 @@ class JsonRpcGrpcClient(
                         req.addItems(it)
                     }
 
-            return stub.nativeCall(req.build())
-                    .single()
-                    .flatMap { resp ->
-                        if (resp.succeed) {
-                            val bytes = resp.payload.toByteArray()
-                            Mono.just(JsonRpcResponse(bytes, null))
-                        } else {
-                            Mono.error(RpcException(RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR, resp.errorMessage))
+            return Mono.just(key)
+                    .doOnNext {
+                        startTime = System.nanoTime()
+                    }.flatMap {
+                        stub.nativeCall(req.build())
+                                .single()
+                                .flatMap { resp ->
+                                    if (resp.succeed) {
+                                        val bytes = resp.payload.toByteArray()
+                                        Mono.just(JsonRpcResponse(bytes, null))
+                                    } else {
+                                        metrics.errors.increment()
+                                        Mono.error(RpcException(RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR, resp.errorMessage))
+                                    }
+                                }
+                    }
+                    .doOnNext {
+                        if (startTime > 0) {
+                            val now = System.nanoTime()
+                            metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
                         }
                     }
         }

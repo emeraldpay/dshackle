@@ -27,10 +27,13 @@ import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
+import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Timer
 import spock.lang.Specification
 
 import java.time.Duration
@@ -41,6 +44,10 @@ class EthereumGrpcUpstreamSpec extends Specification {
 
     MockGrpcServer mockServer = new MockGrpcServer()
     ObjectMapper objectMapper = Global.objectMapper
+    RpcMetrics metrics = new RpcMetrics(
+            Timer.builder("test1").register(TestingCommons.meterRegistry),
+            Counter.builder("test2").register(TestingCommons.meterRegistry)
+    )
 
     def "Subscribe to head"() {
         setup:
@@ -73,7 +80,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain))
+        def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain, metrics))
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
@@ -131,7 +138,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM))
+        def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics))
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
@@ -193,7 +200,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain))
+        def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain, metrics))
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))

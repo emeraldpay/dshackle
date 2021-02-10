@@ -19,6 +19,8 @@ import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Timer
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpHeaders
@@ -31,6 +33,7 @@ import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import java.util.*
+import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
 
 /**
@@ -38,6 +41,7 @@ import java.util.function.Consumer
  */
 class JsonRpcHttpClient(
         private val target: String,
+        private val metrics: RpcMetrics,
         basicAuth: AuthConfig.ClientBasicAuth? = null,
         tlsCAAuth: ByteArray? = null
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
@@ -98,9 +102,19 @@ class JsonRpcHttpClient(
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
+        var startTime: Long = 0
         return Mono.just(key)
                 .map(JsonRpcRequest::toJson)
+                .doOnNext {
+                    startTime = System.nanoTime()
+                }
                 .flatMap(this@JsonRpcHttpClient::execute)
+                .doOnNext {
+                    if (startTime > 0) {
+                        val now = System.nanoTime()
+                        metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
+                    }
+                }
                 .map(parser::parse)
                 .onErrorResume { t ->
                     val err = when (t) {
@@ -108,7 +122,9 @@ class JsonRpcHttpClient(
                         is JsonRpcException -> JsonRpcResponse.error(t.error, JsonRpcResponse.NumberId(1))
                         else -> JsonRpcResponse.error(1, t.message ?: t.javaClass.name)
                     }
+                    metrics.errors.increment()
                     Mono.just(err)
                 }
     }
+
 }
