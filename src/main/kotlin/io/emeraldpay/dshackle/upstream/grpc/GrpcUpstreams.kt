@@ -163,9 +163,7 @@ class GrpcUpstreams(
 
     fun getOrCreate(chain: Chain): UpstreamChange {
         val metricsTags = listOf(
-                // "unknown" is not supposed to happen
-                Tag.of("upstream", id ?: "unknown"),
-                // UNSPECIFIED shouldn't happen too
+                Tag.of("upstream", id),
                 Tag.of("chain", chain.chainCode)
         )
 
