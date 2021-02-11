@@ -18,12 +18,17 @@ package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.ChainValue
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.Timer
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandler
@@ -39,6 +44,7 @@ import reactor.netty.http.server.HttpServer
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
+import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
 
 /**
@@ -55,6 +61,8 @@ class ProxyServer(
     companion object {
         private val log = LoggerFactory.getLogger(ProxyServer::class.java)
     }
+
+    private val chainMetrics = ChainValue { chain -> RequestMetrics(chain) }
 
     private val errorHandler: ChannelHandler = object : ChannelHandler {
         override fun handlerAdded(p0: ChannelHandlerContext?) {
@@ -123,9 +131,16 @@ class ProxyServer(
     }
 
     fun processRequest(chain: Common.ChainRef, request: Mono<ByteArray>): Flux<ByteBuf> {
-        return request.map(readRpcJson)
+        val metrics = chainMetrics.get(chain)
+        val startTime = System.currentTimeMillis()
+        return request
+                .map(readRpcJson)
                 .flatMapMany { call -> execute(chain, call) }
+                .doOnNext {
+                    metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                }
                 .onErrorResume(RpcException::class.java) { err ->
+                    metrics.errorMetric.increment()
                     val id = err.details?.let {
                         if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
                     } ?: JsonRpcResponse.NumberId(-1)
@@ -146,5 +161,14 @@ class ProxyServer(
             resp.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                     .send(results)
         }
+    }
+
+    class RequestMetrics(chain: Chain) {
+        val callMetric = Timer.builder("request.jsonrpc.call")
+                .tag("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
+        val errorMetric = Counter.builder("request.jsonrpc.err")
+                .tag("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
     }
 }

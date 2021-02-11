@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.ChainValue
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
@@ -54,6 +55,7 @@ class BlockchainRpc(
             .register(Metrics.globalRegistry)
     private val errorMetric = Counter.builder("request.grpc.err")
             .register(Metrics.globalRegistry)
+    private val chainMetrics = ChainValue { chain -> RequestMetrics(chain) }
 
     override fun nativeCall(request: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         var startTime = 0L
@@ -61,7 +63,7 @@ class BlockchainRpc(
         return nativeCall.nativeCall(
                 request
                         .doOnNext {
-                            metrics = getMetrics(it.chain)
+                            metrics = chainMetrics.get(it.chain)
                             metrics!!.nativeCallMetric.increment()
                             startTime = System.currentTimeMillis()
                         }
@@ -73,14 +75,14 @@ class BlockchainRpc(
     override fun subscribeHead(request: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
         return streamHead.add(
                 request
-                        .doOnNext { getMetrics(it.type).subscribeHeadMetric.increment() }
+                        .doOnNext { chainMetrics.get(it.type).subscribeHeadMetric.increment() }
         ).doOnError { errorMetric.increment() }
     }
 
     override fun subscribeTxStatus(request: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
         return request.flatMapMany { request ->
             val chain = Chain.byId(request.chainValue)
-            val metrics = getMetrics(chain)
+            val metrics = chainMetrics.get(chain)
             metrics.subscribeTxMetric.increment()
             try {
                 trackTx.find { it.isSupported(chain) }?.let { track ->
@@ -99,7 +101,7 @@ class BlockchainRpc(
     override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
         return requestMono.flatMapMany { request ->
             val chain = Chain.byId(request.asset.chainValue)
-            val metrics = getMetrics(chain)
+            val metrics = chainMetrics.get(chain)
             metrics.subscribeBalanceMetric.increment()
             val asset = request.asset.code.toLowerCase()
             try {
@@ -122,7 +124,7 @@ class BlockchainRpc(
     override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
         return requestMono.flatMapMany { request ->
             val chain = Chain.byId(request.asset.chainValue)
-            val metrics = getMetrics(chain)
+            val metrics = chainMetrics.get(chain)
             metrics.getBalanceMetric.increment()
             val asset = request.asset.code.toLowerCase()
             val startTime = System.currentTimeMillis()
@@ -154,30 +156,6 @@ class BlockchainRpc(
         subscribeStatusMetric.increment()
         return subscribeStatus.subscribeStatus(request)
                 .doOnError { errorMetric.increment() }
-    }
-
-    private val metrics = EnumMap<Chain, RequestMetrics>(Chain::class.java)
-    private val metricsSetupLock = ReentrantLock()
-
-    private fun getMetrics(chain: Common.ChainRef): RequestMetrics {
-        return getMetrics(Chain.byId(chain.number))
-    }
-    private fun getMetrics(chain: Chain): RequestMetrics {
-        val existing = metrics[chain]
-        if (existing != null) {
-            return existing
-        }
-        return metricsSetupLock.withLock {
-            // second check in case it was updated while getting the lock
-            val existing2 = metrics[chain]
-            if (existing2 != null) {
-                existing2
-            } else {
-                val created = RequestMetrics(chain)
-                metrics[chain] = created
-                created
-            }
-        }
     }
 
     class RequestMetrics(chain: Chain) {
