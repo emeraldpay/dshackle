@@ -49,9 +49,11 @@ class BlockchainRpc(
 
     private val describeMetric = Counter.builder("request.grpc.request")
             .tag("type", "describe")
+            .tag("chain", "NA")
             .register(Metrics.globalRegistry)
     private val subscribeStatusMetric = Counter.builder("request.grpc.request")
             .tag("type", "subscribeStatus")
+            .tag("chain", "NA")
             .register(Metrics.globalRegistry)
     private val errorMetric = Counter.builder("request.grpc.err")
             .register(Metrics.globalRegistry)
