@@ -46,7 +46,8 @@ class CacheRequested(
         if (params.size != 1) {
             return
         }
-        val parsed = Global.objectMapper.readValue(json, TransactionReceiptJson::class.java)
+        // note: json could be a `null` value
+        val parsed = Global.objectMapper.readValue(json, TransactionReceiptJson::class.java) ?: return
         val value = DefaultContainer<TransactionReceiptJson>(
                 TxId.from(parsed.transactionHash),
                 BlockId.from(parsed.blockHash),

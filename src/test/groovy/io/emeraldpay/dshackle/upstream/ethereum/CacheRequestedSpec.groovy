@@ -42,4 +42,17 @@ class CacheRequestedSpec extends Specification {
         })
     }
 
+    def "Ignore null"() {
+        setup:
+        def caches = Mock(Caches)
+        CacheRequested instance = new CacheRequested(caches)
+        def json = 'null'.bytes
+
+        when:
+        instance.cacheTxReceipt(["0x5929b36be4586c57bd87dfb7ea6be3b985c1f527fa3d69d221604b424aeb4197"], json)
+
+        then:
+        0 * caches.cacheReceipt(_, _)
+    }
+
 }
