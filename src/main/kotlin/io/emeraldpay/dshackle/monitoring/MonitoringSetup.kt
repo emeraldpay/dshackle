@@ -20,6 +20,11 @@ import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.config.MonitoringConfig
 import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics
+import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics
+import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics
+import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics
+import io.micrometer.core.instrument.binder.system.ProcessorMetrics
 import io.micrometer.core.instrument.config.MeterFilter
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -49,9 +54,21 @@ class MonitoringSetup(
         Metrics.globalRegistry.add(prometheusRegistry)
         Metrics.globalRegistry.config().meterFilter(object: MeterFilter {
             override fun map(id: Meter.Id): Meter.Id {
-                return id.withName("dshackle." + id.name)
+                if (id.name.startsWith("jvm") || id.name.startsWith("process") || id.name.startsWith("system")) {
+                    return id
+                } else {
+                    return id.withName("dshackle." + id.name)
+                }
             }
         })
+
+        if (monitoringConfig.enableJvm) {
+            ClassLoaderMetrics().bindTo(Metrics.globalRegistry)
+            JvmMemoryMetrics().bindTo(Metrics.globalRegistry)
+            JvmGcMetrics().bindTo(Metrics.globalRegistry)
+            ProcessorMetrics().bindTo(Metrics.globalRegistry)
+            JvmThreadMetrics().bindTo(Metrics.globalRegistry)
+        }
 
         if (monitoringConfig.prometheus.enabled) {
             // use standard JVM server with a single thread blocking processing

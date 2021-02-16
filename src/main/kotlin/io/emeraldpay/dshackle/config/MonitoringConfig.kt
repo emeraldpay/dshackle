@@ -29,6 +29,7 @@ class MonitoringConfig(
         }
     }
 
+    var enableJvm: Boolean = true
 
     data class PrometheusConfig(
             val enabled: Boolean,
