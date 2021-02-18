@@ -24,6 +24,9 @@ import io.emeraldpay.dshackle.config.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.ExitCodeGenerator
+import org.springframework.boot.SpringApplication
+import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.*
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
@@ -34,12 +37,14 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
+import kotlin.system.exitProcess
 
 @Configuration
 @EnableScheduling
 @EnableAsync
 open class Config(
-        @Autowired private val env: Environment
+        @Autowired private val env: Environment,
+        @Autowired private val ctx: ApplicationContext
 ) {
 
     companion object {
@@ -79,6 +84,11 @@ open class Config(
     open fun mainConfig(@Autowired fileResolver: FileResolver): MainConfig {
         val f = configFilePath ?: throw IllegalStateException("Config path is not set")
         log.info("Using config: ${f.absolutePath}")
+        if (!f.exists() || !f.isFile) {
+            log.error("Config doesn't exist or not a file: ${f.absolutePath}")
+            SpringApplication.exit(ctx, ExitCodeGenerator { 1 })
+            exitProcess(1)
+        }
         val reader = MainConfigReader(fileResolver)
         return reader.read(f.inputStream())
                 ?: throw IllegalStateException("Config is not available at ${f.absolutePath}")
