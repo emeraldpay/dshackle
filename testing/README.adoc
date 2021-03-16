@@ -1,0 +1,41 @@
+= Dshackle Integration Testing
+
+Test for a correct work using a simulation of different upstream behaviours and checking the Dshackle against it.
+
+.Modules:
+- `dshackle` - Dshackle config used for testing environment
+- `simple-upstream` - upstream simulator with predefines responses
+- `trial` - actual tests
+
+== How to run
+
+NOTE: Run commands in project's root dir
+
+=== Run upstream emulator
+
+[source,bash]
+----
+cd testing/simple-upstream && ./gradlew run
+----
+
+=== Run Dshackle
+
+[source,bash]
+----
+./gradlew run --args="--configPath=./testing/dshackle/dshackle.yaml"
+----
+
+or, if you want to make sure you compile and use version with your latest changes (usually unnecessary, but still):
+
+[source,bash]
+----
+./gradlew clean compileKotlin run --args="--configPath=./testing/dshackle/dshackle.yaml"
+----
+
+=== Run tests
+
+[source,bash]
+----
+cd testing/trial && ./gradlew check
+----
+
