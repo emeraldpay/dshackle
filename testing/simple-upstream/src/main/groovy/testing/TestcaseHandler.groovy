@@ -29,6 +29,11 @@ class TestcaseHandler implements CallHandler {
                 && params[0].toLowerCase() == "0xd949bc0fe1a5d16f4522bc47933554dcc4ada0493ff71ee1973b2410257af9fe".toLowerCase()) {
             return resourceResponse.respondWith("trace-0xd949bc.json")
         }
+        // https://github.com/emeraldpay/dshackle/issues/67
+        if (method == "eth_call"
+                && params[0].to?.toLowerCase() == "0xdAC17F958D2ee523a2206206994597C13D831ec7".toLowerCase()) {
+            return Result.error(-32000, "invalid opcode: opcode 0xfe not defined")
+        }
         return null
     }
 }

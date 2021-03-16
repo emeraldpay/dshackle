@@ -34,4 +34,21 @@ class GivesErrorSpec extends Specification {
         }
     }
 
+    def "Dispatch error from upstream when block is specified"() {
+        // issue #67
+        when:
+        def call = [
+                to  : "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+                from: "0xEF65ffB384c99a00403EAa22115323a555700D79",
+                data: "0xa9059cbb0000000000000000000000003f5ce5fbfe3e9af3971dd833d26ba9b5c936f0be000000000000000000000000000000000000000000000000000000004856fb60"
+        ]
+        def act = client.execute("eth_call", [call, "0x100000"])
+        then:
+        act.result == null
+        act.error != null
+        with(act.error) {
+            code == -32000
+            message == "invalid opcode: opcode 0xfe not defined"
+        }
+    }
 }
