@@ -78,4 +78,12 @@ class EthereumCallSelectorSpec extends Specification {
         act == null
     }
 
+    def "Get height matcher with EIP-1898"() {
+        setup:
+        def head = Stub(Head)
+        when:
+        def act = callSelector.getMatcher("eth_call", '["0x0000", {"blockNumber": "0x100"}]', head)
+        then:
+        act == new Selector.HeightMatcher(0x100)
+    }
 }

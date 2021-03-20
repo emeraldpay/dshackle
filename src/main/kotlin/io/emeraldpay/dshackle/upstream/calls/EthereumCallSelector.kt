@@ -61,24 +61,37 @@ class EthereumCallSelector {
             log.debug("Tag is not specified. Ignoring")
             return null
         }
-        // integer block number, or the string "latest", "earliest" or "pending"
-        val minHeight = when (val tag = list[pos].toString()) {
-            "latest" -> head.getCurrentHeight() ?: 0
+        // integer block number, a string "latest", "earliest" or "pending", or an object with block reference
+        val minHeight: Long? = when (val tag = list[pos].toString()) {
+            "latest" -> head.getCurrentHeight()
             // for earliest it doesn't nothing, we expect to have 0 block
             "earliest" -> 0L
             else -> if (tag.startsWith("0x")) {
+                try {
+                    HexQuantity.from(tag).value.toLong()
+                } catch (t: Throwable) {
+                    log.debug("Invalid tag: $tag. ${t.javaClass}: ${t.message}")
+                    null
+                }
+            } else if (tag.startsWith("{") && list[pos] is Map<*, *>) {
+                // see https://eips.ethereum.org/EIPS/eip-1898
+                val obj = list[pos] as Map<*, *>
+                if (obj.containsKey("blockNumber")) {
                     try {
-                        HexQuantity.from(tag).value.toLong()
+                        HexQuantity.from(obj["blockNumber"].toString()).value.toLong()
                     } catch (t: Throwable) {
-                        log.debug("Invalid tag: $tag. ${t.javaClass}: ${t.message}")
-                        0L
+                        log.warn("Invalid blockNumber: $tag")
+                        null
                     }
                 } else {
-                    log.debug("Invalid tag: $tag")
-                    0L
+                    null
                 }
+            } else {
+                log.debug("Invalid tag: $tag")
+                null
+            }
         }
-        return if (minHeight > 0) {
+        return if (minHeight != null && minHeight >= 0) {
             Selector.HeightMatcher(minHeight)
         } else {
             null
