@@ -182,7 +182,7 @@ jib {
         ]
         mainClass = 'io.emeraldpay.dshackle.StarterKt'
         args = []
-        ports = ['8090', '8545']
+        ports = ['2448', '2449', '8545']
     }
 }
 
