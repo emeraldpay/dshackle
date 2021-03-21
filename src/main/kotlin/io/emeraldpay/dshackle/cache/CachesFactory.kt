@@ -96,6 +96,7 @@ class CachesFactory(
             caches.setBlockByHash(BlocksRedisCache(redis.reactive(), chain))
             caches.setTxByHash(TxRedisCache(redis.reactive(), chain))
             caches.setReceipts(ReceiptRedisCache(redis.reactive(), chain))
+            caches.setHeightByHash(HeightByHashRedisCache(redis.reactive(), chain))
         }
         return caches.build()
     }

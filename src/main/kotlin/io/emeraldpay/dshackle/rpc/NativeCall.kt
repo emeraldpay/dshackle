@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -40,6 +41,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.*
 import java.lang.Exception
+import java.util.*
 
 @Service
 open class NativeCall(
@@ -50,7 +52,18 @@ open class NativeCall(
     private val objectMapper: ObjectMapper = Global.objectMapper
 
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
-    private val ethereumCallSelector = EthereumCallSelector()
+    private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
+
+    init {
+        multistreamHolder.observeChains().subscribe { chain ->
+            if (!ethereumCallSelectors.containsKey(chain)) {
+                multistreamHolder.getUpstream(chain)?.let { up ->
+                    val reader = up.cast(EthereumMultistream::class.java).getReader()
+                    ethereumCallSelectors[chain] = EthereumCallSelector(reader.heightByHash())
+                }
+            }
+        }
+    }
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return nativeCallResult(requestMono)
@@ -121,27 +134,30 @@ open class NativeCall(
     }
 
     fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: Multistream): Flux<CallContext<RawCallDetails>> {
-        return Flux.fromIterable(request.itemsList).map {
+        val chain = Chain.byId(request.chainValue)
+        return Flux.fromIterable(request.itemsList).flatMap {
             val method = it.method
             val params = it.payload.toStringUtf8()
 
             // for ethereum the actual block needed for the call may be specified in the call parameters
-            val callSpecificMather = if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
-                ethereumCallSelector.getMatcher(method, params, upstream.getHead())
+            val callSpecificMatcher: Mono<Selector.Matcher> = if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
+                ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead())
             } else {
                 null
+            } ?: Mono.empty()
+
+            callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
+                val matcher = Selector.Builder()
+                        .withMatcher(csm)
+                        .forMethod(method)
+                        .forLabels(Selector.convertToMatcher(request.selector))
+                        .build()
+
+                val callQuorum = upstream.getMethods().getQuorumFor(method) ?: AlwaysQuorum()
+                callQuorum.init(upstream.getHead())
+
+                CallContext(it.id, upstream, matcher, callQuorum, RawCallDetails(method, params))
             }
-
-            val matcher = Selector.Builder()
-                    .withMatcher(callSpecificMather)
-                    .forMethod(method)
-                    .forLabels(Selector.convertToMatcher(request.selector))
-                    .build()
-
-            val callQuorum = upstream.getMethods().getQuorumFor(method) ?: AlwaysQuorum()
-            callQuorum.init(upstream.getHead())
-
-            CallContext(it.id, upstream, matcher, callQuorum, RawCallDetails(method, params))
         }
     }
 

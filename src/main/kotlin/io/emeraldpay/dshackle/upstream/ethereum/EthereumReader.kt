@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
+import io.emeraldpay.dshackle.cache.HeightByHashAdding
 import io.emeraldpay.dshackle.data.*
 import io.emeraldpay.dshackle.reader.*
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -77,6 +78,13 @@ open class EthereumReader(
     private val txHashToId = Function<TransactionId, TxId> { hash -> TxId.from(hash) }
     private val idToTxHash = Function<TxId, TransactionId> { id -> TransactionId.from(id.value) }
 
+    private val blocksByIdAsCont = CompoundReader(
+            caches.getBlocksByHash(),
+            RekeyingReader(idToBlockHash, directReader.blockReader)
+    )
+
+    private val heightByHash = HeightByHashAdding(caches, blocksByIdAsCont)
+
     fun blocksByHashAsCont(): Reader<BlockHash, BlockContainer> {
         return CompoundReader(
                 RekeyingReader(blockHashToId, caches.getBlocksByHash()),
@@ -99,10 +107,7 @@ open class EthereumReader(
     }
 
     open fun blocksByIdAsCont(): Reader<BlockId, BlockContainer> {
-        return CompoundReader(
-                caches.getBlocksByHash(),
-                RekeyingReader(idToBlockHash, directReader.blockReader)
-        )
+        return blocksByIdAsCont
     }
 
     open fun blocksByHeightAsCont(): Reader<Long, BlockContainer> {
@@ -138,6 +143,10 @@ open class EthereumReader(
 
     fun receipts(): Reader<TxId, ByteArray> {
         return caches.getReceipts()
+    }
+
+    fun heightByHash(): Reader<BlockId, Long> {
+        return heightByHash
     }
 
     override fun isRunning(): Boolean {
