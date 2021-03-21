@@ -16,20 +16,26 @@
 package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.infinitape.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Mono
 import java.util.*
 
 /**
  * Get a matcher based on a criteria provided with a RPC request. I.e. when the client requests data for "latest", or "0x19f816" block.
  * The implementation is specific for Ethereum.
  */
-class EthereumCallSelector {
+class EthereumCallSelector(
+        private val heightReader: Reader<BlockId, Long>
+) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumCallSelector::class.java)
+
         // ref https://eth.wiki/json-rpc/API#the-default-block-parameter
         private val TAG_METHODS = listOf(
                 "eth_getBalance",
@@ -46,20 +52,20 @@ class EthereumCallSelector {
      * @param method JSON RPC name
      * @param params JSON-encoded list of parameters for the method
      */
-    fun getMatcher(method: String, params: String, head: Head): Selector.Matcher? {
+    fun getMatcher(method: String, params: String, head: Head): Mono<Selector.Matcher> {
         if (Collections.binarySearch(TAG_METHODS, method) >= 0) {
             return blockTagSelector(params, 1, head)
         } else if (method == "eth_getStorageAt") {
             return blockTagSelector(params, 2, head)
         }
-        return null
+        return Mono.empty()
     }
 
-    private fun blockTagSelector(params: String, pos: Int, head: Head): Selector.Matcher? {
+    private fun blockTagSelector(params: String, pos: Int, head: Head): Mono<Selector.Matcher> {
         val list = objectMapper.readerFor(Any::class.java).readValues<Any>(params).readAll()
         if (list.size < pos + 1) {
             log.debug("Tag is not specified. Ignoring")
-            return null
+            return Mono.empty()
         }
         // integer block number, a string "latest", "earliest" or "pending", or an object with block reference
         val minHeight: Long? = when (val tag = list[pos].toString()) {
@@ -76,15 +82,27 @@ class EthereumCallSelector {
             } else if (tag.startsWith("{") && list[pos] is Map<*, *>) {
                 // see https://eips.ethereum.org/EIPS/eip-1898
                 val obj = list[pos] as Map<*, *>
-                if (obj.containsKey("blockNumber")) {
-                    try {
-                        HexQuantity.from(obj["blockNumber"].toString()).value.toLong()
-                    } catch (t: Throwable) {
-                        log.warn("Invalid blockNumber: $tag")
-                        null
+                when {
+                    obj.containsKey("blockNumber") -> {
+                        try {
+                            HexQuantity.from(obj["blockNumber"].toString()).value.toLong()
+                        } catch (t: Throwable) {
+                            log.warn("Invalid blockNumber: $tag")
+                            null
+                        }
                     }
-                } else {
-                    null
+                    obj.containsKey("blockHash") -> {
+                        try {
+                            val blockId = BlockId.from(obj["blockHash"].toString())
+                            return heightReader.read(blockId)
+                                    .switchIfEmpty(Mono.justOrEmpty(head.getCurrentHeight()))
+                                    .map { Selector.HeightMatcher(it) }
+                        } catch (t: Throwable) {
+                            log.warn("Invalid blockHash: $tag")
+                            null
+                        }
+                    }
+                    else -> null
                 }
             } else {
                 log.debug("Invalid tag: $tag")
@@ -92,9 +110,9 @@ class EthereumCallSelector {
             }
         }
         return if (minHeight != null && minHeight >= 0) {
-            Selector.HeightMatcher(minHeight)
+            Mono.just(Selector.HeightMatcher(minHeight))
         } else {
-            null
+            Mono.empty()
         }
     }
 

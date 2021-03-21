@@ -34,6 +34,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
 import io.infinitape.etherjar.rpc.RpcResponseError
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Ignore
@@ -210,7 +211,9 @@ class NativeCallSpec extends Specification {
 
     def "Returns error for unsupported chain"() {
         setup:
-        def upstreams = Mock(MultistreamHolder)
+        def upstreams = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
         def nativeCall = new NativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
@@ -234,7 +237,9 @@ class NativeCallSpec extends Specification {
 
     def "Prepare call"() {
         setup:
-        def upstreams = Mock(MultistreamHolder)
+        def upstreams = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
         def nativeCall = new NativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
@@ -260,7 +265,9 @@ class NativeCallSpec extends Specification {
 
     def "Prepare call without payload"() {
         setup:
-        def upstreams = Mock(MultistreamHolder)
+        def upstreams = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
         def nativeCall = new NativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()

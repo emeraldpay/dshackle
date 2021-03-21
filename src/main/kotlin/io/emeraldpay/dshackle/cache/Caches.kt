@@ -35,7 +35,8 @@ open class Caches(
         private val memTxsByHash: TxMemCache,
         private val redisBlocksByHash: BlocksRedisCache?,
         private val redisTxsByHash: TxRedisCache?,
-        private val redisReceipts: ReceiptRedisCache?
+        private val redisReceipts: ReceiptRedisCache?,
+        private val redisHeightByHashCache: HeightByHashRedisCache?
 ) {
 
     companion object {
@@ -51,6 +52,8 @@ open class Caches(
             return newBuilder().build()
         }
     }
+
+    private val memHeightByHash: HeightByHashMemCache = HeightByHashMemCache()
 
     private val blocksByHash: Reader<BlockId, BlockContainer>
     private val txsByHash: Reader<TxId, TxContainer>
@@ -105,6 +108,9 @@ open class Caches(
 
     fun cache(tag: Tag, block: BlockContainer) {
         val job = ArrayList<Mono<Void>>()
+
+        redisHeightByHashCache?.add(block)?.let(job::add)
+
         if (tag == Tag.LATEST) {
             //for LATEST data cache it in memory, it may be short living so better to avoid Redis
             memoizeBlock(block)
@@ -147,6 +153,7 @@ open class Caches(
      */
     fun memoizeBlock(block: BlockContainer) {
         memBlocksByHash.add(block)
+        memHeightByHash.add(block)
         val replaced = blocksByHeight.add(block)
         //evict cached transactions if an existing block was updated
         replaced?.let { evict(it) }
@@ -193,6 +200,14 @@ open class Caches(
         return receiptByHash
     }
 
+    fun getLastHeightByHash(): Reader<BlockId, Long> {
+        return memHeightByHash
+    }
+
+    fun getRedisHeightByHash(): HeightByHashCache? {
+        return redisHeightByHashCache
+    }
+
     enum class Tag {
         /**
          * Latest data produced by blockchain
@@ -212,6 +227,7 @@ open class Caches(
         private var redisBlocksByHash: BlocksRedisCache? = null
         private var redisTxsByHash: TxRedisCache? = null
         private var redisReceiptCache: ReceiptRedisCache? = null
+        private var redisHeightByHashCache: HeightByHashRedisCache? = null
 
         fun setBlockByHash(cache: BlocksMemCache): Builder {
             blocksByHash = cache
@@ -243,6 +259,11 @@ open class Caches(
             return this
         }
 
+        fun setHeightByHash(cache: HeightByHashRedisCache): Builder {
+            redisHeightByHashCache = cache
+            return this
+        }
+
         fun build(): Caches {
             if (blocksByHash == null) {
                 blocksByHash = BlocksMemCache()
@@ -253,7 +274,8 @@ open class Caches(
             if (txsByHash == null) {
                 txsByHash = TxMemCache()
             }
-            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, redisBlocksByHash, redisTxsByHash, redisReceiptCache)
+            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!,
+                    redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache)
         }
     }
 }
