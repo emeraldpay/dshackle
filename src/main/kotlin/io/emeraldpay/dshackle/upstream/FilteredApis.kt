@@ -28,7 +28,7 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 class FilteredApis(
-        allUpstreams: List<Upstream>,
+        private val allUpstreams: List<Upstream>,
         private val matcher: Selector.Matcher,
         pos: Int,
         /**
@@ -127,5 +127,9 @@ class FilteredApis(
         repeat(tries) {
             control.onNext(true)
         }
+    }
+
+    override fun toString(): String {
+        return "Filter API: ${allUpstreams.size} upstreams with $matcher"
     }
 }

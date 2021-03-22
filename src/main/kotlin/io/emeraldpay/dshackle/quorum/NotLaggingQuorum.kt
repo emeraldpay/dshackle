@@ -64,4 +64,8 @@ class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
     override fun getError(): JsonRpcError? {
         return rpcError
     }
+
+    override fun toString(): String {
+        return "Quorum: late <= $maxLag blocks"
+    }
 }

@@ -56,4 +56,7 @@ open class NonEmptyQuorum(
         tries++
     }
 
+    override fun toString(): String {
+        return "Quorum: Accept Non Error Result"
+    }
 }
