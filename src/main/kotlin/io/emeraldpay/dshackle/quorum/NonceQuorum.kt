@@ -71,4 +71,7 @@ open class NonceQuorum(
         errors++
     }
 
+    override fun toString(): String {
+        return "Quorum: Confirm with $tries upstreams"
+    }
 }

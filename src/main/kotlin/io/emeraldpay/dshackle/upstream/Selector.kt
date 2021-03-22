@@ -104,6 +104,8 @@ class Selector {
 
     interface Matcher {
         fun matches(up: Upstream): Boolean
+
+        fun describeInternal(): String
     }
 
     class MultiMatcher(
@@ -113,8 +115,16 @@ class Selector {
             return matchers.all { it.matches(up) }
         }
 
-        fun <T: Matcher> getMatcher(type: Class<T>): T? {
+        fun <T : Matcher> getMatcher(type: Class<T>): T? {
             return matchers.find { type.isAssignableFrom(it.javaClass) } as T?
+        }
+
+        override fun describeInternal(): String {
+            return if (matchers.size == 1) {
+                matchers.first().describeInternal()
+            } else {
+                "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
+            }
         }
     }
 
@@ -123,6 +133,10 @@ class Selector {
     ): Matcher {
         override fun matches(up: Upstream): Boolean {
             return up.getMethods().isAllowed(method)
+        }
+
+        override fun describeInternal(): String {
+            return "allow method $method"
         }
     }
 
@@ -139,6 +153,14 @@ class Selector {
         override fun matches(up: Upstream): Boolean {
             return true
         }
+
+        override fun describeInternal(): String {
+            return "empty"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
     }
 
     class AnyLabelMatcher: LabelSelectorMatcher() {
@@ -154,6 +176,14 @@ class Selector {
         override fun matches(up: Upstream): Boolean {
             return true
         }
+
+        override fun describeInternal(): String {
+            return "any label"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
     }
 
     class LocalAndMatcher(vararg val matchers: Matcher) : Matcher {
@@ -162,6 +192,13 @@ class Selector {
             return matchers.all { it.matches(up) }
         }
 
+        override fun describeInternal(): String {
+            return "local upstream"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
     }
 
     class LabelMatcher(val name: String, val values: Collection<String>) : LabelSelectorMatcher() {
@@ -178,6 +215,14 @@ class Selector {
                             .addAllValue(values)
             ).build()
         }
+
+        override fun describeInternal(): String {
+            return "label '$name'=" + values.joinToString(",")
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
     }
 
     class OrMatcher(val matchers: Collection<LabelSelectorMatcher>): LabelSelectorMatcher() {
@@ -191,6 +236,14 @@ class Selector {
                             .addAllSelectors(matchers.map { it.asProto() })
                             .build()
             ).build()
+        }
+
+        override fun describeInternal(): String {
+            return "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
         }
     }
 
@@ -206,6 +259,14 @@ class Selector {
                             .build()
             ).build()
         }
+
+        override fun describeInternal(): String {
+            return "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
     }
 
     class NotMatcher(val matcher: LabelSelectorMatcher): LabelSelectorMatcher() {
@@ -219,6 +280,14 @@ class Selector {
                             .setSelector(matcher.asProto())
                             .build()
             ).build()
+        }
+
+        override fun describeInternal(): String {
+            return "NOT[${matcher.describeInternal()}]"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
         }
     }
 
@@ -234,17 +303,41 @@ class Selector {
                             .build()
             ).build()
         }
+
+        override fun describeInternal(): String {
+            return "label '${name}' exists"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
     }
 
     class CapabilityMatcher(val capability: Capability) : Matcher {
         override fun matches(up: Upstream): Boolean {
             return up.getCapabilities().contains(capability)
         }
+
+        override fun describeInternal(): String {
+            return "provides $capability API"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
     }
 
     class GrpcMatcher() : Matcher {
         override fun matches(up: Upstream): Boolean {
             return up.isGrpc()
+        }
+
+        override fun describeInternal(): String {
+            return "is gRPC"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
         }
     }
 
@@ -264,6 +357,14 @@ class Selector {
 
         override fun hashCode(): Int {
             return height.hashCode()
+        }
+
+        override fun describeInternal(): String {
+            return "height $height"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
         }
     }
 }

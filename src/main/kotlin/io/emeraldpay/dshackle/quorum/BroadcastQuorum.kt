@@ -60,4 +60,7 @@ open class BroadcastQuorum(
         }
     }
 
+    override fun toString(): String {
+        return "Quorum: Broadcast to $quorum upstreams"
+    }
 }

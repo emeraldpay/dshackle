@@ -56,4 +56,8 @@ open class AlwaysQuorum: CallQuorum {
     override fun getError(): JsonRpcError? {
         return rpcError
     }
+
+    override fun toString(): String {
+        return "Quorum: Accept Any"
+    }
 }
