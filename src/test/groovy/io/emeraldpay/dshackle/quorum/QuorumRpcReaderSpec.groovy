@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.FilteredApis
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.rpc.RpcException
@@ -59,12 +60,11 @@ class QuorumRpcReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
-    def "always-quorum - retry upstream error"() {
+    def "always-quorum - return upstream error"() {
         setup:
         def api = Mock(Reader) {
-            2 * read(new JsonRpcRequest("eth_test", [])) >>> [
-                    Mono.just(JsonRpcResponse.error(1, "test")),
-                    Mono.just(JsonRpcResponse.ok("1"))
+            1 * read(new JsonRpcRequest("eth_test", [])) >>> [
+                    Mono.just(JsonRpcResponse.error(1, "test"))
             ]
         }
         def up = Mock(Upstream) {
@@ -85,8 +85,9 @@ class QuorumRpcReaderSpec extends Specification {
 
         then:
         StepVerifier.create(act)
-                .expectNext("1")
-                .expectComplete()
+                .expectErrorMatches {
+                    it instanceof JsonRpcException && ((JsonRpcException) it).error.message == "test"
+                }
                 .verify(Duration.ofSeconds(1))
     }
 

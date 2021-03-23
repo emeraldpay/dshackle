@@ -62,7 +62,7 @@ class QuorumRpcReader(
                                 ?: RpcException(-32000, "Unknown Upstream error")
                 )
             } else {
-                log.warn("Did get any result from upstream. Method [${key.method}] using [$q]")
+                log.warn("Did not get any result from upstream. Method [${key.method}] using [$q]")
                 Mono.empty<Result>()
             }
         }
@@ -118,7 +118,7 @@ class QuorumRpcReader(
                     }
                 }
                 .doOnNext {
-                    if (!it.isResolved()) {
+                    if (!it.isResolved() && !it.isFailed()) {
                         log.debug("No quorum for ${key.method} using [${quorum}]. Error: ${it.getError()?.message ?: ""}")
                     }
                 }

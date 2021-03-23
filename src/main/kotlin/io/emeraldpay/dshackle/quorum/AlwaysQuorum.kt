@@ -36,7 +36,7 @@ open class AlwaysQuorum: CallQuorum {
     }
 
     override fun isFailed(): Boolean {
-        return false
+        return rpcError != null
     }
 
     override fun record(response: ByteArray, upstream: Upstream): Boolean {

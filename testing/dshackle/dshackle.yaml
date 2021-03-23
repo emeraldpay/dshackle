@@ -11,6 +11,7 @@ cluster:
       methods:
         enabled:
           - name: debug_traceTransaction
+          - name: test_foo
       options:
         disable-validation: true
       connection:

@@ -84,7 +84,7 @@ class DefaultEthereumMethods(
         return when {
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             firstValueMethods.contains(method) -> AlwaysQuorum()
-            anyResponseMethods.contains(method) -> NotLaggingQuorum(6)
+            anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
             headVerifiedMethods.contains(method) -> NotLaggingQuorum(1)
             specialMethods.contains(method) -> {
                 when (method) {

@@ -93,4 +93,31 @@ class BroadcastQuorumSpec extends Specification {
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
     }
+
+    def "Failed if error received 3+ times"() {
+        setup:
+        def quorum = new BroadcastQuorum(3)
+        def up = Stub(Upstream)
+        when:
+        quorum.record(new JsonRpcException(1, "test 1"), up)
+        then:
+        !quorum.isFailed()
+        !quorum.isResolved()
+
+        when:
+        quorum.record(new JsonRpcException(1, "test 2"), up)
+        then:
+        !quorum.isFailed()
+        !quorum.isResolved()
+
+        when:
+        quorum.record(new JsonRpcException(1, "test 3"), up)
+        then:
+        quorum.isFailed()
+        !quorum.isResolved()
+        quorum.getError() != null
+        with(quorum.getError()) {
+            message == "test 3"
+        }
+    }
 }
