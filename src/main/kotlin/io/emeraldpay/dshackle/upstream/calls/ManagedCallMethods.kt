@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
+import org.slf4j.LoggerFactory
 import java.util.*
 
 /**
@@ -31,15 +32,23 @@ class ManagedCallMethods(
         private val disabled: Set<String>
 ): CallMethods {
 
+    companion object {
+        private val log = LoggerFactory.getLogger(ManagedCallMethods::class.java)
+    }
+
+    private val delegated = delegate.getSupportedMethods().sorted()
     private val allAllowed: Set<String> = Collections.unmodifiableSet(
-            enabled + delegate.getSupportedMethods() - disabled
+            enabled + delegated - disabled
     )
 
     override fun getQuorumFor(method: String): CallQuorum {
-        return if (enabled.contains(method)) {
-            AlwaysQuorum()
-        } else {
-            delegate.getQuorumFor(method)
+        return when {
+            Collections.binarySearch(delegated, method) >= 0 -> delegate.getQuorumFor(method)
+            enabled.contains(method) -> AlwaysQuorum()
+            else -> {
+                log.warn("Getting quorum for unknown method")
+                AlwaysQuorum()
+            }
         }
     }
 

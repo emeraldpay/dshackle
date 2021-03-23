@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
+import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import spock.lang.Specification
@@ -26,7 +27,7 @@ class ManagedCallMethodsSpec extends Specification {
     def "Gets quorum for enabled method"() {
         setup:
         def managed = new ManagedCallMethods(
-                new DirectCallMethods(),
+                new DirectCallMethods(["eth_test2", "foo_bar"] as Set),
                 ["eth_test"] as Set,
                 [] as Set
         )
@@ -60,5 +61,24 @@ class ManagedCallMethodsSpec extends Specification {
         def act = managed.getSupportedMethods()
         then:
         act.sort() == ["eth_test", "eth_test2"].sort()
+    }
+
+    def "Use quorum from delegate if it supports the method"() {
+        setup:
+        def delegated = ["eth_test", "eth_test2"] as Set
+        def delegate = Mock(CallMethods) {
+            _ * it.getSupportedMethods() >> delegated
+            1 * it.getQuorumFor("eth_test") >> new BroadcastQuorum()
+        }
+        def managed = new ManagedCallMethods(
+                delegate,
+                ["eth_test"] as Set,
+                ["foo_bar"] as Set
+        )
+        when:
+        def act = managed.getQuorumFor("eth_test")
+        then:
+        act != null
+        act instanceof BroadcastQuorum
     }
 }

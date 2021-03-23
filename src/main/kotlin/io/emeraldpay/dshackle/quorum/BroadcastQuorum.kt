@@ -16,10 +16,8 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.infinitape.etherjar.rpc.JacksonRpcConverter
 
 open class BroadcastQuorum(
         val quorum: Int = 3
@@ -33,11 +31,11 @@ open class BroadcastQuorum(
     }
 
     override fun isResolved(): Boolean {
-        return calls >= quorum
+        return calls >= quorum && txid != null
     }
 
     override fun isFailed(): Boolean {
-        return false
+        return calls >= quorum && getError() != null
     }
 
     override fun getResult(): ByteArray? {
