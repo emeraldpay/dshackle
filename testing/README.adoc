@@ -18,6 +18,11 @@ NOTE: Run commands in project's root dir
 cd testing/simple-upstream && ./gradlew run
 ----
 
+[source,bash]
+----
+cd testing/simple-upstream && DSHACKLE_TESTUP_PORT=18546 ./gradlew run
+----
+
 === Run Dshackle
 
 [source,bash]

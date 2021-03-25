@@ -5,17 +5,23 @@ import spark.Spark
 
 class SimpleUpstream {
 
-    private int port = 18545
+    private int port = System.getenv("DSHACKLE_TESTUP_PORT")?.toInteger() ?: 18545
     private ObjectMapper objectMapper
 
     private List<CallHandler> handlers = []
+    private InternalHandler internalHandler
 
     void prepare() {
         objectMapper = new ObjectMapper()
 
+        internalHandler = new InternalHandler()
+
         handlers << new TestcaseHandler(objectMapper)
         handlers << new CommonHandlers()
         handlers << new BlocksHandler(objectMapper)
+        handlers << new PingPongHandler()
+        handlers << internalHandler
+
         handlers << new InvalidCallHandler()
     }
 
@@ -23,9 +29,11 @@ class SimpleUpstream {
         println("Starting upstream on 0.0.0.0:$port")
         Spark.port(port)
         Spark.post("/") { req, resp ->
-            println("request")
             try {
-                Map json = objectMapper.readValue(req.body(), Map)
+                def requestBody = req.body()
+                println("request: $requestBody")
+                internalHandler.record(requestBody)
+                Map json = objectMapper.readValue(requestBody, Map)
                 def id = json["id"]
                 String method = json["method"].toString()
                 List<Object> params = json.containsKey("params") ? json["params"] as List<Object> : []
