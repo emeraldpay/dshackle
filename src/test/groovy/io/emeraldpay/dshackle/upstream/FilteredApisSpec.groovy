@@ -182,7 +182,7 @@ class FilteredApisSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
-    def "Start with offset"() {
+    def "Start with offset - 5 items"() {
         expect:
         FilteredApis.startFrom([0, 1, 2, 3, 4], pos) == exp
         where:
@@ -194,6 +194,20 @@ class FilteredApisSpec extends Specification {
         4   | [4, 0, 1, 2, 3]
         5   | [0, 1, 2, 3, 4]
         6   | [1, 2, 3, 4, 0]
+    }
+
+    def "Start with offset - 2 items"() {
+        expect:
+        FilteredApis.startFrom([0, 1], pos) == exp
+        where:
+        pos | exp
+        0   | [0, 1]
+        1   | [1, 0]
+        2   | [0, 1]
+        3   | [1, 0]
+        4   | [0, 1]
+        5   | [1, 0]
+        6   | [0, 1]
     }
 
     def "Starts with standard"() {

@@ -28,6 +28,10 @@ class ProxyClient {
         return new ProxyClient("http://127.0.0.1:18080/$prefix")
     }
 
+    static ProxyClient forOriginal(int port) {
+        return new ProxyClient("http://127.0.0.1:$port")
+    }
+
     Map<String, Object> execute(String method, List<Object> params) {
         return execute(sequence++, method, params)
     }

@@ -18,6 +18,14 @@ cluster:
         ethereum:
           rpc:
             url: "http://localhost:18545"
+    - id: test-2
+      chain: ethereum
+      options:
+        disable-validation: true
+      connection:
+        ethereum:
+          rpc:
+            url: "http://localhost:18546"
 
 cache:
   redis:
