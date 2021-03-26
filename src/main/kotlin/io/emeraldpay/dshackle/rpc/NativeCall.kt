@@ -56,7 +56,7 @@ open class NativeCall(
 
     init {
         multistreamHolder.observeChains().subscribe { chain ->
-            if (!ethereumCallSelectors.containsKey(chain)) {
+            if (BlockchainType.from(chain) == BlockchainType.ETHEREUM && !ethereumCallSelectors.containsKey(chain)) {
                 multistreamHolder.getUpstream(chain)?.let { up ->
                     val reader = up.cast(EthereumMultistream::class.java).getReader()
                     ethereumCallSelectors[chain] = EthereumCallSelector(reader.heightByHash())
