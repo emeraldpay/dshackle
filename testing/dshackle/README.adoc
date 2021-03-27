@@ -3,5 +3,12 @@
 .Run from project root directory:
 [source,bash]
 ----
-./gradlew run --args="--configPath=./testing/dshackle/dshackle.yaml"
+./gradlew run --args="--configPath=./testing/dshackle/dshackle-mock.yaml"
+----
+
+or
+
+[source,bash]
+----
+./gradlew run --args="--configPath=./testing/dshackle/dshackle-real.yaml"
 ----

@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.cache.TxMemCache
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.domain.TransactionId
@@ -30,9 +31,11 @@ import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.codec.binary.Hex
+import reactor.core.publisher.Mono
 import spock.lang.Specification
 
 import java.nio.ByteBuffer
+import java.time.Duration
 import java.time.Instant
 
 class EthereumFullBlocksReaderSpec extends Specification {
@@ -111,6 +114,21 @@ class EthereumFullBlocksReaderSpec extends Specification {
         it
     }
 
+    // all transaction2
+    def block4 = new BlockJson().with {
+        it.number = 103
+        it.hash = BlockHash.from(hash3)
+        it.totalDifficulty = BigInteger.ONE
+        it.timestamp = Instant.now()
+        it.transactions = [
+                new TransactionRefJson(tx1.hash),
+                new TransactionRefJson(tx2.hash),
+                new TransactionRefJson(tx3.hash),
+                new TransactionRefJson(tx4.hash)
+        ]
+        it
+    }
+
 
     def "Read transactions and return full block"() {
         setup:
@@ -176,6 +194,34 @@ class EthereumFullBlocksReaderSpec extends Specification {
             hash == TransactionId.from(hash3)
             nonce == 3
         }
+    }
+
+    def "Produce block with original order of transactions"() {
+        setup:
+        def txes = Mock(Reader) {
+            1 * it.read(TxId.from(tx1.hash)) >> Mono.just(TxContainer.from(tx1)).delayElement(Duration.ofMillis(50))
+            1 * it.read(TxId.from(tx2.hash)) >> Mono.just(TxContainer.from(tx2)).delayElement(Duration.ofMillis(40))
+            1 * it.read(TxId.from(tx3.hash)) >> Mono.just(TxContainer.from(tx3)).delayElement(Duration.ofMillis(30))
+            1 * it.read(TxId.from(tx4.hash)) >> Mono.just(TxContainer.from(tx4)).delayElement(Duration.ofMillis(20))
+        }
+        def blocks = new BlocksMemCache()
+        blocks.add(BlockContainer.from(block4))
+
+        def full = new EthereumFullBlocksReader(blocks, txes)
+
+        when:
+        def act = full.read(BlockId.from(block4.hash)).block()
+        act = objectMapper.readValue(act.json, BlockJson)
+        def transactions = act.transactions
+
+        then:
+        transactions.size() == 4
+        transactions[0] instanceof TransactionJson
+        transactions[1] instanceof TransactionJson
+        transactions[0].hash == TransactionId.from(hash1)
+        transactions[1].hash == TransactionId.from(hash2)
+        transactions[2].hash == TransactionId.from(hash3)
+        transactions[3].hash == TransactionId.from(hash4)
     }
 
     def "Read block without transactions"() {
