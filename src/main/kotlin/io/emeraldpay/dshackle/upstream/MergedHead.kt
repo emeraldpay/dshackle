@@ -33,11 +33,18 @@ class MergedHead(
     }
 
     override fun start() {
+        sources.forEach { head ->
+            if (head is Lifecycle && !head.isRunning) {
+                head.start()
+            }
+        }
+        subscription?.dispose()
         subscription = super.follow(Flux.merge(sources.map { it.getFlux() }))
     }
 
     override fun stop() {
         subscription?.dispose()
+        subscription = null
     }
 
     override fun setCaches(caches: Caches) {
