@@ -24,8 +24,20 @@ class ProxyClient {
         this.objectMapper = new ObjectMapper()
     }
 
+    static ProxyClient ethereumMock() {
+        return forPrefix(18080, "eth")
+    }
+
+    static ProxyClient ethereumReal() {
+        return forPrefix(18081, "eth")
+    }
+
     static ProxyClient forPrefix(String prefix) {
-        return new ProxyClient("http://127.0.0.1:18080/$prefix")
+        return forPrefix(18080, prefix)
+    }
+
+    static ProxyClient forPrefix(int port, String prefix) {
+        return new ProxyClient("http://127.0.0.1:$port/$prefix")
     }
 
     static ProxyClient forOriginal(int port) {

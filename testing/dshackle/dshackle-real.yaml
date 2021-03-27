@@ -1,0 +1,29 @@
+version: v1
+port: 12448
+
+tls:
+  enabled: false
+
+cluster:
+  upstreams:
+    - id: eth-1
+      chain: ethereum
+      connection:
+        ethereum:
+          rpc:
+            url: "${DSHACKLE_TEST_ETH1_RPC}"
+          ws:
+            url: "${DSHACKLE_TEST_ETH1_WS}"
+            origin: "${DSHACKLE_TEST_ETH1_WSORIGIN}"
+
+cache:
+  redis:
+    enabled: false
+
+proxy:
+  port: 18081
+  tls:
+    enabled: false
+  routes:
+    - id: eth
+      blockchain: ethereum

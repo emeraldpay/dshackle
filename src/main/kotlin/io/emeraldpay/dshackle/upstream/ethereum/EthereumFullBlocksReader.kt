@@ -70,7 +70,7 @@ class EthereumFullBlocksReader(
             val blockSplit = splitByTransactions(block.json!!)
 
             val transactions = Flux.fromIterable(block.transactions)
-                    .flatMap { txes.read(it) }
+                    .flatMapSequential { txes.read(it) }
                     .collectList()
 
             return@flatMap transactions.flatMap { transactionsData ->
