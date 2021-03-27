@@ -126,6 +126,10 @@ class Selector {
                 "ALLOF[" + matchers.joinToString(",") { it.describeInternal() } + "]"
             }
         }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
     }
 
     class MethodMatcher(
@@ -137,6 +141,10 @@ class Selector {
 
         override fun describeInternal(): String {
             return "allow method $method"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
         }
     }
 
