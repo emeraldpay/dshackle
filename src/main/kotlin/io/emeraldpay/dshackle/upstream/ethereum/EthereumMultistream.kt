@@ -91,7 +91,8 @@ open class EthereumMultistream(
             upstream.setLag(0)
             upstream.getHead()
         } else {
-            val newHead = MergedHead(upstreams.map { it.getHead() }).apply {
+            val heads = upstreams.map { it.getHead() }
+            val newHead = MergedHead(heads).apply {
                 this.start()
             }
             val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>).apply {
