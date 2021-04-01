@@ -31,6 +31,8 @@ class Global {
 
     companion object {
 
+        var metricsExtended = false
+
         @JvmStatic
         val objectMapper: ObjectMapper = createObjectMapper()
 

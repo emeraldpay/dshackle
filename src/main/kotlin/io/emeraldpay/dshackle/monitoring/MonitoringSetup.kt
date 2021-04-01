@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.monitoring
 
 import com.sun.net.httpserver.HttpServer
-import io.emeraldpay.dshackle.config.MainConfig
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.MonitoringConfig
 import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Metrics
@@ -32,9 +32,7 @@ import io.micrometer.prometheus.PrometheusConfig
 
 import io.micrometer.prometheus.PrometheusMeterRegistry
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import java.io.IOException
-import java.io.OutputStream
 import java.net.InetSocketAddress
 import javax.annotation.PostConstruct
 
@@ -68,6 +66,9 @@ class MonitoringSetup(
             JvmGcMetrics().bindTo(Metrics.globalRegistry)
             ProcessorMetrics().bindTo(Metrics.globalRegistry)
             JvmThreadMetrics().bindTo(Metrics.globalRegistry)
+        }
+        if (monitoringConfig.enableExtended) {
+            Global.metricsExtended = true
         }
 
         if (monitoringConfig.prometheus.enabled) {

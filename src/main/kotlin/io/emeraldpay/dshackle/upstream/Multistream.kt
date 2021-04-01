@@ -69,18 +69,25 @@ abstract class Multistream(
     init {
         UpstreamAvailability.values().forEach { status ->
             Metrics.gauge("$metrics.availability",
-                    listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.toLowerCase()))
-                    , this) {
+                    listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.toLowerCase())), this) {
                 upstreams.count { it.getStatus() == status }.toDouble()
             }
         }
 
+        Metrics.gauge("$metrics.connected",
+                listOf(Tag.of("chain", chain.chainCode)), this) {
+            upstreams.size.toDouble()
+        }
+
         upstreams.forEach { up ->
-            Metrics.gauge("$metrics.lag",
-                    listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", up.getId()))
-                    , this) {
-                up.getLag().toDouble()
-            }
+            monitorUpstream(up)
+        }
+    }
+
+    private fun monitorUpstream(upstream: Upstream) {
+        Metrics.gauge("$metrics.lag",
+                listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())), upstream) {
+            it.getLag().toDouble()
         }
     }
 
@@ -102,6 +109,7 @@ abstract class Multistream(
         upstreams.add(upstream)
         onUpstreamsUpdated()
         setHead(updateHead())
+        monitorUpstream(upstream)
     }
 
     fun removeUpstream(id: String) {
@@ -119,7 +127,7 @@ abstract class Multistream(
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
         }
-        return FilteredApis(upstreams, matcher, i)
+        return FilteredApis(chain, upstreams, matcher, i)
     }
 
     /**

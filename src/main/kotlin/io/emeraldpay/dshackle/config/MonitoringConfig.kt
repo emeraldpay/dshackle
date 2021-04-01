@@ -30,6 +30,7 @@ class MonitoringConfig(
     }
 
     var enableJvm: Boolean = true
+    var enableExtended: Boolean = false
 
     data class PrometheusConfig(
             val enabled: Boolean,
