@@ -290,7 +290,7 @@ WARNING: The code in `master` branch is considered a development version, which 
 === Setting up environment
 
 Dshackle is JVM based project written in Kotlin.
-To build and run it from sources you'll need to install https://openjdk.java.net/projects/jdk/11/[Java JDK] and https://gradle.org/[Gradle]
+To build and run it from sources you'll need to install https://openjdk.java.net/projects/jdk/13/[Java JDK] and https://gradle.org/[Gradle]
 
 === Build Dshackle
 
