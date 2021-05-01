@@ -15,6 +15,8 @@ enum ChainRef {
     CHAIN_ETHEREUM = 100;
     CHAIN_ETHEREUM_CLASSIC = 101;
 
+    CHAIN_POLYGON = 137;
+
     // Sidechains and state channels
     CHAIN_LIGHTNING = 1001;
 

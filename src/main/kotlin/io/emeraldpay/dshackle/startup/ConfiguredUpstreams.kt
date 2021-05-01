@@ -62,6 +62,8 @@ open class ConfiguredUpstreams(
             "ethereum" to Chain.ETHEREUM,
             "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
             "eth" to Chain.ETHEREUM,
+            "polygon" to Chain.POLYGON,
+            "matic" to Chain.POLYGON,
             "etc" to Chain.ETHEREUM_CLASSIC,
             "morden" to Chain.TESTNET_MORDEN,
             "kovan" to Chain.TESTNET_KOVAN,
