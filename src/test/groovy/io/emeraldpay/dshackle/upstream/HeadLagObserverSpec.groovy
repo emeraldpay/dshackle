@@ -24,7 +24,7 @@ import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
-import reactor.core.publisher.TopicProcessor
+import reactor.core.publisher.Sinks
 import reactor.test.StepVerifier
 import reactor.util.function.Tuples
 import spock.lang.Specification
@@ -58,9 +58,9 @@ class HeadLagObserverSpec extends Specification {
                     })
         }
 
-        def masterBus = TopicProcessor.create()
+        def masterBus = Sinks.many().multicast().onBackpressureBuffer()
 
-        1 * master.getFlux() >> Flux.from(masterBus)
+        1 * master.getFlux() >> masterBus.asFlux()
         1 * head1.getFlux() >> Flux.merge(
                 Flux.just(blocks[1]),
                 Flux.just(blocks[2]).delaySubscription(Duration.ofSeconds(1))
@@ -79,7 +79,7 @@ class HeadLagObserverSpec extends Specification {
 
         then:
         StepVerifier.create(act)
-            .then { masterBus.onNext(blocks[1]) }
+                .then { masterBus.tryEmitNext(blocks[1]) }
             .expectNextCount(3)
             .verifyComplete()
     }

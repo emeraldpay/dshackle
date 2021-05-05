@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.rpc.RpcException
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
@@ -43,6 +44,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
+                Chain.ETHEREUM,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum())
@@ -73,6 +75,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getApi() >> api
         }
         def apis = new FilteredApis(
+                Chain.ETHEREUM,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum())
@@ -104,6 +107,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
+                Chain.ETHEREUM,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
@@ -135,6 +139,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
+                Chain.ETHEREUM,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
@@ -166,6 +171,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
+                Chain.ETHEREUM,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
@@ -198,6 +204,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getApi() >> api
         }
         def apis = new FilteredApis(
+                Chain.ETHEREUM,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
@@ -227,6 +234,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
+                Chain.ETHEREUM,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NotLaggingQuorum(1))
