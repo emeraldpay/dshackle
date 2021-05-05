@@ -36,7 +36,7 @@ import org.bitcoinj.params.MainNetParams
 import org.bitcoinj.params.TestNet3Params
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
+import reactor.core.publisher.Sinks
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -267,13 +267,13 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Get update for a balance"() {
         setup:
 
-        def blocks = TopicProcessor.create()
+        def blocks = Sinks.many().unicast().onBackpressureBuffer()
         Head head = Mock(Head) {
             1 * getFlux() >> Flux.concat(
                     Flux.just(
                             new BlockContainer(0L, BlockId.from(hash1), BigInteger.ZERO, Instant.now(), false, null, null, [])
                     ),
-                    Flux.from(blocks)
+                    blocks.asFlux()
             )
         }
         def upstream = null
@@ -312,11 +312,11 @@ class TrackBitcoinAddressSpec extends Specification {
         StepVerifier.create(resp)
                 .expectNext("0")
                 .then {
-                    blocks.onNext(new BlockContainer(1L, BlockId.from(hash1), BigInteger.ONE, Instant.now(), false, null, null, []))
+                    blocks.tryEmitNext(new BlockContainer(1L, BlockId.from(hash1), BigInteger.ONE, Instant.now(), false, null, null, []))
                 }
                 .expectNext("1230000")
                 .then {
-                    blocks.onComplete()
+                    blocks.tryEmitComplete()
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))

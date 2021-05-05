@@ -92,10 +92,8 @@ class ProxyServer(
         }
         log.info("Listening Proxy on ${config.host}:${config.port}")
         var serverBuilder = HttpServer.create()
-                .tcpConfiguration {
-                    it.bootstrap { b ->
-                        b.handler(errorHandler)
-                    }
+                .doOnChannelInit { _, channel, _ ->
+                    channel.pipeline().addFirst(errorHandler)
                 }
                 .host(config.host)
                 .port(config.port)

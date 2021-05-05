@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import reactor.core.publisher.Flux
-import reactor.core.publisher.TopicProcessor
+import reactor.core.publisher.Sinks
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -35,28 +35,28 @@ class AbstractHeadSpec extends Specification {
 
     def "Calls beforeBlock on each block"() {
         setup:
-        TopicProcessor<BlockContainer> source = TopicProcessor.create()
+        Sinks.Many<BlockContainer> source = Sinks.many().unicast().onBackpressureBuffer()
         def head = new TestHead()
         def called = false
         when:
-        head.follow(Flux.from(source))
+        head.follow(source.asFlux())
         head.onBeforeBlock {
             called = true
         }
         def act = head.flux
-        source.onNext(blocks[0])
+        source.tryEmitNext(blocks[0])
         then:
         StepVerifier.create(act)
                 .expectNext(blocks[0])
                 .then {
                     assert called
                     called = false
-                    source.onNext(blocks[1])
+                    source.tryEmitNext(blocks[1])
                 }
                 .expectNext(blocks[1])
                 .then {
                     assert called
-                    source.onComplete()
+                    source.tryEmitComplete()
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
@@ -64,29 +64,29 @@ class AbstractHeadSpec extends Specification {
 
     def "Follows source"() {
         setup:
-        TopicProcessor<BlockContainer> source = TopicProcessor.create()
+        Sinks.Many<BlockContainer> source = Sinks.many().unicast().onBackpressureBuffer()
         def head = new TestHead()
         when:
-        head.follow(Flux.from(source))
+        head.follow(source.asFlux())
         def act = head.flux
-        source.onNext(blocks[0])
+        source.tryEmitNext(blocks[0])
         then:
         StepVerifier.create(act)
                 .expectNext(blocks[0])
-                .then { source.onNext(blocks[1]) }
+                .then { source.tryEmitNext(blocks[1]) }
                 .expectNext(blocks[1])
-                .then { source.onNext(blocks[2]) }
+                .then { source.tryEmitNext(blocks[2]) }
                 .expectNext(blocks[2])
-                .then { source.onNext(blocks[3]) }
+                .then { source.tryEmitNext(blocks[3]) }
                 .expectNext(blocks[3])
-                .then { source.onComplete() }
+                .then { source.tryEmitComplete() }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
 
     def "Ignores block will less difficulty"() {
         setup:
-        TopicProcessor<BlockContainer> source = TopicProcessor.create()
+        Sinks.Many<BlockContainer> source = Sinks.many().unicast().onBackpressureBuffer()
         def head = new TestHead()
         def wrongblock = new BlockContainer(
                 blocks[1].height, BlockId.from(blocks[1].hash.value.clone().tap { it[1] = 0xff as byte }),
@@ -95,18 +95,18 @@ class AbstractHeadSpec extends Specification {
                 false, null, null, []
         )
         when:
-        head.follow(Flux.from(source))
+        head.follow(source.asFlux())
         def act = head.flux
-        source.onNext(blocks[0])
+        source.tryEmitNext(blocks[0])
         then:
         StepVerifier.create(act)
                 .expectNext(blocks[0])
-                .then { source.onNext(blocks[1]) }
+                .then { source.tryEmitNext(blocks[1]) }
                 .expectNext(blocks[1])
-                .then { source.onNext(wrongblock) }
-                .then { source.onNext(blocks[3]) }
+                .then { source.tryEmitNext(wrongblock) }
+                .then { source.tryEmitNext(blocks[3]) }
                 .expectNext(blocks[3])
-                .then { source.onComplete() }
+                .then { source.tryEmitComplete() }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }

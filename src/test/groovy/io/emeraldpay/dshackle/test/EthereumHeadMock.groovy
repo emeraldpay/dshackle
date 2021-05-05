@@ -22,11 +22,11 @@ import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.TopicProcessor
+import reactor.core.publisher.Sinks
 
 class EthereumHeadMock implements Head {
 
-    private TopicProcessor<BlockContainer> bus = TopicProcessor.create()
+    private Sinks.Many<BlockContainer> bus = Sinks.many().multicast().onBackpressureBuffer()
     private Publisher<BlockContainer> predefined = null
     private BlockContainer latest
     private List<Runnable> handlers = []
@@ -38,7 +38,7 @@ class EthereumHeadMock implements Head {
         assert block != null
         println("New block: ${block.height} / ${block.hash}")
         latest = block
-        bus.onNext(block)
+        bus.tryEmitNext(block)
     }
 
     void setPredefined(Publisher<BlockContainer> predefined) {
@@ -54,7 +54,7 @@ class EthereumHeadMock implements Head {
         if (predefined != null) {
             return Flux.concat(Mono.justOrEmpty(latest), Flux.from(predefined))
         } else {
-            return Flux.concat(Mono.justOrEmpty(latest), bus).distinctUntilChanged()
+            return Flux.concat(Mono.justOrEmpty(latest), bus.asFlux()).distinctUntilChanged()
         }
     }
 
