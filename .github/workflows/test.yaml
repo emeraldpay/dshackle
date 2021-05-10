@@ -28,7 +28,7 @@ jobs:
       - name: Check
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: check
+          arguments: check -Djava.security.policy=.github/test_java.security
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
