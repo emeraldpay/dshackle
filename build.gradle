@@ -143,6 +143,21 @@ test {
     testLogging.showStandardStreams = false
     testLogging.exceptionFormat = 'full'
     finalizedBy jacocoTestReport
+
+    // getting on CI:
+    //   java.security.KeyStoreException: Key protection algorithm not found: java.security.UnrecoverableKeyException: Encrypt Private Key failed: unrecognized algorithm name: PBEWithSHA1AndDESede
+    //            at java.base/sun.security.pkcs12.PKCS12KeyStore.setKeyEntry(PKCS12KeyStore.java:700)
+    //            at java.base/sun.security.pkcs12.PKCS12KeyStore.engineSetKeyEntry(PKCS12KeyStore.java:597)
+    //            at java.base/sun.security.util.KeyStoreDelegator.engineSetKeyEntry(KeyStoreDelegator.java:111)
+    //            at java.base/java.security.KeyStore.setKeyEntry(KeyStore.java:1167)
+    //            at io.netty.handler.ssl.SslContext.buildKeyStore(SslContext.java:1102)
+    //            at io.netty.handler.ssl.ReferenceCountedOpenSslServerContext.newSessionContext(ReferenceCountedOpenSslServerContext.java:123)
+    // ----
+    // see
+    // https://github.com/bcgit/bc-java/issues/941
+    // https://bugs.openjdk.java.net/browse/JDK-8266279
+    //
+    systemProperty "keystore.pkcs12.keyProtectionAlgorithm", "PBEWithHmacSHA256AndAES_256"
 }
 
 application {
