@@ -23,9 +23,31 @@ import io.netty.handler.ssl.SslContext
 import spock.lang.Specification
 import sun.security.x509.X509CertImpl
 
+import java.security.NoSuchAlgorithmException
+
 class TlsSetupSpec extends Specification {
 
     TlsSetup tlsSetup = new TlsSetup(new FileResolver(new File("src/test/resources/tls-local")))
+
+    static {
+        // getting on CI:
+        //   java.security.KeyStoreException: Key protection algorithm not found: java.security.UnrecoverableKeyException: Encrypt Private Key failed: unrecognized algorithm name: PBEWithSHA1AndDESede
+        //            at java.base/sun.security.pkcs12.PKCS12KeyStore.setKeyEntry(PKCS12KeyStore.java:700)
+        //            at java.base/sun.security.pkcs12.PKCS12KeyStore.engineSetKeyEntry(PKCS12KeyStore.java:597)
+        //            at java.base/sun.security.util.KeyStoreDelegator.engineSetKeyEntry(KeyStoreDelegator.java:111)
+        //            at java.base/java.security.KeyStore.setKeyEntry(KeyStore.java:1167)
+        //            at io.netty.handler.ssl.SslContext.buildKeyStore(SslContext.java:1102)
+        //            at io.netty.handler.ssl.ReferenceCountedOpenSslServerContext.newSessionContext(ReferenceCountedOpenSslServerContext.java:123)
+        // ----
+        // see https://github.com/bcgit/bc-java/issues/941
+        // https://bugs.openjdk.java.net/browse/JDK-8266279
+
+        try {
+            sun.security.x509.AlgorithmId.get("PBEWithSHA1AndDESede");
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+    }
 
     def "TLS disabled"() {
         setup:
