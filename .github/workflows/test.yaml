@@ -28,7 +28,7 @@ jobs:
       - name: Check
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: check -Dkeystore.pkcs12.keyProtectionAlgorithm=PBEWithSHA512AndAES_256
+          arguments: check
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
