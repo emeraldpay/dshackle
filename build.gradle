@@ -76,8 +76,8 @@ dependencies {
     implementation "io.netty:netty-codec-http2:$nettyVersion"
     implementation "io.netty:netty-codec-http:$nettyVersion"
     implementation "io.netty:netty-buffer:$nettyVersion"
-    implementation "io.netty:netty-tcnative:2.0.39.Final:linux-x86_64@jar"
-    implementation "io.netty:netty-tcnative-boringssl-static:2.0.39.Final:linux-x86_64@jar"
+    implementation "io.netty:netty-tcnative:2.0.39.Final"
+    implementation "io.netty:netty-tcnative-boringssl-static:2.0.39.Final"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation "org.jetbrains.kotlin:kotlin-reflect"
