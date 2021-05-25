@@ -25,6 +25,9 @@ jobs:
         with:
           java-version: 13
 
+      - name: Install System Libs
+        run: sudo apt-get install -y openssl
+
       - name: Check
         uses: eskatos/gradle-command-action@v1
         with:

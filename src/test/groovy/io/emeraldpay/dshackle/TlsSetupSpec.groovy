@@ -27,6 +27,12 @@ class TlsSetupSpec extends Specification {
 
     TlsSetup tlsSetup = new TlsSetup(new FileResolver(new File("src/test/resources/tls-local")))
 
+    // !!!!!!!!!!!!
+    //
+    // run test on OS with OpenSSL installed
+    //
+    // !!!!!!!!!!!!
+
     def "TLS disabled"() {
         setup:
         def config = new AuthConfig.ServerTlsAuth(
@@ -52,7 +58,7 @@ class TlsSetupSpec extends Specification {
         act.server
         !act.client
         with((OpenSslServerContext) act) {
-            act.clientAuth == ClientAuth.NONE
+            clientAuth == ClientAuth.NONE
             with((X509CertImpl) keyCertChain[0]) {
                 getIssuerDN().name == "CN=ca.myhost.dev, OU=Blockchain CA, O=My Company"
             }
@@ -75,7 +81,6 @@ class TlsSetupSpec extends Specification {
         act.server
         !act.client
 
-        // run test on OS with OpenSSL installed
         with((OpenSslServerContext) act) {
             clientAuth == ClientAuth.REQUIRE
             with((X509CertImpl) keyCertChain[0]) {
