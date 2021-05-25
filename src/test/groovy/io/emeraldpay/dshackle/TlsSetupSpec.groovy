@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.netty.handler.ssl.ClientAuth
+import io.netty.handler.ssl.OpenSsl
 import io.netty.handler.ssl.OpenSslServerContext
 import io.netty.handler.ssl.SslContext
 import spock.lang.Specification
@@ -27,11 +28,12 @@ class TlsSetupSpec extends Specification {
 
     TlsSetup tlsSetup = new TlsSetup(new FileResolver(new File("src/test/resources/tls-local")))
 
-    // !!!!!!!!!!!!
-    //
-    // run test on OS with OpenSSL installed
-    //
-    // !!!!!!!!!!!!
+    def setup() {
+        // !!!!!!!!!!!!
+        // run test on OS with OpenSSL installed
+        // !!!!!!!!!!!!
+        OpenSsl.ensureAvailability()
+    }
 
     def "TLS disabled"() {
         setup:
