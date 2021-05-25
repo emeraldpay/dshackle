@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.infinitape.etherjar.domain.BlockHash
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -50,12 +51,15 @@ class EthereumWsFactorySpec extends Specification {
         apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], block)
 
         when:
-        ws.onNewBlock(block)
+        def act = Flux.from(ws.getFlux())
+        new Thread({
+            ws.onNewBlock(block)
+        }).run()
 
         then:
-        StepVerifier.create(ws.flux.take(1))
+        StepVerifier.create(act)
                 .expectNext(BlockContainer.from(block))
-                .expectComplete()
+                .thenCancel()
                 .verify(Duration.ofSeconds(1))
     }
 }

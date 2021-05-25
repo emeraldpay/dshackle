@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -24,14 +25,23 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.infinitape.etherjar.rpc.json.BlockJson
 import io.infinitape.etherjar.rpc.json.TransactionRefJson
-import io.infinitape.etherjar.rpc.ws.WebsocketClient
+import io.infinitape.etherjar.rpc.ws.SubscriptionJson
+import io.netty.buffer.ByteBufInputStream
+import io.netty.handler.codec.http.HttpHeaderNames
 import org.slf4j.LoggerFactory
+import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.extra.processor.TopicProcessor
+import reactor.core.publisher.Sinks
+import reactor.netty.http.client.HttpClient
+import reactor.netty.http.client.WebsocketClientSpec
 import reactor.retry.Repeat
+import java.io.InputStream
 import java.net.URI
 import java.time.Duration
+import java.util.*
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 class EthereumWsFactory(
         private val uri: URI,
@@ -49,36 +59,119 @@ class EthereumWsFactory(
             private val origin: URI,
             private val upstream: EthereumUpstream,
             private val basicAuth: AuthConfig.ClientBasicAuth?
-    ) {
+    ) : AutoCloseable {
 
         companion object {
             private val log = LoggerFactory.getLogger(EthereumWs::class.java)
+
+            private const val START_REQUEST = "{\"jsonrpc\":\"2.0\", \"method\":\"eth_subscribe\", \"id\":\"blocks\", \"params\":[\"newHeads\"]}"
         }
 
-        private val topic = TopicProcessor
-                .builder<BlockContainer>()
-                .name("new-blocks")
-                .build()
+        private val topic = Sinks
+                .many()
+                .unicast()
+                .onBackpressureBuffer<BlockContainer>()
+        private var keepConnection = true
+        private var connection: Disposable? = null
 
         fun connect() {
+            if (keepConnection) {
+                connectInternal()
+            }
+        }
+
+        private fun tryReconnectLater() {
+            Global.control.schedule(
+                    { connectInternal() },
+                    Defaults.retryConnection.seconds, TimeUnit.SECONDS)
+        }
+
+        private fun connectInternal() {
             log.info("Connecting to WebSocket: $uri")
-            val clientBuilder = WebsocketClient.newBuilder()
-                    .connectTo(uri)
-                    .origin(origin)
-            basicAuth?.let { auth ->
-                clientBuilder.basicAuth(auth.username, auth.password)
-            }
-            val client = clientBuilder.build()
-            try {
-                client.connect()
-                client.onNewBlock(this::onNewBlock)
-            } catch (e: Exception) {
-                log.error("Failed to connect to websocket at $uri. Error: ${e.message}")
-            }
+            connection?.dispose()
+            connection = null
+
+            val subscriptionId = AtomicReference<String>("NOTSET")
+
+            val objectMapper = Global.objectMapper
+            connection = HttpClient.create()
+                    .doOnError(
+                            { _, t ->
+                                log.warn("Failed to connect to $uri. Error: ${t.message}")
+                                // going to try to reconnect later
+                                tryReconnectLater()
+                            },
+                            { _, _ ->
+
+                            }
+                    )
+                    .headers { headers ->
+                        headers.add(HttpHeaderNames.ORIGIN, origin)
+                        basicAuth?.let { auth ->
+                            val tmp: String = auth.username + ":" + auth.password
+                            val base64password = Base64.getEncoder().encodeToString(tmp.toByteArray())
+                            headers.add(HttpHeaderNames.AUTHORIZATION, "Basic $base64password")
+                        }
+                    }
+                    .let {
+                        if (uri.scheme == "wss") {
+                            it.secure()
+                        } else {
+                            it
+                        }
+                    }
+                    .websocket(
+                            WebsocketClientSpec.builder()
+                                    .handlePing(true)
+                                    .compress(false)
+                                    .build()
+                    )
+
+                    .uri(uri)
+                    .handle { inbound, outbound ->
+                        val consumer = inbound.aggregateFrames()
+                                .aggregateFrames(8 * 65_536)
+                                .receiveFrames()
+                                .flatMap {
+                                    val msg: SubscriptionJson = objectMapper.readerFor(SubscriptionJson::class.java)
+                                            .readValue(ByteBufInputStream(it.content()) as InputStream)
+                                    when {
+                                        msg.error != null -> {
+                                            Mono.error(IllegalStateException("Received error from WS upstream"))
+                                        }
+                                        msg.subscription == subscriptionId.get() -> {
+                                            onNewBlock(msg.blockResult)
+                                            Mono.empty<Int>()
+                                        }
+                                        msg.subscription == null -> {
+                                            // received ID for subscription
+                                            subscriptionId.set(msg.result.asText())
+                                            log.debug("Connected to $uri")
+                                            Mono.empty<Int>()
+                                        }
+                                        else -> {
+                                            Mono.error(IllegalStateException("Unknown message received: ${msg.subscription}"))
+                                        }
+                                    }
+                                }
+                                .onErrorResume { t ->
+                                    log.warn("Connection dropped to $uri. Error: ${t.message}")
+                                    // going to try to reconnect later
+                                    tryReconnectLater()
+                                    // completes current outbound flow
+                                    Mono.empty()
+                                }
+
+
+                        outbound.sendString(Mono.just(START_REQUEST).doOnError {
+                            println("!!!!!!!")
+                        })
+                                .then(consumer.then())
+                    }.subscribe()
         }
 
         fun onNewBlock(block: BlockJson<TransactionRefJson>) {
-            // WS returns incomplete blocks
+            // WS returns incomplete blocks, i.e. without some fields, so need to fetch full block data
             if (block.difficulty == null || block.transactions == null) {
                 Mono.just(block.hash)
                         .flatMap { hash ->
@@ -100,16 +193,23 @@ class EthereumWsFactory(
                         }
                         .timeout(Defaults.timeout, Mono.empty())
                         .onErrorResume { Mono.empty() }
-                        .subscribe(topic::onNext)
+                        .subscribe {
+                            topic.tryEmitNext(it)
+                        }
 
             } else {
-                topic.onNext(BlockContainer.from(block))
+                topic.tryEmitNext(BlockContainer.from(block))
             }
         }
 
         fun getFlux(): Flux<BlockContainer> {
-            return Flux.from(this.topic)
-                    .onBackpressureLatest()
+            return this.topic.asFlux()
+        }
+
+        override fun close() {
+            keepConnection = false
+            connection?.dispose()
+            connection = null
         }
     }
 

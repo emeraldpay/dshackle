@@ -26,6 +26,8 @@ import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspentDeserializer
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 class Global {
 
@@ -35,6 +37,8 @@ class Global {
 
         @JvmStatic
         val objectMapper: ObjectMapper = createObjectMapper()
+
+        val control: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
         private fun createObjectMapper(): ObjectMapper {
             val module = SimpleModule("EmeraldDshackle", Version(1, 0, 0, null, null, null))
