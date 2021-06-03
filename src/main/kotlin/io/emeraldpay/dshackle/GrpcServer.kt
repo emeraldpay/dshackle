@@ -17,16 +17,11 @@
 package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.MainConfig
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandler
 import io.grpc.*
-import io.grpc.netty.GrpcSslContexts
 import io.grpc.netty.NettyServerBuilder
-import io.netty.handler.ssl.ClientAuth
-import io.netty.handler.ssl.SslContext
-import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.core.env.Environment
-import org.springframework.core.io.ResourceLoader
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import javax.annotation.PostConstruct
@@ -36,7 +31,8 @@ import javax.annotation.PreDestroy
 open class GrpcServer(
         @Autowired val rpcs: List<io.grpc.BindableService>,
         @Autowired val mainConfig: MainConfig,
-        @Autowired val tlsSetup: TlsSetup
+        @Autowired val tlsSetup: TlsSetup,
+        @Autowired val accessHandler: AccessHandler
 ) {
 
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)
@@ -50,6 +46,14 @@ open class GrpcServer(
         log.info("Listening Native gRPC on ${mainConfig.host}:${mainConfig.port}")
         val serverBuilder = NettyServerBuilder
                 .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
+                .let {
+                    if (mainConfig.accessLogConfig.enabled) {
+                        it.intercept(accessHandler)
+                    } else {
+                        it
+                    }
+                }
+
         tlsSetup.setupServer("Native gRPC", mainConfig.tls, true)?.let {
             serverBuilder.sslContext(it)
         }

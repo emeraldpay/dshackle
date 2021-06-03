@@ -24,5 +24,5 @@ class MainConfig {
     var upstreams: UpstreamsConfig? = null
     var tokens: TokensConfig? = null
     var monitoring: MonitoringConfig = MonitoringConfig.default()
-
+    var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
 }
