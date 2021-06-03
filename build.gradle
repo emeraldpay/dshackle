@@ -110,8 +110,10 @@ dependencies {
     implementation 'org.yaml:snakeyaml:1.24'
     implementation 'org.apache.httpcomponents:httpmime:4.5.8'
     implementation 'org.apache.httpcomponents:httpclient:4.5.8'
-    implementation 'com.fasterxml.jackson.core:jackson-core:2.9.8'
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.8'
+    implementation "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"
+    implementation "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion"
     implementation 'commons-io:commons-io:2.6'
     implementation 'org.apache.commons:commons-lang3:3.9'
     implementation 'org.apache.commons:commons-collections4:4.3'
