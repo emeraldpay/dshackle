@@ -31,6 +31,33 @@ class StandardCallsSpec extends Specification {
         act.error == null
     }
 
+    def "get non-existing block"() {
+        when:
+        def act = client.execute("eth_getBlockByNumber", ["0x200001", false])
+        then:
+        act.result == null
+        act.error == null
+    }
+
+    def "get tx"() {
+        when:
+        def act = client.execute("eth_getTransactionByHash", ["0x01c5a8461d06c2c195035c148af0f871c7679841d86ae5bb98676bb2d8e68dfa"])
+        then:
+        act.result != null
+        with(act.result) {
+            blockHash == "0x9a834c53bbee9c2665a5a84789a1d1ad73750b2d77b50de44f457f411d02e52e"
+        }
+        act.error == null
+    }
+
+    def "get non-existing tx"() {
+        when:
+        def act = client.execute("eth_getTransactionByHash", ["0x000000461d06c2c195035c148af0f871c7679841d86ae5bb98676bb2d8e68dfa"])
+        then:
+        act.result == null
+        act.error == null
+    }
+
     def "get block with txes"() {
         when:
         def act = client.execute("eth_getBlockByNumber", ["0x100001", true])

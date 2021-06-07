@@ -69,6 +69,34 @@ class EthereumDirectReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
+    def "Produce empty result on non-existing block"() {
+        setup:
+        def up = Mock(Multistream) {
+            1 * getApiSource(_) >> Stub(ApiSource)
+        }
+        def calls = Mock(Factory) {
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+        }
+        EthereumDirectReader reader = new EthereumDirectReader(
+                up, Caches.default(), new CurrentBlockCache(), calls
+        )
+        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _) >> Mock(Reader) {
+                1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> Mono.just(
+                        new QuorumRpcReader.Result(
+                                Global.objectMapper.writeValueAsBytes(null), 1
+                        )
+                )
+            }
+        }
+        when:
+        def act = reader.blockReader.read(BlockHash.from(hash1))
+        then:
+        StepVerifier.create(act)
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
     def "Reads block by height"() {
         setup:
         def json = new BlockJson().tap {
@@ -139,6 +167,34 @@ class EthereumDirectReaderSpec extends Specification {
                 .expectNextMatches { block ->
                     block.hash.toHexWithPrefix() == hash1
                 }
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Produce empty on non-existing tx"() {
+        setup:
+        def up = Mock(Multistream) {
+            1 * getApiSource(_) >> Stub(ApiSource)
+        }
+        def calls = Mock(Factory) {
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+        }
+        EthereumDirectReader reader = new EthereumDirectReader(
+                up, Caches.default(), new CurrentBlockCache(), calls
+        )
+        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _) >> Mock(Reader) {
+                1 * read(new JsonRpcRequest("eth_getTransactionByHash", [hash1])) >> Mono.just(
+                        new QuorumRpcReader.Result(
+                                Global.objectMapper.writeValueAsBytes(null), 1
+                        )
+                )
+            }
+        }
+        when:
+        def act = reader.txReader.read(TransactionId.from(hash1))
+        then:
+        StepVerifier.create(act)
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
