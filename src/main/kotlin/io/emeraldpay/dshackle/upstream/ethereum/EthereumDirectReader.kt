@@ -114,9 +114,13 @@ class EthereumDirectReader(
         return readWithQuorum(request)
                 .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))
                 .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                .map { blockbytes ->
-                    val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>
-                    BlockContainer.from(block, blockbytes)
+                .flatMap { blockbytes ->
+                    val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>?
+                    if (block == null) {
+                        Mono.empty<BlockContainer>()
+                    } else {
+                        Mono.just(BlockContainer.from(block, blockbytes))
+                    }
                 }
                 .doOnNext { block ->
                     caches.cache(Caches.Tag.REQUESTED, block)
