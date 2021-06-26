@@ -120,7 +120,7 @@ class DefaultEthereumMethods(
                         "\"1\""
                     }
                     Chain.POLYGON == chain -> {
-                        "\"1\""
+                        "\"137\""
                     }
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"2\""
