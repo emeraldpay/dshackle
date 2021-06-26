@@ -32,6 +32,7 @@ enum class BlockchainType {
         fun fromBlockchain(blockchain: Chain): BlockchainType {
             if (blockchain == Chain.ETHEREUM
                     || blockchain == Chain.ETHEREUM_CLASSIC
+                    || blockchain == Chain.POLYGON
                     || blockchain == Chain.TESTNET_KOVAN
                     || blockchain == Chain.TESTNET_ROPSTEN
                     || blockchain == Chain.TESTNET_RINKEBY
