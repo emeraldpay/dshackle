@@ -35,20 +35,28 @@ class Events {
     }
 
     abstract class Base(
-            val method: String,
             val id: UUID
     ) {
         val ts = Instant.now()
     }
 
     abstract class ChainBase(
-            val blockchain: Chain, method: String, id: UUID
-    ) : Base(method, id) {
+            val blockchain: Chain, val method: String, id: UUID
+    ) : Base(id)
 
-    }
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    class SubscribeHead(
+            blockchain: Chain, id: UUID,
+            // initial request details
+            val request: StreamRequestDetails,
+            // index of the current response
+            val index: Int
+    ) : ChainBase(blockchain, "SubscribeHead", id)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class NativeCall(
+            blockchain: Chain, id: UUID,
+
             // info about the initial request, that may include several native calls
             val request: StreamRequestDetails,
             // total native calls passes within the initial request
@@ -62,11 +70,8 @@ class Events {
             val succeed: Boolean,
             val rpcError: Int? = null,
             val payloadSizeBytes: Long,
-
-            blockchain: Chain, method: String, id: UUID
-    ) : ChainBase(blockchain, method, id) {
-
-    }
+            val nativeCall: NativeCallItemDetails
+    ) : ChainBase(blockchain, "NativeCall", id)
 
     data class StreamRequestDetails(
             val id: UUID,
@@ -93,8 +98,7 @@ class Events {
             val ts: Instant = Instant.now()
     )
 
-    class NativeCallBuilder() {
-
+    abstract class BaseBuilder<T>() {
         companion object {
             private val remoteIpKeys = listOf(
                     Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
@@ -103,15 +107,14 @@ class Events {
             private val invalidCharacters = Regex("[\n\t]+")
         }
 
-        private var requestDetails = StreamRequestDetails(
+        var requestDetails = StreamRequestDetails(
                 UUID.randomUUID(),
                 Instant.now(),
                 Remote(emptyList(), "", "")
         )
 
-        var chain: Int = Chain.UNSPECIFIED.id
-        val items = ArrayList<NativeCallItemDetails>()
-        val replies = HashMap<Int, NativeCallReplyDetails>()
+        var chainId: Int = Chain.UNSPECIFIED.id
+        var chain = Chain.UNSPECIFIED
 
         private fun toInetAddress(ip: String): InetAddress? {
             val isIp = Character.digit(ip[0], 16) != -1
@@ -144,15 +147,17 @@ class Events {
                     .trim()
         }
 
-        fun start(metadata: Metadata, attributes: Attributes): NativeCallBuilder {
+        abstract protected fun getT(): T
+
+        fun start(metadata: Metadata, attributes: Attributes): T {
             val userAgent = metadata.get(Metadata.Key.of("user-agent", Metadata.ASCII_STRING_MARSHALLER))
-                    ?.let(this@NativeCallBuilder::clean)
+                    ?.let(this@BaseBuilder::clean)
                     ?: ""
             val ips = ArrayList<InetAddress>()
             remoteIpKeys.forEach { key ->
                 metadata.get(key)?.let {
                     it.trim().ifEmpty { null }
-                            ?.let(this@NativeCallBuilder::toInetAddress)
+                            ?.let(this@BaseBuilder::toInetAddress)
                             ?.let(ips::add)
                 }
             }
@@ -168,11 +173,36 @@ class Events {
                             ip = ip,
                             userAgent = userAgent
                     ))
+            return getT()
+        }
+
+        fun withChain(chain: Int): T {
+            this.chainId = chain
+            this.chain = Chain.byId(chainId)
+            return getT()
+        }
+    }
+
+    class SubscribeHeadBuilder() : BaseBuilder<SubscribeHeadBuilder>() {
+        private var index = 0
+
+        override fun getT(): SubscribeHeadBuilder {
             return this
         }
 
-        fun withChain(chain: Int): NativeCallBuilder {
-            this.chain = chain
+        fun onReply(resp: BlockchainOuterClass.ChainHead): SubscribeHead {
+            return SubscribeHead(
+                    chain, UUID.randomUUID(), requestDetails, index++
+            )
+        }
+    }
+
+    class NativeCallBuilder : BaseBuilder<NativeCallBuilder>() {
+
+        val items = ArrayList<NativeCallItemDetails>()
+        val replies = HashMap<Int, NativeCallReplyDetails>()
+
+        override fun getT(): NativeCallBuilder {
             return this
         }
 
@@ -197,7 +227,6 @@ class Events {
         }
 
         fun build(): List<NativeCall> {
-            val blockchain = Chain.byId(this.chain)
             return items.mapIndexed { index, item ->
                 val reply = replies[item.id]
                 NativeCall(
@@ -205,8 +234,8 @@ class Events {
                         total = items.size,
                         index = index,
                         succeed = reply?.succeed ?: false,
-                        blockchain = blockchain,
-                        method = item.method,
+                        blockchain = chain,
+                        nativeCall = item,
                         payloadSizeBytes = item.payloadSizeBytes,
                         id = UUID.randomUUID()
                 )

@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.Common
 import io.grpc.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,14 +37,11 @@ class AccessHandler(
             next: ServerCallHandler<ReqT, RespT>): ServerCall.Listener<ReqT> {
 
         when (val method = call.methodDescriptor.bareMethodName) {
+            "SubscribeHead" -> {
+                return processSubscribeHead(call, headers, next)
+            }
             "NativeCall" -> {
-                val builder = Events.NativeCallBuilder()
-                        .start(headers, call.attributes)
-                return OnNativeCall<ReqT, RespT>(
-                        next.startCall(OnNativeCallResponse(call, builder), headers),
-                        builder) { logs ->
-                    accessLogWriter.submit(logs)
-                }
+                return processNativeCall(call, headers, next)
             }
             else -> {
                 log.trace("unsupported method `{}`", method)
@@ -54,20 +52,68 @@ class AccessHandler(
         return next.startCall(call, headers)
     }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun <ReqT : Any, RespT : Any> processSubscribeHead(
+            call: ServerCall<ReqT, RespT>,
+            headers: Metadata,
+            next: ServerCallHandler<ReqT, RespT>
+    ): ServerCall.Listener<ReqT> {
+        val builder = Events.SubscribeHeadBuilder()
+                .start(headers, call.attributes)
+        val callWrapper: ServerCall<ReqT, RespT> = OnSubscribeHeadResponse(
+                call as ServerCall<Common.Chain, BlockchainOuterClass.ChainHead>, builder, accessLogWriter) as ServerCall<ReqT, RespT>
+        return OnSubscribeHead(
+                next.startCall(callWrapper, headers) as ServerCall.Listener<Common.Chain>,
+                builder
+        ) as ServerCall.Listener<ReqT>
+    }
 
-    class OnNativeCall<ReqT : Any, RespT : Any>(
-            val next: ServerCall.Listener<ReqT>,
+    @Suppress("UNCHECKED_CAST")
+    private fun <ReqT : Any, RespT : Any> processNativeCall(
+            call: ServerCall<ReqT, RespT>,
+            headers: Metadata,
+            next: ServerCallHandler<ReqT, RespT>
+    ): ServerCall.Listener<ReqT> {
+        val builder = Events.NativeCallBuilder()
+                .start(headers, call.attributes)
+
+        val callWrapper: ServerCall<ReqT, RespT> = OnNativeCallResponse(
+                call as ServerCall<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>, builder
+        ) as ServerCall<ReqT, RespT>
+        return OnNativeCall(
+                next.startCall(callWrapper, headers) as ServerCall.Listener<BlockchainOuterClass.NativeCallRequest>,
+                builder) { logs ->
+            accessLogWriter.submit(logs)
+        } as ServerCall.Listener<ReqT>
+    }
+
+    class OnSubscribeHead(
+            val next: ServerCall.Listener<Common.Chain>,
+            val builder: Events.SubscribeHeadBuilder
+    ) : ForwardingServerCallListener<Common.Chain>() {
+
+        override fun onMessage(message: Common.Chain) {
+            val chainId = message.type.number
+            builder.withChain(chainId)
+            super.onMessage(message)
+        }
+
+        override fun delegate(): ServerCall.Listener<Common.Chain> {
+            return next
+        }
+    }
+
+    class OnNativeCall(
+            val next: ServerCall.Listener<BlockchainOuterClass.NativeCallRequest>,
             val builder: Events.NativeCallBuilder,
             val done: (List<Events.NativeCall>) -> Unit
-    ) : ForwardingServerCallListener<ReqT>() {
+    ) : ForwardingServerCallListener<BlockchainOuterClass.NativeCallRequest>() {
 
-        override fun onMessage(message: ReqT) {
-            if (message is BlockchainOuterClass.NativeCallRequest) {
-                val chain = message.chain
-                builder.withChain(chain.number)
-                message.itemsList.forEach { item ->
-                    builder.onItem(item)
-                }
+        override fun onMessage(message: BlockchainOuterClass.NativeCallRequest) {
+            val chain = message.chain
+            builder.withChain(chain.number)
+            message.itemsList.forEach { item ->
+                builder.onItem(item)
             }
             super.onMessage(message)
         }
@@ -82,16 +128,14 @@ class AccessHandler(
             done(builder.build())
         }
 
-        override fun delegate(): ServerCall.Listener<ReqT> {
+        override fun delegate(): ServerCall.Listener<BlockchainOuterClass.NativeCallRequest> {
             return next
         }
     }
 
-    class OnNativeCallResponse<ReqT : Any, RespT : Any>(
-            val next: ServerCall<ReqT, RespT>,
-            val builder: Events.NativeCallBuilder
+    abstract class BaseCallResponse<ReqT : Any, RespT : Any>(
+            val next: ServerCall<ReqT, RespT>
     ) : ForwardingServerCall<ReqT, RespT>() {
-
         override fun getMethodDescriptor(): MethodDescriptor<ReqT, RespT> {
             return next.methodDescriptor
         }
@@ -101,9 +145,30 @@ class AccessHandler(
         }
 
         override fun sendMessage(message: RespT) {
-            if (message is BlockchainOuterClass.NativeCallReplyItem) {
-                builder.onItemReply(message)
-            }
+            super.sendMessage(message)
+        }
+    }
+
+    class OnNativeCallResponse(
+            next: ServerCall<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>,
+            val builder: Events.NativeCallBuilder
+    ) : BaseCallResponse<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>(next) {
+
+        override fun sendMessage(message: BlockchainOuterClass.NativeCallReplyItem) {
+            builder.onItemReply(message)
+            super.sendMessage(message)
+        }
+    }
+
+    class OnSubscribeHeadResponse(
+            next: ServerCall<Common.Chain, BlockchainOuterClass.ChainHead>,
+            val builder: Events.SubscribeHeadBuilder,
+            val accessLogWriter: AccessLogWriter
+    ) : BaseCallResponse<Common.Chain, BlockchainOuterClass.ChainHead>(next) {
+
+        override fun sendMessage(message: BlockchainOuterClass.ChainHead) {
+            val event = builder.onReply(message)
+            accessLogWriter.submit(event)
             super.sendMessage(message)
         }
     }
