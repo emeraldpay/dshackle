@@ -56,7 +56,7 @@ class AccessLogWriter(
     @PostConstruct
     fun start() {
         if (!config.enabled) {
-            log.info("Access Log is diabled")
+            log.info("Access Log is disabled")
             return
         }
         log.info("Writing Access Log to ${filename.absolutePath}")

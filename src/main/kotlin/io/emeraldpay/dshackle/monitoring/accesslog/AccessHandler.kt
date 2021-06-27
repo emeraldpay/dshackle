@@ -16,7 +16,6 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.Global
 import io.grpc.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,6 +38,7 @@ class AccessHandler(
         when (val method = call.methodDescriptor.bareMethodName) {
             "NativeCall" -> {
                 val builder = Events.NativeCallBuilder()
+                        .start(headers, call.attributes)
                 return OnNativeCall<ReqT, RespT>(
                         next.startCall(OnNativeCallResponse(call, builder), headers),
                         builder) { logs ->

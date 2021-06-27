@@ -18,10 +18,15 @@ package io.emeraldpay.dshackle.monitoring.accesslog
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.grpc.Chain
+import io.grpc.Attributes
+import io.grpc.Grpc
+import io.grpc.Metadata
+import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.time.Instant
 import java.util.*
-import kotlin.collections.ArrayList
 
 class Events {
 
@@ -65,11 +70,13 @@ class Events {
 
     data class StreamRequestDetails(
             val id: UUID,
-            val start: Instant
+            val start: Instant,
+            val remote: Remote
     )
 
     data class Remote(
             val ips: List<String>,
+            val ip: String,
             val userAgent: String
     )
 
@@ -88,14 +95,81 @@ class Events {
 
     class NativeCallBuilder() {
 
-        private val requestDetails = StreamRequestDetails(
+        companion object {
+            private val remoteIpKeys = listOf(
+                    Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
+                    Metadata.Key.of("x-forwarded-for", Metadata.ASCII_STRING_MARSHALLER)
+            )
+            private val invalidCharacters = Regex("[\n\t]+")
+        }
+
+        private var requestDetails = StreamRequestDetails(
                 UUID.randomUUID(),
-                Instant.now()
+                Instant.now(),
+                Remote(emptyList(), "", "")
         )
 
         var chain: Int = Chain.UNSPECIFIED.id
         val items = ArrayList<NativeCallItemDetails>()
         val replies = HashMap<Int, NativeCallReplyDetails>()
+
+        private fun toInetAddress(ip: String): InetAddress? {
+            val isIp = Character.digit(ip[0], 16) != -1
+            if (!isIp) {
+                return null
+            }
+            return try {
+                InetAddress.getByName(ip)
+            } catch (t: Throwable) {
+                null
+            }
+        }
+
+        private fun findBestIp(ips: List<InetAddress>): InetAddress? {
+            // check if a real remote address is provided, otherwise use any local address
+            return ips.sortedWith(kotlin.Comparator { a, b ->
+                val aLocal = a.isLoopbackAddress || a.isSiteLocalAddress
+                val bLocal = b.isLoopbackAddress || b.isSiteLocalAddress
+                when {
+                    aLocal && bLocal -> 0
+                    aLocal -> 1
+                    else -> -1
+                }
+            }).firstOrNull()
+        }
+
+        private fun clean(s: String): String {
+            return StringUtils.truncate(s, 128)
+                    .replace(invalidCharacters, " ")
+                    .trim()
+        }
+
+        fun start(metadata: Metadata, attributes: Attributes): NativeCallBuilder {
+            val userAgent = metadata.get(Metadata.Key.of("user-agent", Metadata.ASCII_STRING_MARSHALLER))
+                    ?.let(this@NativeCallBuilder::clean)
+                    ?: ""
+            val ips = ArrayList<InetAddress>()
+            remoteIpKeys.forEach { key ->
+                metadata.get(key)?.let {
+                    it.trim().ifEmpty { null }
+                            ?.let(this@NativeCallBuilder::toInetAddress)
+                            ?.let(ips::add)
+                }
+            }
+            attributes.get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)?.let { addr ->
+                if (addr is InetSocketAddress) {
+                    ips.add(addr.address)
+                }
+            }
+            val ip = findBestIp(ips)?.hostAddress ?: ""
+            this.requestDetails = this.requestDetails
+                    .copy(remote = Remote(
+                            ips = ips.map { it.hostAddress },
+                            ip = ip,
+                            userAgent = userAgent
+                    ))
+            return this
+        }
 
         fun withChain(chain: Int): NativeCallBuilder {
             this.chain = chain
