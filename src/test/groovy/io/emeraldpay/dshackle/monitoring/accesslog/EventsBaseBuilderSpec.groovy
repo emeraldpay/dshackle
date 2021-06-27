@@ -22,7 +22,7 @@ import io.grpc.Grpc
 import io.grpc.Metadata
 import spock.lang.Specification
 
-class EventsNativeCallBuilderSpec extends Specification {
+class EventsBaseBuilderSpec extends Specification {
 
     def "Parse headers from direct local access"() {
         setup:
