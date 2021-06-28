@@ -16,15 +16,8 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
 import com.fasterxml.jackson.annotation.JsonInclude
-import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.grpc.Chain
-import io.grpc.Attributes
-import io.grpc.Grpc
-import io.grpc.Metadata
-import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
-import java.net.InetAddress
-import java.net.InetSocketAddress
 import java.time.Instant
 import java.util.*
 
@@ -52,6 +45,17 @@ class Events {
             // index of the current response
             val index: Int
     ) : ChainBase(blockchain, "SubscribeHead", id)
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    class SubscribeBalance(
+            blockchain: Chain, id: UUID,
+            // initial request details
+            val request: StreamRequestDetails,
+            val balanceRequest: BalanceRequest,
+            val addressBalance: AddressBalance,
+            // index of the current response
+            val index: Int
+    ) : ChainBase(blockchain, "SubscribeBalance", id)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class NativeCall(
@@ -98,4 +102,13 @@ class Events {
             val ts: Instant = Instant.now()
     )
 
+    data class BalanceRequest(
+            val asset: String,
+            val addressType: String
+    )
+
+    data class AddressBalance(
+            val asset: String,
+            val address: String
+    )
 }

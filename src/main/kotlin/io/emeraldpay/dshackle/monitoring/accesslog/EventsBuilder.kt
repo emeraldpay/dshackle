@@ -132,8 +132,35 @@ class EventsBuilder {
         }
     }
 
-    class NativeCall : Base<NativeCall>() {
+    class SubscribeBalance() : Base<SubscribeBalance>() {
+        private var index = 0
+        private var balanceRequest: Events.BalanceRequest? = null
 
+        override fun getT(): SubscribeBalance {
+            return this
+        }
+
+        fun withRequest(req: BlockchainOuterClass.BalanceRequest): SubscribeBalance {
+            balanceRequest = Events.BalanceRequest(
+                    req.asset.code.toUpperCase(),
+                    req.address.addrTypeCase.name
+            )
+            return this
+        }
+
+        fun onReply(resp: BlockchainOuterClass.AddressBalance): Events.SubscribeBalance {
+            if (balanceRequest == null) {
+                throw IllegalStateException("Request is not initialized")
+            }
+            val addressBalance = Events.AddressBalance(resp.asset.code, resp.address.address)
+            val chain = Chain.byId(resp.asset.chain.number)
+            return Events.SubscribeBalance(
+                    chain, UUID.randomUUID(), requestDetails, balanceRequest!!, addressBalance, index++
+            )
+        }
+    }
+
+    class NativeCall : Base<NativeCall>() {
         val items = ArrayList<Events.NativeCallItemDetails>()
         val replies = HashMap<Int, Events.NativeCallReplyDetails>()
 
