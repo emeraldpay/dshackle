@@ -132,7 +132,7 @@ class EventsBuilder {
         }
     }
 
-    class SubscribeBalance() : Base<SubscribeBalance>() {
+    class SubscribeBalance(val subscribe: Boolean) : Base<SubscribeBalance>() {
         private var index = 0
         private var balanceRequest: Events.BalanceRequest? = null
 
@@ -155,7 +155,7 @@ class EventsBuilder {
             val addressBalance = Events.AddressBalance(resp.asset.code, resp.address.address)
             val chain = Chain.byId(resp.asset.chain.number)
             return Events.SubscribeBalance(
-                    chain, UUID.randomUUID(), requestDetails, balanceRequest!!, addressBalance, index++
+                    chain, UUID.randomUUID(), subscribe, requestDetails, balanceRequest!!, addressBalance, index++
             )
         }
     }
