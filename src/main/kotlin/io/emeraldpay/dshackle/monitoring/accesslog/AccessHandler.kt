@@ -58,7 +58,7 @@ class AccessHandler(
             headers: Metadata,
             next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
-        val builder = Events.SubscribeHeadBuilder()
+        val builder = EventsBuilder.SubscribeHead()
                 .start(headers, call.attributes)
         val callWrapper: ServerCall<ReqT, RespT> = OnSubscribeHeadResponse(
                 call as ServerCall<Common.Chain, BlockchainOuterClass.ChainHead>, builder, accessLogWriter) as ServerCall<ReqT, RespT>
@@ -74,7 +74,7 @@ class AccessHandler(
             headers: Metadata,
             next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
-        val builder = Events.NativeCallBuilder()
+        val builder = EventsBuilder.NativeCall()
                 .start(headers, call.attributes)
 
         val callWrapper: ServerCall<ReqT, RespT> = OnNativeCallResponse(
@@ -89,7 +89,7 @@ class AccessHandler(
 
     class OnSubscribeHead(
             val next: ServerCall.Listener<Common.Chain>,
-            val builder: Events.SubscribeHeadBuilder
+            val builder: EventsBuilder.SubscribeHead
     ) : ForwardingServerCallListener<Common.Chain>() {
 
         override fun onMessage(message: Common.Chain) {
@@ -105,7 +105,7 @@ class AccessHandler(
 
     class OnNativeCall(
             val next: ServerCall.Listener<BlockchainOuterClass.NativeCallRequest>,
-            val builder: Events.NativeCallBuilder,
+            val builder: EventsBuilder.NativeCall,
             val done: (List<Events.NativeCall>) -> Unit
     ) : ForwardingServerCallListener<BlockchainOuterClass.NativeCallRequest>() {
 
@@ -151,7 +151,7 @@ class AccessHandler(
 
     class OnNativeCallResponse(
             next: ServerCall<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>,
-            val builder: Events.NativeCallBuilder
+            val builder: EventsBuilder.NativeCall
     ) : BaseCallResponse<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>(next) {
 
         override fun sendMessage(message: BlockchainOuterClass.NativeCallReplyItem) {
@@ -162,7 +162,7 @@ class AccessHandler(
 
     class OnSubscribeHeadResponse(
             next: ServerCall<Common.Chain, BlockchainOuterClass.ChainHead>,
-            val builder: Events.SubscribeHeadBuilder,
+            val builder: EventsBuilder.SubscribeHead,
             val accessLogWriter: AccessLogWriter
     ) : BaseCallResponse<Common.Chain, BlockchainOuterClass.ChainHead>(next) {
 

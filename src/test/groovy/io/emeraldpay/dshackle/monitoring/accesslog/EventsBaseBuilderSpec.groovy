@@ -32,7 +32,7 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("127.0.0.1"), 2448))
                 .build()
         when:
-        def act = new Events.NativeCallBuilder()
+        def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
                 .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
@@ -59,7 +59,7 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("127.0.0.1"), 2448))
                 .build()
         when:
-        def act = new Events.NativeCallBuilder()
+        def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
                 .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
@@ -81,7 +81,7 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new Events.NativeCallBuilder()
+        def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
                 .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
@@ -104,7 +104,7 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new Events.NativeCallBuilder()
+        def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
                 .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
@@ -127,7 +127,7 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new Events.NativeCallBuilder()
+        def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
                 .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
@@ -150,7 +150,7 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet6Address.getByName("::1"), 2448))
                 .build()
         when:
-        def act = new Events.NativeCallBuilder()
+        def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
                 .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
@@ -171,7 +171,7 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new Events.NativeCallBuilder()
+        def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
                 .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
@@ -192,7 +192,7 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new Events.NativeCallBuilder()
+        def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
                 .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
