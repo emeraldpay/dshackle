@@ -36,20 +36,15 @@ class AccessHandler(
             headers: Metadata,
             next: ServerCallHandler<ReqT, RespT>): ServerCall.Listener<ReqT> {
 
-        when (val method = call.methodDescriptor.bareMethodName) {
-            "SubscribeHead" -> {
-                return processSubscribeHead(call, headers, next)
-            }
-            "NativeCall" -> {
-                return processNativeCall(call, headers, next)
-            }
+        return when (val method = call.methodDescriptor.bareMethodName) {
+            "SubscribeHead" -> processSubscribeHead(call, headers, next)
+            "SubscribeBalance" -> processSubscribeBalance(call, headers, next)
+            "NativeCall" -> processNativeCall(call, headers, next)
             else -> {
                 log.trace("unsupported method `{}`", method)
+                next.startCall(call, headers)
             }
         }
-
-        // continue
-        return next.startCall(call, headers)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -64,6 +59,22 @@ class AccessHandler(
                 call as ServerCall<Common.Chain, BlockchainOuterClass.ChainHead>, builder, accessLogWriter) as ServerCall<ReqT, RespT>
         return OnSubscribeHead(
                 next.startCall(callWrapper, headers) as ServerCall.Listener<Common.Chain>,
+                builder
+        ) as ServerCall.Listener<ReqT>
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <ReqT : Any, RespT : Any> processSubscribeBalance(
+            call: ServerCall<ReqT, RespT>,
+            headers: Metadata,
+            next: ServerCallHandler<ReqT, RespT>
+    ): ServerCall.Listener<ReqT> {
+        val builder = EventsBuilder.SubscribeBalance()
+                .start(headers, call.attributes)
+        val callWrapper: ServerCall<ReqT, RespT> = OnSubscribeBalanceResponse(
+                call as ServerCall<BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance>, builder, accessLogWriter) as ServerCall<ReqT, RespT>
+        return OnSubscribeBalance(
+                next.startCall(callWrapper, headers) as ServerCall.Listener<BlockchainOuterClass.BalanceRequest>,
                 builder
         ) as ServerCall.Listener<ReqT>
     }
@@ -99,6 +110,21 @@ class AccessHandler(
         }
 
         override fun delegate(): ServerCall.Listener<Common.Chain> {
+            return next
+        }
+    }
+
+    class OnSubscribeBalance(
+            val next: ServerCall.Listener<BlockchainOuterClass.BalanceRequest>,
+            val builder: EventsBuilder.SubscribeBalance
+    ) : ForwardingServerCallListener<BlockchainOuterClass.BalanceRequest>() {
+
+        override fun onMessage(message: BlockchainOuterClass.BalanceRequest) {
+            builder.withRequest(message)
+            super.onMessage(message)
+        }
+
+        override fun delegate(): ServerCall.Listener<BlockchainOuterClass.BalanceRequest> {
             return next
         }
     }
@@ -167,6 +193,19 @@ class AccessHandler(
     ) : BaseCallResponse<Common.Chain, BlockchainOuterClass.ChainHead>(next) {
 
         override fun sendMessage(message: BlockchainOuterClass.ChainHead) {
+            val event = builder.onReply(message)
+            accessLogWriter.submit(event)
+            super.sendMessage(message)
+        }
+    }
+
+    class OnSubscribeBalanceResponse(
+            next: ServerCall<BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance>,
+            val builder: EventsBuilder.SubscribeBalance,
+            val accessLogWriter: AccessLogWriter
+    ) : BaseCallResponse<BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance>(next) {
+
+        override fun sendMessage(message: BlockchainOuterClass.AddressBalance) {
             val event = builder.onReply(message)
             accessLogWriter.submit(event)
             super.sendMessage(message)
