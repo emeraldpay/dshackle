@@ -48,14 +48,14 @@ class Events {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class SubscribeBalance(
-            blockchain: Chain, id: UUID,
+            blockchain: Chain, id: UUID, subscribe: Boolean,
             // initial request details
             val request: StreamRequestDetails,
             val balanceRequest: BalanceRequest,
             val addressBalance: AddressBalance,
             // index of the current response
             val index: Int
-    ) : ChainBase(blockchain, "SubscribeBalance", id)
+    ) : ChainBase(blockchain, if (subscribe) "SubscribeBalance" else "GetBalance", id)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class NativeCall(

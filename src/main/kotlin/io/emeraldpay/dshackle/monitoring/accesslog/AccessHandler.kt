@@ -38,7 +38,8 @@ class AccessHandler(
 
         return when (val method = call.methodDescriptor.bareMethodName) {
             "SubscribeHead" -> processSubscribeHead(call, headers, next)
-            "SubscribeBalance" -> processSubscribeBalance(call, headers, next)
+            "SubscribeBalance" -> processSubscribeBalance(call, headers, next, true)
+            "GetBalance" -> processSubscribeBalance(call, headers, next, false)
             "NativeCall" -> processNativeCall(call, headers, next)
             else -> {
                 log.trace("unsupported method `{}`", method)
@@ -67,9 +68,10 @@ class AccessHandler(
     private fun <ReqT : Any, RespT : Any> processSubscribeBalance(
             call: ServerCall<ReqT, RespT>,
             headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>
+            next: ServerCallHandler<ReqT, RespT>,
+            subscribe: Boolean
     ): ServerCall.Listener<ReqT> {
-        val builder = EventsBuilder.SubscribeBalance()
+        val builder = EventsBuilder.SubscribeBalance(subscribe)
                 .start(headers, call.attributes)
         val callWrapper: ServerCall<ReqT, RespT> = OnSubscribeBalanceResponse(
                 call as ServerCall<BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance>, builder, accessLogWriter) as ServerCall<ReqT, RespT>
