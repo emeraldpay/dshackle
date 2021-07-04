@@ -58,6 +58,24 @@ class Events {
     ) : ChainBase(blockchain, if (subscribe) "SubscribeBalance" else "GetBalance", id)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    class TxStatus(
+            blockchain: Chain, id: UUID,
+            val request: StreamRequestDetails,
+            val txStatusRequest: TxStatusRequest,
+            val txStatus: TxStatusResponse,
+            // index of the current response
+            val index: Int
+    ) : ChainBase(blockchain, "SubscribeTxStatus", id)
+
+    data class TxStatusRequest(
+            val txId: String
+    )
+
+    data class TxStatusResponse(
+            val confirmations: Int
+    )
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     class NativeCall(
             blockchain: Chain, id: UUID,
 

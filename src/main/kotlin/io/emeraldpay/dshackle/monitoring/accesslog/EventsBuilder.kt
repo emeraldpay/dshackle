@@ -160,6 +160,29 @@ class EventsBuilder {
         }
     }
 
+    class TxStatus() : Base<TxStatus>() {
+        private var index = 0
+        private var txStatusRequest: Events.TxStatusRequest? = null
+
+        fun withRequest(req: BlockchainOuterClass.TxStatusRequest): TxStatus {
+            this.txStatusRequest = Events.TxStatusRequest(req.txId)
+            return withChain(req.chainValue)
+        }
+
+        fun onReply(resp: BlockchainOuterClass.TxStatus): Events.TxStatus {
+            return Events.TxStatus(
+                    chain, UUID.randomUUID(), requestDetails, txStatusRequest!!,
+                    Events.TxStatusResponse(resp.confirmations),
+                    index++
+            )
+        }
+
+        override fun getT(): TxStatus {
+            return this
+        }
+
+    }
+
     class NativeCall : Base<NativeCall>() {
         val items = ArrayList<Events.NativeCallItemDetails>()
         val replies = HashMap<Int, Events.NativeCallReplyDetails>()
