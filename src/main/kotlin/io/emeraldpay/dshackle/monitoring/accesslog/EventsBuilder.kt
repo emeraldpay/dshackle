@@ -227,4 +227,19 @@ class EventsBuilder {
             }
         }
     }
+
+    class Describe : Base<Describe>() {
+
+        override fun getT(): Describe {
+            return this
+        }
+
+        fun onReply(): Events.Describe {
+            return Events.Describe(
+                    id = UUID.randomUUID(),
+                    request = requestDetails
+            )
+        }
+    }
+
 }
