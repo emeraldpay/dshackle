@@ -102,6 +102,12 @@ class Events {
             val request: StreamRequestDetails
     ) : Base(id, "Describe")
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    class Status(
+            blockchain: Chain, id: UUID,
+            val request: StreamRequestDetails
+    ) : ChainBase(blockchain, "Status", id)
+
     data class StreamRequestDetails(
             val id: UUID,
             val start: Instant,

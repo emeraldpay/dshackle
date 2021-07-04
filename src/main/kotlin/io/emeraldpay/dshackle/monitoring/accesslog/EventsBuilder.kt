@@ -242,4 +242,19 @@ class EventsBuilder {
         }
     }
 
+    class Status : Base<Status>() {
+        override fun getT(): Status {
+            return this
+        }
+
+        fun onReply(message: BlockchainOuterClass.ChainStatus): Events.Status {
+            val chain = Chain.byId(message.chainValue)
+            return Events.Status(
+                    blockchain = chain,
+                    request = requestDetails,
+                    id = UUID.randomUUID()
+            )
+        }
+    }
+
 }
