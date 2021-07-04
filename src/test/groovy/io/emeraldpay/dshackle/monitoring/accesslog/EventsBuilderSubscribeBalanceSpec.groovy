@@ -32,7 +32,7 @@ class EventsBuilderSubscribeBalanceSpec extends Specification {
                 .setBalance("1234560000000000000")
                 .build()
         when:
-        def act = new EventsBuilder.SubscribeBalance()
+        def act = new EventsBuilder.SubscribeBalance(true)
                 .withRequest(request)
                 .onReply(resp)
         then:
@@ -69,7 +69,7 @@ class EventsBuilderSubscribeBalanceSpec extends Specification {
                 .setBalance("12345600000000")
                 .build()
         when:
-        def act = new EventsBuilder.SubscribeBalance()
+        def act = new EventsBuilder.SubscribeBalance(true)
                 .withRequest(request)
                 .onReply(resp)
         then:
