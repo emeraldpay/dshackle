@@ -28,14 +28,15 @@ class Events {
     }
 
     abstract class Base(
-            val id: UUID
+            val id: UUID,
+            val method: String
     ) {
         val ts = Instant.now()
     }
 
     abstract class ChainBase(
-            val blockchain: Chain, val method: String, id: UUID
-    ) : Base(id)
+            val blockchain: Chain, method: String, id: UUID
+    ) : Base(id, method)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class SubscribeHead(
@@ -94,6 +95,12 @@ class Events {
             val payloadSizeBytes: Long,
             val nativeCall: NativeCallItemDetails
     ) : ChainBase(blockchain, "NativeCall", id)
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    class Describe(
+            id: UUID,
+            val request: StreamRequestDetails
+    ) : Base(id, "Describe")
 
     data class StreamRequestDetails(
             val id: UUID,
