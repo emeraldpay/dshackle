@@ -43,8 +43,9 @@ class AccessHandler(
             "GetBalance" -> processSubscribeBalance(call, headers, next, false)
             "NativeCall" -> processNativeCall(call, headers, next)
             "Describe" -> processDescribe(call, headers, next)
+            "SubscribeStatus" -> processStatus(call, headers, next)
             else -> {
-                log.trace("unsupported method `{}`", method)
+                log.warn("unsupported method `{}`", method)
                 next.startCall(call, headers)
             }
         }
@@ -134,6 +135,25 @@ class AccessHandler(
         ) as ServerCall<ReqT, RespT>
         return OnDescribeRequest(
                 next.startCall(callWrapper, headers) as ServerCall.Listener<BlockchainOuterClass.DescribeRequest>,
+                builder) as ServerCall.Listener<ReqT>
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <ReqT : Any, RespT : Any> processStatus(
+            call: ServerCall<ReqT, RespT>,
+            headers: Metadata,
+            next: ServerCallHandler<ReqT, RespT>
+    ): ServerCall.Listener<ReqT> {
+        val builder = EventsBuilder.Status()
+                .start(headers, call.attributes)
+
+        val callWrapper: ServerCall<ReqT, RespT> = OnStatusResponse(
+                call as ServerCall<BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus>,
+                builder,
+                accessLogWriter
+        ) as ServerCall<ReqT, RespT>
+        return OnStatusRequest(
+                next.startCall(callWrapper, headers) as ServerCall.Listener<BlockchainOuterClass.StatusRequest>,
                 builder) as ServerCall.Listener<ReqT>
     }
 
@@ -227,6 +247,20 @@ class AccessHandler(
         }
     }
 
+    class OnStatusRequest(
+            val next: ServerCall.Listener<BlockchainOuterClass.StatusRequest>,
+            val builder: EventsBuilder.Status
+    ) : ForwardingServerCallListener<BlockchainOuterClass.StatusRequest>() {
+
+        override fun onMessage(message: BlockchainOuterClass.StatusRequest) {
+            super.onMessage(message)
+        }
+
+        override fun delegate(): ServerCall.Listener<BlockchainOuterClass.StatusRequest> {
+            return next
+        }
+    }
+
     abstract class BaseCallResponse<ReqT : Any, RespT : Any>(
             val next: ServerCall<ReqT, RespT>
     ) : ForwardingServerCall<ReqT, RespT>() {
@@ -301,6 +335,19 @@ class AccessHandler(
 
         override fun sendMessage(message: BlockchainOuterClass.DescribeResponse) {
             val event = builder.onReply()
+            accessLogWriter.submit(event)
+            super.sendMessage(message)
+        }
+    }
+
+    class OnStatusResponse(
+            next: ServerCall<BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus>,
+            val builder: EventsBuilder.Status,
+            val accessLogWriter: AccessLogWriter
+    ) : BaseCallResponse<BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus>(next) {
+
+        override fun sendMessage(message: BlockchainOuterClass.ChainStatus) {
+            val event = builder.onReply(message)
             accessLogWriter.submit(event)
             super.sendMessage(message)
         }
