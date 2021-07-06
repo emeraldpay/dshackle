@@ -20,9 +20,39 @@ import io.emeraldpay.grpc.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc
 import io.grpc.Metadata
+import org.jetbrains.annotations.NotNull
+import org.junit.validator.TestClassValidator
 import spock.lang.Specification
 
 class EventsBaseBuilderSpec extends Specification {
+
+    class TestEvent extends Events.Base {
+        Events.StreamRequestDetails request
+
+        TestEvent(Events.StreamRequestDetails request) {
+            super(UUID.randomUUID(), "TEST")
+            this.request = request
+        }
+    }
+
+    class TestEventBuilder extends EventsBuilder.Base<TestEventBuilder>
+            implements EventsBuilder.RequestReply<TestEvent, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
+
+        @Override
+        protected TestEventBuilder getT() {
+            return this
+        }
+
+        @Override
+        void onRequest(BlockchainOuterClass.NativeCallRequest msg) {
+
+        }
+
+        @Override
+        TestEvent onReply(BlockchainOuterClass.NativeCallReplyItem msg) {
+            return new TestEvent(requestDetails)
+        }
+    }
 
     def "Parse headers from direct local access"() {
         setup:
@@ -32,10 +62,11 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("127.0.0.1"), 2448))
                 .build()
         when:
-        def act = new EventsBuilder.NativeCall()
-                .start(metadata, attributes)
-                .withChain(Chain.ETHEREUM.id)
-                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+        def act = new TestEventBuilder()
+                .tap {
+                    it.start(metadata, attributes)
+                    it.onRequest(BlockchainOuterClass.NativeCallRequest.getDefaultInstance())
+                }
                 .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
         act.request != null
@@ -56,10 +87,11 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("127.0.0.1"), 2448))
                 .build()
         when:
-        def act = new EventsBuilder.NativeCall()
-                .start(metadata, attributes)
-                .withChain(Chain.ETHEREUM.id)
-                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+        def act = new TestEventBuilder()
+                .tap {
+                    it.start(metadata, attributes)
+                    it.onRequest(BlockchainOuterClass.NativeCallRequest.getDefaultInstance())
+                }
                 .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
         with(act.request.remote) {
@@ -77,10 +109,11 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new EventsBuilder.NativeCall()
-                .start(metadata, attributes)
-                .withChain(Chain.ETHEREUM.id)
-                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+        def act = new TestEventBuilder()
+                .tap {
+                    it.start(metadata, attributes)
+                    it.onRequest(BlockchainOuterClass.NativeCallRequest.getDefaultInstance())
+                }
                 .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
         with(act.request.remote) {
@@ -99,10 +132,11 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new EventsBuilder.NativeCall()
-                .start(metadata, attributes)
-                .withChain(Chain.ETHEREUM.id)
-                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+        def act = new TestEventBuilder()
+                .tap {
+                    it.start(metadata, attributes)
+                    it.onRequest(BlockchainOuterClass.NativeCallRequest.getDefaultInstance())
+                }
                 .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
         with(act.request.remote) {
@@ -121,10 +155,11 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new EventsBuilder.NativeCall()
-                .start(metadata, attributes)
-                .withChain(Chain.ETHEREUM.id)
-                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+        def act = new TestEventBuilder()
+                .tap {
+                    it.start(metadata, attributes)
+                    it.onRequest(BlockchainOuterClass.NativeCallRequest.getDefaultInstance())
+                }
                 .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
         with(act.request.remote) {
@@ -143,10 +178,11 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet6Address.getByName("::1"), 2448))
                 .build()
         when:
-        def act = new EventsBuilder.NativeCall()
-                .start(metadata, attributes)
-                .withChain(Chain.ETHEREUM.id)
-                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+        def act = new TestEventBuilder()
+                .tap {
+                    it.start(metadata, attributes)
+                    it.onRequest(BlockchainOuterClass.NativeCallRequest.getDefaultInstance())
+                }
                 .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
         with(act.request.remote) {
@@ -163,10 +199,11 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new EventsBuilder.NativeCall()
-                .start(metadata, attributes)
-                .withChain(Chain.ETHEREUM.id)
-                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+        def act = new TestEventBuilder()
+                .tap {
+                    it.start(metadata, attributes)
+                    it.onRequest(BlockchainOuterClass.NativeCallRequest.getDefaultInstance())
+                }
                 .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
         with(act.request.remote) {
@@ -183,10 +220,11 @@ class EventsBaseBuilderSpec extends Specification {
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, new InetSocketAddress(Inet4Address.getByName("30.56.100.15"), 2448))
                 .build()
         when:
-        def act = new EventsBuilder.NativeCall()
-                .start(metadata, attributes)
-                .withChain(Chain.ETHEREUM.id)
-                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+        def act = new TestEventBuilder()
+                .tap {
+                    it.start(metadata, attributes)
+                    it.onRequest(BlockchainOuterClass.NativeCallRequest.getDefaultInstance())
+                }
                 .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
         with(act.request.remote) {
