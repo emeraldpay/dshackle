@@ -35,18 +35,15 @@ class EventsBaseBuilderSpec extends Specification {
         def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
-                .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
-                .build()
+                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+                .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
-        act.size() == 1
-        with(act[0]) {
-            it.request != null
-            it.request.remote != null
-            with(it.request.remote) {
-                ips == ["127.0.0.1"]
-                userAgent == "grpc-go/1.30.0"
-                ip == "127.0.0.1"
-            }
+        act.request != null
+        act.request.remote != null
+        with(act.request.remote) {
+            ips == ["127.0.0.1"]
+            userAgent == "grpc-go/1.30.0"
+            ip == "127.0.0.1"
         }
     }
 
@@ -62,11 +59,10 @@ class EventsBaseBuilderSpec extends Specification {
         def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
-                .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
-                .build()
+                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+                .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
-        act.size() == 1
-        with(act[0].request.remote) {
+        with(act.request.remote) {
             ips == ["30.56.100.15", "127.0.0.1"]
             ip == "30.56.100.15"
         }
@@ -84,11 +80,10 @@ class EventsBaseBuilderSpec extends Specification {
         def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
-                .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
-                .build()
+                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+                .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
-        act.size() == 1
-        with(act[0].request.remote) {
+        with(act.request.remote) {
             ips == ["192.168.1.1", "30.56.100.15"]
             userAgent == "grpc-go/1.30.0"
             ip == "30.56.100.15"
@@ -107,11 +102,10 @@ class EventsBaseBuilderSpec extends Specification {
         def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
-                .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
-                .build()
+                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+                .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
-        act.size() == 1
-        with(act[0].request.remote) {
+        with(act.request.remote) {
             ips == ["30.56.100.15"]
             userAgent == "grpc-go/1.30.0"
             ip == "30.56.100.15"
@@ -130,11 +124,10 @@ class EventsBaseBuilderSpec extends Specification {
         def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
-                .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
-                .build()
+                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+                .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
-        act.size() == 1
-        with(act[0].request.remote) {
+        with(act.request.remote) {
             ips == ["30.56.100.15"]
             userAgent == "grpc-go/1.30.0"
             ip == "30.56.100.15"
@@ -153,11 +146,10 @@ class EventsBaseBuilderSpec extends Specification {
         def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
-                .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
-                .build()
+                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+                .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
-        act.size() == 1
-        with(act[0].request.remote) {
+        with(act.request.remote) {
             ips == ["2001:db8:0:0:0:ff00:42:8329", "0:0:0:0:0:0:0:1"]
             ip == "2001:db8:0:0:0:ff00:42:8329"
         }
@@ -174,11 +166,10 @@ class EventsBaseBuilderSpec extends Specification {
         def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
-                .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
-                .build()
+                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+                .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
-        act.size() == 1
-        with(act[0].request.remote) {
+        with(act.request.remote) {
             userAgent == "grpc-go/1.30.0 xss"
         }
     }
@@ -195,11 +186,10 @@ class EventsBaseBuilderSpec extends Specification {
         def act = new EventsBuilder.NativeCall()
                 .start(metadata, attributes)
                 .withChain(Chain.ETHEREUM.id)
-                .onItem(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
-                .build()
+                .onRequest(BlockchainOuterClass.NativeCallItem.getDefaultInstance())
+                .onReply(BlockchainOuterClass.NativeCallReplyItem.getDefaultInstance())
         then:
-        act.size() == 1
-        with(act[0].request.remote) {
+        with(act.request.remote) {
             userAgent.length() == 128
             userAgent == "0123456_1_0123456_2_0123456_3_0123456_4_0123456_5_0123456_6_0123456_7_0123456_8_0123456_9_0123456_0_0123456_1_0123456_2_0123456_"
         }
