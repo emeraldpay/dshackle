@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.Common
 import io.emeraldpay.grpc.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc
@@ -33,7 +34,16 @@ class EventsBuilder {
         private val log = LoggerFactory.getLogger(EventsBuilder::class.java)
     }
 
-    abstract class Base<T>() {
+    interface StartingRequest {
+        fun start(metadata: Metadata, attributes: Attributes)
+    }
+
+    interface RequestReply<E, Req, Resp> : StartingRequest {
+        fun onRequest(msg: Req)
+        fun onReply(msg: Resp): E
+    }
+
+    abstract class Base<T>() : StartingRequest {
         companion object {
             private val remoteIpKeys = listOf(
                     Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
@@ -82,9 +92,9 @@ class EventsBuilder {
                     .trim()
         }
 
-        abstract protected fun getT(): T
+        protected abstract fun getT(): T
 
-        fun start(metadata: Metadata, attributes: Attributes): T {
+        override fun start(metadata: Metadata, attributes: Attributes) {
             val userAgent = metadata.get(Metadata.Key.of("user-agent", Metadata.ASCII_STRING_MARSHALLER))
                     ?.let(this@Base::clean)
                     ?: ""
@@ -108,7 +118,6 @@ class EventsBuilder {
                             ip = ip,
                             userAgent = userAgent
                     ))
-            return getT()
         }
 
         fun withChain(chain: Int): T {
@@ -118,21 +127,31 @@ class EventsBuilder {
         }
     }
 
-    class SubscribeHead() : Base<SubscribeHead>() {
+    class SubscribeHead() :
+            Base<SubscribeHead>(),
+            RequestReply<Events.SubscribeHead, Common.Chain, BlockchainOuterClass.ChainHead> {
+
         private var index = 0
 
         override fun getT(): SubscribeHead {
             return this
         }
 
-        fun onReply(resp: BlockchainOuterClass.ChainHead): Events.SubscribeHead {
+        override fun onRequest(msg: Common.Chain) {
+            withChain(msg.type.number)
+        }
+
+        override fun onReply(msg: BlockchainOuterClass.ChainHead): Events.SubscribeHead {
             return Events.SubscribeHead(
                     chain, UUID.randomUUID(), requestDetails, index++
             )
         }
     }
 
-    class SubscribeBalance(val subscribe: Boolean) : Base<SubscribeBalance>() {
+    class SubscribeBalance(val subscribe: Boolean) :
+            Base<SubscribeBalance>(),
+            RequestReply<Events.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
+
         private var index = 0
         private var balanceRequest: Events.BalanceRequest? = null
 
@@ -140,39 +159,40 @@ class EventsBuilder {
             return this
         }
 
-        fun withRequest(req: BlockchainOuterClass.BalanceRequest): SubscribeBalance {
+        override fun onRequest(msg: BlockchainOuterClass.BalanceRequest) {
             balanceRequest = Events.BalanceRequest(
-                    req.asset.code.toUpperCase(),
-                    req.address.addrTypeCase.name
+                    msg.asset.code.toUpperCase(),
+                    msg.address.addrTypeCase.name
             )
-            return this
         }
 
-        fun onReply(resp: BlockchainOuterClass.AddressBalance): Events.SubscribeBalance {
+        override fun onReply(msg: BlockchainOuterClass.AddressBalance): Events.SubscribeBalance {
             if (balanceRequest == null) {
                 throw IllegalStateException("Request is not initialized")
             }
-            val addressBalance = Events.AddressBalance(resp.asset.code, resp.address.address)
-            val chain = Chain.byId(resp.asset.chain.number)
+            val addressBalance = Events.AddressBalance(msg.asset.code, msg.address.address)
+            val chain = Chain.byId(msg.asset.chain.number)
             return Events.SubscribeBalance(
                     chain, UUID.randomUUID(), subscribe, requestDetails, balanceRequest!!, addressBalance, index++
             )
         }
     }
 
-    class TxStatus() : Base<TxStatus>() {
+    class TxStatus() :
+            Base<TxStatus>(),
+            RequestReply<Events.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
         private var index = 0
         private var txStatusRequest: Events.TxStatusRequest? = null
 
-        fun withRequest(req: BlockchainOuterClass.TxStatusRequest): TxStatus {
-            this.txStatusRequest = Events.TxStatusRequest(req.txId)
-            return withChain(req.chainValue)
+        override fun onRequest(msg: BlockchainOuterClass.TxStatusRequest) {
+            this.txStatusRequest = Events.TxStatusRequest(msg.txId)
+            withChain(msg.chainValue)
         }
 
-        fun onReply(resp: BlockchainOuterClass.TxStatus): Events.TxStatus {
+        override fun onReply(msg: BlockchainOuterClass.TxStatus): Events.TxStatus {
             return Events.TxStatus(
                     chain, UUID.randomUUID(), requestDetails, txStatusRequest!!,
-                    Events.TxStatusResponse(resp.confirmations),
+                    Events.TxStatusResponse(msg.confirmations),
                     index++
             )
         }
@@ -183,7 +203,9 @@ class EventsBuilder {
 
     }
 
-    class NativeCall : Base<NativeCall>() {
+    class NativeCall :
+            Base<NativeCall>(),
+            RequestReply<Events.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
         val items = ArrayList<Events.NativeCallItemDetails>()
         val replies = HashMap<Int, Events.NativeCallReplyDetails>()
         private var index = 0
@@ -192,24 +214,26 @@ class EventsBuilder {
             return this
         }
 
-        fun onRequest(item: BlockchainOuterClass.NativeCallItem): NativeCall {
-            this.items.add(
-                    Events.NativeCallItemDetails(
-                            item.method,
-                            item.id,
-                            item.payload.size().toLong()
-                    )
-            )
-            return this
+        override fun onRequest(msg: BlockchainOuterClass.NativeCallRequest) {
+            withChain(msg.chain.number)
+            msg.itemsList.forEach { item ->
+                this.items.add(
+                        Events.NativeCallItemDetails(
+                                item.method,
+                                item.id,
+                                item.payload.size().toLong()
+                        )
+                )
+            }
         }
 
-        fun onReply(reply: BlockchainOuterClass.NativeCallReplyItem): Events.NativeCall {
-            val item = items.find { it.id == reply.id }!!
+        override fun onReply(msg: BlockchainOuterClass.NativeCallReplyItem): Events.NativeCall {
+            val item = items.find { it.id == msg.id }!!
             return Events.NativeCall(
                     request = requestDetails,
                     total = items.size,
                     index = index++,
-                    succeed = reply.succeed,
+                    succeed = msg.succeed,
                     blockchain = chain,
                     nativeCall = item,
                     payloadSizeBytes = item.payloadSizeBytes,
@@ -219,13 +243,18 @@ class EventsBuilder {
 
     }
 
-    class Describe : Base<Describe>() {
+    class Describe :
+            Base<Describe>(),
+            RequestReply<Events.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {
 
         override fun getT(): Describe {
             return this
         }
 
-        fun onReply(): Events.Describe {
+        override fun onRequest(msg: BlockchainOuterClass.DescribeRequest) {
+        }
+
+        override fun onReply(msg: BlockchainOuterClass.DescribeResponse): Events.Describe {
             return Events.Describe(
                     id = UUID.randomUUID(),
                     request = requestDetails
@@ -233,13 +262,18 @@ class EventsBuilder {
         }
     }
 
-    class Status : Base<Status>() {
+    class Status :
+            Base<Status>(),
+            RequestReply<Events.Status, BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus> {
         override fun getT(): Status {
             return this
         }
 
-        fun onReply(message: BlockchainOuterClass.ChainStatus): Events.Status {
-            val chain = Chain.byId(message.chainValue)
+        override fun onRequest(msg: BlockchainOuterClass.StatusRequest) {
+        }
+
+        override fun onReply(msg: BlockchainOuterClass.ChainStatus): Events.Status {
+            val chain = Chain.byId(msg.chainValue)
             return Events.Status(
                     blockchain = chain,
                     request = requestDetails,
