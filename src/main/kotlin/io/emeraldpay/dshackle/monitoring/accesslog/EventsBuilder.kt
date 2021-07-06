@@ -186,12 +186,13 @@ class EventsBuilder {
     class NativeCall : Base<NativeCall>() {
         val items = ArrayList<Events.NativeCallItemDetails>()
         val replies = HashMap<Int, Events.NativeCallReplyDetails>()
+        private var index = 0
 
         override fun getT(): NativeCall {
             return this
         }
 
-        fun onItem(item: BlockchainOuterClass.NativeCallItem): NativeCall {
+        fun onRequest(item: BlockchainOuterClass.NativeCallItem): NativeCall {
             this.items.add(
                     Events.NativeCallItemDetails(
                             item.method,
@@ -202,30 +203,20 @@ class EventsBuilder {
             return this
         }
 
-        fun onItemReply(reply: BlockchainOuterClass.NativeCallReplyItem): NativeCall {
-            this.replies[reply.id] = Events.NativeCallReplyDetails(
-                    reply.id,
-                    reply.succeed,
-                    reply.payload?.size()?.toLong() ?: 0L
+        fun onReply(reply: BlockchainOuterClass.NativeCallReplyItem): Events.NativeCall {
+            val item = items.find { it.id == reply.id }!!
+            return Events.NativeCall(
+                    request = requestDetails,
+                    total = items.size,
+                    index = index++,
+                    succeed = reply.succeed,
+                    blockchain = chain,
+                    nativeCall = item,
+                    payloadSizeBytes = item.payloadSizeBytes,
+                    id = UUID.randomUUID()
             )
-            return this
         }
 
-        fun build(): List<Events.NativeCall> {
-            return items.mapIndexed { index, item ->
-                val reply = replies[item.id]
-                Events.NativeCall(
-                        request = requestDetails,
-                        total = items.size,
-                        index = index,
-                        succeed = reply?.succeed ?: false,
-                        blockchain = chain,
-                        nativeCall = item,
-                        payloadSizeBytes = item.payloadSizeBytes,
-                        id = UUID.randomUUID()
-                )
-            }
-        }
     }
 
     class Describe : Base<Describe>() {

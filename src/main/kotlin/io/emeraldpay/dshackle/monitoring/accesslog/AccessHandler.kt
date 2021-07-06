@@ -110,13 +110,14 @@ class AccessHandler(
                 .start(headers, call.attributes)
 
         val callWrapper: ServerCall<ReqT, RespT> = OnNativeCallResponse(
-                call as ServerCall<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>, builder
+                call as ServerCall<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>,
+                builder,
+                accessLogWriter
         ) as ServerCall<ReqT, RespT>
         return OnNativeCall(
                 next.startCall(callWrapper, headers) as ServerCall.Listener<BlockchainOuterClass.NativeCallRequest>,
-                builder) { logs ->
-            accessLogWriter.submit(logs)
-        } as ServerCall.Listener<ReqT>
+                builder
+        ) as ServerCall.Listener<ReqT>
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -205,27 +206,16 @@ class AccessHandler(
 
     class OnNativeCall(
             val next: ServerCall.Listener<BlockchainOuterClass.NativeCallRequest>,
-            val builder: EventsBuilder.NativeCall,
-            val done: (List<Events.NativeCall>) -> Unit
+            val builder: EventsBuilder.NativeCall
     ) : ForwardingServerCallListener<BlockchainOuterClass.NativeCallRequest>() {
 
         override fun onMessage(message: BlockchainOuterClass.NativeCallRequest) {
             val chain = message.chain
             builder.withChain(chain.number)
             message.itemsList.forEach { item ->
-                builder.onItem(item)
+                builder.onRequest(item)
             }
             super.onMessage(message)
-        }
-
-        override fun onCancel() {
-            super.onCancel()
-            done(builder.build())
-        }
-
-        override fun onComplete() {
-            super.onComplete()
-            done(builder.build())
         }
 
         override fun delegate(): ServerCall.Listener<BlockchainOuterClass.NativeCallRequest> {
@@ -279,11 +269,14 @@ class AccessHandler(
 
     class OnNativeCallResponse(
             next: ServerCall<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>,
-            val builder: EventsBuilder.NativeCall
+            val builder: EventsBuilder.NativeCall,
+            val accessLogWriter: AccessLogWriter
     ) : BaseCallResponse<BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem>(next) {
 
         override fun sendMessage(message: BlockchainOuterClass.NativeCallReplyItem) {
-            builder.onItemReply(message)
+            accessLogWriter.submit(
+                    builder.onReply(message)
+            )
             super.sendMessage(message)
         }
     }
