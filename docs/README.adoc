@@ -3,7 +3,7 @@
 == What is Dshackle
 
 Dshackle is a L7 Load Balancer for Blockchain APIs with automatic discovery, health checking, secure access, TLS with
-client authentication, and many other features. It can be configured as an edge proxy, middle proxy or API gateway.
+client authentication, and many other features.It can be configured as an edge proxy, middle proxy or API gateway.
 
 Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers,
 such as Geth, Parity, Infura, etc), automatically verifies their availability and the current status of the network,
@@ -38,11 +38,12 @@ Main goals:
 . link:03-server-config.adoc[Server Configuration]
 . link:04-upstream-config.adoc[Upstreams Configuration]
 . link:05-start.adoc[How to launch a server]
-. link:06-methods.adoc[API methods]
-. link:07-authentication.adoc[Authentication]
-. link:08-quorum-and-selectors.adoc[Quorum and Selectors]
-. link:09-caching.adoc[Caching]
-. link:10-client-libraries.adoc[Client Libraries]
+. link:06-monitoring.adoc[Logging & Monitoring]
+. link:07-methods.adoc[API methods]
+. link:08-authentication.adoc[Authentication]
+. link:09-quorum-and-selectors.adoc[Quorum and Selectors]
+. link:10-caching.adoc[Caching]
+. link:11-client-libraries.adoc[Client Libraries]
 
 == Reference
 
