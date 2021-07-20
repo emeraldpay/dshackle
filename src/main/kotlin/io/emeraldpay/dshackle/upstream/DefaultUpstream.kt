@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Sinks
 import reactor.extra.processor.TopicProcessor
 import java.util.concurrent.atomic.AtomicReference
 
@@ -41,7 +42,9 @@ abstract class DefaultUpstream(
             this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
-    private val statusStream: TopicProcessor<UpstreamAvailability> = TopicProcessor.create()
+    private val statusStream = Sinks.many()
+            .multicast()
+            .directBestEffort<UpstreamAvailability>()
 
     override fun isAvailable(): Boolean {
         return getStatus() == UpstreamAvailability.OK
@@ -63,6 +66,7 @@ abstract class DefaultUpstream(
         status.updateAndGet { curr ->
             Status(curr.lag, avail, statusByLag(curr.lag, avail))
         }
+        statusStream.tryEmitNext(status.get().status)
     }
 
     fun statusByLag(lag: Long, proposed: UpstreamAvailability): UpstreamAvailability {
@@ -76,7 +80,8 @@ abstract class DefaultUpstream(
     }
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
-        return Flux.from(statusStream)
+        return statusStream.asFlux()
+                .distinctUntilChanged()
     }
 
     override fun setLag(lag: Long) {
@@ -86,6 +91,7 @@ abstract class DefaultUpstream(
             status.updateAndGet { curr ->
                 Status(lag, curr.avail, statusByLag(lag, curr.avail))
             }
+            statusStream.tryEmitNext(status.get().status)
         }
     }
 

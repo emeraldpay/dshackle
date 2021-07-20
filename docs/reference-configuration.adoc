@@ -58,6 +58,10 @@ tokens:
     type: ERC-20
     address: 0xdac17f958d2ee523a2206206994597c13d831ec7
 
+accessLog:
+  enabled: true
+  filename: /var/log/dshackle/access_log.jsonl
+
 cluster:
   defaults:
     - chains:
@@ -142,24 +146,33 @@ cluster:
 
 | `tls`
 |
-| Setup TLS configuration for the gRPC server. See <<tls>> section
+| Setup TLS configuration for the gRPC server.
+See <<tls>> section
 
 | `proxy`
 |
-| Setup HTTP proxy that emulates all standard JSON RPC requests. See <<proxy>> section
+| Setup HTTP proxy that emulates all standard JSON RPC requests.
+See <<proxy>> section
+
+| `accessLog`
+|
+| Configure access logging.
+See <<accessLog>> section
+
 
 | `tokens`
 |
-| Configure tokens for tracking balance. See <<tokens>> section
-
+| Configure tokens for tracking balance.
+See <<tokens>> section
 
 | `cache`
 |
-| Caching configuration. See <<cache>> section.
+| Caching configuration.
+See <<cache>> section.
 
 | `cluster`
 |
-| Setup connection to remote nodes. See <<cluster>> section
+| Setup connection to remote nodes.See <<cluster>> section
 
 |===
 
@@ -247,7 +260,7 @@ proxy:
 
 | `routes`
 |
-a| Routing paths for Proxy. The proxy will handle requests as `https://${HOST}:${PORT}/${ROUTE_ID}` (or `http://` if TLS is not enabled)
+a| Routing paths for Proxy.The proxy will handle requests as `https://${HOST}:${PORT}/${ROUTE_ID}` (or `http://` if TLS is not enabled)
 |===
 
 .Route config
@@ -262,6 +275,31 @@ a| Routing paths for Proxy. The proxy will handle requests as `https://${HOST}:$
 | `blockchain`
 |
 | A blockchain that must be used to handle that route.
+
+|===
+
+[#accessLog]
+== Access Log config
+
+[source,yaml]
+----
+accessLog:
+  enabled: true
+  filename: /var/log/dshackle/access_log.jsonl
+----
+
+.Access Log config
+[cols="2a,3a,7"]
+|===
+| Option | Default | Description
+
+| `enabled`
+| `false`
+| Enable/Disable Access logging
+
+| `filename`
+| `access_log.jsonl`
+| Path to the access log file
 
 |===
 
@@ -284,7 +322,7 @@ tokens:
 ----
 
 Tokens config enables tracking of a balance amount in the configured tokens.
-After making the configuration above you can request balance (`GetBalance`), or subscribe to balance changes (`SubscribeBalance`), using link:06-methods.adoc[enhanced protocol]
+After making the configuration above you can request balance (`GetBalance`), or subscribe to balance changes (`SubscribeBalance`), using link:07-methods.adoc[enhanced protocol]
 
 .Token config
 [cols="2a,7"]
@@ -301,7 +339,7 @@ After making the configuration above you can request balance (`GetBalance`), or 
 | Name of the token, used for balance response as asset code (as converted to UPPERCASE)
 
 | `type`
-| Type of token. Only `ERC-20` is supported at this moment
+| Type of token.Only `ERC-20` is supported at this moment
 
 | `address`
 | Address of the deployed contract
@@ -446,7 +484,7 @@ Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, `k
 | no
 | Key-Value pairs that are assigned to the upstream.
 Used to select an upstream per-request.
-See link:08-quorum-and-selectors.adoc[Quorum and Selectors]
+See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 
 | `methods`
 | no
@@ -538,9 +576,10 @@ It's more effective, easier to secure connection, and allows to build a distribu
 | Address to connect to
 
 | `tls`
-a| TLC configuration for the connection. In general it's an optional configuration, but it's strongly recommended. Also
-HTTP2 + gRPC is designed to be used with TLS, and some of the related software is unable to use it without TLS. +
-  See link:07-authentication.adoc[Authentication] docs and <<tls>>.
+a| TLC configuration for the connection.
+In general it's an optional configuration, but it's strongly recommended.
+Also HTTP2 + gRPC is designed to be used with TLS, and some of the related software is unable to use it without TLS. +
+See link:08-authentication.adoc[Authentication] docs and <<tls>>.
 
 | `tls.ca`
 | Path to x509 certificate to verify remote server

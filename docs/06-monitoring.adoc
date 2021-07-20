@@ -1,0 +1,74 @@
+= Logging & Monitoring
+
+== Access / Request Log
+
+Dshackle can log all requests to a file in JSON format.
+Or https://jsonlines.org/[JSON Lines] to be more precise, i.e., a test file where each line is a JSON.
+
+NOTE: By default, the access log is disabled.
+
+To enable access log add following configuration:
+
+[source,yaml]
+----
+accessLog:
+  enabled: true
+  filename: /var/log/dshackle/access_log.jsonl
+----
+
+`filename` is optional, and the default value is `access_log.jsonl` (i.e., in the current directory).
+
+Since a single request may contain multiple replies (ex., a batch call, or subscribe to the head blocks) the Dshackle logging is based on replies.
+The access log file contains details per each response send from the server, and each of them refers to original request details.
+
+The access log contains the JSON lines similar to:
+
+[source,json]
+----
+{
+  "version":"accesslog/v1beta",
+  "ts":"2021-07-20T01:53:33.174645Z",
+  "id":"578d83db-cf53-4ef8-b73e-3f1cc0a67e96",
+  "method":"NativeCall",
+  "blockchain":"ETHEREUM",
+  "total":2,
+  "index":0,
+  "succeed":true,
+  "request":{
+    "id":"513b9b49-b472-4c83-b4b7-58dd2aabe9f6",
+    "start":"2021-07-20T01:53:33.086946Z",
+    "remote":{
+      "ips":["127.0.0.1", "10.0.5.102", "172.217.8.78"],
+      "ip":"172.217.8.78",
+      "userAgent":"grpc-node-js/1.1.8"
+    }
+  },
+  "nativeCall":{
+     "method":"eth_blockNumber",
+     "id":2,
+     "payloadSizeBytes":2
+  }
+}
+----
+
+.Where:
+- `ts` timestamp of the reply
+- `id` uniq id of the reply
+- `method` Dshackle method which was called (i.e., not a Blockchain API method, see `nativeCall` details)
+- `blockchain` blockchain code
+- `total` how many requests in the batch (available only for a `NativeCall` call)
+- `index` current index (i.e. count) of the reply to the original request
+- `succeed` if call succeeded, in terms of Blockchain API
+- `request` original request details
+** `id` uniq id of the request; all replied to the same request have same id
+** `start` when request was received
+** `remote` remote details
+*** `ips` list of all recognized IPs (including headers such as `X-Real-IP` and `X-Forwarded-For`)
+*** `ip` a single ip, that likely represent a real IP of the remote
+*** `userAgent` user agent
+- `nativeCall` details of the individual Native Call request
+** `method` method name terms of Blockchain API
+** `id` request id provided in the original request
+** `payloadSizeBytes` size of the original _individual_ request (for JSON RPC it's size of the `params` value)
+
+

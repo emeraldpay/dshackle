@@ -170,4 +170,4 @@ message TxStatus {
 
 === gRPC Client Libraries
 
-See link:10-client-libraries.adoc[Client Libraries] documentation.
+See link:11-client-libraries.adoc[Client Libraries] documentation.

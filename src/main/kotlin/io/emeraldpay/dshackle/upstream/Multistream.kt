@@ -168,7 +168,12 @@ abstract class Multistream(
     }
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
-        val upstreamsFluxes = getAll().map { up -> up.observeStatus().map { UpstreamStatus(up, it) } }
+        val upstreamsFluxes = getAll().map { up ->
+            Flux.concat(
+                    Mono.just(up.getStatus()),
+                    up.observeStatus()
+            ).map { UpstreamStatus(up, it) }
+        }
         return Flux.merge(upstreamsFluxes)
                 .filter(FilterBestAvailability())
                 .map { it.status }
