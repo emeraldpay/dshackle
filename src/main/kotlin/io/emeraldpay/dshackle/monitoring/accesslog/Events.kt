@@ -31,6 +31,7 @@ class Events {
             val id: UUID,
             val method: String
     ) {
+        val version = "accesslog/v1beta"
         val ts = Instant.now()
     }
 
