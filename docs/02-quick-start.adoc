@@ -174,4 +174,4 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d '{"asset": {"chain": "1
 ...
 ----
 
-See other enhanced methods in the link:06-methods.adoc[Documentation for Enhanced Methods]
+See other enhanced methods in the link:07-methods.adoc[Documentation for Enhanced Methods]
