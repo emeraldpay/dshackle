@@ -13,37 +13,39 @@ image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/
 [.lead]
 _Emerald Dshackle is a Fault Tolerant Load Balancer for Blockchain API._
 
-Dshackle provides a high level aggregated API on top of several underlying upstreams.
-I.e. on top of blockchain nodes such as Bitcoind, Geth, Parity, or providers like Infura, and so on.
-It automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or data successfully broadcasted to the network.
+The goal of the Emerald Dshackle is to provide a stable routing to multiple nodes, and ensure that each request is executed on an appropriate provider.
+It considers nodes locations, state, current height, RPC methods it can provide and other characteristics.
 
-- Standard Bitcoin and Ethereum JSON RPC API, plus enhanced gRPC-based API
+It tries to recover from connection errors, faulty nodes, invalid responses, etc.
+If upstream lags behind others, lost peers below required, started to resync or went down, then Dshackle temporarily excludes it from requests and returns it when the upstream problem is fixed.
+
+The upstreams may be blockchain nodes such as Bitcoind, Geth, Parity, or public providers like Infura, QuickNode, etc.
+It automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or data successfully broadcast to the network.
+
+Provides:
+
+- Standard Bitcoin and Ethereum JSON RPC API
+- Enhanced gRPC-based API, with upstream selection, async execution, etc
 - **Secure** TLS with optional client authentication
-- Blockchain-aware **caching** in memory and in Redis
+- Blockchain-aware edge **caching**, in memory and Redis
 - Routing based on **data availability** (peers, height, sync status)
-- **Data consistency**, always gives the most actual state
+- **Data consistency**, it always gives a most actual state
 - Automatic **failover** and retry
 - Separate public blockchain nodes from your internal servers
 
-Dshackle allows to build a mesh network of interconnected Dshackle servers for building blockchain based services that needs to have fast, secure, stable and fail-proof access to blockchain APIs.
+Blockchains support:
 
-Blockchain support:
-
-- Ethereum, Ethereum Classic, Kovan testnet, and Goerli testnet
-- Bitcoin and Bitcoin Testnet
-
-WARNING: The project is still under development, please use with caution.
-
-Dshackle connects to several upstreams via JSON RPC, Websockets, or gRPC protocol.
-The server verifies if a node ("upstream") is fully synchronized (not in initial sync mode), has enough peers, and its height is not behind other nodes.
-If upstream lags behind others, lost peers below required, started to resync or went down, then Dshackle temporarily excludes it from requests and returns it when the upstream problem is fixed.
+- Ethereum and Ethereum Classic
+- Kovan, Goerli, Ropsten, Rinkeby testnets
+- Bitcoin
+- Bitcoin testnet
 
 image::dshackle-intro.png[alt="",width=80%,align="center"]
 
 == Roadmap
 
-- [ ] External logging
-- [ ] Prometheus monitoring
+WARNING: The project is still under development, please use with caution.
+
 - [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
 - [ ] Lightweight sidecar node connector
 - [ ] Configurable upstream roles
@@ -115,11 +117,11 @@ Which sets the following:
 - `${INFURA_USER}` will be provided through environment variable
 
 Please note that you can configure many upstreams for a single blockchains.
-If there is more that one upstream, then Dshackle makes requests to them with Round Robin Load Balancing.
-If one of them goes down, Dshackle continues to use only active nodes.
+If there is more than one upstream, then Dshackle routes requests to them as Round Robin.
+If one of them becomes unavailable, Dshackle continues to use only active nodes.
 
-I.e. you can set up a node in the local network, and the Infura, and if anything happened to you local node, you'll still be able to have access to a consistent state of the Ethereum blockchain.
-
+I.e., you can set up a node in the local network, plus Infura with `role: fallback`.
+If anything happened to your local node, you still have access to a consistent state of the Ethereum blockchain via Infura.
 
 link:docs[See full documentations].
 
@@ -139,7 +141,7 @@ export INFURA_USER=...
 docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
 ----
 
-Now it listen on port 2449 at the localhost and can be connected from any gRPC compatible client.
+Now it listens on port 2449 at the localhost and can be connected from any gRPC compatible client.
 Tools such as https://github.com/fullstorydev/grpcurl[gRPCurl] can automatically parse protobuf definitions and connect to it (actual Protobuf sources are located in a separate repository which you can find at https://github.com/emeraldpay/proto)
 
 Alternatively you can connect to port 8545 with traditional JSON RPC requests
@@ -168,7 +170,7 @@ curl --request POST \
 NOTE: It's not necessary to use gRPC, as Dshackle can provide standard JSON RPC proxy, but Dshackle gRPC interface improves performance and provides additional features.
 
 Dshackle provides a custom gRPC based API, which provides additional methods and other features such as streaming responses.
-Please refer to the documentation: link:docs/06-methods.adoc[gRPC Methods]
+Please refer to the documentation: link:docs/07-methods.adoc[gRPC Methods]
 The Protobuf definitions could be found in link:proto/[./proto].
 
 .Connect and listen for new blocks on Ethereum Mainnet
@@ -235,10 +237,10 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d '{\"asset\": {\"chain\"
 ...
 ----
 
-The balance subscription works with main coin (_ether_, _bticoin_), or with tokens like ERC-20 if configured additionally.
+The balance subscription works with main coin (_ether_, _bitcoin_), or with tokens like ERC-20 if configured additionally.
 See link:docs/reference-configuration.adoc[Configuration Reference].
 
-See other enhanced methods in the link:docs/06-methods.adoc[Documentation for Enhanced Methods].
+See other enhanced methods in the link:docs/07-methods.adoc[Documentation for Enhanced Methods].
 
 == Documentation
 
@@ -252,36 +254,33 @@ Dshackle should be compatible with all standard libraries that use Ethereum JSON
 
 === Java gRPC Client
 
-image:https://api.bintray.com/packages/emerald/emerald-grpc/emerald-grpc/images/download.svg[link="https://bintray.com/emerald/emerald-grpc/emerald-grpc/"]
-
 https://github.com/emeraldpay/emerald-java-client
 
 [source,groovy]
 ----
 repositories {
-    maven {
-        url  "https://dl.bintray.com/emerald/emerald-grpc"
-    }
+    maven { url  "https://maven.emrld.io" }
 }
 
 dependencies {
-    compile "io.emeraldpay:emerald-grpc:0.6.0-0.2"
+    implementation 'io.emeraldpay:emerald-api:0.9.2'
 }
 ----
 
 === Javascript gRPC Client
-image:https://img.shields.io/npm/v/@emeraldpay/grpc-client.svg["npm (scoped)", link="https://www.npmjs.com/package/@emeraldpay/grpc-client"]
+
+image:https://img.shields.io/npm/v/@emeraldpay/api-node.svg["npm (scoped)",link="https://www.npmjs.com/package/@emeraldpay/api-node"]
 
 https://github.com/emeraldpay/emerald-js-grpc
 
 [source,json]
 ----
 "dependencies": {
-    "@emeraldpay/grpc-client": "0.11.0-0.2",
+    "@emeraldpay/api-node": "0.2.0-beta.1",
 }
 ----
 
-See more in the documentation for link:docs/10-client-libraries.adoc[Client Libraries].
+See more in the documentation for link:docs/11-client-libraries.adoc[Client Libraries].
 
 == Development
 
@@ -303,7 +302,7 @@ gradle build
 
 ==== Make a Zip distribution
 
-[source, bash]
+[source,bash]
 ----
 gradle distZip
 ----
@@ -331,7 +330,6 @@ Dshackle is built using:
 - gRPC and HTTP2 protocol
 - Groovy and Spock for testing
 
-
 == Community
 
 === Development Chat
@@ -341,11 +339,11 @@ image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/
 == Commercial Support
 
 Want to support the project, prioritize a specific feature, or get commercial help with using Dshackle in your project?
-Please contact splix@emeraldpay.io to discuss the possibility
+Please contact splix@emerald.cash to discuss the possibility
 
 == License
 
-Copyright 2020 EmeraldPay, Inc
+Copyright 2021 EmeraldPay, Inc
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -353,5 +351,4 @@ You may obtain a copy of the License at
 http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+See the License for the specific language governing permissions and limitations under the License.
