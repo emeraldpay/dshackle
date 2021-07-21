@@ -71,4 +71,24 @@ The access log contains the JSON lines similar to:
 ** `id` request id provided in the original request
 ** `payloadSizeBytes` size of the original _individual_ request (for JSON RPC it's size of the `params` value)
 
+== Prometheus Metrics
 
+By default, Dshackle provides Prometheus metrics on `http://127.0.0.1:8081/metrics`.
+
+To configure the metrics use:
+
+[source,yaml]
+----
+monitoring:
+  enabled: true
+  jvm: false
+  extended: false
+  prometheus:
+    enabled: true
+    bind: 192.168.0.1
+    port: 8000
+    path: /status/prometheus
+----
+
+Where `jvm` options enabled monitoring of the JVM internals, such as memory, GC, threads, etc.
+And `extended` enables additional metrics for query selectors, etc.

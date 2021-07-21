@@ -21,6 +21,16 @@ tls:
     require: true
     ca: "/path/ca.dshackle.test.crt"
 
+monitoring:
+  enabled: true
+  jvm: false
+  extended: false
+  prometheus:
+    enabled: true
+    bind: 127.0.0.1
+    port: 8081
+    path: /metrics
+
 cache:
   redis:
     enabled: true
@@ -149,6 +159,11 @@ cluster:
 | Setup TLS configuration for the gRPC server.
 See <<tls>> section
 
+| `monitoring`
+|
+| Setup Prometheus monitoring.
+See <<monitoring>> section
+
 | `proxy`
 |
 | Setup HTTP proxy that emulates all standard JSON RPC requests.
@@ -205,7 +220,7 @@ a| `true` if any value is set
 
 | `server.key`
 |
-| Path to a private key to the certificate. The key _MUST BE_ in PKCS 8 format
+| Path to a private key to the certificate.The key _MUST BE_ in PKCS 8 format
 
 | `client.require`
 |
@@ -214,6 +229,59 @@ a| `true` if any value is set
 | `client.ca`
 |
 | Certificate to validate client authentication
+
+|===
+
+[#monitoring]
+== Monitoring
+
+Configure Prometheus monitoring
+
+[source,yaml]
+----
+monitoring:
+  enabled: true
+  jvm: false
+  extended: false
+  prometheus:
+    enabled: true
+    bind: 127.0.0.1
+    port: 8081
+    path: /metrics
+----
+
+[cols="2a,2a,5"]
+|===
+| Option | Default Value | Description
+
+| `enabled`
+| `true`
+| Enable/Disable monitoring endpoint
+
+| `jvm`
+| `false`
+| Enable/Disable JVM metrics (threads, GC, memory, etc)
+
+| `extended`
+| `false`
+| Enable/Disable additional metrics (query selectors, etc)
+
+| `prometheus.enabled`
+| `true`
+| Enable/Disable monitoring endpoint.
+_Reserved for future use_, in case of multiple different types of endpoints.
+
+| `prometheus.bind`
+| `127.0.0.1`
+| Host to bind the server
+
+| `prometheus.port`
+| `8081`
+| Port to bind the server
+
+| `prometheus.path`
+| `/metrics`
+| HTTP path to bind the server
 
 |===
 
