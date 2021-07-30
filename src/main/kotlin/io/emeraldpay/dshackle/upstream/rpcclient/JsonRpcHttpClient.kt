@@ -114,6 +114,7 @@ class JsonRpcHttpClient(
                         val now = System.nanoTime()
                         metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
                     }
+                    metrics.total.increment()
                 }
                 .map(parser::parse)
                 .onErrorResume { t ->

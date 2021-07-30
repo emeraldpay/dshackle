@@ -176,6 +176,10 @@ class GrpcUpstreams(
                 Counter.builder("upstream.grpc.err")
                         .description("Errors received on request through gRPC connection")
                         .tags(metricsTags)
+                        .register(Metrics.globalRegistry),
+                Counter.builder("upstream.grpc.total")
+                        .description("Total request received on request through gRPC connection")
+                        .tags(metricsTags)
                         .register(Metrics.globalRegistry)
         )
 
