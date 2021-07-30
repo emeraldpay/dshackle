@@ -136,6 +136,7 @@ class ProxyServer(
                 .flatMapMany { call -> execute(chain, call) }
                 .doOnNext {
                     metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                    metrics.requestMetric.increment()
                 }
                 .onErrorResume(RpcException::class.java) { err ->
                     metrics.errorMetric.increment()
@@ -166,6 +167,9 @@ class ProxyServer(
                 .tag("chain", chain.chainCode)
                 .register(Metrics.globalRegistry)
         val errorMetric = Counter.builder("request.jsonrpc.err")
+                .tag("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
+        val requestMetric = Counter.builder("request.jsonrpc.total")
                 .tag("chain", chain.chainCode)
                 .register(Metrics.globalRegistry)
     }
