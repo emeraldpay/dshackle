@@ -255,12 +255,7 @@ open class ConfiguredUpstreams(
                     Counter.builder("upstream.rpc.err")
                             .description("Errors received on request through HTTP JSON RPC connection")
                             .tags(metricsTags)
-                            .register(Metrics.globalRegistry),
-                    Counter.builder("upstream.rpc.total")
-                            .description("Total request received on request through HTTP JSON RPC connection")
-                            .tags(metricsTags)
                             .register(Metrics.globalRegistry)
-
             )
             urls.add(endpoint.url)
             JsonRpcHttpClient(
