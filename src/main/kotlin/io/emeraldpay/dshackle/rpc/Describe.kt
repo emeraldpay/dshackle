@@ -35,7 +35,7 @@ class Describe(
             val resp = BlockchainOuterClass.DescribeResponse.newBuilder()
             multistreamHolder.getAvailable().forEach { chain ->
                 multistreamHolder.getUpstream(chain)?.let { chainUpstreams ->
-                    val status = subscribeStatus.chainStatus(chain, chainUpstreams.getAll())
+                    val status = subscribeStatus.chainStatus(chain, chainUpstreams.getStatus(), chainUpstreams)
                     val targets = chainUpstreams.getMethods().getSupportedMethods()
                     val capabilities: MutableSet<Capability> = mutableSetOf()
                     val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()

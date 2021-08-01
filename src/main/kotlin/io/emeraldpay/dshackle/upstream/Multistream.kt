@@ -98,7 +98,7 @@ abstract class Multistream(
     /**
      * Get list of all underlying upstreams
      */
-    fun getAll(): List<Upstream> {
+    open fun getAll(): List<Upstream> {
         return upstreams
     }
 
