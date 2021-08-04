@@ -33,7 +33,7 @@ import kotlin.system.exitProcess
 
 
 @Repository
-class CachesFactory(
+open class CachesFactory(
         @Autowired private val cacheConfig: CacheConfig
 ) {
 

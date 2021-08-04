@@ -132,12 +132,18 @@ open class ConfiguredUpstreams(
         return defaultOptions
     }
 
-    private fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
+    fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
         return if (config.methods != null) {
             ManagedCallMethods(currentUpstreams.getDefaultMethods(chain),
                     config.methods!!.enabled.map { it.name }.toSet(),
                     config.methods!!.disabled.map { it.name }.toSet()
-            )
+            ).also {
+                config.methods!!.enabled.forEach { m ->
+                    if (m.quorum != null) {
+                        it.setQuorum(m.name, m.quorum)
+                    }
+                }
+            }
         } else {
             currentUpstreams.getDefaultMethods(chain)
         }

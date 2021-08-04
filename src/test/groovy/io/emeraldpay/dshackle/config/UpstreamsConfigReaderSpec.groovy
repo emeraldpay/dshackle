@@ -233,6 +233,29 @@ class UpstreamsConfigReaderSpec extends Specification {
         }
     }
 
+    def "Parse config with methods and quorum"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-methods-quorum.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        with(act.upstreams.get(0)) {
+            methods != null
+            with(methods) {
+                enabled.size() == 2
+                with(enabled[0]) {
+                    it.name == "custom_foo"
+                    it.quorum == "not_lagging"
+                }
+                with(enabled[1]) {
+                    it.name == "custom_bar"
+                    it.quorum == "not_empty"
+                }
+            }
+        }
+    }
+
     def "Parse config with invalid ids"() {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("upstreams-no-id.yaml")

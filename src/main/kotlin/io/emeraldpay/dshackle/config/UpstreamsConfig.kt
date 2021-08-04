@@ -23,7 +23,7 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 
-class UpstreamsConfig {
+open class UpstreamsConfig {
     var defaultOptions: MutableList<DefaultOptions> = ArrayList<DefaultOptions>()
     var upstreams: MutableList<Upstream<*>> = ArrayList<Upstream<*>>()
 
@@ -172,6 +172,7 @@ class UpstreamsConfig {
     )
 
     class Method(
-            val name: String
+            val name: String,
+            val quorum: String? = null
     )
 }
