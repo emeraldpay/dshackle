@@ -23,6 +23,11 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.infinitape.etherjar.rpc.RpcException
 import java.util.concurrent.atomic.AtomicReference
 
+/**
+ * Accepts a response only from a "synced" upstreams, where "maxLag" specifies how many blocks it may be behind to be considered as "synced"
+ *
+ * NOTE: NativeCall checks the quorums and applies a HeightSelector if NotLaggingQuorum is enabled for a call
+ */
 class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
 
     private val result: AtomicReference<ByteArray> = AtomicReference()

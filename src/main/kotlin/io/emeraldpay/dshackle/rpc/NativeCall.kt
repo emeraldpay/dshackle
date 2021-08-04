@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
@@ -151,12 +152,19 @@ open class NativeCall(
                         .withMatcher(csm)
                         .forMethod(method)
                         .forLabels(Selector.convertToMatcher(request.selector))
-                        .build()
 
                 val callQuorum = upstream.getMethods().getQuorumFor(method) ?: AlwaysQuorum()
                 callQuorum.init(upstream.getHead())
 
-                CallContext(it.id, upstream, matcher, callQuorum, RawCallDetails(method, params))
+                // for NotLaggingQuorum it makes sense to select compatible upstreams before the call
+                if (callQuorum is NotLaggingQuorum) {
+                    val lag = callQuorum.maxLag
+                    val minHeight = ((upstream.getHead().getCurrentHeight() ?: 0) - lag).coerceAtLeast(0)
+                    val heightMatcher = Selector.HeightMatcher(minHeight)
+                    matcher.withMatcher(heightMatcher)
+                }
+
+                CallContext(it.id, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
             }
         }
     }

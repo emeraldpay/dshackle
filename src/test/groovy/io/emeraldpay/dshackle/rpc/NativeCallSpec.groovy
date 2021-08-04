@@ -24,11 +24,16 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
+import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -287,6 +292,47 @@ class NativeCallSpec extends Specification {
             id == 1
             payload.method == "eth_test"
             payload.params == ""
+        }
+    }
+
+    def "Prepare call adds height selector for not-lagging quorum"() {
+        setup:
+        def methods = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                ["foo_bar"] as Set, [] as Set
+        )
+        methods.setQuorum("foo_bar", "not_lagging")
+        def head = Mock(Head) {
+            1 * it.getCurrentHeight() >> 101
+        }
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        multistream.customMethods = methods
+        multistream.customHead = head
+        def multistreamHolder = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
+        def nativeCall = new NativeCall(multistreamHolder)
+
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(
+                        BlockchainOuterClass.NativeCallItem.newBuilder()
+                                .setId(1)
+                                .setMethod("foo_bar")
+                )
+                .build()
+        when:
+        def act = nativeCall.prepareCall(req, multistream)
+                .collectList().block(Duration.ofSeconds(1)).first()
+        then:
+        act.matcher != null
+        act.matcher instanceof Selector.MultiMatcher
+        with((Selector.MultiMatcher) act.matcher) {
+            it.getMatchers().size() >= 1
+            it.getMatcher(Selector.HeightMatcher) != null
+            with(it.getMatcher(Selector.HeightMatcher)) {
+                it.height == 101
+            }
         }
     }
 
