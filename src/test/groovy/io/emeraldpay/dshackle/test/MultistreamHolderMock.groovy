@@ -19,9 +19,11 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -100,9 +102,19 @@ class MultistreamHolderMock implements MultistreamHolder {
     static class EthereumMultistreamMock extends EthereumMultistream {
 
         EthereumReader customReader = null
+        CallMethods customMethods = null
+        Head customHead = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams, @NotNull Caches caches) {
             super(chain, upstreams, caches)
+        }
+
+        EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams) {
+            this(chain, upstreams, Caches.default())
+        }
+
+        EthereumMultistreamMock(@NotNull Chain chain, @NotNull EthereumUpstream upstream) {
+            this(chain, [upstream])
         }
 
         @Override
@@ -111,6 +123,22 @@ class MultistreamHolderMock implements MultistreamHolder {
                 return customReader
             }
             return super.getReader()
+        }
+
+        @Override
+        CallMethods getMethods() {
+            if (customMethods != null) {
+                return customMethods
+            }
+            return super.getMethods()
+        }
+
+        @Override
+        Head getHead() {
+            if (customHead != null) {
+                return customHead
+            }
+            return super.getHead()
         }
     }
 

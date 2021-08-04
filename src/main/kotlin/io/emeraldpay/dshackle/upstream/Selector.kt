@@ -115,6 +115,10 @@ class Selector {
             return matchers.all { it.matches(up) }
         }
 
+        fun getMatchers(): Collection<Matcher> {
+            return Collections.unmodifiableCollection(matchers)
+        }
+
         fun <T : Matcher> getMatcher(type: Class<T>): T? {
             return matchers.find { type.isAssignableFrom(it.javaClass) } as T?
         }

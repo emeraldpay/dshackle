@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
@@ -47,6 +48,10 @@ class TestingCommons {
 
     static EthereumApiMock api() {
         return new EthereumApiMock()
+    }
+
+    static EthereumUpstreamMock upstream() {
+        return new EthereumUpstreamMock(Chain.ETHEREUM, api())
     }
 
     static EthereumUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {
