@@ -42,7 +42,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 @Repository
-class CurrentMultistreamHolder(
+open class CurrentMultistreamHolder(
         @Autowired private val cachesFactory: CachesFactory
 ) : MultistreamHolder {
 

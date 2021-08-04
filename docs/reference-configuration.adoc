@@ -514,6 +514,7 @@ configuration, and may be omitted for most of the situations.
   methods:
     enabled:
       - name: "parity_trace"
+        quorum: "not_empty"
     disabled:
       - name: "admin_shutdown"
   connection:
@@ -556,7 +557,18 @@ See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 
 | `methods`
 | no
-| Enable or disable additional JSON RPC methods that are provided by that particular upstream
+| Enable (`enabled`) or disable (`disabled`) additional JSON RPC methods that are provided by that particular upstream
+
+| `methods.enabled.name`, `methods.disabled.name`
+| yes
+| Name of the RPC method to enable/disable.
+
+| `methods.enabled.quorum`
+| no
+| Set quorum criteria to accept a response.
+`always` (default) - accept any response;
+`not_empty` - accept not _null_ value, otherwise retry another upstream;
+`not_lagging` - accept response only from a fully synced upstream.
 
 | `connection.ethereum`
 | yes
@@ -574,9 +586,9 @@ See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 | Option | Description
 
 | `rpc.url`
-a| HTTP URL to connect to. This is required for a connection. +
-   URL can be configured with Environment Variable placeholders `${ENV_VAR_NAME}`. +
-   Example: `https://kovan.infura.io/v3/${INFURA_USER}`
+a| HTTP URL to connect to.This is required for a connection. +
+URL can be configured with Environment Variable placeholders `${ENV_VAR_NAME}`. +
+Example: `https://kovan.infura.io/v3/${INFURA_USER}`
 
 | `rpc.basic-auth` + `rpc.basic-auth.username`, `rpc.basic-auth.password`
 a| HTTP Basic Auth configuration, if required by the remote server. +

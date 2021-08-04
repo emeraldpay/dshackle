@@ -232,7 +232,8 @@ class UpstreamsConfigReader(
             val enabled = getList<MappingNode>(mnode, "enabled")?.value?.map { m ->
                 getValueAsString(m, "name")?.let { name ->
                     UpstreamsConfig.Method(
-                            name = name
+                            name = name,
+                            quorum = getValueAsString(m, "quorum")
                     )
                 }
             }?.filterNotNull()?.toSet() ?: emptySet()

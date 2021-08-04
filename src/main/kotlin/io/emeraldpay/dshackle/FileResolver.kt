@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle
 
 import java.io.File
 
-class FileResolver(
+open class FileResolver(
         private val baseDir: File
 ) {
 

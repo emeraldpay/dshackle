@@ -18,8 +18,12 @@ package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
+import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
+import io.emeraldpay.dshackle.quorum.NonceQuorum
+import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.grpc.Chain
 import spock.lang.Specification
 
 class ManagedCallMethodsSpec extends Specification {
@@ -80,5 +84,30 @@ class ManagedCallMethodsSpec extends Specification {
         then:
         act != null
         act instanceof BroadcastQuorum
+    }
+
+    def "Use custom quorum if provided"() {
+        setup:
+        def managed = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                ["eth_test", "eth_foo", "eth_bar"] as Set,
+                [] as Set
+        )
+        managed.setQuorum("eth_test", "not_empty")
+        managed.setQuorum("eth_foo", "not_lagging")
+        when:
+        def act = managed.getQuorumFor("eth_test")
+        then:
+        act instanceof NonEmptyQuorum
+
+        when:
+        act = managed.getQuorumFor("eth_foo")
+        then:
+        act instanceof NotLaggingQuorum
+
+        when:
+        act = managed.getQuorumFor("eth_bar")
+        then:
+        act instanceof AlwaysQuorum
     }
 }

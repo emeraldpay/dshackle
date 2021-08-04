@@ -1,0 +1,18 @@
+version: v1
+
+upstreams:
+  - id: local
+    chain: ethereum
+    methods:
+      enabled:
+        - name: custom_foo
+          quorum: not_lagging
+        - name: custom_bar
+          quorum: not_empty
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+        ws:
+          url: "ws://localhost:8546"
+          origin: "http://localhost"
