@@ -119,6 +119,9 @@ class DefaultEthereumMethods(
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"1\""
                     }
+                    Chain.MATIC == chain -> {
+                        "\"137\""
+                    }
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"2\""
                     }
@@ -141,6 +144,9 @@ class DefaultEthereumMethods(
                 when {
                     Chain.ETHEREUM == chain -> {
                         "\"0x1\""
+                    }
+                    Chain.MATIC == chain -> {
+                        "\"0x89\""
                     }
                     Chain.TESTNET_ROPSTEN == chain -> {
                         "\"0x3\""

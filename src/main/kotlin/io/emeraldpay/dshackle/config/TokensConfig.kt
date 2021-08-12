@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.infinitape.etherjar.domain.Address
 
@@ -41,7 +41,7 @@ class TokensConfig(
                 type == null -> type
                 address.isNullOrBlank() -> "address"
                 blockchain != null
-                        && BlockchainType.fromBlockchain(blockchain!!) == BlockchainType.ETHEREUM
+                        && BlockchainType.from(blockchain!!) == BlockchainType.ETHEREUM
                         && !Address.isValidAddress(address) -> "address"
                 else -> null
             }

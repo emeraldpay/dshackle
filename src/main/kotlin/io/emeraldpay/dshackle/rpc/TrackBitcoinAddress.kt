@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.Capability
@@ -53,7 +53,7 @@ class TrackBitcoinAddress(
 
     override fun isSupported(chain: Chain, asset: String): Boolean {
         return (asset == "bitcoin" || asset == "btc" || asset == "satoshi")
-                && BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
+                && BlockchainType.from(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
     }
 
     /**

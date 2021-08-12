@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.startup
 
-import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -62,6 +62,8 @@ open class ConfiguredUpstreams(
             "ethereum" to Chain.ETHEREUM,
             "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
             "eth" to Chain.ETHEREUM,
+            "polygon" to Chain.MATIC,
+            "matic" to Chain.MATIC,
             "etc" to Chain.ETHEREUM_CLASSIC,
             "morden" to Chain.TESTNET_MORDEN,
             "kovan" to Chain.TESTNET_KOVAN,
@@ -93,7 +95,7 @@ open class ConfiguredUpstreams(
                 }
                 val options = (up.options ?: UpstreamsConfig.Options())
                         .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
-                when (BlockchainType.fromBlockchain(chain)) {
+                when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> {
                         buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
                     }

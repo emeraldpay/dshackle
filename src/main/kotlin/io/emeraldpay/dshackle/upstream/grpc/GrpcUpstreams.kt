@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
@@ -179,7 +179,7 @@ class GrpcUpstreams(
                         .register(Metrics.globalRegistry)
         )
 
-        val blockchainType = BlockchainType.fromBlockchain(chain)
+        val blockchainType = BlockchainType.from(chain)
         if (blockchainType == BlockchainType.ETHEREUM) {
             return getOrCreateEthereum(chain, metrics)
         } else if (blockchainType == BlockchainType.BITCOIN) {

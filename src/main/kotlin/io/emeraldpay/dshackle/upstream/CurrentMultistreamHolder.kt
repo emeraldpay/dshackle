@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
@@ -58,7 +58,7 @@ open class CurrentMultistreamHolder(
             log.debug("Upstream update: ${change.type} ${change.chain} via ${change.upstream.getId()}")
             val chain = change.chain
             try {
-                when (BlockchainType.fromBlockchain(chain)) {
+                when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> {
                         val up = change.upstream.cast(EthereumUpstream::class.java)
                         val current = chainMapping[chain] as Multistream?
@@ -138,7 +138,7 @@ open class CurrentMultistreamHolder(
     }
 
     fun setupDefaultMethods(chain: Chain): CallMethods {
-        val created = when (BlockchainType.fromBlockchain(chain)) {
+        val created = when (BlockchainType.from(chain)) {
             BlockchainType.ETHEREUM -> DefaultEthereumMethods(chain)
             BlockchainType.BITCOIN -> DefaultBitcoinMethods()
             else -> throw IllegalStateException("Unsupported chain: $chain")

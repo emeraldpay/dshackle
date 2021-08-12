@@ -17,7 +17,6 @@
 package io.emeraldpay.dshackle.test
 
 
-import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -30,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
@@ -45,7 +45,7 @@ class MultistreamHolderMock implements MultistreamHolder {
 
     Multistream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            if (BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM) {
+            if (BlockchainType.from(chain) == BlockchainType.ETHEREUM) {
                 if (up instanceof EthereumMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof EthereumUpstream) {
@@ -54,7 +54,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
                 upstreams[chain].start()
-            } else if (BlockchainType.fromBlockchain(chain) == BlockchainType.BITCOIN) {
+            } else if (BlockchainType.from(chain) == BlockchainType.BITCOIN) {
                 if (up instanceof BitcoinMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof BitcoinRpcUpstream) {
