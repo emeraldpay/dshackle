@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -42,7 +42,7 @@ class TrackEthereumAddress(
 
     override fun isSupported(chain: Chain, asset: String): Boolean {
         return asset == "ether" &&
-                BlockchainType.fromBlockchain(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
+                BlockchainType.from(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
