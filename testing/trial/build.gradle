@@ -19,5 +19,9 @@ dependencies {
 }
 
 test {
+    systemProperty "trialMode", project.getProperty("dshackleTrialMode")
     useJUnitPlatform()
+    testLogging {
+        events "PASSED", "FAILED"
+    }
 }

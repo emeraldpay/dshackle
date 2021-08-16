@@ -1,8 +1,10 @@
-package io.emeraldpay.dshackle.testing.trial.proxy
+package io.emeraldpay.dshackle.testing.trial.basicproxy
 
 import io.emeraldpay.dshackle.testing.trial.ProxyClient
+import spock.lang.IgnoreIf
 import spock.lang.Specification
 
+@IgnoreIf({ System.getProperty('trialMode') != 'basic' })
 class DispatchSpec extends Specification {
 
     def client = ProxyClient.forPrefix("eth")

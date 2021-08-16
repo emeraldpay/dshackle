@@ -1,11 +1,13 @@
-package io.emeraldpay.dshackle.testing.trial.proxy
+package io.emeraldpay.dshackle.testing.trial.mainnet
 
 import io.emeraldpay.dshackle.testing.trial.Debugger
 import io.emeraldpay.dshackle.testing.trial.ProxyClient
+import spock.lang.IgnoreIf
 import spock.lang.Specification
 import spock.lang.Timeout
 
-class GetBlockRealSpec extends Specification {
+@IgnoreIf({ System.getProperty('trialMode') != 'real' })
+class GetBlockSpec extends Specification {
 
     def client = ProxyClient.ethereumReal()
 
