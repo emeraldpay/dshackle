@@ -32,6 +32,10 @@ class ProxyClient {
         return forPrefix(18081, "eth")
     }
 
+    static ProxyClient ethereumRinkeby() {
+        return forPrefix(18081, "rinkeby")
+    }
+
     static ProxyClient forPrefix(String prefix) {
         return forPrefix(18080, prefix)
     }
