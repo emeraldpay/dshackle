@@ -73,34 +73,20 @@ class EthereumCallSelector(
             // for earliest it doesn't nothing, we expect to have 0 block
             "earliest" -> 0L
             else -> if (tag.startsWith("0x")) {
-                try {
-                    HexQuantity.from(tag).value.toLong()
-                } catch (t: Throwable) {
-                    log.debug("Invalid tag: $tag. ${t.javaClass}: ${t.message}")
-                    null
+                return if (tag.length == 66) { //32-byte hash is represented as 0x + 64 characters
+                    blockByHash(tag, head)
+                } else {
+                    blockByHeight(tag)
                 }
             } else if (tag.startsWith("{") && list[pos] is Map<*, *>) {
                 // see https://eips.ethereum.org/EIPS/eip-1898
                 val obj = list[pos] as Map<*, *>
                 when {
                     obj.containsKey("blockNumber") -> {
-                        try {
-                            HexQuantity.from(obj["blockNumber"].toString()).value.toLong()
-                        } catch (t: Throwable) {
-                            log.warn("Invalid blockNumber: $tag")
-                            null
-                        }
+                        return blockByHeight(obj["blockNumber"].toString())
                     }
                     obj.containsKey("blockHash") -> {
-                        try {
-                            val blockId = BlockId.from(obj["blockHash"].toString())
-                            return heightReader.read(blockId)
-                                    .switchIfEmpty(Mono.justOrEmpty(head.getCurrentHeight()))
-                                    .map { Selector.HeightMatcher(it) }
-                        } catch (t: Throwable) {
-                            log.warn("Invalid blockHash: $tag")
-                            null
-                        }
+                        return blockByHash(obj["blockHash"].toString(), head)
                     }
                     else -> null
                 }
@@ -113,6 +99,27 @@ class EthereumCallSelector(
             Mono.just(Selector.HeightMatcher(minHeight))
         } else {
             Mono.empty()
+        }
+    }
+
+    private fun blockByHeight(blockNumber: String): Mono<Selector.Matcher> {
+        return try {
+            Mono.just(Selector.HeightMatcher(HexQuantity.from(blockNumber).value.longValueExact()))
+        } catch (t: Throwable) {
+            log.warn("Invalid blockNumber: $blockNumber")
+            Mono.empty<Selector.Matcher>()
+        }
+    }
+
+    private fun blockByHash(blockHash: String, head: Head): Mono<Selector.Matcher> {
+        return try {
+            val blockId = BlockId.from(blockHash)
+            heightReader.read(blockId)
+                    .switchIfEmpty(Mono.justOrEmpty(head.getCurrentHeight()))
+                    .map { Selector.HeightMatcher(it) }
+        } catch (t: Throwable) {
+            log.warn("Invalid blockHash: $blockHash")
+            Mono.empty<Selector.Matcher>()
         }
     }
 

@@ -73,6 +73,59 @@ class EthereumCallSelectorSpec extends Specification {
         act == new Selector.HeightMatcher(0x40)
     }
 
+    def "Get height matcher for balance on block referred by hash"() {
+        setup:
+        def heights = Mock(Reader) {
+            1 * it.read(BlockId.from("0xc90f1c8c125a4d5b90742f16947bdb1d10516f173fd7fc51223d10499de2a812")) >> Mono.just(8606722L)
+        }
+        EthereumCallSelector callSelector = new EthereumCallSelector(heights)
+        def head = Mock(Head) {
+            _ * getCurrentHeight() >> 9128116
+        }
+        when:
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0xc90f1c8c125a4d5b90742f16947bdb1d10516f173fd7fc51223d10499de2a812"]', head).block()
+        then:
+        act == new Selector.HeightMatcher(8606722)
+    }
+
+    def "No matcher for invalid height"() {
+        setup:
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        def head = Mock(Head) {
+            _ * getCurrentHeight() >> 100
+        }
+        when:
+        // 0x10000000000000000 is too large to be a block
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0x10000000000000000"]', head).block()
+        then:
+        act == null
+    }
+
+    def "No matcher for negative height"() {
+        setup:
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        def head = Mock(Head) {
+            _ * getCurrentHeight() >> 100
+        }
+        when:
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "-0x100"]', head).block()
+        then:
+        act == null
+    }
+
+    def "No matcher for negative long"() {
+        setup:
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        def head = Mock(Head) {
+            _ * getCurrentHeight() >> 100
+        }
+        when:
+        // 0x8000000000000000 becomes -9223372036854775808 in converted to long as is, i.e. high bit is set
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0x8000000000000000"]', head).block()
+        then:
+        act == null
+    }
+
     def "No matcher for pending balance"() {
         setup:
         EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
