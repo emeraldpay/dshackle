@@ -122,6 +122,9 @@ class DefaultEthereumMethods(
                     Chain.MATIC == chain -> {
                         "\"137\""
                     }
+                    Chain.FANTOM == chain -> {
+                        "\"250\""
+                    }
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"2\""
                     }
@@ -147,6 +150,9 @@ class DefaultEthereumMethods(
                     }
                     Chain.MATIC == chain -> {
                         "\"0x89\""
+                    }
+                    Chain.FANTOM == chain -> {
+                        "\"0xfa\""
                     }
                     Chain.TESTNET_ROPSTEN == chain -> {
                         "\"0x3\""
