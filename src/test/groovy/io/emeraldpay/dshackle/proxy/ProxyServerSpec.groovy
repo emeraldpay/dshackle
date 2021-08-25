@@ -16,10 +16,12 @@
  */
 package io.emeraldpay.dshackle.proxy
 
+import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -48,7 +50,8 @@ class ProxyServerSpec extends Specification {
                 new ReadRpcJson(),
                 writeRpcJson,
                 nativeCall,
-                new TlsSetup(TestingCommons.fileResolver())
+                new TlsSetup(TestingCommons.fileResolver()),
+                new AccessHandlerHttp.NoOpFactory()
         )
 
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
@@ -59,7 +62,7 @@ class ProxyServerSpec extends Specification {
                         .build()
         )
         when:
-        def act = server.execute(Common.ChainRef.CHAIN_ETHEREUM, call)
+        def act = server.execute(Common.ChainRef.CHAIN_ETHEREUM, call, new AccessHandlerHttp.NoOpHandler())
 
         then:
         1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, "".bytes, null))
@@ -77,15 +80,56 @@ class ProxyServerSpec extends Specification {
         def server = new ProxyServer(
                 Stub(ProxyConfig),
                 read,
-                Stub(WriteRpcJson), Stub(NativeCall), Stub(TlsSetup)
+                Stub(WriteRpcJson), Stub(NativeCall), Stub(TlsSetup),
+                new AccessHandlerHttp.NoOpFactory()
         )
         when:
-        def act = server.processRequest(Common.ChainRef.CHAIN_ETHEREUM, Mono.just("".bytes))
+        def act = server.processRequest(Common.ChainRef.CHAIN_ETHEREUM, Mono.just("".bytes), new AccessHandlerHttp.NoOpHandler())
                 .map { new String(it.array()) }
         then:
         StepVerifier.create(act)
                 .expectNext('{"jsonrpc":"2.0","id":4,"error":{"code":-32123,"message":"test"}}')
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
+    }
+
+    def "Calls access log handler"() {
+        setup:
+        def reqItem = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setId(1)
+                .setMethod("test_test")
+                .setPayload(ByteString.copyFromUtf8("[]"))
+                .build()
+        def respItem = new NativeCall.CallResult(1, "100".bytes, null)
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(reqItem)
+                .build()
+
+
+        ReadRpcJson read = Mock(ReadRpcJson) {
+            1 * apply(_) >> new ProxyCall(ProxyCall.RpcType.SINGLE).tap { it.items.add(reqItem) }
+        }
+        NativeCall nativeCall = Mock(NativeCall) {
+            1 * nativeCallResult(_) >> Flux.fromIterable([respItem])
+        }
+        def handler = Mock(AccessHandlerHttp.RequestHandler.class)
+
+        def server = new ProxyServer(
+                Stub(ProxyConfig),
+                read,
+                new WriteRpcJson(),
+                nativeCall,
+                Stub(TlsSetup),
+                new AccessHandlerHttp.NoOpFactory()
+        )
+
+        when:
+        server.processRequest(Common.ChainRef.CHAIN_ETHEREUM, Mono.just("".bytes), handler)
+                .blockLast()
+
+        then:
+        1 * handler.onRequest(req)
+        1 * handler.onResponse(respItem)
     }
 }

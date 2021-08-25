@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.ChainValue
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -33,7 +34,6 @@ import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandler
 import io.netty.channel.ChannelHandlerContext
-import io.netty.channel.ChannelOption
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
@@ -55,7 +55,8 @@ class ProxyServer(
         private val readRpcJson: ReadRpcJson,
         private val writeRpcJson: WriteRpcJson,
         private val nativeCall: NativeCall,
-        private val tlsSetup: TlsSetup
+        private val tlsSetup: TlsSetup,
+        private val accessHandler: AccessHandlerHttp.HandlerFactory
 ) {
 
     companion object {
@@ -113,13 +114,15 @@ class ProxyServer(
         }
     }
 
-    fun execute(chain: Common.ChainRef, call: ProxyCall): Publisher<String> {
+    fun execute(chain: Common.ChainRef, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
         val request = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChain(chain)
                 .addAllItems(call.items)
                 .build()
+        handler.onRequest(request)
         val jsons = nativeCall
                 .nativeCallResult(Mono.just(request))
+                .doOnNext { handler.onResponse(it) }
                 .transform(writeRpcJson.toJsons(call))
         return if (call.type == ProxyCall.RpcType.SINGLE) {
             jsons.next()
@@ -128,13 +131,13 @@ class ProxyServer(
         }
     }
 
-    fun processRequest(chain: Common.ChainRef, request: Mono<ByteArray>): Flux<ByteBuf> {
+    fun processRequest(chain: Common.ChainRef, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
         val metrics = chainMetrics.get(chain)
         val startTime = System.currentTimeMillis()
         metrics.requestMetric.increment()
         return request
                 .map(readRpcJson)
-                .flatMapMany { call -> execute(chain, call) }
+                .flatMapMany { call -> execute(chain, call, handler) }
                 .doOnNext {
                     metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
                 }
@@ -153,10 +156,14 @@ class ProxyServer(
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
         val chain = Common.ChainRef.forNumber(routeConfig.blockchain.id)
         return BiFunction { req, resp ->
+            // handle access events
+            val eventHandler = accessHandler.create(req, routeConfig.blockchain)
             val request = req.receive()
                     .aggregate()
                     .asByteArray()
-            val results = processRequest(chain, request)
+            val results = processRequest(chain, request, eventHandler)
+                    // make sure that the access log handler is closed at the end, so it can render the logs
+                    .doFinally { eventHandler.close() }
             resp.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                     .send(results)
         }

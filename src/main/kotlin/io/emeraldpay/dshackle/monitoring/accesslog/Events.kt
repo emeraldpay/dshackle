@@ -27,17 +27,22 @@ class Events {
         private val log = LoggerFactory.getLogger(Events::class.java)
     }
 
+    enum class Channel {
+        GRPC, JSONRPC
+    }
+
     abstract class Base(
             val id: UUID,
-            val method: String
+            val method: String,
+            val channel: Channel
     ) {
         val version = "accesslog/v1beta"
-        val ts = Instant.now()
+        var ts = Instant.now()
     }
 
     abstract class ChainBase(
-            val blockchain: Chain, method: String, id: UUID
-    ) : Base(id, method)
+            val blockchain: Chain, method: String, id: UUID, channel: Channel
+    ) : Base(id, method, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class SubscribeHead(
@@ -46,7 +51,7 @@ class Events {
             val request: StreamRequestDetails,
             // index of the current response
             val index: Int
-    ) : ChainBase(blockchain, "SubscribeHead", id)
+    ) : ChainBase(blockchain, "SubscribeHead", id, Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class SubscribeBalance(
@@ -57,7 +62,7 @@ class Events {
             val addressBalance: AddressBalance,
             // index of the current response
             val index: Int
-    ) : ChainBase(blockchain, if (subscribe) "SubscribeBalance" else "GetBalance", id)
+    ) : ChainBase(blockchain, if (subscribe) "SubscribeBalance" else "GetBalance", id, Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class TxStatus(
@@ -67,7 +72,7 @@ class Events {
             val txStatus: TxStatusResponse,
             // index of the current response
             val index: Int
-    ) : ChainBase(blockchain, "SubscribeTxStatus", id)
+    ) : ChainBase(blockchain, "SubscribeTxStatus", id, Channel.GRPC)
 
     data class TxStatusRequest(
             val txId: String
@@ -79,7 +84,7 @@ class Events {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class NativeCall(
-            blockchain: Chain, id: UUID,
+            blockchain: Chain, id: UUID, channel: Channel,
 
             // info about the initial request, that may include several native calls
             val request: StreamRequestDetails,
@@ -95,19 +100,19 @@ class Events {
             val rpcError: Int? = null,
             val payloadSizeBytes: Long,
             val nativeCall: NativeCallItemDetails
-    ) : ChainBase(blockchain, "NativeCall", id)
+    ) : ChainBase(blockchain, "NativeCall", id, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class Describe(
             id: UUID,
             val request: StreamRequestDetails
-    ) : Base(id, "Describe")
+    ) : Base(id, "Describe", Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class Status(
             blockchain: Chain, id: UUID,
             val request: StreamRequestDetails
-    ) : ChainBase(blockchain, "Status", id)
+    ) : ChainBase(blockchain, "Status", id, Channel.GRPC)
 
     data class StreamRequestDetails(
             val id: UUID,

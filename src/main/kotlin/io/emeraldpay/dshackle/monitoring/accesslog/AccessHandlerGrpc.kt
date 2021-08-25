@@ -15,20 +15,18 @@
  */
 package io.emeraldpay.dshackle.monitoring.accesslog
 
-import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.api.proto.Common
 import io.grpc.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 
 @Service
-class AccessHandler(
+class AccessHandlerGrpc(
         @Autowired private val accessLogWriter: AccessLogWriter
 ) : ServerInterceptor {
 
     companion object {
-        private val log = LoggerFactory.getLogger(AccessHandler::class.java)
+        private val log = LoggerFactory.getLogger(AccessHandlerGrpc::class.java)
     }
 
     override fun <ReqT : Any, RespT : Any> interceptCall(

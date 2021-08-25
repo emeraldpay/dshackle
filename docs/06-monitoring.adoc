@@ -30,6 +30,7 @@ The access log contains the JSON lines similar to:
   "ts":"2021-07-20T01:53:33.174645Z",
   "id":"578d83db-cf53-4ef8-b73e-3f1cc0a67e96",
   "method":"NativeCall",
+  "channel":"GRPC",
   "blockchain":"ETHEREUM",
   "total":2,
   "index":0,
@@ -56,6 +57,7 @@ The access log contains the JSON lines similar to:
 - `id` uniq id of the reply
 - `method` Dshackle method which was called (i.e., not a Blockchain API method, see `nativeCall` details)
 - `blockchain` blockchain code
+- `channel` access channel (`GRPC` for native Dshackle calls, `JSONRPC` for JSON RPC HTTP Proxy)
 - `total` how many requests in the batch (available only for a `NativeCall` call)
 - `index` current index (i.e. count) of the reply to the original request
 - `succeed` if call succeeded, in terms of Blockchain API

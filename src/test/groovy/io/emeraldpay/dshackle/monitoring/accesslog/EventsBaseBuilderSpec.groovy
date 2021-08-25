@@ -30,7 +30,7 @@ class EventsBaseBuilderSpec extends Specification {
         Events.StreamRequestDetails request
 
         TestEvent(Events.StreamRequestDetails request) {
-            super(UUID.randomUUID(), "TEST")
+            super(UUID.randomUUID(), "TEST", Events.Channel.GRPC)
             this.request = request
         }
     }

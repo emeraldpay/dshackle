@@ -17,7 +17,7 @@
 package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.MainConfig
-import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandler
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerGrpc
 import io.grpc.*
 import io.grpc.netty.NettyServerBuilder
 import org.slf4j.LoggerFactory
@@ -32,7 +32,7 @@ open class GrpcServer(
         @Autowired val rpcs: List<io.grpc.BindableService>,
         @Autowired val mainConfig: MainConfig,
         @Autowired val tlsSetup: TlsSetup,
-        @Autowired val accessHandler: AccessHandler
+        @Autowired val accessHandler: AccessHandlerGrpc
 ) {
 
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)

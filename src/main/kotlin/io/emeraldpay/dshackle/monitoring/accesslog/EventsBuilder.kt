@@ -23,6 +23,7 @@ import io.grpc.Grpc
 import io.grpc.Metadata
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
+import reactor.netty.http.server.HttpServerRequest
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.time.Instant
@@ -34,17 +35,25 @@ class EventsBuilder {
         private val log = LoggerFactory.getLogger(EventsBuilder::class.java)
     }
 
-    interface StartingRequest {
+    interface StartingHttp2Request {
         fun start(metadata: Metadata, attributes: Attributes)
     }
 
-    interface RequestReply<E, Req, Resp> : StartingRequest {
+    interface StartingHttp1Request {
+        fun start(request: HttpServerRequest)
+    }
+
+    interface RequestReply<E, Req, Resp> : StartingHttp2Request {
         fun onRequest(msg: Req)
         fun onReply(msg: Resp): E
     }
 
-    abstract class Base<T>() : StartingRequest {
+    abstract class Base<T>() : StartingHttp2Request, StartingHttp1Request {
         companion object {
+            private val remoteIpHeaders = listOf(
+                    "x-real-ip",
+                    "x-forwarded-for"
+            )
             private val remoteIpKeys = listOf(
                     Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
                     Metadata.Key.of("x-forwarded-for", Metadata.ASCII_STRING_MARSHALLER)
@@ -110,6 +119,31 @@ class EventsBuilder {
                 if (addr is InetSocketAddress) {
                     ips.add(addr.address)
                 }
+            }
+            val ip = findBestIp(ips)?.hostAddress ?: ""
+            this.requestDetails = this.requestDetails
+                    .copy(remote = Events.Remote(
+                            ips = ips.map { it.hostAddress },
+                            ip = ip,
+                            userAgent = userAgent
+                    ))
+        }
+
+        override fun start(request: HttpServerRequest) {
+            val headers = request.requestHeaders()
+            val userAgent = headers.get("user-agent")
+                    ?.let(this@Base::clean)
+                    ?: ""
+            val ips = ArrayList<InetAddress>()
+            remoteIpHeaders.forEach { key ->
+                headers.get(key)?.let {
+                    it.trim().ifEmpty { null }
+                            ?.let(this@Base::toInetAddress)
+                            ?.let(ips::add)
+                }
+            }
+            request.remoteAddress()?.let { addr ->
+                ips.add(addr.address)
             }
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
@@ -237,10 +271,26 @@ class EventsBuilder {
                     blockchain = chain,
                     nativeCall = item,
                     payloadSizeBytes = item.payloadSizeBytes,
-                    id = UUID.randomUUID()
+                    id = UUID.randomUUID(),
+                    channel = Events.Channel.GRPC
             )
         }
 
+        fun onReply(reply: io.emeraldpay.dshackle.rpc.NativeCall.CallResult,
+                    channel: Events.Channel): Events.NativeCall {
+            val item = items.find { it.id == reply.id }!!
+            return Events.NativeCall(
+                    request = requestDetails,
+                    total = items.size,
+                    index = index++,
+                    succeed = !reply.isError(),
+                    blockchain = chain,
+                    nativeCall = item,
+                    payloadSizeBytes = item.payloadSizeBytes,
+                    id = UUID.randomUUID(),
+                    channel = channel
+            )
+        }
     }
 
     class Describe :

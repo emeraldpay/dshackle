@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.config.ProxyConfig
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.proxy.ProxyServer
 import io.emeraldpay.dshackle.proxy.ReadRpcJson
 import io.emeraldpay.dshackle.proxy.WriteRpcJson
@@ -37,7 +38,8 @@ class ProxyStarter(
         @Autowired private val readRpcJson: ReadRpcJson,
         @Autowired private val writeRpcJson: WriteRpcJson,
         @Autowired private val nativeCall: NativeCall,
-        @Autowired private val tlsSetup: TlsSetup
+        @Autowired private val tlsSetup: TlsSetup,
+        @Autowired private val accessHandlerHttp: AccessHandlerHttp
 ) {
 
     companion object {
@@ -51,7 +53,7 @@ class ProxyStarter(
             log.debug("Proxy server is not configured")
             return
         }
-        val server = ProxyServer(config, readRpcJson, writeRpcJson, nativeCall, tlsSetup)
+        val server = ProxyServer(config, readRpcJson, writeRpcJson, nativeCall, tlsSetup, accessHandlerHttp.factory)
         server.start()
     }
 
