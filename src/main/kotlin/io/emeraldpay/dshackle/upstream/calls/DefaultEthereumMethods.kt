@@ -61,7 +61,8 @@ class DefaultEthereumMethods(
             "eth_getBlockByNumber",
             "eth_getTransactionByBlockNumberAndIndex",
             "eth_getTransactionReceipt",
-            "eth_getUncleByBlockNumberAndIndex"
+            "eth_getUncleByBlockNumberAndIndex",
+            "eth_feeHistory"
     )
 
     private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods

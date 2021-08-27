@@ -179,7 +179,7 @@ Dshackle currently supports
 - `eth_getTransactionByBlockNumberAndIndex`
 - `eth_getTransactionReceipt`
 - `eth_getUncleByBlockNumberAndIndex`
-
+- `eth_feeHistory`
 
 .Plus following methods are answered directly by Dshackle
 - `net_version`
@@ -193,7 +193,7 @@ Dshackle currently supports
 - `eth_hashrate`
 - `eth_accounts`
 
-It's possible to enable additional methods that are available on upstream, or disable an existing method. For that purpose
+It's possible to enable additional methods that are available on upstream, or disable an existing method.For that purpose
 there is `methods` configuration:
 
 [source, yaml]
@@ -211,10 +211,10 @@ upstreams:
 ----
 
 Such configuration option allows to execute method `trace_transaction` and also disables `eth_getBlockByNumber` on that
-particular upstream. If a client requests to execute method `trace_transaction` then it will be scheduled to that upstream (or
+particular upstream.If a client requests to execute method `trace_transaction` then it will be scheduled to that upstream (or
 any upstream with such method enabled).
 
-NOTE: It's especially useful when used together with upstream labels. If an archive upstream has label `archive: true` it's
+NOTE: It's especially useful when used together with upstream labels.If an archive upstream has label `archive: true` it's
 possible to specify that the client wants to execute method `trace_transaction` only on an archive node(s), which has
 complete historical data for tracing.
 
