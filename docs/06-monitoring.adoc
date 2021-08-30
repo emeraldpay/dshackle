@@ -111,4 +111,4 @@ This dashboard contains:
 
 - JSON RPC upstream conn seconds 50,75,90,99 percentiles
 
-mage::dshackle-dashboard.png[alt="",width=80%,align="center"]
+image::dshackle-dashboard.png[alt="",width=80%,align="center"]
