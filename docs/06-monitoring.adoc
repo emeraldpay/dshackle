@@ -94,3 +94,21 @@ Where `jvm` options enabled monitoring of the JVM internals, such as memory, GC,
 And `extended` enables additional metrics for query selectors, etc.
 
 Simple Grafana dashboard available [../dashboard/dshackle.json](here).
+
+This dashboard contains:
+
+- Upstreams Availability
+
+- Upstreams Lag
+
+- JSON RPC total request / failed requests
+
+- GRPC total request / failed requests
+
+- JSON RPC Response time
+
+- Upstreams Errors
+
+- JSON RPC upstream conn seconds 50,75,90,99 percentiles
+
+mage::dshackle-dashboard.png[alt="",width=80%,align="center"]
