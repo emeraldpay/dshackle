@@ -1,3 +1,5 @@
+:imagesdir: assets
+
 = Logging & Monitoring
 
 == Access / Request Log
@@ -111,5 +113,5 @@ This dashboard contains:
 
 - JSON RPC upstream conn seconds 50,75,90,99 percentiles
 
-![plot](./assets/dshackle-dashboard.png)
+image::dshackle-dashboard.png[alt="",width=80%,align="center"]
 
