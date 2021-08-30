@@ -92,3 +92,5 @@ monitoring:
 
 Where `jvm` options enabled monitoring of the JVM internals, such as memory, GC, threads, etc.
 And `extended` enables additional metrics for query selectors, etc.
+
+Simple Grafana dashboard available [dashboard/dshackle.json](here).
