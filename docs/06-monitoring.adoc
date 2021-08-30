@@ -1,3 +1,5 @@
+:imagesdir: assets
+
 = Logging & Monitoring
 
 == Access / Request Log
@@ -94,3 +96,27 @@ monitoring:
 
 Where `jvm` options enabled monitoring of the JVM internals, such as memory, GC, threads, etc.
 And `extended` enables additional metrics for query selectors, etc.
+
+== Grafana Dashboard
+
+Simple Grafana dashboard available link:../dashboard/dshackle.json[here]
+
+image::dshackle-dashboard.png[alt="",width=80%,align="center"]
+
+This dashboard contains:
+
+- Upstreams Availability
+
+- Upstreams Lag
+
+- JSON RPC total request / failed requests
+
+- GRPC total request / failed requests
+
+- JSON RPC Response time
+
+- Upstreams Errors
+
+- JSON RPC upstream conn seconds 50,75,90,99 percentiles
+
+
