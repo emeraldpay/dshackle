@@ -115,7 +115,7 @@ class ProxyServer(
     }
 
     fun execute(chain: Common.ChainRef, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
-        print(call.items.get(0))
+        print(call.items.get(0).method)
         val request = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChain(chain)
                 .addAllItems(call.items)
