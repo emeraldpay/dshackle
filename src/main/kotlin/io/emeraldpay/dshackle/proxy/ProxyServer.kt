@@ -138,19 +138,19 @@ class ProxyServer(
     }
 
     fun processRequest(chain: Chain, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
-        val ethMethod = request.as(ProxyCall).items.get(0).method
-        val metrics = RequestMetrics(chain, ethMethod)
         val startTime = System.currentTimeMillis()
         return request
                 .map(readRpcJson)
                 .flatMapMany { call -> 
+                    val metrics = RequestMetrics(chain, call.items.get(0).method)
+                    metrics.requestMetric.increment()
                     execute(Common.ChainRef.forNumber(chain.id), call, handler) 
                 }
                 .doOnNext {
-                    metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                    //metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
                 }
                 .onErrorResume(RpcException::class.java) { err ->
-                    metrics.errorMetric.increment()
+                    //metrics.errorMetric.increment()
                     val id = err.details?.let {
                         if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
                     } ?: JsonRpcResponse.NumberId(-1)
