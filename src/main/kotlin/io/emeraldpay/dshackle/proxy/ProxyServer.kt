@@ -164,7 +164,7 @@ class ProxyServer(
         //val chain = Common.ChainRef.forNumber(routeConfig.blockchain.id)
         return BiFunction { req, resp ->
             // handle access events
-            print(req.toString())
+            print(resp.toString())
             val eventHandler = accessHandler.create(req, routeConfig.blockchain)
             val request = req.receive()
                     .aggregate()
