@@ -59,7 +59,7 @@ class ProxyServer(
         private val writeRpcJson: WriteRpcJson,
         private val nativeCall: NativeCall,
         private val tlsSetup: TlsSetup,
-        private val accessHandler: AccessHandlerHttp.HandlerFactory,
+        private val accessHandler: AccessHandlerHttp.HandlerFactory
 ) {
 
     companion object {
