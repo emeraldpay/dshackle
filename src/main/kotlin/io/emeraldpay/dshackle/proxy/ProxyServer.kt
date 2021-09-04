@@ -172,13 +172,13 @@ class ProxyServer(
 
     class RequestMetrics(chain: Chain) {
         val callMetric = Timer.builder("request.jsonrpc.call")
-                .tags("chain", chain.chainCode, "method",)
+                .tags("chain", chain.chainCode)
                 .register(Metrics.globalRegistry)
         val errorMetric = Counter.builder("request.jsonrpc.err")
-                .tags("chain", chain.chainCode, "method",)
+                .tags("chain", chain.chainCode)
                 .register(Metrics.globalRegistry)
         val requestMetric = Counter.builder("request.jsonrpc.request.total")
-                .tags("chain", chain.chainCode, "method",)
+                .tags("chain", chain.chainCode)
                 .register(Metrics.globalRegistry)
     }
 }
