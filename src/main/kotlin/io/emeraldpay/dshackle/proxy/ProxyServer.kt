@@ -44,6 +44,8 @@ import reactor.netty.http.server.HttpServer
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
+import reactor.kotlin.adapter.rxjava.toFlowable
+import reactor.kotlin.adapter.rxjava.toSingle
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
 
@@ -56,7 +58,8 @@ class ProxyServer(
         private val writeRpcJson: WriteRpcJson,
         private val nativeCall: NativeCall,
         private val tlsSetup: TlsSetup,
-        private val accessHandler: AccessHandlerHttp.HandlerFactory
+        private val accessHandler: AccessHandlerHttp.HandlerFactory,
+        private val proxyCall: ProxyCall
 ) {
 
     companion object {
@@ -64,6 +67,7 @@ class ProxyServer(
     }
 
     private val chainMetrics = ChainValue { chain -> RequestMetrics(chain) }
+    private val asjlfdjsla = proxyCall.items.get(0).method
 
     private val errorHandler: ChannelHandler = object : ChannelHandler {
         override fun handlerAdded(p0: ChannelHandlerContext?) {
@@ -135,10 +139,12 @@ class ProxyServer(
     fun processRequest(chain: Common.ChainRef, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
         val metrics = chainMetrics.get(chain)
         val startTime = System.currentTimeMillis()
-        metrics.requestMetric.increment()
+        print(asjlfdjsla)
         return request
                 .map(readRpcJson)
-                .flatMapMany { call -> execute(chain, call, handler) }
+                .flatMapMany { call -> 
+                    execute(chain, call, handler) 
+                }
                 .doOnNext {
                     metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
                 }
@@ -159,8 +165,6 @@ class ProxyServer(
         return BiFunction { req, resp ->
             // handle access events
             val eventHandler = accessHandler.create(req, routeConfig.blockchain)
-            val reqer = req.params().toString()
-            print(reqer)
             val request = req.receive()
                     .aggregate()
                     .asByteArray()
