@@ -60,7 +60,6 @@ class ProxyServer(
         private val nativeCall: NativeCall,
         private val tlsSetup: TlsSetup,
         private val accessHandler: AccessHandlerHttp.HandlerFactory,
-        private val upstreamsConfig: UpstreamsConfig
 ) {
 
     companion object {
