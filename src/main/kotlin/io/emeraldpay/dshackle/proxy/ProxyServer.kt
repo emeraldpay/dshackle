@@ -115,6 +115,7 @@ class ProxyServer(
     }
 
     fun execute(chain: Common.ChainRef, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
+        print(call.items.get(0))
         val request = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChain(chain)
                 .addAllItems(call.items)
@@ -171,13 +172,13 @@ class ProxyServer(
 
     class RequestMetrics(chain: Chain) {
         val callMetric = Timer.builder("request.jsonrpc.call")
-                .tag("chain", chain.chainCode)
+                .tags("chain", chain.chainCode, "method",)
                 .register(Metrics.globalRegistry)
         val errorMetric = Counter.builder("request.jsonrpc.err")
-                .tag("chain", chain.chainCode)
+                .tags("chain", chain.chainCode, "method",)
                 .register(Metrics.globalRegistry)
         val requestMetric = Counter.builder("request.jsonrpc.request.total")
-                .tag("chain", chain.chainCode)
+                .tags("chain", chain.chainCode, "method",)
                 .register(Metrics.globalRegistry)
     }
 }
