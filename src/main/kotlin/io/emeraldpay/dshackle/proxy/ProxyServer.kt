@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.ChainValue
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -59,15 +60,12 @@ class ProxyServer(
         private val nativeCall: NativeCall,
         private val tlsSetup: TlsSetup,
         private val accessHandler: AccessHandlerHttp.HandlerFactory,
-        private val proxyCall: ProxyCall
+        private val upstreamsConfig: UpstreamsConfig
 ) {
 
     companion object {
         private val log = LoggerFactory.getLogger(ProxyServer::class.java)
     }
-
-    private val chainMetrics = ChainValue { chain -> RequestMetrics(chain) }
-    private val asjlfdjsla = proxyCall.items.get(0).method
 
     private val errorHandler: ChannelHandler = object : ChannelHandler {
         override fun handlerAdded(p0: ChannelHandlerContext?) {
@@ -136,14 +134,13 @@ class ProxyServer(
         }
     }
 
-    fun processRequest(chain: Common.ChainRef, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
-        val metrics = chainMetrics.get(chain)
+    fun processRequest(chain: Chain, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
+        val metrics = RequestMetrics(chain, "test")
         val startTime = System.currentTimeMillis()
-        print(asjlfdjsla)
         return request
                 .map(readRpcJson)
                 .flatMapMany { call -> 
-                    execute(chain, call, handler) 
+                    execute(Common.ChainRef.forNumber(chain.id), call, handler) 
                 }
                 .doOnNext {
                     metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
@@ -161,14 +158,14 @@ class ProxyServer(
     }
 
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
-        val chain = Common.ChainRef.forNumber(routeConfig.blockchain.id)
+        //val chain = Common.ChainRef.forNumber(routeConfig.blockchain.id)
         return BiFunction { req, resp ->
             // handle access events
             val eventHandler = accessHandler.create(req, routeConfig.blockchain)
             val request = req.receive()
                     .aggregate()
                     .asByteArray()
-            val results = processRequest(chain, request, eventHandler)
+            val results = processRequest(routeConfig.blockchain, request, eventHandler)
                     // make sure that the access log handler is closed at the end, so it can render the logs
                     .doFinally { eventHandler.close() }
             resp.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
@@ -176,15 +173,15 @@ class ProxyServer(
         }
     }
 
-    class RequestMetrics(chain: Chain) {
+    class RequestMetrics(chain: Chain, method: String) {
         val callMetric = Timer.builder("request.jsonrpc.call")
-                .tags("chain", chain.chainCode)
+                .tags("chain", chain.chainCode, "eth_method", method)
                 .register(Metrics.globalRegistry)
         val errorMetric = Counter.builder("request.jsonrpc.err")
-                .tags("chain", chain.chainCode)
+                .tags("chain", chain.chainCode, "eth_method", method)
                 .register(Metrics.globalRegistry)
         val requestMetric = Counter.builder("request.jsonrpc.request.total")
-                .tags("chain", chain.chainCode)
+                .tags("chain", chain.chainCode, "eth_method", method)
                 .register(Metrics.globalRegistry)
     }
 }
