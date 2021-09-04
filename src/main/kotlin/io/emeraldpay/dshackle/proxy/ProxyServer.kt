@@ -46,7 +46,6 @@ import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
-import com.github.fge.uritemplate.vars.VariableMap
 
 /**
  * HTTP Proxy Server
