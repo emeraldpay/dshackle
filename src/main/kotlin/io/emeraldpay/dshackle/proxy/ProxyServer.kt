@@ -134,7 +134,7 @@ class ProxyServer(
     }
 
     fun processRequest(chain: Chain, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
-        val metrics = RequestMetrics(chain, "test")
+        val metrics = RequestMetrics(chain, request.toString())
         val startTime = System.currentTimeMillis()
         return request
                 .map(readRpcJson)
