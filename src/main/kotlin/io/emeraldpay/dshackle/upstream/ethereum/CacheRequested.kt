@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.RequestPostprocessor
-import io.infinitape.etherjar.rpc.json.TransactionReceiptJson
+import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import org.slf4j.LoggerFactory
 
 class CacheRequested(

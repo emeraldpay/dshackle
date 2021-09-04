@@ -17,8 +17,8 @@
 package io.emeraldpay.dshackle.data
 
 import io.emeraldpay.dshackle.Global
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import java.math.BigInteger
 import java.time.Instant
 

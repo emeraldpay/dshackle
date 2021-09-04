@@ -24,8 +24,8 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.Address
-import io.infinitape.etherjar.domain.Wei
+import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.etherjar.domain.Wei
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

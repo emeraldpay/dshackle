@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.data
 
-import io.infinitape.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.domain.BlockHash
 import spock.lang.Specification
 
 class BlockIdSpec extends Specification {

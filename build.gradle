@@ -97,14 +97,14 @@ dependencies {
     implementation 'io.micrometer:micrometer-registry-prometheus:1.5.6'
     implementation 'io.lettuce:lettuce-core:5.2.2.RELEASE'
 
-    implementation "io.infinitape:etherjar-domain:$etherjarVersion"
-    implementation "io.infinitape:etherjar-hex:$etherjarVersion"
-    implementation "io.infinitape:etherjar-rpc-api:$etherjarVersion"
-    implementation "io.infinitape:etherjar-rpc-http:$etherjarVersion"
-    implementation "io.infinitape:etherjar-rpc-ws:$etherjarVersion"
-    implementation "io.infinitape:etherjar-tx:$etherjarVersion"
-    implementation "io.infinitape:etherjar-contract:$etherjarVersion"
-    implementation "io.infinitape:etherjar-erc20:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-domain:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-hex:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-rpc-api:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-rpc-http:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-rpc-ws:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-tx:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-contract:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-erc20:$etherjarVersion"
     implementation 'org.bitcoinj:bitcoinj-core:0.15.8'
 
     implementation 'org.yaml:snakeyaml:1.24'

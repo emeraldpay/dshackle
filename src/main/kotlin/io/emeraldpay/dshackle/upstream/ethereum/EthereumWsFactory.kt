@@ -23,9 +23,9 @@ import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
-import io.infinitape.etherjar.rpc.ws.SubscriptionJson
+import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.etherjar.rpc.ws.SubscriptionJson
 import io.netty.buffer.ByteBufInputStream
 import io.netty.handler.codec.http.HttpHeaderNames
 import org.slf4j.LoggerFactory

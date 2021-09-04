@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
-import io.infinitape.etherjar.hex.HexQuantity
+import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.*

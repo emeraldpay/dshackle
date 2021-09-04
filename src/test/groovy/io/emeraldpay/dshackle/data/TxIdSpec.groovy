@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.data
 
-import io.infinitape.etherjar.domain.TransactionId
+import io.emeraldpay.etherjar.domain.TransactionId
 import spock.lang.Specification
 
 class TxIdSpec extends Specification {

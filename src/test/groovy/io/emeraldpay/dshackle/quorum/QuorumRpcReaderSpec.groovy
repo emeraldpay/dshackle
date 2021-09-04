@@ -25,7 +25,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.RpcException
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification

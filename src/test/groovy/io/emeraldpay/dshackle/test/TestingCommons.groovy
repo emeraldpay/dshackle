@@ -33,8 +33,8 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry
 import org.apache.commons.lang3.StringUtils

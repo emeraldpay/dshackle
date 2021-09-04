@@ -24,8 +24,8 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.grpc.Chain
 import io.grpc.Channel
-import io.infinitape.etherjar.rpc.RpcException
-import io.infinitape.etherjar.rpc.RpcResponseError
+import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono

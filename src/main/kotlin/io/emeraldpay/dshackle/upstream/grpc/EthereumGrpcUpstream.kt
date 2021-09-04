@@ -31,8 +31,8 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.*
+import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.rpc.*
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle

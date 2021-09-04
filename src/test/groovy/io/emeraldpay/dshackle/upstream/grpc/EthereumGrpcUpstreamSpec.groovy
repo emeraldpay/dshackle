@@ -30,8 +30,8 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.Chain
 import io.grpc.stub.StreamObserver
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import spock.lang.Specification

@@ -25,8 +25,8 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.grpc.stub.StreamObserver
-import io.infinitape.etherjar.rpc.RpcResponseError
-import io.infinitape.etherjar.rpc.json.ResponseJson
+import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.etherjar.rpc.json.ResponseJson
 import org.jetbrains.annotations.NotNull
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

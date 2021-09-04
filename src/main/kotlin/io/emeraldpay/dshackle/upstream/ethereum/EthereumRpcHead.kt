@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.infinitape.etherjar.hex.HexQuantity
+import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory

@@ -19,9 +19,9 @@ package io.emeraldpay.dshackle.quorum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.infinitape.etherjar.hex.HexQuantity
-import io.infinitape.etherjar.rpc.JacksonRpcConverter
-import io.infinitape.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.hex.HexQuantity
+import io.emeraldpay.etherjar.rpc.JacksonRpcConverter
+import io.emeraldpay.etherjar.rpc.RpcException
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 

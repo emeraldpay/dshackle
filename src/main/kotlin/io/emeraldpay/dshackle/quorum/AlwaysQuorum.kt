@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.infinitape.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.RpcException
 
 open class AlwaysQuorum: CallQuorum {
 

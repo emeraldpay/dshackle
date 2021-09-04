@@ -20,7 +20,7 @@ import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import io.emeraldpay.dshackle.Global
-import io.infinitape.etherjar.rpc.RpcResponseError
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import org.slf4j.LoggerFactory
 
 class JsonRpcParser() {

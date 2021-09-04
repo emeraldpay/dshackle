@@ -17,8 +17,8 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.infinitape.etherjar.rpc.RpcException
-import io.infinitape.etherjar.rpc.RpcResponseError
+import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import io.netty.buffer.Unpooled

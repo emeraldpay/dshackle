@@ -12,10 +12,10 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.Address
-import io.infinitape.etherjar.erc20.ERC20Token
-import io.infinitape.etherjar.hex.Hex32
-import io.infinitape.etherjar.hex.HexQuantity
+import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.etherjar.erc20.ERC20Token
+import io.emeraldpay.etherjar.hex.Hex32
+import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

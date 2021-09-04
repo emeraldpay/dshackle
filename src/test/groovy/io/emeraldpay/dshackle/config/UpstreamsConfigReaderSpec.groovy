@@ -19,7 +19,7 @@ package io.emeraldpay.dshackle.config
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.RpcClient
+import io.emeraldpay.etherjar.rpc.RpcClient
 import spock.lang.Specification
 
 class UpstreamsConfigReaderSpec extends Specification {

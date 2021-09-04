@@ -19,8 +19,8 @@ package io.emeraldpay.dshackle.upstream.calls
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.quorum.*
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.JacksonRpcConverter
-import io.infinitape.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.JacksonRpcConverter
+import io.emeraldpay.etherjar.rpc.RpcException
 import java.util.*
 
 /**

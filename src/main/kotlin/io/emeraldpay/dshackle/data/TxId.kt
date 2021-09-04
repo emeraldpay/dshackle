@@ -16,8 +16,8 @@
  */
 package io.emeraldpay.dshackle.data
 
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import org.bouncycastle.util.encoders.Hex
 import java.math.BigInteger
 

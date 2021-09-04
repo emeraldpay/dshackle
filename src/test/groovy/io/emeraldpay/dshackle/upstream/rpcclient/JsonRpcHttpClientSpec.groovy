@@ -17,8 +17,8 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.infinitape.etherjar.rpc.RpcException
-import io.infinitape.etherjar.rpc.RpcResponseError
+import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import org.mockserver.integration.ClientAndServer

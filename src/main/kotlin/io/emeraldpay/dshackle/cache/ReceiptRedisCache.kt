@@ -19,7 +19,7 @@ import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.proto.CachesProto
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.rpc.json.TransactionReceiptJson
+import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.lettuce.core.api.reactive.RedisReactiveCommands
 import reactor.core.publisher.Mono
 

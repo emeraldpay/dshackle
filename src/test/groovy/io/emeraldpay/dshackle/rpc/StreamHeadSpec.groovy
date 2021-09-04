@@ -27,9 +27,9 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification

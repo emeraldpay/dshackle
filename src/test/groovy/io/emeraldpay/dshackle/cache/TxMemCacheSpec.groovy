@@ -22,11 +22,11 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.domain.TransactionId
-import io.infinitape.etherjar.rpc.json.BlockJson
-import io.infinitape.etherjar.rpc.json.TransactionJson
-import io.infinitape.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import spock.lang.Specification
 
 import java.time.Instant

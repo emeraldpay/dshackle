@@ -21,9 +21,9 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.infinitape.etherjar.rpc.RpcException
-import io.infinitape.etherjar.rpc.RpcResponseError
-import io.infinitape.etherjar.rpc.json.RequestJson
+import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.etherjar.rpc.json.RequestJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

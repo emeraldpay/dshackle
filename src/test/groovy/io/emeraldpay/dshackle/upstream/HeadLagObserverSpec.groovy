@@ -20,8 +20,8 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.infinitape.etherjar.domain.BlockHash
-import io.infinitape.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.rpc.json.BlockJson
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks

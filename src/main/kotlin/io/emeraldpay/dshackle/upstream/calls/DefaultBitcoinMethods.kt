@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.*
-import io.infinitape.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.RpcException
 import java.util.*
 
 class DefaultBitcoinMethods() : CallMethods {

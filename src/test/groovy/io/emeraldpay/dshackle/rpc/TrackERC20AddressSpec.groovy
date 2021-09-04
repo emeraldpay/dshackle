@@ -13,10 +13,10 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
-import io.infinitape.etherjar.domain.Address
-import io.infinitape.etherjar.erc20.ERC20Token
-import io.infinitape.etherjar.hex.HexData
-import io.infinitape.etherjar.rpc.json.TransactionCallJson
+import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.etherjar.erc20.ERC20Token
+import io.emeraldpay.etherjar.hex.HexData
+import io.emeraldpay.etherjar.rpc.json.TransactionCallJson
 import reactor.core.publisher.Mono
 import spock.lang.Specification
 
