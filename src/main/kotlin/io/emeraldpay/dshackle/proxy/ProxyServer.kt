@@ -46,6 +46,7 @@ import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
+import com.github.fge.uritemplate.vars.VariableMap
 
 /**
  * HTTP Proxy Server
@@ -159,6 +160,8 @@ class ProxyServer(
         return BiFunction { req, resp ->
             // handle access events
             val eventHandler = accessHandler.create(req, routeConfig.blockchain)
+            val reqer = req.params().toString()
+            print(reqer)
             val request = req.receive()
                     .aggregate()
                     .asByteArray()
