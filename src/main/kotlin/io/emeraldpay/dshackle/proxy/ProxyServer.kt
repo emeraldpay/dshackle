@@ -22,7 +22,6 @@ import io.emeraldpay.dshackle.ChainValue
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
-import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -45,8 +44,6 @@ import reactor.netty.http.server.HttpServer
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
-import reactor.kotlin.adapter.rxjava.toFlowable
-import reactor.kotlin.adapter.rxjava.toSingle
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
 
