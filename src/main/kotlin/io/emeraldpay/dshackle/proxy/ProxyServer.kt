@@ -132,13 +132,14 @@ class ProxyServer(
         }
     }
 
-    fun getEthMethod(call: ProxyCall): String {
-        return call.items.get(0).method
-    }
+    //fun getEthMethod(call: ProxyCall): String {
+    //    return call.items.get(0).method
+    //}
 
     fun processRequest(chain: Chain, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
         val startTime = System.currentTimeMillis()
-        val metrics = RequestMetrics(chain, "t")
+        val ethMethod = request.to(readRpcJson).toList().toString()
+        val metrics = RequestMetrics(chain, ethMethod)
         metrics.requestMetric.increment()
         return request
                 .map(readRpcJson)
