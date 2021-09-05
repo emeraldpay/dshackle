@@ -159,7 +159,6 @@ class ProxyServer(
     }
 
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
-        //val chain = Common.ChainRef.forNumber(routeConfig.blockchain.id)
         return BiFunction { req, resp ->
             // handle access events
             val eventHandler = accessHandler.create(req, routeConfig.blockchain)
