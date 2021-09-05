@@ -138,7 +138,7 @@ class ProxyServer(
 
     fun processRequest(chain: Chain, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
         val startTime = System.currentTimeMillis()
-        val ethMethod = request.to(readRpcJson).toList().toString()
+        val ethMethod = request.to(readRpcJson).toList().get(0).toString()
         val metrics = RequestMetrics(chain, ethMethod)
         metrics.requestMetric.increment()
         return request
@@ -165,7 +165,6 @@ class ProxyServer(
         //val chain = Common.ChainRef.forNumber(routeConfig.blockchain.id)
         return BiFunction { req, resp ->
             // handle access events
-            print(resp.toString())
             val eventHandler = accessHandler.create(req, routeConfig.blockchain)
             val request = req.receive()
                     .aggregate()
