@@ -115,15 +115,24 @@ class ProxyServer(
         }
     }
 
-    fun execute(chain: Common.ChainRef, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
+    fun execute(chain: Chain, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
+        val startTime = System.currentTimeMillis()
+        val metrics = RequestMetrics(chain, call.items.get(0).method)
+        metrics.requestMetric.increment()
         val request = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(chain)
+                .setChain(Common.ChainRef.forNumber(chain.id))
                 .addAllItems(call.items)
                 .build()
         handler.onRequest(request)
         val jsons = nativeCall
                 .nativeCallResult(Mono.just(request))
-                .doOnNext { handler.onResponse(it) }
+                .doOnNext {
+                    handler.onResponse(it)
+                    metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                }
+                .doOnError() {
+                    metrics.errorMetric.increment() 
+                }
                 .transform(writeRpcJson.toJsons(call))
         return if (call.type == ProxyCall.RpcType.SINGLE) {
             jsons.next()
@@ -132,25 +141,13 @@ class ProxyServer(
         }
     }
 
-    //fun getEthMethod(call: ProxyCall): String {
-    //    return call.items.get(0).method
-    //}
-
     fun processRequest(chain: Chain, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
-        val startTime = System.currentTimeMillis()
-        val ethMethod = request.to(readRpcJson).toList().get(0).toString()
-        val metrics = RequestMetrics(chain, ethMethod)
-        metrics.requestMetric.increment()
         return request
                 .map(readRpcJson)
                 .flatMapMany { call -> 
-                    execute(Common.ChainRef.forNumber(chain.id), call, handler) 
-                }
-                .doOnNext {
-                    metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                    execute(chain, call, handler) 
                 }
                 .onErrorResume(RpcException::class.java) { err ->
-                    metrics.errorMetric.increment()
                     val id = err.details?.let {
                         if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
                     } ?: JsonRpcResponse.NumberId(-1)
