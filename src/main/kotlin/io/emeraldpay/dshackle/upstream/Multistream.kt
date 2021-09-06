@@ -296,9 +296,9 @@ abstract class Multistream(
         override fun test(t: UpstreamStatus): Boolean {
             val curr = lastRef.updateAndGet { last ->
                 val changed = last == null
-                        || t.status > last.status
+                        || t.status < last.status
                         || (last.upstream == t.upstream && t.status != last.status)
-                        || last.ts.isBefore(Instant.now() - Duration.ofSeconds(60))
+                        || last.ts.isBefore(t.ts - Duration.ofSeconds(60))
                 if (changed) {
                     t
                 } else {

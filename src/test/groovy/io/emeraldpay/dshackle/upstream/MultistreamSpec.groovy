@@ -25,6 +25,9 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.grpc.Chain
 import spock.lang.Specification
 
+import java.time.Duration
+import java.time.Instant
+
 class MultistreamSpec extends Specification {
 
     def "Aggregates methods"() {
@@ -42,5 +45,122 @@ class MultistreamSpec extends Specification {
         act.getQuorumFor("eth_test1") instanceof AlwaysQuorum
         act.getQuorumFor("eth_test2") instanceof AlwaysQuorum
         act.getQuorumFor("eth_test3") instanceof AlwaysQuorum
+    }
+
+    def "Filter Best Status accepts any input when none available "() {
+        setup:
+        def up = TestingCommons.upstream()
+        def filter = new Multistream.FilterBestAvailability()
+        def update1 = new Multistream.UpstreamStatus(
+                up, UpstreamAvailability.LAGGING, Instant.now()
+        )
+        when:
+        def act = filter.test(update1)
+        then:
+        act
+    }
+
+    def "Filter Best Status accepts better input"() {
+        setup:
+        def up1 = TestingCommons.upstream("1")
+        def up2 = TestingCommons.upstream("2")
+        def time0 = Instant.now() - Duration.ofSeconds(60)
+        def filter = new Multistream.FilterBestAvailability()
+        def update0 = new Multistream.UpstreamStatus(
+                up1, UpstreamAvailability.LAGGING, time0
+        )
+        def update1 = new Multistream.UpstreamStatus(
+                up2, UpstreamAvailability.OK, time0
+        )
+        when:
+        filter.test(update0)
+        def act = filter.test(update1)
+        then:
+        act
+    }
+
+    def "Filter Best Status declines worse input"() {
+        setup:
+        def up1 = TestingCommons.upstream("1")
+        def up2 = TestingCommons.upstream("2")
+        def time0 = Instant.now() - Duration.ofSeconds(60)
+        def filter = new Multistream.FilterBestAvailability()
+        def update0 = new Multistream.UpstreamStatus(
+                up1, UpstreamAvailability.LAGGING, time0
+        )
+        def update1 = new Multistream.UpstreamStatus(
+                up2, UpstreamAvailability.IMMATURE, time0
+        )
+        when:
+        filter.test(update0)
+        def act = filter.test(update1)
+        then:
+        !act
+    }
+
+    def "Filter Best Status accepts worse input from same upstream"() {
+        setup:
+        def up = TestingCommons.upstream("1")
+        def time0 = Instant.now() - Duration.ofSeconds(60)
+        def filter = new Multistream.FilterBestAvailability()
+        def update0 = new Multistream.UpstreamStatus(
+                up, UpstreamAvailability.LAGGING, time0
+        )
+        def update1 = new Multistream.UpstreamStatus(
+                up, UpstreamAvailability.IMMATURE, time0
+        )
+        when:
+        filter.test(update0)
+        def act = filter.test(update1)
+        then:
+        act
+    }
+
+    def "Filter Best Status accepts any input if existing is outdated"() {
+        setup:
+        def up1 = TestingCommons.upstream("1")
+        def up2 = TestingCommons.upstream("2")
+        def time0 = Instant.now() - Duration.ofSeconds(90)
+        def filter = new Multistream.FilterBestAvailability()
+        def update0 = new Multistream.UpstreamStatus(
+                up1, UpstreamAvailability.OK, time0
+        )
+        def update1 = new Multistream.UpstreamStatus(
+                up2, UpstreamAvailability.IMMATURE, time0 + Duration.ofSeconds(65)
+        )
+        when:
+        filter.test(update0)
+        def act = filter.test(update1)
+        then:
+        act
+    }
+
+    def "Filter Best Status declines same status"() {
+        setup:
+        def up1 = TestingCommons.upstream("1")
+        def up2 = TestingCommons.upstream("2")
+        def up3 = TestingCommons.upstream("3")
+        def time0 = Instant.now() - Duration.ofSeconds(60)
+        def filter = new Multistream.FilterBestAvailability()
+        def update0 = new Multistream.UpstreamStatus(
+                up1, UpstreamAvailability.OK, time0
+        )
+        def update1 = new Multistream.UpstreamStatus(
+                up2, UpstreamAvailability.OK, time0
+        )
+        def update2 = new Multistream.UpstreamStatus(
+                up3, UpstreamAvailability.OK, time0 + Duration.ofSeconds(10)
+        )
+
+        when:
+        filter.test(update0)
+        def act = filter.test(update1)
+        then:
+        !act
+
+        when:
+        act = filter.test(update2)
+        then:
+        !act
     }
 }

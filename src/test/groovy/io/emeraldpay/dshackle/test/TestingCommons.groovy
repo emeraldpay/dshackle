@@ -54,6 +54,10 @@ class TestingCommons {
         return new EthereumUpstreamMock(Chain.ETHEREUM, api())
     }
 
+    static EthereumUpstreamMock upstream(String id) {
+        return new EthereumUpstreamMock(id, Chain.ETHEREUM, api())
+    }
+
     static EthereumUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {
         return new EthereumUpstreamMock(id, Chain.ETHEREUM, api)
     }
