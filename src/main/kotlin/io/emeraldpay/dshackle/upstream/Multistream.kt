@@ -33,6 +33,7 @@ import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -208,8 +209,12 @@ abstract class Multistream(
     }
 
     override fun start() {
-        subscription = observeStatus()
+        val repeated = Flux.interval(Duration.ofSeconds(30))
+        val whenChanged = observeStatus()
                 .distinctUntilChanged()
+        subscription = Flux.merge(repeated, whenChanged)
+                // print status _change_ every 15 seconds, at most; otherwise prints it on interval of 30 seconds
+                .sample(Duration.ofSeconds(15))
                 .subscribe { printStatus() }
     }
 
@@ -289,15 +294,18 @@ abstract class Multistream(
         private val lastRef = AtomicReference<UpstreamStatus>()
 
         override fun test(t: UpstreamStatus): Boolean {
-            val last = lastRef.get()
-            val changed = last == null
-                    || t.status > last.status
-                    || (last.upstream == t.upstream && t.status != last.status)
-                    || last.ts.isBefore(Instant.now() - Duration.ofSeconds(60))
-            if (changed) {
-                lastRef.set(t)
+            val curr = lastRef.updateAndGet { last ->
+                val changed = last == null
+                        || t.status > last.status
+                        || (last.upstream == t.upstream && t.status != last.status)
+                        || last.ts.isBefore(Instant.now() - Duration.ofSeconds(60))
+                if (changed) {
+                    t
+                } else {
+                    last
+                }
             }
-            return changed
+            return curr == t
         }
     }
 

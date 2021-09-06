@@ -117,11 +117,6 @@ open class CurrentMultistreamHolder(
         return chainMapping[chain]
     }
 
-    @Scheduled(fixedRate = 15000)
-    fun printStatuses() {
-        chainMapping.forEach { it.value.printStatus() }
-    }
-
     override fun getAvailable(): List<Chain> {
         return Collections.unmodifiableList(chainMapping.keys.toList())
     }
