@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
@@ -62,7 +63,7 @@ class ProxyServerSpec extends Specification {
                         .build()
         )
         when:
-        def act = server.execute(Common.ChainRef.CHAIN_ETHEREUM, call, new AccessHandlerHttp.NoOpHandler())
+        def act = server.execute(Chain.ETHEREUM, call, new AccessHandlerHttp.NoOpHandler())
 
         then:
         1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, "".bytes, null))
@@ -84,7 +85,7 @@ class ProxyServerSpec extends Specification {
                 new AccessHandlerHttp.NoOpFactory()
         )
         when:
-        def act = server.processRequest(Common.ChainRef.CHAIN_ETHEREUM, Mono.just("".bytes), new AccessHandlerHttp.NoOpHandler())
+        def act = server.processRequest(Chain.ETHEREUM, Mono.just("".bytes), new AccessHandlerHttp.NoOpHandler())
                 .map { new String(it.array()) }
         then:
         StepVerifier.create(act)
@@ -125,7 +126,7 @@ class ProxyServerSpec extends Specification {
         )
 
         when:
-        server.processRequest(Common.ChainRef.CHAIN_ETHEREUM, Mono.just("".bytes), handler)
+        server.processRequest(Chain.ETHEREUM, Mono.just("".bytes), handler)
                 .blockLast()
 
         then:

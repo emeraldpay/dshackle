@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.config.ProxyConfig
+import io.emeraldpay.dshackle.monitoring.MonitoringSetup
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.proxy.ProxyServer
 import io.emeraldpay.dshackle.proxy.ReadRpcJson
@@ -25,6 +26,7 @@ import io.emeraldpay.dshackle.proxy.WriteRpcJson
 import io.emeraldpay.dshackle.rpc.NativeCall
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.DependsOn
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import javax.annotation.PostConstruct
@@ -39,7 +41,9 @@ class ProxyStarter(
         @Autowired private val writeRpcJson: WriteRpcJson,
         @Autowired private val nativeCall: NativeCall,
         @Autowired private val tlsSetup: TlsSetup,
-        @Autowired private val accessHandlerHttp: AccessHandlerHttp
+        @Autowired private val accessHandlerHttp: AccessHandlerHttp,
+        // depend on Monitoring, declared here just to ensure it's properly initialized before the Proxy
+        @Autowired private val monitoringSetup: MonitoringSetup
 ) {
 
     companion object {

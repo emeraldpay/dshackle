@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.ChainValue
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
@@ -44,8 +43,13 @@ import reactor.netty.http.server.HttpServer
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
+import java.util.*
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.function.BiFunction
+import kotlin.collections.HashMap
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 /**
  * HTTP Proxy Server
@@ -62,8 +66,6 @@ class ProxyServer(
     companion object {
         private val log = LoggerFactory.getLogger(ProxyServer::class.java)
     }
-
-    private val chainMetrics = ChainValue { chain -> RequestMetrics(chain) }
 
     private val errorHandler: ChannelHandler = object : ChannelHandler {
         override fun handlerAdded(p0: ChannelHandlerContext?) {
@@ -84,6 +86,12 @@ class ProxyServer(
                 }
             }
         }
+    }
+
+    private val requestMetrics: RequestMetricsFactory = if (Global.metricsExtended) {
+        ExtendedRequestMetrics()
+    } else {
+        StandardRequestMetrics()
     }
 
     fun start() {
@@ -114,15 +122,42 @@ class ProxyServer(
         }
     }
 
-    fun execute(chain: Common.ChainRef, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
+    fun execute(chain: Chain, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
+        // return empty response for empty request
+        if (call.items.isEmpty()) {
+            return if (call.type == ProxyCall.RpcType.BATCH) {
+                Mono.just("[]")
+            } else {
+                Mono.just("")
+            }
+        }
+        val startTime = System.currentTimeMillis()
+        // during the execution we know only ID of the call, we use it to find the origin call and associated metrics
+        val metricById = { id: Int ->
+            call.items.find { it.id == id }?.let { item ->
+                requestMetrics.get(chain, item.method)
+            }
+        }
         val request = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(chain)
+                .setChain(Common.ChainRef.forNumber(chain.id))
                 .addAllItems(call.items)
                 .build()
         handler.onRequest(request)
         val jsons = nativeCall
                 .nativeCallResult(Mono.just(request))
-                .doOnNext { handler.onResponse(it) }
+                .doOnNext {
+                    metricById(it.id)?.requestMetric?.increment()
+                }
+                .doOnNext {
+                    handler.onResponse(it)
+                    metricById(it.id)?.callMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                }
+                .doOnError {
+                    //when error happened the whole flux is stopped and no result is produced, so we should mark all the requests as failed
+                    call.items.forEach { item ->
+                        requestMetrics.get(chain, item.method).errorMetric.increment()
+                    }
+                }
                 .transform(writeRpcJson.toJsons(call))
         return if (call.type == ProxyCall.RpcType.SINGLE) {
             jsons.next()
@@ -131,18 +166,13 @@ class ProxyServer(
         }
     }
 
-    fun processRequest(chain: Common.ChainRef, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
-        val metrics = chainMetrics.get(chain)
-        val startTime = System.currentTimeMillis()
-        metrics.requestMetric.increment()
+    fun processRequest(chain: Chain, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
         return request
                 .map(readRpcJson)
-                .flatMapMany { call -> execute(chain, call, handler) }
-                .doOnNext {
-                    metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                .flatMapMany { call -> 
+                    execute(chain, call, handler) 
                 }
                 .onErrorResume(RpcException::class.java) { err ->
-                    metrics.errorMetric.increment()
                     val id = err.details?.let {
                         if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
                     } ?: JsonRpcResponse.NumberId(-1)
@@ -154,14 +184,13 @@ class ProxyServer(
     }
 
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
-        val chain = Common.ChainRef.forNumber(routeConfig.blockchain.id)
         return BiFunction { req, resp ->
             // handle access events
             val eventHandler = accessHandler.create(req, routeConfig.blockchain)
             val request = req.receive()
                     .aggregate()
                     .asByteArray()
-            val results = processRequest(chain, request, eventHandler)
+            val results = processRequest(routeConfig.blockchain, request, eventHandler)
                     // make sure that the access log handler is closed at the end, so it can render the logs
                     .doFinally { eventHandler.close() }
             resp.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
@@ -169,15 +198,78 @@ class ProxyServer(
         }
     }
 
-    class RequestMetrics(chain: Chain) {
-        val callMetric = Timer.builder("request.jsonrpc.call")
-                .tag("chain", chain.chainCode)
+    interface RequestMetricsFactory {
+        fun get(chain: Chain, method: String): RequestMetrics
+    }
+
+    /**
+     * Standard metrics
+     */
+    class StandardRequestMetrics : RequestMetricsFactory {
+        private val current = EnumMap<Chain, RequestMetrics>(Chain::class.java)
+
+        override fun get(chain: Chain, method: String): RequestMetrics {
+            return current.getOrPut(chain) { RequestMetricsBasic(chain) }
+        }
+    }
+
+    /**
+     * Monitoring that has separate metrics per RPC method.
+     * Slightly slower to use than StandardRequestMetrics
+     */
+    class ExtendedRequestMetrics : RequestMetricsFactory {
+        private val current = HashMap<Ref, RequestMetrics>()
+        private val lock = ReentrantReadWriteLock()
+
+        override fun get(chain: Chain, method: String): RequestMetrics {
+            val ref = Ref(chain, method)
+            lock.read {
+                val existing = current[ref]
+                if (existing != null) {
+                    return existing
+                }
+            }
+            lock.write {
+                val existing = current[ref]
+                if (existing != null) {
+                    return existing
+                }
+                val created = RequestMetricsWithMethod(chain, method)
+                current[ref] = created
+                return created
+            }
+        }
+
+        data class Ref(val chain: Chain, val method: String)
+    }
+
+    interface RequestMetrics {
+        val callMetric: Timer
+        val errorMetric: Counter
+        val requestMetric: Counter
+    }
+
+    class RequestMetricsBasic(chain: Chain) : RequestMetrics {
+        override val callMetric = Timer.builder("request.jsonrpc.call")
+                .tags("chain", chain.chainCode)
                 .register(Metrics.globalRegistry)
-        val errorMetric = Counter.builder("request.jsonrpc.err")
-                .tag("chain", chain.chainCode)
+        override val errorMetric = Counter.builder("request.jsonrpc.err")
+                .tags("chain", chain.chainCode)
                 .register(Metrics.globalRegistry)
-        val requestMetric = Counter.builder("request.jsonrpc.request.total")
-                .tag("chain", chain.chainCode)
+        override val requestMetric = Counter.builder("request.jsonrpc.request.total")
+                .tags("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
+    }
+
+    class RequestMetricsWithMethod(chain: Chain, method: String) : RequestMetrics {
+        override val callMetric = Timer.builder("request.jsonrpc.call")
+                .tags("chain", chain.chainCode, "method", method)
+                .register(Metrics.globalRegistry)
+        override val errorMetric = Counter.builder("request.jsonrpc.err")
+                .tags("chain", chain.chainCode, "method", method)
+                .register(Metrics.globalRegistry)
+        override val requestMetric = Counter.builder("request.jsonrpc.request.total")
+                .tags("chain", chain.chainCode, "method", method)
                 .register(Metrics.globalRegistry)
     }
 }
