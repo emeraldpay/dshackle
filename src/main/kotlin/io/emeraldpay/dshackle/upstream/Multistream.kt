@@ -270,7 +270,7 @@ abstract class Multistream(
     fun printStatus() {
         var height: Long? = null
         try {
-            height = getHead().getFlux().next().block(Duration.ofSeconds(1))?.height
+            height = getHead().getCurrentHeight()
         } catch (e: java.lang.IllegalStateException) {
             //timout
         } catch (e: Exception) {
