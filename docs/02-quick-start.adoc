@@ -88,7 +88,7 @@ export INFURA_USER=...
 .Run Dshackle
 [source,bash]
 ----
-docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle
+docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle:0.10
 ----
 
 ==== Access using JSON RPC
