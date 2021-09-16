@@ -111,7 +111,7 @@ class ProxyServer(
             serverBuilder = serverBuilder.secure { secure -> secure.sslContext(sslContext) }
         }
 
-        val server: DisposableServer = serverBuilder
+        serverBuilder
                 .route(this::setupRoutes)
                 .bindNow()
     }

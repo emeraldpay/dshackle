@@ -22,7 +22,9 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
+import java.util.*
 import javax.annotation.PostConstruct
+import kotlin.collections.HashMap
 
 @Service
 class TrackERC20Address(
@@ -41,7 +43,7 @@ class TrackERC20Address(
     fun init() {
         tokensConfig.tokens.forEach { token ->
             val chain = token.blockchain!!
-            val asset = token.name!!.toLowerCase()
+            val asset = token.name!!.lowercase(Locale.getDefault())
             val id = TokenId(chain, asset)
             val definition = TokenDefinition(
                     chain, asset,
@@ -53,13 +55,13 @@ class TrackERC20Address(
     }
 
     override fun isSupported(chain: Chain, asset: String): Boolean {
-        return tokens.containsKey(TokenId(chain, asset.toLowerCase())) &&
+        return tokens.containsKey(TokenId(chain, asset.lowercase(Locale.getDefault()))) &&
                 BlockchainType.from(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
-        val asset = request.asset.code.toLowerCase()
+        val asset = request.asset.code.lowercase(Locale.getDefault())
         val tokenDefinition = tokens[TokenId(chain, asset)] ?: return Flux.empty()
         return ethereumAddresses.extract(request.address)
                 .map { TrackedAddress(chain, it, tokenDefinition.token, tokenDefinition.name) }
@@ -69,7 +71,7 @@ class TrackERC20Address(
 
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
         val chain = Chain.byId(request.asset.chainValue)
-        val asset = request.asset.code.toLowerCase()
+        val asset = request.asset.code.lowercase(Locale.getDefault())
         val tokenDefinition = tokens[TokenId(chain, asset)] ?: return Flux.empty()
         val head = multistreamHolder.getUpstream(chain)?.getHead()?.getFlux() ?: Flux.empty()
 
@@ -116,7 +118,7 @@ class TrackERC20Address(
                 .setBalance(address.balance!!.toString(10))
                 .setAsset(Common.Asset.newBuilder()
                         .setChainValue(address.chain.id)
-                        .setCode(address.tokenName.toUpperCase()))
+                        .setCode(address.tokenName.uppercase(Locale.getDefault())))
                 .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.toHex()))
                 .build()
     }

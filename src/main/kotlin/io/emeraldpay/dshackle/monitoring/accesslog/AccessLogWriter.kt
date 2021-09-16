@@ -103,7 +103,7 @@ class AccessLogWriter(
         BufferedOutputStream(FileOutputStream(filename, true)).use { wrt ->
             var limit = WRITE_BATCH_LIMIT
             while (limit > 0) {
-                limit--
+                limit -= 1
                 val next = queue.poll() ?: return
                 val bytes: ByteArray? = try {
                     objectMapper.writeValueAsBytes(next)

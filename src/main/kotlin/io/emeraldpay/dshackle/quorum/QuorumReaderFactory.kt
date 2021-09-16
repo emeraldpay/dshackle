@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 
 // creates instance of a Quorum based reader
-open interface QuorumReaderFactory {
+interface QuorumReaderFactory {
 
     companion object {
         fun default(): QuorumReaderFactory {
@@ -28,7 +28,7 @@ open interface QuorumReaderFactory {
         }
     }
 
-    open fun create(apis: ApiSource, quorum: CallQuorum): Reader<JsonRpcRequest, QuorumRpcReader.Result>
+    fun create(apis: ApiSource, quorum: CallQuorum): Reader<JsonRpcRequest, QuorumRpcReader.Result>
 
     class Default : QuorumReaderFactory {
         override fun create(apis: ApiSource, quorum: CallQuorum): Reader<JsonRpcRequest, QuorumRpcReader.Result> {

@@ -220,7 +220,7 @@ class TrackBitcoinAddress(
         if (isBalanceAvailable(chain)) {
             val addresses = allAddresses(upstream, request).cache()
             val following = upstream.getHead().getFlux()
-                    .flatMap { block ->
+                    .flatMap {
                         requestBalances(chain, upstream, Flux.from(addresses), request.includeUtxo)
                     }
             val last = HashMap<String, BigInteger>()

@@ -33,8 +33,6 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.*
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 
 @Service @DependsOn("monitoringSetup")
 class BlockchainRpc(
@@ -82,8 +80,8 @@ class BlockchainRpc(
         ).doOnError { errorMetric.increment() }
     }
 
-    override fun subscribeTxStatus(request: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
-        return request.flatMapMany { request ->
+    override fun subscribeTxStatus(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
+        return requestMono.flatMapMany { request ->
             val chain = Chain.byId(request.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.subscribeTxMetric.increment()
@@ -106,7 +104,7 @@ class BlockchainRpc(
             val chain = Chain.byId(request.asset.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.subscribeBalanceMetric.increment()
-            val asset = request.asset.code.toLowerCase()
+            val asset = request.asset.code.lowercase(Locale.getDefault())
             try {
                 trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
                     track.subscribe(request)
@@ -129,7 +127,7 @@ class BlockchainRpc(
             val chain = Chain.byId(request.asset.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.getBalanceMetric.increment()
-            val asset = request.asset.code.toLowerCase()
+            val asset = request.asset.code.lowercase(Locale.getDefault())
             val startTime = System.currentTimeMillis()
             try {
                 trackAddress.find { it.isSupported(chain, asset) }?.let { track ->

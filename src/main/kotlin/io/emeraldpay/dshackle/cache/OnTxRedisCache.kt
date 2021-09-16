@@ -59,8 +59,8 @@ abstract class OnTxRedisCache<T>(
         return "${prefix}:${chain.id}:${hash.toHex()}"
     }
 
-    fun evict(block: BlockContainer): Mono<Void> {
-        return Mono.just(block)
+    fun evict(container: BlockContainer): Mono<Void> {
+        return Mono.just(container)
                 .map { block ->
                     block.transactions.map {
                         key(it)

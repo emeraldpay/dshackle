@@ -115,7 +115,7 @@ open class Caches(
             //for LATEST data cache it in memory, it may be short living so better to avoid Redis
             memoizeBlock(block)
         } else if (tag == Tag.REQUESTED) {
-            var blockOnlyContainer: BlockContainer? = null
+            val blockOnlyContainer: BlockContainer?
             var jsonValue: BlockJson<*>? = null
             if (block.full) {
                 jsonValue = Global.objectMapper.readValue<BlockJson<*>>(block.json, BlockJson::class.java)
@@ -130,8 +130,8 @@ open class Caches(
             redisBlocksByHash?.add(blockOnlyContainer)?.let(job::add)
 
             // now cache only transactions
-            jsonValue?.let { jsonValue ->
-                val plainTransactions = jsonValue.transactions.filterIsInstance<TransactionJson>()
+            jsonValue?.let { value ->
+                val plainTransactions = value.transactions.filterIsInstance<TransactionJson>()
                 if (plainTransactions.isNotEmpty()) {
                     val transactions = plainTransactions.map { tx ->
                         TxContainer.from(tx)

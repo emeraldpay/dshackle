@@ -45,7 +45,7 @@ class EthereumDirectReader(
     }
 
     private val objectMapper: ObjectMapper = Global.objectMapper
-    open var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
+    var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
 
     val blockReader: Reader<BlockHash, BlockContainer>
     val blockByHeightReader: Reader<Long, BlockContainer>
@@ -110,6 +110,7 @@ class EthereumDirectReader(
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun readBlock(request: JsonRpcRequest, id: String): Mono<BlockContainer> {
         return readWithQuorum(request)
                 .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))

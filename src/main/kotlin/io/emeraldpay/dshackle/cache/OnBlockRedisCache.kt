@@ -90,10 +90,10 @@ abstract class OnBlockRedisCache<T>(
      * Add to cache.
      * Note that it returns Mono<Void> which must be subscribed to actually save
      */
-    open fun add(block: BlockContainer, value: T): Mono<Void> {
-        return Mono.just(block)
+    open fun add(container: BlockContainer, value: T): Mono<Void> {
+        return Mono.just(container)
                 .flatMap { block ->
-                    val ttl = cachingTime(block.timestamp!!)
+                    val ttl = cachingTime(block.timestamp)
                     if (ttl > MIN_CACHE_TIME_SECONDS) {
                         val key = key(block.hash)
                         val proto = toProto(block, value)

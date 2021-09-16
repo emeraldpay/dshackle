@@ -153,7 +153,7 @@ open class NativeCall(
                         .forMethod(method)
                         .forLabels(Selector.convertToMatcher(request.selector))
 
-                val callQuorum = upstream.getMethods().getQuorumFor(method) ?: AlwaysQuorum()
+                val callQuorum = upstream.getMethods().getQuorumFor(method) ?: AlwaysQuorum() // can be null in tests
                 callQuorum.init(upstream.getHead())
 
                 // for NotLaggingQuorum it makes sense to select compatible upstreams before the call
@@ -218,6 +218,7 @@ open class NativeCall(
                 )
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun extractParams(jsonParams: String): List<Any> {
         if (StringUtils.isEmpty(jsonParams)) {
             return emptyList()

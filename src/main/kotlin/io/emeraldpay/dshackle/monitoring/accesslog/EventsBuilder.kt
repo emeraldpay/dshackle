@@ -195,7 +195,7 @@ class EventsBuilder {
 
         override fun onRequest(msg: BlockchainOuterClass.BalanceRequest) {
             balanceRequest = Events.BalanceRequest(
-                    msg.asset.code.toUpperCase(),
+                    msg.asset.code.uppercase(Locale.getDefault()),
                     msg.address.addrTypeCase.name
             )
         }

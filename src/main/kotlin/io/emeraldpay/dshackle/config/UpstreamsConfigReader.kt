@@ -26,6 +26,8 @@ import java.io.InputStream
 import java.lang.IllegalArgumentException
 import java.net.URI
 import java.time.Duration
+import java.util.*
+import kotlin.collections.ArrayList
 
 class UpstreamsConfigReader(
         private val fileResolver: FileResolver
@@ -83,7 +85,7 @@ class UpstreamsConfigReader(
             }
         }
 
-        getList<MappingNode>(input, "upstreams")?.value?.forEachIndexed { pos, upNode ->
+        getList<MappingNode>(input, "upstreams")?.value?.forEachIndexed { _, upNode ->
             val connNode = getMapping(upNode, "connection")
             if (hasAny(connNode, "ethereum")) {
                 val connConfigNode = getMapping(connNode, "ethereum")!!
@@ -197,7 +199,7 @@ class UpstreamsConfigReader(
         getValueAsString(upNode, "role")?.let {
             val name = it.trim()
             try {
-                val role = UpstreamsConfig.UpstreamRole.valueOf(name.toUpperCase())
+                val role = UpstreamsConfig.UpstreamRole.valueOf(name.uppercase(Locale.getDefault()))
                 upstream.role = role
             } catch (e: IllegalArgumentException) {
                 log.warn("Unsupported role `$name` for upstream ${upstream.id}")

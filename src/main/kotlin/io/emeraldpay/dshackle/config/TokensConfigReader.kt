@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.config
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
+import java.util.*
 
 class TokensConfigReader : YamlConfigReader(), ConfigReader<TokensConfig> {
 
@@ -38,7 +39,7 @@ class TokensConfigReader : YamlConfigReader(), ConfigReader<TokensConfig> {
             token.address = getValueAsString(node, "address")
             token.name = getValueAsString(node, "name")
             token.type = getValueAsString(node, "type")?.let {
-                if (it.toUpperCase() == "ERC-20") {
+                if (it.uppercase(Locale.getDefault()) == "ERC-20") {
                     TokensConfig.Type.ERC20
                 } else {
                     log.warn("Invalid token type: $it")

@@ -42,6 +42,7 @@ class HeightByHashRedisCache(
         private const val MAX_CACHE_TIME_MINUTES = 60L * 4
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun read(key: BlockId): Mono<Long> {
         return redis.get(key(key))
                 .flatMap { data ->
@@ -54,13 +55,13 @@ class HeightByHashRedisCache(
 
     override fun add(block: BlockContainer): Mono<Void> {
         return Mono.just(block)
-                .flatMap { block ->
+                .flatMap { blockData ->
                     // even if block replaced, the mapping hash-long is still valid, so can be cached for long time
                     // even for fresh blocks
                     val ttl = TimeUnit.MINUTES.toSeconds(MAX_CACHE_TIME_MINUTES)
 
-                    val key = key(block.hash)
-                    val value = asBytes(block.height)
+                    val key = key(blockData.hash)
+                    val value = asBytes(blockData.height)
                     redis.setex(key, ttl, value)
                 }
                 .doOnError {

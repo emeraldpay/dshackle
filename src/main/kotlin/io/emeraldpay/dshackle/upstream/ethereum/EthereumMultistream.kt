@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
 
+@Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
         chain: Chain,
         val upstreams: MutableList<EthereumUpstream>,
@@ -109,7 +110,7 @@ open class EthereumMultistream(
         return upstreams.flatMap { it.getLabels() }
     }
 
-    @SuppressWarnings("unchecked")
+    @Suppress("UNCHECKED_CAST")
     override fun <T : Upstream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")

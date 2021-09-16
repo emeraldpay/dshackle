@@ -78,7 +78,7 @@ open class UpstreamsConfig {
         var methods: Methods? = null
         var role: UpstreamRole = UpstreamRole.STANDARD
 
-        @Suppress("unchecked")
+        @Suppress("UNCHECKED_CAST")
         fun <Z : UpstreamConnection> cast(type: Class<Z>): Upstream<Z> {
             if (connection == null || type.isAssignableFrom(connection!!.javaClass)) {
                 return this as Upstream<Z>
@@ -144,20 +144,19 @@ open class UpstreamsConfig {
         DSHACKLE("dshackle", "grpc"),
         UNKNOWN("unknown");
 
-        private val code: Array<String>
+        private val code: Array<out String>
 
         init {
-            this.code = code as Array<String>
+            this.code = code
             Arrays.sort(this.code)
         }
 
         companion object {
 
             fun byName(code: String): UpstreamType {
-                var code = code
-                code = code.toLowerCase()
+                val cleanCode = code.lowercase(Locale.getDefault())
                 for (t in UpstreamType.values()) {
-                    if (Arrays.binarySearch(t.code, code) >= 0) {
+                    if (Arrays.binarySearch(t.code, cleanCode) >= 0) {
                         return t
                     }
                 }

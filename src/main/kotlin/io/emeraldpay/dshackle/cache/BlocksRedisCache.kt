@@ -73,7 +73,7 @@ class BlocksRedisCache(
     }
 
     fun add(block: BlockContainer): Mono<Void> {
-        if (block.timestamp == null || block.hash == null) {
+        if (block.timestamp == null || block.hash == null) { //null in unit tests
             return Mono.empty()
         }
         if (block.full) {

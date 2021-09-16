@@ -23,6 +23,7 @@ abstract class SourceContainer(
         private val parsed: Any?
 ) {
 
+    @Suppress("UNCHECKED_CAST")
     fun <T> getParsed(clazz: Class<T>): T? {
         if (parsed == null) {
             return null

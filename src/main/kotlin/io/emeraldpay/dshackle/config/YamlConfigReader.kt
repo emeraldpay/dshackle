@@ -24,6 +24,7 @@ import org.yaml.snakeyaml.nodes.Node
 import org.yaml.snakeyaml.nodes.ScalarNode
 import java.io.InputStream
 import java.io.InputStreamReader
+import java.util.*
 
 abstract class YamlConfigReader {
     private val envVariables = EnvVariables()
@@ -50,6 +51,7 @@ abstract class YamlConfigReader {
                 }.count() > 0
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun <T> getValue(mappingNode: MappingNode?, key: String, type: Class<T>): T? {
         if (mappingNode == null) {
             return null
@@ -79,6 +81,7 @@ abstract class YamlConfigReader {
         return getValue(mappingNode, key, ScalarNode::class.java)
     }
 
+    @Suppress("UNCHECKED_CAST")
     protected fun <T> getList(mappingNode: MappingNode?, key: String): CollectionNode<T>? {
         val value = getValue(mappingNode, key, CollectionNode::class.java) ?: return null
         return value as CollectionNode<T>
@@ -109,7 +112,7 @@ abstract class YamlConfigReader {
     protected fun getValueAsBool(mappingNode: MappingNode?, key: String): Boolean? {
         return getValue(mappingNode, key)?.let {
             return@let if (it.isPlain) {
-                it.value?.toLowerCase() == "true"
+                it.value.lowercase(Locale.getDefault()) == "true"
             } else {
                 null
             }
@@ -128,8 +131,8 @@ abstract class YamlConfigReader {
 
     fun getBlockchain(id: String): Chain {
         return Chain.values().find { chain ->
-            chain.name == id.toUpperCase()
-                    || chain.chainCode.toUpperCase() == id.toUpperCase()
+            chain.name == id.uppercase(Locale.getDefault())
+                    || chain.chainCode.uppercase(Locale.getDefault()) == id.uppercase(Locale.getDefault())
                     || chain.id.toString() == id
         } ?: Chain.UNSPECIFIED
     }

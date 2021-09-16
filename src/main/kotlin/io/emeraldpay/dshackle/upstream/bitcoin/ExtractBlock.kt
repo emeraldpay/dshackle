@@ -51,6 +51,7 @@ class ExtractBlock() {
 
     private val objectMapper: ObjectMapper = Global.objectMapper
 
+    @Suppress("UNCHECKED_CAST")
     fun extract(json: ByteArray): BlockContainer {
         val data = objectMapper.readValue(json, Map::class.java) as Map<String, Any>
 

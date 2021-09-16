@@ -31,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.*
 
 @Service
 class TrackEthereumAddress(
@@ -98,7 +99,7 @@ class TrackEthereumAddress(
         if (!multistreamHolder.isAvailable(chain)) {
             return Flux.error(SilentException.UnsupportedBlockchain(request.asset.chainValue))
         }
-        if (request.asset.code?.toLowerCase() != "ether") {
+        if (request.asset.code.lowercase(Locale.getDefault()) != "ether") {
             return Flux.error(SilentException("Unsupported asset ${request.asset.code}"))
         }
         return ethereumAddresses.extract(request.address).map {

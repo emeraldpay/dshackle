@@ -119,6 +119,7 @@ class Selector {
             return Collections.unmodifiableCollection(matchers)
         }
 
+        @Suppress("UNCHECKED_CAST")
         fun <T : Matcher> getMatcher(type: Class<T>): T? {
             return matchers.find { type.isAssignableFrom(it.javaClass) } as T?
         }

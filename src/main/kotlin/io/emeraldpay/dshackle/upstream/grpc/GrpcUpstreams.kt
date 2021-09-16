@@ -83,7 +83,7 @@ class GrpcUpstreams(
         val updates = Flux.interval(Duration.ZERO, Duration.ofMinutes(1))
                 .flatMap {
                     client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
-                }.onErrorContinue { t, u ->
+                }.onErrorContinue { t, _ ->
                     if (ExceptionUtils.indexOfType(t, ConnectException::class.java) >= 0) {
                         log.warn("gRPC upstream $host:$port is unavailable")
                         known.values.forEach {

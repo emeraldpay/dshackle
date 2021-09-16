@@ -78,6 +78,7 @@ open class BitcoinRpcUpstream(
         return false
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun <T : Upstream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")

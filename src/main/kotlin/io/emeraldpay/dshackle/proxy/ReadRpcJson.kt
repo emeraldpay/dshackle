@@ -101,9 +101,9 @@ open class ReadRpcJson() : Function<ByteArray, ProxyCall> {
         } catch (e: IllegalArgumentException) {
             throw RpcException(RpcResponseError.CODE_INVALID_JSON, "Empty JSON")
         }
-        if (first == '{'.toByte()) {
+        if (first == '{'.code.toByte()) {
             return ProxyCall.RpcType.SINGLE
-        } else if (first == '['.toByte()) {
+        } else if (first == '['.code.toByte()) {
             return ProxyCall.RpcType.BATCH
         }
         throw RpcException(RpcResponseError.CODE_INVALID_JSON, "Failed to parse JSON")

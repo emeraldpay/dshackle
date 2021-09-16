@@ -36,6 +36,7 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.time.Instant
+import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
@@ -70,7 +71,7 @@ abstract class Multistream(
     init {
         UpstreamAvailability.values().forEach { status ->
             Metrics.gauge("$metrics.availability",
-                    listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.toLowerCase())), this) {
+                    listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase(Locale.getDefault()))), this) {
                 upstreams.count { it.getStatus() == status }.toDouble()
             }
         }
@@ -187,7 +188,7 @@ abstract class Multistream(
     override fun getStatus(): UpstreamAvailability {
         val upstreams = getAll()
         return if (upstreams.isEmpty()) UpstreamAvailability.UNAVAILABLE
-        else upstreams.map { it.getStatus() }.min()!!
+        else upstreams.minOf { it.getStatus() }
     }
 
     //TODO options for multistream are useless

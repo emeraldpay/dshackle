@@ -60,24 +60,24 @@ class AuthConfigReader : YamlConfigReader() {
      *   ca: "ca.dshackle.test.crt"
      * ```
      */
-    fun readServerTls(node: MappingNode?): AuthConfig.ServerTlsAuth? {
-        return getMapping(node, "tls")?.let { node ->
+    fun readServerTls(rootNode: MappingNode?): AuthConfig.ServerTlsAuth? {
+        return getMapping(rootNode, "tls")?.let { tlsNode ->
             val auth = AuthConfig.ServerTlsAuth()
-            getValueAsBool(node, "enabled")?.let {
+            getValueAsBool(tlsNode, "enabled")?.let {
                 auth.enabled = it
             }
             if (auth.enabled != null && !auth.enabled!!) {
                 return null
             }
-            getMapping(node, "server")?.let { node ->
-                auth.certificate = getValueAsString(node, "certificate")
-                auth.key = getValueAsString(node, "key")
+            getMapping(tlsNode, "server")?.let { serverNode ->
+                auth.certificate = getValueAsString(serverNode, "certificate")
+                auth.key = getValueAsString(serverNode, "key")
             }
-            getMapping(node, "client")?.let { node ->
-                getValueAsBool(node, "require")?.let {
+            getMapping(tlsNode, "client")?.let { clientNode ->
+                getValueAsBool(clientNode, "require")?.let {
                     auth.clientRequire = it
                 }
-                auth.clientCa = getValueAsString(node, "ca")
+                auth.clientCa = getValueAsString(clientNode, "ca")
             }
             auth
         }

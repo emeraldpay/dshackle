@@ -62,6 +62,7 @@ open class CachingMempoolData(
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun fetchFromUpstream(): Mono<List<String>> {
         return upstreams.getDirectApi(Selector.empty).flatMap { api ->
             api.read(JsonRpcRequest("getrawmempool", emptyList()))
