@@ -43,6 +43,11 @@ class MergedHead(
     }
 
     override fun stop() {
+        sources.forEach { head ->
+            if (head is Lifecycle && head.isRunning) {
+                head.stop()
+            }
+        }
         subscription?.dispose()
         subscription = null
     }

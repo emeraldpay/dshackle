@@ -34,7 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
-import reactor.extra.processor.TopicProcessor
+import reactor.core.publisher.Sinks
 import java.util.*
 import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
@@ -49,7 +49,9 @@ open class CurrentMultistreamHolder(
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
 
     private val chainMapping = ConcurrentHashMap<Chain, Multistream>()
-    private val chainsBus = TopicProcessor.create<Chain>()
+    private val chainsBus = Sinks.many()
+            .multicast()
+            .directBestEffort<Chain>()
     private val callTargets = HashMap<Chain, CallMethods>()
     private val updateLock = ReentrantLock()
 
@@ -99,7 +101,7 @@ open class CurrentMultistreamHolder(
                 created.addUpstream(up)
                 created.start()
                 chainMapping[chain] = created
-                chainsBus.onNext(chain)
+                chainsBus.tryEmitNext(chain)
             } else {
                 if (up is CachesEnabled) {
                     up.setCaches(current.caches)
@@ -124,7 +126,7 @@ open class CurrentMultistreamHolder(
     override fun observeChains(): Flux<Chain> {
         return Flux.concat(
                 Flux.fromIterable(getAvailable()),
-                Flux.from(chainsBus)
+                chainsBus.asFlux()
         )
     }
 

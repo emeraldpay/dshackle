@@ -66,13 +66,13 @@ class GrpcHeadSpec extends Specification {
         when:
         def act = head.getFlux()
                 .take(3)
-        head.start(client)
 
         then:
         StepVerifier.create(act)
-                .expectNext(TestingCommons.blockForBitcoin(10))
-                .expectNext(TestingCommons.blockForBitcoin(11))
-                .expectNext(TestingCommons.blockForBitcoin(12))
+                .then { head.start(client) }
+                .expectNext(TestingCommons.blockForBitcoin(10)).as("block 10")
+                .expectNext(TestingCommons.blockForBitcoin(11)).as("block 11")
+                .expectNext(TestingCommons.blockForBitcoin(12)).as("block 12")
                 .expectComplete()
                 .verify(Duration.ofSeconds(5))
     }

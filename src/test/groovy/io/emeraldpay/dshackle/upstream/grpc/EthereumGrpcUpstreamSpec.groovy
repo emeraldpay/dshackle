@@ -87,7 +87,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 .addAllSupportedMethods(["eth_getBlockByHash"])
                 .build())
         when:
-        upstream.start()
+        new Thread({ Thread.sleep(50); upstream.start() }).start()
         def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
         then:
         callData.chain == Chain.ETHEREUM.id
@@ -145,7 +145,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 .addAllSupportedMethods(["eth_getBlockByHash"])
                 .build())
         when:
-        upstream.start()
+        new Thread({ Thread.sleep(50); upstream.start() }).start()
         def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block()
         then:
         upstream.status == UpstreamAvailability.OK
@@ -207,7 +207,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 .addAllSupportedMethods(["eth_getBlockByHash"])
                 .build())
         when:
-        upstream.start()
+        new Thread({ Thread.sleep(50); upstream.start() }).start()
         finished.get()
         def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block()
         then:

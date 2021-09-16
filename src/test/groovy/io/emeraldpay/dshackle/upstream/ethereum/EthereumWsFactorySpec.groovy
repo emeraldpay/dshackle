@@ -52,12 +52,10 @@ class EthereumWsFactorySpec extends Specification {
 
         when:
         def act = Flux.from(ws.getFlux())
-        new Thread({
-            ws.onNewBlock(block)
-        }).run()
 
         then:
         StepVerifier.create(act)
+                .then { ws.onNewBlock(block) }
                 .expectNext(BlockContainer.from(block))
                 .thenCancel()
                 .verify(Duration.ofSeconds(1))

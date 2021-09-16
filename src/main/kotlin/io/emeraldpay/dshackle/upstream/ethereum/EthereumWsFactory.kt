@@ -69,8 +69,8 @@ class EthereumWsFactory(
 
         private val topic = Sinks
                 .many()
-                .unicast()
-                .onBackpressureBuffer<BlockContainer>()
+                .multicast()
+                .directBestEffort<BlockContainer>()
         private var keepConnection = true
         private var connection: Disposable? = null
 
@@ -126,7 +126,6 @@ class EthereumWsFactory(
                                     .compress(false)
                                     .build()
                     )
-
                     .uri(uri)
                     .handle { inbound, outbound ->
                         val consumer = inbound.aggregateFrames()
@@ -163,11 +162,14 @@ class EthereumWsFactory(
                                 }
 
 
-                        outbound.sendString(Mono.just(START_REQUEST).doOnError {
-                            println("!!!!!!!")
-                        })
+                        outbound.sendString(Mono.just(START_REQUEST)
+                                .doOnError { log.warn("Failed to start WS subscription. ${it.javaClass}: ${it.message}") })
                                 .then(consumer.then())
-                    }.subscribe()
+                    }
+                    .doOnError {
+                        println(it)
+                    }
+                    .subscribe()
         }
 
         fun onNewBlock(block: BlockJson<TransactionRefJson>) {

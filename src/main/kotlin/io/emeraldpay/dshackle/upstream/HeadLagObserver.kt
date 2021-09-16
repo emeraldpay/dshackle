@@ -64,7 +64,7 @@ abstract class HeadLagObserver(
     fun probeFollowers(top: BlockContainer): Flux<Tuple2<Long, Upstream>> {
         return Flux.fromIterable(followers)
                 .parallel(followers.size)
-                .flatMap { up -> mapLagging(top, up, getCurrentBlocks(up)).subscribeOn(Schedulers.elastic()) }
+                .flatMap { up -> mapLagging(top, up, getCurrentBlocks(up)).subscribeOn(Schedulers.boundedElastic()) }
                 .sequential()
                 .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
     }

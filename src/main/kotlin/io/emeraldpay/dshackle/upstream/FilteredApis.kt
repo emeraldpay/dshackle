@@ -23,8 +23,8 @@ import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import org.reactivestreams.Subscriber
-import reactor.core.publisher.EmitterProcessor
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.locks.Lock
@@ -81,7 +81,7 @@ class FilteredApis(
     private val standardUpstreams: List<Upstream>
     private val standardWithFallback: List<Upstream>
 
-    private val control = EmitterProcessor.create<Boolean>(32, false)
+    private val control = Sinks.many().unicast().onBackpressureBuffer<Boolean>()
 
     init {
         delay = if (jitter > 0) {
@@ -161,19 +161,19 @@ class FilteredApis(
         }
 
         result.filter { up -> up.isAvailable() && matcher.matches(up) }
-                .zipWith(control)
+                .zipWith(control.asFlux())
                 .map { it.t1 }
                 .subscribe(subscriber)
     }
 
     override fun resolve() {
-        control.onComplete()
+        control.tryEmitComplete()
     }
 
     override fun request(tries: Int) {
         //TODO check the buffer size before submitting
         repeat(tries) {
-            control.onNext(true)
+            control.tryEmitNext(true)
         }
     }
 

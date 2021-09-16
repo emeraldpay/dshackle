@@ -58,7 +58,7 @@ class TrackEthereumTx(
         private val NOT_MINED_TRACK_TTL = NOT_FOUND_TRACK_TTL.multipliedBy(2)
     }
 
-    var scheduler: Scheduler = Schedulers.elastic()
+    var scheduler: Scheduler = Schedulers.boundedElastic()
 
     private val log = LoggerFactory.getLogger(TrackEthereumTx::class.java)
 

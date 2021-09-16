@@ -24,6 +24,7 @@ import spock.lang.Specification
 
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.Executors
 
 class AbstractHeadSpec extends Specification {
 
@@ -44,9 +45,9 @@ class AbstractHeadSpec extends Specification {
             called = true
         }
         def act = head.flux
-        source.tryEmitNext(blocks[0])
         then:
         StepVerifier.create(act)
+                .then { source.tryEmitNext(blocks[0]) }
                 .expectNext(blocks[0])
                 .then {
                     assert called
@@ -69,9 +70,9 @@ class AbstractHeadSpec extends Specification {
         when:
         head.follow(source.asFlux())
         def act = head.flux
-        source.tryEmitNext(blocks[0])
         then:
         StepVerifier.create(act)
+                .then { source.tryEmitNext(blocks[0]) }
                 .expectNext(blocks[0])
                 .then { source.tryEmitNext(blocks[1]) }
                 .expectNext(blocks[1])
@@ -97,9 +98,9 @@ class AbstractHeadSpec extends Specification {
         when:
         head.follow(source.asFlux())
         def act = head.flux
-        source.tryEmitNext(blocks[0])
         then:
         StepVerifier.create(act)
+                .then { source.tryEmitNext(blocks[0]) }
                 .expectNext(blocks[0])
                 .then { source.tryEmitNext(blocks[1]) }
                 .expectNext(blocks[1])
