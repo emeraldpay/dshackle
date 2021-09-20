@@ -106,6 +106,10 @@ class JsonRpcResponse(
         }
     }
 
+    fun copyWithId(id: Id): JsonRpcResponse {
+        return JsonRpcResponse(result, error, id)
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is JsonRpcResponse) return false
@@ -177,6 +181,10 @@ class JsonRpcResponse(
         override fun hashCode(): Int {
             return id.hashCode()
         }
+
+        override fun toString(): String {
+            return id.toString()
+        }
     }
 
     class StringId(val id: String) : Id {
@@ -205,6 +213,9 @@ class JsonRpcResponse(
             return id.hashCode()
         }
 
+        override fun toString(): String {
+            return id
+        }
     }
 
     class ResponseJsonSerializer : JsonSerializer<JsonRpcResponse>() {

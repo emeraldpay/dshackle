@@ -123,8 +123,8 @@ class NativeCallRouter(
         }
     }
 
-    fun getBlockByNumber(params: List<Any>): Mono<ByteArray>? {
-        if (params.size != 2) {
+    fun getBlockByNumber(params: List<Any?>): Mono<ByteArray>? {
+        if (params.size != 2 || params[0] == null || params[1] == null) {
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
         }
         val number: Long
@@ -155,7 +155,7 @@ class NativeCallRouter(
                 }
             }
         } catch (e: IllegalArgumentException) {
-            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be block number")
+            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be a block number")
         }
         val withTx = params[1].toString().toBoolean()
         var block = reader.blocksByHeightAsCont()

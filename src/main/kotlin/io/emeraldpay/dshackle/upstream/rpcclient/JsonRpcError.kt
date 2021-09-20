@@ -52,5 +52,9 @@ class JsonRpcError(val code: Int, val message: String, val details: Any?) {
         return result
     }
 
+    override fun toString(): String {
+        return "JsonRpcError(code=$code, message='$message', details=$details)"
+    }
+
 
 }

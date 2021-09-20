@@ -34,7 +34,7 @@ class EthereumWsHead(
 
     override fun start() {
         this.subscription?.dispose()
-        this.subscription = super.follow(ws.getFlux())
+        this.subscription = super.follow(ws.getBlocksFlux())
     }
 
     override fun stop() {

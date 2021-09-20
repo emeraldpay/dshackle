@@ -23,25 +23,33 @@ import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
-import io.emeraldpay.etherjar.rpc.ws.SubscriptionJson
+import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
+import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
+import reactor.core.scheduler.Schedulers
 import reactor.netty.http.client.HttpClient
 import reactor.netty.http.client.WebsocketClientSpec
+import reactor.netty.http.websocket.WebsocketInbound
+import reactor.netty.http.websocket.WebsocketOutbound
 import reactor.retry.Repeat
-import java.io.InputStream
+import reactor.util.function.Tuples
 import java.net.URI
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicInteger
+
 
 class EthereumWsFactory(
         private val uri: URI,
@@ -50,27 +58,39 @@ class EthereumWsFactory(
 
     var basicAuth: AuthConfig.ClientBasicAuth? = null
 
-    fun create(upstream: EthereumUpstream): EthereumWs {
-        return EthereumWs(uri, origin, upstream, basicAuth)
+    fun create(): EthereumWs {
+        return EthereumWs(uri, origin, basicAuth)
     }
 
     class EthereumWs(
             private val uri: URI,
             private val origin: URI,
-            private val upstream: EthereumUpstream,
             private val basicAuth: AuthConfig.ClientBasicAuth?
     ) : AutoCloseable {
 
         companion object {
             private val log = LoggerFactory.getLogger(EthereumWs::class.java)
 
+            private const val IDS_START = 100
             private const val START_REQUEST = "{\"jsonrpc\":\"2.0\", \"method\":\"eth_subscribe\", \"id\":\"blocks\", \"params\":[\"newHeads\"]}"
         }
 
-        private val topic = Sinks
+        private val parser = ResponseWSParser()
+
+        private val blocks = Sinks
                 .many()
                 .multicast()
                 .directBestEffort<BlockContainer>()
+        private val rpcSend = Sinks
+                .many()
+                .unicast()
+                .onBackpressureBuffer<JsonRpcRequest>()
+        private val rpcReceive = Sinks
+                .many()
+                .multicast()
+                .directBestEffort<JsonRpcResponse>()
+        private val sendIdSeq = AtomicInteger(IDS_START)
+        private val sendExecutor = Executors.newSingleThreadExecutor()
         private var keepConnection = true
         private var connection: Disposable? = null
 
@@ -89,11 +109,6 @@ class EthereumWsFactory(
         private fun connectInternal() {
             log.info("Connecting to WebSocket: $uri")
             connection?.dispose()
-            connection = null
-
-            val subscriptionId = AtomicReference<String>("NOTSET")
-
-            val objectMapper = Global.objectMapper
             connection = HttpClient.create()
                     .doOnError(
                             { _, t ->
@@ -101,9 +116,7 @@ class EthereumWsFactory(
                                 // going to try to reconnect later
                                 tryReconnectLater()
                             },
-                            { _, _ ->
-
-                            }
+                            { _, _ -> }
                     )
                     .headers { headers ->
                         headers.add(HttpHeaderNames.ORIGIN, origin)
@@ -114,11 +127,7 @@ class EthereumWsFactory(
                         }
                     }
                     .let {
-                        if (uri.scheme == "wss") {
-                            it.secure()
-                        } else {
-                            it
-                        }
+                        if (uri.scheme == "wss") it.secure() else it
                     }
                     .websocket(
                             WebsocketClientSpec.builder()
@@ -128,57 +137,93 @@ class EthereumWsFactory(
                     )
                     .uri(uri)
                     .handle { inbound, outbound ->
-                        val consumer = inbound.aggregateFrames()
-                                .aggregateFrames(8 * 65_536)
-                                .receiveFrames()
-                                .flatMap {
-                                    val msg: SubscriptionJson = objectMapper.readerFor(SubscriptionJson::class.java)
-                                            .readValue(ByteBufInputStream(it.content()) as InputStream)
-                                    when {
-                                        msg.error != null -> {
-                                            Mono.error(IllegalStateException("Received error from WS upstream"))
-                                        }
-                                        msg.subscription == subscriptionId.get() -> {
-                                            onNewBlock(msg.blockResult)
-                                            Mono.empty<Int>()
-                                        }
-                                        msg.subscription == null -> {
-                                            // received ID for subscription
-                                            subscriptionId.set(msg.result.asText())
-                                            log.debug("Connected to $uri")
-                                            Mono.empty<Int>()
-                                        }
-                                        else -> {
-                                            Mono.error(IllegalStateException("Unknown message received: ${msg.subscription}"))
-                                        }
-                                    }
-                                }
-                                .onErrorResume { t ->
-                                    log.warn("Connection dropped to $uri. Error: ${t.message}")
-                                    // going to try to reconnect later
-                                    tryReconnectLater()
-                                    // completes current outbound flow
-                                    Mono.empty()
-                                }
-
-
-                        outbound.sendString(Mono.just(START_REQUEST)
-                                .doOnError { log.warn("Failed to start WS subscription. ${it.javaClass}: ${it.message}") })
-                                .then(consumer.then())
+                        handle(inbound, outbound)
                     }
                     .doOnError {
-                        println(it)
+                        log.error("Failed to setup WS connection", it)
                     }
                     .subscribe()
         }
 
-        fun onNewBlock(block: BlockJson<TransactionRefJson>) {
-            // WS returns incomplete blocks, i.e. without some fields, so need to fetch full block data
-            if (block.difficulty == null || block.transactions == null) {
+        fun handle(inbound: WebsocketInbound, outbound: WebsocketOutbound): Publisher<Void> {
+            val consumer = inbound.aggregateFrames()
+                    // accept up to 1Mb messages
+                    .aggregateFrames(16 * 65_536)
+                    .receiveFrames()
+                    .map { ByteBufInputStream(it.content()).readAllBytes() }
+                    .flatMap {
+                        try {
+                            val msg = parser.parse(it)
+                            if (msg.type == ResponseWSParser.Type.SUBSCRIPTION) {
+                                onSubscription(msg)
+                            } else {
+                                onRpc(msg)
+                            }
+                        } catch (t: Throwable) {
+                            log.warn("Failed to process WS message. ${t.javaClass}: ${t.message}")
+                            Mono.empty()
+                        }
+                    }
+                    .onErrorResume { t ->
+                        log.warn("Connection dropped to $uri. Error: ${t.message}")
+                        // going to try to reconnect later
+                        tryReconnectLater()
+                        // completes current outbound flow
+                        Mono.empty()
+                    }
+
+            val start = Mono.just(START_REQUEST).map {
+                Unpooled.wrappedBuffer(it.toByteArray())
+            }
+            val calls = rpcSend
+                    .asFlux()
+                    .map {
+                        Unpooled.wrappedBuffer(Global.objectMapper.writeValueAsBytes(it))
+                    }
+
+            return outbound.send(
+                    Flux.merge(
+                            start,
+                            calls.subscribeOn(Schedulers.boundedElastic()),
+                            consumer.then(Mono.empty<ByteBuf>()).subscribeOn(Schedulers.boundedElastic())
+                    )
+            )
+        }
+
+        fun onRpc(msg: ResponseWSParser.WsResponse): Mono<Void> {
+            return if (msg.id.isNumber()) {
+                val resp = JsonRpcResponse(
+                        msg.value, msg.error, msg.id
+                )
+                Mono.fromCallable {
+                    val status = rpcReceive.tryEmitNext(resp)
+                    if (status.isFailure) {
+                        log.warn("Failed to proceed with a RPC message: $status")
+                    }
+                }.then()
+            } else {
+                //it's a response to the newHeads subscription, just ignore it
+                Mono.empty<Void>()
+            }
+        }
+
+        fun onSubscription(msg: ResponseWSParser.WsResponse): Mono<Void> {
+            if (msg.error != null) {
+                return Mono.error(IllegalStateException("Received error from WS upstream: ${msg.error.message}"))
+            }
+            // we always expect an answer to the `newHeads`, since we are not initiating any other subscriptions
+            return Mono.fromCallable {
+                Global.objectMapper.readValue(msg.value, BlockJson::class.java) as BlockJson<TransactionRefJson>
+            }.flatMap { onNewHeads(it) }.then()
+        }
+
+        fun onNewHeads(block: BlockJson<TransactionRefJson>): Mono<Void> {
+            // newHeads returns incomplete blocks, i.e. without some fields and without transaction hashes,
+            // so we need to fetch the full block data
+            return if (block.difficulty == null || block.transactions == null) {
                 Mono.just(block.hash)
                         .flatMap { hash ->
-                            upstream.getApi()
-                                    .read(JsonRpcRequest("eth_getBlockByHash", listOf(hash.toHex(), false)))
+                            call(JsonRpcRequest("eth_getBlockByHash", listOf(hash.toHex(), false)))
                                     .flatMap { resp ->
                                         if (resp.isNull()) {
                                             Mono.error(SilentException("Received null for block $hash"))
@@ -188,6 +233,8 @@ class EthereumWsFactory(
                                     }
                                     .flatMap(JsonRpcResponse::requireResult)
                                     .map { BlockContainer.fromEthereumJson(it) }
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .timeout(Defaults.timeoutInternal, Mono.empty())
                         }.repeatWhenEmpty { n ->
                             Repeat.times<Any>(5)
                                     .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(500))
@@ -195,17 +242,53 @@ class EthereumWsFactory(
                         }
                         .timeout(Defaults.timeout, Mono.empty())
                         .onErrorResume { Mono.empty() }
-                        .subscribe {
-                            topic.tryEmitNext(it)
+                        .doOnNext {
+                            blocks.tryEmitNext(it)
                         }
-
+                        .then()
             } else {
-                topic.tryEmitNext(BlockContainer.from(block))
+                Mono.fromCallable {
+                    blocks.tryEmitNext(BlockContainer.from(block))
+                }.then()
             }
         }
 
-        fun getFlux(): Flux<BlockContainer> {
-            return this.topic.asFlux()
+        fun call(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
+            return Mono.fromCallable {
+                // use an internal id sequence, to avoid id conflicts with user calls
+                val internalId = sendIdSeq.getAndIncrement()
+                val originalId = originalRequest.id
+                Tuples.of(originalRequest.copy(id = internalId), originalId)
+            }.flatMap { request ->
+                waitForResponse(request.t1, request.t2)
+            }
+        }
+
+        fun sendRpc(request: JsonRpcRequest) {
+            // submit to upstream in a separate thread, to free current thread (needs for subscription, etc)
+            sendExecutor.execute {
+                val result = rpcSend.tryEmitNext(request)
+                if (result.isFailure) {
+                    log.warn("Failed to send RPC request: $result")
+                }
+            }
+        }
+
+        fun waitForResponse(request: JsonRpcRequest, originalId: Int): Mono<JsonRpcResponse> {
+            val expectedId = request.id.toLong()
+            return Mono.just(request)
+                    .flatMap {
+                        Flux.from(rpcReceive.asFlux())
+                                .doOnSubscribe { sendRpc(request) }
+                                .filter { resp -> resp.id.asNumber() == expectedId }
+                                .take(1)
+                                .singleOrEmpty()
+                                .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
+                    }
+        }
+
+        fun getBlocksFlux(): Flux<BlockContainer> {
+            return this.blocks.asFlux()
         }
 
         override fun close() {
@@ -214,7 +297,6 @@ class EthereumWsFactory(
             connection = null
         }
     }
-
 
 
 }

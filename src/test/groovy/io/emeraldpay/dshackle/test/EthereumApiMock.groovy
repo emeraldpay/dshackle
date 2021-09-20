@@ -27,13 +27,34 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.grpc.stub.StreamObserver
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.ResponseJson
+import io.netty.buffer.ByteBuf
+import io.netty.buffer.ByteBufAllocator
+import io.netty.buffer.ByteBufInputStream
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http.HttpHeaders
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame
+import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus
+import io.netty.handler.codec.http.websocketx.WebSocketFrame
 import org.jetbrains.annotations.NotNull
+import org.reactivestreams.Publisher
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.Sinks
+import reactor.netty.ByteBufFlux
+import reactor.netty.Connection
+import reactor.netty.NettyInbound
+import reactor.netty.NettyOutbound
+import reactor.netty.http.websocket.WebsocketInbound
+import reactor.netty.http.websocket.WebsocketOutbound
+import reactor.util.annotation.Nullable
 
 import java.time.Duration
 import java.util.concurrent.Callable
+import java.util.function.BiFunction
+import java.util.function.Consumer
+import java.util.function.Predicate
 
 class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
@@ -57,7 +78,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     }
 
     @Override
-    Mono<JsonRpcResponse> read(JsonRpcRequest request) {
+    Mono<JsonRpcResponse> read(JsonRpcRequest request, boolean required = true) {
         Callable<JsonRpcResponse> call = {
             def predefined = predefined.find { it.isSame(request.method, request.params) }
             byte[] result = null
@@ -65,7 +86,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
             if (predefined != null) {
                 if (predefined.exception != null) {
                     predefined.onCalled()
-                    predefined.print()
+                    predefined.print(request.id)
                     throw predefined.exception
                 }
                 if (predefined.result instanceof RpcResponseError) {
@@ -77,12 +98,15 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                     result = objectMapper.writeValueAsBytes(predefined.result)
                 }
                 predefined.onCalled()
-                predefined.print()
+                predefined.print(request.id)
             } else {
                 log.error("Method ${request.method} with ${request.params} is not mocked")
+                if (!required) {
+                    return null
+                }
                 error = new JsonRpcError(-32601, "Method ${request.method} with ${request.params} is not mocked")
             }
-            return new JsonRpcResponse(result, error)
+            return new JsonRpcResponse(result, error, JsonRpcResponse.Id.from(request.id))
         } as Callable<JsonRpcResponse>
         return Mono.fromCallable(call)
     }
@@ -102,6 +126,10 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
             responseObserver.onNext(proto.build())
         }
         responseObserver.onCompleted()
+    }
+
+    WebsocketApi asWebsocket() {
+        return new WebsocketApi(this)
     }
 
     class PredefinedResponse {
@@ -132,8 +160,202 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
             }
         }
 
-        void print() {
-            println "Execute API: $method ${params ? params : '_'} >> $result"
+        void print(int id) {
+            println "Execute API: $id $method ${params ? params : '_'} >> $result"
+        }
+    }
+
+    class WebsocketApi {
+        private final EthereumApiMock api
+
+        private Sinks.Many<JsonRpcResponse> responses = Sinks
+                .many()
+                .unicast()
+                .onBackpressureBuffer()
+        private Sinks.Many<String> jsonResponses = Sinks
+                .many()
+                .unicast()
+                .onBackpressureBuffer()
+        private WebsocketOutboundMock outbound
+        private WebsocketInboundMock inbound
+
+        WebsocketApi(EthereumApiMock api) {
+            this.api = api
+            outbound = new WebsocketOutboundMock(api, responses)
+            inbound = new WebsocketInboundMock(responses.asFlux(), jsonResponses.asFlux())
+        }
+
+        boolean send(String json) {
+            jsonResponses.tryEmitNext(json).success
+        }
+
+        WebsocketOutbound getOutbound() {
+            return outbound
+        }
+
+        WebsocketInbound getInbound() {
+            return inbound
+        }
+    }
+
+    class WebsocketInboundMock implements WebsocketInbound {
+
+        private final Flux<JsonRpcResponse> responses
+        private final Flux<String> jsonResponses
+
+        WebsocketInboundMock(Flux<JsonRpcResponse> responses, Flux<String> jsonResponses) {
+            this.responses = responses
+            this.jsonResponses = jsonResponses
+        }
+
+        @Override
+        String selectedSubprotocol() {
+            throw new UnsupportedOperationException()
+        }
+
+        @Override
+        HttpHeaders headers() {
+            throw new UnsupportedOperationException()
+        }
+
+        @Override
+        Mono<WebSocketCloseStatus> receiveCloseStatus() {
+            return Mono.empty()
+        }
+
+        @Override
+        ByteBufFlux receive() {
+            throw new UnsupportedOperationException()
+        }
+
+        @Override
+        Flux<?> receiveObject() {
+            throw new UnsupportedOperationException()
+        }
+
+        @Override
+        NettyInbound withConnection(Consumer<? super Connection> withConnection) {
+            return this
+        }
+
+        @Override
+        Flux<WebSocketFrame> receiveFrames() {
+            return Flux.merge(
+                    jsonResponses,
+                    responses.map {
+                        Global.objectMapper.writeValueAsString(it)
+                    })
+                    .map {
+                        println("WS server->client msg: $it")
+                        new TextWebSocketFrame(it)
+                    }
+                    .doOnError { t ->
+                        t.printStackTrace()
+                    }
+        }
+    }
+
+    class WebsocketOutboundMock implements WebsocketOutbound {
+
+        private final EthereumApiMock api
+        private final Sinks.Many<JsonRpcResponse> responses
+
+        WebsocketOutboundMock(EthereumApiMock api, Sinks.Many<JsonRpcResponse> responses) {
+            this.api = api
+            this.responses = responses
+        }
+
+        @Override
+        String selectedSubprotocol() {
+            throw new UnsupportedOperationException()
+        }
+
+        @Override
+        ByteBufAllocator alloc() {
+            throw new UnsupportedOperationException()
+        }
+
+        private void handle(Publisher<ByteBuf> dataStream) {
+            Flux.from(dataStream)
+                    .map { it ->
+                        Global.objectMapper.readValue(new ByteBufInputStream(it), JsonRpcRequest)
+                    }
+                    .flatMap { JsonRpcRequest request ->
+                        api.read(request, false)
+                    }
+                    .doOnNext {
+                        def status = responses.tryEmitNext(it)
+                        if (status.isFailure()) {
+                            println("Failed to send through mock: $status")
+                        }
+                    }
+                    .subscribe()
+        }
+
+        @Override
+        NettyOutbound send(Publisher<? extends ByteBuf> dataStream) {
+            handle(dataStream)
+            return this
+        }
+
+        @Override
+        NettyOutbound send(Publisher<? extends ByteBuf> dataStream, Predicate<ByteBuf> predicate) {
+            handle(dataStream)
+            return this
+        }
+
+        @Override
+        NettyOutbound sendObject(Publisher<?> dataStream, Predicate<Object> predicate) {
+            def msgs = Flux.from(dataStream)
+                    .cast(TextWebSocketFrame)
+                    .map {
+                        Unpooled.wrappedBuffer(it.text().bytes)
+                    }
+            handle(msgs)
+            return this
+        }
+
+        @Override
+        NettyOutbound sendObject(Object message) {
+            return this
+        }
+
+        @Override
+        def <S> NettyOutbound sendUsing(Callable<? extends S> sourceInput, BiFunction<? super Connection, ? super S, ?> mappedInput, Consumer<? super S> sourceCleanup) {
+            return this
+        }
+
+        @Override
+        NettyOutbound withConnection(Consumer<? super Connection> withConnection) {
+            return this
+        }
+
+        @Override
+        Mono<Void> sendClose() {
+            return Mono.fromCallable {
+                responses.tryEmitComplete()
+            }.then()
+        }
+
+        @Override
+        Mono<Void> sendClose(int rsv) {
+            return Mono.fromCallable {
+                responses.tryEmitComplete()
+            }.then()
+        }
+
+        @Override
+        Mono<Void> sendClose(int statusCode, @Nullable String reasonText) {
+            return Mono.fromCallable {
+                responses.tryEmitComplete()
+            }.then()
+        }
+
+        @Override
+        Mono<Void> sendClose(int rsv, int statusCode, @Nullable String reasonText) {
+            return Mono.fromCallable {
+                responses.tryEmitComplete()
+            }.then()
         }
     }
 }

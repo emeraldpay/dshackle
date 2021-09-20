@@ -79,7 +79,7 @@ open class EthereumRpcUpstream(
 
     open fun createHead(): Head {
         return if (ethereumWsFactory != null) {
-            val ws = ethereumWsFactory.create(this).apply {
+            val ws = ethereumWsFactory.create().apply {
                 connect()
             }
             val wsHead = EthereumWsHead(ws).apply {

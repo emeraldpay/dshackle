@@ -15,40 +15,55 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
+import com.fasterxml.jackson.databind.JsonNode
 import io.emeraldpay.dshackle.Global
 
-class JsonRpcRequest(
+data class JsonRpcRequest(
         val method: String,
-        val params: List<Any>
+        val params: List<Any?>,
+        val id: Int
 ) {
+
+    constructor(method: String, params: List<Any?>) : this(method, params, 1)
 
     fun toJson(): ByteArray {
         val json = mapOf(
                 "jsonrpc" to "2.0",
-                "id" to 1,
+                "id" to id,
                 "method" to method,
                 "params" to params
         )
         return Global.objectMapper.writeValueAsBytes(json)
     }
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is JsonRpcRequest) return false
-
-        if (method != other.method) return false
-        if (params != other.params) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = method.hashCode()
-        result = 31 * result + params.hashCode()
-        return result
-    }
-
     override fun toString(): String {
         return String(this.toJson())
+    }
+
+    class Deserializer : JsonDeserializer<JsonRpcRequest>() {
+
+        override fun deserialize(p: JsonParser, ctxt: DeserializationContext): JsonRpcRequest {
+            val node: JsonNode = p.readValueAsTree()
+            val id = node.get("id").intValue()
+            val method = node.get("method").textValue()
+            val params = node.get("params").map {
+                if (it.isNumber) {
+                    it.asInt()
+                } else if (it.isTextual) {
+                    it.textValue()
+                } else if (it.isBoolean) {
+                    it.booleanValue()
+                } else if (it.isNull) {
+                    null
+                } else {
+                    throw IllegalStateException("Unsupported param type: ${it.asToken()}")
+                }
+            }
+            return JsonRpcRequest(method, params, id)
+        }
+
     }
 }
