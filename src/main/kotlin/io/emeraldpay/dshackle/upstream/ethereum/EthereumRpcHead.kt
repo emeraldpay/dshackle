@@ -49,30 +49,7 @@ class EthereumRpcHead(
         val base = Flux.interval(interval)
                 .publishOn(scheduler)
                 .flatMap {
-                    api.read(JsonRpcRequest("eth_blockNumber", emptyList()))
-                            .subscribeOn(scheduler)
-                            .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
-                            .flatMap {
-                                if (it.error != null) {
-                                    Mono.error(it.error.asException(null))
-                                } else {
-                                    val value = it.getResultAsProcessedString()
-                                    Mono.just(HexQuantity.from(value))
-                                }
-                            }
-                }
-                .flatMap {
-                    //fetching by Block Height here, critical to use same upstream,
-                    //different upstreams may have different blocks on the same height
-                    api.read(JsonRpcRequest("eth_getBlockByNumber", listOf(it.toHex(), false)))
-                            .subscribeOn(scheduler)
-                            .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
-                }
-                .map {
-                    BlockContainer.fromEthereumJson(it.getResult())
-                }
-                .onErrorContinue { err, _ ->
-                    log.debug("RPC error ${err.message}")
+                    getLatestBlock(api)
                 }
         refreshSubscription = super.follow(base)
     }
