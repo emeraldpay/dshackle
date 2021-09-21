@@ -106,6 +106,7 @@ open class UpstreamsConfig {
 
     class EthereumConnection : RpcConnection() {
         var ws: WsEndpoint? = null
+        var preferHttp: Boolean = false
     }
 
     class BitcoinConnection : RpcConnection() {

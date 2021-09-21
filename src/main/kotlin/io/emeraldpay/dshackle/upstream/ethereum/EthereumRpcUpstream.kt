@@ -38,11 +38,6 @@ open class EthereumRpcUpstream(
 
     private val head: Head = this.createHead()
     private var validatorSubscription: Disposable? = null
-    private val capabilities = if (options.providesBalance != false) {
-        setOf(Capability.RPC, Capability.BALANCE)
-    } else {
-        setOf(Capability.RPC)
-    }
 
     override fun setCaches(caches: Caches) {
         if (head is CachesEnabled) {
@@ -79,7 +74,7 @@ open class EthereumRpcUpstream(
 
     open fun createHead(): Head {
         return if (ethereumWsFactory != null) {
-            val ws = ethereumWsFactory.create().apply {
+            val ws = ethereumWsFactory.create(null).apply {
                 connect()
             }
             val wsHead = EthereumWsHead(ws).apply {
@@ -106,14 +101,6 @@ open class EthereumRpcUpstream(
 
     override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
         return directReader
-    }
-
-    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return listOf(node.labels)
-    }
-
-    override fun getCapabilities(): Set<Capability> {
-        return capabilities
     }
 
     override fun isGrpc(): Boolean {

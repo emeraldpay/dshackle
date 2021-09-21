@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
+import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import io.netty.buffer.ByteBuf
@@ -58,14 +59,15 @@ class EthereumWsFactory(
 
     var basicAuth: AuthConfig.ClientBasicAuth? = null
 
-    fun create(): EthereumWs {
-        return EthereumWs(uri, origin, basicAuth)
+    fun create(rpcMetrics: RpcMetrics?): EthereumWs {
+        return EthereumWs(uri, origin, basicAuth, rpcMetrics)
     }
 
     class EthereumWs(
             private val uri: URI,
             private val origin: URI,
-            private val basicAuth: AuthConfig.ClientBasicAuth?
+            private val basicAuth: AuthConfig.ClientBasicAuth?,
+            private val rpcMetrics: RpcMetrics?
     ) : AutoCloseable {
 
         companion object {
@@ -255,12 +257,13 @@ class EthereumWsFactory(
 
         fun call(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
             return Mono.fromCallable {
+                val startTime = System.nanoTime()
                 // use an internal id sequence, to avoid id conflicts with user calls
                 val internalId = sendIdSeq.getAndIncrement()
                 val originalId = originalRequest.id
-                Tuples.of(originalRequest.copy(id = internalId), originalId)
+                Tuples.of(originalRequest.copy(id = internalId), originalId, startTime)
             }.flatMap { request ->
-                waitForResponse(request.t1, request.t2)
+                waitForResponse(request.t1, request.t2, request.t3)
             }
         }
 
@@ -274,7 +277,7 @@ class EthereumWsFactory(
             }
         }
 
-        fun waitForResponse(request: JsonRpcRequest, originalId: Int): Mono<JsonRpcResponse> {
+        fun waitForResponse(request: JsonRpcRequest, originalId: Int, startTime: Long): Mono<JsonRpcResponse> {
             val expectedId = request.id.toLong()
             return Mono.just(request)
                     .flatMap {
@@ -283,6 +286,12 @@ class EthereumWsFactory(
                                 .filter { resp -> resp.id.asNumber() == expectedId }
                                 .take(1)
                                 .singleOrEmpty()
+                                .doOnNext {
+                                    rpcMetrics?.timer?.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS)
+                                }
+                                .doOnError {
+                                    rpcMetrics?.errors?.increment()
+                                }
                                 .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
                     }
         }

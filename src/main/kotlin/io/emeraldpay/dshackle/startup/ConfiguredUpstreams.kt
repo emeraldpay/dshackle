@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsUpstream
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -184,11 +185,6 @@ open class ConfiguredUpstreams(
                                       chain: Chain,
                                       options: UpstreamsConfig.Options) {
         val conn = config.connection!!
-        val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
-        if (directApi == null) {
-            log.warn("Upstream doesn't have API configuration")
-            return
-        }
 
         val urls = ArrayList<URI>()
         val methods = buildMethods(config, chain)
@@ -209,13 +205,29 @@ open class ConfiguredUpstreams(
         }
 
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-        val ethereumUpstream = EthereumRpcUpstream(
-                config.id!!,
-                chain, directApi, wsFactoryApi,
-                options, config.role,
-                QuorumForLabels.QuorumItem(1, config.labels),
-                methods
-        )
+        val ethereumUpstream = if (wsFactoryApi != null && !conn.preferHttp) {
+            EthereumWsUpstream(
+                    config.id!!,
+                    chain, wsFactoryApi,
+                    options, config.role,
+                    QuorumForLabels.QuorumItem(1, config.labels),
+                    methods
+            )
+        } else {
+            val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
+            if (directApi == null) {
+                log.warn("Upstream doesn't have API configuration")
+                return
+            }
+            EthereumRpcUpstream(
+                    config.id!!,
+                    chain, directApi, wsFactoryApi,
+                    options, config.role,
+                    QuorumForLabels.QuorumItem(1, config.labels),
+                    methods
+            )
+        }
+
         ethereumUpstream.start()
         currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
     }
