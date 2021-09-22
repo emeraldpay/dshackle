@@ -92,7 +92,7 @@ class EthereumWsFactory(
                 .many()
                 .multicast()
                 .directBestEffort<BlockContainer>()
-        private val rpcSend = Sinks
+        private var rpcSend = Sinks
                 .many()
                 .unicast()
                 .onBackpressureBuffer<JsonRpcRequest>()
@@ -120,6 +120,13 @@ class EthereumWsFactory(
             if (alreadyReconnecting) {
                 return
             }
+            // rpcSend is already CANCELLED, since the subscription owned by the previous connection is gone
+            // so we need to create a new Sink. Emit Complete is probably useless, and just in case
+            rpcSend.tryEmitComplete()
+            rpcSend = Sinks
+                    .many()
+                    .unicast()
+                    .onBackpressureBuffer<JsonRpcRequest>()
             log.info("Reconnect to $uri in $retryInterval seconds...")
             Global.control.schedule(
                     {

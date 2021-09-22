@@ -105,4 +105,28 @@ class EthereumWsFactoryRealSpec extends Specification {
         act[0].value.contains("\"params\":[\"newHeads\"]")
     }
 
+    def "Call after reconnect"() {
+        when:
+        conn.connect()
+        conn.retryInterval = 2
+        Thread.sleep(SLEEP)
+        server.stop()
+        Thread.sleep(SLEEP)
+        server = new MockWSServer(port)
+        server.start()
+        // reconnects in 2 seconds, give 1 extra
+        Thread.sleep(3_000)
+
+        def resp = conn.call(new JsonRpcRequest("foo_bar", []))
+        then:
+        StepVerifier.create(resp)
+                .then {
+                    server.reply('{"jsonrpc":"2.0", "id":100, "result": "baz"}')
+                }
+                .expectNextMatches {
+                    it.hasResult() && it.resultAsProcessedString == "baz"
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(3))
+    }
 }
