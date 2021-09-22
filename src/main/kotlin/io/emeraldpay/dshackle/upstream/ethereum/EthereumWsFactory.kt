@@ -170,6 +170,11 @@ class EthereumWsFactory(
                             WebsocketClientSpec.builder()
                                     .handlePing(true)
                                     .compress(false)
+                                    // Default is 65_536, but Geth responds with larger frames,
+                                    // and connection gets dropped with:
+                                    // > io.netty.handler.codec.http.websocketx.CorruptedWebSocketFrameException: Max frame length of 65536 has been exceeded
+                                    // It's unclear what is a right limit here, but 1mb seems to be working
+                                    .maxFramePayloadLength(1024 * 1024)
                                     .build()
                     )
                     .uri(uri)
@@ -184,9 +189,9 @@ class EthereumWsFactory(
         }
 
         fun handle(inbound: WebsocketInbound, outbound: WebsocketOutbound): Publisher<Void> {
-            val consumer = inbound.aggregateFrames()
-                    // accept up to 1Mb messages
-                    .aggregateFrames(16 * 65_536)
+            val consumer = inbound
+                    // Accept up to 15Mb messages, same config is used by Geth
+                    .aggregateFrames(15 * 1024 * 1024)
                     .receiveFrames()
                     .map { ByteBufInputStream(it.content()).readAllBytes() }
                     .flatMap {
@@ -203,7 +208,7 @@ class EthereumWsFactory(
                         }
                     }
                     .onErrorResume { t ->
-                        log.warn("Connection dropped to $uri. Error: ${t.message}")
+                        log.warn("Connection dropped to $uri. Error: ${t.message}", t)
                         // going to try to reconnect later
                         tryReconnectLater()
                         // completes current outbound flow
