@@ -71,7 +71,7 @@ class EthereumWsFactoryRealSpec extends Specification {
     def "Reconnects after server disconnect"() {
         when:
         conn.connect()
-        conn.retryInterval = 2
+        conn.reconnectIntervalSeconds = 2
         Thread.sleep(SLEEP)
         server.stop()
         Thread.sleep(SLEEP)
@@ -92,7 +92,7 @@ class EthereumWsFactoryRealSpec extends Specification {
         when:
         server.stop()
         Thread.sleep(SLEEP)
-        conn.retryInterval = 1
+        conn.reconnectIntervalSeconds = 1
         conn.connect()
         Thread.sleep(3_000)
         server = new MockWSServer(port)
@@ -108,7 +108,7 @@ class EthereumWsFactoryRealSpec extends Specification {
     def "Call after reconnect"() {
         when:
         conn.connect()
-        conn.retryInterval = 2
+        conn.reconnectIntervalSeconds = 2
         Thread.sleep(SLEEP)
         server.stop()
         Thread.sleep(SLEEP)
