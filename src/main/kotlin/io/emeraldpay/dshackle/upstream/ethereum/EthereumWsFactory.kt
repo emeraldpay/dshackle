@@ -77,6 +77,14 @@ class EthereumWsFactory(
             private const val START_REQUEST = "{\"jsonrpc\":\"2.0\", \"method\":\"eth_subscribe\", \"id\":\"blocks\", \"params\":[\"newHeads\"]}"
         }
 
+        var retryInterval = Defaults.retryConnection.seconds
+            set(value) {
+                if (retryInterval <= 0) {
+                    throw IllegalArgumentException("Reconnect interval cannot be zero or less: $retryInterval")
+                }
+                field = value
+            }
+
         private val parser = ResponseWSParser()
 
         private val blocks = Sinks
@@ -103,15 +111,24 @@ class EthereumWsFactory(
         }
 
         private fun tryReconnectLater() {
+            if (!keepConnection) {
+                return
+            }
+            log.info("Reconnect to $uri in $retryInterval seconds...")
             Global.control.schedule(
                     { connectInternal() },
-                    Defaults.retryConnection.seconds, TimeUnit.SECONDS)
+                    retryInterval, TimeUnit.SECONDS)
         }
 
         private fun connectInternal() {
             log.info("Connecting to WebSocket: $uri")
             connection?.dispose()
             connection = HttpClient.create()
+                    .doOnDisconnected {
+                        if (keepConnection) {
+                            tryReconnectLater()
+                        }
+                    }
                     .doOnError(
                             { _, t ->
                                 log.warn("Failed to connect to $uri. Error: ${t.message}")
@@ -120,6 +137,7 @@ class EthereumWsFactory(
                             },
                             { _, _ -> }
                     )
+
                     .headers { headers ->
                         headers.add(HttpHeaderNames.ORIGIN, origin)
                         basicAuth?.let { auth ->
@@ -141,8 +159,9 @@ class EthereumWsFactory(
                     .handle { inbound, outbound ->
                         handle(inbound, outbound)
                     }
-                    .doOnError {
-                        log.error("Failed to setup WS connection", it)
+                    .onErrorResume { t ->
+                        log.debug("Dropping WS connection to $uri. Error: ${t.message}")
+                        Mono.empty<Void>()
                     }
                     .subscribe()
         }
