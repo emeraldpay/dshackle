@@ -49,6 +49,7 @@ import java.time.Duration
 import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 
@@ -103,6 +104,7 @@ class EthereumWsFactory(
         private val sendExecutor = Executors.newSingleThreadExecutor()
         private var keepConnection = true
         private var connection: Disposable? = null
+        private val reconnecting = AtomicBoolean(false)
 
         fun connect() {
             if (keepConnection) {
@@ -114,9 +116,16 @@ class EthereumWsFactory(
             if (!keepConnection) {
                 return
             }
+            val alreadyReconnecting = reconnecting.getAndSet(true)
+            if (alreadyReconnecting) {
+                return
+            }
             log.info("Reconnect to $uri in $retryInterval seconds...")
             Global.control.schedule(
-                    { connectInternal() },
+                    {
+                        reconnecting.set(false)
+                        connectInternal()
+                    },
                     retryInterval, TimeUnit.SECONDS)
         }
 
@@ -125,6 +134,7 @@ class EthereumWsFactory(
             connection?.dispose()
             connection = HttpClient.create()
                     .doOnDisconnected {
+                        log.info("Disconnected from $uri")
                         if (keepConnection) {
                             tryReconnectLater()
                         }
