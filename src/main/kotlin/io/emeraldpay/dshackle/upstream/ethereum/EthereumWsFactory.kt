@@ -33,6 +33,10 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
+import org.springframework.util.backoff.BackOff
+import org.springframework.util.backoff.BackOffExecution
+import org.springframework.util.backoff.ExponentialBackOff
+import org.springframework.util.backoff.FixedBackOff
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -78,13 +82,11 @@ class EthereumWsFactory(
             private const val START_REQUEST = "{\"jsonrpc\":\"2.0\", \"method\":\"eth_subscribe\", \"id\":\"blocks\", \"params\":[\"newHeads\"]}"
         }
 
-        var retryInterval = Defaults.retryConnection.seconds
-            set(value) {
-                if (retryInterval <= 0) {
-                    throw IllegalArgumentException("Reconnect interval cannot be zero or less: $retryInterval")
-                }
-                field = value
-            }
+        private var reconnectBackoff: BackOff = ExponentialBackOff().also {
+            it.initialInterval = Duration.ofMillis(100).toMillis()
+            it.maxInterval = Duration.ofMinutes(1).toMillis()
+        }
+        private var currentBackOff = reconnectBackoff.start()
 
         private val parser = ResponseWSParser()
 
@@ -105,6 +107,11 @@ class EthereumWsFactory(
         private var keepConnection = true
         private var connection: Disposable? = null
         private val reconnecting = AtomicBoolean(false)
+
+        fun setReconnectIntervalSeconds(value: Long) {
+            reconnectBackoff = FixedBackOff(value * 1000, FixedBackOff.UNLIMITED_ATTEMPTS)
+            currentBackOff = reconnectBackoff.start()
+        }
 
         fun connect() {
             if (keepConnection) {
@@ -127,13 +134,18 @@ class EthereumWsFactory(
                     .many()
                     .unicast()
                     .onBackpressureBuffer<JsonRpcRequest>()
-            log.info("Reconnect to $uri in $retryInterval seconds...")
+            val retryInterval = currentBackOff.nextBackOff()
+            if (retryInterval == BackOffExecution.STOP) {
+                log.warn("Reconnect backoff exhausted. Permanently closing the connection")
+                return
+            }
+            log.info("Reconnect to $uri in ${retryInterval}ms...")
             Global.control.schedule(
                     {
                         reconnecting.set(false)
                         connectInternal()
                     },
-                    retryInterval, TimeUnit.SECONDS)
+                    retryInterval, TimeUnit.MILLISECONDS)
         }
 
         private fun connectInternal() {
@@ -154,7 +166,6 @@ class EthereumWsFactory(
                             },
                             { _, _ -> }
                     )
-
                     .headers { headers ->
                         headers.add(HttpHeaderNames.ORIGIN, origin)
                         basicAuth?.let { auth ->
@@ -189,6 +200,9 @@ class EthereumWsFactory(
         }
 
         fun handle(inbound: WebsocketInbound, outbound: WebsocketOutbound): Publisher<Void> {
+            //restart backoff after connection
+            currentBackOff = reconnectBackoff.start()
+
             val consumer = inbound
                     // Accept up to 15Mb messages, same config is used by Geth
                     .aggregateFrames(15 * 1024 * 1024)
