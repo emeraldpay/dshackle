@@ -10,8 +10,6 @@ import java.time.Duration
 
 class EthereumWsFactoryRealSpec extends Specification {
 
-    // needs large timeouts and sleep, especially on CI where it's much slower to run
-    static TIMEOUT = 15
     static SLEEP = 500
 
     static int port = 19900 + new Random().nextInt(100)
@@ -21,6 +19,11 @@ class EthereumWsFactoryRealSpec extends Specification {
     EthereumWsFactory.EthereumWs conn
 
     def setup() {
+        if (System.getenv("CI") == "true") {
+            println("RUN IN CI ENVIRONMENT")
+            // needs large timeouts on CI where it's much slower to run
+            SLEEP = 1500
+        }
         port++
         server = new MockWSServer(port)
         server.start()
@@ -52,7 +55,7 @@ class EthereumWsFactoryRealSpec extends Specification {
         then:
         StepVerifier.create(resp)
                 .then {
-                    server.reply('{"jsonrpc":"2.0", "id":100, "result": "baz"}')
+                    server.onNextReply('{"jsonrpc":"2.0", "id":100, "result": "baz"}')
                 }
                 .expectNextMatches {
                     it.hasResult() && it.resultAsProcessedString == "baz"
@@ -121,7 +124,7 @@ class EthereumWsFactoryRealSpec extends Specification {
         then:
         StepVerifier.create(resp)
                 .then {
-                    server.reply('{"jsonrpc":"2.0", "id":100, "result": "baz"}')
+                    server.onNextReply('{"jsonrpc":"2.0", "id":100, "result": "baz"}')
                 }
                 .expectNextMatches {
                     it.hasResult() && it.resultAsProcessedString == "baz"

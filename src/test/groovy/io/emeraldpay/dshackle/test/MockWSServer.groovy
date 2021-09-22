@@ -33,7 +33,7 @@ class MockWSServer extends WebSocketServer {
     void reply(String message) {
         log(">> $message")
         if (conn == null) {
-            println("MOCKWS: ERROR, no active connection")
+            log("MOCKWS: ERROR, no active connection")
         }
         conn.send(message)
     }
