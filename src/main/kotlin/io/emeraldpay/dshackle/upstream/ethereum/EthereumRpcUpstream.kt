@@ -74,7 +74,8 @@ open class EthereumRpcUpstream(
 
     open fun createHead(): Head {
         return if (ethereumWsFactory != null) {
-            val ws = ethereumWsFactory.create(null).apply {
+            // do not set upstream to the WS, since it doesn't control the RPC upstream
+            val ws = ethereumWsFactory.create(null, null, null).apply {
                 connect()
             }
             val wsHead = EthereumWsHead(ws).apply {

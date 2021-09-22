@@ -21,6 +21,8 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
@@ -64,15 +66,17 @@ class EthereumWsFactory(
 
     var basicAuth: AuthConfig.ClientBasicAuth? = null
 
-    fun create(rpcMetrics: RpcMetrics?): EthereumWs {
-        return EthereumWs(uri, origin, basicAuth, rpcMetrics)
+    fun create(upstream: DefaultUpstream?, validator: EthereumUpstreamValidator?, rpcMetrics: RpcMetrics?): EthereumWs {
+        return EthereumWs(uri, origin, basicAuth, rpcMetrics, upstream, validator)
     }
 
     class EthereumWs(
             private val uri: URI,
             private val origin: URI,
             private val basicAuth: AuthConfig.ClientBasicAuth?,
-            private val rpcMetrics: RpcMetrics?
+            private val rpcMetrics: RpcMetrics?,
+            private val upstream: DefaultUpstream?,
+            private val validator: EthereumUpstreamValidator?
     ) : AutoCloseable {
 
         companion object {
@@ -154,6 +158,8 @@ class EthereumWsFactory(
             connection = HttpClient.create()
                     .doOnDisconnected {
                         log.info("Disconnected from $uri")
+                        // mark upstream as UNAVAIL
+                        upstream?.setStatus(UpstreamAvailability.UNAVAILABLE)
                         if (keepConnection) {
                             tryReconnectLater()
                         }
@@ -202,6 +208,9 @@ class EthereumWsFactory(
         fun handle(inbound: WebsocketInbound, outbound: WebsocketOutbound): Publisher<Void> {
             //restart backoff after connection
             currentBackOff = reconnectBackoff.start()
+
+            //validate the connection, it can also be UNAVAIL if market as such after disconnect
+            validator?.validate()
 
             val consumer = inbound
                     // Accept up to 15Mb messages, same config is used by Geth

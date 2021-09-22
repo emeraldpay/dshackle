@@ -53,7 +53,7 @@ class EthereumWsFactorySpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create()
+        def ws = wsf.create(null, null, null)
 
         apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], block)
 
@@ -74,7 +74,7 @@ class EthereumWsFactorySpec extends Specification {
         def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create()
+        def ws = wsf.create(null, null, null)
 
         def tx = new TransactionJson().tap {
             hash = TransactionId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
@@ -99,7 +99,7 @@ class EthereumWsFactorySpec extends Specification {
         def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create()
+        def ws = wsf.create(null, null, null)
 
         apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], null)
 
@@ -122,7 +122,7 @@ class EthereumWsFactorySpec extends Specification {
         def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create()
+        def ws = wsf.create(null, null, null)
 
         apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"],
                 new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "test"))

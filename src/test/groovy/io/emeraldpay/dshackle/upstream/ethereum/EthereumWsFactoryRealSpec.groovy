@@ -1,6 +1,8 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.test.MockWSServer
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import reactor.test.StepVerifier
 import spock.lang.Shared
@@ -28,7 +30,7 @@ class EthereumWsFactoryRealSpec extends Specification {
         server = new MockWSServer(port)
         server.start()
         Thread.sleep(SLEEP)
-        conn = new EthereumWsFactory("ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null)
+        conn = new EthereumWsFactory("ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null, null, null)
     }
 
     def cleanup() {
@@ -89,6 +91,33 @@ class EthereumWsFactoryRealSpec extends Specification {
         act.size() > 0
         act[0].value.contains("\"method\":\"eth_subscribe\"")
         act[0].value.contains("\"params\":[\"newHeads\"]")
+    }
+
+    def "Gets UNAVAIL status right after disconnect"() {
+        setup:
+        def up = Mock(DefaultUpstream)
+        conn = new EthereumWsFactory("ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(up, null, null)
+        when:
+        conn.connect()
+        conn.reconnectIntervalSeconds = 10
+        Thread.sleep(SLEEP)
+        server.stop()
+        Thread.sleep(100)
+
+        then:
+        1 * up.setStatus(UpstreamAvailability.UNAVAILABLE)
+    }
+
+    def "Validates after connect"() {
+        setup:
+        def validator = Mock(EthereumUpstreamValidator)
+        conn = new EthereumWsFactory("ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null, validator, null)
+        when:
+        conn.connect()
+        Thread.sleep(100)
+
+        then:
+        1 * validator.validate()
     }
 
     def "Try to connects to server until it's available"() {

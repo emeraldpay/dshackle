@@ -61,7 +61,7 @@ abstract class DefaultUpstream(
         return status.get().status
     }
 
-    fun setStatus(avail: UpstreamAvailability) {
+    open fun setStatus(avail: UpstreamAvailability) {
         status.updateAndGet { curr ->
             Status(curr.lag, avail, statusByLag(curr.lag, avail))
         }

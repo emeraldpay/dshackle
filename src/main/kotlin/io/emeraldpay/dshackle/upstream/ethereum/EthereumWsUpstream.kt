@@ -53,6 +53,7 @@ class EthereumWsUpstream(
     private val api: JsonRpcWsClient
 
     private var validatorSubscription: Disposable? = null
+    private val validator: EthereumUpstreamValidator
 
     init {
         val metricsTags = listOf(
@@ -72,7 +73,9 @@ class EthereumWsUpstream(
                         .register(Metrics.globalRegistry)
         )
 
-        connection = ethereumWsFactory.create(metrics)
+        validator = EthereumUpstreamValidator(this, getOptions())
+
+        connection = ethereumWsFactory.create(this, validator, metrics)
         head = EthereumWsHead(connection)
         api = JsonRpcWsClient(connection)
     }
@@ -102,7 +105,6 @@ class EthereumWsUpstream(
         head.start()
 
         log.debug("Start validation for upstream ${this.getId()}")
-        val validator = EthereumUpstreamValidator(this, getOptions())
         validatorSubscription = validator.start()
                 .subscribe(this::setStatus)
     }
