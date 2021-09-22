@@ -127,6 +127,22 @@ abstract class YamlConfigReader {
         }
     }
 
+    fun getValueAsBytes(mappingNode: MappingNode?, key: String): Int? {
+        return getValueAsString(mappingNode, key)?.let(envVariables::postProcess)?.let {
+            val m = Regex("^(\\d+)(m|mb|k|kb|b)?$").find(it.lowercase().trim())
+                    ?: throw IllegalArgumentException("Not a data size: ${it}. Example of correct values: '1024', '1kb', '5mb'")
+            val multiplier = m.groups[2]?.let {
+                when (it.value) {
+                    "k", "kb" -> 1024
+                    "m", "mb" -> 1024 * 1024
+                    else -> 1
+                }
+            } ?: 1
+            val base = m.groups[1]!!.value.toInt()
+            base * multiplier
+        }
+    }
+
     // ----
 
     fun getBlockchain(id: String): Chain {

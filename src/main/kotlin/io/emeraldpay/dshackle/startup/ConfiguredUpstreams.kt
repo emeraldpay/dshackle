@@ -195,8 +195,9 @@ open class ConfiguredUpstreams(
         val wsFactoryApi: EthereumWsFactory? = conn.ws?.let { endpoint ->
             val wsApi = EthereumWsFactory(
                     endpoint.url,
-                    endpoint.origin ?: URI("http://localhost")
+                    endpoint.origin ?: URI("http://localhost"),
             )
+            wsApi.config = endpoint
             endpoint.basicAuth?.let { auth ->
                 wsApi.basicAuth = auth
             }

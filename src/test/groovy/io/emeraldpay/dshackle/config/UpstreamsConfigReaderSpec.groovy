@@ -99,6 +99,32 @@ class UpstreamsConfigReaderSpec extends Specification {
         }
     }
 
+    def "Parse full defined websocket config"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-ws-full.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "local"
+            chain == "ethereum"
+            connection instanceof UpstreamsConfig.EthereumConnection
+            with((UpstreamsConfig.EthereumConnection) connection) {
+                rpc == null
+                ws != null
+                ws.url == new URI("ws://localhost:8546")
+                ws.basicAuth != null
+                with(ws.basicAuth) {
+                    username == "9c199ad8f281f20154fc258fe41a6814"
+                    password == "258fe4149c199ad8f2811a68f20154fc"
+                }
+                ws.frameSize == 10 * 1024 * 1024
+                ws.msgSize == 25 * 1024 * 1024
+            }
+        }
+    }
 
     def "Parse bitcoin upstreams"() {
         setup:

@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.AuthConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -65,9 +66,17 @@ class EthereumWsFactory(
 ) {
 
     var basicAuth: AuthConfig.ClientBasicAuth? = null
+    var config: UpstreamsConfig.WsEndpoint? = null
 
     fun create(upstream: DefaultUpstream?, validator: EthereumUpstreamValidator?, rpcMetrics: RpcMetrics?): EthereumWs {
-        return EthereumWs(uri, origin, basicAuth, rpcMetrics, upstream, validator)
+        return EthereumWs(uri, origin, basicAuth, rpcMetrics, upstream, validator).also { ws ->
+            config?.frameSize?.let {
+                ws.frameSize = it
+            }
+            config?.msgSize?.let {
+                ws.msgSizeLimit = it
+            }
+        }
     }
 
     class EthereumWs(
@@ -84,7 +93,21 @@ class EthereumWsFactory(
 
             private const val IDS_START = 100
             private const val START_REQUEST = "{\"jsonrpc\":\"2.0\", \"method\":\"eth_subscribe\", \"id\":\"blocks\", \"params\":[\"newHeads\"]}"
+
+            // WebSocket Frame limit.
+            // Default is 65_536, but Geth responds with larger frames,
+            // and connection gets dropped with:
+            // > io.netty.handler.codec.http.websocketx.CorruptedWebSocketFrameException: Max frame length of 65536 has been exceeded
+            // It's unclear what is a right limit here, but 5mb seems to be working (1mb wasn't always working)
+            private const val DEFAULT_FRAME_SIZE = 5 * 1024 * 1024
+
+            // The max size from multiple frames that may represent a single message
+            // Accept up to 15Mb messages, because Geth is using 15mb, though it's not clear what it limits
+            private const val DEFAULT_MSG_SIZE = 15 * 1024 * 1024
         }
+
+        var frameSize: Int = DEFAULT_FRAME_SIZE
+        var msgSizeLimit: Int = DEFAULT_MSG_SIZE
 
         private var reconnectBackoff: BackOff = ExponentialBackOff().also {
             it.initialInterval = Duration.ofMillis(100).toMillis()
@@ -187,11 +210,7 @@ class EthereumWsFactory(
                             WebsocketClientSpec.builder()
                                     .handlePing(true)
                                     .compress(false)
-                                    // Default is 65_536, but Geth responds with larger frames,
-                                    // and connection gets dropped with:
-                                    // > io.netty.handler.codec.http.websocketx.CorruptedWebSocketFrameException: Max frame length of 65536 has been exceeded
-                                    // It's unclear what is a right limit here, but 1mb seems to be working
-                                    .maxFramePayloadLength(1024 * 1024)
+                                    .maxFramePayloadLength(frameSize)
                                     .build()
                     )
                     .uri(uri)
@@ -213,8 +232,7 @@ class EthereumWsFactory(
             validator?.validate()
 
             val consumer = inbound
-                    // Accept up to 15Mb messages, same config is used by Geth
-                    .aggregateFrames(15 * 1024 * 1024)
+                    .aggregateFrames(msgSizeLimit)
                     .receiveFrames()
                     .map { ByteBufInputStream(it.content()).readAllBytes() }
                     .flatMap {
