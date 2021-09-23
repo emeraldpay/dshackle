@@ -112,6 +112,19 @@ class UpstreamsConfigReader(
                                 ws.origin = URI(origin)
                             }
                             ws.basicAuth = authConfigReader.readClientBasicAuth(node)
+
+                            getValueAsBytes(node, "frameSize")?.let {
+                                if (it < 65_535) {
+                                    throw IllegalStateException("frameSize cannot be less than 64Kb")
+                                }
+                                ws.frameSize = it
+                            }
+                            getValueAsBytes(node, "msgSize")?.let {
+                                if (it < 65_535) {
+                                    throw IllegalStateException("msgSize cannot be less than 64Kb")
+                                }
+                                ws.msgSize = it
+                            }
                         }
                     }
                 } else {

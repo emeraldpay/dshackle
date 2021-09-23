@@ -16,9 +16,11 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
+import reactor.core.publisher.Flux
 
 class EthereumWsHead(
         private val ws: EthereumWsFactory.EthereumWs
@@ -34,7 +36,12 @@ class EthereumWsHead(
 
     override fun start() {
         this.subscription?.dispose()
-        this.subscription = super.follow(ws.getFlux())
+        val heads = Flux.merge(
+                // get the current block, not just wait for the next update
+                getLatestBlock(JsonRpcWsClient(ws)),
+                ws.getBlocksFlux()
+        )
+        this.subscription = super.follow(heads)
     }
 
     override fun stop() {

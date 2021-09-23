@@ -32,7 +32,7 @@ import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.util.concurrent.Executors
 
-class EthereumUpstreamValidator(
+open class EthereumUpstreamValidator(
         private val upstream: EthereumUpstream,
         private val options: UpstreamsConfig.Options
 ) {
@@ -43,7 +43,7 @@ class EthereumUpstreamValidator(
 
     private val objectMapper: ObjectMapper = Global.objectMapper
 
-    fun validate(): Mono<UpstreamAvailability> {
+    open fun validate(): Mono<UpstreamAvailability> {
         return upstream
                 .getApi()
                 .read(JsonRpcRequest("eth_syncing", listOf()))

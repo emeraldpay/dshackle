@@ -527,6 +527,8 @@ configuration, and may be omitted for most of the situations.
         basic-auth:
           username: 9c199ad8f281f20154fc258fe41a6814
           password: 258fe4149c199ad8f2811a68f20154fc
+        frameSize: 5mb
+        msgSize: 15mb
 ----
 
 .Main Config
@@ -592,7 +594,7 @@ Example: `https://kovan.infura.io/v3/${INFURA_USER}`
 
 | `rpc.basic-auth` + `rpc.basic-auth.username`, `rpc.basic-auth.password`
 a| HTTP Basic Auth configuration, if required by the remote server. +
-   Values can also reference env variables, for example:
+Values can also reference env variables, for example:
 [source,yaml]
 ----
 rpc:
@@ -603,7 +605,8 @@ rpc:
 ----
 
 | `ws.url`
-| Websocket URL to connect to. Optional, but optimizes performance if it's available.
+| Websocket URL to connect to.
+Optional, but optimizes performance if it's available.
 
 | `ws.origin`
 | HTTP `Origin` if required by Websocket remote server.
@@ -611,6 +614,15 @@ rpc:
 | `ws.basic-auth` + ...
 | Websocket Basic Auth configuration, if required by the remote server
 
+| `ws.frameSize`
+| WebSocket frame size limit.
+Ex `1kb`, `1024` (same as `1kb), `2mb`, etc.
+Default is 5Mb
+
+| `ws.msgSize`
+| Total limit for a message size consisting from multiple frames.
+Ex `1kb`, `1024` (same as `1kb), `2mb`, etc.
+Default is 15Mb
 
 |===
 

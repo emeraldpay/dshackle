@@ -19,8 +19,6 @@ import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.Timer
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpHeaders
@@ -50,7 +48,7 @@ class JsonRpcHttpClient(
         private val log = LoggerFactory.getLogger(JsonRpcHttpClient::class.java)
     }
 
-    private val parser = JsonRpcParser()
+    private val parser = ResponseRpcParser()
     private val httpClient: HttpClient
 
     init {

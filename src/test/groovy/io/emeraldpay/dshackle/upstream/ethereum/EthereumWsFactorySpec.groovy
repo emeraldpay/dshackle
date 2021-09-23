@@ -15,11 +15,15 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.cache.BlocksMemCache
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
@@ -34,7 +38,6 @@ class EthereumWsFactorySpec extends Specification {
     def "Fetch block"() {
         setup:
         def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
-        def blocksCache = Mock(BlocksMemCache)
 
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
@@ -44,20 +47,98 @@ class EthereumWsFactorySpec extends Specification {
         block.uncles = []
         block.totalDifficulty = BigInteger.ONE
 
+        def headBlock = block.copy().tap {
+            it.transactions = null
+        }
+
         def apiMock = TestingCommons.api()
-        def upstream = TestingCommons.upstream(apiMock)
-        def ws = wsf.create(upstream)
+        def wsApiMock = apiMock.asWebsocket()
+        def ws = wsf.create(null, null, null)
 
         apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], block)
 
         when:
-        def act = Flux.from(ws.getFlux())
+        Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
+        def act = Flux.from(ws.getBlocksFlux())
 
         then:
         StepVerifier.create(act)
-                .then { ws.onNewBlock(block) }
+                .then { ws.onNewHeads(headBlock).subscribe() }
                 .expectNext(BlockContainer.from(block))
                 .thenCancel()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Makes a RPC call"() {
+        setup:
+        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
+        def apiMock = TestingCommons.api()
+        def wsApiMock = apiMock.asWebsocket()
+        def ws = wsf.create(null, null, null)
+
+        def tx = new TransactionJson().tap {
+            hash = TransactionId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
+        }
+        apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], tx)
+
+        when:
+        Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
+        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15))
+
+        then:
+        StepVerifier.create(act)
+                .expectNextMatches {
+                    it.id.asNumber() == 15L && Global.objectMapper.readValue(it.result, TransactionJson) == tx
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Makes a RPC call - return null"() {
+        setup:
+        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
+        def apiMock = TestingCommons.api()
+        def wsApiMock = apiMock.asWebsocket()
+        def ws = wsf.create(null, null, null)
+
+        apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], null)
+
+        when:
+        Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
+        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15))
+
+        then:
+        StepVerifier.create(act)
+                .expectNextMatches {
+                    it.id.asNumber() == 15L &&
+                            it.resultAsRawString == 'null'
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Makes a RPC call - return error"() {
+        setup:
+        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
+        def apiMock = TestingCommons.api()
+        def wsApiMock = apiMock.asWebsocket()
+        def ws = wsf.create(null, null, null)
+
+        apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"],
+                new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "test"))
+
+        when:
+        Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
+        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15))
+
+        then:
+        StepVerifier.create(act)
+                .expectNextMatches {
+                    it.id.asNumber() == 15L &&
+                            it.error != null &&
+                            it.error.code == RpcResponseError.CODE_METHOD_NOT_EXIST && it.error.message == "test"
+                }
+                .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
 }

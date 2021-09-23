@@ -18,19 +18,9 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import spock.lang.Specification
 
-class JsonRpcParserSpec extends Specification {
+class ResponseRpcParserSpec extends Specification {
 
-    JsonRpcParser parser = new JsonRpcParser()
-
-    def "Parse just result"() {
-        setup:
-        def json = '{"result": "Hello world!"}'
-        when:
-        def act = parser.parse(json.getBytes())
-        then:
-        act.error == null
-        new String(act.result) == '"Hello world!"'
-    }
+    ResponseRpcParser parser = new ResponseRpcParser()
 
     def "Parse string response"() {
         setup:
@@ -168,6 +158,19 @@ class JsonRpcParserSpec extends Specification {
         setup:
         //          0       8       16                32
         def json = '{"jsonrpc": "2.0", "id": 1, "result": null, "error": {"code": -1111, "message": "test"}}'
+        when:
+        def act = parser.parse(json.getBytes())
+        then:
+        act.error != null
+        act.error.code == -1111
+        act.error.message == "test"
+        act.hasError()
+        !act.hasResult()
+    }
+
+    def "Parse error with no result field"() {
+        setup:
+        def json = '{"jsonrpc": "2.0", "id": 1, "error": {"code": -1111, "message": "test"}}'
         when:
         def act = parser.parse(json.getBytes())
         then:

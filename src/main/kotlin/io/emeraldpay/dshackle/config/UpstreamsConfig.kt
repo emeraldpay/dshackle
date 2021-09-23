@@ -106,6 +106,7 @@ open class UpstreamsConfig {
 
     class EthereumConnection : RpcConnection() {
         var ws: WsEndpoint? = null
+        var preferHttp: Boolean = false
     }
 
     class BitcoinConnection : RpcConnection() {
@@ -120,8 +121,9 @@ open class UpstreamsConfig {
     class WsEndpoint(val url: URI) {
         var origin: URI? = null
         var basicAuth: AuthConfig.ClientBasicAuth? = null
+        var frameSize: Int? = null
+        var msgSize: Int? = null
     }
-
 
 
     //TODO make it unmodifiable after initial load
