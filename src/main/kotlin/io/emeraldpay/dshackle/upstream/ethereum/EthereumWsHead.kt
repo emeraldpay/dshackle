@@ -45,7 +45,6 @@ class EthereumWsHead(
     }
 
     override fun stop() {
-        ws.close()
         subscription?.dispose()
         subscription = null
     }

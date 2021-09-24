@@ -141,9 +141,8 @@ class EthereumWsFactory(
         }
 
         fun connect() {
-            if (keepConnection) {
-                connectInternal()
-            }
+            keepConnection = true
+            connectInternal()
         }
 
         private fun tryReconnectLater() {
@@ -383,6 +382,7 @@ class EthereumWsFactory(
         }
 
         override fun close() {
+            log.info("Closing connection to WebSocket $uri")
             keepConnection = false
             connection?.dispose()
             connection = null
