@@ -4,23 +4,17 @@ option java_package = "io.emeraldpay.api.proto";
 import "common.proto";
 
 service Blockchain {
-    rpc SubscribeHead (Chain) returns (stream ChainHead) {
-    }
-    rpc SubscribeBalance (BalanceRequest) returns (stream AddressBalance) {
-    }
-    rpc SubscribeTxStatus (TxStatusRequest) returns (stream TxStatus) {
-    }
+    rpc SubscribeHead (Chain) returns (stream ChainHead) {}
+    rpc SubscribeBalance (BalanceRequest) returns (stream AddressBalance) {}
+    rpc SubscribeTxStatus (TxStatusRequest) returns (stream TxStatus) {}
 
-    rpc GetBalance (BalanceRequest) returns (stream AddressBalance) {
-    }
+    rpc GetBalance (BalanceRequest) returns (stream AddressBalance) {}
 
-    rpc NativeCall (NativeCallRequest) returns (stream NativeCallReplyItem) {
-    }
+    rpc NativeCall (NativeCallRequest) returns (stream NativeCallReplyItem) {}
+    rpc NativeSubscribe (NativeSubscribeRequest) returns (stream NativeSubscribeReplyItem) {}
 
-    rpc Describe (DescribeRequest) returns (DescribeResponse) {
-    }
-    rpc SubscribeStatus (StatusRequest) returns (stream ChainStatus) {
-    }
+    rpc Describe (DescribeRequest) returns (DescribeResponse) {}
+    rpc SubscribeStatus (StatusRequest) returns (stream ChainStatus) {}
 }
 
 message NativeCallRequest {
@@ -42,6 +36,16 @@ message NativeCallReplyItem {
     bool succeed = 2;
     bytes payload = 3;
     string errorMessage = 4;
+}
+
+message NativeSubscribeRequest {
+    ChainRef chain = 1;
+    string method = 2;
+    bytes payload = 3;
+}
+
+message NativeSubscribeReplyItem {
+    bytes payload = 1;
 }
 
 message ChainHead {
@@ -70,12 +74,22 @@ message TxStatus {
 message BalanceRequest {
     Asset asset = 1;
     AnyAddress address = 2;
+    bool include_utxo = 3;
 }
 
 message AddressBalance {
     Asset asset = 1;
     SingleAddress address = 2;
     string balance = 3;
+    bool confirmed = 4;
+    repeated Utxo utxo = 5;
+}
+
+message Utxo {
+    string tx_id = 1;
+    uint64 index = 2;
+    string balance = 3;
+    bool spent = 4;
 }
 
 message DescribeRequest {
@@ -91,6 +105,7 @@ message DescribeChain {
     repeated NodeDetails nodes = 3;
     repeated string supportedMethods = 4;
     repeated string excludedMethods = 5;
+    repeated Capabilities capabilities = 6;
 }
 
 message StatusRequest {
@@ -115,6 +130,12 @@ enum AvailabilityEnum {
 message NodeDetails {
     uint32 quorum = 1;
     repeated Label labels = 2;
+}
+
+enum Capabilities {
+    CAP_NONE = 0;
+    CAP_CALLS = 1;
+    CAP_BALANCE = 2;
 }
 
 message Label {

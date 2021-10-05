@@ -103,6 +103,16 @@ class Events {
     ) : ChainBase(blockchain, "NativeCall", id, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    class NativeSubscribe(
+            blockchain: Chain, id: UUID, channel: Channel,
+
+            // info about the initial request, that may include several native calls
+            val request: StreamRequestDetails,
+            val payloadSizeBytes: Long,
+            val nativeSubscribe: NativeSubscribeItemDetails
+    ) : ChainBase(blockchain, "NativeSubscribe", id, channel)
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     class Describe(
             id: UUID,
             val request: StreamRequestDetails
@@ -135,6 +145,16 @@ class Events {
     data class NativeCallReplyDetails(
             val id: Int,
             val succeed: Boolean,
+            val replySizeBytes: Long,
+            val ts: Instant = Instant.now()
+    )
+
+    data class NativeSubscribeItemDetails(
+            val method: String,
+            val payloadSizeBytes: Long
+    )
+
+    data class NativeSubscribeReplyDetails(
             val replySizeBytes: Long,
             val ts: Instant = Instant.now()
     )

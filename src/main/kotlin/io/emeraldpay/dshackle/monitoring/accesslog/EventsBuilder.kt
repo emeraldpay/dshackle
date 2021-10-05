@@ -293,6 +293,36 @@ class EventsBuilder {
         }
     }
 
+    class NativeSubscribe :
+            Base<NativeSubscribe>(),
+            RequestReply<Events.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
+        var item: Events.NativeSubscribeItemDetails? = null
+        val replies = HashMap<Int, Events.NativeSubscribeReplyDetails>()
+
+        override fun getT(): NativeSubscribe {
+            return this
+        }
+
+        override fun onRequest(msg: BlockchainOuterClass.NativeSubscribeRequest) {
+            withChain(msg.chain.number)
+            this.item = Events.NativeSubscribeItemDetails(
+                    msg.method,
+                    msg.payload.size().toLong()
+            )
+        }
+
+        override fun onReply(msg: BlockchainOuterClass.NativeSubscribeReplyItem): Events.NativeSubscribe {
+            return Events.NativeSubscribe(
+                    request = requestDetails,
+                    blockchain = chain,
+                    nativeSubscribe = item!!,
+                    payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
+                    id = UUID.randomUUID(),
+                    channel = Events.Channel.GRPC
+            )
+        }
+    }
+
     class Describe :
             Base<Describe>(),
             RequestReply<Events.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {

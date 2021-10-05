@@ -24,10 +24,8 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
-import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
+import io.emeraldpay.dshackle.upstream.rpcclient.*
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import io.netty.buffer.ByteBuf
@@ -365,6 +363,7 @@ class EthereumWsFactory(
                         Flux.from(rpcReceive.asFlux())
                                 .doOnSubscribe { sendRpc(request) }
                                 .filter { resp -> resp.id.asNumber() == expectedId }
+                                .take(Defaults.timeout)
                                 .take(1)
                                 .singleOrEmpty()
                                 .doOnNext {
@@ -374,6 +373,12 @@ class EthereumWsFactory(
                                     rpcMetrics?.errors?.increment()
                                 }
                                 .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
+                                .defaultIfEmpty(
+                                        JsonRpcResponse(null,
+                                                JsonRpcError(RpcResponseError.CODE_INTERNAL_ERROR, "Response not received from WebSocket"),
+                                                JsonRpcResponse.Id.from(originalId)
+                                        )
+                                )
                     }
         }
 

@@ -41,6 +41,7 @@ open class EthereumMultistream(
     private var head: Head? = null
 
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
+    private val subscribe = EthereumSubscribe()
 
     init {
         this.init()
@@ -122,4 +123,7 @@ open class EthereumMultistream(
         return Mono.just(NativeCallRouter(reader, getMethods(), getHead()))
     }
 
+    open fun getSubscribe(): EthereumSubscribe {
+        return subscribe
+    }
 }

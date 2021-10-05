@@ -40,6 +40,7 @@ class AccessHandlerGrpc(
             "SubscribeTxStatus" -> processSubscribeTxStatus(call, headers, next)
             "GetBalance" -> processSubscribeBalance(call, headers, next, false)
             "NativeCall" -> processNativeCall(call, headers, next)
+            "NativeSubscribe" -> processNativeSubscribe(call, headers, next)
             "Describe" -> processDescribe(call, headers, next)
             "SubscribeStatus" -> processStatus(call, headers, next)
             else -> {
@@ -109,6 +110,18 @@ class AccessHandlerGrpc(
                 EventsBuilder.NativeCall() as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <ReqT : Any, RespT : Any> processNativeSubscribe(
+            call: ServerCall<ReqT, RespT>,
+            headers: Metadata,
+            next: ServerCallHandler<ReqT, RespT>
+    ): ServerCall.Listener<ReqT> {
+        return process(call, headers, next,
+                EventsBuilder.NativeSubscribe() as EventsBuilder.RequestReply<*, ReqT, RespT>
+        )
+    }
+
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processDescribe(
