@@ -41,7 +41,7 @@ open class EthereumMultistream(
     private var head: Head? = null
 
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
-    private val subscribe = EthereumSubscribe()
+    private val subscribe = EthereumSubscribe(this)
 
     init {
         this.init()
