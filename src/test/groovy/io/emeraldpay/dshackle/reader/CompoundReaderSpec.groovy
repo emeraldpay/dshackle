@@ -72,21 +72,20 @@ class CompoundReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
-    def "Return second"() {
+    def "Doesn't call others after getting first"() {
         setup:
-        def reader = new CompoundReader<String, String>(reader3, reader2)
-        when:
-        def act = reader.read("test")
-        then:
-        StepVerifier.create(act)
-                .expectNext("test-2")
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
-    }
-
-    def "Return third"() {
-        setup:
-        def reader = new CompoundReader<String, String>(reader3, reader2, reader1)
+        def call2 = false
+        def reader2 = new Reader<String, String>() {
+            @Override
+            Mono<String> read(String key) {
+                call2 = true
+                return Mono.just("test-2").delaySubscription(Duration.ofMillis(200))
+            }
+        }
+        def reader = new CompoundReader<String, String>(
+                reader1,
+                reader2
+        )
         when:
         def act = reader.read("test")
         then:
@@ -94,16 +93,29 @@ class CompoundReaderSpec extends Specification {
                 .expectNext("test-1")
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
+        !call2
     }
 
-    def "Ignore empty"() {
+    def "Return first even if it's slow"() {
         setup:
-        def reader = new CompoundReader<String, String>(reader3, reader1Empty, reader2, reader1Empty)
+        def reader = new CompoundReader<String, String>(reader3, reader2)
         when:
         def act = reader.read("test")
         then:
         StepVerifier.create(act)
-                .expectNext("test-2")
+                .expectNext("test-3")
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Ignore empty"() {
+        setup:
+        def reader = new CompoundReader<String, String>(reader1Empty, reader3, reader2, reader1Empty)
+        when:
+        def act = reader.read("test")
+        then:
+        StepVerifier.create(act)
+                .expectNext("test-3")
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
