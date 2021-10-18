@@ -9,11 +9,11 @@ import spock.lang.Specification
 
 import java.time.Instant
 
-class NewHeadSpec extends Specification {
+class NewHeadMessageSpec extends Specification {
 
     def "Serialize to a correct JSON"() {
         setup:
-        NewHead obj = new NewHead(
+        NewHeadMessage obj = new NewHeadMessage(
                 0xc7f3b4,
                 BlockHash.from("0xd3b7ae1a79f5418debae9b8e9318094298c087183be0f7a0151b0e76ba38d6bc"),
                 BlockHash.from("0xcda7fd1d6ee2d5da7505a0634e27f41d5ae87a344cd75bb64c1dc0863fbe9c0a"),

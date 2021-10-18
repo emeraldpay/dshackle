@@ -23,7 +23,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.lettuce.core.api.reactive.RedisReactiveCommands
 import reactor.core.publisher.Mono
 
-class ReceiptRedisCache(
+open class ReceiptRedisCache(
         redis: RedisReactiveCommands<String, ByteArray>,
         chain: Chain
 ) : OnTxRedisCache<ByteArray>(redis, chain, CachesProto.ValueContainer.ValueType.TX_RECEIPT) {

@@ -32,7 +32,7 @@ class NativeSubscribeSpec extends Specification {
     def "Call with empty params when not provided"() {
         setup:
         def subscribe = Mock(EthereumSubscribe) {
-            1 * it.subscribe("newHeads", []) >> Flux.just("{}")
+            1 * it.subscribe("newHeads", null) >> Flux.just("{}")
         }
         def up = Mock(EthereumMultistream) {
             1 * it.getSubscribe() >> subscribe
@@ -56,13 +56,12 @@ class NativeSubscribeSpec extends Specification {
     def "Call with params when provided"() {
         setup:
         def subscribe = Mock(EthereumSubscribe) {
-            1 * it.subscribe("newHeads", { params ->
+            1 * it.subscribe("logs", { params ->
                 println("params: $params")
-                def ok = params.size() == 1 &&
-                        params[0] instanceof Map &&
-                        params[0]["address"] == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" &&
-                        params[0]["topics"] instanceof List &&
-                        params[0]["topics"][0] == "0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"
+                def ok = params instanceof Map &&
+                        params["address"] == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" &&
+                        params["topics"] instanceof List &&
+                        params["topics"][0] == "0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"
                 println("ok: $ok")
                 ok
             }) >> Flux.just("{}")
@@ -74,7 +73,7 @@ class NativeSubscribeSpec extends Specification {
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up))
         def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
                 .setChainValue(Chain.ETHEREUM.id)
-                .setMethod("newHeads")
+                .setMethod("logs")
                 .setPayload(ByteString.copyFromUtf8(
                         '{"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", ' +
                                 '"topics": ["0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"]}'

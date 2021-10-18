@@ -56,13 +56,13 @@ class NativeSubscribe(
             return Mono.error(UnsupportedOperationException("Native subscribe is not supported for ${chain.chainCode}"))
         }
         val method = it.method
-        val params: List<*> = it.payload?.let { payload ->
+        val params: Any? = it.payload?.let { payload ->
             if (payload.size() > 0) {
-                listOf(objectMapper.readValue(payload.newInput(), Map::class.java))
+                objectMapper.readValue(payload.newInput(), Map::class.java)
             } else {
-                emptyList<Any>()
+                null
             }
-        } ?: emptyList<Any>()
+        }
         return subscribe(chain, method, params)
     }
 
@@ -81,7 +81,7 @@ class NativeSubscribe(
         }
     }
 
-    fun subscribe(chain: Chain, method: String, params: List<*>): Flux<out Any> {
+    fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
         val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
         return (up as EthereumMultistream)
                 .getSubscribe()

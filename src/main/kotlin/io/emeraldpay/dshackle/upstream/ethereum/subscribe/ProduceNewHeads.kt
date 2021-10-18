@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHead
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
@@ -26,7 +26,7 @@ import reactor.core.publisher.Flux
 /**
  * Produces NewHead messages by transforming blocks received from Head
  * @see Head
- * @see NewHead
+ * @see NewHeadMessage
  */
 class ProduceNewHeads(
         val head: Head
@@ -38,7 +38,7 @@ class ProduceNewHeads(
 
     private val objectMapper = Global.objectMapper
 
-    fun start(): Flux<NewHead> {
+    fun start(): Flux<NewHeadMessage> {
         return head.getFlux()
                 .map {
                     if (it.parsed != null) {
@@ -48,7 +48,7 @@ class ProduceNewHeads(
                     }
                 }
                 .map { block ->
-                    NewHead(
+                    NewHeadMessage(
                             block.number,
                             block.hash,
                             block.parentHash,
@@ -61,7 +61,6 @@ class ProduceNewHeads(
                             block.baseFeePerGas?.amount
                     )
                 }
-
     }
 
 }

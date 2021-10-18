@@ -15,40 +15,30 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe.json
 
-import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.Bloom
+import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.etherjar.hex.Hex32
+import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.json.HexDataSerializer
-import java.math.BigInteger
-import java.time.Instant
 
-/**
- * Common fields for newHeads event. IT's different from Block JSON and doesn't include many fields, most notable is
- * list of transactions. Also, our JSON doesn't include rarely used fields such as extraData, sha3uncles, stateRoot,
- * transactionRoot and some others.
- */
-data class NewHead(
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val number: Long,
+data class LogMessage(
         @get:JsonSerialize(using = HexDataSerializer::class)
-        val hash: BlockHash,
+        val address: Address,
         @get:JsonSerialize(using = HexDataSerializer::class)
-        val parentHash: BlockHash,
-        @get:JsonSerialize(using = TimestampSerializer::class)
-        val timestamp: Instant,
+        val blockHash: BlockHash,
         @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val difficulty: BigInteger,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val gasLimit: Long,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val gasUsed: Long,
+        val blockNumber: Long,
         @get:JsonSerialize(using = HexDataSerializer::class)
-        val logsBloom: Bloom,
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val miner: Address,
+        val data: HexData,
         @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        @get:JsonInclude(JsonInclude.Include.NON_NULL)
-        val baseFeePerGas: BigInteger?
+        val logIndex: Long,
+        @get:JsonSerialize(contentUsing = HexDataSerializer::class)
+        val topics: List<Hex32>,
+        @get:JsonSerialize(using = HexDataSerializer::class)
+        val transactionHash: TransactionId,
+        @get:JsonSerialize(using = NumberAsHexSerializer::class)
+        val transactionIndex: Long,
+        val removed: Boolean
 )
