@@ -23,7 +23,7 @@ enum class UpstreamAvailability(val grpcId: Int) {
      */
     OK(1),
     /**
-     * Good node, but is still synchronizing a latest block
+     * Good node, but is still synchronizing to a latest block
      */
     LAGGING(2),
     /**
