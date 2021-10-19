@@ -140,6 +140,7 @@ abstract class Multistream(
         apis.request(1)
         return Mono.from(apis)
                 .map(Upstream::getApi)
+                .map { RequestPostprocessor.wrap(it, postprocessor) } //TODO do it on upstream init, not each time it's called
                 .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 

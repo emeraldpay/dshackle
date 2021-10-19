@@ -26,6 +26,7 @@ class Selector {
 
     companion object {
 
+        @JvmStatic
         val empty = EmptyMatcher()
 
         @JvmStatic
