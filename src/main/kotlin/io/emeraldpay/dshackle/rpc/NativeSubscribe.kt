@@ -34,7 +34,7 @@ import reactor.core.publisher.Mono
 
 @Service
 class NativeSubscribe(
-        @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder
 ) {
 
     companion object {
@@ -45,9 +45,9 @@ class NativeSubscribe(
 
     fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
         return request
-                .flatMapMany(this@NativeSubscribe::start)
-                .map(this@NativeSubscribe::convertToProto)
-                .onErrorMap(this@NativeSubscribe::convertToStatus)
+            .flatMapMany(this@NativeSubscribe::start)
+            .map(this@NativeSubscribe::convertToProto)
+            .onErrorMap(this@NativeSubscribe::convertToStatus)
     }
 
     fun start(it: BlockchainOuterClass.NativeSubscribeRequest): Publisher<out Any> {
@@ -68,15 +68,15 @@ class NativeSubscribe(
 
     fun convertToStatus(t: Throwable) = when (t) {
         is SilentException.UnsupportedBlockchain -> StatusException(
-                Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}")
+            Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}")
         )
         is UnsupportedOperationException -> StatusException(
-                Status.UNIMPLEMENTED.withDescription(t.message)
+            Status.UNIMPLEMENTED.withDescription(t.message)
         )
         else -> {
             log.warn("Unhandled error", t)
             StatusException(
-                    Status.INTERNAL.withDescription(t.message)
+                Status.INTERNAL.withDescription(t.message)
             )
         }
     }
@@ -84,15 +84,14 @@ class NativeSubscribe(
     fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
         val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
         return (up as EthereumMultistream)
-                .getSubscribe()
-                .subscribe(method, params)
+            .getSubscribe()
+            .subscribe(method, params)
     }
 
     fun convertToProto(value: Any): BlockchainOuterClass.NativeSubscribeReplyItem {
         val result = objectMapper.writeValueAsBytes(value)
         return BlockchainOuterClass.NativeSubscribeReplyItem.newBuilder()
-                .setPayload(ByteString.copyFrom(result))
-                .build()
+            .setPayload(ByteString.copyFrom(result))
+            .build()
     }
-
 }

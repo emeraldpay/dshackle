@@ -20,13 +20,12 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.RequestPostprocessor
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import org.slf4j.LoggerFactory
 
 class CacheRequested(
-        private val caches: Caches
+    private val caches: Caches
 ) : RequestPostprocessor {
 
     companion object {
@@ -50,13 +49,12 @@ class CacheRequested(
         // note: json could be a `null` value
         val parsed = Global.objectMapper.readValue(json, TransactionReceiptJson::class.java) ?: return
         val value = DefaultContainer<TransactionReceiptJson>(
-                TxId.from(parsed.transactionHash),
-                BlockId.from(parsed.blockHash),
-                parsed.blockNumber,
-                json,
-                parsed
+            TxId.from(parsed.transactionHash),
+            BlockId.from(parsed.blockHash),
+            parsed.blockNumber,
+            json,
+            parsed
         )
         caches.cacheReceipt(Caches.Tag.REQUESTED, value)
     }
-
 }

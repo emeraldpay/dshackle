@@ -15,26 +15,23 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.grpc.Chain
-import io.grpc.Channel
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.concurrent.TimeUnit
 
 class JsonRpcGrpcClient(
-        private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
-        private val chain: Chain,
-        private val metrics: RpcMetrics
+    private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
+    private val chain: Chain,
+    private val metrics: RpcMetrics
 ) {
 
     companion object {
@@ -46,16 +43,16 @@ class JsonRpcGrpcClient(
     }
 
     class Executor(
-            private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
-            private val chain: Chain,
-            private val matcher: Selector.Matcher,
-            private val metrics: RpcMetrics
+        private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
+        private val chain: Chain,
+        private val matcher: Selector.Matcher,
+        private val metrics: RpcMetrics
     ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
         override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
             var startTime: Long = 0
             val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                    .setChainValue(chain.id)
+                .setChainValue(chain.id)
 
             if (matcher != Selector.empty) {
                 Selector.extractLabels(matcher)?.asProto().let {
@@ -64,37 +61,40 @@ class JsonRpcGrpcClient(
             }
 
             BlockchainOuterClass.NativeCallItem.newBuilder()
-                    .setId(1)
-                    .setMethod(key.method)
-                    .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params)))
-                    .build().let {
-                        req.addItems(it)
-                    }
+                .setId(1)
+                .setMethod(key.method)
+                .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params)))
+                .build().let {
+                    req.addItems(it)
+                }
 
             return Mono.just(key)
-                    .doOnNext {
-                        startTime = System.nanoTime()
-                    }.flatMap {
-                        stub.nativeCall(req.build())
-                                .single()
-                                .flatMap { resp ->
-                                    if (resp.succeed) {
-                                        val bytes = resp.payload.toByteArray()
-                                        Mono.just(JsonRpcResponse(bytes, null))
-                                    } else {
-                                        metrics.errors.increment()
-                                        Mono.error(RpcException(RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR, resp.errorMessage))
-                                    }
-                                }
-                    }
-                    .doOnNext {
-                        if (startTime > 0) {
-                            val now = System.nanoTime()
-                            metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
+                .doOnNext {
+                    startTime = System.nanoTime()
+                }.flatMap {
+                    stub.nativeCall(req.build())
+                        .single()
+                        .flatMap { resp ->
+                            if (resp.succeed) {
+                                val bytes = resp.payload.toByteArray()
+                                Mono.just(JsonRpcResponse(bytes, null))
+                            } else {
+                                metrics.errors.increment()
+                                Mono.error(
+                                    RpcException(
+                                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                                        resp.errorMessage
+                                    )
+                                )
+                            }
                         }
+                }
+                .doOnNext {
+                    if (startTime > 0) {
+                        val now = System.nanoTime()
+                        metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
                     }
+                }
         }
-
     }
-
 }

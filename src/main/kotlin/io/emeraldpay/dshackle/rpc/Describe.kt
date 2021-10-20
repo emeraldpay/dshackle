@@ -19,15 +19,17 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.startup.QuorumForLabels
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 @Service
 class Describe(
-        @Autowired private val multistreamHolder: MultistreamHolder,
-        @Autowired private val subscribeStatus: SubscribeStatus
+    @Autowired private val multistreamHolder: MultistreamHolder,
+    @Autowired private val subscribeStatus: SubscribeStatus
 ) {
 
     fun describe(requestMono: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
@@ -39,9 +41,9 @@ class Describe(
                     val targets = chainUpstreams.getMethods().getSupportedMethods()
                     val capabilities: MutableSet<Capability> = mutableSetOf()
                     val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
-                            .setChain(Common.ChainRef.forNumber(chain.id))
-                            .addAllSupportedMethods(targets)
-                            .setStatus(status)
+                        .setChain(Common.ChainRef.forNumber(chain.id))
+                        .addAllSupportedMethods(targets)
+                        .setStatus(status)
                     chainUpstreams.getAll().let { ups ->
                         ups.forEach { up ->
                             val nodes = QuorumForLabels()
@@ -50,25 +52,27 @@ class Describe(
                             }
                             nodes.getAll().forEach { node ->
                                 val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()
-                                        .setQuorum(node.quorum)
-                                        .addAllLabels(node.labels.entries.map { label ->
+                                    .setQuorum(node.quorum)
+                                    .addAllLabels(
+                                        node.labels.entries.map { label ->
                                             BlockchainOuterClass.Label.newBuilder()
-                                                    .setName(label.key)
-                                                    .setValue(label.value)
-                                                    .build()
-                                        })
+                                                .setName(label.key)
+                                                .setValue(label.value)
+                                                .build()
+                                        }
+                                    )
                                 chainDescription.addNodes(nodeDetails)
                             }
                             capabilities.addAll(up.getCapabilities())
                         }
                     }
                     chainDescription.addAllCapabilities(
-                            capabilities.map {
-                                when (it) {
-                                    Capability.RPC -> BlockchainOuterClass.Capabilities.CAP_CALLS
-                                    Capability.BALANCE -> BlockchainOuterClass.Capabilities.CAP_BALANCE
-                                }
+                        capabilities.map {
+                            when (it) {
+                                Capability.RPC -> BlockchainOuterClass.Capabilities.CAP_CALLS
+                                Capability.BALANCE -> BlockchainOuterClass.Capabilities.CAP_BALANCE
                             }
+                        }
                     )
                     resp.addChains(chainDescription.build())
                 }
@@ -76,5 +80,4 @@ class Describe(
             resp.build()
         }
     }
-
 }

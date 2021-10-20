@@ -31,8 +31,8 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 
 open class CachingMempoolData(
-        private val upstreams: BitcoinMultistream,
-        private val head: Head
+    private val upstreams: BitcoinMultistream,
+    private val head: Head
 ) : Lifecycle {
 
     companion object {
@@ -51,12 +51,12 @@ open class CachingMempoolData(
         return if (value.since < Instant.now().minus(TTL)) {
             updateLock.lock()
             fetchFromUpstream()
-                    .timeout(Duration.ofSeconds(3), Mono.empty())
-                    .doOnNext {
-                        current.set(Container(Instant.now(), it))
-                    }.doFinally {
-                        updateLock.unlock()
-                    }
+                .timeout(Duration.ofSeconds(3), Mono.empty())
+                .doOnNext {
+                    current.set(Container(Instant.now(), it))
+                }.doFinally {
+                    updateLock.unlock()
+                }
         } else {
             Mono.just(value.value)
         }
@@ -66,8 +66,8 @@ open class CachingMempoolData(
     fun fetchFromUpstream(): Mono<List<String>> {
         return upstreams.getDirectApi(Selector.empty).flatMap { api ->
             api.read(JsonRpcRequest("getrawmempool", emptyList()))
-                    .flatMap(JsonRpcResponse::requireResult)
-                    .map { objectMapper.readValue(it, List::class.java) as List<String> }
+                .flatMap(JsonRpcResponse::requireResult)
+                .map { objectMapper.readValue(it, List::class.java) as List<String> }
         }
     }
 
@@ -94,5 +94,4 @@ open class CachingMempoolData(
         headListener?.dispose()
         headListener = null
     }
-
 }

@@ -17,12 +17,11 @@ class EthereumAddresses {
                 Flux.just(Address.from(addresses.addressSingle.address))
             Common.AnyAddress.AddrTypeCase.ADDRESS_MULTI ->
                 Flux.fromIterable(addresses.addressMulti.addressesList)
-                        .map { Address.from(it.address) }
+                    .map { Address.from(it.address) }
             else -> {
                 log.error("Unsupported address type: ${addresses.addrTypeCase}")
                 Flux.empty()
             }
         }
     }
-
 }

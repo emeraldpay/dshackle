@@ -42,37 +42,37 @@ abstract class AbstractHead : Head {
             completed = false
         }
         return source
-                .distinctUntilChanged {
-                    it.hash
-                }.filter { block ->
-                    val curr = head.get()
-                    curr == null || curr.difficulty < block.difficulty
-                }
-                .doFinally {
-                    // close internal stream if upstream is finished, otherwise it gets stuck,
-                    // but technically it should never happen during normal work, only when the Head
-                    // is stopping
-                    completed = true
-                    stream.tryEmitComplete()
-                }
-                .subscribeOn(Schedulers.boundedElastic())
-                .subscribe { block ->
-                    notifyBeforeBlock()
-                    val prev = head.getAndUpdate { curr ->
-                        if (curr == null || curr.difficulty < block.difficulty) {
-                            block
-                        } else {
-                            curr
-                        }
-                    }
-                    if (prev == null || prev.hash != block.hash) {
-                        log.debug("New block ${block.height} ${block.hash}")
-                        val result = stream.tryEmitNext(block)
-                        if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-                            log.warn("Failed to dispatch block: $result as ${this.javaClass}")
-                        }
+            .distinctUntilChanged {
+                it.hash
+            }.filter { block ->
+                val curr = head.get()
+                curr == null || curr.difficulty < block.difficulty
+            }
+            .doFinally {
+                // close internal stream if upstream is finished, otherwise it gets stuck,
+                // but technically it should never happen during normal work, only when the Head
+                // is stopping
+                completed = true
+                stream.tryEmitComplete()
+            }
+            .subscribeOn(Schedulers.boundedElastic())
+            .subscribe { block ->
+                notifyBeforeBlock()
+                val prev = head.getAndUpdate { curr ->
+                    if (curr == null || curr.difficulty < block.difficulty) {
+                        block
+                    } else {
+                        curr
                     }
                 }
+                if (prev == null || prev.hash != block.hash) {
+                    log.debug("New block ${block.height} ${block.hash}")
+                    val result = stream.tryEmitNext(block)
+                    if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
+                        log.warn("Failed to dispatch block: $result as ${this.javaClass}")
+                    }
+                }
+            }
     }
 
     fun notifyBeforeBlock() {
@@ -91,8 +91,8 @@ abstract class AbstractHead : Head {
 
     override fun getFlux(): Flux<BlockContainer> {
         return Flux.concat(
-                Mono.justOrEmpty(head.get()),
-                stream.asFlux()
+            Mono.justOrEmpty(head.get()),
+            stream.asFlux()
         ).onBackpressureLatest()
     }
 

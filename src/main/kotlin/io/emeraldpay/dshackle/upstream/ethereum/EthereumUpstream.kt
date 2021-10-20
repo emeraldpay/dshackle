@@ -18,15 +18,16 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 
 abstract class EthereumUpstream(
-        id: String,
-        options: UpstreamsConfig.Options,
-        role: UpstreamsConfig.UpstreamRole,
-        targets: CallMethods?,
-        private val node: QuorumForLabels.QuorumItem?
+    id: String,
+    options: UpstreamsConfig.Options,
+    role: UpstreamsConfig.UpstreamRole,
+    targets: CallMethods?,
+    private val node: QuorumForLabels.QuorumItem?
 ) : DefaultUpstream(id, options, role, targets, node) {
 
     private val capabilities = if (options.providesBalance != false) {

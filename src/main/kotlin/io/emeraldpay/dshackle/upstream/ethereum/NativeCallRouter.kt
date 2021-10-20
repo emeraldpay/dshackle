@@ -37,9 +37,9 @@ import java.math.BigInteger
  * @see EthereumReader
  */
 class NativeCallRouter(
-        private val reader: EthereumReader,
-        private val methods: CallMethods,
-        private val head: Head
+    private val reader: EthereumReader,
+    private val methods: CallMethods,
+    private val head: Head
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
     companion object {
@@ -47,14 +47,14 @@ class NativeCallRouter(
     }
 
     private val fullBlocksReader = EthereumFullBlocksReader(
-            reader.blocksByIdAsCont(),
-            reader.txByHashAsCont()
+        reader.blocksByIdAsCont(),
+        reader.txByHashAsCont()
     )
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         if (methods.isHardcoded(key.method)) {
             return Mono.just(methods.executeHardcoded(key.method))
-                    .map { JsonRpcResponse(it, null) }
+                .map { JsonRpcResponse(it, null) }
         }
         if (!methods.isAllowed(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
@@ -159,7 +159,7 @@ class NativeCallRouter(
         }
         val withTx = params[1].toString().toBoolean()
         var block = reader.blocksByHeightAsCont()
-                .read(number)
+            .read(number)
         block = if (withTx) {
             block.flatMap {
                 fullBlocksReader.read(it.hash)

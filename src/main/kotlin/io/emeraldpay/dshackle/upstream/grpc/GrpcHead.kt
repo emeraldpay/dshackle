@@ -35,16 +35,16 @@ import java.time.Duration
 import java.util.function.Function
 
 class GrpcHead(
-        private val chain: Chain,
-        private val parent: DefaultUpstream,
-        /**
-         * Converted from remote head details to the block container, which could be partial at this point
-         */
-        private val converter: Function<BlockchainOuterClass.ChainHead, BlockContainer>,
-        /**
-         * Populate block data with all missing details, of any
-         */
-        private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?
+    private val chain: Chain,
+    private val parent: DefaultUpstream,
+    /**
+     * Converted from remote head details to the block container, which could be partial at this point
+     */
+    private val converter: Function<BlockchainOuterClass.ChainHead, BlockContainer>,
+    /**
+     * Populate block data with all missing details, of any
+     */
+    private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?
 ) : AbstractHead(), Lifecycle {
 
     companion object {
@@ -62,10 +62,10 @@ class GrpcHead(
         }
 
         val source = Flux.concat(
-                // first connect immediately
-                Flux.just(remote),
-                // following requests do with delay, give it a time to recover
-                Flux.just(remote).repeat().delayElements(Defaults.retryConnection)
+            // first connect immediately
+            Flux.just(remote),
+            // following requests do with delay, give it a time to recover
+            Flux.just(remote).repeat().delayElements(Defaults.retryConnection)
         ).flatMap(this::subscribeHead)
 
         start(source)
@@ -73,16 +73,16 @@ class GrpcHead(
 
     fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub): Publisher<BlockchainOuterClass.ChainHead> {
         val chainRef = Common.Chain.newBuilder()
-                .setTypeValue(chain.id)
-                .build()
+            .setTypeValue(chain.id)
+            .build()
         return client.subscribeHead(chainRef)
-                // simple retry on failure, if eventually failed then it supposed to resubscribe later from outer method
-                .retryWhen(Retry.backoff(4, Duration.ofSeconds(1)))
-                .onErrorContinue { err, _ ->
-                    log.warn("Disconnected $chain from ${parent.getId()}: ${err.message}")
-                    parent.setStatus(UpstreamAvailability.UNAVAILABLE)
-                    Mono.empty<BlockchainOuterClass.ChainHead>()
-                }
+            // simple retry on failure, if eventually failed then it supposed to resubscribe later from outer method
+            .retryWhen(Retry.backoff(4, Duration.ofSeconds(1)))
+            .onErrorContinue { err, _ ->
+                log.warn("Disconnected $chain from ${parent.getId()}: ${err.message}")
+                parent.setStatus(UpstreamAvailability.UNAVAILABLE)
+                Mono.empty<BlockchainOuterClass.ChainHead>()
+            }
     }
 
     /**
@@ -90,12 +90,12 @@ class GrpcHead(
      */
     fun start(source: Flux<BlockchainOuterClass.ChainHead>) {
         var blocks = source.map(converter)
-                .distinctUntilChanged {
-                    it.hash
-                }.filter { block ->
-                    val curr = this.getCurrent()
-                    curr == null || curr.difficulty < block.difficulty
-                }
+            .distinctUntilChanged {
+                it.hash
+            }.filter { block ->
+                val curr = this.getCurrent()
+                curr == null || curr.difficulty < block.difficulty
+            }
         if (enhancer != null) {
             blocks = blocks.flatMap(enhancer)
         }

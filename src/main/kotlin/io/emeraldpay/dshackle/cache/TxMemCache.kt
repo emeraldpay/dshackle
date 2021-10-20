@@ -28,8 +28,8 @@ import reactor.core.publisher.Mono
  * Memory cache for transactions
  */
 open class TxMemCache(
-        // usually there is 100-150 tx per block on Ethereum, we keep data for about 32 blocks by default
-        private val maxSize: Int = 125 * 32
+    // usually there is 100-150 tx per block on Ethereum, we keep data for about 32 blocks by default
+    private val maxSize: Int = 125 * 32
 ) : Reader<TxId, TxContainer> {
 
     companion object {
@@ -37,8 +37,8 @@ open class TxMemCache(
     }
 
     private val mapping = Caffeine.newBuilder()
-            .maximumSize(maxSize.toLong())
-            .build<TxId, TxContainer>()
+        .maximumSize(maxSize.toLong())
+        .build<TxId, TxContainer>()
 
     override fun read(key: TxId): Mono<TxContainer> {
         return Mono.justOrEmpty(mapping.getIfPresent(key))
@@ -52,13 +52,13 @@ open class TxMemCache(
 
     open fun evict(block: BlockId) {
         val ids = mapping.asMap()
-                .filter { it.value.blockId == block }
-                .map { it.key }
+            .filter { it.value.blockId == block }
+            .map { it.key }
         mapping.invalidateAll(ids)
     }
 
     open fun add(tx: TxContainer) {
-        //do not cache fresh transactions
+        // do not cache fresh transactions
         if (tx.blockId == null) {
             return
         }

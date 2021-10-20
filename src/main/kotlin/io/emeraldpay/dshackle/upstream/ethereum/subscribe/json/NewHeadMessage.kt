@@ -30,25 +30,25 @@ import java.time.Instant
  * transactionRoot and some others.
  */
 data class NewHeadMessage(
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val number: Long,
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val hash: BlockHash,
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val parentHash: BlockHash,
-        @get:JsonSerialize(using = TimestampSerializer::class)
-        val timestamp: Instant,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val difficulty: BigInteger,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val gasLimit: Long,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val gasUsed: Long,
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val logsBloom: Bloom,
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val miner: Address,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        @get:JsonInclude(JsonInclude.Include.NON_NULL)
-        val baseFeePerGas: BigInteger?
+    @get:JsonSerialize(using = NumberAsHexSerializer::class)
+    val number: Long,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val hash: BlockHash,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val parentHash: BlockHash,
+    @get:JsonSerialize(using = TimestampSerializer::class)
+    val timestamp: Instant,
+    @get:JsonSerialize(using = NumberAsHexSerializer::class)
+    val difficulty: BigInteger,
+    @get:JsonSerialize(using = NumberAsHexSerializer::class)
+    val gasLimit: Long,
+    @get:JsonSerialize(using = NumberAsHexSerializer::class)
+    val gasUsed: Long,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val logsBloom: Bloom,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val miner: Address,
+    @get:JsonSerialize(using = NumberAsHexSerializer::class)
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val baseFeePerGas: BigInteger?
 )

@@ -22,18 +22,17 @@ import java.util.function.Function
  * Reader wrapper that transforms output of the reader to a different format
  */
 class TransformingReader<K, D0, D>(
-        /**
-         * Actual reader
-         */
-        private val reader: Reader<K, D0>,
-        /**
-         * Result transformation
-         */
-        private val transformer: Function<in D0, out D>
+    /**
+     * Actual reader
+     */
+    private val reader: Reader<K, D0>,
+    /**
+     * Result transformation
+     */
+    private val transformer: Function<in D0, out D>
 ) : Reader<K, D> {
 
     override fun read(key: K): Mono<D> {
         return reader.read(key).map(transformer)
     }
-
 }

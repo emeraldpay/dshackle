@@ -26,12 +26,11 @@ class RpcUnspentDeserializer : JsonDeserializer<RpcUnspent>() {
     override fun deserialize(jp: JsonParser, ctxt: DeserializationContext): RpcUnspent {
         val node: JsonNode = jp.readValueAsTree()
         return RpcUnspent(
-                node.get("txid").asText(),
-                node.get("vout").asInt(),
-                node.get("address").asText(),
-                BigDecimal(node.get("amount").asText()).multiply(BigDecimal.TEN.pow(8)).longValueExact(),
-                node.get("confirmations").asLong()
+            node.get("txid").asText(),
+            node.get("vout").asInt(),
+            node.get("address").asText(),
+            BigDecimal(node.get("amount").asText()).multiply(BigDecimal.TEN.pow(8)).longValueExact(),
+            node.get("confirmations").asLong()
         )
     }
-
 }

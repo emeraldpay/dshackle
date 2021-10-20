@@ -24,7 +24,7 @@ import io.emeraldpay.grpc.Chain
 open class ProxyConfig {
 
     companion object {
-        public const val CONFIG_ID = "parsed.proxy"
+        const val CONFIG_ID = "parsed.proxy"
     }
 
     var enabled: Boolean = true
@@ -50,13 +50,13 @@ open class ProxyConfig {
     var routes: List<Route> = ArrayList()
 
     class Route(
-            /**
-             * URL binding for the route. http://$host:$port/$id
-             */
-            val id: String,
-            /**
-             * Blockchain to dispatch requests
-             */
-            val blockchain: Chain
+        /**
+         * URL binding for the route. http://$host:$port/$id
+         */
+        val id: String,
+        /**
+         * Blockchain to dispatch requests
+         */
+        val blockchain: Chain
     )
 }

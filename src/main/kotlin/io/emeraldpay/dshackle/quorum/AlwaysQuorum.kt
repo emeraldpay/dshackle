@@ -20,9 +20,8 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.etherjar.rpc.RpcException
 
-open class AlwaysQuorum: CallQuorum {
+open class AlwaysQuorum : CallQuorum {
 
     private var resolved = false
     private var result: ByteArray? = null

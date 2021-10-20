@@ -24,7 +24,7 @@ import org.yaml.snakeyaml.nodes.Node
 import org.yaml.snakeyaml.nodes.ScalarNode
 import java.io.InputStream
 import java.io.InputStreamReader
-import java.util.*
+import java.util.Locale
 
 abstract class YamlConfigReader {
     private val envVariables = EnvVariables()
@@ -43,12 +43,12 @@ abstract class YamlConfigReader {
             return false
         }
         return mappingNode.value
-                .stream()
-                .filter { n -> n.keyNode is ScalarNode }
-                .filter { n ->
-                    val sn = n.keyNode as ScalarNode
-                    key == sn.value
-                }.count() > 0
+            .stream()
+            .filter { n -> n.keyNode is ScalarNode }
+            .filter { n ->
+                val sn = n.keyNode as ScalarNode
+                key == sn.value
+            }.count() > 0
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -57,20 +57,20 @@ abstract class YamlConfigReader {
             return null
         }
         return mappingNode.value
-                .stream()
-                .filter { n -> n.keyNode is ScalarNode && type.isAssignableFrom(n.valueNode.javaClass) }
-                .filter { n ->
-                    val sn = n.keyNode as ScalarNode
-                    key == sn.value
+            .stream()
+            .filter { n -> n.keyNode is ScalarNode && type.isAssignableFrom(n.valueNode.javaClass) }
+            .filter { n ->
+                val sn = n.keyNode as ScalarNode
+                key == sn.value
+            }
+            .map { n -> n.valueNode as T }
+            .findFirst().let {
+                if (it.isPresent) {
+                    it.get()
+                } else {
+                    null
                 }
-                .map { n -> n.valueNode as T }
-                .findFirst().let {
-                    if (it.isPresent) {
-                        it.get()
-                    } else {
-                        null
-                    }
-                }
+            }
     }
 
     protected fun getMapping(mappingNode: MappingNode?, key: String): MappingNode? {
@@ -89,8 +89,8 @@ abstract class YamlConfigReader {
 
     protected fun getListOfString(mappingNode: MappingNode?, key: String): List<String>? {
         return getList<ScalarNode>(mappingNode, key)?.value
-                ?.map { it.value }
-                ?.map(envVariables::postProcess)
+            ?.map { it.value }
+            ?.map(envVariables::postProcess)
     }
 
     protected fun getValueAsString(mappingNode: MappingNode?, key: String): String? {
@@ -130,7 +130,7 @@ abstract class YamlConfigReader {
     fun getValueAsBytes(mappingNode: MappingNode?, key: String): Int? {
         return getValueAsString(mappingNode, key)?.let(envVariables::postProcess)?.let {
             val m = Regex("^(\\d+)(m|mb|k|kb|b)?$").find(it.lowercase().trim())
-                    ?: throw IllegalArgumentException("Not a data size: ${it}. Example of correct values: '1024', '1kb', '5mb'")
+                ?: throw IllegalArgumentException("Not a data size: $it. Example of correct values: '1024', '1kb', '5mb'")
             val multiplier = m.groups[2]?.let {
                 when (it.value) {
                     "k", "kb" -> 1024
@@ -147,9 +147,9 @@ abstract class YamlConfigReader {
 
     fun getBlockchain(id: String): Chain {
         return Chain.values().find { chain ->
-            chain.name == id.uppercase(Locale.getDefault())
-                    || chain.chainCode.uppercase(Locale.getDefault()) == id.uppercase(Locale.getDefault())
-                    || chain.id.toString() == id
+            chain.name == id.uppercase(Locale.getDefault()) ||
+                chain.chainCode.uppercase(Locale.getDefault()) == id.uppercase(Locale.getDefault()) ||
+                chain.id.toString() == id
         } ?: Chain.UNSPECIFIED
     }
 }

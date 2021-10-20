@@ -19,8 +19,8 @@ import kotlin.concurrent.withLock
  */
 @Service
 class AccessHandlerHttp(
-        @Autowired private val mainConfig: MainConfig,
-        @Autowired accessLogWriter: AccessLogWriter
+    @Autowired private val mainConfig: MainConfig,
+    @Autowired accessLogWriter: AccessLogWriter
 ) {
 
     companion object {
@@ -40,7 +40,7 @@ class AccessHandlerHttp(
         fun create(req: HttpServerRequest, blockchain: Chain): RequestHandler
     }
 
-    class NoOpFactory() : HandlerFactory {
+    class NoOpFactory : HandlerFactory {
         override fun create(req: HttpServerRequest, blockchain: Chain): RequestHandler {
             return NoOpHandler()
         }
@@ -70,9 +70,9 @@ class AccessHandlerHttp(
     }
 
     class StandardHandler(
-            private val accessLogWriter: AccessLogWriter,
-            private val httpRequest: HttpServerRequest,
-            private val blockchain: Chain
+        private val accessLogWriter: AccessLogWriter,
+        private val httpRequest: HttpServerRequest,
+        private val blockchain: Chain
     ) : RequestHandler {
 
         private var request: BlockchainOuterClass.NativeCallRequest? = null
@@ -89,13 +89,13 @@ class AccessHandlerHttp(
             builder.start(httpRequest)
             builder.onRequest(request!!)
             responses
-                    .map {
-                        builder.onReply(it, Events.Channel.JSONRPC).also { item ->
-                            //since for JSON RPC you get a single response then the timestamp of all items included in it must have the same timestamp
-                            item.ts = responseTime
-                        }
+                .map {
+                    builder.onReply(it, Events.Channel.JSONRPC).also { item ->
+                        // since for JSON RPC you get a single response then the timestamp of all items included in it must have the same timestamp
+                        item.ts = responseTime
                     }
-                    .let(accessLogWriter::submit)
+                }
+                .let(accessLogWriter::submit)
         }
 
         override fun onRequest(request: BlockchainOuterClass.NativeCallRequest) {

@@ -16,17 +16,15 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.upstream.HeadLagObserver
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.HeadLagObserver
+import io.emeraldpay.dshackle.upstream.Upstream
 import org.slf4j.LoggerFactory
-import reactor.core.publisher.Flux
-import java.time.Duration
 
 class EthereumHeadLagObserver(
-        master: Head,
-        followers: Collection<Upstream>
+    master: Head,
+    followers: Collection<Upstream>
 ) : HeadLagObserver(master, followers) {
 
     companion object {
@@ -34,8 +32,7 @@ class EthereumHeadLagObserver(
     }
 
     override fun forkDistance(top: BlockContainer, curr: BlockContainer): Long {
-        //TODO look for common ancestor? though it may be a corruption
+        // TODO look for common ancestor? though it may be a corruption
         return 6
     }
-
 }

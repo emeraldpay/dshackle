@@ -30,8 +30,8 @@ import reactor.util.function.Tuples
  * Makes request with applying Quorum
  */
 class QuorumRpcReader(
-        private val apis: ApiSource,
-        private val quorum: CallQuorum
+    private val apis: ApiSource,
+    private val quorum: CallQuorum
 ) : Reader<JsonRpcRequest, QuorumRpcReader.Result> {
 
     companion object {
@@ -58,8 +58,8 @@ class QuorumRpcReader(
         val defaultResult: Mono<Result> = Mono.just(quorum).flatMap { q ->
             if (q.isFailed()) {
                 Mono.error<Result>(
-                        q.getError()?.asException(JsonRpcResponse.NumberId(1))
-                                ?: RpcException(-32000, "Unknown Upstream error")
+                    q.getError()?.asException(JsonRpcResponse.NumberId(1))
+                        ?: RpcException(-32000, "Unknown Upstream error")
                 )
             } else {
                 log.warn("Did not get any result from upstream. Method [${key.method}] using [$q]")
@@ -68,72 +68,71 @@ class QuorumRpcReader(
         }
 
         return Flux.from(apis)
-                .takeUntil {
-                    quorum.isFailed() || quorum.isResolved()
-                }
-                .flatMap { api ->
-                    api.getApi()
-                            .read(key)
-                            .flatMap { response ->
-                                response.requireResult()
-                                        .onErrorResume { err ->
-                                            if (err is RpcException || err is JsonRpcException) {
-                                                // on error notify quorum, it may use error message or other details
-                                                val cleanErr: JsonRpcException = when (err) {
-                                                    is RpcException -> JsonRpcException.from(err)
-                                                    is JsonRpcException -> err
-                                                    else -> throw IllegalStateException("Cannot convert from exception", err)
-                                                }
-                                                quorum.record(cleanErr, api)
-                                                // it it's failed after that, then we don't need more calls, stop api source
-                                                if (quorum.isFailed()) {
-                                                    apis.resolve()
-                                                } else {
-                                                    apis.request(1)
-                                                }
-                                            } else {
-                                                log.warn("Result processing error", err)
-                                            }
-                                            Mono.empty()
-                                        }
+            .takeUntil {
+                quorum.isFailed() || quorum.isResolved()
+            }
+            .flatMap { api ->
+                api.getApi()
+                    .read(key)
+                    .flatMap { response ->
+                        response.requireResult()
+                            .onErrorResume { err ->
+                                if (err is RpcException || err is JsonRpcException) {
+                                    // on error notify quorum, it may use error message or other details
+                                    val cleanErr: JsonRpcException = when (err) {
+                                        is RpcException -> JsonRpcException.from(err)
+                                        is JsonRpcException -> err
+                                        else -> throw IllegalStateException("Cannot convert from exception", err)
+                                    }
+                                    quorum.record(cleanErr, api)
+                                    // it it's failed after that, then we don't need more calls, stop api source
+                                    if (quorum.isFailed()) {
+                                        apis.resolve()
+                                    } else {
+                                        apis.request(1)
+                                    }
+                                } else {
+                                    log.warn("Result processing error", err)
+                                }
+                                Mono.empty()
                             }
-                            .map { Tuples.of(it, api) }
-                }
-                .retryWhen(retrySpec)
-                // record all correct responses until quorum reached
-                .reduce(quorum, { res, a ->
-                    if (res.record(a.t1, a.t2)) {
-                        apis.resolve()
-                    } else {
-                        apis.request(1)
                     }
-                    res
-                })
-                // if last call resulted in error it's still possible that request was resolved correctly. i.e. for BroadcastQuorum
-                .onErrorResume { err ->
-                    if (quorum.isResolved()) {
-                        Mono.just(quorum)
-                    } else {
-                        Mono.error(err)
-                    }
+                    .map { Tuples.of(it, api) }
+            }
+            .retryWhen(retrySpec)
+            // record all correct responses until quorum reached
+            .reduce(quorum, { res, a ->
+                if (res.record(a.t1, a.t2)) {
+                    apis.resolve()
+                } else {
+                    apis.request(1)
                 }
-                .doOnNext {
-                    if (!it.isResolved() && !it.isFailed()) {
-                        log.debug("No quorum for ${key.method} using [${quorum}]. Error: ${it.getError()?.message ?: ""}")
-                    }
+                res
+            })
+            // if last call resulted in error it's still possible that request was resolved correctly. i.e. for BroadcastQuorum
+            .onErrorResume { err ->
+                if (quorum.isResolved()) {
+                    Mono.just(quorum)
+                } else {
+                    Mono.error(err)
                 }
-                // return nothing if not resolved
-                .filter { it.isResolved() }
-                .map {
-                    // TODO find actual quorum number
-                    QuorumRpcReader.Result(it.getResult()!!, 1)
+            }
+            .doOnNext {
+                if (!it.isResolved() && !it.isFailed()) {
+                    log.debug("No quorum for ${key.method} using [$quorum]. Error: ${it.getError()?.message ?: ""}")
                 }
-                .switchIfEmpty(defaultResult)
+            }
+            // return nothing if not resolved
+            .filter { it.isResolved() }
+            .map {
+                // TODO find actual quorum number
+                QuorumRpcReader.Result(it.getResult()!!, 1)
+            }
+            .switchIfEmpty(defaultResult)
     }
 
-
     class Result(
-            val value: ByteArray,
-            val quorum: Int
+        val value: ByteArray,
+        val quorum: Int
     )
 }

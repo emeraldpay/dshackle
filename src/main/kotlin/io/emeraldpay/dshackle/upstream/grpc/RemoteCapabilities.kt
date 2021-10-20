@@ -19,5 +19,4 @@ class RemoteCapabilities {
             } ?: emptySet()
         }
     }
-
 }

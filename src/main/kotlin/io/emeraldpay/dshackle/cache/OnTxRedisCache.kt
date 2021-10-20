@@ -30,9 +30,9 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
 abstract class OnTxRedisCache<T>(
-        private val redis: RedisReactiveCommands<String, ByteArray>,
-        private val chain: Chain,
-        private val valueType: CachesProto.ValueContainer.ValueType
+    private val redis: RedisReactiveCommands<String, ByteArray>,
+    private val chain: Chain,
+    private val valueType: CachesProto.ValueContainer.ValueType
 ) : Reader<TxId, T> {
 
     companion object {
@@ -56,42 +56,42 @@ abstract class OnTxRedisCache<T>(
      * Key in Redis
      */
     fun key(hash: TxId): String {
-        return "${prefix}:${chain.id}:${hash.toHex()}"
+        return "$prefix:${chain.id}:${hash.toHex()}"
     }
 
     fun evict(container: BlockContainer): Mono<Void> {
         return Mono.just(container)
-                .map { block ->
-                    block.transactions.map {
-                        key(it)
-                    }.toTypedArray()
-                }.flatMap { keys ->
-                    redis.del(*keys)
-                }.then()
+            .map { block ->
+                block.transactions.map {
+                    key(it)
+                }.toTypedArray()
+            }.flatMap { keys ->
+                redis.del(*keys)
+            }.then()
     }
 
     fun evict(id: TxId): Mono<Void> {
         return Mono.just(id)
-                .flatMap {
-                    redis.del(key(it))
-                }
-                .then()
+            .flatMap {
+                redis.del(key(it))
+            }
+            .then()
     }
 
     fun toProto(id: TxId, value: T): ByteArray {
         val meta = buildMeta(id, value)
 
         return CachesProto.ValueContainer.newBuilder()
-                .setType(valueType)
-                .setValue(ByteString.copyFrom(serializeValue(value)))
-                .setTxMeta(meta)
-                .build()
-                .toByteArray()
+            .setType(valueType)
+            .setValue(ByteString.copyFrom(serializeValue(value)))
+            .setTxMeta(meta)
+            .build()
+            .toByteArray()
     }
 
     open fun buildMeta(id: TxId, value: T): CachesProto.TxMeta.Builder {
         return CachesProto.TxMeta.newBuilder()
-                .setHash(ByteString.copyFrom(id.value))
+            .setHash(ByteString.copyFrom(id.value))
     }
 
     abstract fun serializeValue(value: T): ByteArray
@@ -110,43 +110,43 @@ abstract class OnTxRedisCache<T>(
 
     override fun read(key: TxId): Mono<T> {
         return redis.get(key(key))
-                .map { data ->
-                    fromProto(data)
-                }.onErrorResume {
-                    Mono.empty()
-                }
+            .map { data ->
+                fromProto(data)
+            }.onErrorResume {
+                Mono.empty()
+            }
     }
 
     open fun add(id: TxId, value: T, block: BlockContainer?, blockHeight: Long?): Mono<Void> {
         return Mono.just(id)
-                .flatMap {
-                    val key = key(it)
-                    val encodedValue = toProto(it, value)
-                    val ttl = if (block?.timestamp != null) {
-                        cachingTime(block.timestamp)
-                    } else {
-                        cachingTime(blockHeight)
-                    }
-                    //store
-                    redis.setex(key, ttl, encodedValue)
+            .flatMap {
+                val key = key(it)
+                val encodedValue = toProto(it, value)
+                val ttl = if (block?.timestamp != null) {
+                    cachingTime(block.timestamp)
+                } else {
+                    cachingTime(blockHeight)
                 }
-                .doOnError {
-                    log.warn("Failed to save TX to Redis: ${it.message}", it)
-                }
-                //if failed to cache, just continue without it
-                .onErrorResume {
-                    Mono.empty()
-                }
-                .then()
+                // store
+                redis.setex(key, ttl, encodedValue)
+            }
+            .doOnError {
+                log.warn("Failed to save TX to Redis: ${it.message}", it)
+            }
+            // if failed to cache, just continue without it
+            .onErrorResume {
+                Mono.empty()
+            }
+            .then()
     }
 
     /**
      * Calculate time to cache the value, based on block time
      */
     fun cachingTime(blockTime: Instant): Long {
-        //default caching time is age of the block, i.e. block create hour ago
-        //keep for hour, but block create 10 seconds ago cache for 10 seconds, as it
-        //still can be replaced in the blockchain
+        // default caching time is age of the block, i.e. block create hour ago
+        // keep for hour, but block create 10 seconds ago cache for 10 seconds, as it
+        // still can be replaced in the blockchain
         val age = Instant.now().epochSecond - blockTime.epochSecond
         return min(age, TimeUnit.HOURS.toSeconds(MAX_CACHE_TIME_HOURS))
     }

@@ -30,7 +30,7 @@ import reactor.util.function.Tuples
 import java.util.concurrent.atomic.AtomicInteger
 
 open class XpubAddresses(
-        private val addressActiveCheck: AddressActiveCheck
+    private val addressActiveCheck: AddressActiveCheck
 ) {
 
     companion object {
@@ -76,28 +76,27 @@ open class XpubAddresses(
         }
 
         return Flux.range(start, limit)
-                .map { HDKeyDerivation.deriveChildKey(key, ChildNumber(it, false)) }
-                .map { Address.fromKey(network, ECKey.fromPublicOnly(it.pubKeyPoint), type) }
+            .map { HDKeyDerivation.deriveChildKey(key, ChildNumber(it, false)) }
+            .map { Address.fromKey(network, ECKey.fromPublicOnly(it.pubKeyPoint), type) }
     }
 
     open fun activeAddresses(xpub: String, start: Int, limit: Int): Flux<Address> {
         val lastActive = AtomicInteger(0)
         return this.allAddresses(xpub, start, limit)
-                .zipWith(Flux.range(0, limit))
-                .takeUntil {
-                    it.t2 - lastActive.get() >= INACTIVE_LIMIT
-                }
-                .concatMap { toCheck ->
-                    addressActiveCheck.isActive(toCheck.t1)
-                            .doOnNext { active -> if (active) lastActive.set(toCheck.t2) }
-                            .map { Tuples.of(toCheck.t1, it) }
-                }
-                .filter {
-                    it.t2
-                }
-                .map {
-                    it.t1
-                }
+            .zipWith(Flux.range(0, limit))
+            .takeUntil {
+                it.t2 - lastActive.get() >= INACTIVE_LIMIT
+            }
+            .concatMap { toCheck ->
+                addressActiveCheck.isActive(toCheck.t1)
+                    .doOnNext { active -> if (active) lastActive.set(toCheck.t2) }
+                    .map { Tuples.of(toCheck.t1, it) }
+            }
+            .filter {
+                it.t2
+            }
+            .map {
+                it.t1
+            }
     }
-
 }

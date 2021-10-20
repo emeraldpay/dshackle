@@ -19,10 +19,9 @@ package io.emeraldpay.dshackle.data
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import org.bouncycastle.util.encoders.Hex
-import java.math.BigInteger
 
 class TxId(
-        value: ByteArray
+    value: ByteArray
 ) : HashId(value) {
 
     companion object {

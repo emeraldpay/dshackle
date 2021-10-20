@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class RpcUnspentReader(
-        private val upstreams: BitcoinMultistream
+    private val upstreams: BitcoinMultistream
 ) : UnspentReader {
 
     companion object {
@@ -35,10 +35,10 @@ class RpcUnspentReader(
 
     private val convert: (T: RpcUnspent) -> SimpleUnspent = { base ->
         SimpleUnspent(
-                base.txid,
-                base.vout,
-                base.amount,
-                base.confirmations
+            base.txid,
+            base.vout,
+            base.amount,
+            base.confirmations
         )
     }
 
@@ -46,16 +46,15 @@ class RpcUnspentReader(
         val address = key.toString()
         return upstreams.getDirectApi(Selector.empty).flatMap { api ->
             api.read(JsonRpcRequest("listunspent", emptyList()))
-                    .flatMap(JsonRpcResponse::requireResult)
-                    .map {
-                        Global.objectMapper.readerFor(RpcUnspent::class.java).readValues<RpcUnspent>(it).readAll()
-                    }
-                    .map {
-                        it.filter {
-                            it.address == address
-                        }.map(convert)
-                    }
+                .flatMap(JsonRpcResponse::requireResult)
+                .map {
+                    Global.objectMapper.readerFor(RpcUnspent::class.java).readValues<RpcUnspent>(it).readAll()
+                }
+                .map {
+                    it.filter {
+                        it.address == address
+                    }.map(convert)
+                }
         }
     }
-
 }

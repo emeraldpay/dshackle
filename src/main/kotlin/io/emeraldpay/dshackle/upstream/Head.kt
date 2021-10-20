@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 /**
  * Subscription to listen to updates to the head of a blockchain.

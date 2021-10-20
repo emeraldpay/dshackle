@@ -36,8 +36,8 @@ import java.util.function.BiFunction
  * If any of the expected block transactions is not available it returns empty
  */
 class EthereumFullBlocksReader(
-        private val blocks: Reader<BlockId, BlockContainer>,
-        private val txes: Reader<TxId, TxContainer>
+    private val blocks: Reader<BlockId, BlockContainer>,
+    private val txes: Reader<TxId, TxContainer>
 ) : Reader<BlockId, BlockContainer> {
 
     companion object {
@@ -58,11 +58,11 @@ class EthereumFullBlocksReader(
             if (block.transactions.isEmpty()) {
                 // in fact it's not necessary to create a copy, made just for code clarity but it may be a performance loss
                 val fullBlock = BlockContainer(
-                        block.height, block.hash, block.difficulty, block.timestamp,
-                        true,
-                        block.json,
-                        block.parsed,
-                        block.transactions
+                    block.height, block.hash, block.difficulty, block.timestamp,
+                    true,
+                    block.json,
+                    block.parsed,
+                    block.transactions
                 )
                 return@flatMap Mono.just(fullBlock)
             }
@@ -70,8 +70,8 @@ class EthereumFullBlocksReader(
             val blockSplit = splitByTransactions(block.json!!)
 
             val transactions = Flux.fromIterable(block.transactions)
-                    .flatMapSequential { txes.read(it) }
-                    .collectList()
+                .flatMapSequential { txes.read(it) }
+                .collectList()
 
             return@flatMap transactions.flatMap { transactionsData ->
                 // make sure that all transaction are loaded, otherwise just return empty because cannot make full block data
@@ -79,17 +79,22 @@ class EthereumFullBlocksReader(
                     log.warn("No data to fill the block")
                     Mono.empty()
                 } else {
-                    joinWithTransactions(blockSplit.t1, blockSplit.t2, Flux.fromIterable(transactionsData).map { it.json!! })
-                            .reduce(ByteBuffer.allocate(block.json.size * 4), accumulate)
-                            .map(this@EthereumFullBlocksReader::extractContent)
-                            .map { json ->
-                                BlockContainer(block.height, block.hash, block.difficulty, block.timestamp,
-                                        true,
-                                        json,
-                                        null,
-                                        block.transactions
-                                )
-                            }
+                    joinWithTransactions(
+                        blockSplit.t1,
+                        blockSplit.t2,
+                        Flux.fromIterable(transactionsData).map { it.json!! }
+                    )
+                        .reduce(ByteBuffer.allocate(block.json.size * 4), accumulate)
+                        .map(this@EthereumFullBlocksReader::extractContent)
+                        .map { json ->
+                            BlockContainer(
+                                block.height, block.hash, block.difficulty, block.timestamp,
+                                true,
+                                json,
+                                null,
+                                block.transactions
+                            )
+                        }
                 }
             }
         }
@@ -103,7 +108,7 @@ class EthereumFullBlocksReader(
     }
 
     fun splitByTransactions(json: ByteArray): Tuple2<ByteArray, ByteArray> {
-        //TODO find a lib that implements Knuth-Morris-Pratt Pattern Matching Algorithm for byte arrays
+        // TODO find a lib that implements Knuth-Morris-Pratt Pattern Matching Algorithm for byte arrays
         // and reimplement without making a string copy from bytes
 
         val s = String(json)
@@ -119,23 +124,22 @@ class EthereumFullBlocksReader(
 
     fun joinWithTransactions(head: ByteArray, tail: ByteArray, transactions: Flux<ByteArray>): Flux<ByteArray> {
         val separator = Flux.range(0, Integer.MAX_VALUE)
-                .map { it != 0 }
+            .map { it != 0 }
 
         val transactionsWithSeparator = transactions.zipWith(separator)
-                .flatMap {
-                    val tx = Flux.just(it.t1)
-                    if (it.t2) {
-                        Flux.concat(Flux.just(",".toByteArray()), tx)
-                    } else {
-                        tx
-                    }
+            .flatMap {
+                val tx = Flux.just(it.t1)
+                if (it.t2) {
+                    Flux.concat(Flux.just(",".toByteArray()), tx)
+                } else {
+                    tx
                 }
+            }
 
         return Flux.concat(
-                Flux.just(head),
-                transactionsWithSeparator,
-                Flux.just(tail)
+            Flux.just(head),
+            transactionsWithSeparator,
+            Flux.just(tail)
         )
     }
-
 }

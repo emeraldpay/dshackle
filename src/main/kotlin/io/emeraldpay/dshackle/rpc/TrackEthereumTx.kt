@@ -19,19 +19,19 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.grpc.BlockchainType
+import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -48,7 +48,7 @@ import kotlin.math.min
 
 @Service
 class TrackEthereumTx(
-        @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder
 ) : TrackTx {
 
     companion object {
@@ -70,63 +70,62 @@ class TrackEthereumTx(
         val base = prepareTracking(request)
         val up = getUpstream(base.chain)
         return update(base)
-                .defaultIfEmpty(base)
-                .flatMapMany {
-                    Flux.concat(Mono.just(it), subscribe(it, up))
-                            .distinctUntilChanged(TxDetails::status)
-                            .map(this@TrackEthereumTx::asProto)
-                            .subscribeOn(scheduler)
-                }
-                .doOnError { t ->
-                    log.error("Subscription error", t)
-                }
+            .defaultIfEmpty(base)
+            .flatMapMany {
+                Flux.concat(Mono.just(it), subscribe(it, up))
+                    .distinctUntilChanged(TxDetails::status)
+                    .map(this@TrackEthereumTx::asProto)
+                    .subscribeOn(scheduler)
+            }
+            .doOnError { t ->
+                log.error("Subscription error", t)
+            }
     }
-
 
     fun getUpstream(chain: Chain): EthereumMultistream {
         return multistreamHolder.getUpstream(chain)?.cast(EthereumMultistream::class.java)
-                ?: throw SilentException.UnsupportedBlockchain(chain)
+            ?: throw SilentException.UnsupportedBlockchain(chain)
     }
 
     fun subscribe(base: TxDetails, up: EthereumMultistream): Flux<TxDetails> {
         var latestTx = base
 
         val untilFound = Mono.just(latestTx)
-                .subscribeOn(scheduler)
-                .map {
-                    //replace with the latest value, it may be already found
-                    latestTx
+            .subscribeOn(scheduler)
+            .map {
+                // replace with the latest value, it may be already found
+                latestTx
+            }
+            .flatMap { latest ->
+                if (!latest.status.found) {
+                    update(latest).defaultIfEmpty(latestTx)
+                } else {
+                    Mono.just(latest)
                 }
-                .flatMap { latest ->
-                    if (!latest.status.found) {
-                        update(latest).defaultIfEmpty(latestTx)
-                    } else {
-                        Mono.just(latest)
-                    }
+            }
+            .flatMap { received ->
+                if (!received.status.found) {
+                    Mono.error(SilentException("Retry not found"))
+                } else {
+                    Mono.just(received)
                 }
-                .flatMap { received ->
-                    if (!received.status.found) {
-                        Mono.error(SilentException("Retry not found"))
-                    } else {
-                        Mono.just(received)
-                    }
-                }
-                .retryWhen(
-                        Retry.fixedDelay(10, Duration.ofSeconds(2))
-                )
-                .onErrorResume { Mono.empty() }
+            }
+            .retryWhen(
+                Retry.fixedDelay(10, Duration.ofSeconds(2))
+            )
+            .onErrorResume { Mono.empty() }
 
         val inBlocks = up.getHead().getFlux()
-                .subscribeOn(scheduler)
-                .flatMap { block ->
-                    onNewBlock(latestTx, block)
-                }
+            .subscribeOn(scheduler)
+            .flatMap { block ->
+                onNewBlock(latestTx, block)
+            }
 
         return Flux.merge(untilFound, inBlocks)
-                .takeUntil(TxDetails::shouldClose)
-                .doOnNext { newTx ->
-                    latestTx = newTx
-                }
+            .takeUntil(TxDetails::shouldClose)
+            .doOnNext { newTx ->
+                latestTx = newTx
+            }
     }
 
     fun onNewBlock(tx: TxDetails, block: BlockContainer): Mono<TxDetails> {
@@ -134,7 +133,8 @@ class TrackEthereumTx(
         if (!tx.status.mined) {
             val justMined = block.transactions.contains(txid)
             return if (justMined) {
-                Mono.just(tx.withStatus(
+                Mono.just(
+                    tx.withStatus(
                         mined = true,
                         found = true,
                         confirmations = 1,
@@ -142,13 +142,14 @@ class TrackEthereumTx(
                         blockTime = block.timestamp,
                         blockTotalDifficulty = block.difficulty,
                         blockHash = BlockHash(block.hash.value)
-                ))
+                    )
+                )
             } else {
                 update(tx)
             }
         } else {
-            //verify if it's still on chain
-            //TODO head is supposed to erase block when it was replaced, so can safely recalc here
+            // verify if it's still on chain
+            // TODO head is supposed to erase block when it was replaced, so can safely recalc here
             return update(tx)
         }
     }
@@ -157,19 +158,19 @@ class TrackEthereumTx(
         val initialStatus = tx.status
         val upstream = getUpstream(tx.chain)
         return upstream.getReader()
-                .txByHash().read(tx.txid)
-                .onErrorResume(RpcException::class.java) { t ->
-                    log.warn("Upstream error, ignoring. {}", t.rpcMessage)
-                    Mono.empty<TransactionJson>()
-                }
-                .flatMap { updateFromBlock(upstream, tx, it) }
-                .doOnError { t ->
-                    log.error("Failed to load tx block", t)
-                }
-                .switchIfEmpty(Mono.just(tx.withStatus(found = false)))
-                .filter { current ->
-                    initialStatus != current.status || current.shouldClose()
-                }
+            .txByHash().read(tx.txid)
+            .onErrorResume(RpcException::class.java) { t ->
+                log.warn("Upstream error, ignoring. {}", t.rpcMessage)
+                Mono.empty<TransactionJson>()
+            }
+            .flatMap { updateFromBlock(upstream, tx, it) }
+            .doOnError { t ->
+                log.error("Failed to load tx block", t)
+            }
+            .switchIfEmpty(Mono.just(tx.withStatus(found = false)))
+            .filter { current ->
+                initialStatus != current.status || current.shouldClose()
+            }
     }
 
     fun prepareTracking(request: BlockchainOuterClass.TxStatusRequest): TxDetails {
@@ -178,10 +179,10 @@ class TrackEthereumTx(
             throw SilentException.UnsupportedBlockchain(request.chainValue)
         }
         val details = TxDetails(
-                chain,
-                Instant.now(),
-                TransactionId.from(request.txId),
-                min(max(1, request.confirmationLimit), 100)
+            chain,
+            Instant.now(),
+            TransactionId.from(request.txId),
+            min(max(1, request.confirmationLimit), 100)
         )
         return details
     }
@@ -189,12 +190,12 @@ class TrackEthereumTx(
     fun setBlockDetails(tx: TxDetails, block: BlockJson<TransactionRefJson>): TxDetails {
         return if (block.number != null && block.totalDifficulty != null) {
             tx.withStatus(
-                    blockTotalDifficulty = block.totalDifficulty,
-                    blockTime = block.timestamp
+                blockTotalDifficulty = block.totalDifficulty,
+                blockTime = block.timestamp
             )
         } else {
             tx.withStatus(
-                    mined = false
+                mined = false
             )
         }
     }
@@ -205,22 +206,22 @@ class TrackEthereumTx(
             return Mono.empty()
         }
         return upstream.getReader()
-                .blocksByHashParsed().read(tx.status.blockHash)
-                .map { block ->
-                    setBlockDetails(tx, block)
-                }.doOnError { t ->
-                    log.warn("Failed to update weight", t)
-                }
+            .blocksByHashParsed().read(tx.status.blockHash)
+            .map { block ->
+                setBlockDetails(tx, block)
+            }.doOnError { t ->
+                log.warn("Failed to update weight", t)
+            }
     }
 
     fun updateFromBlock(upstream: EthereumMultistream, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
         return if (blockTx.blockNumber != null && blockTx.blockHash != null && blockTx.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
-                    blockHash = blockTx.blockHash,
-                    height = blockTx.blockNumber,
-                    found = true,
-                    mined = true,
-                    confirmations = 1
+                blockHash = blockTx.blockHash,
+                height = blockTx.blockNumber,
+                found = true,
+                mined = true,
+                confirmations = 1
             )
             upstream.getHead().getFlux().next().map { head ->
                 val height = updated.status.height
@@ -228,72 +229,89 @@ class TrackEthereumTx(
                     updated
                 } else {
                     updated.withStatus(
-                            confirmations = head.height - height + 1
+                        confirmations = head.height - height + 1
                     )
                 }
             }.doOnError { t ->
                 log.error("Unable to load head details", t)
             }.flatMap(this::loadWeight)
         } else {
-            Mono.just(tx.withStatus(
+            Mono.just(
+                tx.withStatus(
                     found = true,
                     mined = false
-            ))
+                )
+            )
         }
     }
 
     private fun asProto(tx: TxDetails): BlockchainOuterClass.TxStatus {
         val data = BlockchainOuterClass.TxStatus.newBuilder()
-                .setTxId(tx.txid.toHex())
-                .setConfirmations(tx.status.confirmations.toInt())
+            .setTxId(tx.txid.toHex())
+            .setConfirmations(tx.status.confirmations.toInt())
 
         data.broadcasted = tx.status.found
         val isMined = tx.status.mined
         data.mined = isMined
         if (isMined) {
             data.setBlock(
-                    Common.BlockInfo.newBuilder()
-                            .setBlockId(tx.status.blockHash!!.toHex().substring(2))
-                            .setTimestamp(tx.status.blockTime!!.toEpochMilli())
-                            .setWeight(ByteString.copyFrom(tx.status.blockTotalDifficulty!!.toByteArray()))
-                            .setHeight(tx.status.height!!)
+                Common.BlockInfo.newBuilder()
+                    .setBlockId(tx.status.blockHash!!.toHex().substring(2))
+                    .setTimestamp(tx.status.blockTime!!.toEpochMilli())
+                    .setWeight(ByteString.copyFrom(tx.status.blockTotalDifficulty!!.toByteArray()))
+                    .setHeight(tx.status.height!!)
             )
         }
         return data.build()
     }
 
-    class TxDetails(val chain: Chain,
-                    val since: Instant,
-                    val txid: TransactionId,
-                    val maxConfirmations: Int,
-                    val status: TxStatus
+    class TxDetails(
+        val chain: Chain,
+        val since: Instant,
+        val txid: TransactionId,
+        val maxConfirmations: Int,
+        val status: TxStatus
     ) {
 
-        constructor(chain: Chain,
-                    since: Instant,
-                    txid: TransactionId,
-                    maxConfirmations: Int) : this(chain, since, txid, maxConfirmations, TxStatus())
+        constructor(
+            chain: Chain,
+            since: Instant,
+            txid: TransactionId,
+            maxConfirmations: Int
+        ) : this(chain, since, txid, maxConfirmations, TxStatus())
 
         fun copy(
-                since: Instant = this.since,
-                status: TxStatus = this.status
+            since: Instant = this.since,
+            status: TxStatus = this.status
         ) = TxDetails(chain, since, txid, maxConfirmations, status)
 
-        fun withStatus(found: Boolean = this.status.found,
-                       height: Long? = this.status.height,
-                       mined: Boolean = this.status.mined,
-                       blockHash: BlockHash? = this.status.blockHash,
-                       blockTime: Instant? = this.status.blockTime,
-                       blockTotalDifficulty: BigInteger? = this.status.blockTotalDifficulty,
-                       confirmations: Long = this.status.confirmations): TxDetails {
-            return copy(status = this.status.copy(found, height, mined, blockHash, blockTime, blockTotalDifficulty, confirmations))
+        fun withStatus(
+            found: Boolean = this.status.found,
+            height: Long? = this.status.height,
+            mined: Boolean = this.status.mined,
+            blockHash: BlockHash? = this.status.blockHash,
+            blockTime: Instant? = this.status.blockTime,
+            blockTotalDifficulty: BigInteger? = this.status.blockTotalDifficulty,
+            confirmations: Long = this.status.confirmations
+        ): TxDetails {
+            return copy(
+                status = this.status.copy(
+                    found,
+                    height,
+                    mined,
+                    blockHash,
+                    blockTime,
+                    blockTotalDifficulty,
+                    confirmations
+                )
+            )
         }
 
         fun shouldClose(): Boolean {
-            return maxConfirmations <= this.status.confirmations
-                    || since.isBefore(Instant.now().minus(TRACK_TTL))
-                    || (!status.found && since.isBefore(Instant.now().minus(NOT_FOUND_TRACK_TTL)))
-                    || (!status.mined && since.isBefore(Instant.now().minus(NOT_MINED_TRACK_TTL)))
+            return maxConfirmations <= this.status.confirmations ||
+                since.isBefore(Instant.now().minus(TRACK_TTL)) ||
+                (!status.found && since.isBefore(Instant.now().minus(NOT_FOUND_TRACK_TTL))) ||
+                (!status.mined && since.isBefore(Instant.now().minus(NOT_MINED_TRACK_TTL)))
         }
 
         override fun toString(): String {
@@ -320,25 +338,27 @@ class TrackEthereumTx(
             result = 31 * result + status.hashCode()
             return result
         }
-
     }
 
-    class TxStatus(val found: Boolean = false,
-                   val height: Long? = null,
-                   val mined: Boolean = false,
-                   val blockHash: BlockHash? = null,
-                   val blockTime: Instant? = null,
-                   val blockTotalDifficulty: BigInteger? = null,
-                   val confirmations: Long = 0) {
+    class TxStatus(
+        val found: Boolean = false,
+        val height: Long? = null,
+        val mined: Boolean = false,
+        val blockHash: BlockHash? = null,
+        val blockTime: Instant? = null,
+        val blockTotalDifficulty: BigInteger? = null,
+        val confirmations: Long = 0
+    ) {
 
-        fun copy(found: Boolean = this.found,
-                 height: Long? = this.height,
-                 mined: Boolean = this.mined,
-                 blockHash: BlockHash? = this.blockHash,
-                 blockTime: Instant? = this.blockTime,
-                 blockTotalDifficulty: BigInteger? = this.blockTotalDifficulty,
-                 confirmation: Long = this.confirmations)
-                = TxStatus(found, height, mined, blockHash, blockTime, blockTotalDifficulty, confirmation)
+        fun copy(
+            found: Boolean = this.found,
+            height: Long? = this.height,
+            mined: Boolean = this.mined,
+            blockHash: BlockHash? = this.blockHash,
+            blockTime: Instant? = this.blockTime,
+            blockTotalDifficulty: BigInteger? = this.blockTotalDifficulty,
+            confirmation: Long = this.confirmations
+        ) = TxStatus(found, height, mined, blockHash, blockTime, blockTotalDifficulty, confirmation)
 
         fun clean() = TxStatus(false, null, false, null, null, null, 0)
 
@@ -369,7 +389,5 @@ class TrackEthereumTx(
         override fun toString(): String {
             return "TxStatus(found=$found, height=$height, mined=$mined, blockHash=$blockHash, blockTime=$blockTime, blockTotalDifficulty=$blockTotalDifficulty, confirmations=$confirmations)"
         }
-
-
     }
 }

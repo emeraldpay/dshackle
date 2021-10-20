@@ -32,14 +32,15 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class BitcoinRpcHead(
-        private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
-        private val extractBlock: ExtractBlock,
-        private val interval: Duration = Duration.ofSeconds(15)
+    private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val extractBlock: ExtractBlock,
+    private val interval: Duration = Duration.ofSeconds(15)
 ) : Head, AbstractHead(), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinRpcHead::class.java)
-        val scheduler = Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("bitcoin-rpc-head")))
+        val scheduler =
+            Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("bitcoin-rpc-head")))
     }
 
     private var refreshSubscription: Disposable? = null
@@ -54,22 +55,22 @@ class BitcoinRpcHead(
             return
         }
         val base = Flux.interval(interval)
-                .publishOn(scheduler)
-                .flatMap {
-                    api.read(JsonRpcRequest("getbestblockhash", emptyList()))
-                            .flatMap(JsonRpcResponse::requireStringResult)
-                            .timeout(Defaults.timeout, Mono.error(Exception("Best block hash is not received")))
-                }
-                .distinctUntilChanged()
-                .flatMap { hash ->
-                    api.read(JsonRpcRequest("getblock", listOf(hash)))
-                            .flatMap(JsonRpcResponse::requireResult)
-                            .map(extractBlock::extract)
-                            .timeout(Defaults.timeout, Mono.error(Exception("Block data is not received")))
-                }
-                .onErrorContinue { err, _ ->
-                    log.debug("RPC error ${err.message}")
-                }
+            .publishOn(scheduler)
+            .flatMap {
+                api.read(JsonRpcRequest("getbestblockhash", emptyList()))
+                    .flatMap(JsonRpcResponse::requireStringResult)
+                    .timeout(Defaults.timeout, Mono.error(Exception("Best block hash is not received")))
+            }
+            .distinctUntilChanged()
+            .flatMap { hash ->
+                api.read(JsonRpcRequest("getblock", listOf(hash)))
+                    .flatMap(JsonRpcResponse::requireResult)
+                    .map(extractBlock::extract)
+                    .timeout(Defaults.timeout, Mono.error(Exception("Block data is not received")))
+            }
+            .onErrorContinue { err, _ ->
+                log.debug("RPC error ${err.message}")
+            }
         refreshSubscription = super.follow(base)
     }
 
@@ -78,5 +79,4 @@ class BitcoinRpcHead(
         refreshSubscription = null
         copy?.dispose()
     }
-
 }

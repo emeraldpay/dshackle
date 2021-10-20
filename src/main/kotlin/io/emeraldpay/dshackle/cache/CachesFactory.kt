@@ -27,14 +27,13 @@ import io.lettuce.core.codec.StringCodec
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
-import java.util.*
+import java.util.EnumMap
 import javax.annotation.PostConstruct
 import kotlin.system.exitProcess
 
-
 @Repository
 open class CachesFactory(
-        @Autowired private val cacheConfig: CacheConfig
+    @Autowired private val cacheConfig: CacheConfig
 ) {
 
     companion object {
@@ -50,14 +49,14 @@ open class CachesFactory(
         val redisConfig = cacheConfig.redis ?: return
 
         var uri = RedisURI.builder()
-                .withHost(redisConfig.host)
-                .withPort(redisConfig.port)
+            .withHost(redisConfig.host)
+            .withPort(redisConfig.port)
 
         redisConfig.db?.let { value ->
             uri = uri.withDatabase(value)
         }
 
-        //log URI _before_ adding a password, to avoid leaking it to the log
+        // log URI _before_ adding a password, to avoid leaking it to the log
         log.info("Use Redis cache at: ${uri.build().toURI()}")
 
         redisConfig.password?.let { value ->

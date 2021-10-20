@@ -16,9 +16,12 @@
 package io.emeraldpay.dshackle.cache
 
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.data.*
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.DefaultContainer
+import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.CompoundReader
-import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumFullBlocksReader
@@ -30,14 +33,14 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 open class Caches(
-        private val memBlocksByHash: BlocksMemCache,
-        private val blocksByHeight: HeightCache,
-        private val memTxsByHash: TxMemCache,
-        private val memReceipts: ReceiptMemCache,
-        private val redisBlocksByHash: BlocksRedisCache?,
-        private val redisTxsByHash: TxRedisCache?,
-        private val redisReceipts: ReceiptRedisCache?,
-        private val redisHeightByHashCache: HeightByHashRedisCache?
+    private val memBlocksByHash: BlocksMemCache,
+    private val blocksByHeight: HeightCache,
+    private val memTxsByHash: TxMemCache,
+    private val memReceipts: ReceiptMemCache,
+    private val redisBlocksByHash: BlocksRedisCache?,
+    private val redisTxsByHash: TxRedisCache?,
+    private val redisReceipts: ReceiptRedisCache?,
+    private val redisHeightByHashCache: HeightByHashRedisCache?
 ) {
 
     companion object {
@@ -91,17 +94,17 @@ open class Caches(
         if (currentHeight != null && data.height != null && memReceipts.acceptsRecentBlocks(currentHeight - data.height)) {
             memReceipts.add(data)
         }
-        //TODO move subscription to the caller
+        // TODO move subscription to the caller
         redisReceipts?.add(data)?.subscribe()
     }
 
     fun cache(tag: Tag, tx: TxContainer) {
-        //do not cache transactions that are not in a block yet
+        // do not cache transactions that are not in a block yet
         if (tx.blockId == null) {
             return
         }
         memTxsByHash.add(tx)
-        //TODO move subscription to the caller
+        // TODO move subscription to the caller
         getBlocksByHash().read(tx.blockId).flatMap { block ->
             redisTxsByHash?.add(tx, block) ?: Mono.empty()
         }.subscribe()
@@ -113,14 +116,14 @@ open class Caches(
         redisHeightByHashCache?.add(block)?.let(job::add)
 
         if (tag == Tag.LATEST) {
-            //for LATEST data cache it in memory, it may be short living so better to avoid Redis
+            // for LATEST data cache it in memory, it may be short living so better to avoid Redis
             memoizeBlock(block)
         } else if (tag == Tag.REQUESTED) {
             val blockOnlyContainer: BlockContainer?
             var jsonValue: BlockJson<*>? = null
             if (block.full) {
                 jsonValue = Global.objectMapper.readValue<BlockJson<*>>(block.json, BlockJson::class.java)
-                //shouldn't cache block json with transactions, separate txes and blocks with refs
+                // shouldn't cache block json with transactions, separate txes and blocks with refs
                 val blockOnly = jsonValue.withoutTransactionDetails()
                 blockOnlyContainer = BlockContainer.from(blockOnly)
             } else {
@@ -138,15 +141,17 @@ open class Caches(
                         TxContainer.from(tx)
                     }
                     if (redisTxsByHash != null) {
-                        job.add(Flux.fromIterable(transactions)
+                        job.add(
+                            Flux.fromIterable(transactions)
                                 .doOnNext { memTxsByHash.add(it) }
                                 .flatMap { redisTxsByHash.add(it, block) }
-                                .then())
+                                .then()
+                        )
                     }
                 }
             }
         }
-        Flux.fromIterable(job).flatMap { it }.subscribe() //TODO move out to a caller
+        Flux.fromIterable(job).flatMap { it }.subscribe() // TODO move out to a caller
     }
 
     /**
@@ -156,7 +161,7 @@ open class Caches(
         memBlocksByHash.add(block)
         memHeightByHash.add(block)
         val replaced = blocksByHeight.add(block)
-        //evict cached transactions if an existing block was updated
+        // evict cached transactions if an existing block was updated
         replaced?.let { evict(it) }
     }
 
@@ -222,7 +227,7 @@ open class Caches(
         REQUESTED
     }
 
-    class Builder() {
+    class Builder {
         private var blocksByHash: BlocksMemCache? = null
         private var blocksByHeight: HeightCache? = null
         private var txsByHash: TxMemCache? = null
@@ -285,8 +290,10 @@ open class Caches(
             if (receipts == null) {
                 receipts = ReceiptMemCache()
             }
-            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, receipts!!,
-                    redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache)
+            return Caches(
+                blocksByHash!!, blocksByHeight!!, txsByHash!!, receipts!!,
+                redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache
+            )
         }
     }
 }

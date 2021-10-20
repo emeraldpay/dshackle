@@ -17,7 +17,7 @@
 package io.emeraldpay.dshackle.data
 
 open class HashId(
-        val value: ByteArray
+    val value: ByteArray
 ) {
 
     companion object {
@@ -56,6 +56,4 @@ open class HashId(
     override fun hashCode(): Int {
         return value.contentHashCode()
     }
-
-
 }

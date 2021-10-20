@@ -29,36 +29,36 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class BitcoinUpstreamValidator(
-        private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
-        private val options: UpstreamsConfig.Options
+    private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val options: UpstreamsConfig.Options
 ) {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstreamValidator::class.java)
-        val scheduler = Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("bitcoin-validator")))
+        val scheduler =
+            Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("bitcoin-validator")))
     }
 
     fun validate(): Mono<UpstreamAvailability> {
         return api.read(JsonRpcRequest("getconnectioncount", emptyList()))
-                .flatMap(JsonRpcResponse::requireResult)
-                .map { Integer.parseInt(String(it)) }
-                .map { count ->
-                    val minPeers = options.minPeers ?: 1
-                    if (count < minPeers) {
-                        UpstreamAvailability.IMMATURE
-                    } else {
-                        UpstreamAvailability.OK
-                    }
+            .flatMap(JsonRpcResponse::requireResult)
+            .map { Integer.parseInt(String(it)) }
+            .map { count ->
+                val minPeers = options.minPeers ?: 1
+                if (count < minPeers) {
+                    UpstreamAvailability.IMMATURE
+                } else {
+                    UpstreamAvailability.OK
                 }
-                .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+            }
+            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
     fun start(): Flux<UpstreamAvailability> {
         return Flux.interval(Duration.ofSeconds(15))
-                .subscribeOn(scheduler)
-                .flatMap {
-                    validate()
-                }
+            .subscribeOn(scheduler)
+            .flatMap {
+                validate()
+            }
     }
-
 }

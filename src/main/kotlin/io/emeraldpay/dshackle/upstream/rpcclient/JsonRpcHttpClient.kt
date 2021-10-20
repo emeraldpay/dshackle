@@ -30,7 +30,7 @@ import java.io.ByteArrayInputStream
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
-import java.util.*
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
 
@@ -38,10 +38,10 @@ import java.util.function.Consumer
  * JSON RPC client
  */
 class JsonRpcHttpClient(
-        private val target: String,
-        private val metrics: RpcMetrics,
-        basicAuth: AuthConfig.ClientBasicAuth? = null,
-        tlsCAAuth: ByteArray? = null
+    private val target: String,
+    private val metrics: RpcMetrics,
+    basicAuth: AuthConfig.ClientBasicAuth? = null,
+    tlsCAAuth: ByteArray? = null
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
     companion object {
@@ -84,14 +84,20 @@ class JsonRpcHttpClient(
 
     fun execute(request: ByteArray): Mono<ByteArray> {
         val response = httpClient
-                .post()
-                .uri(target)
-                .send(Mono.just(request).map { Unpooled.wrappedBuffer(it) })
+            .post()
+            .uri(target)
+            .send(Mono.just(request).map { Unpooled.wrappedBuffer(it) })
 
         return response.response { header, bytes ->
             if (header.status().code() != 200) {
-                Mono.error(JsonRpcException(JsonRpcResponse.NumberId(-2),
-                        JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "HTTP Code: ${header.status().code()}"))
+                Mono.error(
+                    JsonRpcException(
+                        JsonRpcResponse.NumberId(-2),
+                        JsonRpcError(
+                            RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                            "HTTP Code: ${header.status().code()}"
+                        )
+                    )
                 )
             } else {
                 bytes.aggregate().asByteArray()
@@ -102,27 +108,26 @@ class JsonRpcHttpClient(
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         var startTime: Long = 0
         return Mono.just(key)
-                .map(JsonRpcRequest::toJson)
-                .doOnNext {
-                    startTime = System.nanoTime()
+            .map(JsonRpcRequest::toJson)
+            .doOnNext {
+                startTime = System.nanoTime()
+            }
+            .flatMap(this@JsonRpcHttpClient::execute)
+            .doOnNext {
+                if (startTime > 0) {
+                    val now = System.nanoTime()
+                    metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
                 }
-                .flatMap(this@JsonRpcHttpClient::execute)
-                .doOnNext {
-                    if (startTime > 0) {
-                        val now = System.nanoTime()
-                        metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
-                    }
+            }
+            .map(parser::parse)
+            .onErrorResume { t ->
+                val err = when (t) {
+                    is RpcException -> JsonRpcResponse.error(t.code, t.rpcMessage)
+                    is JsonRpcException -> JsonRpcResponse.error(t.error, JsonRpcResponse.NumberId(1))
+                    else -> JsonRpcResponse.error(1, t.message ?: t.javaClass.name)
                 }
-                .map(parser::parse)
-                .onErrorResume { t ->
-                    val err = when (t) {
-                        is RpcException -> JsonRpcResponse.error(t.code, t.rpcMessage)
-                        is JsonRpcException -> JsonRpcResponse.error(t.error, JsonRpcResponse.NumberId(1))
-                        else -> JsonRpcResponse.error(1, t.message ?: t.javaClass.name)
-                    }
-                    metrics.errors.increment()
-                    Mono.just(err)
-                }
+                metrics.errors.increment()
+                Mono.just(err)
+            }
     }
-
 }

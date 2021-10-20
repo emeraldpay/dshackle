@@ -19,7 +19,11 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -29,9 +33,9 @@ import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
-        chain: Chain,
-        val upstreams: MutableList<EthereumUpstream>,
-        caches: Caches
+    chain: Chain,
+    val upstreams: MutableList<EthereumUpstream>,
+    caches: Caches
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)) {
 
     companion object {

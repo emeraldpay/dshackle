@@ -23,14 +23,14 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
-import java.util.*
+import java.util.Collections
 
 /**
  * Get a matcher based on a criteria provided with a RPC request. I.e. when the client requests data for "latest", or "0x19f816" block.
  * The implementation is specific for Ethereum.
  */
 class EthereumCallSelector(
-        private val heightReader: Reader<BlockId, Long>
+    private val heightReader: Reader<BlockId, Long>
 ) {
 
     companion object {
@@ -38,11 +38,11 @@ class EthereumCallSelector(
 
         // ref https://eth.wiki/json-rpc/API#the-default-block-parameter
         private val TAG_METHODS = listOf(
-                "eth_getBalance",
-                "eth_getCode",
-                "eth_getTransactionCount",
-                // no "eth_getStorageAt" because it's has different structure, and therefore separate logic
-                "eth_call"
+            "eth_getBalance",
+            "eth_getCode",
+            "eth_getTransactionCount",
+            // no "eth_getStorageAt" because it's has different structure, and therefore separate logic
+            "eth_call"
         ).sorted()
     }
 
@@ -73,7 +73,7 @@ class EthereumCallSelector(
             // for earliest it doesn't nothing, we expect to have 0 block
             "earliest" -> 0L
             else -> if (tag.startsWith("0x")) {
-                return if (tag.length == 66) { //32-byte hash is represented as 0x + 64 characters
+                return if (tag.length == 66) { // 32-byte hash is represented as 0x + 64 characters
                     blockByHash(tag, head)
                 } else {
                     blockByHeight(tag)
@@ -115,12 +115,11 @@ class EthereumCallSelector(
         return try {
             val blockId = BlockId.from(blockHash)
             heightReader.read(blockId)
-                    .switchIfEmpty(Mono.justOrEmpty(head.getCurrentHeight()))
-                    .map { Selector.HeightMatcher(it) }
+                .switchIfEmpty(Mono.justOrEmpty(head.getCurrentHeight()))
+                .map { Selector.HeightMatcher(it) }
         } catch (t: Throwable) {
             log.warn("Invalid blockHash: $blockHash")
             Mono.empty<Selector.Matcher>()
         }
     }
-
 }

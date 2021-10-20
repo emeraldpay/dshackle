@@ -16,9 +16,9 @@
 package io.emeraldpay.dshackle.upstream.bitcoin.data
 
 data class RpcUnspent(
-        val txid: String,
-        val vout: Int,
-        val address: String,
-        val amount: Long,
-        val confirmations: Long
+    val txid: String,
+    val vout: Int,
+    val address: String,
+    val amount: Long,
+    val confirmations: Long
 )

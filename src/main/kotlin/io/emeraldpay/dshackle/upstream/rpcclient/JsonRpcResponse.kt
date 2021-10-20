@@ -21,9 +21,9 @@ import com.fasterxml.jackson.databind.SerializerProvider
 import reactor.core.publisher.Mono
 
 class JsonRpcResponse(
-        private val result: ByteArray?,
-        val error: JsonRpcError?,
-        val id: Id
+    private val result: ByteArray?,
+    val error: JsonRpcError?,
+    val id: Id
 ) {
 
     constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
@@ -38,7 +38,7 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun ok(value: ByteArray, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(value, null, id);
+            return JsonRpcResponse(value, null, id)
         }
 
         @JvmStatic

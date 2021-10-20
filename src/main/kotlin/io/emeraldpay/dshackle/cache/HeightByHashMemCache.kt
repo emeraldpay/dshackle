@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class HeightByHashMemCache(
-        maxSize: Int = 256
+    maxSize: Int = 256
 ) : Reader<BlockId, Long> {
 
     companion object {
@@ -31,8 +31,8 @@ class HeightByHashMemCache(
     }
 
     private val heights = Caffeine.newBuilder()
-            .maximumSize(maxSize.toLong())
-            .build<BlockId, Long>()
+        .maximumSize(maxSize.toLong())
+        .build<BlockId, Long>()
 
     override fun read(key: BlockId): Mono<Long> {
         return Mono.justOrEmpty(heights.getIfPresent(key))

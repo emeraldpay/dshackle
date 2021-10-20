@@ -23,14 +23,12 @@ import org.yaml.snakeyaml.nodes.MappingNode
 import org.yaml.snakeyaml.nodes.ScalarNode
 import reactor.util.function.Tuples
 import java.io.InputStream
-import java.lang.IllegalArgumentException
 import java.net.URI
 import java.time.Duration
-import java.util.*
-import kotlin.collections.ArrayList
+import java.util.Locale
 
 class UpstreamsConfigReader(
-        private val fileResolver: FileResolver
+    private val fileResolver: FileResolver
 ) : YamlConfigReader(), ConfigReader<UpstreamsConfig> {
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
@@ -198,7 +196,10 @@ class UpstreamsConfigReader(
         upstream.methods = tryReadMethods(upNode)
     }
 
-    internal fun readUpstreamGrpc(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>) {
+    internal fun readUpstreamGrpc(
+        upNode: MappingNode,
+        upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>
+    ) {
         if (hasAny(upNode, "labels")) {
             log.warn("Labels should be not applied to gRPC upstream")
         }
@@ -221,13 +222,13 @@ class UpstreamsConfigReader(
         if (hasAny(upNode, "labels")) {
             getMapping(upNode, "labels")?.let { labels ->
                 labels.value.stream()
-                        .filter { n -> n.keyNode is ScalarNode && n.valueNode is ScalarNode }
-                        .map { n -> Tuples.of((n.keyNode as ScalarNode).value, (n.valueNode as ScalarNode).value) }
-                        .map { kv -> Tuples.of(kv.t1.trim(), kv.t2.trim()) }
-                        .filter { kv -> StringUtils.isNotEmpty(kv.t1) && StringUtils.isNotEmpty(kv.t2) }
-                        .forEach { kv ->
-                            upstream.labels[kv.t1] = kv.t2
-                        }
+                    .filter { n -> n.keyNode is ScalarNode && n.valueNode is ScalarNode }
+                    .map { n -> Tuples.of((n.keyNode as ScalarNode).value, (n.valueNode as ScalarNode).value) }
+                    .map { kv -> Tuples.of(kv.t1.trim(), kv.t2.trim()) }
+                    .filter { kv -> StringUtils.isNotEmpty(kv.t1) && StringUtils.isNotEmpty(kv.t2) }
+                    .forEach { kv ->
+                        upstream.labels[kv.t1] = kv.t2
+                    }
             }
         }
     }
@@ -247,21 +248,21 @@ class UpstreamsConfigReader(
             val enabled = getList<MappingNode>(mnode, "enabled")?.value?.map { m ->
                 getValueAsString(m, "name")?.let { name ->
                     UpstreamsConfig.Method(
-                            name = name,
-                            quorum = getValueAsString(m, "quorum")
+                        name = name,
+                        quorum = getValueAsString(m, "quorum")
                     )
                 }
             }?.filterNotNull()?.toSet() ?: emptySet()
             val disabled = getList<MappingNode>(mnode, "disabled")?.value?.map { m ->
                 getValueAsString(m, "name")?.let { name ->
                     UpstreamsConfig.Method(
-                            name = name
+                        name = name
                     )
                 }
             }?.filterNotNull()?.toSet() ?: emptySet()
 
             UpstreamsConfig.Methods(
-                    enabled, disabled
+                enabled, disabled
             )
         }
     }
@@ -282,5 +283,4 @@ class UpstreamsConfigReader(
         }
         return options
     }
-
 }

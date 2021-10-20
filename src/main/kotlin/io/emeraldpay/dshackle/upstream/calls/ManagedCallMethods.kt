@@ -21,8 +21,7 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import org.slf4j.LoggerFactory
-import java.util.*
-import kotlin.collections.HashMap
+import java.util.Collections
 
 /**
  * Wrapper on top of another configuration, that may disable or enable additional methods on top of it.
@@ -30,10 +29,10 @@ import kotlin.collections.HashMap
  * parent config.
  */
 class ManagedCallMethods(
-        private val delegate: CallMethods,
-        private val enabled: Set<String>,
-        private val disabled: Set<String>
-): CallMethods {
+    private val delegate: CallMethods,
+    private val enabled: Set<String>,
+    private val disabled: Set<String>
+) : CallMethods {
 
     companion object {
         private val log = LoggerFactory.getLogger(ManagedCallMethods::class.java)
@@ -42,7 +41,7 @@ class ManagedCallMethods(
 
     private val delegated = delegate.getSupportedMethods().sorted()
     private val allAllowed: Set<String> = Collections.unmodifiableSet(
-            enabled + delegated - disabled
+        enabled + delegated - disabled
     )
     private val quorum: MutableMap<String, CallQuorum> = HashMap()
 

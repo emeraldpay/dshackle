@@ -21,5 +21,4 @@ package io.emeraldpay.dshackle.cache
 interface CachesEnabled {
 
     fun setCaches(caches: Caches)
-
 }

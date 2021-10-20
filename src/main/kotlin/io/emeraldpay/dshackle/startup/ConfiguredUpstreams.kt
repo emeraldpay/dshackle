@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.startup
 
-import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -34,49 +33,48 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
-import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.stereotype.Repository
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Repository
 import java.net.URI
-import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import javax.annotation.PostConstruct
-import kotlin.collections.HashMap
 
 @Repository
 open class ConfiguredUpstreams(
-        @Autowired private val currentUpstreams: CurrentMultistreamHolder,
-        @Autowired private val fileResolver: FileResolver,
-        @Autowired private val config: UpstreamsConfig,
-        @Autowired private val cachesFactory: CachesFactory
+    @Autowired private val currentUpstreams: CurrentMultistreamHolder,
+    @Autowired private val fileResolver: FileResolver,
+    @Autowired private val config: UpstreamsConfig,
+    @Autowired private val cachesFactory: CachesFactory
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
     private var seq = AtomicInteger(0)
 
     private val chainNames = mapOf(
-            "ethereum" to Chain.ETHEREUM,
-            "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
-            "eth" to Chain.ETHEREUM,
-            "polygon" to Chain.MATIC,
-            "matic" to Chain.MATIC,
-            "etc" to Chain.ETHEREUM_CLASSIC,
-            "morden" to Chain.TESTNET_MORDEN,
-            "kovan" to Chain.TESTNET_KOVAN,
-            "kovan-testnet" to Chain.TESTNET_KOVAN,
-            "goerli" to Chain.TESTNET_GOERLI,
-            "goerli-testnet" to Chain.TESTNET_GOERLI,
-            "rinkeby" to Chain.TESTNET_RINKEBY,
-            "rinkeby-testnet" to Chain.TESTNET_RINKEBY,
-            "ropsten" to Chain.TESTNET_ROPSTEN,
-            "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
-            "bitcoin" to Chain.BITCOIN,
-            "bitcoin-testnet" to Chain.TESTNET_BITCOIN
+        "ethereum" to Chain.ETHEREUM,
+        "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
+        "eth" to Chain.ETHEREUM,
+        "polygon" to Chain.MATIC,
+        "matic" to Chain.MATIC,
+        "etc" to Chain.ETHEREUM_CLASSIC,
+        "morden" to Chain.TESTNET_MORDEN,
+        "kovan" to Chain.TESTNET_KOVAN,
+        "kovan-testnet" to Chain.TESTNET_KOVAN,
+        "goerli" to Chain.TESTNET_GOERLI,
+        "goerli-testnet" to Chain.TESTNET_GOERLI,
+        "rinkeby" to Chain.TESTNET_RINKEBY,
+        "rinkeby-testnet" to Chain.TESTNET_RINKEBY,
+        "ropsten" to Chain.TESTNET_ROPSTEN,
+        "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
+        "bitcoin" to Chain.BITCOIN,
+        "bitcoin-testnet" to Chain.TESTNET_BITCOIN
     )
 
     @PostConstruct
@@ -95,7 +93,7 @@ open class ConfiguredUpstreams(
                     return@forEach
                 }
                 val options = (up.options ?: UpstreamsConfig.Options())
-                        .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
+                    .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
                 when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> {
                         buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
@@ -135,9 +133,10 @@ open class ConfiguredUpstreams(
 
     fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
         return if (config.methods != null) {
-            ManagedCallMethods(currentUpstreams.getDefaultMethods(chain),
-                    config.methods!!.enabled.map { it.name }.toSet(),
-                    config.methods!!.disabled.map { it.name }.toSet()
+            ManagedCallMethods(
+                currentUpstreams.getDefaultMethods(chain),
+                config.methods!!.enabled.map { it.name }.toSet(),
+                config.methods!!.disabled.map { it.name }.toSet()
             ).also {
                 config.methods!!.enabled.forEach { m ->
                     if (m.quorum != null) {
@@ -150,9 +149,11 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildBitcoinUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>,
-                                     chain: Chain,
-                                     options: UpstreamsConfig.Options) {
+    private fun buildBitcoinUpstream(
+        config: UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>,
+        chain: Chain,
+        options: UpstreamsConfig.Options
+    ) {
 
         val conn = config.connection!!
         val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
@@ -171,19 +172,24 @@ open class ConfiguredUpstreams(
         }
 
         val methods = buildMethods(config, chain)
-        val upstream = BitcoinRpcUpstream(config.id
-                ?: "bitcoin-${seq.getAndIncrement()}", chain, directApi,
-                options, config.role,
-                QuorumForLabels.QuorumItem(1, config.labels),
-                methods, esplora)
+        val upstream = BitcoinRpcUpstream(
+            config.id
+                ?: "bitcoin-${seq.getAndIncrement()}",
+            chain, directApi,
+            options, config.role,
+            QuorumForLabels.QuorumItem(1, config.labels),
+            methods, esplora
+        )
 
         upstream.start()
         currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
     }
 
-    private fun buildEthereumUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
-                                      chain: Chain,
-                                      options: UpstreamsConfig.Options) {
+    private fun buildEthereumUpstream(
+        config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
+        chain: Chain,
+        options: UpstreamsConfig.Options
+    ) {
         val conn = config.connection!!
 
         val urls = ArrayList<URI>()
@@ -194,8 +200,8 @@ open class ConfiguredUpstreams(
 
         val wsFactoryApi: EthereumWsFactory? = conn.ws?.let { endpoint ->
             val wsApi = EthereumWsFactory(
-                    endpoint.url,
-                    endpoint.origin ?: URI("http://localhost"),
+                endpoint.url,
+                endpoint.origin ?: URI("http://localhost"),
             )
             wsApi.config = endpoint
             endpoint.basicAuth?.let { auth ->
@@ -208,11 +214,11 @@ open class ConfiguredUpstreams(
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
         val ethereumUpstream = if (wsFactoryApi != null && !conn.preferHttp) {
             EthereumWsUpstream(
-                    config.id!!,
-                    chain, wsFactoryApi,
-                    options, config.role,
-                    QuorumForLabels.QuorumItem(1, config.labels),
-                    methods
+                config.id!!,
+                chain, wsFactoryApi,
+                options, config.role,
+                QuorumForLabels.QuorumItem(1, config.labels),
+                methods
             )
         } else {
             val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
@@ -221,11 +227,11 @@ open class ConfiguredUpstreams(
                 return
             }
             EthereumRpcUpstream(
-                    config.id!!,
-                    chain, directApi, wsFactoryApi,
-                    options, config.role,
-                    QuorumForLabels.QuorumItem(1, config.labels),
-                    methods
+                config.id!!,
+                chain, directApi, wsFactoryApi,
+                options, config.role,
+                QuorumForLabels.QuorumItem(1, config.labels),
+                methods
             )
         }
 
@@ -233,23 +239,26 @@ open class ConfiguredUpstreams(
         currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
     }
 
-    private fun buildGrpcUpstream(config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>, options: UpstreamsConfig.Options) {
+    private fun buildGrpcUpstream(
+        config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
+        options: UpstreamsConfig.Options
+    ) {
         val endpoint = config.connection!!
         val ds = GrpcUpstreams(
-                config.id!!,
-                endpoint.host!!,
-                endpoint.port ?: 2449,
-                endpoint.auth,
-                fileResolver
+            config.id!!,
+            endpoint.host!!,
+            endpoint.port,
+            endpoint.auth,
+            fileResolver
         ).apply {
             timeout = options.timeout
         }
         log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
         ds.start()
-                .doOnNext {
-                    log.info("Chain ${it.chain} has ${it.type} through gRPC at ${endpoint.host}:${endpoint.port}")
-                }
-                .subscribe(currentUpstreams::update)
+            .doOnNext {
+                log.info("Chain ${it.chain} has ${it.type} through gRPC at ${endpoint.host}:${endpoint.port}")
+            }
+            .subscribe(currentUpstreams::update)
     }
 
     private fun buildHttpClient(config: UpstreamsConfig.Upstream<out UpstreamsConfig.RpcConnection>): JsonRpcHttpClient? {
@@ -262,28 +271,28 @@ open class ConfiguredUpstreams(
                 }
             }
             val metricsTags = listOf(
-                    // "unknown" is not supposed to happen
-                    Tag.of("upstream", config.id ?: "unknown"),
-                    // UNSPECIFIED shouldn't happen too
-                    Tag.of("chain", (chainNames[config.chain ?: ""] ?: Chain.UNSPECIFIED ).chainCode)
+                // "unknown" is not supposed to happen
+                Tag.of("upstream", config.id ?: "unknown"),
+                // UNSPECIFIED shouldn't happen too
+                Tag.of("chain", (chainNames[config.chain ?: ""] ?: Chain.UNSPECIFIED).chainCode)
             )
             val metrics = RpcMetrics(
-                    Timer.builder("upstream.rpc.conn")
-                            .description("Request time through a HTTP JSON RPC connection")
-                            .tags(metricsTags)
-                            .publishPercentileHistogram()
-                            .register(Metrics.globalRegistry),
-                    Counter.builder("upstream.rpc.err")
-                            .description("Errors received on request through HTTP JSON RPC connection")
-                            .tags(metricsTags)
-                            .register(Metrics.globalRegistry)
+                Timer.builder("upstream.rpc.conn")
+                    .description("Request time through a HTTP JSON RPC connection")
+                    .tags(metricsTags)
+                    .publishPercentileHistogram()
+                    .register(Metrics.globalRegistry),
+                Counter.builder("upstream.rpc.err")
+                    .description("Errors received on request through HTTP JSON RPC connection")
+                    .tags(metricsTags)
+                    .register(Metrics.globalRegistry)
             )
             urls.add(endpoint.url)
             JsonRpcHttpClient(
-                    endpoint.url.toString(),
-                    metrics,
-                    conn.rpc?.basicAuth,
-                    tls
+                endpoint.url.toString(),
+                metrics,
+                conn.rpc?.basicAuth,
+                tls
             )
         }
     }

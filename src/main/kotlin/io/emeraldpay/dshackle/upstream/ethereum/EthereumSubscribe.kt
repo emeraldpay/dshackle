@@ -3,14 +3,13 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectNewHeads
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectSyncing
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ProduceLogs
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 
 open class EthereumSubscribe(
-        val upstream: EthereumMultistream
+    val upstream: EthereumMultistream
 ) {
 
     companion object {
@@ -45,8 +44,8 @@ open class EthereumSubscribe(
     }
 
     data class LogsRequest(
-            val address: List<Address>,
-            val topics: List<Hex32>
+        val address: List<Address>,
+        val topics: List<Hex32>
     )
 
     fun readLogsRequest(params: Map<String, Any?>): LogsRequest {

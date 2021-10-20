@@ -21,33 +21,35 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.upstream.*
-import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.upstream.ApiSource
+import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.grpc.BlockchainType
+import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import reactor.core.publisher.*
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
-import java.lang.Exception
-import java.util.*
+import java.util.EnumMap
 
 @Service
 open class NativeCall(
-        @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -69,19 +71,19 @@ open class NativeCall(
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return nativeCallResult(requestMono)
-                .map(this::buildResponse)
-                .onErrorResume(this::processException)
+            .map(this::buildResponse)
+            .onErrorResume(this::processException)
     }
 
     open fun nativeCallResult(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<CallResult> {
         return requestMono.flatMapMany(this::prepareCall)
-                .map(this::parseParams)
-                .parallel()
-                .flatMap {
-                    this.fetch(it)
-                            .doOnError { e -> log.warn("Error during native call: ${e.message}") }
-                }
-                .sequential()
+            .map(this::parseParams)
+            .parallel()
+            .flatMap {
+                this.fetch(it)
+                    .doOnError { e -> log.warn("Error during native call: ${e.message}") }
+            }
+            .sequential()
     }
 
     fun parseParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
@@ -91,14 +93,14 @@ open class NativeCall(
 
     fun buildResponse(it: CallResult): BlockchainOuterClass.NativeCallReplyItem {
         val result = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                .setSucceed(!it.isError())
-                .setId(it.id)
+            .setSucceed(!it.isError())
+            .setId(it.id)
         if (it.isError()) {
             it.error?.let { error ->
                 result.setErrorMessage(error.message)
             }
         } else {
-            result.setPayload(ByteString.copyFrom(it.result))
+            result.payload = ByteString.copyFrom(it.result)
         }
 
         return result.build()
@@ -112,11 +114,11 @@ open class NativeCall(
             0
         }
         return BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                .setSucceed(false)
-                .setErrorMessage(it?.message ?: "Internal error")
-                .setId(id)
-                .build()
-                .toMono()
+            .setSucceed(false)
+            .setErrorMessage(it?.message ?: "Internal error")
+            .setId(id)
+            .build()
+            .toMono()
     }
 
     fun prepareCall(request: BlockchainOuterClass.NativeCallRequest): Flux<CallContext<RawCallDetails>> {
@@ -130,31 +132,35 @@ open class NativeCall(
         }
 
         val upstream = multistreamHolder.getUpstream(chain)
-                ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
+            ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
         return prepareCall(request, upstream)
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest, upstream: Multistream): Flux<CallContext<RawCallDetails>> {
+    fun prepareCall(
+        request: BlockchainOuterClass.NativeCallRequest,
+        upstream: Multistream
+    ): Flux<CallContext<RawCallDetails>> {
         val chain = Chain.byId(request.chainValue)
         return Flux.fromIterable(request.itemsList).flatMap {
             val method = it.method
             val params = it.payload.toStringUtf8()
 
             // for ethereum the actual block needed for the call may be specified in the call parameters
-            val callSpecificMatcher: Mono<Selector.Matcher> = if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
-                ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead())
-            } else {
-                null
-            } ?: Mono.empty()
+            val callSpecificMatcher: Mono<Selector.Matcher> =
+                if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
+                    ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead())
+                } else {
+                    null
+                } ?: Mono.empty()
 
             callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
                 val matcher = Selector.Builder()
-                        .withMatcher(csm)
-                        .forMethod(method)
-                        .forLabels(Selector.convertToMatcher(request.selector))
+                    .withMatcher(csm)
+                    .forMethod(method)
+                    .forLabels(Selector.convertToMatcher(request.selector))
 
-                val callQuorum = upstream.getMethods().getQuorumFor(method) ?: AlwaysQuorum() // can be null in tests
+                val callQuorum = upstream.getMethods().getQuorumFor(method) // can be null in tests
                 callQuorum.init(upstream.getHead())
 
                 // for NotLaggingQuorum it makes sense to select compatible upstreams before the call
@@ -172,22 +178,22 @@ open class NativeCall(
 
     fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getRoutedApi(ctx.matcher)
-                .flatMap { api ->
-                    api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
-                            .flatMap(JsonRpcResponse::requireResult)
-                            .map {
-                                CallResult.ok(ctx.id, it)
-                            }
-                }.switchIfEmpty(
-                        Mono.just(ctx).flatMap(this::executeOnRemote)
-                )
-                .onErrorResume {
-                    if (it is CallFailure) {
-                        Mono.just(CallResult.fail(it.id, it.reason))
-                    } else {
-                        Mono.just(CallResult.fail(ctx.id, it))
+            .flatMap { api ->
+                api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+                    .flatMap(JsonRpcResponse::requireResult)
+                    .map {
+                        CallResult.ok(ctx.id, it)
                     }
+            }.switchIfEmpty(
+                Mono.just(ctx).flatMap(this::executeOnRemote)
+            )
+            .onErrorResume {
+                if (it is CallFailure) {
+                    Mono.just(CallResult.fail(it.id, it.reason))
+                } else {
+                    Mono.just(CallResult.fail(ctx.id, it))
                 }
+            }
     }
 
     fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallResult> {
@@ -196,21 +202,21 @@ open class NativeCall(
         }
         val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum)
         return reader
-                .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
-                .map {
-                    CallResult(ctx.id, it.value, null)
+            .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+            .map {
+                CallResult(ctx.id, it.value, null)
+            }
+            .onErrorResume { t ->
+                val failure = if (t is CallFailure) {
+                    CallResult.fail(t.id, t.reason)
+                } else {
+                    CallResult.fail(ctx.id, t)
                 }
-                .onErrorResume { t ->
-                    val failure = if (t is CallFailure) {
-                        CallResult.fail(t.id, t.reason)
-                    } else {
-                        CallResult.fail(ctx.id, t)
-                    }
-                    Mono.just(failure)
-                }
-                .switchIfEmpty(
-                        Mono.just(CallResult.fail(ctx.id, 1, "No response or no available upstream for ${ctx.payload.method}"))
-                )
+                Mono.just(failure)
+            }
+            .switchIfEmpty(
+                Mono.just(CallResult.fail(ctx.id, 1, "No response or no available upstream for ${ctx.payload.method}"))
+            )
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -222,11 +228,13 @@ open class NativeCall(
         return req as List<Any>
     }
 
-    open class CallContext<T>(val id: Int,
-                              val upstream: Multistream,
-                              val matcher: Selector.Matcher,
-                              val callQuorum: CallQuorum,
-                              val payload: T) {
+    open class CallContext<T>(
+        val id: Int,
+        val upstream: Multistream,
+        val matcher: Selector.Matcher,
+        val callQuorum: CallQuorum,
+        val payload: T
+    ) {
         fun <X> withPayload(payload: X): CallContext<X> {
             return CallContext(id, upstream, matcher, callQuorum, payload)
         }

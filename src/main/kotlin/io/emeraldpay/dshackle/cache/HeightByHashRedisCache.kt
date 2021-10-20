@@ -32,8 +32,8 @@ import java.util.concurrent.TimeUnit
  * reader would use full block's cache to find out height).
  */
 class HeightByHashRedisCache(
-        private val redis: RedisReactiveCommands<String, ByteArray>,
-        private val chain: Chain
+    private val redis: RedisReactiveCommands<String, ByteArray>,
+    private val chain: Chain
 ) : Reader<BlockId, Long>, HeightByHashCache {
 
     companion object {
@@ -45,41 +45,41 @@ class HeightByHashRedisCache(
     @Suppress("UNCHECKED_CAST")
     override fun read(key: BlockId): Mono<Long> {
         return redis.get(key(key))
-                .flatMap { data ->
-                    Mono.justOrEmpty(fromBytes(data)) as Mono<Long>
-                }.onErrorResume {
-                    log.warn("Failed to read Block Height. ${it.javaClass}:${it.message}")
-                    Mono.empty()
-                }
+            .flatMap { data ->
+                Mono.justOrEmpty(fromBytes(data)) as Mono<Long>
+            }.onErrorResume {
+                log.warn("Failed to read Block Height. ${it.javaClass}:${it.message}")
+                Mono.empty()
+            }
     }
 
     override fun add(block: BlockContainer): Mono<Void> {
         return Mono.just(block)
-                .flatMap { blockData ->
-                    // even if block replaced, the mapping hash-long is still valid, so can be cached for long time
-                    // even for fresh blocks
-                    val ttl = TimeUnit.MINUTES.toSeconds(MAX_CACHE_TIME_MINUTES)
+            .flatMap { blockData ->
+                // even if block replaced, the mapping hash-long is still valid, so can be cached for long time
+                // even for fresh blocks
+                val ttl = TimeUnit.MINUTES.toSeconds(MAX_CACHE_TIME_MINUTES)
 
-                    val key = key(blockData.hash)
-                    val value = asBytes(blockData.height)
-                    redis.setex(key, ttl, value)
-                }
-                .doOnError {
-                    log.warn("Failed to save Block Height. ${it.javaClass}:${it.message}")
-                }
-                //if failed to cache, just continue without it
-                .onErrorResume {
-                    Mono.empty()
-                }
-                .then()
+                val key = key(blockData.hash)
+                val value = asBytes(blockData.height)
+                redis.setex(key, ttl, value)
+            }
+            .doOnError {
+                log.warn("Failed to save Block Height. ${it.javaClass}:${it.message}")
+            }
+            // if failed to cache, just continue without it
+            .onErrorResume {
+                Mono.empty()
+            }
+            .then()
     }
 
     fun asBytes(value: Long): ByteArray {
         val result = ByteArray(8)
         val bb = ByteBuffer.allocate(8)
-                .order(ByteOrder.BIG_ENDIAN)
+            .order(ByteOrder.BIG_ENDIAN)
         bb.asLongBuffer()
-                .put(value)
+            .put(value)
         bb.get(result)
         return result
     }
@@ -89,9 +89,9 @@ class HeightByHashRedisCache(
             return null
         }
         return ByteBuffer.wrap(value)
-                .order(ByteOrder.BIG_ENDIAN)
-                .asLongBuffer()
-                .get()
+            .order(ByteOrder.BIG_ENDIAN)
+            .asLongBuffer()
+            .get()
     }
 
     /**

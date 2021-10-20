@@ -14,25 +14,27 @@ interface RequestPostprocessor {
     }
 
     companion object {
-        fun wrap(reader: Reader<JsonRpcRequest, JsonRpcResponse>, processor: RequestPostprocessor): Reader<JsonRpcRequest, JsonRpcResponse> {
+        fun wrap(
+            reader: Reader<JsonRpcRequest, JsonRpcResponse>,
+            processor: RequestPostprocessor
+        ): Reader<JsonRpcRequest, JsonRpcResponse> {
             return Wrapper(reader, processor)
         }
     }
 
     class Wrapper(
-            private val reader: Reader<JsonRpcRequest, JsonRpcResponse>,
-            private val processor: RequestPostprocessor
+        private val reader: Reader<JsonRpcRequest, JsonRpcResponse>,
+        private val processor: RequestPostprocessor
     ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
         override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
             return reader.read(key)
-                    .doOnNext {
-                        if (it.hasResult()) {
-                            val result = it.getResult()
-                            processor.onReceive(key.method, key.params, result)
-                        }
+                .doOnNext {
+                    if (it.hasResult()) {
+                        val result = it.getResult()
+                        processor.onReceive(key.method, key.params, result)
                     }
+                }
         }
-
     }
 }

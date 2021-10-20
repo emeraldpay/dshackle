@@ -24,8 +24,8 @@ import reactor.core.publisher.Mono
 import java.util.function.Function
 
 class EsploraUnspentReader(
-        private val esploraClient: EsploraClient,
-        private val head: Head
+    private val esploraClient: EsploraClient,
+    private val head: Head
 ) : UnspentReader {
 
     companion object {
@@ -34,10 +34,10 @@ class EsploraUnspentReader(
 
     private val convert: (T: EsploraUnspent) -> SimpleUnspent = { base ->
         SimpleUnspent(
-                base.txid,
-                base.vout,
-                base.value,
-                head.getCurrentHeight()?.let { base.height - it } ?: 0
+            base.txid,
+            base.vout,
+            base.value,
+            head.getCurrentHeight()?.let { base.height - it } ?: 0
         )
     }
 
@@ -47,7 +47,6 @@ class EsploraUnspentReader(
 
     override fun read(key: Address): Mono<List<SimpleUnspent>> {
         return esploraClient.getUtxo(key)
-                .map(convertAll)
+            .map(convertAll)
     }
-
 }

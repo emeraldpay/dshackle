@@ -18,7 +18,9 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.grpc.Chain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -27,7 +29,7 @@ import reactor.core.publisher.Mono
 
 @Service
 class SubscribeStatus(
-        @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder
 ) {
 
     fun subscribeStatus(requestMono: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
@@ -52,10 +54,10 @@ class SubscribeStatus(
 
     fun chainUnavailable(chain: Chain): BlockchainOuterClass.ChainStatus {
         return BlockchainOuterClass.ChainStatus.newBuilder()
-                .setAvailability(BlockchainOuterClass.AvailabilityEnum.AVAIL_UNAVAILABLE)
-                .setChain(Common.ChainRef.forNumber(chain.id))
-                .setQuorum(0)
-                .build()
+            .setAvailability(BlockchainOuterClass.AvailabilityEnum.AVAIL_UNAVAILABLE)
+            .setChain(Common.ChainRef.forNumber(chain.id))
+            .setQuorum(0)
+            .build()
     }
 
     fun chainStatus(chain: Chain, available: UpstreamAvailability, ups: Multistream): BlockchainOuterClass.ChainStatus {
@@ -67,12 +69,11 @@ class SubscribeStatus(
             0
         }
         return BlockchainOuterClass.ChainStatus.newBuilder()
-                .setAvailability(BlockchainOuterClass.AvailabilityEnum.forNumber(available.grpcId))
-                .setChain(Common.ChainRef.forNumber(chain.id))
-                .setQuorum(quorum)
-                .build()
+            .setAvailability(BlockchainOuterClass.AvailabilityEnum.forNumber(available.grpcId))
+            .setChain(Common.ChainRef.forNumber(chain.id))
+            .setQuorum(quorum)
+            .build()
     }
 
     class ChainSubscription(val chain: Chain, val up: Multistream, val avail: UpstreamAvailability)
-
 }

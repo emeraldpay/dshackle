@@ -17,9 +17,8 @@
 package io.emeraldpay.dshackle.startup
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import java.util.*
+import java.util.Collections
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.collections.ArrayList
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
@@ -71,7 +70,6 @@ class QuorumForLabels() {
         return nodes.hashCode()
     }
 
-
     /**
      * Details for a single element (upstream, node or aggregation)
      */
@@ -97,8 +95,5 @@ class QuorumForLabels() {
             result = 31 * result + labels.hashCode()
             return result
         }
-
-
     }
-
 }

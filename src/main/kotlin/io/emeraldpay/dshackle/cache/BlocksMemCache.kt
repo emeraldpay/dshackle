@@ -23,12 +23,12 @@ import io.emeraldpay.dshackle.reader.Reader
 import reactor.core.publisher.Mono
 
 open class BlocksMemCache(
-        maxSize: Int = 64
+    maxSize: Int = 64
 ) : Reader<BlockId, BlockContainer> {
 
     private val mapping = Caffeine.newBuilder()
-            .maximumSize(maxSize.toLong())
-            .build<BlockId, BlockContainer>()
+        .maximumSize(maxSize.toLong())
+        .build<BlockId, BlockContainer>()
 
     override fun read(key: BlockId): Mono<BlockContainer> {
         return Mono.justOrEmpty(get(key))

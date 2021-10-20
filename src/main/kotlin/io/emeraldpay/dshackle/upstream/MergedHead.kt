@@ -23,7 +23,7 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
 class MergedHead(
-        private val sources: Iterable<Head>
+    private val sources: Iterable<Head>
 ) : AbstractHead(), Lifecycle, CachesEnabled {
 
     private var subscription: Disposable? = null
@@ -59,5 +59,4 @@ class MergedHead(
             }
         }
     }
-
 }

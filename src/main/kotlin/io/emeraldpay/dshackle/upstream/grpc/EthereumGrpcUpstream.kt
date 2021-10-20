@@ -24,15 +24,19 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.*
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.rpc.*
+import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -43,26 +47,28 @@ import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
 open class EthereumGrpcUpstream(
-        private val parentId: String,
-        private val chain: Chain,
-        private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
-        private val client: JsonRpcGrpcClient
+    private val parentId: String,
+    private val chain: Chain,
+    private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
+    private val client: JsonRpcGrpcClient
 ) : EthereumUpstream(
-        "$parentId/${chain.chainCode}",
-        UpstreamsConfig.Options.getDefaults(),
-        UpstreamsConfig.UpstreamRole.STANDARD,
-        null, null
-), GrpcUpstream, Lifecycle {
+    "$parentId/${chain.chainCode}",
+    UpstreamsConfig.Options.getDefaults(),
+    UpstreamsConfig.UpstreamRole.STANDARD,
+    null, null
+),
+    GrpcUpstream,
+    Lifecycle {
 
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val block = BlockContainer(
-                value.height,
-                BlockId.from(BlockHash.from("0x" + value.blockId)),
-                BigInteger(1, value.weight.toByteArray()),
-                Instant.ofEpochMilli(value.timestamp),
-                false,
-                null,
-                null
+            value.height,
+            BlockId.from(BlockHash.from("0x" + value.blockId)),
+            BigInteger(1, value.weight.toByteArray()),
+            Instant.ofEpochMilli(value.timestamp),
+            false,
+            null,
+            null
         )
         block
     }
@@ -71,20 +77,20 @@ open class EthereumGrpcUpstream(
         // head comes without transaction data
         // need to download transactions for the block
         defaultReader.read(JsonRpcRequest("eth_getBlockByHash", listOf(existingBlock.hash.toHexWithPrefix(), false)))
-                .flatMap(JsonRpcResponse::requireResult)
-                .map {
-                    BlockContainer.fromEthereumJson(it)
+            .flatMap(JsonRpcResponse::requireResult)
+            .map {
+                BlockContainer.fromEthereumJson(it)
+            }
+            .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
+            .doOnError { t ->
+                setStatus(UpstreamAvailability.UNAVAILABLE)
+                val msg = "Failed to download block data for chain $chain on $parentId"
+                if (t is RpcException || t is TimeoutException) {
+                    log.warn("$msg. Message: ${t.message}")
+                } else {
+                    log.error(msg, t)
                 }
-                .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
-                .doOnError { t ->
-                    setStatus(UpstreamAvailability.UNAVAILABLE)
-                    val msg = "Failed to download block data for chain $chain on $parentId"
-                    if (t is RpcException || t is TimeoutException) {
-                        log.warn("$msg. Message: ${t.message}")
-                    } else {
-                        log.error(msg, t)
-                    }
-                }
+            }
     }
 
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
@@ -102,7 +108,6 @@ open class EthereumGrpcUpstream(
     override fun isRunning(): Boolean {
         return grpcHead.isRunning
     }
-
 
     override fun stop() {
         grpcHead.stop()

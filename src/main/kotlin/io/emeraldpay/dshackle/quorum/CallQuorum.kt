@@ -20,10 +20,6 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.etherjar.rpc.json.BlockJson
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.util.function.Tuple2
 import java.util.function.BiFunction
 import java.util.function.Predicate

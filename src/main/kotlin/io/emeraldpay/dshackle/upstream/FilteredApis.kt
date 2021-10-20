@@ -26,7 +26,7 @@ import org.reactivestreams.Subscriber
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import java.time.Duration
-import java.util.*
+import java.util.EnumMap
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -37,15 +37,15 @@ import kotlin.math.roundToLong
 import kotlin.random.Random
 
 class FilteredApis(
-        val chain: Chain,
-        private val allUpstreams: List<Upstream>,
-        private val matcher: Selector.Matcher,
-        private val pos: Int,
-        /**
-         * Limit of retries
-         */
-        private val retryLimit: Long,
-        jitter: Int
+    val chain: Chain,
+    private val allUpstreams: List<Upstream>,
+    private val matcher: Selector.Matcher,
+    private val pos: Int,
+    /**
+     * Limit of retries
+     */
+    private val retryLimit: Long,
+    jitter: Int
 ) : ApiSource {
 
     companion object {
@@ -68,14 +68,18 @@ class FilteredApis(
         private val metricsSetup: Lock = ReentrantLock()
     }
 
-    constructor(chain: Chain,
-                allUpstreams: List<Upstream>,
-                matcher: Selector.Matcher,
-                pos: Int) : this(chain, allUpstreams, matcher, pos, 10, 7)
+    constructor(
+        chain: Chain,
+        allUpstreams: List<Upstream>,
+        matcher: Selector.Matcher,
+        pos: Int
+    ) : this(chain, allUpstreams, matcher, pos, 10, 7)
 
-    constructor(chain: Chain,
-                allUpstreams: List<Upstream>,
-                matcher: Selector.Matcher) : this(chain, allUpstreams, matcher, 0, 10, 10)
+    constructor(
+        chain: Chain,
+        allUpstreams: List<Upstream>,
+        matcher: Selector.Matcher
+    ) : this(chain, allUpstreams, matcher, 0, 10, 10)
 
     private val delay: Int
     private val standardUpstreams: List<Upstream>
@@ -101,8 +105,8 @@ class FilteredApis(
             startFrom(it, pos)
         }
         standardWithFallback = emptyList<Upstream>()
-                .plus(standardUpstreams)
-                .plus(fallbackUpstreams)
+            .plus(standardUpstreams)
+            .plus(fallbackUpstreams)
 
         if (Global.metricsExtended) {
             getMetrics(chain).let { monitoring ->
@@ -133,8 +137,8 @@ class FilteredApis(
     fun waitDuration(rawn: Long): Duration {
         val n = max(rawn, 1)
         val time = min(
-                (n.toDouble().pow(2.0) * delay).roundToLong(),
-                MAX_WAIT_MILLIS
+            (n.toDouble().pow(2.0) * delay).roundToLong(),
+            MAX_WAIT_MILLIS
         )
         return Duration.ofMillis(time)
     }
@@ -145,10 +149,10 @@ class FilteredApis(
         // if all failed, try both standard and fallback upstreams, repeating in cycle
         val retries = (0 until (retryLimit - 1)).map { r ->
             Flux.fromIterable(standardWithFallback)
-                    // add delay to let upstream to restore if it's a temp failure
-                    // but delay only start of the check, not between upstreams
-                    // i.e. if all upstreams failed -> wait -> check all without waiting in between
-                    .delaySubscription(waitDuration(r + 1))
+                // add delay to let upstream to restore if it's a temp failure
+                // but delay only start of the check, not between upstreams
+                // i.e. if all upstreams failed -> wait -> check all without waiting in between
+                .delaySubscription(waitDuration(r + 1))
         }.let { Flux.concat(it) }
 
         var result = Flux.concat(first, retries)
@@ -156,14 +160,14 @@ class FilteredApis(
         if (Global.metricsExtended) {
             var count = 0
             result = result
-                    .doOnNext { count++ }
-                    .doFinally { metrics[chain]?.tried?.record(count.toDouble()) }
+                .doOnNext { count++ }
+                .doFinally { metrics[chain]?.tried?.record(count.toDouble()) }
         }
 
         result.filter { up -> up.isAvailable() && matcher.matches(up) }
-                .zipWith(control.asFlux())
-                .map { it.t1 }
-                .subscribe(subscriber)
+            .zipWith(control.asFlux())
+            .map { it.t1 }
+            .subscribe(subscriber)
     }
 
     override fun resolve() {
@@ -171,7 +175,7 @@ class FilteredApis(
     }
 
     override fun request(tries: Int) {
-        //TODO check the buffer size before submitting
+        // TODO check the buffer size before submitting
         repeat(tries) {
             control.tryEmitNext(true)
         }
@@ -183,16 +187,16 @@ class FilteredApis(
 
     class Monitoring(chain: Chain) {
         val countStd: DistributionSummary = DistributionSummary.builder("$metricsCode.exist")
-                .description("Count of available upstreams to select")
-                .tags(listOf(Tag.of("chain", chain.chainCode), Tag.of("role", "std")))
-                .register(Metrics.globalRegistry)
+            .description("Count of available upstreams to select")
+            .tags(listOf(Tag.of("chain", chain.chainCode), Tag.of("role", "std")))
+            .register(Metrics.globalRegistry)
         val countFallback: DistributionSummary = DistributionSummary.builder("$metricsCode.exist")
-                .description("Count of available fallback upstreams to select")
-                .tags(listOf(Tag.of("chain", chain.chainCode), Tag.of("role", "fallback")))
-                .register(Metrics.globalRegistry)
+            .description("Count of available fallback upstreams to select")
+            .tags(listOf(Tag.of("chain", chain.chainCode), Tag.of("role", "fallback")))
+            .register(Metrics.globalRegistry)
         val tried: DistributionSummary = DistributionSummary.builder("$metricsCode.tried")
-                .description("How many upstreams were checked")
-                .tags(listOf(Tag.of("chain", chain.chainCode)))
-                .register(Metrics.globalRegistry)
+            .description("How many upstreams were checked")
+            .tags(listOf(Tag.of("chain", chain.chainCode)))
+            .register(Metrics.globalRegistry)
     }
 }

@@ -18,8 +18,8 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 import io.emeraldpay.etherjar.rpc.RpcException
 
 class JsonRpcException(
-        val id: JsonRpcResponse.Id,
-        val error: JsonRpcError
+    val id: JsonRpcResponse.Id,
+    val error: JsonRpcError
 ) : Exception(error.message) {
 
     constructor(id: Int, message: String) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message))
@@ -34,7 +34,7 @@ class JsonRpcException(
                 }
             } ?: JsonRpcResponse.NumberId(-4)
             return JsonRpcException(
-                    id, JsonRpcError.from(err)
+                id, JsonRpcError.from(err)
             )
         }
     }

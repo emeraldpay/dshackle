@@ -27,7 +27,8 @@ import reactor.netty.http.server.HttpServerRequest
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.time.Instant
-import java.util.*
+import java.util.Locale
+import java.util.UUID
 
 class EventsBuilder {
 
@@ -48,23 +49,23 @@ class EventsBuilder {
         fun onReply(msg: Resp): E
     }
 
-    abstract class Base<T>() : StartingHttp2Request, StartingHttp1Request {
+    abstract class Base<T> : StartingHttp2Request, StartingHttp1Request {
         companion object {
             private val remoteIpHeaders = listOf(
-                    "x-real-ip",
-                    "x-forwarded-for"
+                "x-real-ip",
+                "x-forwarded-for"
             )
             private val remoteIpKeys = listOf(
-                    Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
-                    Metadata.Key.of("x-forwarded-for", Metadata.ASCII_STRING_MARSHALLER)
+                Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
+                Metadata.Key.of("x-forwarded-for", Metadata.ASCII_STRING_MARSHALLER)
             )
             private val invalidCharacters = Regex("[\n\t]+")
         }
 
         var requestDetails = Events.StreamRequestDetails(
-                UUID.randomUUID(),
-                Instant.now(),
-                Events.Remote(emptyList(), "", "")
+            UUID.randomUUID(),
+            Instant.now(),
+            Events.Remote(emptyList(), "", "")
         )
 
         var chainId: Int = Chain.UNSPECIFIED.id
@@ -84,35 +85,37 @@ class EventsBuilder {
 
         private fun findBestIp(ips: List<InetAddress>): InetAddress? {
             // check if a real remote address is provided, otherwise use any local address
-            return ips.sortedWith(kotlin.Comparator { a, b ->
-                val aLocal = a.isLoopbackAddress || a.isSiteLocalAddress
-                val bLocal = b.isLoopbackAddress || b.isSiteLocalAddress
-                when {
-                    aLocal && bLocal -> 0
-                    aLocal -> 1
-                    else -> -1
+            return ips.sortedWith(
+                kotlin.Comparator { a, b ->
+                    val aLocal = a.isLoopbackAddress || a.isSiteLocalAddress
+                    val bLocal = b.isLoopbackAddress || b.isSiteLocalAddress
+                    when {
+                        aLocal && bLocal -> 0
+                        aLocal -> 1
+                        else -> -1
+                    }
                 }
-            }).firstOrNull()
+            ).firstOrNull()
         }
 
         private fun clean(s: String): String {
             return StringUtils.truncate(s, 128)
-                    .replace(invalidCharacters, " ")
-                    .trim()
+                .replace(invalidCharacters, " ")
+                .trim()
         }
 
         protected abstract fun getT(): T
 
         override fun start(metadata: Metadata, attributes: Attributes) {
             val userAgent = metadata.get(Metadata.Key.of("user-agent", Metadata.ASCII_STRING_MARSHALLER))
-                    ?.let(this@Base::clean)
-                    ?: ""
+                ?.let(this@Base::clean)
+                ?: ""
             val ips = ArrayList<InetAddress>()
             remoteIpKeys.forEach { key ->
                 metadata.get(key)?.let {
                     it.trim().ifEmpty { null }
-                            ?.let(this@Base::toInetAddress)
-                            ?.let(ips::add)
+                        ?.let(this@Base::toInetAddress)
+                        ?.let(ips::add)
                 }
             }
             attributes.get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)?.let { addr ->
@@ -122,24 +125,26 @@ class EventsBuilder {
             }
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
-                    .copy(remote = Events.Remote(
-                            ips = ips.map { it.hostAddress },
-                            ip = ip,
-                            userAgent = userAgent
-                    ))
+                .copy(
+                    remote = Events.Remote(
+                        ips = ips.map { it.hostAddress },
+                        ip = ip,
+                        userAgent = userAgent
+                    )
+                )
         }
 
         override fun start(request: HttpServerRequest) {
             val headers = request.requestHeaders()
             val userAgent = headers.get("user-agent")
-                    ?.let(this@Base::clean)
-                    ?: ""
+                ?.let(this@Base::clean)
+                ?: ""
             val ips = ArrayList<InetAddress>()
             remoteIpHeaders.forEach { key ->
                 headers.get(key)?.let {
                     it.trim().ifEmpty { null }
-                            ?.let(this@Base::toInetAddress)
-                            ?.let(ips::add)
+                        ?.let(this@Base::toInetAddress)
+                        ?.let(ips::add)
                 }
             }
             request.remoteAddress()?.let { addr ->
@@ -147,11 +152,13 @@ class EventsBuilder {
             }
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
-                    .copy(remote = Events.Remote(
-                            ips = ips.map { it.hostAddress },
-                            ip = ip,
-                            userAgent = userAgent
-                    ))
+                .copy(
+                    remote = Events.Remote(
+                        ips = ips.map { it.hostAddress },
+                        ip = ip,
+                        userAgent = userAgent
+                    )
+                )
         }
 
         fun withChain(chain: Int): T {
@@ -161,9 +168,9 @@ class EventsBuilder {
         }
     }
 
-    class SubscribeHead() :
-            Base<SubscribeHead>(),
-            RequestReply<Events.SubscribeHead, Common.Chain, BlockchainOuterClass.ChainHead> {
+    class SubscribeHead :
+        Base<SubscribeHead>(),
+        RequestReply<Events.SubscribeHead, Common.Chain, BlockchainOuterClass.ChainHead> {
 
         private var index = 0
 
@@ -177,14 +184,14 @@ class EventsBuilder {
 
         override fun onReply(msg: BlockchainOuterClass.ChainHead): Events.SubscribeHead {
             return Events.SubscribeHead(
-                    chain, UUID.randomUUID(), requestDetails, index++
+                chain, UUID.randomUUID(), requestDetails, index++
             )
         }
     }
 
     class SubscribeBalance(val subscribe: Boolean) :
-            Base<SubscribeBalance>(),
-            RequestReply<Events.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
+        Base<SubscribeBalance>(),
+        RequestReply<Events.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
 
         private var index = 0
         private var balanceRequest: Events.BalanceRequest? = null
@@ -195,8 +202,8 @@ class EventsBuilder {
 
         override fun onRequest(msg: BlockchainOuterClass.BalanceRequest) {
             balanceRequest = Events.BalanceRequest(
-                    msg.asset.code.uppercase(Locale.getDefault()),
-                    msg.address.addrTypeCase.name
+                msg.asset.code.uppercase(Locale.getDefault()),
+                msg.address.addrTypeCase.name
             )
         }
 
@@ -207,14 +214,14 @@ class EventsBuilder {
             val addressBalance = Events.AddressBalance(msg.asset.code, msg.address.address)
             val chain = Chain.byId(msg.asset.chain.number)
             return Events.SubscribeBalance(
-                    chain, UUID.randomUUID(), subscribe, requestDetails, balanceRequest!!, addressBalance, index++
+                chain, UUID.randomUUID(), subscribe, requestDetails, balanceRequest!!, addressBalance, index++
             )
         }
     }
 
-    class TxStatus() :
-            Base<TxStatus>(),
-            RequestReply<Events.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
+    class TxStatus :
+        Base<TxStatus>(),
+        RequestReply<Events.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
         private var index = 0
         private var txStatusRequest: Events.TxStatusRequest? = null
 
@@ -225,21 +232,20 @@ class EventsBuilder {
 
         override fun onReply(msg: BlockchainOuterClass.TxStatus): Events.TxStatus {
             return Events.TxStatus(
-                    chain, UUID.randomUUID(), requestDetails, txStatusRequest!!,
-                    Events.TxStatusResponse(msg.confirmations),
-                    index++
+                chain, UUID.randomUUID(), requestDetails, txStatusRequest!!,
+                Events.TxStatusResponse(msg.confirmations),
+                index++
             )
         }
 
         override fun getT(): TxStatus {
             return this
         }
-
     }
 
     class NativeCall :
-            Base<NativeCall>(),
-            RequestReply<Events.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
+        Base<NativeCall>(),
+        RequestReply<Events.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
         val items = ArrayList<Events.NativeCallItemDetails>()
         val replies = HashMap<Int, Events.NativeCallReplyDetails>()
         private var index = 0
@@ -252,11 +258,11 @@ class EventsBuilder {
             withChain(msg.chain.number)
             msg.itemsList.forEach { item ->
                 this.items.add(
-                        Events.NativeCallItemDetails(
-                                item.method,
-                                item.id,
-                                item.payload.size().toLong()
-                        )
+                    Events.NativeCallItemDetails(
+                        item.method,
+                        item.id,
+                        item.payload.size().toLong()
+                    )
                 )
             }
         }
@@ -264,38 +270,40 @@ class EventsBuilder {
         override fun onReply(msg: BlockchainOuterClass.NativeCallReplyItem): Events.NativeCall {
             val item = items.find { it.id == msg.id }!!
             return Events.NativeCall(
-                    request = requestDetails,
-                    total = items.size,
-                    index = index++,
-                    succeed = msg.succeed,
-                    blockchain = chain,
-                    nativeCall = item,
-                    payloadSizeBytes = item.payloadSizeBytes,
-                    id = UUID.randomUUID(),
-                    channel = Events.Channel.GRPC
+                request = requestDetails,
+                total = items.size,
+                index = index++,
+                succeed = msg.succeed,
+                blockchain = chain,
+                nativeCall = item,
+                payloadSizeBytes = item.payloadSizeBytes,
+                id = UUID.randomUUID(),
+                channel = Events.Channel.GRPC
             )
         }
 
-        fun onReply(reply: io.emeraldpay.dshackle.rpc.NativeCall.CallResult,
-                    channel: Events.Channel): Events.NativeCall {
+        fun onReply(
+            reply: io.emeraldpay.dshackle.rpc.NativeCall.CallResult,
+            channel: Events.Channel
+        ): Events.NativeCall {
             val item = items.find { it.id == reply.id }!!
             return Events.NativeCall(
-                    request = requestDetails,
-                    total = items.size,
-                    index = index++,
-                    succeed = !reply.isError(),
-                    blockchain = chain,
-                    nativeCall = item,
-                    payloadSizeBytes = item.payloadSizeBytes,
-                    id = UUID.randomUUID(),
-                    channel = channel
+                request = requestDetails,
+                total = items.size,
+                index = index++,
+                succeed = !reply.isError(),
+                blockchain = chain,
+                nativeCall = item,
+                payloadSizeBytes = item.payloadSizeBytes,
+                id = UUID.randomUUID(),
+                channel = channel
             )
         }
     }
 
     class NativeSubscribe :
-            Base<NativeSubscribe>(),
-            RequestReply<Events.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
+        Base<NativeSubscribe>(),
+        RequestReply<Events.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
         var item: Events.NativeSubscribeItemDetails? = null
         val replies = HashMap<Int, Events.NativeSubscribeReplyDetails>()
 
@@ -306,26 +314,26 @@ class EventsBuilder {
         override fun onRequest(msg: BlockchainOuterClass.NativeSubscribeRequest) {
             withChain(msg.chain.number)
             this.item = Events.NativeSubscribeItemDetails(
-                    msg.method,
-                    msg.payload.size().toLong()
+                msg.method,
+                msg.payload.size().toLong()
             )
         }
 
         override fun onReply(msg: BlockchainOuterClass.NativeSubscribeReplyItem): Events.NativeSubscribe {
             return Events.NativeSubscribe(
-                    request = requestDetails,
-                    blockchain = chain,
-                    nativeSubscribe = item!!,
-                    payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
-                    id = UUID.randomUUID(),
-                    channel = Events.Channel.GRPC
+                request = requestDetails,
+                blockchain = chain,
+                nativeSubscribe = item!!,
+                payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
+                id = UUID.randomUUID(),
+                channel = Events.Channel.GRPC
             )
         }
     }
 
     class Describe :
-            Base<Describe>(),
-            RequestReply<Events.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {
+        Base<Describe>(),
+        RequestReply<Events.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {
 
         override fun getT(): Describe {
             return this
@@ -336,15 +344,15 @@ class EventsBuilder {
 
         override fun onReply(msg: BlockchainOuterClass.DescribeResponse): Events.Describe {
             return Events.Describe(
-                    id = UUID.randomUUID(),
-                    request = requestDetails
+                id = UUID.randomUUID(),
+                request = requestDetails
             )
         }
     }
 
     class Status :
-            Base<Status>(),
-            RequestReply<Events.Status, BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus> {
+        Base<Status>(),
+        RequestReply<Events.Status, BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus> {
         override fun getT(): Status {
             return this
         }
@@ -355,11 +363,10 @@ class EventsBuilder {
         override fun onReply(msg: BlockchainOuterClass.ChainStatus): Events.Status {
             val chain = Chain.byId(msg.chainValue)
             return Events.Status(
-                    blockchain = chain,
-                    request = requestDetails,
-                    id = UUID.randomUUID()
+                blockchain = chain,
+                request = requestDetails,
+                id = UUID.randomUUID()
             )
         }
     }
-
 }

@@ -28,7 +28,7 @@ import kotlin.concurrent.withLock
  * Connects/reconnects to the upstream to produce NewHeads messages
  */
 class ConnectNewHeads(
-        private val upstream: EthereumMultistream
+    private val upstream: EthereumMultistream
 ) {
 
     companion object {
@@ -49,14 +49,14 @@ class ConnectNewHeads(
                 return currentRecheck
             }
             val created = ProduceNewHeads(upstream.getHead())
-                    .start()
-                    .publishOn(Schedulers.boundedElastic())
-                    .publish()
-                    .refCount(1, Duration.ofSeconds(60))
-                    .doFinally {
-                        //forget it on disconnect, so next time it's recreated
-                        connected = null
-                    }
+                .start()
+                .publishOn(Schedulers.boundedElastic())
+                .publish()
+                .refCount(1, Duration.ofSeconds(60))
+                .doFinally {
+                    // forget it on disconnect, so next time it's recreated
+                    connected = null
+                }
             connected = created
             return created
         }

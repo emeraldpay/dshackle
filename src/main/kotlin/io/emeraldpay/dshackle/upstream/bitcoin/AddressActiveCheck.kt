@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 open class AddressActiveCheck(
-        private val esploraClient: EsploraClient
+    private val esploraClient: EsploraClient
 ) {
 
     companion object {
@@ -28,8 +28,7 @@ open class AddressActiveCheck(
     }
 
     open fun isActive(address: Address): Mono<Boolean> {
-        //TODO cache with bloom filter
+        // TODO cache with bloom filter
         return esploraClient.getTransactions(address).map { it.isNotEmpty() }
     }
-
 }

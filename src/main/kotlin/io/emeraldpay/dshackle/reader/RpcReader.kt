@@ -25,8 +25,8 @@ import reactor.core.publisher.Mono
  * Reader that requests data through upstream RPC using provided JSON RPC request builder
  */
 class RpcReader<T>(
-        private val up: Multistream,
-        private val paramsBuilder: (T) -> JsonRpcRequest
+    private val up: Multistream,
+    private val paramsBuilder: (T) -> JsonRpcRequest
 ) : Reader<T, ByteArray> {
 
     companion object {
@@ -45,11 +45,10 @@ class RpcReader<T>(
 
     override fun read(key: T): Mono<ByteArray> {
         return up.getDirectApi(Selector.empty)
-                .flatMap { rdr ->
-                    rdr.read(paramsBuilder(key)).flatMap {
-                        it.requireResult()
-                    }
+            .flatMap { rdr ->
+                rdr.read(paramsBuilder(key)).flatMap {
+                    it.requireResult()
                 }
+            }
     }
-
 }

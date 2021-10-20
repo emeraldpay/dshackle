@@ -23,7 +23,7 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
 class EthereumWsHead(
-        private val ws: EthereumWsFactory.EthereumWs
+    private val ws: EthereumWsFactory.EthereumWs
 ) : DefaultEthereumHead(), Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
@@ -37,9 +37,9 @@ class EthereumWsHead(
     override fun start() {
         this.subscription?.dispose()
         val heads = Flux.merge(
-                // get the current block, not just wait for the next update
-                getLatestBlock(JsonRpcWsClient(ws)),
-                ws.getBlocksFlux()
+            // get the current block, not just wait for the next update
+            getLatestBlock(JsonRpcWsClient(ws)),
+            ws.getBlocksFlux()
         )
         this.subscription = super.follow(heads)
     }
@@ -48,5 +48,4 @@ class EthereumWsHead(
         subscription?.dispose()
         subscription = null
     }
-
 }

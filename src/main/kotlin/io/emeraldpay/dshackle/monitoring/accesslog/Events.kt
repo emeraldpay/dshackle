@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import java.time.Instant
-import java.util.*
+import java.util.UUID
 
 class Events {
 
@@ -32,140 +32,152 @@ class Events {
     }
 
     abstract class Base(
-            val id: UUID,
-            val method: String,
-            val channel: Channel
+        val id: UUID,
+        val method: String,
+        val channel: Channel
     ) {
         val version = "accesslog/v1beta"
         var ts = Instant.now()
     }
 
     abstract class ChainBase(
-            val blockchain: Chain, method: String, id: UUID, channel: Channel
+        val blockchain: Chain,
+        method: String,
+        id: UUID,
+        channel: Channel
     ) : Base(id, method, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class SubscribeHead(
-            blockchain: Chain, id: UUID,
-            // initial request details
-            val request: StreamRequestDetails,
-            // index of the current response
-            val index: Int
+        blockchain: Chain,
+        id: UUID,
+        // initial request details
+        val request: StreamRequestDetails,
+        // index of the current response
+        val index: Int
     ) : ChainBase(blockchain, "SubscribeHead", id, Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class SubscribeBalance(
-            blockchain: Chain, id: UUID, subscribe: Boolean,
-            // initial request details
-            val request: StreamRequestDetails,
-            val balanceRequest: BalanceRequest,
-            val addressBalance: AddressBalance,
-            // index of the current response
-            val index: Int
+        blockchain: Chain,
+        id: UUID,
+        subscribe: Boolean,
+        // initial request details
+        val request: StreamRequestDetails,
+        val balanceRequest: BalanceRequest,
+        val addressBalance: AddressBalance,
+        // index of the current response
+        val index: Int
     ) : ChainBase(blockchain, if (subscribe) "SubscribeBalance" else "GetBalance", id, Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class TxStatus(
-            blockchain: Chain, id: UUID,
-            val request: StreamRequestDetails,
-            val txStatusRequest: TxStatusRequest,
-            val txStatus: TxStatusResponse,
-            // index of the current response
-            val index: Int
+        blockchain: Chain,
+        id: UUID,
+        val request: StreamRequestDetails,
+        val txStatusRequest: TxStatusRequest,
+        val txStatus: TxStatusResponse,
+        // index of the current response
+        val index: Int
     ) : ChainBase(blockchain, "SubscribeTxStatus", id, Channel.GRPC)
 
     data class TxStatusRequest(
-            val txId: String
+        val txId: String
     )
 
     data class TxStatusResponse(
-            val confirmations: Int
+        val confirmations: Int
     )
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class NativeCall(
-            blockchain: Chain, id: UUID, channel: Channel,
+        blockchain: Chain,
+        id: UUID,
+        channel: Channel,
 
-            // info about the initial request, that may include several native calls
-            val request: StreamRequestDetails,
-            // total native calls passes within the initial request
-            val total: Int,
-            // index of the call specific for the current response
-            val index: Int,
-            val selector: String? = null,
-            val quorum: Long? = null,
-            val minAvailability: String? = null,
+        // info about the initial request, that may include several native calls
+        val request: StreamRequestDetails,
+        // total native calls passes within the initial request
+        val total: Int,
+        // index of the call specific for the current response
+        val index: Int,
+        val selector: String? = null,
+        val quorum: Long? = null,
+        val minAvailability: String? = null,
 
-            val succeed: Boolean,
-            val rpcError: Int? = null,
-            val payloadSizeBytes: Long,
-            val nativeCall: NativeCallItemDetails
+        val succeed: Boolean,
+        val rpcError: Int? = null,
+        val payloadSizeBytes: Long,
+        val nativeCall: NativeCallItemDetails
     ) : ChainBase(blockchain, "NativeCall", id, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class NativeSubscribe(
-            blockchain: Chain, id: UUID, channel: Channel,
+        blockchain: Chain,
+        id: UUID,
+        channel: Channel,
 
-            // info about the initial request, that may include several native calls
-            val request: StreamRequestDetails,
-            val payloadSizeBytes: Long,
-            val nativeSubscribe: NativeSubscribeItemDetails
+        // info about the initial request, that may include several native calls
+        val request: StreamRequestDetails,
+        val payloadSizeBytes: Long,
+        val nativeSubscribe: NativeSubscribeItemDetails
     ) : ChainBase(blockchain, "NativeSubscribe", id, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class Describe(
-            id: UUID,
-            val request: StreamRequestDetails
+        id: UUID,
+        val request: StreamRequestDetails
     ) : Base(id, "Describe", Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class Status(
-            blockchain: Chain, id: UUID,
-            val request: StreamRequestDetails
+        blockchain: Chain,
+        id: UUID,
+        val request: StreamRequestDetails
     ) : ChainBase(blockchain, "Status", id, Channel.GRPC)
 
     data class StreamRequestDetails(
-            val id: UUID,
-            val start: Instant,
-            val remote: Remote
+        val id: UUID,
+        val start: Instant,
+        val remote: Remote
     )
 
     data class Remote(
-            val ips: List<String>,
-            val ip: String,
-            val userAgent: String
+        val ips: List<String>,
+        val ip: String,
+        val userAgent: String
     )
 
     data class NativeCallItemDetails(
-            val method: String,
-            val id: Int,
-            val payloadSizeBytes: Long
+        val method: String,
+        val id: Int,
+        val payloadSizeBytes: Long
     )
 
     data class NativeCallReplyDetails(
-            val id: Int,
-            val succeed: Boolean,
-            val replySizeBytes: Long,
-            val ts: Instant = Instant.now()
+        val id: Int,
+        val succeed: Boolean,
+        val replySizeBytes: Long,
+        val ts: Instant = Instant.now()
     )
 
     data class NativeSubscribeItemDetails(
-            val method: String,
-            val payloadSizeBytes: Long
+        val method: String,
+        val payloadSizeBytes: Long
     )
 
     data class NativeSubscribeReplyDetails(
-            val replySizeBytes: Long,
-            val ts: Instant = Instant.now()
+        val replySizeBytes: Long,
+        val ts: Instant = Instant.now()
     )
 
     data class BalanceRequest(
-            val asset: String,
-            val addressType: String
+        val asset: String,
+        val addressType: String
     )
 
     data class AddressBalance(
-            val asset: String,
-            val address: String
+        val asset: String,
+        val address: String
     )
 }

@@ -22,5 +22,4 @@ interface ApiSource : Publisher<Upstream> {
 
     fun resolve()
     fun request(tries: Int)
-
 }

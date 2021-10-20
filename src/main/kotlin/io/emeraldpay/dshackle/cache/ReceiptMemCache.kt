@@ -28,8 +28,8 @@ import reactor.core.publisher.Mono
  * Keeps receipts for recent blocks in memory
  */
 open class ReceiptMemCache(
-        // how many blocks to keeps in memory
-        val blocks: Int = 6
+    // how many blocks to keeps in memory
+    val blocks: Int = 6
 ) : Reader<TxId, ByteArray> {
 
     companion object {
@@ -37,8 +37,8 @@ open class ReceiptMemCache(
     }
 
     private val mapping = Caffeine.newBuilder()
-            .maximumSize(blocks * 200L)
-            .build<TxId, ByteArray>()
+        .maximumSize(blocks * 200L)
+        .build<TxId, ByteArray>()
 
     open fun evict(block: BlockContainer) {
         block.transactions.forEach {
@@ -60,5 +60,4 @@ open class ReceiptMemCache(
     open fun acceptsRecentBlocks(heightDelta: Long): Boolean {
         return blocks <= heightDelta && heightDelta >= 0
     }
-
 }

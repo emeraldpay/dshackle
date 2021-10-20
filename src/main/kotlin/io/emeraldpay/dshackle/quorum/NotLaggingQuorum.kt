@@ -20,7 +20,6 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.etherjar.rpc.RpcException
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -28,7 +27,7 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * NOTE: NativeCall checks the quorums and applies a HeightSelector if NotLaggingQuorum is enabled for a call
  */
-class NotLaggingQuorum(val maxLag: Long = 0): CallQuorum {
+class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
 
     private val result: AtomicReference<ByteArray> = AtomicReference()
     private val failed = AtomicReference(false)

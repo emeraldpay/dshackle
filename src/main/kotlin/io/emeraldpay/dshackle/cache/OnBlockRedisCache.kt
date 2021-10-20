@@ -30,9 +30,9 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
 abstract class OnBlockRedisCache<T>(
-        private val redis: RedisReactiveCommands<String, ByteArray>,
-        private val chain: Chain,
-        private val valueType: ValueContainer.ValueType
+    private val redis: RedisReactiveCommands<String, ByteArray>,
+    private val chain: Chain,
+    private val valueType: ValueContainer.ValueType
 ) : Reader<BlockId, T> {
 
     companion object {
@@ -51,18 +51,18 @@ abstract class OnBlockRedisCache<T>(
 
     fun toProto(block: BlockContainer, value: T): ValueContainer {
         return ValueContainer.newBuilder()
-                .setType(valueType)
-                .setValue(ByteString.copyFrom(serializeValue(value)))
-                .setBlockMeta(buildMeta(block))
-                .build()
+            .setType(valueType)
+            .setValue(ByteString.copyFrom(serializeValue(value)))
+            .setBlockMeta(buildMeta(block))
+            .build()
     }
 
     open fun buildMeta(block: BlockContainer): CachesProto.BlockMeta.Builder {
         return CachesProto.BlockMeta.newBuilder()
-                .setHash(ByteString.copyFrom(block.hash.value))
-                .setHeight(block.height)
-                .setDifficulty(ByteString.copyFrom(block.difficulty.toByteArray()))
-                .setTimestamp(block.timestamp.toEpochMilli())
+            .setHash(ByteString.copyFrom(block.hash.value))
+            .setHeight(block.height)
+            .setDifficulty(ByteString.copyFrom(block.difficulty.toByteArray()))
+            .setTimestamp(block.timestamp.toEpochMilli())
     }
 
     abstract fun serializeValue(value: T): ByteArray
@@ -83,7 +83,7 @@ abstract class OnBlockRedisCache<T>(
      * Key in Redis
      */
     fun key(hash: BlockId): String {
-        return "${prefix}:${chain.id}:${hash.toHex()}"
+        return "$prefix:${chain.id}:${hash.toHex()}"
     }
 
     /**
@@ -92,51 +92,51 @@ abstract class OnBlockRedisCache<T>(
      */
     open fun add(container: BlockContainer, value: T): Mono<Void> {
         return Mono.just(container)
-                .flatMap { block ->
-                    val ttl = cachingTime(block.timestamp)
-                    if (ttl > MIN_CACHE_TIME_SECONDS) {
-                        val key = key(block.hash)
-                        val proto = toProto(block, value)
-                        redis.setex(key, ttl, proto.toByteArray())
-                    } else {
-                        Mono.empty()
-                    }
-                }
-                .doOnError {
-                    log.warn("Failed to save Block to Redis: ${it.message}")
-                }
-                //if failed to cache, just continue without it
-                .onErrorResume {
+            .flatMap { block ->
+                val ttl = cachingTime(block.timestamp)
+                if (ttl > MIN_CACHE_TIME_SECONDS) {
+                    val key = key(block.hash)
+                    val proto = toProto(block, value)
+                    redis.setex(key, ttl, proto.toByteArray())
+                } else {
                     Mono.empty()
                 }
-                .then()
+            }
+            .doOnError {
+                log.warn("Failed to save Block to Redis: ${it.message}")
+            }
+            // if failed to cache, just continue without it
+            .onErrorResume {
+                Mono.empty()
+            }
+            .then()
     }
 
     /**
      * Calculate time to cache the value
      */
     fun cachingTime(blockTime: Instant): Long {
-        //default caching time is age of the block, i.e. block create hour ago
-        //keep for hour, but block created 10 seconds ago cache only for 10 seconds, because it
-        //still can be replaced in the blockchain
+        // default caching time is age of the block, i.e. block create hour ago
+        // keep for hour, but block created 10 seconds ago cache only for 10 seconds, because it
+        // still can be replaced in the blockchain
         val age = Instant.now().epochSecond - blockTime.epochSecond
         return min(age, TimeUnit.MINUTES.toSeconds(MAX_CACHE_TIME_MINUTES))
     }
 
     fun evict(id: BlockId): Mono<Void> {
         return Mono.just(id)
-                .flatMap {
-                    redis.del(key(it))
-                }
-                .then()
+            .flatMap {
+                redis.del(key(it))
+            }
+            .then()
     }
 
     override fun read(key: BlockId): Mono<T> {
         return redis.get(key(key))
-                .map { data ->
-                    fromProto(data)
-                }.onErrorResume {
-                    Mono.empty()
-                }
+            .map { data ->
+                fromProto(data)
+            }.onErrorResume {
+                Mono.empty()
+            }
     }
 }

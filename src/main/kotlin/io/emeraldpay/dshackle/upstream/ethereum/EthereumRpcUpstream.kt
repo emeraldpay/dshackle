@@ -5,7 +5,10 @@ import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -17,22 +20,23 @@ import reactor.core.Disposable
 import java.time.Duration
 
 open class EthereumRpcUpstream(
-        id: String,
-        val chain: Chain,
-        private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
-        private val ethereumWsFactory: EthereumWsFactory? = null,
-        options: UpstreamsConfig.Options,
-        role: UpstreamsConfig.UpstreamRole,
-        private val node: QuorumForLabels.QuorumItem,
-        targets: CallMethods
+    id: String,
+    val chain: Chain,
+    private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val ethereumWsFactory: EthereumWsFactory? = null,
+    options: UpstreamsConfig.Options,
+    role: UpstreamsConfig.UpstreamRole,
+    private val node: QuorumForLabels.QuorumItem,
+    targets: CallMethods
 ) : EthereumUpstream(id, options, role, targets, node), Upstream, CachesEnabled, Lifecycle {
 
     constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>) :
-            this(id, chain, api, null,
-                    UpstreamsConfig.Options.getDefaults(), UpstreamsConfig.UpstreamRole.STANDARD,
-                    QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
-                    DirectCallMethods())
-
+        this(
+            id, chain, api, null,
+            UpstreamsConfig.Options.getDefaults(), UpstreamsConfig.UpstreamRole.STANDARD,
+            QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
+            DirectCallMethods()
+        )
 
     private val log = LoggerFactory.getLogger(EthereumRpcUpstream::class.java)
 
@@ -56,7 +60,7 @@ open class EthereumRpcUpstream(
             log.debug("Start validation for upstream ${this.getId()}")
             val validator = EthereumUpstreamValidator(this, getOptions())
             validatorSubscription = validator.start()
-                    .subscribe(this::setStatus)
+                .subscribe(this::setStatus)
         }
     }
 

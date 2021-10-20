@@ -21,7 +21,7 @@ import io.emeraldpay.etherjar.rpc.json.BlockJson
 import org.bouncycastle.util.encoders.Hex
 
 class BlockId(
-        value: ByteArray
+    value: ByteArray
 ) : HashId(value) {
 
     companion object {
@@ -51,6 +51,4 @@ class BlockId(
             return BlockId(bytes)
         }
     }
-
-
 }

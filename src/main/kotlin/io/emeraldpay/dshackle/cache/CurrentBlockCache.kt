@@ -20,5 +20,4 @@ class CurrentBlockCache<K, D> : Reader<K, D> {
     fun evict() {
         cache.set(ConcurrentHashMap())
     }
-
 }

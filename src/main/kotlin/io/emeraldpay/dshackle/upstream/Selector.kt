@@ -19,8 +19,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import org.apache.commons.lang3.StringUtils
-import java.util.*
-import kotlin.collections.ArrayList
+import java.util.Collections
 
 class Selector {
 
@@ -36,8 +35,8 @@ class Selector {
                 req.hasLabelSelector() -> req.labelSelector.let { selector ->
                     if (StringUtils.isNotEmpty(selector.name)) {
                         val values = selector.valueList
-                                .map { it?.trim() ?: "" }
-                                .filter { StringUtils.isNotEmpty(it) }
+                            .map { it?.trim() ?: "" }
+                            .filter { StringUtils.isNotEmpty(it) }
                         if (values.isEmpty()) {
                             ExistsMatcher(selector.name)
                         } else {
@@ -47,8 +46,24 @@ class Selector {
                         AnyLabelMatcher()
                     }
                 }
-                req.hasAndSelector() -> AndMatcher(Collections.unmodifiableCollection(req.andSelector.selectorsList.map { convertToMatcher(it) }))
-                req.hasOrSelector() -> OrMatcher(Collections.unmodifiableCollection(req.orSelector.selectorsList.map { convertToMatcher(it) }))
+                req.hasAndSelector() -> AndMatcher(
+                    Collections.unmodifiableCollection(
+                        req.andSelector.selectorsList.map {
+                            convertToMatcher(
+                                it
+                            )
+                        }
+                    )
+                )
+                req.hasOrSelector() -> OrMatcher(
+                    Collections.unmodifiableCollection(
+                        req.orSelector.selectorsList.map {
+                            convertToMatcher(
+                                it
+                            )
+                        }
+                    )
+                )
                 req.hasNotSelector() -> NotMatcher(convertToMatcher(req.notSelector.selector))
                 req.hasExistsSelector() -> ExistsMatcher(req.existsSelector.name)
                 else -> AnyLabelMatcher()
@@ -110,8 +125,8 @@ class Selector {
     }
 
     class MultiMatcher(
-            private val matchers: Collection<Matcher>
-    ): Matcher {
+        private val matchers: Collection<Matcher>
+    ) : Matcher {
         override fun matches(up: Upstream): Boolean {
             return matchers.all { it.matches(up) }
         }
@@ -139,8 +154,8 @@ class Selector {
     }
 
     class MethodMatcher(
-            val method: String
-    ): Matcher {
+        val method: String
+    ) : Matcher {
         override fun matches(up: Upstream): Boolean {
             return up.getMethods().isAllowed(method)
         }
@@ -154,7 +169,7 @@ class Selector {
         }
     }
 
-    abstract class LabelSelectorMatcher: Matcher {
+    abstract class LabelSelectorMatcher : Matcher {
         override fun matches(up: Upstream): Boolean {
             return up.getLabels().any(this::matches)
         }
@@ -163,7 +178,7 @@ class Selector {
         abstract fun asProto(): BlockchainOuterClass.Selector?
     }
 
-    class EmptyMatcher: Matcher {
+    class EmptyMatcher : Matcher {
         override fun matches(up: Upstream): Boolean {
             return true
         }
@@ -177,7 +192,7 @@ class Selector {
         }
     }
 
-    class AnyLabelMatcher: LabelSelectorMatcher() {
+    class AnyLabelMatcher : LabelSelectorMatcher() {
 
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return true
@@ -224,9 +239,9 @@ class Selector {
 
         override fun asProto(): BlockchainOuterClass.Selector {
             return BlockchainOuterClass.Selector.newBuilder().setLabelSelector(
-                    BlockchainOuterClass.LabelSelector.newBuilder()
-                            .setName(name)
-                            .addAllValue(values)
+                BlockchainOuterClass.LabelSelector.newBuilder()
+                    .setName(name)
+                    .addAllValue(values)
             ).build()
         }
 
@@ -239,16 +254,16 @@ class Selector {
         }
     }
 
-    class OrMatcher(val matchers: Collection<LabelSelectorMatcher>): LabelSelectorMatcher() {
+    class OrMatcher(val matchers: Collection<LabelSelectorMatcher>) : LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return matchers.any { matcher -> matcher.matches(labels) }
         }
 
         override fun asProto(): BlockchainOuterClass.Selector {
             return BlockchainOuterClass.Selector.newBuilder().setOrSelector(
-                    BlockchainOuterClass.OrSelector.newBuilder()
-                            .addAllSelectors(matchers.map { it.asProto() })
-                            .build()
+                BlockchainOuterClass.OrSelector.newBuilder()
+                    .addAllSelectors(matchers.map { it.asProto() })
+                    .build()
             ).build()
         }
 
@@ -261,16 +276,16 @@ class Selector {
         }
     }
 
-    class AndMatcher(val matchers: Collection<LabelSelectorMatcher>): LabelSelectorMatcher() {
+    class AndMatcher(val matchers: Collection<LabelSelectorMatcher>) : LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return matchers.all { matcher -> matcher.matches(labels) }
         }
 
         override fun asProto(): BlockchainOuterClass.Selector {
             return BlockchainOuterClass.Selector.newBuilder().setAndSelector(
-                    BlockchainOuterClass.AndSelector.newBuilder()
-                            .addAllSelectors(matchers.map { it.asProto() })
-                            .build()
+                BlockchainOuterClass.AndSelector.newBuilder()
+                    .addAllSelectors(matchers.map { it.asProto() })
+                    .build()
             ).build()
         }
 
@@ -283,16 +298,16 @@ class Selector {
         }
     }
 
-    class NotMatcher(val matcher: LabelSelectorMatcher): LabelSelectorMatcher() {
+    class NotMatcher(val matcher: LabelSelectorMatcher) : LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return !matcher.matches(labels)
         }
 
         override fun asProto(): BlockchainOuterClass.Selector {
             return BlockchainOuterClass.Selector.newBuilder().setNotSelector(
-                    BlockchainOuterClass.NotSelector.newBuilder()
-                            .setSelector(matcher.asProto())
-                            .build()
+                BlockchainOuterClass.NotSelector.newBuilder()
+                    .setSelector(matcher.asProto())
+                    .build()
             ).build()
         }
 
@@ -305,21 +320,21 @@ class Selector {
         }
     }
 
-    class ExistsMatcher(val name: String): LabelSelectorMatcher() {
+    class ExistsMatcher(val name: String) : LabelSelectorMatcher() {
         override fun matches(labels: UpstreamsConfig.Labels): Boolean {
             return labels.containsKey(name)
         }
 
         override fun asProto(): BlockchainOuterClass.Selector {
             return BlockchainOuterClass.Selector.newBuilder().setExistsSelector(
-                    BlockchainOuterClass.ExistsSelector.newBuilder()
-                            .setName(name)
-                            .build()
+                BlockchainOuterClass.ExistsSelector.newBuilder()
+                    .setName(name)
+                    .build()
             ).build()
         }
 
         override fun describeInternal(): String {
-            return "label '${name}' exists"
+            return "label '$name' exists"
         }
 
         override fun toString(): String {
@@ -341,7 +356,7 @@ class Selector {
         }
     }
 
-    class GrpcMatcher() : Matcher {
+    class GrpcMatcher : Matcher {
         override fun matches(up: Upstream): Boolean {
             return up.isGrpc()
         }
@@ -355,7 +370,7 @@ class Selector {
         }
     }
 
-    class HeightMatcher(val height: Long): Matcher {
+    class HeightMatcher(val height: Long) : Matcher {
         override fun matches(up: Upstream): Boolean {
             return (up.getHead().getCurrentHeight() ?: 0) >= height
         }

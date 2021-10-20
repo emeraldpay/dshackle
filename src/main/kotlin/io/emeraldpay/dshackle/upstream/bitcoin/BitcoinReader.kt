@@ -29,9 +29,9 @@ import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.cast
 
 open class BitcoinReader(
-        private val upstreams: BitcoinMultistream,
-        head: Head,
-        esploraClient: EsploraClient?
+    private val upstreams: BitcoinMultistream,
+    head: Head,
+    esploraClient: EsploraClient?
 ) : Lifecycle {
 
     companion object {
@@ -78,10 +78,10 @@ open class BitcoinReader(
     fun <T> castedRead(req: JsonRpcRequest, clazz: Class<T>): Mono<T> {
         return upstreams.getDirectApi(Selector.empty).flatMap { api ->
             api.read(req)
-                    .flatMap(JsonRpcResponse::requireResult)
-                    .map {
-                        objectMapper.readValue(it, clazz) as T
-                    }
+                .flatMap(JsonRpcResponse::requireResult)
+                .map {
+                    objectMapper.readValue(it, clazz) as T
+                }
         }
     }
 }

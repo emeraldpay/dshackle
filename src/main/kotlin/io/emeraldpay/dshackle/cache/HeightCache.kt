@@ -25,12 +25,12 @@ import reactor.core.publisher.Mono
  * Memory cache for blocks heights, keeps mapping height->hash.
  */
 open class HeightCache(
-        maxSize: Int = 512
+    maxSize: Int = 512
 ) : Reader<Long, BlockId> {
 
     private val heights = Caffeine.newBuilder()
-            .maximumSize(maxSize.toLong())
-            .build<Long, BlockId>()
+        .maximumSize(maxSize.toLong())
+        .build<Long, BlockId>()
 
     override fun read(key: Long): Mono<BlockId> {
         return Mono.justOrEmpty(heights.getIfPresent(key))
@@ -45,5 +45,4 @@ open class HeightCache(
     fun purge() {
         heights.cleanUp()
     }
-
 }

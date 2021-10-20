@@ -82,5 +82,4 @@ class AuthConfigReader : YamlConfigReader() {
             auth
         }
     }
-
 }

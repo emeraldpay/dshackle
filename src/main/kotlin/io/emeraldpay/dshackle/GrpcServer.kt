@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerGrpc
-import io.grpc.*
+import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -29,15 +29,15 @@ import javax.annotation.PreDestroy
 
 @Service
 open class GrpcServer(
-        @Autowired val rpcs: List<io.grpc.BindableService>,
-        @Autowired val mainConfig: MainConfig,
-        @Autowired val tlsSetup: TlsSetup,
-        @Autowired val accessHandler: AccessHandlerGrpc
+    @Autowired val rpcs: List<io.grpc.BindableService>,
+    @Autowired val mainConfig: MainConfig,
+    @Autowired val tlsSetup: TlsSetup,
+    @Autowired val accessHandler: AccessHandlerGrpc
 ) {
 
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)
 
-    private var server: Server? = null;
+    private var server: Server? = null
 
     @PostConstruct
     fun start() {
@@ -45,14 +45,14 @@ open class GrpcServer(
         log.debug("Running with DEBUG LOGGING")
         log.info("Listening Native gRPC on ${mainConfig.host}:${mainConfig.port}")
         val serverBuilder = NettyServerBuilder
-                .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
-                .let {
-                    if (mainConfig.accessLogConfig.enabled) {
-                        it.intercept(accessHandler)
-                    } else {
-                        it
-                    }
+            .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
+            .let {
+                if (mainConfig.accessLogConfig.enabled) {
+                    it.intercept(accessHandler)
+                } else {
+                    it
                 }
+            }
 
         tlsSetup.setupServer("Native gRPC", mainConfig.tls, true)?.let {
             serverBuilder.sslContext(it)
@@ -75,5 +75,4 @@ open class GrpcServer(
         server?.shutdownNow()
         log.info("GRPC Server shot down")
     }
-
 }

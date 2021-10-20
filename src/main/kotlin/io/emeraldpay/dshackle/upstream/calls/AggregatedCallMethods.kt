@@ -17,15 +17,14 @@
 package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.CallQuorum
-import java.util.*
-import kotlin.collections.HashSet
+import java.util.Collections
 
 /**
  * Aggregation over several parent configuration. It dispatches call to a first delegate that supports it.
  */
 class AggregatedCallMethods(
-        private val delegates: Collection<CallMethods>
-): CallMethods {
+    private val delegates: Collection<CallMethods>
+) : CallMethods {
 
     private val allMethods: Set<String>
 

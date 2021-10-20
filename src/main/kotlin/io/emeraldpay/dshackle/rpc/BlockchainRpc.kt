@@ -31,44 +31,45 @@ import org.springframework.context.annotation.DependsOn
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.*
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-@Service @DependsOn("monitoringSetup")
+@Service
+@DependsOn("monitoringSetup")
 class BlockchainRpc(
-        @Autowired private val nativeCall: NativeCall,
-        @Autowired private val nativeSubscribe: NativeSubscribe,
-        @Autowired private val streamHead: StreamHead,
-        @Autowired private val trackTx: List<TrackTx>,
-        @Autowired private val trackAddress: List<TrackAddress>,
-        @Autowired private val describe: Describe,
-        @Autowired private val subscribeStatus: SubscribeStatus
-): ReactorBlockchainGrpc.BlockchainImplBase() {
+    @Autowired private val nativeCall: NativeCall,
+    @Autowired private val nativeSubscribe: NativeSubscribe,
+    @Autowired private val streamHead: StreamHead,
+    @Autowired private val trackTx: List<TrackTx>,
+    @Autowired private val trackAddress: List<TrackAddress>,
+    @Autowired private val describe: Describe,
+    @Autowired private val subscribeStatus: SubscribeStatus
+) : ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
 
     private val describeMetric = Counter.builder("request.grpc.request")
-            .tag("type", "describe")
-            .tag("chain", "NA")
-            .register(Metrics.globalRegistry)
+        .tag("type", "describe")
+        .tag("chain", "NA")
+        .register(Metrics.globalRegistry)
     private val subscribeStatusMetric = Counter.builder("request.grpc.request")
-            .tag("type", "subscribeStatus")
-            .tag("chain", "NA")
-            .register(Metrics.globalRegistry)
+        .tag("type", "subscribeStatus")
+        .tag("chain", "NA")
+        .register(Metrics.globalRegistry)
     private val errorMetric = Counter.builder("request.grpc.err")
-            .register(Metrics.globalRegistry)
+        .register(Metrics.globalRegistry)
     private val chainMetrics = ChainValue { chain -> RequestMetrics(chain) }
 
     override fun nativeCall(request: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         var startTime = 0L
         var metrics: RequestMetrics? = null
         return nativeCall.nativeCall(
-                request
-                        .doOnNext {
-                            metrics = chainMetrics.get(it.chain)
-                            metrics!!.nativeCallMetric.increment()
-                            startTime = System.currentTimeMillis()
-                        }
+            request
+                .doOnNext {
+                    metrics = chainMetrics.get(it.chain)
+                    metrics!!.nativeCallMetric.increment()
+                    startTime = System.currentTimeMillis()
+                }
         ).doOnNext {
             metrics?.nativeCallRespMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
         }.doOnError { errorMetric.increment() }
@@ -77,11 +78,11 @@ class BlockchainRpc(
     override fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
         var metrics: RequestMetrics? = null
         return nativeSubscribe.nativeSubscribe(
-                request
-                        .doOnNext {
-                            metrics = chainMetrics.get(it.chain)
-                            metrics!!.nativeSubscribeMetric.increment()
-                        }
+            request
+                .doOnNext {
+                    metrics = chainMetrics.get(it.chain)
+                    metrics!!.nativeSubscribeMetric.increment()
+                }
         ).doOnNext {
             metrics?.nativeSubscribeRespMetric?.increment()
         }.doOnError { errorMetric.increment() }
@@ -89,8 +90,8 @@ class BlockchainRpc(
 
     override fun subscribeHead(request: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
         return streamHead.add(
-                request
-                        .doOnNext { chainMetrics.get(it.type).subscribeHeadMetric.increment() }
+            request
+                .doOnNext { chainMetrics.get(it.type).subscribeHeadMetric.increment() }
         ).doOnError { errorMetric.increment() }
     }
 
@@ -102,8 +103,8 @@ class BlockchainRpc(
             try {
                 trackTx.find { it.isSupported(chain) }?.let { track ->
                     track.subscribe(request)
-                            .doOnNext { metrics.subscribeHeadRespMetric.increment() }
-                            .doOnError { errorMetric.increment() }
+                        .doOnNext { metrics.subscribeHeadRespMetric.increment() }
+                        .doOnError { errorMetric.increment() }
                 } ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
             } catch (t: Throwable) {
                 log.error("Internal error during Tx Subscription", t)
@@ -122,12 +123,12 @@ class BlockchainRpc(
             try {
                 trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
                     track.subscribe(request)
-                            .doOnNext { metrics.subscribeBalanceRespMetric.increment() }
-                            .doOnError { errorMetric.increment() }
+                        .doOnNext { metrics.subscribeBalanceRespMetric.increment() }
+                        .doOnError { errorMetric.increment() }
                 } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
-                                .doOnSubscribe {
-                                    log.error("Balance for $chain:$asset is not supported")
-                                }
+                    .doOnSubscribe {
+                        log.error("Balance for $chain:$asset is not supported")
+                    }
             } catch (t: Throwable) {
                 log.error("Internal error during Balance Subscription", t)
                 errorMetric.increment()
@@ -146,13 +147,16 @@ class BlockchainRpc(
             try {
                 trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
                     track.getBalance(request)
-                            .doOnNext {
-                                metrics.getBalanceRespMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
-                            }
+                        .doOnNext {
+                            metrics.getBalanceRespMetric.record(
+                                System.currentTimeMillis() - startTime,
+                                TimeUnit.MILLISECONDS
+                            )
+                        }
                 } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
-                                .doOnSubscribe {
-                                    log.error("Balance for $chain:$asset is not supported")
-                                }
+                    .doOnSubscribe {
+                        log.error("Balance for $chain:$asset is not supported")
+                    }
             } catch (t: Throwable) {
                 log.error("Internal error during Balance Request", t)
                 errorMetric.increment()
@@ -164,61 +168,61 @@ class BlockchainRpc(
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
         describeMetric.increment()
         return describe.describe(request)
-                .doOnError { errorMetric.increment() }
+            .doOnError { errorMetric.increment() }
     }
 
     override fun subscribeStatus(request: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
         subscribeStatusMetric.increment()
         return subscribeStatus.subscribeStatus(request)
-                .doOnError { errorMetric.increment() }
+            .doOnError { errorMetric.increment() }
     }
 
     class RequestMetrics(chain: Chain) {
         val nativeCallMetric = Counter.builder("request.grpc.request")
-                .tag("type", "nativeCall")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "nativeCall")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val nativeCallRespMetric = Timer.builder("request.grpc.response")
-                .tag("type", "nativeCall")
-                .tag("chain", chain.chainCode)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry)
+            .tag("type", "nativeCall")
+            .tag("chain", chain.chainCode)
+            .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
         val nativeSubscribeMetric = Counter.builder("request.grpc.request")
-                .tag("type", "nativeSubscribe")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "nativeSubscribe")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val nativeSubscribeRespMetric = Counter.builder("request.grpc.response")
-                .tag("type", "nativeSubscribe")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "nativeSubscribe")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val subscribeHeadMetric = Counter.builder("request.grpc.request")
-                .tag("type", "subscribeHead")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "subscribeHead")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val subscribeHeadRespMetric = Counter.builder("request.grpc.reply")
-                .tag("type", "subscribeHead")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "subscribeHead")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val subscribeTxMetric = Counter.builder("request.grpc.request")
-                .tag("type", "subscribeTx")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "subscribeTx")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val subscribeBalanceMetric = Counter.builder("request.grpc.request")
-                .tag("type", "subscribeBalance")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "subscribeBalance")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val subscribeBalanceRespMetric = Counter.builder("request.grpc.reply")
-                .tag("type", "subscribeBalance")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "subscribeBalance")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val getBalanceMetric = Counter.builder("request.grpc.request")
-                .tag("type", "getBalance")
-                .tag("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tag("type", "getBalance")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         val getBalanceRespMetric = Timer.builder("request.grpc.response")
-                .tag("type", "getBalance")
-                .tag("chain", chain.chainCode)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry)
+            .tag("type", "getBalance")
+            .tag("chain", chain.chainCode)
+            .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
     }
 }

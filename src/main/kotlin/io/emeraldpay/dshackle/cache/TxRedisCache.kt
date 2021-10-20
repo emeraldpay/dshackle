@@ -15,31 +15,26 @@
  */
 package io.emeraldpay.dshackle.cache
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
+import io.emeraldpay.dshackle.proto.CachesProto
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.grpc.Chain
-import io.emeraldpay.dshackle.proto.CachesProto
 import io.lettuce.core.api.reactive.RedisReactiveCommands
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
-import reactor.util.function.Tuples
-import java.time.Instant
-import java.util.concurrent.TimeUnit
-import kotlin.math.min
 
 /**
  * Cache transactions in Redis, up to 24 hours.
  */
 open class TxRedisCache(
-        private val redis: RedisReactiveCommands<String, ByteArray>,
-        private val chain: Chain
+    private val redis: RedisReactiveCommands<String, ByteArray>,
+    private val chain: Chain
 ) : Reader<TxId, TxContainer>,
-        OnTxRedisCache<TxContainer>(redis, chain, CachesProto.ValueContainer.ValueType.TX) {
+    OnTxRedisCache<TxContainer>(redis, chain, CachesProto.ValueContainer.ValueType.TX) {
 
     companion object {
         private val log = LoggerFactory.getLogger(TxRedisCache::class.java)
@@ -67,15 +62,14 @@ open class TxRedisCache(
         }
         val meta = value.txMeta
         return TxContainer(
-                meta.height,
-                TxId(meta.hash.toByteArray()),
-                BlockId(meta.blockHash.toByteArray()),
-                value.value.toByteArray()
+            meta.height,
+            TxId(meta.hash.toByteArray()),
+            BlockId(meta.blockHash.toByteArray()),
+            value.value.toByteArray()
         )
     }
 
     open fun add(tx: TxContainer, block: BlockContainer): Mono<Void> {
         return super.add(tx.hash, tx, block, tx.height)
     }
-
 }

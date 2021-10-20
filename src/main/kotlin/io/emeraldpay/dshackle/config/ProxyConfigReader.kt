@@ -19,10 +19,8 @@ package io.emeraldpay.dshackle.config
 import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
-import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
-import java.io.InputStreamReader
 
 /**
  * Read YAML config, part related to Proxy configuration
@@ -84,5 +82,4 @@ class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
         config.tls = authConfigReader.readServerTls(input)
         return config
     }
-
 }

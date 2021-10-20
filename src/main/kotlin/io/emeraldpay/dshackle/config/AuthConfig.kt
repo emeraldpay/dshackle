@@ -29,14 +29,14 @@ class AuthConfig {
     }
 
     class ClientBasicAuth(
-            val username: String,
-            val password: String
+        val username: String,
+        val password: String
     ) : ClientAuth()
 
     class ClientTlsAuth(
-            var ca: String? = null,
-            var certificate: String? = null,
-            var key: String? = null
+        var ca: String? = null,
+        var certificate: String? = null,
+        var key: String? = null
     ) : ClientAuth()
 
     /**

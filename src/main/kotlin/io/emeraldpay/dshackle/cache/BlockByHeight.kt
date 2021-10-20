@@ -25,8 +25,8 @@ import reactor.core.publisher.Mono
  * Connects two caches to read through them. First is cache height->hash, second is hash->block.
  */
 open class BlockByHeight(
-        private val heights: Reader<Long, BlockId>,
-        private val blocks: Reader<BlockId, BlockContainer>
+    private val heights: Reader<Long, BlockId>,
+    private val blocks: Reader<BlockId, BlockContainer>
 ) : Reader<Long, BlockContainer> {
 
     companion object {
@@ -35,7 +35,6 @@ open class BlockByHeight(
 
     override fun read(key: Long): Mono<BlockContainer> {
         return heights.read(key)
-                .flatMap { blocks.read(it) }
+            .flatMap { blocks.read(it) }
     }
-
 }

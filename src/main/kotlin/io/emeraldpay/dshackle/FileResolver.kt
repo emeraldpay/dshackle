@@ -19,7 +19,7 @@ package io.emeraldpay.dshackle
 import java.io.File
 
 open class FileResolver(
-        private val baseDir: File
+    private val baseDir: File
 ) {
 
     companion object {
@@ -35,5 +35,4 @@ open class FileResolver(
         }
         return File(baseDir, path)
     }
-
 }

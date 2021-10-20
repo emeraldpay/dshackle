@@ -21,9 +21,8 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import org.slf4j.LoggerFactory
-import java.util.*
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.collections.ArrayList
 
 class GrpcUpstreamStatus {
 
@@ -40,15 +39,16 @@ class GrpcUpstreamStatus {
         val updateNodes = QuorumForLabels()
 
         conf.nodesList.forEach { remoteNode ->
-            val node = QuorumForLabels.QuorumItem(remoteNode.quorum,
-                    remoteNode.labelsList.let { provided ->
-                        val labels = UpstreamsConfig.Labels()
-                        provided.forEach {
-                            labels[it.name] = it.value
-                        }
-                        updateLabels.add(labels)
-                        labels
+            val node = QuorumForLabels.QuorumItem(
+                remoteNode.quorum,
+                remoteNode.labelsList.let { provided ->
+                    val labels = UpstreamsConfig.Labels()
+                    provided.forEach {
+                        labels[it.name] = it.value
                     }
+                    updateLabels.add(labels)
+                    labels
+                }
             )
             updateNodes.add(node)
         }

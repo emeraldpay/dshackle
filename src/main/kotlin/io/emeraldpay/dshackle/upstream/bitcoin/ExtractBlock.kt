@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory
 import java.math.BigInteger
 import java.time.Instant
 
-class ExtractBlock() {
+class ExtractBlock {
 
     companion object {
         private val log = LoggerFactory.getLogger(ExtractBlock::class.java)
@@ -59,16 +59,14 @@ class ExtractBlock() {
         val transactions = (data["tx"] as List<String>?)?.map(TxId.Companion::from) ?: emptyList()
 
         return BlockContainer(
-                getHeight(data) ?: throw IllegalArgumentException("Block JSON has no height"),
-                BlockId.from(hash),
-                getDifficulty(data) ?: throw IllegalArgumentException("Block JSON has no chainwork"),
-                getTime(data) ?: throw IllegalArgumentException("Block JSON has no time"),
-                false,
-                json,
-                data,
-                transactions
+            getHeight(data) ?: throw IllegalArgumentException("Block JSON has no height"),
+            BlockId.from(hash),
+            getDifficulty(data) ?: throw IllegalArgumentException("Block JSON has no chainwork"),
+            getTime(data) ?: throw IllegalArgumentException("Block JSON has no time"),
+            false,
+            json,
+            data,
+            transactions
         )
     }
-
-
 }

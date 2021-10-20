@@ -25,25 +25,44 @@ import reactor.core.publisher.Sinks
 import java.util.concurrent.atomic.AtomicReference
 
 abstract class DefaultUpstream(
-        private val id: String,
-        defaultLag: Long,
-        defaultAvail: UpstreamAvailability,
-        private val options: UpstreamsConfig.Options,
-        private val role: UpstreamsConfig.UpstreamRole,
-        private val targets: CallMethods?,
-        private val node: QuorumForLabels.QuorumItem?
+    private val id: String,
+    defaultLag: Long,
+    defaultAvail: UpstreamAvailability,
+    private val options: UpstreamsConfig.Options,
+    private val role: UpstreamsConfig.UpstreamRole,
+    private val targets: CallMethods?,
+    private val node: QuorumForLabels.QuorumItem?
 ) : Upstream {
 
-    constructor(id: String, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, targets: CallMethods?) :
-            this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, QuorumForLabels.QuorumItem.empty())
+    constructor(
+        id: String,
+        options: UpstreamsConfig.Options,
+        role: UpstreamsConfig.UpstreamRole,
+        targets: CallMethods?
+    ) :
+        this(
+            id,
+            Long.MAX_VALUE,
+            UpstreamAvailability.UNAVAILABLE,
+            options,
+            role,
+            targets,
+            QuorumForLabels.QuorumItem.empty()
+        )
 
-    constructor(id: String, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, targets: CallMethods?, node: QuorumForLabels.QuorumItem?) :
-            this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node)
+    constructor(
+        id: String,
+        options: UpstreamsConfig.Options,
+        role: UpstreamsConfig.UpstreamRole,
+        targets: CallMethods?,
+        node: QuorumForLabels.QuorumItem?
+    ) :
+        this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream = Sinks.many()
-            .multicast()
-            .directBestEffort<UpstreamAvailability>()
+        .multicast()
+        .directBestEffort<UpstreamAvailability>()
 
     override fun isAvailable(): Boolean {
         return getStatus() == UpstreamAvailability.OK
@@ -53,7 +72,7 @@ abstract class DefaultUpstream(
         val available = value.availability
         val quorum = value.quorum
         setStatus(
-                if (available != null) UpstreamAvailability.fromGrpc(available.number) else UpstreamAvailability.UNAVAILABLE
+            if (available != null) UpstreamAvailability.fromGrpc(available.number) else UpstreamAvailability.UNAVAILABLE
         )
     }
 
@@ -80,7 +99,7 @@ abstract class DefaultUpstream(
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
         return statusStream.asFlux()
-                .distinctUntilChanged()
+            .distinctUntilChanged()
     }
 
     override fun setLag(lag: Long) {
@@ -107,7 +126,7 @@ abstract class DefaultUpstream(
     }
 
     override fun getRole(): UpstreamsConfig.UpstreamRole {
-        return role;
+        return role
     }
 
     override fun getMethods(): CallMethods {
@@ -115,7 +134,7 @@ abstract class DefaultUpstream(
     }
 
     private val quorumByLabel = node?.let { QuorumForLabels(it) }
-            ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
+        ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
 
     open fun getQuorumByLabel(): QuorumForLabels {
         return quorumByLabel

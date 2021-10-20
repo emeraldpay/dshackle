@@ -35,5 +35,4 @@ class TimestampSerializer : JsonSerializer<Instant>() {
         }
         numberAsHex.serialize(value.epochSecond, gen, serializers)
     }
-
 }

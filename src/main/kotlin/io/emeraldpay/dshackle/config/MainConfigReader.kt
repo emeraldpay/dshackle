@@ -21,7 +21,7 @@ import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 
 class MainConfigReader(
-        fileResolver: FileResolver
+    fileResolver: FileResolver
 ) : YamlConfigReader(), ConfigReader<MainConfig> {
 
     companion object {
@@ -73,5 +73,4 @@ class MainConfigReader(
         }
         return config
     }
-
 }
