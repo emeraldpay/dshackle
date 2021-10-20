@@ -23,7 +23,9 @@ import io.emeraldpay.dshackle.cache.HeightByHashAdding
 import io.emeraldpay.dshackle.data.*
 import io.emeraldpay.dshackle.reader.*
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
@@ -142,7 +144,14 @@ open class EthereumReader(
     }
 
     fun receipts(): Reader<TxId, ByteArray> {
-        return caches.getReceipts()
+        //TODO put into cache
+        val requested = RekeyingReader(
+                { txid: TxId -> txid.toHexWithPrefix() },
+                RpcReader.basicRequest(up, "eth_getTransactionReceipt"))
+        return CompoundReader(
+                caches.getReceipts(),
+                requested
+        )
     }
 
     fun heightByHash(): Reader<BlockId, Long> {

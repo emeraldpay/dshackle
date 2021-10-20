@@ -200,12 +200,6 @@ open class NativeCall(
                 .map {
                     CallResult(ctx.id, it.value, null)
                 }
-                .doOnNext {
-                    it.result?.let { value ->
-                        ctx.upstream.postprocessor
-                                .onReceive(ctx.payload.method, ctx.payload.params, value)
-                    }
-                }
                 .onErrorResume { t ->
                     val failure = if (t is CallFailure) {
                         CallResult.fail(t.id, t.reason)

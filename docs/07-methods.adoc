@@ -23,6 +23,7 @@ service Blockchain {
     rpc GetBalance (BalanceRequest) returns (stream AddressBalance) {}
 
     rpc NativeCall (NativeCallRequest) returns (stream NativeCallReplyItem) {}
+    rpc NativeSubscribe (NativeSubscribeRequest) returns (stream NativeSubscribeReplyItem) {}
 
     rpc Describe (DescribeRequest) returns (DescribeResponse) {}
     rpc SubscribeStatus (StatusRequest) returns (stream ChainStatus) {}
@@ -79,6 +80,50 @@ Where:
 
 NOTE: Reply Items comes right after their execution on an upstream, therefore streaming response.
 It allows to build non-blocking queries
+
+=== Wrapped JSON RPC subscriptions
+
+Most of Ethereum APIs provides _subscription_ to events usually accessed through WebSocket connection.
+Dshackle gives access to same events through gRPC protocol via the `NativeSubscribe` method.
+
+NOTE: Dshackle doesn't actually wrap existing subscription or dispatch request to an upstream.
+It rather generates same events based on the available data, i.e., aggregates it from multiple upstreams.
+
+Supported subscriptions:
+
+- `newHeads`
+- `logs`
+- `syncing`
+
+Method data:
+
+[source,proto]
+----
+message NativeSubscribeRequest {
+    ChainRef chain = 1;
+    string method = 2;
+    bytes payload = 3;
+}
+
+message NativeSubscribeReplyItem {
+    bytes payload = 1;
+}
+----
+
+Where:
+
+- `method` is a subscriptions method (one of `newHeads`, `logs` or `syncing`)
+- `payload` in request is optional subscription params object, which exists only for `logs` methods.
+In that case it may be `address` or `topics`.
+Both address and topics can be a string or array of strings.
+Empty payload for `logs` accepted as subscription to _all_ events.
+- `payload` in reply item is as subscription response encoded as JSON
+
+For example to subscribe to USDC ERC-20 coin Approval events on Ethereum mainnet the request would be:
+
+- `chain=100`
+- `method=logs`
+- `payload={"address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "topics": ["0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"]}`
 
 === SubscribeHead
 

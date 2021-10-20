@@ -52,6 +52,7 @@ import reactor.util.annotation.Nullable
 
 import java.time.Duration
 import java.util.concurrent.Callable
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.BiFunction
 import java.util.function.Consumer
 import java.util.function.Predicate
@@ -63,6 +64,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     private final ObjectMapper objectMapper = Global.objectMapper
 
     String id = "default"
+    AtomicInteger calls = new AtomicInteger(0)
 
     EthereumApiMock() {
     }
@@ -83,6 +85,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
             def predefined = predefined.find { it.isSame(request.method, request.params) }
             byte[] result = null
             JsonRpcError error = null
+            calls.incrementAndGet()
             if (predefined != null) {
                 if (predefined.exception != null) {
                     predefined.onCalled()

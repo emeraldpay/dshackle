@@ -17,10 +17,12 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.cache.BlocksMemCache
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.ReceiptRedisCache
 import io.emeraldpay.dshackle.cache.TxMemCache
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -231,5 +233,48 @@ class EthereumReaderSpec extends Specification {
 
         then:
         act == Wei.from("0xff")
+    }
+
+    def "Read receipt from upstream if cache is empty"() {
+        setup:
+        def api = TestingCommons.api()
+        api.answerOnce("eth_getTransactionReceipt", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2"], [
+                transactionHash: "0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2"
+        ])
+        EthereumUpstreamMock upstream = new EthereumUpstreamMock(Chain.ETHEREUM, api)
+        def upstreams = TestingCommons.multistream(upstream)
+        def reader = new EthereumReader(upstreams, Caches.default(), calls)
+        reader.start()
+
+        when:
+        def act = reader.receipts().read(TxId.from("0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2")).block()
+
+        then:
+        act != null
+        new String(act) == '{"transactionHash":"0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2"}'
+    }
+
+    def "Read receipt from cache if available"() {
+        setup:
+        def api = TestingCommons.api()
+        EthereumUpstreamMock upstream = new EthereumUpstreamMock(Chain.ETHEREUM, api)
+        def upstreams = TestingCommons.multistream(upstream)
+        def receiptCache = Mock(ReceiptRedisCache) {
+            1 * it.read(TxId.from("0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2")) >>
+                    Mono.just('{"transactionHash":"0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2"}'.bytes)
+        }
+        def cashes = Caches.newBuilder()
+                .setReceipts(receiptCache)
+                .build()
+        def reader = new EthereumReader(upstreams, cashes, calls)
+        reader.start()
+
+        when:
+        def act = reader.receipts().read(TxId.from("0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2")).block()
+
+        then:
+        act != null
+        new String(act) == '{"transactionHash":"0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2"}'
+        api.calls.get() == 0
     }
 }

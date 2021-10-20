@@ -33,6 +33,7 @@ open class Caches(
         private val memBlocksByHash: BlocksMemCache,
         private val blocksByHeight: HeightCache,
         private val memTxsByHash: TxMemCache,
+        private val memReceipts: ReceiptMemCache,
         private val redisBlocksByHash: BlocksRedisCache?,
         private val redisTxsByHash: TxRedisCache?,
         private val redisReceipts: ReceiptRedisCache?,
@@ -59,6 +60,8 @@ open class Caches(
     private val txsByHash: Reader<TxId, TxContainer>
     private val receiptByHash: Reader<TxId, ByteArray>
 
+    private var head: Head? = null
+
     init {
         blocksByHash = if (redisBlocksByHash == null) {
             memBlocksByHash
@@ -70,26 +73,24 @@ open class Caches(
         } else {
             CompoundReader(memTxsByHash, redisTxsByHash)
         }
-        receiptByHash = redisReceipts ?: EmptyReader()
+        receiptByHash = if (redisReceipts == null) {
+            memReceipts
+        } else {
+            CompoundReader(memReceipts, redisReceipts)
+        }
     }
 
     fun setHead(head: Head) {
+        this.head = head
         redisTxsByHash?.head = head
         redisReceipts?.head = head
     }
 
-    /**
-     * Cache data that was just requested
-     */
-    fun cacheRequested(data: Any) {
-        if (data is TxContainer) {
-            cache(Tag.REQUESTED, data)
-        } else if (data is BlockContainer) {
-            cache(Tag.REQUESTED, data)
-        }
-    }
-
     open fun cacheReceipt(tag: Tag, data: DefaultContainer<TransactionReceiptJson>) {
+        val currentHeight = head?.getCurrentHeight()
+        if (currentHeight != null && data.height != null && memReceipts.acceptsRecentBlocks(currentHeight - data.height)) {
+            memReceipts.add(data)
+        }
         //TODO move subscription to the caller
         redisReceipts?.add(data)?.subscribe()
     }
@@ -165,6 +166,7 @@ open class Caches(
         memBlocksByHash.get(blockId)?.let { block ->
             memTxsByHash.evict(block)
             redisTxsByHash?.evict(block)
+            memReceipts.evict(block)
             evicted = true
         }
         if (!evicted) {
@@ -224,6 +226,7 @@ open class Caches(
         private var blocksByHash: BlocksMemCache? = null
         private var blocksByHeight: HeightCache? = null
         private var txsByHash: TxMemCache? = null
+        private var receipts: ReceiptMemCache? = null
         private var redisBlocksByHash: BlocksRedisCache? = null
         private var redisTxsByHash: TxRedisCache? = null
         private var redisReceiptCache: ReceiptRedisCache? = null
@@ -259,6 +262,11 @@ open class Caches(
             return this
         }
 
+        fun setReceipts(cache: ReceiptMemCache): Builder {
+            this.receipts = cache
+            return this
+        }
+
         fun setHeightByHash(cache: HeightByHashRedisCache): Builder {
             redisHeightByHashCache = cache
             return this
@@ -274,7 +282,10 @@ open class Caches(
             if (txsByHash == null) {
                 txsByHash = TxMemCache()
             }
-            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!,
+            if (receipts == null) {
+                receipts = ReceiptMemCache()
+            }
+            return Caches(blocksByHash!!, blocksByHeight!!, txsByHash!!, receipts!!,
                     redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache)
         }
     }

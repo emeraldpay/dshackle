@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit
 @Service @DependsOn("monitoringSetup")
 class BlockchainRpc(
         @Autowired private val nativeCall: NativeCall,
+        @Autowired private val nativeSubscribe: NativeSubscribe,
         @Autowired private val streamHead: StreamHead,
         @Autowired private val trackTx: List<TrackTx>,
         @Autowired private val trackAddress: List<TrackAddress>,
@@ -70,6 +71,19 @@ class BlockchainRpc(
                         }
         ).doOnNext {
             metrics?.nativeCallRespMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+        }.doOnError { errorMetric.increment() }
+    }
+
+    override fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
+        var metrics: RequestMetrics? = null
+        return nativeSubscribe.nativeSubscribe(
+                request
+                        .doOnNext {
+                            metrics = chainMetrics.get(it.chain)
+                            metrics!!.nativeSubscribeMetric.increment()
+                        }
+        ).doOnNext {
+            metrics?.nativeSubscribeRespMetric?.increment()
         }.doOnError { errorMetric.increment() }
     }
 
@@ -168,6 +182,14 @@ class BlockchainRpc(
                 .tag("type", "nativeCall")
                 .tag("chain", chain.chainCode)
                 .publishPercentileHistogram()
+                .register(Metrics.globalRegistry)
+        val nativeSubscribeMetric = Counter.builder("request.grpc.request")
+                .tag("type", "nativeSubscribe")
+                .tag("chain", chain.chainCode)
+                .register(Metrics.globalRegistry)
+        val nativeSubscribeRespMetric = Counter.builder("request.grpc.response")
+                .tag("type", "nativeSubscribe")
+                .tag("chain", chain.chainCode)
                 .register(Metrics.globalRegistry)
         val subscribeHeadMetric = Counter.builder("request.grpc.request")
                 .tag("type", "subscribeHead")

@@ -23,7 +23,8 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 
 /**
- * Composition of multiple readers. Reader returns first value returned by any of the source readers.
+ * Composition of multiple readers.
+ * Reader returns first value returned by any of the source readers by checking one by one until one of them returns a non-empty result.
  */
 class CompoundReader<K, D>(
         private vararg val readers: Reader<K, D>
@@ -38,12 +39,13 @@ class CompoundReader<K, D>(
             return Mono.empty()
         }
         return Flux.fromIterable(readers.asIterable())
-                .flatMap { rdr ->
+                .flatMap({ rdr ->
                     rdr.read(key)
                             .timeout(Defaults.timeoutInternal, Mono.empty())
                             .doOnError { t -> log.warn("Failed to read from $rdr", t) }
                             .onErrorResume { Mono.empty() }
-                }.next()
+                }, 1)
+                .next()
     }
 
 }

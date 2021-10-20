@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxId
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.RequestPostprocessor
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import org.slf4j.LoggerFactory
@@ -32,7 +33,7 @@ class CacheRequested(
         private val log = LoggerFactory.getLogger(CacheRequested::class.java)
     }
 
-    override fun onReceive(method: String, params: List<Any>, json: ByteArray) {
+    override fun onReceive(method: String, params: List<Any?>, json: ByteArray) {
         try {
             if (method == "eth_getTransactionReceipt") {
                 cacheTxReceipt(params, json)
@@ -42,7 +43,7 @@ class CacheRequested(
         }
     }
 
-    fun cacheTxReceipt(params: List<Any>, json: ByteArray) {
+    fun cacheTxReceipt(params: List<Any?>, json: ByteArray) {
         if (params.size != 1) {
             return
         }
