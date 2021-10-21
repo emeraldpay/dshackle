@@ -295,8 +295,11 @@ abstract class Multistream(
             .joinToString(",")
         val lag = upstreams.map { it.getLag() }
             .joinToString(", ")
+        val weak = upstreams
+            .filter { it.getStatus() != UpstreamAvailability.OK }
+            .joinToString(", ") { it.getId() }
 
-        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=$statuses, lag=[$lag]")
+        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=[$statuses], lag=[$lag], weak=[$weak]")
     }
 
     // --------------------------------------------------------------------------------------------------------
