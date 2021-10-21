@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 EmeraldPay, Inc
+ * Copyright (c) 2021 EmeraldPay, Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,32 @@
  */
 package io.emeraldpay.dshackle.config
 
-class MainConfig {
-    var host = "127.0.0.1"
-    var port = 2449
-    var tls: AuthConfig.ServerTlsAuth? = null
-    var cache: CacheConfig? = null
-    var proxy: ProxyConfig? = null
-    var upstreams: UpstreamsConfig? = null
-    var tokens: TokensConfig? = null
-    var monitoring: MonitoringConfig = MonitoringConfig.default()
-    var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
-    var health: HealthConfig = HealthConfig.default()
+import io.emeraldpay.grpc.Chain
+
+class HealthConfig {
+
+    companion object {
+        fun default(): HealthConfig {
+            return HealthConfig()
+        }
+    }
+
+    var port: Int = 8082
+    var host: String = "127.0.0.1"
+    var path: String = "/health"
+    val chains = HashMap<Chain, ChainConfig>()
+
+    fun isEnabled(): Boolean {
+        return chains.isNotEmpty()
+    }
+
+    fun configs(): Collection<ChainConfig> {
+        return chains.values
+    }
+
+    data class ChainConfig(
+        val blockchain: Chain,
+        val minAvailable: Int = 1
+    )
+
 }
