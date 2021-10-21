@@ -22,7 +22,6 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 interface Upstream {
     fun isAvailable(): Boolean

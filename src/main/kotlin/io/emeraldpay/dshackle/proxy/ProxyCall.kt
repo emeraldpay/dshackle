@@ -23,10 +23,10 @@ import org.slf4j.LoggerFactory
  * JSON RPC call to the proxy
  */
 class ProxyCall(
-        /**
-         * Type of the request. The response format depends on it
-         */
-        val type: RpcType
+    /**
+     * Type of the request. The response format depends on it
+     */
+    val type: RpcType
 ) {
 
     companion object {

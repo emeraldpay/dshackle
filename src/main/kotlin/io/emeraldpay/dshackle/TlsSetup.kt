@@ -29,7 +29,7 @@ import org.springframework.stereotype.Service
 
 @Service
 open class TlsSetup(
-        @Autowired val fileResolver: FileResolver
+    @Autowired val fileResolver: FileResolver
 ) {
 
     companion object {
@@ -68,19 +68,19 @@ open class TlsSetup(
 
             val sslContextBuilder = if (grpc) {
                 GrpcSslContexts.forServer(
-                        fileResolver.resolve(config.certificate!!),
-                        fileResolver.resolve(config.key!!)
+                    fileResolver.resolve(config.certificate!!),
+                    fileResolver.resolve(config.key!!)
                 )
             } else {
                 SslContextBuilder.forServer(
-                        fileResolver.resolve(config.certificate!!),
-                        fileResolver.resolve(config.key!!)
+                    fileResolver.resolve(config.certificate!!),
+                    fileResolver.resolve(config.key!!)
                 )
             }
             if (StringUtils.isNotEmpty(config.clientCa)) {
                 log.info("Using TLS for client authentication for $category")
                 sslContextBuilder.trustManager(
-                        fileResolver.resolve(config.clientCa!!)
+                    fileResolver.resolve(config.clientCa!!)
                 )
                 if (config.clientRequire != null && config.clientRequire!!) {
                     sslContextBuilder.clientAuth(ClientAuth.REQUIRE)
@@ -96,5 +96,4 @@ open class TlsSetup(
         }
         return null
     }
-
 }

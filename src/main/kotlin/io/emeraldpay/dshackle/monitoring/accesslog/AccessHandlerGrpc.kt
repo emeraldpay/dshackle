@@ -15,14 +15,20 @@
  */
 package io.emeraldpay.dshackle.monitoring.accesslog
 
-import io.grpc.*
+import io.grpc.ForwardingServerCall
+import io.grpc.ForwardingServerCallListener
+import io.grpc.Metadata
+import io.grpc.MethodDescriptor
+import io.grpc.ServerCall
+import io.grpc.ServerCallHandler
+import io.grpc.ServerInterceptor
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 
 @Service
 class AccessHandlerGrpc(
-        @Autowired private val accessLogWriter: AccessLogWriter
+    @Autowired private val accessLogWriter: AccessLogWriter
 ) : ServerInterceptor {
 
     companion object {
@@ -30,9 +36,10 @@ class AccessHandlerGrpc(
     }
 
     override fun <ReqT : Any, RespT : Any> interceptCall(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>): ServerCall.Listener<ReqT> {
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>
+    ): ServerCall.Listener<ReqT> {
 
         return when (val method = call.methodDescriptor.bareMethodName) {
             "SubscribeHead" -> processSubscribeHead(call, headers, next)
@@ -51,103 +58,109 @@ class AccessHandlerGrpc(
     }
 
     private fun <ReqT : Any, RespT : Any, E> process(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>,
-            builder: EventsBuilder.RequestReply<E, ReqT, RespT>
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>,
+        builder: EventsBuilder.RequestReply<E, ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
         builder.start(headers, call.attributes)
         val callWrapper: ServerCall<ReqT, RespT> = StdCallResponse(
-                call, builder, accessLogWriter
+            call, builder, accessLogWriter
         )
         return StdCallListener(
-                next.startCall(callWrapper, headers),
-                builder
+            next.startCall(callWrapper, headers),
+            builder
         )
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processSubscribeHead(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
-        return process(call, headers, next,
-                EventsBuilder.SubscribeHead() as EventsBuilder.RequestReply<*, ReqT, RespT>
+        return process(
+            call, headers, next,
+            EventsBuilder.SubscribeHead() as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processSubscribeBalance(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>,
-            subscribe: Boolean
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>,
+        subscribe: Boolean
     ): ServerCall.Listener<ReqT> {
-        return process(call, headers, next,
-                EventsBuilder.SubscribeBalance(subscribe) as EventsBuilder.RequestReply<*, ReqT, RespT>
+        return process(
+            call, headers, next,
+            EventsBuilder.SubscribeBalance(subscribe) as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processSubscribeTxStatus(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
-        return process(call, headers, next,
-                EventsBuilder.TxStatus() as EventsBuilder.RequestReply<*, ReqT, RespT>
+        return process(
+            call, headers, next,
+            EventsBuilder.TxStatus() as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processNativeCall(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
-        return process(call, headers, next,
-                EventsBuilder.NativeCall() as EventsBuilder.RequestReply<*, ReqT, RespT>
+        return process(
+            call, headers, next,
+            EventsBuilder.NativeCall() as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processNativeSubscribe(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
-        return process(call, headers, next,
-                EventsBuilder.NativeSubscribe() as EventsBuilder.RequestReply<*, ReqT, RespT>
+        return process(
+            call, headers, next,
+            EventsBuilder.NativeSubscribe() as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
-
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processDescribe(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
-        return process(call, headers, next,
-                EventsBuilder.Describe() as EventsBuilder.RequestReply<*, ReqT, RespT>
+        return process(
+            call, headers, next,
+            EventsBuilder.Describe() as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun <ReqT : Any, RespT : Any> processStatus(
-            call: ServerCall<ReqT, RespT>,
-            headers: Metadata,
-            next: ServerCallHandler<ReqT, RespT>
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
-        return process(call, headers, next,
-                EventsBuilder.Status() as EventsBuilder.RequestReply<*, ReqT, RespT>
+        return process(
+            call, headers, next,
+            EventsBuilder.Status() as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
     open class StdCallListener<Req, EB : EventsBuilder.RequestReply<*, Req, *>>(
-            val next: ServerCall.Listener<Req>,
-            val builder: EB
+        val next: ServerCall.Listener<Req>,
+        val builder: EB
     ) : ForwardingServerCallListener<Req>() {
 
         override fun onMessage(message: Req) {
@@ -161,9 +174,9 @@ class AccessHandlerGrpc(
     }
 
     open class StdCallResponse<ReqT : Any, RespT : Any, EB : EventsBuilder.RequestReply<*, ReqT, RespT>>(
-            val next: ServerCall<ReqT, RespT>,
-            val builder: EB,
-            val accessLogWriter: AccessLogWriter
+        val next: ServerCall<ReqT, RespT>,
+        val builder: EB,
+        val accessLogWriter: AccessLogWriter
     ) : ForwardingServerCall<ReqT, RespT>() {
 
         override fun getMethodDescriptor(): MethodDescriptor<ReqT, RespT> {
@@ -177,9 +190,8 @@ class AccessHandlerGrpc(
         override fun sendMessage(message: RespT) {
             super.sendMessage(message)
             accessLogWriter.submit(
-                    builder.onReply(message)!!
+                builder.onReply(message)!!
             )
         }
     }
-
 }

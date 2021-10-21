@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.cache.*
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
@@ -33,10 +33,9 @@ import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.time.Instant
-import java.util.*
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
@@ -46,10 +45,10 @@ import kotlin.concurrent.withLock
  * Aggregation of multiple upstreams responding to a single blockchain
  */
 abstract class Multistream(
-        val chain: Chain,
-        private val upstreams: MutableList<Upstream>,
-        val caches: Caches,
-        val postprocessor: RequestPostprocessor
+    val chain: Chain,
+    private val upstreams: MutableList<Upstream>,
+    val caches: Caches,
+    val postprocessor: RequestPostprocessor
 ) : Upstream, Lifecycle {
 
     companion object {
@@ -70,14 +69,19 @@ abstract class Multistream(
 
     init {
         UpstreamAvailability.values().forEach { status ->
-            Metrics.gauge("$metrics.availability",
-                    listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase(Locale.getDefault()))), this) {
+            Metrics.gauge(
+                "$metrics.availability",
+                listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase(Locale.getDefault()))),
+                this
+            ) {
                 upstreams.count { it.getStatus() == status }.toDouble()
             }
         }
 
-        Metrics.gauge("$metrics.connected",
-                listOf(Tag.of("chain", chain.chainCode)), this) {
+        Metrics.gauge(
+            "$metrics.connected",
+            listOf(Tag.of("chain", chain.chainCode)), this
+        ) {
             upstreams.size.toDouble()
         }
 
@@ -87,8 +91,10 @@ abstract class Multistream(
     }
 
     private fun monitorUpstream(upstream: Upstream) {
-        Metrics.gauge("$metrics.lag",
-                listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())), upstream) {
+        Metrics.gauge(
+            "$metrics.lag",
+            listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())), upstream
+        ) {
             it.getLag().toDouble()
         }
     }
@@ -139,9 +145,14 @@ abstract class Multistream(
         val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
-                .map(Upstream::getApi)
-                .map { RequestPostprocessor.wrap(it, postprocessor) } //TODO do it on upstream init, not each time it's called
-                .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
+            .map(Upstream::getApi)
+            .map {
+                RequestPostprocessor.wrap(
+                    it,
+                    postprocessor
+                )
+            } // TODO do it on upstream init, not each time it's called
+            .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
     /**
@@ -157,7 +168,7 @@ abstract class Multistream(
         reconfigLock.withLock {
             val upstreams = getAll()
             upstreams.map { it.getMethods() }.let {
-                //TODO made list of uniq instances, and then if only one, just use it directly
+                // TODO made list of uniq instances, and then if only one, just use it directly
                 callMethods = AggregatedCallMethods(it)
             }
             capabilities = if (upstreams.isEmpty()) {
@@ -173,13 +184,13 @@ abstract class Multistream(
     override fun observeStatus(): Flux<UpstreamAvailability> {
         val upstreamsFluxes = getAll().map { up ->
             Flux.concat(
-                    Mono.just(up.getStatus()),
-                    up.observeStatus()
+                Mono.just(up.getStatus()),
+                up.observeStatus()
             ).map { UpstreamStatus(up, it) }
         }
         return Flux.merge(upstreamsFluxes)
-                .filter(FilterBestAvailability())
-                .map { it.status }
+            .filter(FilterBestAvailability())
+            .map { it.status }
     }
 
     override fun isAvailable(): Boolean {
@@ -192,12 +203,12 @@ abstract class Multistream(
         else upstreams.minOf { it.getStatus() }
     }
 
-    //TODO options for multistream are useless
+    // TODO options for multistream are useless
     override fun getOptions(): UpstreamsConfig.Options {
         return UpstreamsConfig.Options()
     }
 
-    //TODO roles for multistream are useless
+    // TODO roles for multistream are useless
     override fun getRole(): UpstreamsConfig.UpstreamRole {
         return UpstreamsConfig.UpstreamRole.STANDARD
     }
@@ -213,11 +224,11 @@ abstract class Multistream(
     override fun start() {
         val repeated = Flux.interval(Duration.ofSeconds(30))
         val whenChanged = observeStatus()
-                .distinctUntilChanged()
+            .distinctUntilChanged()
         subscription = Flux.merge(repeated, whenChanged)
-                // print status _change_ every 15 seconds, at most; otherwise prints it on interval of 30 seconds
-                .sample(Duration.ofSeconds(15))
-                .subscribe { printStatus() }
+            // print status _change_ every 15 seconds, at most; otherwise prints it on interval of 30 seconds
+            .sample(Duration.ofSeconds(15))
+            .subscribe { printStatus() }
     }
 
     override fun stop() {
@@ -274,16 +285,16 @@ abstract class Multistream(
         try {
             height = getHead().getCurrentHeight()
         } catch (e: java.lang.IllegalStateException) {
-            //timout
+            // timout
         } catch (e: Exception) {
             log.warn("Head processing error: ${e.javaClass} ${e.message}")
         }
         val statuses = upstreams.map { it.getStatus() }
-                .groupBy { it }
-                .map { "${it.key.name}/${it.value.size}" }
-                .joinToString(",")
+            .groupBy { it }
+            .map { "${it.key.name}/${it.value.size}" }
+            .joinToString(",")
         val lag = upstreams.map { it.getLag() }
-                .joinToString(", ")
+            .joinToString(", ")
 
         log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=$statuses, lag=[$lag]")
     }
@@ -292,15 +303,15 @@ abstract class Multistream(
 
     class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())
 
-    class FilterBestAvailability() : Predicate<UpstreamStatus> {
+    class FilterBestAvailability : Predicate<UpstreamStatus> {
         private val lastRef = AtomicReference<UpstreamStatus>()
 
         override fun test(t: UpstreamStatus): Boolean {
             val curr = lastRef.updateAndGet { last ->
-                val changed = last == null
-                        || t.status < last.status
-                        || (last.upstream == t.upstream && t.status != last.status)
-                        || last.ts.isBefore(t.ts - Duration.ofSeconds(60))
+                val changed = last == null ||
+                    t.status < last.status ||
+                    (last.upstream == t.upstream && t.status != last.status) ||
+                    last.ts.isBefore(t.ts - Duration.ofSeconds(60))
                 if (changed) {
                     t
                 } else {
@@ -310,5 +321,4 @@ abstract class Multistream(
             return curr == t
         }
     }
-
 }

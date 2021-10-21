@@ -22,8 +22,8 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import org.slf4j.LoggerFactory
 
 class BitcoinHeadLagObserver(
-        master: Head,
-        followers: Collection<Upstream>
+    master: Head,
+    followers: Collection<Upstream>
 ) : HeadLagObserver(master, followers) {
 
     companion object {
@@ -31,8 +31,7 @@ class BitcoinHeadLagObserver(
     }
 
     override fun forkDistance(top: BlockContainer, curr: BlockContainer): Long {
-        //TODO fetch actual blocks
+        // TODO fetch actual blocks
         return 3
     }
-
 }

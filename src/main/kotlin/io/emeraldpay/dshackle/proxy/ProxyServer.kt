@@ -24,8 +24,8 @@ import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Timer
@@ -38,16 +38,14 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.netty.DisposableServer
 import reactor.netty.http.server.HttpServer
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
-import java.util.*
+import java.util.EnumMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.function.BiFunction
-import kotlin.collections.HashMap
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
@@ -55,12 +53,12 @@ import kotlin.concurrent.write
  * HTTP Proxy Server
  */
 class ProxyServer(
-        private var config: ProxyConfig,
-        private val readRpcJson: ReadRpcJson,
-        private val writeRpcJson: WriteRpcJson,
-        private val nativeCall: NativeCall,
-        private val tlsSetup: TlsSetup,
-        private val accessHandler: AccessHandlerHttp.HandlerFactory
+    private var config: ProxyConfig,
+    private val readRpcJson: ReadRpcJson,
+    private val writeRpcJson: WriteRpcJson,
+    private val nativeCall: NativeCall,
+    private val tlsSetup: TlsSetup,
+    private val accessHandler: AccessHandlerHttp.HandlerFactory
 ) {
 
     companion object {
@@ -101,19 +99,19 @@ class ProxyServer(
         }
         log.info("Listening Proxy on ${config.host}:${config.port}")
         var serverBuilder = HttpServer.create()
-                .doOnChannelInit { _, channel, _ ->
-                    channel.pipeline().addFirst(errorHandler)
-                }
-                .host(config.host)
-                .port(config.port)
+            .doOnChannelInit { _, channel, _ ->
+                channel.pipeline().addFirst(errorHandler)
+            }
+            .host(config.host)
+            .port(config.port)
 
         tlsSetup.setupServer("proxy", config.tls, false)?.let { sslContext ->
             serverBuilder = serverBuilder.secure { secure -> secure.sslContext(sslContext) }
         }
 
         serverBuilder
-                .route(this::setupRoutes)
-                .bindNow()
+            .route(this::setupRoutes)
+            .bindNow()
     }
 
     fun setupRoutes(routes: HttpServerRoutes) {
@@ -139,26 +137,26 @@ class ProxyServer(
             }
         }
         val request = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.forNumber(chain.id))
-                .addAllItems(call.items)
-                .build()
+            .setChain(Common.ChainRef.forNumber(chain.id))
+            .addAllItems(call.items)
+            .build()
         handler.onRequest(request)
         val jsons = nativeCall
-                .nativeCallResult(Mono.just(request))
-                .doOnNext {
-                    metricById(it.id)?.requestMetric?.increment()
+            .nativeCallResult(Mono.just(request))
+            .doOnNext {
+                metricById(it.id)?.requestMetric?.increment()
+            }
+            .doOnNext {
+                handler.onResponse(it)
+                metricById(it.id)?.callMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+            }
+            .doOnError {
+                // when error happened the whole flux is stopped and no result is produced, so we should mark all the requests as failed
+                call.items.forEach { item ->
+                    requestMetrics.get(chain, item.method).errorMetric.increment()
                 }
-                .doOnNext {
-                    handler.onResponse(it)
-                    metricById(it.id)?.callMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
-                }
-                .doOnError {
-                    //when error happened the whole flux is stopped and no result is produced, so we should mark all the requests as failed
-                    call.items.forEach { item ->
-                        requestMetrics.get(chain, item.method).errorMetric.increment()
-                    }
-                }
-                .transform(writeRpcJson.toJsons(call))
+            }
+            .transform(writeRpcJson.toJsons(call))
         return if (call.type == ProxyCall.RpcType.SINGLE) {
             jsons.next()
         } else {
@@ -166,21 +164,25 @@ class ProxyServer(
         }
     }
 
-    fun processRequest(chain: Chain, request: Mono<ByteArray>, handler: AccessHandlerHttp.RequestHandler): Flux<ByteBuf> {
+    fun processRequest(
+        chain: Chain,
+        request: Mono<ByteArray>,
+        handler: AccessHandlerHttp.RequestHandler
+    ): Flux<ByteBuf> {
         return request
-                .map(readRpcJson)
-                .flatMapMany { call -> 
-                    execute(chain, call, handler) 
-                }
-                .onErrorResume(RpcException::class.java) { err ->
-                    val id = err.details?.let {
-                        if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
-                    } ?: JsonRpcResponse.NumberId(-1)
+            .map(readRpcJson)
+            .flatMapMany { call ->
+                execute(chain, call, handler)
+            }
+            .onErrorResume(RpcException::class.java) { err ->
+                val id = err.details?.let {
+                    if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
+                } ?: JsonRpcResponse.NumberId(-1)
 
-                    val json = JsonRpcResponse.error(err.code, err.rpcMessage, id)
-                    Mono.just(Global.objectMapper.writeValueAsString(json))
-                }
-                .map { Unpooled.wrappedBuffer(it.toByteArray()) }
+                val json = JsonRpcResponse.error(err.code, err.rpcMessage, id)
+                Mono.just(Global.objectMapper.writeValueAsString(json))
+            }
+            .map { Unpooled.wrappedBuffer(it.toByteArray()) }
     }
 
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
@@ -188,13 +190,13 @@ class ProxyServer(
             // handle access events
             val eventHandler = accessHandler.create(req, routeConfig.blockchain)
             val request = req.receive()
-                    .aggregate()
-                    .asByteArray()
+                .aggregate()
+                .asByteArray()
             val results = processRequest(routeConfig.blockchain, request, eventHandler)
-                    // make sure that the access log handler is closed at the end, so it can render the logs
-                    .doFinally { eventHandler.close() }
+                // make sure that the access log handler is closed at the end, so it can render the logs
+                .doFinally { eventHandler.close() }
             resp.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
-                    .send(results)
+                .send(results)
         }
     }
 
@@ -251,25 +253,25 @@ class ProxyServer(
 
     class RequestMetricsBasic(chain: Chain) : RequestMetrics {
         override val callMetric = Timer.builder("request.jsonrpc.call")
-                .tags("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tags("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         override val errorMetric = Counter.builder("request.jsonrpc.err")
-                .tags("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tags("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
         override val requestMetric = Counter.builder("request.jsonrpc.request.total")
-                .tags("chain", chain.chainCode)
-                .register(Metrics.globalRegistry)
+            .tags("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
     }
 
     class RequestMetricsWithMethod(chain: Chain, method: String) : RequestMetrics {
         override val callMetric = Timer.builder("request.jsonrpc.call")
-                .tags("chain", chain.chainCode, "method", method)
-                .register(Metrics.globalRegistry)
+            .tags("chain", chain.chainCode, "method", method)
+            .register(Metrics.globalRegistry)
         override val errorMetric = Counter.builder("request.jsonrpc.err")
-                .tags("chain", chain.chainCode, "method", method)
-                .register(Metrics.globalRegistry)
+            .tags("chain", chain.chainCode, "method", method)
+            .register(Metrics.globalRegistry)
         override val requestMetric = Counter.builder("request.jsonrpc.request.total")
-                .tags("chain", chain.chainCode, "method", method)
-                .register(Metrics.globalRegistry)
+            .tags("chain", chain.chainCode, "method", method)
+            .register(Metrics.globalRegistry)
     }
 }

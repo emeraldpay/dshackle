@@ -33,51 +33,52 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 open class EthereumUpstreamValidator(
-        private val upstream: EthereumUpstream,
-        private val options: UpstreamsConfig.Options
+    private val upstream: EthereumUpstream,
+    private val options: UpstreamsConfig.Options
 ) {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
-        val scheduler = Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-validator")))
+        val scheduler =
+            Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-validator")))
     }
 
     private val objectMapper: ObjectMapper = Global.objectMapper
 
     open fun validate(): Mono<UpstreamAvailability> {
         return upstream
-                .getApi()
-                .read(JsonRpcRequest("eth_syncing", listOf()))
-                .flatMap(JsonRpcResponse::requireResult)
-                .map { objectMapper.readValue(it, SyncingJson::class.java) }
-                .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Syncing")))
-                .flatMap { value ->
-                    if (value.isSyncing) {
-                        Mono.just(UpstreamAvailability.SYNCING)
-                    } else {
-                        upstream
-                                .getApi()
-                                .read(JsonRpcRequest("net_peerCount", listOf()))
-                                .flatMap(JsonRpcResponse::requireStringResult)
-                                .map(Integer::decode)
-                                .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Peers")))
-                                .map { count ->
-                                    val minPeers = options.minPeers ?: 1
-                                    if (count < minPeers) {
-                                        UpstreamAvailability.IMMATURE
-                                    } else {
-                                        UpstreamAvailability.OK
-                                    }
-                                }
-                    }
+            .getApi()
+            .read(JsonRpcRequest("eth_syncing", listOf()))
+            .flatMap(JsonRpcResponse::requireResult)
+            .map { objectMapper.readValue(it, SyncingJson::class.java) }
+            .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Syncing")))
+            .flatMap { value ->
+                if (value.isSyncing) {
+                    Mono.just(UpstreamAvailability.SYNCING)
+                } else {
+                    upstream
+                        .getApi()
+                        .read(JsonRpcRequest("net_peerCount", listOf()))
+                        .flatMap(JsonRpcResponse::requireStringResult)
+                        .map(Integer::decode)
+                        .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Peers")))
+                        .map { count ->
+                            val minPeers = options.minPeers ?: 1
+                            if (count < minPeers) {
+                                UpstreamAvailability.IMMATURE
+                            } else {
+                                UpstreamAvailability.OK
+                            }
+                        }
                 }
-                .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+            }
+            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
     fun start(): Flux<UpstreamAvailability> {
         return Flux.interval(Duration.ofSeconds(15))
-                .subscribeOn(scheduler)
-                .flatMap {
-                    validate()
-                }
+            .subscribeOn(scheduler)
+            .flatMap {
+                validate()
+            }
     }
 }

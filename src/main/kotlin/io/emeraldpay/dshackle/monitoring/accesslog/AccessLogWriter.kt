@@ -20,7 +20,9 @@ import io.emeraldpay.dshackle.config.MainConfig
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
-import java.io.*
+import java.io.BufferedOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -30,7 +32,7 @@ import javax.annotation.PostConstruct
 
 @Repository
 class AccessLogWriter(
-        @Autowired mainConfig: MainConfig
+    @Autowired mainConfig: MainConfig
 ) {
 
     companion object {
@@ -120,5 +122,4 @@ class AccessLogWriter(
             }
         }
     }
-
 }

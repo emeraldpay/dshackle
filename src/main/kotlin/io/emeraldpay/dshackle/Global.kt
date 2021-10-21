@@ -28,7 +28,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspentDeserializer
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.TimeZone
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 
@@ -57,12 +57,10 @@ class Global {
             objectMapper.registerModule(JavaTimeModule())
             objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             objectMapper
-                    .setDateFormat(SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm:ss.SSS"))
-                    .setTimeZone(TimeZone.getTimeZone("UTC"))
+                .setDateFormat(SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm:ss.SSS"))
+                .setTimeZone(TimeZone.getTimeZone("UTC"))
 
             return objectMapper
         }
-
     }
-
 }

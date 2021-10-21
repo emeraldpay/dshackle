@@ -17,7 +17,6 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.upstream.Head
 import reactor.core.publisher.Flux
 
 class EmptyHead : Head {

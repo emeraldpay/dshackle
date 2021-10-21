@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
-import java.util.*
+import java.util.LinkedList
 import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -32,7 +32,7 @@ import kotlin.concurrent.withLock
 import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
-        private val upstream: EthereumMultistream
+    private val upstream: EthereumMultistream
 ) {
 
     companion object {
@@ -61,13 +61,13 @@ class ConnectBlockUpdates(
                 return currentRecheck
             }
             val created = extract(upstream.getHead())
-                    .publishOn(Schedulers.boundedElastic())
-                    .publish()
-                    .refCount(1, Duration.ofSeconds(60))
-                    .doFinally {
-                        //forget it on disconnect, so next time it's recreated
-                        connected = null
-                    }
+                .publishOn(Schedulers.boundedElastic())
+                .publish()
+                .refCount(1, Duration.ofSeconds(60))
+                .doFinally {
+                    // forget it on disconnect, so next time it's recreated
+                    connected = null
+                }
             connected = created
             return created
         }
@@ -75,7 +75,7 @@ class ConnectBlockUpdates(
 
     fun extract(head: Head): Flux<Update> {
         return head.getFlux()
-                .flatMap(this@ConnectBlockUpdates::extract)
+            .flatMap(this@ConnectBlockUpdates::extract)
     }
 
     fun extract(block: BlockContainer): Flux<Update> {
@@ -117,31 +117,31 @@ class ConnectBlockUpdates(
     fun whenReplaced(prev: BlockContainer): Flux<Update> {
         return Flux.fromIterable(prev.transactions).map {
             Update(
-                    prev.hash,
-                    prev.height,
-                    UpdateType.DROP,
-                    it
+                prev.hash,
+                prev.height,
+                UpdateType.DROP,
+                it
             )
         }
     }
 
     fun extractUpdates(block: BlockContainer): Flux<Update> {
         return Flux.fromIterable(block.transactions)
-                .map {
-                    Update(
-                            block.hash,
-                            block.height,
-                            UpdateType.NEW,
-                            it
-                    )
-                }
+            .map {
+                Update(
+                    block.hash,
+                    block.height,
+                    UpdateType.NEW,
+                    it
+                )
+            }
     }
 
     data class Update(
-            val blockHash: BlockId,
-            val blockNumber: Long,
-            val type: UpdateType,
-            val transactionId: TxId,
+        val blockHash: BlockId,
+        val blockNumber: Long,
+        val type: UpdateType,
+        val transactionId: TxId,
     )
 
     enum class UpdateType {

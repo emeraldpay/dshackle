@@ -19,7 +19,13 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.EmptyHead
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.RequestPostprocessor
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -29,9 +35,9 @@ import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
 open class BitcoinMultistream(
-        chain: Chain,
-        val upstreams: MutableList<BitcoinUpstream>,
-        caches: Caches
+    chain: Chain,
+    val upstreams: MutableList<BitcoinUpstream>,
+    caches: Caches
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
 
     companion object {
@@ -80,7 +86,7 @@ open class BitcoinMultistream(
     }
 
     override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        //TODO
+        // TODO
         return Mono.just(EmptyReader())
     }
 

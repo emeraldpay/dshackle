@@ -16,18 +16,16 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.etherjar.rpc.JacksonRpcConverter
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 
 abstract class ValueAwareQuorum<T>(
-        val clazz: Class<T>
-): CallQuorum {
+    val clazz: Class<T>
+) : CallQuorum {
 
     private val log = LoggerFactory.getLogger(ValueAwareQuorum::class.java)
     private var rpcError: JsonRpcError? = null
@@ -45,7 +43,7 @@ abstract class ValueAwareQuorum<T>(
         } catch (e: Exception) {
             recordError(response, e.message, upstream)
         }
-        return isResolved();
+        return isResolved()
     }
 
     override fun record(error: JsonRpcException, upstream: Upstream) {

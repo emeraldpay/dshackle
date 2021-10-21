@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 
 open class BroadcastQuorum(
-        val quorum: Int = 3
+    val quorum: Int = 3
 ) : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
 
     private var result: ByteArray? = null

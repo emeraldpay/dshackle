@@ -20,7 +20,6 @@ import com.fasterxml.jackson.core.JsonToken
 import org.slf4j.LoggerFactory
 import java.io.IOException
 
-
 class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
 
     companion object {
@@ -31,18 +30,18 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
     override fun build(state: Preparsed): WsResponse {
         if (state.isRpcReady) {
             return WsResponse(
-                    Type.RPC,
-                    state.id!!,
-                    if (state.nullResult) NULL_RESULT else state.result,
-                    state.error
+                Type.RPC,
+                state.id!!,
+                if (state.nullResult) NULL_RESULT else state.result,
+                state.error
             )
         }
         if (state.isSubReady) {
             return WsResponse(
-                    Type.SUBSCRIPTION,
-                    JsonRpcResponse.Id.from(state.subId!!),
-                    if (state.nullResult) NULL_RESULT else state.result,
-                    state.error
+                Type.SUBSCRIPTION,
+                JsonRpcResponse.Id.from(state.subId!!),
+                if (state.nullResult) NULL_RESULT else state.result,
+                state.error
             )
         }
         throw IllegalStateException("State is not ready")
@@ -51,7 +50,7 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
     override fun process(parser: JsonParser, json: ByteArray, field: String, state: Preparsed): Preparsed {
         if ("method" == field) {
             parser.nextToken()
-            val method = parser.getValueAsString()
+            val method = parser.valueAsString
             return state.copy(subMethod = method)
         }
         if ("params" == field) {
@@ -66,7 +65,7 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
             //    },
             //    "subscription": "...."
             //  }
-            //}
+            // }
             return decodeSubscription(parser, json, state)
         }
         return super.process(parser, json, field, state)
@@ -101,10 +100,9 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
     }
 
     data class WsResponse(
-            val type: Type,
-            val id: JsonRpcResponse.Id,
-            val value: ByteArray?,
-            val error: JsonRpcError?
+        val type: Type,
+        val id: JsonRpcResponse.Id,
+        val value: ByteArray?,
+        val error: JsonRpcError?
     )
-
 }

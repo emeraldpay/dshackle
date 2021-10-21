@@ -19,6 +19,6 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 
 class RpcMetrics(
-        val timer: Timer,
-        val errors: Counter
+    val timer: Timer,
+    val errors: Counter
 )

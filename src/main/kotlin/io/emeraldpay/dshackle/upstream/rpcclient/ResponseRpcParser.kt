@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import org.slf4j.LoggerFactory
 
-open class ResponseRpcParser() : ResponseParser<JsonRpcResponse>() {
+open class ResponseRpcParser : ResponseParser<JsonRpcResponse>() {
 
     companion object {
         private val log = LoggerFactory.getLogger(ResponseRpcParser::class.java)
@@ -32,5 +32,4 @@ open class ResponseRpcParser() : ResponseParser<JsonRpcResponse>() {
         }
         return JsonRpcResponse(state.result, null, state.id ?: JsonRpcResponse.Id.from(-1))
     }
-
 }

@@ -15,12 +15,12 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
-import io.emeraldpay.etherjar.domain.Address
 
 class TokensConfig(
-        val tokens: List<Token>
+    val tokens: List<Token>
 ) {
 
     class Token {
@@ -30,7 +30,7 @@ class TokensConfig(
 
         // coin name
         var name: String? = null
-        var type: Type? = null;
+        var type: Type? = null
         var address: String? = null
 
         fun validate(): String? {
@@ -40,9 +40,9 @@ class TokensConfig(
                 name.isNullOrBlank() -> "name"
                 type == null -> type
                 address.isNullOrBlank() -> "address"
-                blockchain != null
-                        && BlockchainType.from(blockchain!!) == BlockchainType.ETHEREUM
-                        && !Address.isValidAddress(address) -> "address"
+                blockchain != null &&
+                    BlockchainType.from(blockchain!!) == BlockchainType.ETHEREUM &&
+                    !Address.isValidAddress(address) -> "address"
                 else -> null
             }
         }
@@ -51,5 +51,4 @@ class TokensConfig(
     enum class Type {
         ERC20
     }
-
 }

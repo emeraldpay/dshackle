@@ -29,9 +29,9 @@ import reactor.core.publisher.Mono
  *
  */
 class HeightByHashAdding(
-        private val mem: Reader<BlockId, Long>,
-        private val redis: HeightByHashCache?,
-        private val upstreamReader: Reader<BlockId, BlockContainer>
+    private val mem: Reader<BlockId, Long>,
+    private val redis: HeightByHashCache?,
+    private val upstreamReader: Reader<BlockId, BlockContainer>
 ) : Reader<BlockId, Long> {
 
     companion object {
@@ -39,7 +39,7 @@ class HeightByHashAdding(
     }
 
     constructor(caches: Caches, upstreamReader: Reader<BlockId, BlockContainer>) :
-            this(caches.getLastHeightByHash(), caches.getRedisHeightByHash(), upstreamReader)
+        this(caches.getLastHeightByHash(), caches.getRedisHeightByHash(), upstreamReader)
 
     private val delegate: Reader<BlockId, Long>
 
@@ -48,26 +48,26 @@ class HeightByHashAdding(
             delegate = object : Reader<BlockId, Long> {
                 override fun read(key: BlockId): Mono<Long> {
                     return mem.read(key)
-                            .switchIfEmpty(
-                                    Mono.just(key)
-                                            .flatMap { redis.read(it) }
-                            )
-                            .switchIfEmpty(
-                                    Mono.just(key)
-                                            .flatMap { upstreamReader.read(it) }
-                                            .flatMap { redis.add(it).then(Mono.just(it.height)) }
-                            )
+                        .switchIfEmpty(
+                            Mono.just(key)
+                                .flatMap { redis.read(it) }
+                        )
+                        .switchIfEmpty(
+                            Mono.just(key)
+                                .flatMap { upstreamReader.read(it) }
+                                .flatMap { redis.add(it).then(Mono.just(it.height)) }
+                        )
                 }
             }
         } else {
             delegate = object : Reader<BlockId, Long> {
                 override fun read(key: BlockId): Mono<Long> {
                     return mem.read(key)
-                            .switchIfEmpty(
-                                    Mono.just(key)
-                                            .flatMap { upstreamReader.read(it) }
-                                            .map { it.height }
-                            )
+                        .switchIfEmpty(
+                            Mono.just(key)
+                                .flatMap { upstreamReader.read(it) }
+                                .map { it.height }
+                        )
                 }
             }
         }
@@ -76,5 +76,4 @@ class HeightByHashAdding(
     override fun read(key: BlockId): Mono<Long> {
         return delegate.read(key)
     }
-
 }

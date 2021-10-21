@@ -24,21 +24,21 @@ import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.json.HexDataSerializer
 
 data class LogMessage(
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val address: Address,
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val blockHash: BlockHash,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val blockNumber: Long,
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val data: HexData,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val logIndex: Long,
-        @get:JsonSerialize(contentUsing = HexDataSerializer::class)
-        val topics: List<Hex32>,
-        @get:JsonSerialize(using = HexDataSerializer::class)
-        val transactionHash: TransactionId,
-        @get:JsonSerialize(using = NumberAsHexSerializer::class)
-        val transactionIndex: Long,
-        val removed: Boolean
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val address: Address,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val blockHash: BlockHash,
+    @get:JsonSerialize(using = NumberAsHexSerializer::class)
+    val blockNumber: Long,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val data: HexData,
+    @get:JsonSerialize(using = NumberAsHexSerializer::class)
+    val logIndex: Long,
+    @get:JsonSerialize(contentUsing = HexDataSerializer::class)
+    val topics: List<Hex32>,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val transactionHash: TransactionId,
+    @get:JsonSerialize(using = NumberAsHexSerializer::class)
+    val transactionIndex: Long,
+    val removed: Boolean
 )

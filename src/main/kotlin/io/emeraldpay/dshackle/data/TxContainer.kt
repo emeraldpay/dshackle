@@ -20,11 +20,11 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 
 class TxContainer(
-        val height: Long?,
-        val hash: TxId,
-        val blockId: BlockId?,
-        json: ByteArray?,
-        parsed: Any? = null
+    val height: Long?,
+    val hash: TxId,
+    val blockId: BlockId?,
+    json: ByteArray?,
+    parsed: Any? = null
 ) : SourceContainer(json, parsed) {
 
     companion object {
@@ -41,11 +41,11 @@ class TxContainer(
 
         fun from(tx: TransactionJson, raw: ByteArray): TxContainer {
             return TxContainer(
-                    tx.blockNumber,
-                    TxId.from(tx.hash),
-                    tx.blockHash?.let { BlockId.from(it) },
-                    raw,
-                    tx
+                tx.blockNumber,
+                TxId.from(tx.hash),
+                tx.blockHash?.let { BlockId.from(it) },
+                raw,
+                tx
             )
         }
     }
@@ -70,6 +70,4 @@ class TxContainer(
         result = 31 * result + hash.hashCode()
         return result
     }
-
-
 }

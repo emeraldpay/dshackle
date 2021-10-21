@@ -25,19 +25,19 @@ import io.emeraldpay.grpc.Chain
  * An update event to the list of currently available upstreams.
  */
 class UpstreamChange(
-        /**
-         * Target blockchain
-         */
-        val chain: Chain,
-        /**
-         * Corresponding upstream
-         */
-        val upstream: Upstream,
-        /**
-         * Type of the change
-         */
-        val type: ChangeType
-): CachesEnabled {
+    /**
+     * Target blockchain
+     */
+    val chain: Chain,
+    /**
+     * Corresponding upstream
+     */
+    val upstream: Upstream,
+    /**
+     * Type of the change
+     */
+    val type: ChangeType
+) : CachesEnabled {
 
     enum class ChangeType {
         /**

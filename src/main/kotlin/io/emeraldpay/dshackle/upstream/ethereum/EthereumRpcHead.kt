@@ -16,29 +16,26 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.Defaults
-import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.util.concurrent.Executors
 
 class EthereumRpcHead(
-        private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
-        private val interval: Duration = Duration.ofSeconds(10)
-): DefaultEthereumHead(), Lifecycle {
+    private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val interval: Duration = Duration.ofSeconds(10)
+) : DefaultEthereumHead(), Lifecycle {
 
     companion object {
-        val scheduler = Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-rpc-head")))
+        val scheduler =
+            Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-rpc-head")))
     }
 
     private val log = LoggerFactory.getLogger(EthereumRpcHead::class.java)
@@ -47,10 +44,10 @@ class EthereumRpcHead(
 
     override fun start() {
         val base = Flux.interval(interval)
-                .publishOn(scheduler)
-                .flatMap {
-                    getLatestBlock(api)
-                }
+            .publishOn(scheduler)
+            .flatMap {
+                getLatestBlock(api)
+            }
         refreshSubscription = super.follow(base)
     }
 
@@ -62,5 +59,4 @@ class EthereumRpcHead(
         refreshSubscription?.dispose()
         refreshSubscription = null
     }
-
 }

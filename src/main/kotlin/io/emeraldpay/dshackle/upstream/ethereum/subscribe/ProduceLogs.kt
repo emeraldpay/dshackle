@@ -31,7 +31,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 import java.util.concurrent.TimeUnit
 
 class ProduceLogs(
-        private val receipts: Reader<TxId, ByteArray>
+    private val receipts: Reader<TxId, ByteArray>
 ) {
 
     companion object {
@@ -45,8 +45,8 @@ class ProduceLogs(
     // need to keep history of recent messages in case they get removed. cannot rely on
     // any other cache or upstream because if when it gets removed it's unavailable in any other source
     private val oldMessages = CacheBuilder.newBuilder()
-            .expireAfterWrite(5, TimeUnit.HOURS)
-            .build<LogReference, List<LogMessage>>()
+        .expireAfterWrite(5, TimeUnit.HOURS)
+        .build<LogReference, List<LogMessage>>()
 
     fun produce(block: Flux<ConnectBlockUpdates.Update>): Flux<LogMessage> {
         return block.flatMap { update ->
@@ -65,43 +65,43 @@ class ProduceLogs(
             return Flux.empty()
         }
         return Flux.fromIterable(old)
-                .map { it.copy(removed = true) }
+            .map { it.copy(removed = true) }
     }
 
     fun produceAdded(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
         return receipts.read(update.transactionId)
-                .switchIfEmpty {
-                    log.warn("Cannot find receipt for tx ${update.transactionId}")
-                    Mono.empty()
+            .switchIfEmpty {
+                log.warn("Cannot find receipt for tx ${update.transactionId}")
+                Mono.empty()
+            }
+            .map { objectMapper.readValue(it, TransactionReceiptJson::class.java) }
+            .flatMapMany { receipt ->
+                try {
+                    val messages = receipt.logs
+                        .map { txlog ->
+                            LogMessage(
+                                txlog.address,
+                                txlog.blockHash,
+                                txlog.blockNumber,
+                                txlog.data ?: HexData.empty(),
+                                txlog.logIndex,
+                                txlog.topics,
+                                txlog.transactionHash,
+                                txlog.transactionIndex,
+                                false
+                            )
+                        }
+                    oldMessages.put(LogReference(update.blockHash, update.transactionId), messages)
+                    Flux.fromIterable(messages)
+                } catch (t: Throwable) {
+                    log.warn("Invalid Receipt ${update.transactionId}. ${t.javaClass}: ${t.message}")
+                    Flux.empty<LogMessage>()
                 }
-                .map { objectMapper.readValue(it, TransactionReceiptJson::class.java) }
-                .flatMapMany { receipt ->
-                    try {
-                        val messages = receipt.logs
-                                .map { txlog ->
-                                    LogMessage(
-                                            txlog.address,
-                                            txlog.blockHash,
-                                            txlog.blockNumber,
-                                            txlog.data ?: HexData.empty(),
-                                            txlog.logIndex,
-                                            txlog.topics,
-                                            txlog.transactionHash,
-                                            txlog.transactionIndex,
-                                            false
-                                    )
-                                }
-                        oldMessages.put(LogReference(update.blockHash, update.transactionId), messages)
-                        Flux.fromIterable(messages)
-                    } catch (t: Throwable) {
-                        log.warn("Invalid Receipt ${update.transactionId}. ${t.javaClass}: ${t.message}")
-                        Flux.empty<LogMessage>()
-                    }
-                }
+            }
     }
 
     private data class LogReference(
-            val block: BlockId,
-            val tx: TxId
+        val block: BlockId,
+        val tx: TxId
     )
 }

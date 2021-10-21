@@ -23,5 +23,4 @@ class AccessLogReader : YamlConfigReader(), ConfigReader<AccessLogConfig> {
             }
         } ?: AccessLogConfig.default()
     }
-
 }

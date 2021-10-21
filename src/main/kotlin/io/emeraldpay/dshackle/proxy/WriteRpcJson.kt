@@ -17,7 +17,6 @@
 package io.emeraldpay.dshackle.proxy
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -31,7 +30,7 @@ import java.util.function.Function
  * Writer for JSON RPC requests
  */
 @Service
-open class WriteRpcJson() {
+open class WriteRpcJson {
 
     companion object {
         private val log = LoggerFactory.getLogger(WriteRpcJson::class.java)
@@ -45,35 +44,35 @@ open class WriteRpcJson() {
     open fun toJsons(call: ProxyCall): Function<Flux<NativeCall.CallResult>, Flux<String>> {
         return Function { flux ->
             flux
-                    .flatMap { response ->
-                        if (!call.ids.containsKey(response.id)) {
-                            log.warn("ID wasn't requested: ${response.id}")
-                            return@flatMap Flux.empty<String>()
-                        }
-                        val json = toJson(call, response)
-                        if (json == null) {
-                            Flux.empty<String>()
-                        } else {
-                            Flux.just(json)
-                        }
+                .flatMap { response ->
+                    if (!call.ids.containsKey(response.id)) {
+                        log.warn("ID wasn't requested: ${response.id}")
+                        return@flatMap Flux.empty<String>()
                     }
-                    .onErrorResume { t ->
-                        if (t is NativeCall.CallFailure) {
-                            Mono.just(toJson(call, t)!!)
-                        } else {
-                            Mono.empty()
-                        }
+                    val json = toJson(call, response)
+                    if (json == null) {
+                        Flux.empty<String>()
+                    } else {
+                        Flux.just(json)
                     }
-                    .onErrorContinue { t, _ ->
-                        log.warn("Failed to convert to JSON", t)
+                }
+                .onErrorResume { t ->
+                    if (t is NativeCall.CallFailure) {
+                        Mono.just(toJson(call, t)!!)
+                    } else {
+                        Mono.empty()
                     }
+                }
+                .onErrorContinue { t, _ ->
+                    log.warn("Failed to convert to JSON", t)
+                }
         }
     }
 
     open fun toJson(call: ProxyCall, response: NativeCall.CallResult): String? {
         val id = call.ids[response.id]?.let {
             JsonRpcResponse.Id.from(it)
-        } ?: return null;
+        } ?: return null
         val json = if (response.isError()) {
             val error = response.error!!
             error.upstreamError?.let { upstreamError ->
@@ -86,7 +85,7 @@ open class WriteRpcJson() {
     }
 
     fun toJson(call: ProxyCall, error: NativeCall.CallFailure): String? {
-        val id = call.ids[error.id] ?: return null;
+        val id = call.ids[error.id] ?: return null
         val json = JsonRpcResponse.error(-32003, error.reason.message ?: "", JsonRpcResponse.Id.from(id))
         return objectMapper.writeValueAsString(json)
     }
@@ -97,17 +96,17 @@ open class WriteRpcJson() {
     fun asArray(): Function<Flux<String>, Flux<String>> {
         return Function { flux ->
             val body = flux.zipWith(Flux.concat(Mono.just(false), Flux.just(true).repeat()))
-                    .map {
-                        if (it.t2) {
-                            "," + it.t1
-                        } else {
-                            it.t1
-                        }
+                .map {
+                    if (it.t2) {
+                        "," + it.t1
+                    } else {
+                        it.t1
                     }
+                }
             Flux.concat(
-                    Mono.just("["),
-                    body,
-                    Mono.just("]")
+                Mono.just("["),
+                body,
+                Mono.just("]")
             )
         }
     }

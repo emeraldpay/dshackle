@@ -24,22 +24,23 @@ import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 
 abstract class BitcoinUpstream(
-        id: String,
-        val chain: Chain,
-        options: UpstreamsConfig.Options,
-        role: UpstreamsConfig.UpstreamRole,
-        callMethods: CallMethods,
-        node: QuorumForLabels.QuorumItem,
-        val esploraClient: EsploraClient? = null
+    id: String,
+    val chain: Chain,
+    options: UpstreamsConfig.Options,
+    role: UpstreamsConfig.UpstreamRole,
+    callMethods: CallMethods,
+    node: QuorumForLabels.QuorumItem,
+    val esploraClient: EsploraClient? = null
 ) : DefaultUpstream(id, options, role, callMethods, node) {
 
-    constructor(id: String,
-                chain: Chain,
-                options: UpstreamsConfig.Options,
-                role: UpstreamsConfig.UpstreamRole) : this(id, chain, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty())
+    constructor(
+        id: String,
+        chain: Chain,
+        options: UpstreamsConfig.Options,
+        role: UpstreamsConfig.UpstreamRole
+    ) : this(id, chain, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty())
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstream::class.java)
     }
-
 }

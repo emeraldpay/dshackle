@@ -16,26 +16,26 @@
  */
 package io.emeraldpay.dshackle
 
-import com.fasterxml.jackson.core.Version
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.module.SimpleModule
-import io.emeraldpay.dshackle.config.*
+import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.config.MainConfig
+import io.emeraldpay.dshackle.config.MainConfigReader
+import io.emeraldpay.dshackle.config.MonitoringConfig
+import io.emeraldpay.dshackle.config.TokensConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.ExitCodeGenerator
 import org.springframework.boot.SpringApplication
 import org.springframework.context.ApplicationContext
-import org.springframework.context.annotation.*
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.*
 import java.util.concurrent.Executors
 import kotlin.system.exitProcess
 
@@ -43,8 +43,8 @@ import kotlin.system.exitProcess
 @EnableScheduling
 @EnableAsync
 open class Config(
-        @Autowired private val env: Environment,
-        @Autowired private val ctx: ApplicationContext
+    @Autowired private val env: Environment,
+    @Autowired private val ctx: ApplicationContext
 ) {
 
     companion object {
@@ -68,14 +68,15 @@ open class Config(
         if (!FileResolver.isAccessible(target)) {
             target = File(LOCAL_CONFIG)
             if (!FileResolver.isAccessible(target)) {
-                throw IllegalStateException("Configuration is not found neither at ${DEFAULT_CONFIG} nor ${LOCAL_CONFIG}")
+                throw IllegalStateException("Configuration is not found neither at $DEFAULT_CONFIG nor $LOCAL_CONFIG")
             }
         }
         target = target.normalize()
         return target
     }
 
-    @Bean @Qualifier("upstreamScheduler")
+    @Bean
+    @Qualifier("upstreamScheduler")
     open fun upstreamScheduler(): Scheduler {
         return Schedulers.fromExecutorService(Executors.newFixedThreadPool(16))
     }
@@ -91,7 +92,7 @@ open class Config(
         }
         val reader = MainConfigReader(fileResolver)
         return reader.read(f.inputStream())
-                ?: throw IllegalStateException("Config is not available at ${f.absolutePath}")
+            ?: throw IllegalStateException("Config is not available at ${f.absolutePath}")
     }
 
     @Bean
@@ -119,5 +120,4 @@ open class Config(
     open fun monitoringConfig(@Autowired mainConfig: MainConfig): MonitoringConfig {
         return mainConfig.monitoring
     }
-
 }

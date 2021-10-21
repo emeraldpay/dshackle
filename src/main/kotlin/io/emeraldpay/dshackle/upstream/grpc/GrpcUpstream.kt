@@ -24,5 +24,4 @@ interface GrpcUpstream {
      * Called on the first creation, and each time a new state received from upstream
      */
     fun update(conf: BlockchainOuterClass.DescribeChain)
-
 }

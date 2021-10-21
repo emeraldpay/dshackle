@@ -16,11 +16,9 @@
  */
 package io.emeraldpay.dshackle.data
 
-import java.lang.ClassCastException
-
 abstract class SourceContainer(
-        val json: ByteArray?,
-        private val parsed: Any?
+    val json: ByteArray?,
+    private val parsed: Any?
 ) {
 
     @Suppress("UNCHECKED_CAST")
@@ -33,7 +31,6 @@ abstract class SourceContainer(
         }
         throw ClassCastException("Cannot cast ${parsed.javaClass} to $clazz")
     }
-
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

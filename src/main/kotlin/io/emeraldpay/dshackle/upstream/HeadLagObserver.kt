@@ -31,8 +31,8 @@ import java.time.Duration
  * other upstreams.
  */
 abstract class HeadLagObserver(
-        private val master: Head,
-        private val followers: Collection<Upstream>
+    private val master: Head,
+    private val followers: Collection<Upstream>
 ) : Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
@@ -55,18 +55,18 @@ abstract class HeadLagObserver(
 
     fun subscription(): Flux<Unit> {
         return master.getFlux()
-                .flatMap(this::probeFollowers)
-                .map { item ->
-                    item.t2.setLag(item.t1)
-                }
+            .flatMap(this::probeFollowers)
+            .map { item ->
+                item.t2.setLag(item.t1)
+            }
     }
 
     fun probeFollowers(top: BlockContainer): Flux<Tuple2<Long, Upstream>> {
         return Flux.fromIterable(followers)
-                .parallel(followers.size)
-                .flatMap { up -> mapLagging(top, up, getCurrentBlocks(up)).subscribeOn(Schedulers.boundedElastic()) }
-                .sequential()
-                .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
+            .parallel(followers.size)
+            .flatMap { up -> mapLagging(top, up, getCurrentBlocks(up)).subscribeOn(Schedulers.boundedElastic()) }
+            .sequential()
+            .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
     }
 
     open fun getCurrentBlocks(up: Upstream): Flux<BlockContainer> {
@@ -76,12 +76,12 @@ abstract class HeadLagObserver(
 
     fun mapLagging(top: BlockContainer, up: Upstream, blocks: Flux<BlockContainer>): Flux<Tuple2<Long, Upstream>> {
         return blocks
-                .map { extractDistance(top, it) }
-                .takeUntil { lag -> lag <= 0L }
-                .map { Tuples.of(it, up) }
-                .doOnError { t ->
-                    log.warn("Failed to find distance for $up", t)
-                }
+            .map { extractDistance(top, it) }
+            .takeUntil { lag -> lag <= 0L }
+            .map { Tuples.of(it, up) }
+            .doOnError { t ->
+                log.warn("Failed to find distance for $up", t)
+            }
     }
 
     open fun extractDistance(top: BlockContainer, curr: BlockContainer): Long {
@@ -93,5 +93,4 @@ abstract class HeadLagObserver(
     }
 
     abstract fun forkDistance(top: BlockContainer, curr: BlockContainer): Long
-
 }

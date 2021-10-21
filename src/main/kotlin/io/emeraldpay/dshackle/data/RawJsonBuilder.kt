@@ -36,7 +36,7 @@ class RawJsonBuilder {
         buf.write(START)
         buf.write(COMMA)
         buf.write(ID_START)
-        buf.write(id.toString().toByteArray());
+        buf.write(id.toString().toByteArray())
         buf.write(COMMA)
         buf.write(RESULT_START)
         buf.write(data)
@@ -44,6 +44,4 @@ class RawJsonBuilder {
 
         return buf.toByteArray()
     }
-
-
 }

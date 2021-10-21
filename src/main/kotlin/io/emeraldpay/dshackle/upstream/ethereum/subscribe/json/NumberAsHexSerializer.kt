@@ -38,5 +38,4 @@ class NumberAsHexSerializer : JsonSerializer<Number>() {
         }
         gen.writeString(hex.toHex())
     }
-
 }

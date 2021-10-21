@@ -22,19 +22,19 @@ import com.fasterxml.jackson.databind.JsonNode
 import io.emeraldpay.dshackle.Global
 
 data class JsonRpcRequest(
-        val method: String,
-        val params: List<Any?>,
-        val id: Int
+    val method: String,
+    val params: List<Any?>,
+    val id: Int
 ) {
 
     constructor(method: String, params: List<Any?>) : this(method, params, 1)
 
     fun toJson(): ByteArray {
         val json = mapOf(
-                "jsonrpc" to "2.0",
-                "id" to id,
-                "method" to method,
-                "params" to params
+            "jsonrpc" to "2.0",
+            "id" to id,
+            "method" to method,
+            "params" to params
         )
         return Global.objectMapper.writeValueAsBytes(json)
     }
@@ -64,6 +64,5 @@ data class JsonRpcRequest(
             }
             return JsonRpcRequest(method, params, id)
         }
-
     }
 }

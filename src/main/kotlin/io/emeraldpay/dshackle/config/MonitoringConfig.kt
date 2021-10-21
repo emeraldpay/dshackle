@@ -16,14 +16,15 @@
 package io.emeraldpay.dshackle.config
 
 class MonitoringConfig(
-        val enabled: Boolean,
-        val prometheus: PrometheusConfig
+    val enabled: Boolean,
+    val prometheus: PrometheusConfig
 ) {
 
     companion object {
         fun default(): MonitoringConfig {
             return MonitoringConfig(true, PrometheusConfig.default())
         }
+
         fun disabled(): MonitoringConfig {
             return MonitoringConfig(false, PrometheusConfig.disabled())
         }
@@ -33,19 +34,19 @@ class MonitoringConfig(
     var enableExtended: Boolean = false
 
     data class PrometheusConfig(
-            val enabled: Boolean,
-            val path: String,
-            val host: String,
-            val port: Int
+        val enabled: Boolean,
+        val path: String,
+        val host: String,
+        val port: Int
     ) {
         companion object {
             fun default(): PrometheusConfig {
                 return PrometheusConfig(true, "/metrics", "127.0.0.1", 8081)
             }
+
             fun disabled(): PrometheusConfig {
                 return PrometheusConfig(false, "/", "127.0.0.1", 0)
             }
         }
     }
-
 }

@@ -22,7 +22,6 @@ import io.emeraldpay.grpc.Chain
  */
 open class SilentException(message: String) : Exception(message) {
 
-
     /**
      * Blockchain is not available or not supported by current instance of the Dshackle
      */

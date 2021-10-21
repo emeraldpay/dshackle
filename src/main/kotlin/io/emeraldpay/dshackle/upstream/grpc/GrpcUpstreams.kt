@@ -18,15 +18,15 @@ package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
@@ -34,7 +34,10 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
-import io.netty.handler.ssl.*
+import io.netty.handler.ssl.ApplicationProtocolConfig
+import io.netty.handler.ssl.ClientAuth
+import io.netty.handler.ssl.SslContext
+import io.netty.handler.ssl.SslContextBuilder
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.slf4j.LoggerFactory
@@ -42,17 +45,16 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import java.net.ConnectException
 import java.time.Duration
-import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 class GrpcUpstreams(
-        private val id: String,
-        private val host: String,
-        private val port: Int,
-        private val auth: AuthConfig.ClientTlsAuth? = null,
-        private val fileResolver: FileResolver
+    private val id: String,
+    private val host: String,
+    private val port: Int,
+    private val auth: AuthConfig.ClientTlsAuth? = null,
+    private val fileResolver: FileResolver
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -65,14 +67,14 @@ class GrpcUpstreams(
     fun start(): Flux<UpstreamChange> {
         val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             NettyChannelBuilder.forAddress(host, port)
-                    .useTransportSecurity()
-                    .enableRetry()
-                    .maxRetryAttempts(3)
-                    .sslContext(withTls(auth))
+                .useTransportSecurity()
+                .enableRetry()
+                .maxRetryAttempts(3)
+                .sslContext(withTls(auth))
         } else {
             log.warn("Using insecure connection to $host:$port")
             ManagedChannelBuilder.forAddress(host, port)
-                    .usePlaintext()
+                .usePlaintext()
         }
 
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
@@ -81,34 +83,34 @@ class GrpcUpstreams(
         val statusSubscription = AtomicReference<Disposable>()
 
         val updates = Flux.interval(Duration.ZERO, Duration.ofMinutes(1))
-                .flatMap {
-                    client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
-                }.onErrorContinue { t, _ ->
-                    if (ExceptionUtils.indexOfType(t, ConnectException::class.java) >= 0) {
-                        log.warn("gRPC upstream $host:$port is unavailable")
-                        known.values.forEach {
-                            it.setStatus(UpstreamAvailability.UNAVAILABLE)
-                        }
-                    } else {
-                        log.error("Failed to get description from $host:$port", t)
+            .flatMap {
+                client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
+            }.onErrorContinue { t, _ ->
+                if (ExceptionUtils.indexOfType(t, ConnectException::class.java) >= 0) {
+                    log.warn("gRPC upstream $host:$port is unavailable")
+                    known.values.forEach {
+                        it.setStatus(UpstreamAvailability.UNAVAILABLE)
                     }
-                }.flatMap { value ->
-                    processDescription(value)
-                }.doOnNext {
-                    val subscription = client.subscribeStatus(BlockchainOuterClass.StatusRequest.newBuilder().build())
-                            .subscribe { value ->
-                                val chain = Chain.byId(value.chain.number)
-                                if (chain != Chain.UNSPECIFIED) {
-                                    known[chain]?.onStatus(value)
-                                }
-                            }
-                    statusSubscription.updateAndGet { prev ->
-                        prev?.dispose()
-                        subscription
-                    }
-                }.doOnError { t ->
-                    log.error("Failed to process update from gRPC upstream $id", t)
+                } else {
+                    log.error("Failed to get description from $host:$port", t)
                 }
+            }.flatMap { value ->
+                processDescription(value)
+            }.doOnNext {
+                val subscription = client.subscribeStatus(BlockchainOuterClass.StatusRequest.newBuilder().build())
+                    .subscribe { value ->
+                        val chain = Chain.byId(value.chain.number)
+                        if (chain != Chain.UNSPECIFIED) {
+                            known[chain]?.onStatus(value)
+                        }
+                    }
+                statusSubscription.updateAndGet { prev ->
+                    prev?.dispose()
+                    subscription
+                }
+            }.doOnError { t ->
+                log.error("Failed to process update from gRPC upstream $id", t)
+            }
 
         return updates
     }
@@ -143,40 +145,42 @@ class GrpcUpstreams(
 
     internal fun withTls(auth: AuthConfig.ClientTlsAuth): SslContext {
         val sslContext = SslContextBuilder.forClient()
-                .clientAuth(ClientAuth.REQUIRE)
+            .clientAuth(ClientAuth.REQUIRE)
         sslContext.trustManager(fileResolver.resolve(auth.ca!!).inputStream())
         if (StringUtils.isNotEmpty(auth.key) && StringUtils.isNoneEmpty(auth.certificate)) {
             sslContext.keyManager(
-                    fileResolver.resolve(auth.certificate!!).inputStream(),
-                    fileResolver.resolve(auth.key!!).inputStream())
+                fileResolver.resolve(auth.certificate!!).inputStream(),
+                fileResolver.resolve(auth.key!!).inputStream()
+            )
         } else {
             log.warn("Connect to remote using only CA certificate")
         }
         val alpn = ApplicationProtocolConfig(
-                ApplicationProtocolConfig.Protocol.ALPN,
-                ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-                ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-                "grpc-exp", "h2")
+            ApplicationProtocolConfig.Protocol.ALPN,
+            ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+            ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+            "grpc-exp", "h2"
+        )
         sslContext.applicationProtocolConfig(alpn)
         return sslContext.build()
     }
 
     fun getOrCreate(chain: Chain): UpstreamChange {
         val metricsTags = listOf(
-                Tag.of("upstream", id),
-                Tag.of("chain", chain.chainCode)
+            Tag.of("upstream", id),
+            Tag.of("chain", chain.chainCode)
         )
 
         val metrics = RpcMetrics(
-                Timer.builder("upstream.grpc.conn")
-                        .description("Request time through a gRPC connection")
-                        .tags(metricsTags)
-                        .publishPercentileHistogram()
-                        .register(Metrics.globalRegistry),
-                Counter.builder("upstream.grpc.err")
-                        .description("Errors received on request through gRPC connection")
-                        .tags(metricsTags)
-                        .register(Metrics.globalRegistry)
+            Timer.builder("upstream.grpc.conn")
+                .description("Request time through a gRPC connection")
+                .tags(metricsTags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry),
+            Counter.builder("upstream.grpc.err")
+                .description("Errors received on request through gRPC connection")
+                .tags(metricsTags)
+                .register(Metrics.globalRegistry)
         )
 
         val blockchainType = BlockchainType.from(chain)

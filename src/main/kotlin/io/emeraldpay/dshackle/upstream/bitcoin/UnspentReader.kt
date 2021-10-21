@@ -19,5 +19,4 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import org.bitcoinj.core.Address
 
-interface UnspentReader : Reader<Address, List<SimpleUnspent>> {
-}
+interface UnspentReader : Reader<Address, List<SimpleUnspent>>

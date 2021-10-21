@@ -16,26 +16,24 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
-import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
-import java.util.*
+import java.util.Collections
 import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
@@ -43,15 +41,15 @@ import kotlin.concurrent.withLock
 
 @Repository
 open class CurrentMultistreamHolder(
-        @Autowired private val cachesFactory: CachesFactory
+    @Autowired private val cachesFactory: CachesFactory
 ) : MultistreamHolder {
 
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
 
     private val chainMapping = ConcurrentHashMap<Chain, Multistream>()
     private val chainsBus = Sinks.many()
-            .multicast()
-            .directBestEffort<Chain>()
+        .multicast()
+        .directBestEffort<Chain>()
     private val callTargets = HashMap<Chain, CallMethods>()
     private val updateLock = ReentrantLock()
 
@@ -63,17 +61,17 @@ open class CurrentMultistreamHolder(
                 when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> {
                         val up = change.upstream.cast(EthereumUpstream::class.java)
-                        val current = chainMapping[chain] as Multistream?
-                        val factory = Callable {
-                            EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain)) as Multistream
+                        val current = chainMapping[chain]
+                        val factory = Callable<Multistream> {
+                            EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
                         }
                         processUpdate(change, up, current, factory)
                     }
                     BlockchainType.BITCOIN -> {
                         val up = change.upstream.cast(BitcoinUpstream::class.java)
-                        val current = chainMapping[chain] as Multistream?
-                        val factory = Callable {
-                            BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain)) as Multistream
+                        val current = chainMapping[chain]
+                        val factory = Callable<Multistream> {
+                            BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
                         }
                         processUpdate(change, up, current, factory)
                     }
@@ -125,8 +123,8 @@ open class CurrentMultistreamHolder(
 
     override fun observeChains(): Flux<Chain> {
         return Flux.concat(
-                Flux.fromIterable(getAvailable()),
-                chainsBus.asFlux()
+            Flux.fromIterable(getAvailable()),
+            chainsBus.asFlux()
         )
     }
 

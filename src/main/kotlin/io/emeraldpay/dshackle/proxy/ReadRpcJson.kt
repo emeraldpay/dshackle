@@ -25,19 +25,16 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.RequestJson
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import java.io.IOException
-import java.util.*
 import java.util.function.Function
 import java.util.stream.Collectors
-
 
 /**
  * Reader for JSON RPC request
  */
 @Service
-open class ReadRpcJson() : Function<ByteArray, ProxyCall> {
+open class ReadRpcJson : Function<ByteArray, ProxyCall> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ReadRpcJson::class.java)
@@ -55,21 +52,37 @@ open class ReadRpcJson() : Function<ByteArray, ProxyCall> {
             val id = json["id"]
             if ("2.0" != json["jsonrpc"]) {
                 if (json["jsonrpc"] == null) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "jsonrpc version is not set", id?.let { JsonRpcResponse.Id.from(it) })
+                    throw RpcException(
+                        RpcResponseError.CODE_INVALID_REQUEST,
+                        "jsonrpc version is not set",
+                        id?.let { JsonRpcResponse.Id.from(it) }
+                    )
                 }
-                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Unsupported JSON RPC version: " + json["jsonrpc"].toString(), id?.let { JsonRpcResponse.Id.from(it) })
+                throw RpcException(
+                    RpcResponseError.CODE_INVALID_REQUEST,
+                    "Unsupported JSON RPC version: " + json["jsonrpc"].toString(),
+                    id?.let { JsonRpcResponse.Id.from(it) }
+                )
             }
             if (!(json["method"] != null && json["method"] is String)) {
-                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Method is not set", id?.let { JsonRpcResponse.Id.from(it) })
+                throw RpcException(
+                    RpcResponseError.CODE_INVALID_REQUEST,
+                    "Method is not set",
+                    id?.let { JsonRpcResponse.Id.from(it) }
+                )
             }
             if (json.containsKey("params") && json["params"] !is List<*>) {
-                throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "Params must be an array", id?.let { JsonRpcResponse.Id.from(it) })
+                throw RpcException(
+                    RpcResponseError.CODE_INVALID_REQUEST,
+                    "Params must be an array",
+                    id?.let { JsonRpcResponse.Id.from(it) }
+                )
             }
             RequestJson<Any>(
-                    json["method"].toString(),
-                    //params MAY be omitted
-                    (json["params"] ?: emptyList<Any>()) as List<*>,
-                    id
+                json["method"].toString(),
+                // params MAY be omitted
+                (json["params"] ?: emptyList<Any>()) as List<*>,
+                id
             )
         }
     }
@@ -81,7 +94,7 @@ open class ReadRpcJson() : Function<ByteArray, ProxyCall> {
     fun getStartOfJson(buf: ByteArray): Byte {
         val count = buf.size
         var i = 0
-        //if cannot find anything in the first 255 bytes, just consider it as invalid
+        // if cannot find anything in the first 255 bytes, just consider it as invalid
         while (i < 256 && i < count) {
             if (buf[i] != spaces[0] && buf[i] != spaces[1] && buf[i] != spaces[2]) {
                 return buf[i]
@@ -127,17 +140,17 @@ open class ReadRpcJson() : Function<ByteArray, ProxyCall> {
             // our internal ids for calls
             var seq = 0
             val batch = list.stream()
-                    .map<RequestJson<Any>>(jsonExtractor)
-                    .map { json ->
-                        val id = seq++
-                        context.ids[id] = json.id
-                        BlockchainOuterClass.NativeCallItem.newBuilder()
-                                .setId(id)
-                                .setMethod(json.method)
-                                .setPayload(ByteString.copyFrom(objectMapper.writeValueAsBytes(json.params)))
-                                .build()
-                    }
-                    .collect(Collectors.toList())
+                .map<RequestJson<Any>>(jsonExtractor)
+                .map { json ->
+                    val id = seq++
+                    context.ids[id] = json.id
+                    BlockchainOuterClass.NativeCallItem.newBuilder()
+                        .setId(id)
+                        .setMethod(json.method)
+                        .setPayload(ByteString.copyFrom(objectMapper.writeValueAsBytes(json.params)))
+                        .build()
+                }
+                .collect(Collectors.toList())
             context.items.addAll(batch)
             return context
         } catch (e: RpcException) {
@@ -147,5 +160,4 @@ open class ReadRpcJson() : Function<ByteArray, ProxyCall> {
             throw RpcException(RpcResponseError.CODE_INVALID_JSON, e.message)
         }
     }
-
 }

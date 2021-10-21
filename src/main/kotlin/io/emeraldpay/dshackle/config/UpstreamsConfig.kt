@@ -17,11 +17,9 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Defaults
-import java.lang.ClassCastException
 import java.net.URI
-import java.util.*
-import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
+import java.util.Arrays
+import java.util.Locale
 
 open class UpstreamsConfig {
     var defaultOptions: MutableList<DefaultOptions> = ArrayList<DefaultOptions>()
@@ -46,8 +44,10 @@ open class UpstreamsConfig {
             }
             val copy = Options()
             copy.minPeers = if (this.minPeers != null) this.minPeers else additional.minPeers
-            copy.disableValidation = if (this.disableValidation != null) this.disableValidation else additional.disableValidation
-            copy.providesBalance = if (this.providesBalance != null) this.providesBalance else additional.providesBalance
+            copy.disableValidation =
+                if (this.disableValidation != null) this.disableValidation else additional.disableValidation
+            copy.providesBalance =
+                if (this.providesBalance != null) this.providesBalance else additional.providesBalance
             return copy
         }
 
@@ -60,7 +60,6 @@ open class UpstreamsConfig {
                 return options
             }
         }
-
     }
 
     class DefaultOptions : Options() {
@@ -125,14 +124,14 @@ open class UpstreamsConfig {
         var msgSize: Int? = null
     }
 
-
-    //TODO make it unmodifiable after initial load
-    class Labels: HashMap<String, String>() {
+    // TODO make it unmodifiable after initial load
+    class Labels : HashMap<String, String>() {
 
         companion object {
-            @JvmStatic fun fromMap(map: Map<String, String>): Labels {
+            @JvmStatic
+            fun fromMap(map: Map<String, String>): Labels {
                 val labels = Labels()
-                map.entries.forEach() { kv ->
+                map.entries.forEach { kv ->
                     labels.put(kv.key, kv.value)
                 }
                 return labels
@@ -140,7 +139,7 @@ open class UpstreamsConfig {
         }
     }
 
-    enum class UpstreamType private constructor(vararg code: String) {
+    enum class UpstreamType(vararg code: String) {
         ETHEREUM_JSON_RPC("ethereum"),
         BITCOIN_JSON_RPC("bitcoin"),
         DSHACKLE("dshackle", "grpc"),
@@ -168,12 +167,12 @@ open class UpstreamsConfig {
     }
 
     class Methods(
-            val enabled: Set<Method>,
-            val disabled: Set<Method>
+        val enabled: Set<Method>,
+        val disabled: Set<Method>
     )
 
     class Method(
-            val name: String,
-            val quorum: String? = null
+        val name: String,
+        val quorum: String? = null
     )
 }

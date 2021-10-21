@@ -34,29 +34,29 @@ open class DefaultEthereumHead : Head, AbstractHead() {
 
     fun getLatestBlock(api: Reader<JsonRpcRequest, JsonRpcResponse>): Mono<BlockContainer> {
         return api.read(JsonRpcRequest("eth_blockNumber", emptyList()))
-                .subscribeOn(EthereumRpcHead.scheduler)
-                .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
-                .flatMap {
-                    if (it.error != null) {
-                        Mono.error(it.error.asException(null))
-                    } else {
-                        val value = it.getResultAsProcessedString()
-                        Mono.just(HexQuantity.from(value))
-                    }
+            .subscribeOn(EthereumRpcHead.scheduler)
+            .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
+            .flatMap {
+                if (it.error != null) {
+                    Mono.error(it.error.asException(null))
+                } else {
+                    val value = it.getResultAsProcessedString()
+                    Mono.just(HexQuantity.from(value))
                 }
-                .flatMap {
-                    //fetching by Block Height here, critical to use the same upstream as in previous call,
-                    //b/c different upstreams may have different blocks on the same height
-                    api.read(JsonRpcRequest("eth_getBlockByNumber", listOf(it.toHex(), false)))
-                            .subscribeOn(EthereumRpcHead.scheduler)
-                            .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
-                }
-                .map {
-                    BlockContainer.fromEthereumJson(it.getResult())
-                }
-                .onErrorResume { err ->
-                    log.debug("Failed to fetch latest block: ${err.message}")
-                    Mono.empty()
-                }
+            }
+            .flatMap {
+                // fetching by Block Height here, critical to use the same upstream as in previous call,
+                // b/c different upstreams may have different blocks on the same height
+                api.read(JsonRpcRequest("eth_getBlockByNumber", listOf(it.toHex(), false)))
+                    .subscribeOn(EthereumRpcHead.scheduler)
+                    .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
+            }
+            .map {
+                BlockContainer.fromEthereumJson(it.getResult())
+            }
+            .onErrorResume { err ->
+                log.debug("Failed to fetch latest block: ${err.message}")
+                Mono.empty()
+            }
     }
 }

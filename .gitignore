@@ -1,7 +1,11 @@
 .gradle/
 build/
 out/
-*.iml
 ./dshackle.yaml
 ./upstream.yaml
 testsetup/
+.idea/
+.idea_modules/
+*.iml
+*.ipr
+*.iws

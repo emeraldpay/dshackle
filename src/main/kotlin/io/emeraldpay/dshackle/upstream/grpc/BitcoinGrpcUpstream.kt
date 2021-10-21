@@ -22,14 +22,18 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -40,16 +44,18 @@ import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
 class BitcoinGrpcUpstream(
-        private val parentId: String,
-        chain: Chain,
-        val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
-        private val client: JsonRpcGrpcClient
+    private val parentId: String,
+    chain: Chain,
+    val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
+    private val client: JsonRpcGrpcClient
 ) : BitcoinUpstream(
-        "$parentId/${chain.chainCode}",
-        chain,
-        UpstreamsConfig.Options.getDefaults(),
-        UpstreamsConfig.UpstreamRole.STANDARD
-), GrpcUpstream, Lifecycle {
+    "$parentId/${chain.chainCode}",
+    chain,
+    UpstreamsConfig.Options.getDefaults(),
+    UpstreamsConfig.UpstreamRole.STANDARD
+),
+    GrpcUpstream,
+    Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinGrpcUpstream::class.java)
@@ -59,13 +65,13 @@ class BitcoinGrpcUpstream(
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val block = BlockContainer(
-                value.height,
-                BlockId.from(value.blockId),
-                BigInteger(1, value.weight.toByteArray()),
-                Instant.ofEpochMilli(value.timestamp),
-                false,
-                null,
-                null
+            value.height,
+            BlockId.from(value.blockId),
+            BigInteger(1, value.weight.toByteArray()),
+            Instant.ofEpochMilli(value.timestamp),
+            false,
+            null,
+            null
         )
         block
     }
@@ -73,18 +79,18 @@ class BitcoinGrpcUpstream(
         // head comes without transaction data
         // need to download transactions for the block
         defaultReader.read(JsonRpcRequest("getblock", listOf(existingBlock.hash.toHex())))
-                .flatMap(JsonRpcResponse::requireResult)
-                .map(extractBlock::extract)
-                .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
-                .doOnError { t ->
-                    setStatus(UpstreamAvailability.UNAVAILABLE)
-                    val msg = "Failed to download block data for chain $chain on $parentId"
-                    if (t is RpcException || t is TimeoutException) {
-                        log.warn("$msg. Message: ${t.message}")
-                    } else {
-                        log.error(msg, t)
-                    }
+            .flatMap(JsonRpcResponse::requireResult)
+            .map(extractBlock::extract)
+            .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
+            .doOnError { t ->
+                setStatus(UpstreamAvailability.UNAVAILABLE)
+                val msg = "Failed to download block data for chain $chain on $parentId"
+                if (t is RpcException || t is TimeoutException) {
+                    log.warn("$msg. Message: ${t.message}")
+                } else {
+                    log.error(msg, t)
                 }
+            }
     }
     private val upstreamStatus = GrpcUpstreamStatus()
     private val grpcHead = GrpcHead(chain, this, blockConverter, reloadBlock)
@@ -136,5 +142,4 @@ class BitcoinGrpcUpstream(
         this.capabilities = RemoteCapabilities.extract(conf)
         conf.status?.let { status -> onStatus(status) }
     }
-
 }

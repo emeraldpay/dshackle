@@ -16,69 +16,70 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.quorum.*
-import io.emeraldpay.grpc.Chain
-import io.emeraldpay.etherjar.rpc.JacksonRpcConverter
+import io.emeraldpay.dshackle.quorum.AlwaysQuorum
+import io.emeraldpay.dshackle.quorum.BroadcastQuorum
+import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.quorum.NonceQuorum
+import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.etherjar.rpc.RpcException
-import java.util.*
+import io.emeraldpay.grpc.Chain
 
 /**
  * Default configuration for Ethereum based RPC. Defines optimal Quorum strategies for different methods, and provides
  * hardcoded results for base methods, such as `net_version`, `web3_clientVersion` and similar
  */
 class DefaultEthereumMethods(
-        private val chain: Chain
+    private val chain: Chain
 ) : CallMethods {
 
     private val anyResponseMethods = listOf(
-            "eth_gasPrice",
-            "eth_call",
-            "eth_estimateGas"
+        "eth_gasPrice",
+        "eth_call",
+        "eth_estimateGas"
     )
 
     private val firstValueMethods = listOf(
-            "eth_getBlockTransactionCountByHash",
-            "eth_getUncleCountByBlockHash",
-            "eth_getBlockByHash",
-            "eth_getTransactionByHash",
-            "eth_getTransactionByBlockHashAndIndex",
-            "eth_getStorageAt",
-            "eth_getCode",
-            "eth_getUncleByBlockHashAndIndex"
+        "eth_getBlockTransactionCountByHash",
+        "eth_getUncleCountByBlockHash",
+        "eth_getBlockByHash",
+        "eth_getTransactionByHash",
+        "eth_getTransactionByBlockHashAndIndex",
+        "eth_getStorageAt",
+        "eth_getCode",
+        "eth_getUncleByBlockHashAndIndex"
     )
 
     private val specialMethods = listOf(
-            "eth_getTransactionCount",
-            "eth_blockNumber",
-            "eth_getBalance",
-            "eth_sendRawTransaction"
+        "eth_getTransactionCount",
+        "eth_blockNumber",
+        "eth_getBalance",
+        "eth_sendRawTransaction"
     )
 
     private val headVerifiedMethods = listOf(
-            "eth_getBlockTransactionCountByNumber",
-            "eth_getUncleCountByBlockNumber",
-            "eth_getBlockByNumber",
-            "eth_getTransactionByBlockNumberAndIndex",
-            "eth_getTransactionReceipt",
-            "eth_getUncleByBlockNumberAndIndex",
-            "eth_feeHistory"
+        "eth_getBlockTransactionCountByNumber",
+        "eth_getUncleCountByBlockNumber",
+        "eth_getBlockByNumber",
+        "eth_getTransactionByBlockNumberAndIndex",
+        "eth_getTransactionReceipt",
+        "eth_getUncleByBlockNumberAndIndex",
+        "eth_feeHistory"
     )
 
     private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods
 
     private val hardcodedMethods = listOf(
-            "net_version",
-            "net_peerCount",
-            "net_listening",
-            "web3_clientVersion",
-            "eth_protocolVersion",
-            "eth_syncing",
-            "eth_coinbase",
-            "eth_mining",
-            "eth_hashrate",
-            "eth_accounts",
-            "eth_chainId"
+        "net_version",
+        "net_peerCount",
+        "net_listening",
+        "web3_clientVersion",
+        "eth_protocolVersion",
+        "eth_syncing",
+        "eth_coinbase",
+        "eth_mining",
+        "eth_hashrate",
+        "eth_accounts",
+        "eth_chainId"
     )
 
     override fun getQuorumFor(method: String): CallQuorum {

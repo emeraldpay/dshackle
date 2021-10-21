@@ -1,7 +1,7 @@
 package io.emeraldpay.dshackle.config
 
 class AccessLogConfig(
-        val enabled: Boolean = false
+    val enabled: Boolean = false
 ) {
 
     var filename: String = "./access_log.jsonl"
@@ -14,9 +14,8 @@ class AccessLogConfig(
 
         fun disabled(): AccessLogConfig {
             return AccessLogConfig(
-                    enabled = false
+                enabled = false
             )
         }
     }
-
 }

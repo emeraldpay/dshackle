@@ -20,12 +20,18 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.cache.HeightByHashAdding
-import io.emeraldpay.dshackle.data.*
-import io.emeraldpay.dshackle.reader.*
+import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.SourceContainer
+import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
+import io.emeraldpay.dshackle.reader.CompoundReader
+import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.RekeyingReader
+import io.emeraldpay.dshackle.reader.RpcReader
+import io.emeraldpay.dshackle.reader.TransformingReader
 import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
@@ -42,9 +48,9 @@ import java.util.function.Function
  * Reader for the common operations, that wraps caches + native call with quorum verification
  */
 open class EthereumReader(
-        private val up: Multistream,
-        private val caches: Caches,
-        private val callMethodsFactory: Factory<CallMethods>
+    private val up: Multistream,
+    private val caches: Caches,
+    private val callMethodsFactory: Factory<CallMethods>
 ) : Lifecycle {
 
     companion object {
@@ -61,8 +67,8 @@ open class EthereumReader(
             existing.withoutTransactionDetails()
         } else {
             objectMapper
-                    .readValue(block.json, BlockJson::class.java)
-                    .withoutTransactionDetails()
+                .readValue(block.json, BlockJson::class.java)
+                .withoutTransactionDetails()
         }
     }
 
@@ -81,30 +87,30 @@ open class EthereumReader(
     private val idToTxHash = Function<TxId, TransactionId> { id -> TransactionId.from(id.value) }
 
     private val blocksByIdAsCont = CompoundReader(
-            caches.getBlocksByHash(),
-            RekeyingReader(idToBlockHash, directReader.blockReader)
+        caches.getBlocksByHash(),
+        RekeyingReader(idToBlockHash, directReader.blockReader)
     )
 
     private val heightByHash = HeightByHashAdding(caches, blocksByIdAsCont)
 
     fun blocksByHashAsCont(): Reader<BlockHash, BlockContainer> {
         return CompoundReader(
-                RekeyingReader(blockHashToId, caches.getBlocksByHash()),
-                directReader.blockReader
+            RekeyingReader(blockHashToId, caches.getBlocksByHash()),
+            directReader.blockReader
         )
     }
 
     fun blocksByHashParsed(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
         return TransformingReader(
-                blocksByHashAsCont(),
-                extractBlock
+            blocksByHashAsCont(),
+            extractBlock
         )
     }
 
     fun blocksByIdParsed(): Reader<BlockId, BlockJson<TransactionRefJson>> {
         return TransformingReader(
-                blocksByIdAsCont(),
-                extractBlock
+            blocksByIdAsCont(),
+            extractBlock
         )
     }
 
@@ -114,43 +120,44 @@ open class EthereumReader(
 
     open fun blocksByHeightAsCont(): Reader<Long, BlockContainer> {
         return CompoundReader(
-                caches.getBlocksByHeight(),
-                directReader.blockByHeightReader
+            caches.getBlocksByHeight(),
+            directReader.blockByHeightReader
         )
     }
 
     fun txByHash(): Reader<TransactionId, TransactionJson> {
         return TransformingReader(
-                CompoundReader(
-                        RekeyingReader(txHashToId, caches.getTxByHash()),
-                        directReader.txReader
-                ),
-                extractTx
+            CompoundReader(
+                RekeyingReader(txHashToId, caches.getTxByHash()),
+                directReader.txReader
+            ),
+            extractTx
         )
     }
 
     open fun txByHashAsCont(): Reader<TxId, TxContainer> {
         return CompoundReader(
-                caches.getTxByHash(),
-                RekeyingReader(idToTxHash, directReader.txReader)
+            caches.getTxByHash(),
+            RekeyingReader(idToTxHash, directReader.txReader)
         )
     }
 
     fun balance(): Reader<Address, Wei> {
-        //TODO include height as part of cache?
+        // TODO include height as part of cache?
         return CompoundReader(
-                balanceCache, directReader.balanceReader
+            balanceCache, directReader.balanceReader
         )
     }
 
     fun receipts(): Reader<TxId, ByteArray> {
-        //TODO put into cache
+        // TODO put into cache
         val requested = RekeyingReader(
-                { txid: TxId -> txid.toHexWithPrefix() },
-                RpcReader.basicRequest(up, "eth_getTransactionReceipt"))
+            { txid: TxId -> txid.toHexWithPrefix() },
+            RpcReader.basicRequest(up, "eth_getTransactionReceipt")
+        )
         return CompoundReader(
-                caches.getReceipts(),
-                requested
+            caches.getReceipts(),
+            requested
         )
     }
 
@@ -159,7 +166,7 @@ open class EthereumReader(
     }
 
     override fun isRunning(): Boolean {
-        //TODO should be always running?
+        // TODO should be always running?
         return up.isRunning
     }
 

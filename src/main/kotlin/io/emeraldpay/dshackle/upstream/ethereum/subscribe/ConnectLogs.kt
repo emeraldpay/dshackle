@@ -25,8 +25,8 @@ import reactor.core.publisher.Flux
 import java.util.function.Function
 
 class ConnectLogs(
-        upstream: EthereumMultistream,
-        private val connectBlockUpdates: ConnectBlockUpdates,
+    upstream: EthereumMultistream,
+    private val connectBlockUpdates: ConnectBlockUpdates,
 ) {
 
     companion object {
@@ -51,17 +51,23 @@ class ConnectLogs(
         }
         // filtered output
         return start()
-                .transform(filtered(addresses, topics))
+            .transform(filtered(addresses, topics))
     }
 
     fun filtered(addresses: List<Address>, topics: List<Hex32>): Function<Flux<LogMessage>, Flux<LogMessage>> {
-        //sort search criteria to use binary search later
+        // sort search criteria to use binary search later
         val sortedAddresses: List<Address> = addresses.sortedWith(ADDR_COMPARATOR)
         val sortedTopics: List<Hex32> = topics.sortedWith(TOPIC_COMPARATOR)
         return Function { logs ->
             logs.filter {
-                val goodAddress = sortedAddresses.isEmpty() || sortedAddresses.binarySearch(it.address, ADDR_COMPARATOR) >= 0
-                val goodTopic = sortedTopics.isEmpty() || (it.topics.isNotEmpty() && sortedTopics.binarySearch(it.topics[0], TOPIC_COMPARATOR) >= 0)
+                val goodAddress =
+                    sortedAddresses.isEmpty() || sortedAddresses.binarySearch(it.address, ADDR_COMPARATOR) >= 0
+                val goodTopic = sortedTopics.isEmpty() || (
+                    it.topics.isNotEmpty() && sortedTopics.binarySearch(
+                        it.topics[0],
+                        TOPIC_COMPARATOR
+                    ) >= 0
+                    )
                 goodAddress && goodTopic
             }
         }

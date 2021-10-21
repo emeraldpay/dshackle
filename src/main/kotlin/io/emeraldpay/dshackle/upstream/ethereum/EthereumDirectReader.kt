@@ -34,10 +34,10 @@ import java.util.concurrent.TimeoutException
  * Common reads from upstream, makes actual calls with applying quorum and retries
  */
 class EthereumDirectReader(
-        private val up: Multistream,
-        private val caches: Caches,
-        private val balanceCache: CurrentBlockCache<Address, Wei>,
-        private val callMethodsFactory: Factory<CallMethods>
+    private val up: Multistream,
+    private val caches: Caches,
+    private val balanceCache: CurrentBlockCache<Address, Wei>,
+    private val callMethodsFactory: Factory<CallMethods>
 ) {
 
     companion object {
@@ -69,22 +69,21 @@ class EthereumDirectReader(
             override fun read(key: TransactionId): Mono<TxContainer> {
                 val request = JsonRpcRequest("eth_getTransactionByHash", listOf(key.toHex()))
                 return readWithQuorum(request)
-                        .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
-                        .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                        .flatMap { txbytes ->
-                            val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
-                            if (tx == null) {
-                                Mono.empty()
-                            } else {
-                                Mono.just(TxContainer.from(tx, txbytes))
-                            }
+                    .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
+                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                    .flatMap { txbytes ->
+                        val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
+                        if (tx == null) {
+                            Mono.empty()
+                        } else {
+                            Mono.just(TxContainer.from(tx, txbytes))
                         }
-                        .doOnNext { tx ->
-                            if (tx.blockId != null) {
-                                caches.cache(Caches.Tag.REQUESTED, tx)
-                            }
+                    }
+                    .doOnNext { tx ->
+                        if (tx.blockId != null) {
+                            caches.cache(Caches.Tag.REQUESTED, tx)
                         }
-
+                    }
             }
         }
         balanceReader = object : Reader<Address, Wei> {
@@ -92,20 +91,20 @@ class EthereumDirectReader(
                 val height = up.getHead().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
                 val request = JsonRpcRequest("eth_getBalance", listOf(key.toHex(), height))
                 return readWithQuorum(request)
-                        .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Balance not read $key")))
-                        .map {
-                            val str = String(it)
-                            // it's a json string, i.e. wrapped with quotes, ex. _"0x1234"_
-                            if (str.startsWith("\"") && str.endsWith("\"")) {
-                                Wei.from(str.substring(1, str.length - 1))
-                            } else {
-                                throw RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Not Wei value")
-                            }
+                    .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Balance not read $key")))
+                    .map {
+                        val str = String(it)
+                        // it's a json string, i.e. wrapped with quotes, ex. _"0x1234"_
+                        if (str.startsWith("\"") && str.endsWith("\"")) {
+                            Wei.from(str.substring(1, str.length - 1))
+                        } else {
+                            throw RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Not Wei value")
                         }
-                        .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                        .doOnNext { value ->
-                            balanceCache.put(key, value)
-                        }
+                    }
+                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                    .doOnNext { value ->
+                        balanceCache.put(key, value)
+                    }
             }
         }
     }
@@ -113,19 +112,19 @@ class EthereumDirectReader(
     @Suppress("UNCHECKED_CAST")
     private fun readBlock(request: JsonRpcRequest, id: String): Mono<BlockContainer> {
         return readWithQuorum(request)
-                .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                .flatMap { blockbytes ->
-                    val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>?
-                    if (block == null) {
-                        Mono.empty<BlockContainer>()
-                    } else {
-                        Mono.just(BlockContainer.from(block, blockbytes))
-                    }
+            .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))
+            .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+            .flatMap { blockbytes ->
+                val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>?
+                if (block == null) {
+                    Mono.empty<BlockContainer>()
+                } else {
+                    Mono.just(BlockContainer.from(block, blockbytes))
                 }
-                .doOnNext { block ->
-                    caches.cache(Caches.Tag.REQUESTED, block)
-                }
+            }
+            .doOnNext { block ->
+                caches.cache(Caches.Tag.REQUESTED, block)
+            }
     }
 
     /**
@@ -133,8 +132,8 @@ class EthereumDirectReader(
      */
     private fun readWithQuorum(request: JsonRpcRequest): Mono<ByteArray> {
         return quorumReaderFactory
-                .create(up.getApiSource(Selector.empty), callMethodsFactory.create().getQuorumFor(request.method))
-                .read(request)
-                .map { it.value }
+            .create(up.getApiSource(Selector.empty), callMethodsFactory.create().getQuorumFor(request.method))
+            .read(request)
+            .map { it.value }
     }
 }

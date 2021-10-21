@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle
 
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.grpc.Chain
-import java.util.*
+import java.util.EnumMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -25,7 +25,7 @@ import kotlin.concurrent.withLock
  * Keeps a lazily created value associated with a Chain
  */
 class ChainValue<V>(
-        private val factory: (chain: Chain) -> V
+    private val factory: (chain: Chain) -> V
 ) {
 
     private val values = EnumMap<Chain, V>(Chain::class.java)

@@ -16,15 +16,11 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.etherjar.rpc.JacksonRpcConverter
-import io.emeraldpay.etherjar.rpc.RpcException
 
 open class NonEmptyQuorum(
-        val maxTries: Int = 3
+    val maxTries: Int = 3
 ) : CallQuorum, ValueAwareQuorum<Any>(Any::class.java) {
 
     private var result: ByteArray? = null

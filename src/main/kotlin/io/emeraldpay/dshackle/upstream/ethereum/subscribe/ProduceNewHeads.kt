@@ -29,7 +29,7 @@ import reactor.core.publisher.Flux
  * @see NewHeadMessage
  */
 class ProduceNewHeads(
-        val head: Head
+    val head: Head
 ) {
 
     companion object {
@@ -40,27 +40,26 @@ class ProduceNewHeads(
 
     fun start(): Flux<NewHeadMessage> {
         return head.getFlux()
-                .map {
-                    if (it.parsed != null) {
-                        it.parsed as BlockJson<TransactionRefJson>
-                    } else {
-                        objectMapper.readValue(it.json, BlockJson::class.java)
-                    }
+            .map {
+                if (it.parsed != null) {
+                    it.parsed as BlockJson<TransactionRefJson>
+                } else {
+                    objectMapper.readValue(it.json, BlockJson::class.java)
                 }
-                .map { block ->
-                    NewHeadMessage(
-                            block.number,
-                            block.hash,
-                            block.parentHash,
-                            block.timestamp,
-                            block.difficulty,
-                            block.gasLimit,
-                            block.gasUsed,
-                            block.logsBloom,
-                            block.miner,
-                            block.baseFeePerGas?.amount
-                    )
-                }
+            }
+            .map { block ->
+                NewHeadMessage(
+                    block.number,
+                    block.hash,
+                    block.parentHash,
+                    block.timestamp,
+                    block.difficulty,
+                    block.gasLimit,
+                    block.gasUsed,
+                    block.logsBloom,
+                    block.miner,
+                    block.baseFeePerGas?.amount
+                )
+            }
     }
-
 }

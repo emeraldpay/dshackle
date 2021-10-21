@@ -32,10 +32,10 @@ import java.time.Instant
  * Cache blocks in Redis database
  */
 class BlocksRedisCache(
-        redis: RedisReactiveCommands<String, ByteArray>,
-        chain: Chain
+    redis: RedisReactiveCommands<String, ByteArray>,
+    chain: Chain
 ) : Reader<BlockId, BlockContainer>,
-        OnBlockRedisCache<BlockContainer>(redis, chain, CachesProto.ValueContainer.ValueType.BLOCK) {
+    OnBlockRedisCache<BlockContainer>(redis, chain, CachesProto.ValueContainer.ValueType.BLOCK) {
 
     companion object {
         private val log = LoggerFactory.getLogger(BlocksRedisCache::class.java)
@@ -59,21 +59,21 @@ class BlocksRedisCache(
         }
         val meta = value.blockMeta
         return BlockContainer(
-                meta.height,
-                BlockId(meta.hash.toByteArray()),
-                BigInteger(meta.difficulty.toByteArray()),
-                Instant.ofEpochMilli(meta.timestamp),
-                false,
-                value.value.toByteArray(),
-                null,
-                meta.txHashesList.map {
-                    TxId(it.toByteArray())
-                }
+            meta.height,
+            BlockId(meta.hash.toByteArray()),
+            BigInteger(meta.difficulty.toByteArray()),
+            Instant.ofEpochMilli(meta.timestamp),
+            false,
+            value.value.toByteArray(),
+            null,
+            meta.txHashesList.map {
+                TxId(it.toByteArray())
+            }
         )
     }
 
     fun add(block: BlockContainer): Mono<Void> {
-        if (block.timestamp == null || block.hash == null) { //null in unit tests
+        if (block.timestamp == null || block.hash == null) { // null in unit tests
             return Mono.empty()
         }
         if (block.full) {
@@ -81,5 +81,4 @@ class BlocksRedisCache(
         }
         return super.add(block, block)
     }
-
 }

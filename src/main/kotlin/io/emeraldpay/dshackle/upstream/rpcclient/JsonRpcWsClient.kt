@@ -20,11 +20,10 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import reactor.core.publisher.Mono
 
 class JsonRpcWsClient(
-        private val ws: EthereumWsFactory.EthereumWs
+    private val ws: EthereumWsFactory.EthereumWs
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         return ws.call(key)
     }
-
 }

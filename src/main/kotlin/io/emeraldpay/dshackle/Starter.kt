@@ -24,7 +24,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.core.io.ClassPathResource
 import org.springframework.core.io.support.ResourcePropertySource
 
-@SpringBootApplication(scanBasePackages = [ "io.emeraldpay.dshackle" ])
+@SpringBootApplication(scanBasePackages = ["io.emeraldpay.dshackle"])
 @Import(Config::class)
 open class Starter
 

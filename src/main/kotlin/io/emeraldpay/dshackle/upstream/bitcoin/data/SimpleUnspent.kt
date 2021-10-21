@@ -16,8 +16,8 @@
 package io.emeraldpay.dshackle.upstream.bitcoin.data
 
 data class SimpleUnspent(
-        val txid: String,
-        val vout: Int,
-        val value: Long,
-        val confirmations: Long
+    val txid: String,
+    val vout: Int,
+    val value: Long,
+    val confirmations: Long
 )

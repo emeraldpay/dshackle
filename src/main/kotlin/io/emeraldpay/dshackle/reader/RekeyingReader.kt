@@ -22,22 +22,21 @@ import java.util.function.Function
  * Reader wrapper that maps the input key from ne value to another (ex. convert from Long to String)
  */
 class RekeyingReader<K, K1, D>(
-        /**
-         * Mapping between original Key and Key supported by the reader
-         */
-        private val rekey: Function<K, K1>,
-        /**
-         * Actual reader
-         */
-        private val reader: Reader<K1, D>
+    /**
+     * Mapping between original Key and Key supported by the reader
+     */
+    private val rekey: Function<K, K1>,
+    /**
+     * Actual reader
+     */
+    private val reader: Reader<K1, D>
 ) : Reader<K, D> {
 
     override fun read(key: K): Mono<D> {
         return Mono.just(key)
-                .map(rekey)
-                .flatMap {
-                    reader.read(it)
-                }
+            .map(rekey)
+            .flatMap {
+                reader.read(it)
+            }
     }
-
 }

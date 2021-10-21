@@ -35,13 +35,13 @@ import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 
 class EthereumWsUpstream(
-        id: String,
-        val chain: Chain,
-        ethereumWsFactory: EthereumWsFactory,
-        options: UpstreamsConfig.Options,
-        role: UpstreamsConfig.UpstreamRole,
-        node: QuorumForLabels.QuorumItem,
-        targets: CallMethods
+    id: String,
+    val chain: Chain,
+    ethereumWsFactory: EthereumWsFactory,
+    options: UpstreamsConfig.Options,
+    role: UpstreamsConfig.UpstreamRole,
+    node: QuorumForLabels.QuorumItem,
+    targets: CallMethods
 ) : EthereumUpstream(id, options, role, targets, node), Upstream, Lifecycle {
 
     companion object {
@@ -57,20 +57,20 @@ class EthereumWsUpstream(
 
     init {
         val metricsTags = listOf(
-                Tag.of("upstream", id),
-                // UNSPECIFIED shouldn't happen too
-                Tag.of("chain", chain.chainCode)
+            Tag.of("upstream", id),
+            // UNSPECIFIED shouldn't happen too
+            Tag.of("chain", chain.chainCode)
         )
         val metrics = RpcMetrics(
-                Timer.builder("upstream.ws.conn")
-                        .description("Request time through a WebSocket JSON RPC connection")
-                        .tags(metricsTags)
-                        .publishPercentileHistogram()
-                        .register(Metrics.globalRegistry),
-                Counter.builder("upstream.ws.err")
-                        .description("Errors received on request through WebSocket JSON RPC connection")
-                        .tags(metricsTags)
-                        .register(Metrics.globalRegistry)
+            Timer.builder("upstream.ws.conn")
+                .description("Request time through a WebSocket JSON RPC connection")
+                .tags(metricsTags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry),
+            Counter.builder("upstream.ws.err")
+                .description("Errors received on request through WebSocket JSON RPC connection")
+                .tags(metricsTags)
+                .register(Metrics.globalRegistry)
         )
 
         validator = EthereumUpstreamValidator(this, getOptions())
@@ -106,7 +106,7 @@ class EthereumWsUpstream(
 
         log.debug("Start validation for upstream ${this.getId()}")
         validatorSubscription = validator.start()
-                .subscribe(this::setStatus)
+            .subscribe(this::setStatus)
     }
 
     override fun stop() {

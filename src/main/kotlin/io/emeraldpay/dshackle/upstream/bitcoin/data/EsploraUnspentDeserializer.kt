@@ -26,11 +26,11 @@ class EsploraUnspentDeserializer : JsonDeserializer<EsploraUnspent>() {
         val node: JsonNode = jp.readValueAsTree()
         val status = node.get("status")
         return EsploraUnspent(
-                node.get("txid").asText(),
-                node.get("vout").asInt(),
-                node.get("value").asLong(),
-                Instant.ofEpochSecond(status.get("block_time").asLong()),
-                status.get("block_height").asLong()
+            node.get("txid").asText(),
+            node.get("vout").asInt(),
+            node.get("value").asLong(),
+            Instant.ofEpochSecond(status.get("block_time").asLong()),
+            status.get("block_height").asLong()
         )
     }
 }

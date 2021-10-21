@@ -18,7 +18,10 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -28,14 +31,14 @@ import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 
 open class BitcoinRpcUpstream(
-        id: String,
-        chain: Chain,
-        private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
-        options: UpstreamsConfig.Options,
-        role: UpstreamsConfig.UpstreamRole,
-        node: QuorumForLabels.QuorumItem,
-        callMethods: CallMethods,
-        esploraClient: EsploraClient? = null
+    id: String,
+    chain: Chain,
+    private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
+    options: UpstreamsConfig.Options,
+    role: UpstreamsConfig.UpstreamRole,
+    node: QuorumForLabels.QuorumItem,
+    callMethods: CallMethods,
+    esploraClient: EsploraClient? = null
 ) : BitcoinUpstream(id, chain, options, role, callMethods, node, esploraClient), Lifecycle {
 
     companion object {
@@ -53,8 +56,8 @@ open class BitcoinRpcUpstream(
 
     private fun createHead(): Head {
         return BitcoinRpcHead(
-                directApi,
-                ExtractBlock()
+            directApi,
+            ExtractBlock()
         )
     }
 
@@ -71,7 +74,7 @@ open class BitcoinRpcUpstream(
     }
 
     override fun getCapabilities(): Set<Capability> {
-        return capabilities;
+        return capabilities
     }
 
     override fun isGrpc(): Boolean {
@@ -110,7 +113,7 @@ open class BitcoinRpcUpstream(
         } else {
             val validator = BitcoinUpstreamValidator(directApi, getOptions())
             validatorSubscription = validator.start()
-                    .subscribe(this::setStatus)
+                .subscribe(this::setStatus)
         }
     }
 
@@ -120,5 +123,4 @@ open class BitcoinRpcUpstream(
         }
         validatorSubscription?.dispose()
     }
-
 }

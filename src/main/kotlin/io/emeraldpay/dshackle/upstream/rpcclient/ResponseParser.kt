@@ -44,7 +44,12 @@ abstract class ResponseParser<T> {
             val parser: JsonParser = jsonFactory.createParser(json)
             parser.nextToken()
             if (parser.currentToken != JsonToken.START_OBJECT) {
-                return Preparsed(error = JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON: not an Object"))
+                return Preparsed(
+                    error = JsonRpcError(
+                        RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                        "Invalid JSON: not an Object"
+                    )
+                )
             }
             while (parser.nextToken() != JsonToken.END_OBJECT) {
                 val field = parser.currentName
@@ -56,13 +61,23 @@ abstract class ResponseParser<T> {
         if (state.isReady) {
             return state
         }
-        return Preparsed(error = JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON structure: never finalized"))
+        return Preparsed(
+            error = JsonRpcError(
+                RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                "Invalid JSON structure: never finalized"
+            )
+        )
     }
 
     open fun process(parser: JsonParser, json: ByteArray, field: String, state: Preparsed): Preparsed {
         if (field == "jsonrpc") {
             if (!parser.nextToken().isScalarValue) {
-                return state.copy(error = JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Invalid JSON (jsonrpc value)"))
+                return state.copy(
+                    error = JsonRpcError(
+                        RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                        "Invalid JSON (jsonrpc value)"
+                    )
+                )
             }
             // just skip the field
             return state
@@ -71,7 +86,7 @@ abstract class ResponseParser<T> {
         } else if (field == "result") {
             val result = readResult(json, parser)
             return if (result == null) {
-                //if result is null we should check if an error is also present, and if it's set then return only the error
+                // if result is null we should check if an error is also present, and if it's set then return only the error
                 state.copy(nullResult = true)
             } else {
                 state.copy(result = result)
@@ -160,23 +175,22 @@ abstract class ResponseParser<T> {
     }
 
     data class Preparsed(
-            val id: JsonRpcResponse.Id? = null,
-            val result: ByteArray? = null,
-            val nullResult: Boolean = false,
-            val error: JsonRpcError? = null,
-            val subMethod: String? = null,
-            val subId: String? = null
+        val id: JsonRpcResponse.Id? = null,
+        val result: ByteArray? = null,
+        val nullResult: Boolean = false,
+        val error: JsonRpcError? = null,
+        val subMethod: String? = null,
+        val subId: String? = null
     ) {
 
         private val isResultSet = result != null || nullResult
 
         val isRpcReady: Boolean = id != null &&
-                (error != null || isResultSet)
+            (error != null || isResultSet)
 
         val isSubReady: Boolean = subId != null &&
-                isResultSet
+            isResultSet
 
         val isReady: Boolean = isRpcReady || isSubReady
-
     }
 }

@@ -23,14 +23,14 @@ import java.math.BigInteger
 import java.time.Instant
 
 class BlockContainer(
-        val height: Long,
-        val hash: BlockId,
-        val difficulty: BigInteger,
-        val timestamp: Instant,
-        val full: Boolean,
-        json: ByteArray?,
-        val parsed: Any?,
-        val transactions: List<TxId> = emptyList()
+    val height: Long,
+    val hash: BlockId,
+    val difficulty: BigInteger,
+    val timestamp: Instant,
+    val full: Boolean,
+    json: ByteArray?,
+    val parsed: Any?,
+    val transactions: List<TxId> = emptyList()
 ) : SourceContainer(json, parsed) {
 
     companion object {
@@ -38,14 +38,14 @@ class BlockContainer(
         fun from(block: BlockJson<*>, raw: ByteArray): BlockContainer {
             val hasTransactions = block.transactions?.filterIsInstance<TransactionJson>()?.count() ?: 0 > 0
             return BlockContainer(
-                    block.number,
-                    BlockId.from(block),
-                    block.totalDifficulty,
-                    block.timestamp,
-                    hasTransactions,
-                    raw,
-                    block,
-                    block.transactions?.map { TxId.from(it.hash) } ?: emptyList()
+                block.number,
+                BlockId.from(block),
+                block.totalDifficulty,
+                block.timestamp,
+                hasTransactions,
+                raw,
+                block,
+                block.transactions?.map { TxId.from(it.hash) } ?: emptyList()
             )
         }
 
@@ -88,6 +88,4 @@ class BlockContainer(
         result = 31 * result + hash.hashCode()
         return result
     }
-
-
 }
