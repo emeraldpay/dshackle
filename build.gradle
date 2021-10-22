@@ -176,7 +176,11 @@ afterEvaluate {
 }
 
 protobuf {
-    protoc { artifact = "com.google.protobuf:protoc:${libs.versions.protoc.get()}" }
+    protoc {
+        // if $PROTOC_PATH is set then locally installed protoc is used otherwise it is downloaded remotely
+        path = System.getenv("PROTOC_PATH") ?: null
+        artifact = System.getenv("PROTOC_PATH") == null ? "com.google.protobuf:protoc:${libs.versions.protoc.get()}" : null
+    }
     plugins {
     }
     generateProtoTasks {
