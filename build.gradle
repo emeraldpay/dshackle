@@ -62,13 +62,17 @@ dependencies {
 
     implementation libs.bundles.reactor
 
-    implementation libs.reactor.grpc.stub
+    implementation(libs.reactor.grpc.stub)
+
     implementation libs.micrometer.registry.prometheus
     implementation libs.lettuce.core
 
     implementation libs.bundles.etherjar
 
-    implementation libs.emerald.api
+    implementation(libs.emerald.api) {
+        exclude group: 'com.salesforce.servicelibs', module: 'reactor-grpc'
+    }
+
     implementation libs.bitcoinj
 
     implementation libs.snake.yaml
