@@ -11,6 +11,7 @@ spring-boot = "2.4.5"
 spring-security = "5.4.6"
 reactor = "3.4.10"
 netty = "4.1.65.Final"
+netty-tcnative = "2.0.39.Final"
 kotlin = "1.5.31"
 httpcomponents = "4.5.8"
 
@@ -82,8 +83,8 @@ netty-codec-core = { module = "io.netty:netty-codec", version.ref = "netty" }
 netty-codec-http = { module = "io.netty:netty-codec-http", version.ref = "netty" }
 netty-codec-http2 = { module = "io.netty:netty-codec-http2", version.ref = "netty" }
 netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }
-netty-tcnative-core = { module = "io.netty:netty-tcnative", version = "2.0.39.Final" }
-netty-tcnative-boringssl = { module = "io.netty:netty-tcnative-boringssl-static", version = "2.0.39.Final" }
+netty-tcnative-core = { module = "io.netty:netty-tcnative", version.ref = "netty-tcnative" }
+netty-tcnative-boringssl = { module = "io.netty:netty-tcnative-boringssl-static", version.ref = "netty-tcnative" }
 
 objgenesis = "org.objenesis:objenesis:3.1"
 
@@ -122,9 +123,9 @@ slf4j = ["slf4j-api", "slf4j-jul", "slf4j-jcl", "log4j-slf4j"]
 spring-framework = ["spring-boot-starter", "spring-security-core", "spring-security-web", "spring-security-config"]
 
 [plugins]
-kotlin = { id = "org.jetbrains.kotlin.jvm", version = "1.5.31" }
+kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 jib = { id = "com.google.cloud.tools.jib", version = "2.5.0" }
-spring = { id = "org.springframework.boot", version = "2.5.5" }
+spring = { id = "org.springframework.boot", version = "2.3.5.RELEASE" }
 git = { id = "com.palantir.git-version", version = "0.12.3" }
 protobuf = { id = "com.google.protobuf", version = "0.8.17" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "10.2.0" }
