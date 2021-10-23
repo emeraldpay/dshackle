@@ -41,7 +41,8 @@ class HealthCheckSetupSpec extends Specification {
         def act = check.health
 
         then:
-        act == "OK"
+        act.ok
+        act.details == ["OK"]
         1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1]
@@ -64,7 +65,8 @@ class HealthCheckSetupSpec extends Specification {
         def act = check.health
 
         then:
-        act == "OK"
+        act.ok
+        act.details == ["OK"]
         1 * multistream.getUpstream(Chain.BITCOIN) >> bitcoinUpstreams
         1 * bitcoinUpstreams.available >> true
         1 * bitcoinUpstreams.getAll() >> [up1]
@@ -89,7 +91,8 @@ class HealthCheckSetupSpec extends Specification {
         def act = check.health
 
         then:
-        act == "OK"
+        act.ok
+        act.details == ["OK"]
         1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
@@ -116,12 +119,42 @@ class HealthCheckSetupSpec extends Specification {
         def act = check.health
 
         then:
-        act != "OK"
+        !act.ok
+        act.details != ["OK"]
         1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
         1 * up1.status >> UpstreamAvailability.OK
         1 * up2.status >> UpstreamAvailability.SYNCING
         1 * up3.status >> UpstreamAvailability.LAGGING
+    }
+
+    def "OK when meets availability - 2/3 - detailed"() {
+        setup:
+        def config = new HealthConfig().tap {
+            it.chains[Chain.ETHEREUM] = new HealthConfig.ChainConfig(
+                    Chain.ETHEREUM, 2
+            )
+        }
+        def up1 = Mock(Upstream)
+        def up2 = Mock(Upstream)
+        def up3 = Mock(Upstream)
+        def ethereumUpstreams = Mock(Multistream)
+        def multistream = Mock(MultistreamHolder)
+        def check = new HealthCheckSetup(config, multistream)
+
+        when:
+        def act = check.detailedHealth
+
+        then:
+        act.ok
+        act.details.size() > 1
+        1 * multistream.getAvailable() >> [Chain.ETHEREUM]
+        1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
+        1 * ethereumUpstreams.available >> true
+        1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
+        _ * up1.status >> UpstreamAvailability.OK
+        _ * up2.status >> UpstreamAvailability.SYNCING
+        _ * up3.status >> UpstreamAvailability.OK
     }
 }

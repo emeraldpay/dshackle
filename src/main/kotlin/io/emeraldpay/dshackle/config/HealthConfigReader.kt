@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.CollectionNode
@@ -60,7 +61,7 @@ class HealthConfigReader : YamlConfigReader(), ConfigReader<HealthConfig> {
         }
         input.value.forEach { conf ->
             val chain = getValueAsString(conf, "chain")
-                ?.let { getBlockchain(it) }
+                ?.let { Global.chainById(it) }
             if (chain == null) {
                 log.warn("Blockchain is not specified for a Health Check")
                 return@forEach

@@ -143,13 +143,4 @@ abstract class YamlConfigReader {
         }
     }
 
-    // ----
-
-    fun getBlockchain(id: String): Chain {
-        return Chain.values().find { chain ->
-            chain.name == id.uppercase(Locale.getDefault()) ||
-                chain.chainCode.uppercase(Locale.getDefault()) == id.uppercase(Locale.getDefault()) ||
-                chain.id.toString() == id
-        } ?: Chain.UNSPECIFIED
-    }
 }

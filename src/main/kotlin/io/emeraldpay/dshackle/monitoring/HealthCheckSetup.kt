@@ -54,12 +54,17 @@ class HealthCheckSetup(
                 0
             )
             server.createContext(healthConfig.path) { httpExchange ->
-                val response = getHealth()
-                val ok = response == "OK"
+                val response = if (httpExchange.requestURI.query == "detailed") {
+                    getDetailedHealth()
+                } else {
+                    getHealth()
+                }
+                val ok = response.ok
+                val data = response.details.joinToString("\n")
                 val code = if (ok) HttpStatus.OK else HttpStatus.SERVICE_UNAVAILABLE
-                httpExchange.sendResponseHeaders(code.value(), response.toByteArray().size.toLong())
+                httpExchange.sendResponseHeaders(code.value(), data.toByteArray().size.toLong())
                 httpExchange.responseBody.use { os ->
-                    os.write(response.toByteArray())
+                    os.write(data.toByteArray())
                 }
             }
             Thread(server::start).start()
@@ -68,7 +73,7 @@ class HealthCheckSetup(
         }
     }
 
-    fun getHealth(): String {
+    fun getHealth(): Detailed {
         val errors = healthConfig.configs().mapNotNull {
             val up = multistreamHolder.getUpstream(it.blockchain)
             if (up == null || !up.isAvailable()) {
@@ -81,9 +86,57 @@ class HealthCheckSetup(
             null
         }
         return if (errors.isEmpty()) {
-            "OK"
+            Detailed(true, listOf("OK"))
         } else {
-            errors.joinToString("\n")
+            Detailed(false, errors)
         }
     }
+
+    fun getDetailedHealth(): Detailed {
+        val chains = multistreamHolder.getAvailable()
+        val allEnabled = healthConfig.configs().all { chains.contains(it.blockchain) }
+        var anyUnavailable = false
+        val details = chains.flatMap { chain ->
+            var chainUnavailable = false
+            val up = multistreamHolder.getUpstream(chain)
+            val required = healthConfig.chains[chain]
+            if (up == null || !up.isAvailable()) {
+                if (required != null) {
+                    anyUnavailable = true
+                }
+                listOf("${chain.name} UNAVAILABLE")
+            } else {
+                val ups = up.getAll()
+                val checks = if (required != null) {
+                    val avail = ups.count { it.getStatus() == UpstreamAvailability.OK }
+                    if (avail < required.minAvailable) {
+                        chainUnavailable = true
+                        listOf("  LACKS MIN AVAILABILITY")
+                    } else emptyList()
+                } else emptyList()
+                val upDetails = ups.map {
+                    "  ${it.getId()} ${it.getStatus()} with lag=${it.getLag()}"
+                }
+                val status = if (chainUnavailable) "UNAVAILABLE" else "AVAILABLE"
+                anyUnavailable = anyUnavailable || chainUnavailable
+                listOf("${chain.name} $status") + upDetails + checks
+            }
+        }
+        val detailsUnavailable = if (!allEnabled) {
+            healthConfig.configs()
+                .filter { !chains.contains(it.blockchain) }
+                .map {
+                    "${it.blockchain.name} UNAVAILABLE"
+                }
+        } else emptyList()
+        return Detailed(
+            allEnabled && !anyUnavailable,
+            detailsUnavailable + details
+        )
+    }
+
+    data class Detailed(
+        val ok: Boolean,
+        val details: List<String>
+    )
 }
