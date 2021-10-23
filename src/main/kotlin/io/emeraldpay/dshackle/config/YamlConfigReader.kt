@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.grpc.Chain
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
@@ -142,5 +141,4 @@ abstract class YamlConfigReader {
             base * multiplier
         }
     }
-
 }

@@ -76,5 +76,4 @@ class HealthConfigReader : YamlConfigReader(), ConfigReader<HealthConfig> {
             healthConfig.chains[chain] = HealthConfig.ChainConfig(chain, minAvailable.coerceAtLeast(0))
         }
     }
-
 }

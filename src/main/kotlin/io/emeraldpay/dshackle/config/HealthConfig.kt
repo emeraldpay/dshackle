@@ -42,5 +42,4 @@ class HealthConfig {
         val blockchain: Chain,
         val minAvailable: Int = 1
     )
-
 }
