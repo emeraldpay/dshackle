@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.startup
 
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
@@ -57,26 +58,6 @@ open class ConfiguredUpstreams(
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
     private var seq = AtomicInteger(0)
 
-    private val chainNames = mapOf(
-        "ethereum" to Chain.ETHEREUM,
-        "ethereum-classic" to Chain.ETHEREUM_CLASSIC,
-        "eth" to Chain.ETHEREUM,
-        "polygon" to Chain.MATIC,
-        "matic" to Chain.MATIC,
-        "etc" to Chain.ETHEREUM_CLASSIC,
-        "morden" to Chain.TESTNET_MORDEN,
-        "kovan" to Chain.TESTNET_KOVAN,
-        "kovan-testnet" to Chain.TESTNET_KOVAN,
-        "goerli" to Chain.TESTNET_GOERLI,
-        "goerli-testnet" to Chain.TESTNET_GOERLI,
-        "rinkeby" to Chain.TESTNET_RINKEBY,
-        "rinkeby-testnet" to Chain.TESTNET_RINKEBY,
-        "ropsten" to Chain.TESTNET_ROPSTEN,
-        "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
-        "bitcoin" to Chain.BITCOIN,
-        "bitcoin-testnet" to Chain.TESTNET_BITCOIN
-    )
-
     @PostConstruct
     fun start() {
         log.debug("Starting upstreams")
@@ -87,8 +68,8 @@ open class ConfiguredUpstreams(
                 val options = up.options ?: UpstreamsConfig.Options()
                 buildGrpcUpstream(up.cast(UpstreamsConfig.GrpcConnection::class.java), options)
             } else {
-                val chain = chainNames[up.chain]
-                if (chain == null) {
+                val chain = Global.chainById(up.chain)
+                if (chain == Chain.UNSPECIFIED) {
                     log.error("Chain is unknown: ${up.chain}")
                     return@forEach
                 }
@@ -114,7 +95,7 @@ open class ConfiguredUpstreams(
         val defaultOptions = HashMap<Chain, UpstreamsConfig.Options>()
         config.defaultOptions.forEach { defaultsConfig ->
             defaultsConfig.chains?.forEach { chainName ->
-                chainNames[chainName]?.let { chain ->
+                Global.chainById(chainName).let { chain ->
                     defaultsConfig.options?.let { options ->
                         if (!defaultOptions.containsKey(chain)) {
                             defaultOptions[chain] = options
@@ -274,7 +255,7 @@ open class ConfiguredUpstreams(
                 // "unknown" is not supposed to happen
                 Tag.of("upstream", config.id ?: "unknown"),
                 // UNSPECIFIED shouldn't happen too
-                Tag.of("chain", (chainNames[config.chain ?: ""] ?: Chain.UNSPECIFIED).chainCode)
+                Tag.of("chain", (Global.chainById(config.chain).chainCode))
             )
             val metrics = RpcMetrics(
                 Timer.builder("upstream.rpc.conn")

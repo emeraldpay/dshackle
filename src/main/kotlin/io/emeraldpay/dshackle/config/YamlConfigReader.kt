@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.grpc.Chain
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
@@ -141,15 +140,5 @@ abstract class YamlConfigReader {
             val base = m.groups[1]!!.value.toInt()
             base * multiplier
         }
-    }
-
-    // ----
-
-    fun getBlockchain(id: String): Chain {
-        return Chain.values().find { chain ->
-            chain.name == id.uppercase(Locale.getDefault()) ||
-                chain.chainCode.uppercase(Locale.getDefault()) == id.uppercase(Locale.getDefault()) ||
-                chain.id.toString() == id
-        } ?: Chain.UNSPECIFIED
     }
 }

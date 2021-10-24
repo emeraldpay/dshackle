@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.Global
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
@@ -34,7 +35,7 @@ class TokensConfigReader : YamlConfigReader(), ConfigReader<TokensConfig> {
             val token = TokensConfig.Token()
             token.id = getValueAsString(node, "id")
             token.blockchain = getValueAsString(node, "blockchain")?.let {
-                getBlockchain(it)
+                Global.chainById(it)
             }
             token.address = getValueAsString(node, "address")
             token.name = getValueAsString(node, "name")

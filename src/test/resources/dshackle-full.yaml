@@ -16,6 +16,12 @@ cache:
     enabled: true
     host: redis-master
 
+health:
+  port: 8083
+  blockchains:
+    - chain: ethereum
+      min-available: 1
+
 proxy:
   port: 8082
   tls:

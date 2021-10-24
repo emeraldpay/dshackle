@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.config.HealthConfig
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.config.MainConfigReader
 import io.emeraldpay.dshackle.config.MonitoringConfig
@@ -119,5 +120,10 @@ open class Config(
     @Bean
     open fun monitoringConfig(@Autowired mainConfig: MainConfig): MonitoringConfig {
         return mainConfig.monitoring
+    }
+
+    @Bean
+    open fun healthConfig(@Autowired mainConfig: MainConfig): HealthConfig {
+        return mainConfig.health
     }
 }

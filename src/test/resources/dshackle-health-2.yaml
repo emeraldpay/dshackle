@@ -1,0 +1,11 @@
+version: v1
+
+health:
+  port: 10003
+  host: 0.0.0.0
+  path: /healtz
+  blockchains:
+    - chain: ethereum
+      min-available: 2
+    - chain: bitcoin
+      min-available: 1

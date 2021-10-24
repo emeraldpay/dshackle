@@ -1,0 +1,6 @@
+version: v1
+
+health:
+  blockchains:
+    - chain: ethereum
+      min-available: 2

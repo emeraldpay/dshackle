@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
@@ -69,10 +70,10 @@ class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
                 }
                 currentRoutes.add(id)
                 val blockchain = getValueAsString(route, "blockchain")
-                if (StringUtils.isEmpty(blockchain) || getBlockchain(blockchain!!) == Chain.UNSPECIFIED) {
+                if (StringUtils.isEmpty(blockchain) || Global.chainById(blockchain!!) == Chain.UNSPECIFIED) {
                     throw InvalidConfigYamlException(filename, route.startMark, "Invalid blockchain or not specified")
                 }
-                ProxyConfig.Route(id, getBlockchain(blockchain))
+                ProxyConfig.Route(id, Global.chainById(blockchain))
             }
         }
         if (config.routes.isEmpty()) {

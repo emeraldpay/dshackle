@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.dshackle.FileResolver
+
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.grpc.Chain
 import spock.lang.Specification
@@ -71,6 +71,16 @@ class MainConfigReaderSpec extends Specification {
             with(routes[4]) {
                 id == "rinkeby"
                 blockchain == Chain.TESTNET_RINKEBY
+            }
+        }
+        with(act.health) {
+            it.enabled
+            with(it.configs()) {
+                it.size() == 1
+                with(it[0]) {
+                    it.blockchain == Chain.ETHEREUM
+                    it.minAvailable == 1
+                }
             }
         }
         act.upstreams != null
