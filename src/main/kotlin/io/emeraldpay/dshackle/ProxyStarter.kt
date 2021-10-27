@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.proxy.ProxyServer
 import io.emeraldpay.dshackle.proxy.ReadRpcJson
 import io.emeraldpay.dshackle.proxy.WriteRpcJson
 import io.emeraldpay.dshackle.rpc.NativeCall
+import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -37,6 +38,7 @@ class ProxyStarter(
     @Autowired private val readRpcJson: ReadRpcJson,
     @Autowired private val writeRpcJson: WriteRpcJson,
     @Autowired private val nativeCall: NativeCall,
+    @Autowired private val nativeSubscribe: NativeSubscribe,
     @Autowired private val tlsSetup: TlsSetup,
     @Autowired private val accessHandlerHttp: AccessHandlerHttp,
     // depend on Monitoring, declared here just to ensure it's properly initialized before the Proxy
@@ -54,7 +56,7 @@ class ProxyStarter(
             log.debug("Proxy server is not configured")
             return
         }
-        val server = ProxyServer(config, readRpcJson, writeRpcJson, nativeCall, tlsSetup, accessHandlerHttp.factory)
+        val server = ProxyServer(config, readRpcJson, writeRpcJson, nativeCall, nativeSubscribe, tlsSetup, accessHandlerHttp.factory)
         server.start()
     }
 }

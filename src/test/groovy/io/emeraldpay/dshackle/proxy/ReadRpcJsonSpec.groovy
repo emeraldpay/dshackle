@@ -224,4 +224,12 @@ class ReadRpcJsonSpec extends Specification {
         t.rpcMessage.toLowerCase() == "params must be an array"
         t.details == new JsonRpcResponse.NumberId(2)
     }
+
+    def "Error if json is broken"() {
+        when:
+        reader.apply('{"id":2, "method":"net_peerCount", "params"'.bytes)
+        then:
+        def t = thrown(RpcException)
+        t.code == -32700
+    }
 }

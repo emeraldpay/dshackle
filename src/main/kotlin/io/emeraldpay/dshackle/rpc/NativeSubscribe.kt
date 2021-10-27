@@ -33,7 +33,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @Service
-class NativeSubscribe(
+open class NativeSubscribe(
     @Autowired private val multistreamHolder: MultistreamHolder
 ) {
 
@@ -81,7 +81,7 @@ class NativeSubscribe(
         }
     }
 
-    fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
+    open fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
         val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
         return (up as EthereumMultistream)
             .getSubscribe()

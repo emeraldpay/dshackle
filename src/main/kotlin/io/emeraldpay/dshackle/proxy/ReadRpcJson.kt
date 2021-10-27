@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.io.IOException
 import java.util.function.Function
-import java.util.stream.Collectors
 
 /**
  * Reader for JSON RPC request
@@ -41,11 +40,11 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
         private val spaces = " \n\t".toByteArray()
     }
 
-    private val jsonExtractor: Function<Map<*, *>, RequestJson<Any>>
+    val jsonExtractor: (Map<*, *>) -> RequestJson<Any>
     private val objectMapper: ObjectMapper = Global.objectMapper
 
     init {
-        jsonExtractor = Function { json ->
+        jsonExtractor = { json ->
             if (json["id"] == null) {
                 throw RpcException(RpcResponseError.CODE_INVALID_REQUEST, "ID is not set")
             }
@@ -126,38 +125,53 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
      * Convert payload to the proxy call details
      */
     override fun apply(data: ByteArray): ProxyCall {
-        val list: MutableList<Map<*, *>>
+        val list: List<Map<*, *>>
         try {
             val type = getType(data)
-            if (ProxyCall.RpcType.BATCH == type) {
-                list = objectMapper.readerFor(MutableList::class.java).readValue(data)
-            } else {
-                list = ArrayList(1)
-                val json = objectMapper.readerFor(MutableMap::class.java).readValue<Map<*, *>>(data)
-                list.add(json)
-            }
-            val context = ProxyCall(type)
-            // our internal ids for calls
-            var seq = 0
-            val batch = list.stream()
-                .map<RequestJson<Any>>(jsonExtractor)
-                .map { json ->
-                    val id = seq++
-                    context.ids[id] = json.id
-                    BlockchainOuterClass.NativeCallItem.newBuilder()
-                        .setId(id)
-                        .setMethod(json.method)
-                        .setPayload(ByteString.copyFrom(objectMapper.writeValueAsBytes(json.params)))
-                        .build()
-                }
-                .collect(Collectors.toList())
-            context.items.addAll(batch)
-            return context
+            list = extract(type, data)
+            return convertMapToNativeCall(type, list)
         } catch (e: RpcException) {
             throw e
         } catch (e: Exception) {
             log.error("Parse Error: " + e.message)
             throw RpcException(RpcResponseError.CODE_INVALID_JSON, e.message)
         }
+    }
+
+    fun extract(type: ProxyCall.RpcType, data: ByteArray): List<Map<*, *>> {
+        return if (ProxyCall.RpcType.BATCH == type) {
+            objectMapper.readerFor(MutableList::class.java).readValue(data)
+        } else {
+            val list = ArrayList<Map<*, *>>(1)
+            val json = objectMapper.readerFor(MutableMap::class.java).readValue<Map<*, *>>(data)
+            list.add(json)
+            list
+        }
+    }
+
+    fun convertMapToNativeCall(type: ProxyCall.RpcType, list: List<Map<*, *>>): ProxyCall {
+        return convertToNativeCall(type, list.map(jsonExtractor))
+    }
+
+    fun convertToNativeCall(type: ProxyCall.RpcType, list: List<RequestJson<Any>>): ProxyCall {
+        val context = ProxyCall(type)
+        val batch = convertToNativeCall(0, context, list)
+        context.items.addAll(batch)
+        return context
+    }
+
+    fun convertToNativeCall(seqStart: Int, context: ProxyCall, items: List<RequestJson<Any>>): List<BlockchainOuterClass.NativeCallItem> {
+        // internal ids for calls
+        var seq = seqStart
+        return items
+            .map { json ->
+                val id = seq++
+                context.ids[id] = json.id
+                BlockchainOuterClass.NativeCallItem.newBuilder()
+                    .setId(id)
+                    .setMethod(json.method)
+                    .setPayload(ByteString.copyFrom(objectMapper.writeValueAsBytes(json.params)))
+                    .build()
+            }
     }
 }

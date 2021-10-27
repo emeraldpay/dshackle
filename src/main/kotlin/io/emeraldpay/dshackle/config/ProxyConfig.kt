@@ -28,6 +28,7 @@ open class ProxyConfig {
     }
 
     var enabled: Boolean = true
+    var websocketEnabled: Boolean = true
 
     /**
      * Host to bind server. Default: 127.0.0.1
