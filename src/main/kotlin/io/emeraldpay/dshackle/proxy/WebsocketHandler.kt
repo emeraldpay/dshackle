@@ -83,7 +83,7 @@ class WebsocketHandler(
             }
             val items = readRpcJson.extract(type, data)
             if (items.isEmpty()) {
-                //empty should never happen for a SINGLE type of request, but anyway, just return nothing
+                // empty should never happen for a SINGLE type of request, but anyway, just return nothing
                 return Mono.empty()
             }
             return Mono
