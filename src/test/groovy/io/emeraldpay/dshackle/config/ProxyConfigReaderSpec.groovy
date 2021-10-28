@@ -30,6 +30,7 @@ class ProxyConfigReaderSpec extends Specification {
 
         then:
         act.enabled
+        act.websocketEnabled
         act.port == 8080
         act.host == '127.0.0.1'
         act.routes.size() == 1
@@ -37,6 +38,17 @@ class ProxyConfigReaderSpec extends Specification {
             id == "ethereum"
             blockchain == Chain.ETHEREUM
         }
+    }
+
+    def "Read proxy config with websocket disabled"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("dshackle-proxy-no-ws.yaml")
+        when:
+        def act = reader.read(config)
+
+        then:
+        act.enabled
+        !act.websocketEnabled
     }
 
     def "Read proxy config with two elements"() {

@@ -58,6 +58,9 @@ class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
         getValueAsBool(input, "enabled")?.let {
             config.enabled = it
         }
+        getValueAsBool(input, "websocket")?.let {
+            config.websocketEnabled = it
+        }
         val currentRoutes = HashSet<String>()
         getList<MappingNode>(input, "routes")?.let { routes ->
             config.routes = routes.value.map { route ->
