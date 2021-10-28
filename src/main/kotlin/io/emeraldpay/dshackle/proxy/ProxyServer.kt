@@ -41,12 +41,12 @@ import kotlin.concurrent.write
  */
 class ProxyServer(
     private var config: ProxyConfig,
-    private val readRpcJson: ReadRpcJson,
-    private val writeRpcJson: WriteRpcJson,
-    private val nativeCall: NativeCall,
-    private val nativeSubscribe: NativeSubscribe,
+    readRpcJson: ReadRpcJson,
+    writeRpcJson: WriteRpcJson,
+    nativeCall: NativeCall,
+    nativeSubscribe: NativeSubscribe,
     private val tlsSetup: TlsSetup,
-    private val accessHandler: AccessHandlerHttp.HandlerFactory
+    accessHandler: AccessHandlerHttp.HandlerFactory
 ) {
 
     companion object {
@@ -90,7 +90,10 @@ class ProxyServer(
             log.debug("Proxy server is not enabled")
             return
         }
-        log.info("Listening Proxy on ${config.host}:${config.port}")
+        log.info("Start HTTP JSON RPC Proxy on ${connectAddress("http")}")
+        if (config.websocketEnabled) {
+            log.info("Start Websocket JSON RPC Proxy on ${connectAddress("ws")}")
+        }
         var serverBuilder = HttpServer.create()
             .doOnChannelInit { _, channel, _ ->
                 channel.pipeline().addFirst(errorHandler)
@@ -114,6 +117,11 @@ class ProxyServer(
                 routes.ws("/" + routeConfig.id, wsHandler.proxy(routeConfig))
             }
         }
+    }
+
+    fun connectAddress(baseSchema: String): String {
+        val schema = if (config.tls != null) baseSchema + "s" else baseSchema
+        return "$schema://${config.host}:${config.port}"
     }
 
     interface RequestMetricsFactory {
