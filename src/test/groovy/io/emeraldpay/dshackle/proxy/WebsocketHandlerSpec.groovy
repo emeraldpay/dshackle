@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.etherjar.rpc.json.RequestJson
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Sinks
 import spock.lang.Specification
 
 import java.time.Duration
@@ -85,7 +86,7 @@ class WebsocketHandlerSpec extends Specification {
 
         def request = new RequestJson("foo_test", [], 2)
         when:
-        def act = handler.respond(Chain.ETHEREUM, Flux.just(request), requestHandler)
+        def act = handler.respond(Chain.ETHEREUM, new HashMap<String, Sinks.One<Boolean>>(), Flux.just(request), requestHandler)
                 .single()
                 .block(Duration.ofSeconds(1))
         then:
@@ -106,13 +107,51 @@ class WebsocketHandlerSpec extends Specification {
 
         def request = new RequestJson("eth_subscribe", ["foo_test"], 2)
         when:
-        def act = handler.respond(Chain.ETHEREUM, Flux.just(request), requestHandler)
+        def act = handler.respond(Chain.ETHEREUM, new HashMap<String, Sinks.One<Boolean>>(), Flux.just(request), requestHandler)
                 .collectList()
                 .block(Duration.ofSeconds(1))
         then:
-        act[0] == '{"jsonrpc":"2.0","id":2,"result":"0000000000000001"}'
-        act[1] == '{"jsonrpc":"2.0","method":"eth_subscription","params":{"result":{"foo":1},"subscription":"0000000000000001"}}'
-        act[2] == '{"jsonrpc":"2.0","method":"eth_subscription","params":{"result":{"foo":2},"subscription":"0000000000000001"}}'
+        act[0] == '{"jsonrpc":"2.0","id":2,"result":"1"}'
+        act[1] == '{"jsonrpc":"2.0","method":"eth_subscription","params":{"result":{"foo":1},"subscription":"1"}}'
+        act[2] == '{"jsonrpc":"2.0","method":"eth_subscription","params":{"result":{"foo":2},"subscription":"1"}}'
         act.size() == 3
+    }
+
+    def "Unsubscribe"() {
+        setup:
+
+        def handler = new WebsocketHandler(
+                new ReadRpcJson(), new WriteRpcJson(), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
+        )
+
+        def control = new HashMap<String, Sinks.One<Boolean>>()
+        Sinks.One<Boolean> sink = Sinks.one();
+        control["5"] = sink
+        def request = new RequestJson("eth_unsubscribe", ["5"], 0)
+        when:
+        def act = handler.respond(Chain.ETHEREUM, control, Flux.just(request), requestHandler)
+                .single()
+                .block(Duration.ofSeconds(1))
+        def sinkResponse = sink.asMono().block()
+        then:
+        act == '{"jsonrpc":"2.0","id":0,"result":true}'
+        sinkResponse != null
+    }
+
+    def "Unsubscribe when no subscription"() {
+        setup:
+
+        def handler = new WebsocketHandler(
+                new ReadRpcJson(), new WriteRpcJson(), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
+        )
+
+        def control = new HashMap<String, Sinks.One<Boolean>>()
+        def request = new RequestJson("eth_unsubscribe", ["5"], 0)
+        when:
+        def act = handler.respond(Chain.ETHEREUM, control, Flux.just(request), requestHandler)
+                .single()
+                .block(Duration.ofSeconds(1))
+        then:
+        act == '{"jsonrpc":"2.0","id":0,"result":false}'
     }
 }

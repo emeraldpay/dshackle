@@ -15,6 +15,8 @@
  */
 package io.emeraldpay.dshackle.proxy
 
+import com.google.protobuf.ByteString
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
@@ -25,11 +27,11 @@ import io.emeraldpay.etherjar.rpc.json.ResponseJson
 import io.emeraldpay.grpc.Chain
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.Unpooled
-import org.apache.commons.lang3.StringUtils
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.Sinks
 import reactor.netty.http.websocket.WebsocketInbound
 import reactor.netty.http.websocket.WebsocketOutbound
 import java.util.concurrent.atomic.AtomicLong
@@ -55,11 +57,14 @@ class WebsocketHandler(
 
     fun nextSubscriptionId(): String {
         val n = subscriptionId.incrementAndGet()
-        return StringUtils.leftPad(n.toString(16), 16, "0")
+        return n.toString(16)
     }
 
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<WebsocketInbound, WebsocketOutbound, Publisher<Void>> {
         return BiFunction { req, resp ->
+            // each connection keeps a list of subscription controllers
+            val control = HashMap<String, Sinks.One<Boolean>>()
+
             val requests: Flux<RequestJson<Any>> = req.aggregateFrames()
                 .receiveFrames()
                 .map { ByteBufInputStream(it.content()).readAllBytes() }
@@ -67,7 +72,7 @@ class WebsocketHandler(
 
             val eventHandler = accessHandler.start(req, routeConfig.blockchain)
 
-            val responses = respond(routeConfig.blockchain, requests, eventHandler)
+            val responses = respond(routeConfig.blockchain, control, requests, eventHandler)
                 .map { Unpooled.wrappedBuffer(it.toByteArray()) }
 
             resp.send(responses)
@@ -97,7 +102,12 @@ class WebsocketHandler(
         }
     }
 
-    fun respond(blockchain: Chain, requests: Flux<RequestJson<Any>>, eventHandlerFactory: AccessHandlerHttp.WsHandlerFactory): Flux<String> {
+    fun respond(
+        blockchain: Chain,
+        control: MutableMap<String, Sinks.One<Boolean>>,
+        requests: Flux<RequestJson<Any>>,
+        eventHandlerFactory: AccessHandlerHttp.WsHandlerFactory
+    ): Flux<String> {
         return requests.flatMap { call ->
             val method = call.method
 
@@ -113,6 +123,8 @@ class WebsocketHandler(
                             Pair(mp.first, mp.second?.let { Global.objectMapper.writeValueAsBytes(it) })
                         }
                     )
+                    val currentControl = Sinks.one<Boolean>()
+                    control[subscriptionId] = currentControl
                     // first need to respond with ID of the subscription, and the following responses would have it in "subscription" param
                     val start = ResponseJson<String, Any>().also {
                         it.id = call.id
@@ -124,6 +136,7 @@ class WebsocketHandler(
                         .map { event ->
                             WsSubscriptionResponse(params = WsSubscriptionData(event, subscriptionId))
                         }
+                        .takeUntilOther(currentControl.asMono())
                     Flux.concat(Mono.just(start), responses)
                         .map { Global.objectMapper.writeValueAsString(it) }
                         .doOnNext {
@@ -133,6 +146,34 @@ class WebsocketHandler(
                     // TODO should it produce a 404 to the AccessLog?
                     Mono.empty()
                 }
+            } else if (method == "eth_unsubscribe") {
+                val id = call.params?.getOrNull(0) ?: ""
+
+                // put it to the Access Log with fake id=0 (it doesn't matter, except the later reference)
+                val eventHandler: AccessHandlerHttp.RequestHandler = eventHandlerFactory.call()
+                eventHandler.onRequest(
+                    BlockchainOuterClass.NativeCallRequest.newBuilder()
+                        .setChainValue(blockchain.id)
+                        .addItems(
+                            BlockchainOuterClass.NativeCallItem.newBuilder()
+                                .setId(0)
+                                .setMethod("eth_unsubscribe")
+                                .setPayload(ByteString.copyFromUtf8("[\"$id\"]"))
+                                .build()
+                        )
+                        .build()
+                )
+
+                val p = control.remove(id.toString())
+                val success = p?.tryEmitValue(true)?.isSuccess ?: false
+                val response = ResponseJson<Boolean, Any>().also {
+                    it.id = call.id
+                    it.result = success
+                }
+                Mono.just(response)
+                    .map { Global.objectMapper.writeValueAsString(it) }
+                    .doOnNext { eventHandler.onResponse(NativeCall.CallResult.ok(0, it.toByteArray())) }
+                    .doFinally { eventHandler.close() }
             } else {
                 val eventHandler: AccessHandlerHttp.RequestHandler = eventHandlerFactory.call()
                 val proxyCall = readRpcJson.convertToNativeCall(ProxyCall.RpcType.SINGLE, listOf(call))
