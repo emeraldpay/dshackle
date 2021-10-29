@@ -130,7 +130,7 @@ class AccessHandlerGrpc(
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.NativeSubscribe() as EventsBuilder.RequestReply<*, ReqT, RespT>
+            EventsBuilder.NativeSubscribe(Events.Channel.GRPC) as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 

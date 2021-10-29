@@ -27,12 +27,13 @@ import java.time.Duration
 
 class WebsocketHandlerSpec extends Specification {
 
+    def requestHandlerFactory = new AccessHandlerHttp.NoOpFactory()
     def requestHandler = new AccessHandlerHttp.NoOpHandler()
 
     def "Parse standard RPC request"() {
         setup:
         def handler = new WebsocketHandler(
-                new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), Stub(ProxyServer.RequestMetricsFactory)
+                new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
         when:
         def act = handler.parseRequest('{"id": 5, "jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["0x100001", false]}'.bytes)
@@ -47,7 +48,7 @@ class WebsocketHandlerSpec extends Specification {
     def "Parse to empty an invalid request"() {
         setup:
         def handler = new WebsocketHandler(
-                new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), Stub(ProxyServer.RequestMetricsFactory)
+                new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
         when:
         def act = handler.parseRequest('hello world'.bytes)
@@ -61,7 +62,7 @@ class WebsocketHandlerSpec extends Specification {
         setup:
         def req1 = '{"id": 5, "jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["0x100001", false]}'
         def handler = new WebsocketHandler(
-                new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), Stub(ProxyServer.RequestMetricsFactory)
+                new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
         when:
         def act = handler.parseRequest("[$req1]".bytes)
@@ -79,7 +80,7 @@ class WebsocketHandlerSpec extends Specification {
             1 * it.nativeCallResult(_) >> Flux.fromIterable([response])
         }
         def handler = new WebsocketHandler(
-                new ReadRpcJson(), new WriteRpcJson(), nativeCall, Stub(NativeSubscribe), Stub(ProxyServer.RequestMetricsFactory)
+                new ReadRpcJson(), new WriteRpcJson(), nativeCall, Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
 
         def request = new RequestJson("foo_test", [], 2)
@@ -100,7 +101,7 @@ class WebsocketHandlerSpec extends Specification {
             1 * it.subscribe(Chain.ETHEREUM, "foo_test", null) >> Flux.fromIterable([response1, response2])
         }
         def handler = new WebsocketHandler(
-                new ReadRpcJson(), new WriteRpcJson(), Stub(NativeCall), nativeSubscribe, Stub(ProxyServer.RequestMetricsFactory)
+                new ReadRpcJson(), new WriteRpcJson(), Stub(NativeCall), nativeSubscribe, requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
 
         def request = new RequestJson("eth_subscribe", ["foo_test"], 2)

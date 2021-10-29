@@ -43,6 +43,7 @@ class WebsocketHandler(
     writeRpcJson: WriteRpcJson,
     nativeCall: NativeCall,
     private val nativeSubscribe: NativeSubscribe,
+    private val accessHandler: AccessHandlerHttp.HandlerFactory,
     requestMetrics: ProxyServer.RequestMetricsFactory,
 ) : BaseHandler(writeRpcJson, nativeCall, requestMetrics) {
 
@@ -64,7 +65,8 @@ class WebsocketHandler(
                 .map { ByteBufInputStream(it.content()).readAllBytes() }
                 .flatMap(this@WebsocketHandler::parseRequest)
 
-            val eventHandler: AccessHandlerHttp.RequestHandler = AccessHandlerHttp.NoOpHandler()
+            val eventHandler = accessHandler.start(req, routeConfig.blockchain)
+
             val responses = respond(routeConfig.blockchain, requests, eventHandler)
                 .map { Unpooled.wrappedBuffer(it.toByteArray()) }
 
@@ -95,13 +97,22 @@ class WebsocketHandler(
         }
     }
 
-    fun respond(blockchain: Chain, requests: Flux<RequestJson<Any>>, eventHandler: AccessHandlerHttp.RequestHandler): Flux<String> {
+    fun respond(blockchain: Chain, requests: Flux<RequestJson<Any>>, eventHandlerFactory: AccessHandlerHttp.WsHandlerFactory): Flux<String> {
         return requests.flatMap { call ->
             val method = call.method
+
             if (method == "eth_subscribe") {
                 val methodParams = splitMethodParams(call.params)
                 if (methodParams != null) {
+                    val eventHandler: AccessHandlerHttp.SubscriptionHandler = eventHandlerFactory.subscribe()
                     val subscriptionId = nextSubscriptionId()
+                    eventHandler.onRequest(
+                        methodParams.let { mp ->
+                            // TODO ineffective to encode the params each time just to get size, ideally should get a reference to the original JSON bytes
+                            // but it doesn't happen very ofter, only on initial subscribe only for logs with filter
+                            Pair(mp.first, mp.second?.let { Global.objectMapper.writeValueAsBytes(it) })
+                        }
+                    )
                     // first need to respond with ID of the subscription, and the following responses would have it in "subscription" param
                     val start = ResponseJson<String, Any>().also {
                         it.id = call.id
@@ -115,12 +126,20 @@ class WebsocketHandler(
                         }
                     Flux.concat(Mono.just(start), responses)
                         .map { Global.objectMapper.writeValueAsString(it) }
+                        .doOnNext {
+                            eventHandler.onResponse(it.length.toLong())
+                        }
                 } else {
+                    // TODO should it produce a 404 to the AccessLog?
                     Mono.empty()
                 }
             } else {
+                val eventHandler: AccessHandlerHttp.RequestHandler = eventHandlerFactory.call()
                 val proxyCall = readRpcJson.convertToNativeCall(ProxyCall.RpcType.SINGLE, listOf(call))
-                execute(blockchain, proxyCall, eventHandler)
+                Mono.from(execute(blockchain, proxyCall, eventHandler))
+                    // thought the event handler is used in execute
+                    // it still needs to be closed at the end, so it can render the logs
+                    .doFinally { eventHandler.close() }
             }
         }
     }
