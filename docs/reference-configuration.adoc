@@ -50,6 +50,7 @@ cache:
 proxy:
   host: 0.0.0.0
   port: 8080
+  websocket: true
   tls:
     enabled: true
     server:
@@ -373,20 +374,26 @@ proxy:
 
 | `host`
 | `127.0.0.0`
-| Host to bind gRPC server
+| Host to bind HTTP server
 
 | `port`
-| `2449`
-| Port to bind gRPC server
+| `8080`
+| Port to bind HTT server
 
+| `websocket`
+| `true`
+| Enable WebSocket Proxy
 
 | `tls`
 |
-| Setup TLS configuration for the Proxy server. See <<tls>> section
+| Setup TLS configuration for the Proxy server.
+See <<tls>> section
 
 | `routes`
 |
-a| Routing paths for Proxy.The proxy will handle requests as `https://${HOST}:${PORT}/${ROUTE_ID}` (or `http://` if TLS is not enabled)
+a| Routing paths for Proxy.
+The proxy will handle requests as `https://${HOST}:${PORT}/${ROUTE_ID}` (or `http://` if TLS is not enabled).
+For WebSocket it's `wss` / `ws`, accordingly.
 |===
 
 .Route config
@@ -663,14 +670,14 @@ rpc:
 ----
 
 | `ws.url`
-| Websocket URL to connect to.
+| WebSocket URL to connect to.
 Optional, but optimizes performance if it's available.
 
 | `ws.origin`
-| HTTP `Origin` if required by Websocket remote server.
+| HTTP `Origin` if required by WebSocket remote server.
 
 | `ws.basic-auth` + ...
-| Websocket Basic Auth configuration, if required by the remote server
+| WebSocket Basic Auth configuration, if required by the remote server
 
 | `ws.frameSize`
 | WebSocket frame size limit.
