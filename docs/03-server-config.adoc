@@ -62,6 +62,10 @@ a| `upstreams`
 
 === Enabling JSON RPC proxy
 
+In addition to the gRPC protocol, Dshackle provides access compatible with Bitcoin and Ethereum JSON RPC.
+The same server can be accessible as an HTTP JSON RPC and WebSocket JSON RPC.
+For Ethereum, besides the standard RPC calls, it provides RPC subscriptions with `eth_subscribe` method.
+
 .Example proxy:
 [source,yaml]
 ----
@@ -82,7 +86,9 @@ cluster:
 With that configuration Dshackle starts a JSON RPC proxy:
 
 - JSON RPC server is listening on `0.0.0.0:8080`
-- `http://0.0.0.0:8080/eth` provides access to Ethereum API routed to an available upstream
+- `http://0.0.0.0:8080/eth` (and `ws://0.0.0.0:8080/eth`) provides access to Ethereum API routed to an available upstream
+
+NOTE: Same URL should be used to access both HTTP RPC and WebSocket RPC
 
 .Full configuration:
 [source,yaml]

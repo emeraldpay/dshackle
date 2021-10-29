@@ -16,36 +16,23 @@
  */
 package io.emeraldpay.dshackle.proxy
 
-import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Timer
-import io.netty.buffer.ByteBuf
-import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandler
 import io.netty.channel.ChannelHandlerContext
-import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
-import org.springframework.http.HttpHeaders
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import reactor.netty.http.server.HttpServer
-import reactor.netty.http.server.HttpServerRequest
-import reactor.netty.http.server.HttpServerResponse
 import reactor.netty.http.server.HttpServerRoutes
 import java.util.EnumMap
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import java.util.function.BiFunction
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
@@ -54,11 +41,12 @@ import kotlin.concurrent.write
  */
 class ProxyServer(
     private var config: ProxyConfig,
-    private val readRpcJson: ReadRpcJson,
-    private val writeRpcJson: WriteRpcJson,
-    private val nativeCall: NativeCall,
+    readRpcJson: ReadRpcJson,
+    writeRpcJson: WriteRpcJson,
+    nativeCall: NativeCall,
+    nativeSubscribe: NativeSubscribe,
     private val tlsSetup: TlsSetup,
-    private val accessHandler: AccessHandlerHttp.HandlerFactory
+    accessHandler: AccessHandlerHttp.HandlerFactory
 ) {
 
     companion object {
@@ -92,12 +80,20 @@ class ProxyServer(
         StandardRequestMetrics()
     }
 
+    private val httpHandler = HttpHandler(readRpcJson, writeRpcJson, nativeCall, accessHandler, requestMetrics)
+    private val wsHandler: WebsocketHandler? = if (config.websocketEnabled) {
+        WebsocketHandler(readRpcJson, writeRpcJson, nativeCall, nativeSubscribe, accessHandler, requestMetrics)
+    } else null
+
     fun start() {
         if (!config.enabled) {
             log.debug("Proxy server is not enabled")
             return
         }
-        log.info("Listening Proxy on ${config.host}:${config.port}")
+        log.info("Start HTTP JSON RPC Proxy on ${connectAddress("http")}")
+        if (config.websocketEnabled) {
+            log.info("Start Websocket JSON RPC Proxy on ${connectAddress("ws")}")
+        }
         var serverBuilder = HttpServer.create()
             .doOnChannelInit { _, channel, _ ->
                 channel.pipeline().addFirst(errorHandler)
@@ -116,88 +112,17 @@ class ProxyServer(
 
     fun setupRoutes(routes: HttpServerRoutes) {
         config.routes.forEach { routeConfig ->
-            routes.post("/" + routeConfig.id, proxy(routeConfig))
+            // TODO implement a manual handling of the routes and WS upgrade to have a better control over the connection and improve the access logging
+            routes.post("/" + routeConfig.id, httpHandler.proxy(routeConfig))
+            if (config.websocketEnabled && wsHandler != null) {
+                routes.ws("/" + routeConfig.id, wsHandler.proxy(routeConfig))
+            }
         }
     }
 
-    fun execute(chain: Chain, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
-        // return empty response for empty request
-        if (call.items.isEmpty()) {
-            return if (call.type == ProxyCall.RpcType.BATCH) {
-                Mono.just("[]")
-            } else {
-                Mono.just("")
-            }
-        }
-        val startTime = System.currentTimeMillis()
-        // during the execution we know only ID of the call, we use it to find the origin call and associated metrics
-        val metricById = { id: Int ->
-            call.items.find { it.id == id }?.let { item ->
-                requestMetrics.get(chain, item.method)
-            }
-        }
-        val request = BlockchainOuterClass.NativeCallRequest.newBuilder()
-            .setChain(Common.ChainRef.forNumber(chain.id))
-            .addAllItems(call.items)
-            .build()
-        handler.onRequest(request)
-        val jsons = nativeCall
-            .nativeCallResult(Mono.just(request))
-            .doOnNext {
-                metricById(it.id)?.requestMetric?.increment()
-            }
-            .doOnNext {
-                handler.onResponse(it)
-                metricById(it.id)?.callMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
-            }
-            .doOnError {
-                // when error happened the whole flux is stopped and no result is produced, so we should mark all the requests as failed
-                call.items.forEach { item ->
-                    requestMetrics.get(chain, item.method).errorMetric.increment()
-                }
-            }
-            .transform(writeRpcJson.toJsons(call))
-        return if (call.type == ProxyCall.RpcType.SINGLE) {
-            jsons.next()
-        } else {
-            jsons.transform(writeRpcJson.asArray())
-        }
-    }
-
-    fun processRequest(
-        chain: Chain,
-        request: Mono<ByteArray>,
-        handler: AccessHandlerHttp.RequestHandler
-    ): Flux<ByteBuf> {
-        return request
-            .map(readRpcJson)
-            .flatMapMany { call ->
-                execute(chain, call, handler)
-            }
-            .onErrorResume(RpcException::class.java) { err ->
-                val id = err.details?.let {
-                    if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
-                } ?: JsonRpcResponse.NumberId(-1)
-
-                val json = JsonRpcResponse.error(err.code, err.rpcMessage, id)
-                Mono.just(Global.objectMapper.writeValueAsString(json))
-            }
-            .map { Unpooled.wrappedBuffer(it.toByteArray()) }
-    }
-
-    fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
-        return BiFunction { req, resp ->
-            // handle access events
-            val eventHandler = accessHandler.create(req, routeConfig.blockchain)
-            val request = req.receive()
-                .aggregate()
-                .asByteArray()
-            val results = processRequest(routeConfig.blockchain, request, eventHandler)
-                // make sure that the access log handler is closed at the end, so it can render the logs
-                .doFinally { eventHandler.close() }
-            resp.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
-                .send(results)
-        }
+    fun connectAddress(baseSchema: String): String {
+        val schema = if (config.tls != null) baseSchema + "s" else baseSchema
+        return "$schema://${config.host}:${config.port}"
     }
 
     interface RequestMetricsFactory {

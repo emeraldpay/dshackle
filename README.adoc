@@ -24,7 +24,7 @@ It automatically verifies their availability and the current status of the netwo
 
 Provides:
 
-- Standard Bitcoin and Ethereum JSON RPC API
+- Standard Bitcoin and Ethereum JSON RPC API over HTTP and WebSocket
 - Enhanced gRPC-based API, with upstream selection, async execution, etc
 - **Secure** TLS with optional client authentication
 - Blockchain-aware edge **caching**, in memory and Redis
@@ -107,12 +107,12 @@ Which sets the following:
 
 - gRPC access through 0.0.0.0:2449
 ** TLS security is disabled (_please don't use in production!_)
-- JSON RPC access through 0.0.0.0:8545
+- JSON RPC access through 0.0.0.0:8545 (both HTTP and WebsScket)
 ** proxy requests to Ethereum and Kovan upstreams
 ** request path for Ethereum Mainnet is `/eth`, `/kovan` for Kovan Testnet, and `/btc` for bitcoin
 ** i.e. call Ethereum Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
 - two upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
-- for Ethereum Mainnet it connects using JSON RPC and Websockets connections,
+- for Ethereum Mainnet it connects using JSON RPC and WebSocket connections,
 - for Bitcoin Mainet only JSON RPC is used
 - `${INFURA_USER}` will be provided through environment variable
 
@@ -146,7 +146,7 @@ Tools such as https://github.com/fullstorydev/grpcurl[gRPCurl] can automatically
 
 Alternatively you can connect to port 8545 with traditional JSON RPC requests
 
-==== Access using JSON RPC
+==== Access using JSON RPC over HTTP
 
 Dshackle implements standard JSON RPC interface, providing additional caching layer, upstream readiness/liveness checks, retry and other features for building Fault Tolerant services.
 
@@ -163,6 +163,24 @@ curl --request POST \
 [source,bash]
 ----
 {"jsonrpc":"2.0","id":1,"result":"0x72fa5e0181"}
+----
+
+==== Access using JSON RPC over WebSocket
+
+Or the same Proxy URL can be accessed through WebSocket
+
+[source,bash]
+----
+websocat ws://localhost:8545/eth
+----
+
+Then make RPC calls or subscriptions:
+
+----
+> | {"jsonrpc":"2.0", "id": 1, "method": "eth_subscribe", "params": ["newHeads"]}
+
+< | {"jsonrpc":"2.0","id":1,"result":"1f8"}
+< | {"jsonrpc":"2.0","method":"eth_subscription","params":{"result":{....},"subscription":"1f8"}}
 ----
 
 ==== Access using gRPC

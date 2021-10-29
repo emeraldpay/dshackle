@@ -63,9 +63,6 @@ open class WriteRpcJson {
                         Mono.empty()
                     }
                 }
-                .onErrorContinue { t, _ ->
-                    log.warn("Failed to convert to JSON", t)
-                }
         }
     }
 

@@ -21,9 +21,11 @@ import io.emeraldpay.grpc.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc
 import io.grpc.Metadata
+import io.netty.handler.codec.http.HttpHeaders
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import reactor.netty.http.server.HttpServerRequest
+import reactor.netty.http.websocket.WebsocketInbound
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.time.Instant
@@ -44,12 +46,16 @@ class EventsBuilder {
         fun start(request: HttpServerRequest)
     }
 
+    interface StartingWsRequest {
+        fun start(request: WebsocketInbound)
+    }
+
     interface RequestReply<E, Req, Resp> : StartingHttp2Request {
         fun onRequest(msg: Req)
         fun onReply(msg: Resp): E
     }
 
-    abstract class Base<T> : StartingHttp2Request, StartingHttp1Request {
+    abstract class Base<T> : StartingHttp2Request, StartingHttp1Request, StartingWsRequest {
         companion object {
             private val remoteIpHeaders = listOf(
                 "x-real-ip",
@@ -136,17 +142,9 @@ class EventsBuilder {
 
         override fun start(request: HttpServerRequest) {
             val headers = request.requestHeaders()
-            val userAgent = headers.get("user-agent")
-                ?.let(this@Base::clean)
-                ?: ""
+            val userAgent = getUserAgent(headers)
             val ips = ArrayList<InetAddress>()
-            remoteIpHeaders.forEach { key ->
-                headers.get(key)?.let {
-                    it.trim().ifEmpty { null }
-                        ?.let(this@Base::toInetAddress)
-                        ?.let(ips::add)
-                }
-            }
+            extractIps(headers, ips)
             request.remoteAddress()?.let { addr ->
                 ips.add(addr.address)
             }
@@ -159,6 +157,53 @@ class EventsBuilder {
                         userAgent = userAgent
                     )
                 )
+        }
+
+        override fun start(request: WebsocketInbound) {
+            val headers = request.headers()
+            val userAgent = getUserAgent(headers)
+            val ips = ArrayList<InetAddress>()
+            extractIps(headers, ips)
+            // class WebsocketServerOperations, which is an implementation for the Websocket server connection, has a remoteAddress method
+            // But the class, and it's parent HttpServerOperations, are both private and cannot be used directly,
+            // so we try to access the field via reflection when it's possible
+            val remoteAddress: InetSocketAddress? = request.javaClass.methods
+                .find { it.name == "remoteAddress" }
+                ?.let {
+                    if (it.canAccess(request) || it.trySetAccessible()) {
+                        it.invoke(request) as InetSocketAddress
+                    } else {
+                        null
+                    }
+                }
+            remoteAddress?.let { addr ->
+                ips.add(addr.address)
+            }
+            val ip = findBestIp(ips)?.hostAddress ?: ""
+            this.requestDetails = this.requestDetails
+                .copy(
+                    remote = Events.Remote(
+                        ips = ips.map { it.hostAddress },
+                        ip = ip,
+                        userAgent = userAgent
+                    )
+                )
+        }
+
+        fun getUserAgent(headers: HttpHeaders): String {
+            return headers.get("user-agent")
+                ?.let(this@Base::clean)
+                ?: ""
+        }
+
+        fun extractIps(headers: HttpHeaders, ips: MutableList<InetAddress>) {
+            remoteIpHeaders.forEach { key ->
+                headers.get(key)?.let {
+                    it.trim().ifEmpty { null }
+                        ?.let(this@Base::toInetAddress)
+                        ?.let(ips::add)
+                }
+            }
         }
 
         fun withChain(chain: Int): T {
@@ -301,7 +346,9 @@ class EventsBuilder {
         }
     }
 
-    class NativeSubscribe :
+    class NativeSubscribe(
+        val channel: Events.Channel
+    ) :
         Base<NativeSubscribe>(),
         RequestReply<Events.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
         var item: Events.NativeSubscribeItemDetails? = null
@@ -327,6 +374,42 @@ class EventsBuilder {
                 payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
                 id = UUID.randomUUID(),
                 channel = Events.Channel.GRPC
+            )
+        }
+    }
+
+    class NativeSubscribeHttp(
+        val channel: Events.Channel,
+        chain: Chain,
+    ) :
+        Base<NativeSubscribeHttp>(),
+        RequestReply<Events.NativeSubscribe, Pair<String, ByteArray?>, Long> {
+        var item: Events.NativeSubscribeItemDetails? = null
+        val replies = HashMap<Int, Events.NativeSubscribeReplyDetails>()
+
+        init {
+            withChain(chain.id)
+        }
+
+        override fun getT(): NativeSubscribeHttp {
+            return this
+        }
+
+        override fun onRequest(msg: Pair<String, ByteArray?>) {
+            this.item = Events.NativeSubscribeItemDetails(
+                msg.first,
+                msg.second?.size?.toLong() ?: 0L
+            )
+        }
+
+        override fun onReply(msg: Long): Events.NativeSubscribe {
+            return Events.NativeSubscribe(
+                request = requestDetails,
+                blockchain = chain,
+                nativeSubscribe = item!!,
+                payloadSizeBytes = msg,
+                id = UUID.randomUUID(),
+                channel = channel
             )
         }
     }

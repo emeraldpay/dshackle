@@ -1,136 +1,92 @@
-/**
- * Copyright (c) 2020 ETCDEV GmbH
- * Copyright (c) 2020 EmeraldPay, Inc
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *        http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package io.emeraldpay.dshackle.proxy
 
-import com.google.protobuf.ByteString
-import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.TlsSetup
+import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
-import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.grpc.Chain
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import reactor.test.StepVerifier
+import reactor.netty.http.server.HttpServerRoutes
 import spock.lang.Specification
-
-import java.time.Duration
-import java.util.function.Function
 
 class ProxyServerSpec extends Specification {
 
-    def "Uses NativeCall"() {
+    def "Setup routes"() {
         setup:
-        NativeCall nativeCall = Mock(NativeCall)
-        def predefined = { a -> Flux.just("hello") } as Function
-
-        WriteRpcJson writeRpcJson = Mock {
-            1 * toJsons(_) >> predefined
-        }
-
-        ProxyServer server = new ProxyServer(
-                new ProxyConfig(),
-                new ReadRpcJson(),
-                writeRpcJson,
-                nativeCall,
-                new TlsSetup(TestingCommons.fileResolver()),
-                new AccessHandlerHttp.NoOpFactory()
+        def config1 = new ProxyConfig()
+        config1.routes = [
+                new ProxyConfig.Route("test", Chain.ETHEREUM)
+        ]
+        def proxyServer = new ProxyServer(
+                config1,
+                new ReadRpcJson(), new WriteRpcJson(),
+                Stub(NativeCall), Stub(NativeSubscribe),
+                Stub(TlsSetup), new AccessHandlerHttp.NoOpFactory()
         )
 
-        def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
-        call.ids[1] = 1
-        call.items.add(
-                BlockchainOuterClass.NativeCallItem.newBuilder()
-                        .setMethod("eth_hello")
-                        .build()
-        )
+        def routes = Mock(HttpServerRoutes)
         when:
-        def act = server.execute(Chain.ETHEREUM, call, new AccessHandlerHttp.NoOpHandler())
+        proxyServer.setupRoutes(routes)
 
         then:
-        1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, "".bytes, null))
-        StepVerifier.create(act)
-                .expectNext("hello")
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
+        1 * routes.post("/test", _)
+        1 * routes.ws("/test", _)
     }
 
-    def "Return error on invalid request"() {
+    def "Setup routes when WS is disabled"() {
         setup:
-        ReadRpcJson read = Mock(ReadRpcJson) {
-            1 * apply(_) >> { throw new RpcException(-32123, "test", new JsonRpcResponse.NumberId(4)) }
-        }
-        def server = new ProxyServer(
-                Stub(ProxyConfig),
-                read,
-                Stub(WriteRpcJson), Stub(NativeCall), Stub(TlsSetup),
-                new AccessHandlerHttp.NoOpFactory()
+        def config1 = new ProxyConfig()
+        config1.websocketEnabled = false
+        config1.routes = [
+                new ProxyConfig.Route("test", Chain.ETHEREUM)
+        ]
+        def proxyServer = new ProxyServer(
+                config1,
+                new ReadRpcJson(), new WriteRpcJson(),
+                Stub(NativeCall), Stub(NativeSubscribe),
+                Stub(TlsSetup), new AccessHandlerHttp.NoOpFactory()
         )
+
+        def routes = Mock(HttpServerRoutes)
         when:
-        def act = server.processRequest(Chain.ETHEREUM, Mono.just("".bytes), new AccessHandlerHttp.NoOpHandler())
-                .map { new String(it.array()) }
+        proxyServer.setupRoutes(routes)
+
         then:
-        StepVerifier.create(act)
-                .expectNext('{"jsonrpc":"2.0","id":4,"error":{"code":-32123,"message":"test"}}')
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
+        1 * routes.post("/test", _)
+        0 * routes.ws(_, _)
     }
 
-    def "Calls access log handler"() {
-        setup:
-        def reqItem = BlockchainOuterClass.NativeCallItem.newBuilder()
-                .setId(1)
-                .setMethod("test_test")
-                .setPayload(ByteString.copyFromUtf8("[]"))
-                .build()
-        def respItem = new NativeCall.CallResult(1, "100".bytes, null)
-        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
-                .addItems(reqItem)
-                .build()
-
-
-        ReadRpcJson read = Mock(ReadRpcJson) {
-            1 * apply(_) >> new ProxyCall(ProxyCall.RpcType.SINGLE).tap { it.items.add(reqItem) }
-        }
-        NativeCall nativeCall = Mock(NativeCall) {
-            1 * nativeCallResult(_) >> Flux.fromIterable([respItem])
-        }
-        def handler = Mock(AccessHandlerHttp.RequestHandler.class)
-
-        def server = new ProxyServer(
-                Stub(ProxyConfig),
-                read,
-                new WriteRpcJson(),
-                nativeCall,
-                Stub(TlsSetup),
-                new AccessHandlerHttp.NoOpFactory()
+    def "Generate Connect Address"() {
+        def config1 = new ProxyConfig()
+        config1.host = "192.168.0.1"
+        config1.port = 1000
+        def proxyServer = new ProxyServer(
+                config1,
+                new ReadRpcJson(), new WriteRpcJson(),
+                Stub(NativeCall), Stub(NativeSubscribe),
+                Stub(TlsSetup), new AccessHandlerHttp.NoOpFactory()
         )
-
         when:
-        server.processRequest(Chain.ETHEREUM, Mono.just("".bytes), handler)
-                .blockLast()
-
+        def act = proxyServer.connectAddress("http")
         then:
-        1 * handler.onRequest(req)
-        1 * handler.onResponse(respItem)
+        act == "http://192.168.0.1:1000"
+    }
+
+    def "Generate Connect Address with TLS"() {
+        def config1 = new ProxyConfig()
+        config1.host = "192.168.0.1"
+        config1.port = 1000
+        config1.tls = new AuthConfig.ServerTlsAuth()
+        def proxyServer = new ProxyServer(
+                config1,
+                new ReadRpcJson(), new WriteRpcJson(),
+                Stub(NativeCall), Stub(NativeSubscribe),
+                Stub(TlsSetup), new AccessHandlerHttp.NoOpFactory()
+        )
+        when:
+        def act = proxyServer.connectAddress("ws")
+        then:
+        act == "wss://192.168.0.1:1000"
     }
 }

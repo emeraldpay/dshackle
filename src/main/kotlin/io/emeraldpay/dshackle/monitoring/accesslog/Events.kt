@@ -28,7 +28,7 @@ class Events {
     }
 
     enum class Channel {
-        GRPC, JSONRPC
+        GRPC, JSONRPC, WSJSONRPC
     }
 
     abstract class Base(
