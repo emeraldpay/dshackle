@@ -123,6 +123,9 @@ open class ConfiguredUpstreams(
                     if (m.quorum != null) {
                         it.setQuorum(m.name, m.quorum)
                     }
+                    if (m.static != null) {
+                        it.setStaticResponse(m.name, m.static)
+                    }
                 }
             }
         } else {

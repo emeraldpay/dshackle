@@ -22,8 +22,8 @@ class ConfiguredUpstreamsSpec extends Specification {
         )
         def methods = new UpstreamsConfig.Methods(
                 [
-                        new UpstreamsConfig.Method("foo_bar", null),
-                        new UpstreamsConfig.Method("foo_bar", "not_empty")
+                        new UpstreamsConfig.Method("foo_bar", null, null),
+                        new UpstreamsConfig.Method("foo_bar", "not_empty", null)
                 ] as Set,
                 [] as Set
         )
@@ -34,5 +34,28 @@ class ConfiguredUpstreamsSpec extends Specification {
         then:
         act instanceof ManagedCallMethods
         act.getQuorumFor("foo_bar") instanceof NonEmptyQuorum
+    }
+
+    def "Got static response from extra methods"() {
+        setup:
+        def currentUpstreams = Mock(CurrentMultistreamHolder) {
+            _ * getDefaultMethods(Chain.ETHEREUM) >> new DefaultEthereumMethods(Chain.ETHEREUM)
+        }
+        def configurer = new ConfiguredUpstreams(
+                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig), Stub(CachesFactory)
+        )
+        def methods = new UpstreamsConfig.Methods(
+                [
+                        new UpstreamsConfig.Method("foo_bar", null, "static_response")
+                ] as Set,
+                [] as Set
+        )
+        def upstream = new UpstreamsConfig.Upstream()
+        upstream.methods = methods
+        when:
+        def act = configurer.buildMethods(upstream, Chain.ETHEREUM)
+        then:
+        act instanceof ManagedCallMethods
+        new String(act.executeHardcoded("foo_bar")) == "\"static_response\""
     }
 }

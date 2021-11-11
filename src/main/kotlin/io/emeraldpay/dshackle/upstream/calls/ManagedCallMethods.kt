@@ -44,6 +44,7 @@ class ManagedCallMethods(
         enabled + delegated - disabled
     )
     private val quorum: MutableMap<String, CallQuorum> = HashMap()
+    private val staticResponse: MutableMap<String, String> = HashMap()
 
     init {
         enabled.forEach { m ->
@@ -62,6 +63,10 @@ class ManagedCallMethods(
             }
         }
         this.quorum[method] = quorum
+    }
+
+    fun setStaticResponse(method: String, response: String) {
+        this.staticResponse[method] = response
     }
 
     override fun getQuorumFor(method: String): CallQuorum {
@@ -84,10 +89,14 @@ class ManagedCallMethods(
     }
 
     override fun isHardcoded(method: String): Boolean {
-        return delegate.isHardcoded(method)
+        return this.staticResponse.containsKey(method) || delegate.isHardcoded(method)
     }
 
     override fun executeHardcoded(method: String): ByteArray {
+        if (this.staticResponse.containsKey(method)) {
+            val json = "\"" + this.staticResponse[method] + "\""
+            return json.toByteArray()
+        }
         return delegate.executeHardcoded(method)
     }
 }
