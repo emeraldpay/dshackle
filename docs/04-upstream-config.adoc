@@ -230,7 +230,9 @@ upstreams:
     methods:
       enabled:
         - name: net_version
-          static: "100000"
+          static: "\"100000\""
+        - name: eth_chainId
+          static: "0x186a0"
         - name: eth_custom_array
           static: '["custom_array_response"]'
         - name: eth_custom_bool
