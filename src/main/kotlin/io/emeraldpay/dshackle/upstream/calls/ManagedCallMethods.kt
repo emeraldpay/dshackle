@@ -16,11 +16,13 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.util.Collections
 
 /**
@@ -94,7 +96,15 @@ class ManagedCallMethods(
 
     override fun executeHardcoded(method: String): ByteArray {
         if (this.staticResponse.containsKey(method)) {
-            val json = "\"" + this.staticResponse[method] + "\""
+            var json: String = this.staticResponse[method].orEmpty()
+            // Check if it's valid JSON
+            val mapper = ObjectMapper()
+            try {
+                mapper.readTree(json)
+            } catch (e: IOException) {
+                // Encode and default to string
+                json = mapper.writeValueAsString(json)
+            }
             return json.toByteArray()
         }
         return delegate.executeHardcoded(method)
