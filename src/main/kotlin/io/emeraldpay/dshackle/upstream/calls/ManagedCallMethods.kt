@@ -16,11 +16,13 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import org.slf4j.LoggerFactory
+import java.io.IOException
 import java.util.Collections
 
 /**
@@ -44,6 +46,7 @@ class ManagedCallMethods(
         enabled + delegated - disabled
     )
     private val quorum: MutableMap<String, CallQuorum> = HashMap()
+    private val staticResponse: MutableMap<String, String> = HashMap()
 
     init {
         enabled.forEach { m ->
@@ -62,6 +65,10 @@ class ManagedCallMethods(
             }
         }
         this.quorum[method] = quorum
+    }
+
+    fun setStaticResponse(method: String, response: String) {
+        this.staticResponse[method] = response
     }
 
     override fun getQuorumFor(method: String): CallQuorum {
@@ -84,10 +91,22 @@ class ManagedCallMethods(
     }
 
     override fun isHardcoded(method: String): Boolean {
-        return delegate.isHardcoded(method)
+        return this.staticResponse.containsKey(method) || delegate.isHardcoded(method)
     }
 
     override fun executeHardcoded(method: String): ByteArray {
+        if (this.staticResponse.containsKey(method)) {
+            var json: String = this.staticResponse[method].orEmpty()
+            // Check if it's valid JSON
+            val mapper = ObjectMapper()
+            try {
+                mapper.readTree(json)
+            } catch (e: IOException) {
+                // Encode and default to string
+                json = mapper.writeValueAsString(json)
+            }
+            return json.toByteArray()
+        }
         return delegate.executeHardcoded(method)
     }
 }

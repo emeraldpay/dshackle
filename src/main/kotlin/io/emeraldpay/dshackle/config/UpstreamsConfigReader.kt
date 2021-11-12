@@ -249,7 +249,8 @@ class UpstreamsConfigReader(
                 getValueAsString(m, "name")?.let { name ->
                     UpstreamsConfig.Method(
                         name = name,
-                        quorum = getValueAsString(m, "quorum")
+                        quorum = getValueAsString(m, "quorum"),
+                        static = getValueAsString(m, "static")
                     )
                 }
             }?.filterNotNull()?.toSet() ?: emptySet()

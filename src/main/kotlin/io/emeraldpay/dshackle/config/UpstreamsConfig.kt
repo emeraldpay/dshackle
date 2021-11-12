@@ -173,6 +173,7 @@ open class UpstreamsConfig {
 
     class Method(
         val name: String,
-        val quorum: String? = null
+        val quorum: String? = null,
+        val static: String? = null
     )
 }
