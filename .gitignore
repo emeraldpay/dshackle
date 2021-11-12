@@ -9,3 +9,6 @@ testsetup/
 *.iml
 *.ipr
 *.iws
+
+# nix
+env
