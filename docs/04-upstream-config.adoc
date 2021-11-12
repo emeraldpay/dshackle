@@ -218,6 +218,25 @@ NOTE: It's especially useful when used together with upstream labels.If an archi
 possible to specify that the client wants to execute method `trace_transaction` only on an archive node(s), which has
 complete historical data for tracing.
 
+=== Static Methods
+
+You can overwrite existing methods or add new ones using a static response:
+
+[source, yaml]
+----
+upstreams:
+  - id: my-node
+    chain: ethereum
+    methods:
+      enabled:
+        - name: net_version
+          static: "100000"
+        - name: eth_custom_array
+          static: '["custom_array_response"]'
+        - name: eth_custom_bool
+          static: "false"
+----
+
 === Authentication
 
 ==== TLS
