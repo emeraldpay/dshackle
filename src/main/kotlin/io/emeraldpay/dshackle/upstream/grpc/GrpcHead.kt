@@ -37,6 +37,7 @@ import java.util.function.Function
 class GrpcHead(
     private val chain: Chain,
     private val parent: DefaultUpstream,
+    private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     /**
      * Converted from remote head details to the block container, which could be partial at this point
      */
@@ -56,10 +57,11 @@ class GrpcHead(
     /**
      * Initiate a new head subscription with connection to the remote
      */
-    fun start(remote: ReactorBlockchainGrpc.ReactorBlockchainStub) {
+    private fun internalStart(remote: ReactorBlockchainGrpc.ReactorBlockchainStub) {
         if (this.isRunning) {
             stop()
         }
+        log.debug("Start Head subscription to ${parent.getId()}")
 
         val source = Flux.concat(
             // first connect immediately
@@ -68,7 +70,7 @@ class GrpcHead(
             Flux.just(remote).repeat().delayElements(Defaults.retryConnection)
         ).flatMap(this::subscribeHead)
 
-        start(source)
+        internalStart(source)
     }
 
     fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub): Publisher<BlockchainOuterClass.ChainHead> {
@@ -88,7 +90,7 @@ class GrpcHead(
     /**
      * Initiate a new head from provided source of head details
      */
-    fun start(source: Flux<BlockchainOuterClass.ChainHead>) {
+    private fun internalStart(source: Flux<BlockchainOuterClass.ChainHead>) {
         var blocks = source.map(converter)
             .distinctUntilChanged {
                 it.hash
@@ -112,7 +114,7 @@ class GrpcHead(
     }
 
     override fun start() {
-        log.error("Use start with provides source")
+        this.internalStart(remote)
     }
 
     override fun stop() {

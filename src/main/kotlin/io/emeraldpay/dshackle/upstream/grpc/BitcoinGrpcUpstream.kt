@@ -93,7 +93,7 @@ class BitcoinGrpcUpstream(
             }
     }
     private val upstreamStatus = GrpcUpstreamStatus()
-    private val grpcHead = GrpcHead(chain, this, blockConverter, reloadBlock)
+    private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock)
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
 
@@ -126,15 +126,13 @@ class BitcoinGrpcUpstream(
     }
 
     override fun isRunning(): Boolean {
-        return grpcHead.isRunning
+        return true
     }
 
     override fun start() {
-        grpcHead.start(remote)
     }
 
     override fun stop() {
-        grpcHead.stop()
     }
 
     override fun update(conf: BlockchainOuterClass.DescribeChain) {

@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.upstream.grpc
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -28,7 +27,6 @@ import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
-import java.util.function.Function
 
 class GrpcHeadSpec extends Specification {
 
@@ -61,6 +59,7 @@ class GrpcHeadSpec extends Specification {
         def head = new GrpcHead(
                 Chain.BITCOIN,
                 Stub(DefaultUpstream),
+                client,
                 convert, null
         )
         when:
@@ -69,7 +68,7 @@ class GrpcHeadSpec extends Specification {
 
         then:
         StepVerifier.create(act)
-                .then { head.start(client) }
+                .then { head.start() }
                 .expectNext(TestingCommons.blockForBitcoin(10)).as("block 10")
                 .expectNext(TestingCommons.blockForBitcoin(11)).as("block 11")
                 .expectNext(TestingCommons.blockForBitcoin(12)).as("block 12")
@@ -121,12 +120,13 @@ class GrpcHeadSpec extends Specification {
         def head = new GrpcHead(
                 Chain.BITCOIN,
                 Stub(DefaultUpstream),
+                client,
                 convert, null
         )
         when:
         def act = head.getFlux()
                 .take(3)
-        head.start(client)
+        head.start()
 
         then:
         StepVerifier.create(act)
