@@ -115,6 +115,7 @@ test {
     testLogging.showStandardStreams = false
     testLogging.exceptionFormat = 'full'
     finalizedBy jacocoTestReport
+    useJUnitPlatform()
 
     // getting on CI:
     //   java.security.KeyStoreException: Key protection algorithm not found: java.security.UnrecoverableKeyException: Encrypt Private Key failed: unrecognized algorithm name: PBEWithSHA1AndDESede
