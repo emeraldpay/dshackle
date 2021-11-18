@@ -43,6 +43,7 @@ class EthereumRpcHead(
     private var refreshSubscription: Disposable? = null
 
     override fun start() {
+        refreshSubscription?.dispose()
         val base = Flux.interval(interval)
             .publishOn(scheduler)
             .flatMap {

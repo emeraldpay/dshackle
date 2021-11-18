@@ -95,16 +95,19 @@ open class EthereumMultistream(
         val head = if (upstreams.size == 1) {
             val upstream = upstreams.first()
             upstream.setLag(0)
-            upstream.getHead()
+            upstream.getHead().apply {
+                if (this is Lifecycle) {
+                    this.start()
+                }
+            }
         } else {
             val heads = upstreams.map { it.getHead() }
             val newHead = MergedHead(heads).apply {
                 this.start()
             }
-            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>).apply {
-                this.start()
-            }
+            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>)
             this.lagObserver = lagObserver
+            lagObserver.start()
             newHead
         }
         onHeadUpdated(head)

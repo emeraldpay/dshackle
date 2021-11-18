@@ -72,13 +72,18 @@ open class BitcoinMultistream(
         val head = if (upstreams.size == 1) {
             val upstream = upstreams.first()
             upstream.setLag(0)
-            upstream.getHead()
+            upstream.getHead().apply {
+                if (this is Lifecycle) {
+                    this.start()
+                }
+            }
         } else {
             val newHead = MergedHead(upstreams.map { it.getHead() }).apply {
                 this.start()
             }
             val lagObserver = BitcoinHeadLagObserver(newHead, upstreams)
             this.lagObserver = lagObserver
+            lagObserver.start()
             newHead
         }
         onHeadUpdated(head)
