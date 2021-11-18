@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
@@ -24,6 +25,11 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import java.util.Collections
 
 class DefaultBitcoinMethods : CallMethods {
+
+    private val networkinfo = Global.objectMapper.writeValueAsBytes(mapOf(
+        "version" to 210100,
+        "subversion" to "/EmeraldDshackle:${Global.version}/"
+    ))
 
     private val freshMethods = listOf(
         "getblock",
@@ -77,7 +83,7 @@ class DefaultBitcoinMethods : CallMethods {
     override fun executeHardcoded(method: String): ByteArray {
         return when (method) {
             "getconnectioncount" -> "42".toByteArray()
-            "getnetworkinfo" -> "{\"version\": 700000, \"subversion\": \"/EmeraldDshackle:v0.9/\"}".toByteArray()
+            "getnetworkinfo" -> networkinfo
             else -> throw RpcException(-32601, "Method not found")
         }
     }

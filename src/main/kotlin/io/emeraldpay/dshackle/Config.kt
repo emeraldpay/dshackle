@@ -59,6 +59,13 @@ open class Config(
 
     init {
         configFilePath = getConfigPath()
+        Global.version = env.getProperty("version.app", Global.version).let {
+            if (it.contains("SNAPSHOT")) {
+                listOfNotNull(it, env.getProperty("version.commit")).joinToString("-")
+            } else {
+                it
+            }
+        }
     }
 
     fun getConfigPath(): File {

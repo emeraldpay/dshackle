@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
@@ -31,6 +32,8 @@ import io.emeraldpay.grpc.Chain
 class DefaultEthereumMethods(
     private val chain: Chain
 ) : CallMethods {
+
+    private val version = "\"EmeraldDshackle/${Global.version}\""
 
     private val anyResponseMethods = listOf(
         "eth_gasPrice",
@@ -178,7 +181,7 @@ class DefaultEthereumMethods(
                 "true"
             }
             "web3_clientVersion" -> {
-                "\"EmeraldDshackle/v0.9\""
+                version
             }
             "eth_protocolVersion" -> {
                 "\"0x3f\""

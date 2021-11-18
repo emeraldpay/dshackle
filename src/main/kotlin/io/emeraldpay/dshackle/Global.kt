@@ -72,6 +72,8 @@ class Global {
         @JvmStatic
         val objectMapper: ObjectMapper = createObjectMapper()
 
+        var version: String = "DEV"
+
         val control: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
         private fun createObjectMapper(): ObjectMapper {
