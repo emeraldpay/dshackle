@@ -17,12 +17,12 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class NativeCallRouterSpec extends Specification {
+class LocalCallRouterSpec extends Specification {
 
     def "Calls hardcoded"() {
         setup:
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new NativeCallRouter(
+        def router = new LocalCallRouter(
                 new EthereumReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
@@ -50,7 +50,7 @@ class NativeCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new NativeCallRouter(reader, methods, head)
+        def router = new LocalCallRouter(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["latest", false])
@@ -76,7 +76,7 @@ class NativeCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new NativeCallRouter(reader, methods, head)
+        def router = new LocalCallRouter(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["earliest", false])
@@ -102,7 +102,7 @@ class NativeCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new NativeCallRouter(reader, methods, head)
+        def router = new LocalCallRouter(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["0x123ef", false])

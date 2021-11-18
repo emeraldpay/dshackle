@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.RequestPostprocessor
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.ethereum.LocalCallRouter
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -86,8 +87,7 @@ open class BitcoinMultistream(
     }
 
     override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        // TODO
-        return Mono.just(EmptyReader())
+        return Mono.just(LocalCallRouter(getMethods()))
     }
 
     open fun getReader(): BitcoinReader {

@@ -36,14 +36,14 @@ import java.math.BigInteger
  *
  * @see EthereumReader
  */
-class NativeCallRouter(
+class LocalCallRouter(
     private val reader: EthereumReader,
     private val methods: CallMethods,
     private val head: Head
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
     companion object {
-        private val log = LoggerFactory.getLogger(NativeCallRouter::class.java)
+        private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)
     }
 
     private val fullBlocksReader = EthereumFullBlocksReader(
