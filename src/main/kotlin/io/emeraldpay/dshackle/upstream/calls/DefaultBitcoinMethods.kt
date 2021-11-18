@@ -26,10 +26,12 @@ import java.util.Collections
 
 class DefaultBitcoinMethods : CallMethods {
 
-    private val networkinfo = Global.objectMapper.writeValueAsBytes(mapOf(
-        "version" to 210100,
-        "subversion" to "/EmeraldDshackle:${Global.version}/"
-    ))
+    private val networkinfo = Global.objectMapper.writeValueAsBytes(
+        mapOf(
+            "version" to 210100,
+            "subversion" to "/EmeraldDshackle:${Global.version}/"
+        )
+    )
 
     private val freshMethods = listOf(
         "getblock",

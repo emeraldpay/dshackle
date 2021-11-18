@@ -17,7 +17,6 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
