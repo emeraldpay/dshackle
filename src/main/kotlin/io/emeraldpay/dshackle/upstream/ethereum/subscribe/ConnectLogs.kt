@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import java.util.function.Function
 
-class ConnectLogs(
+open class ConnectLogs(
     upstream: EthereumMultistream,
     private val connectBlockUpdates: ConnectBlockUpdates,
 ) {
@@ -44,7 +44,7 @@ class ConnectLogs(
         return produceLogs.produce(connectBlockUpdates.connect())
     }
 
-    fun start(addresses: List<Address>, topics: List<Hex32>): Flux<LogMessage> {
+    open fun start(addresses: List<Address>, topics: List<Hex32>): Flux<LogMessage> {
         // shortcut to the whole output if we don't have any filters
         if (addresses.isEmpty() && topics.isEmpty()) {
             return start()

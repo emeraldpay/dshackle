@@ -1,19 +1,30 @@
+/**
+ * Copyright (c) 2021 EmeraldPay, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.TokensConfig
-import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.etherjar.domain.EventId
 import io.emeraldpay.etherjar.erc20.ERC20Token
-import io.emeraldpay.etherjar.hex.Hex32
-import io.emeraldpay.etherjar.hex.HexQuantity
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
@@ -34,6 +45,8 @@ class TrackERC20Address(
     companion object {
         private val log = LoggerFactory.getLogger(TrackERC20Address::class.java)
     }
+
+    var erc20Balance: ERC20Balance = ERC20Balance()
 
     private val ethereumAddresses = EthereumAddresses()
     private val tokens: MutableMap<TokenId, TokenDefinition> = HashMap()
@@ -72,13 +85,30 @@ class TrackERC20Address(
         val chain = Chain.byId(request.asset.chainValue)
         val asset = request.asset.code.lowercase(Locale.getDefault())
         val tokenDefinition = tokens[TokenId(chain, asset)] ?: return Flux.empty()
-        val head = multistreamHolder.getUpstream(chain)?.getHead()?.getFlux() ?: Flux.empty()
+        val logs = getUpstream(chain)
+            .getSubscribe().logs
+            .start(
+                listOf(tokenDefinition.token.contract),
+                listOf(EventId.fromSignature("Transfer", "address", "address", "uint256"))
+            )
 
         return ethereumAddresses.extract(request.address)
             .map { TrackedAddress(chain, it, tokenDefinition.token, tokenDefinition.name) }
             .flatMap { addr ->
                 val current = getBalance(addr)
-                val updates = head.flatMap { getBalance(addr) }
+
+                val updates = logs
+                    .filter {
+                        it.topics.size >= 3 && (Address.extract(it.topics[1]) == addr.address || Address.extract(it.topics[2]) == addr.address)
+                    }
+                    .distinctUntilChanged {
+                        // check it once per block
+                        it.blockHash
+                    }
+                    .flatMap {
+                        // make sure we use actual balance, don't trust event blindly
+                        getBalance(addr)
+                    }
                 Flux.concat(current, updates)
                     .distinctUntilChanged()
                     .map { addr.withBalance(it) }
@@ -88,23 +118,7 @@ class TrackERC20Address(
 
     fun getBalance(addr: TrackedAddress): Mono<BigInteger> {
         val upstream = getUpstream(addr.chain)
-        return upstream
-            .getDirectApi(Selector.empty)
-            .flatMap { api ->
-                api.read(prepareEthCall(addr.token, addr.address, upstream.getHead()))
-                    .flatMap(JsonRpcResponse::requireStringResult)
-                    .map {
-                        Hex32.from(it).asQuantity().value
-                    }
-            }
-    }
-
-    fun prepareEthCall(token: ERC20Token, target: Address, head: Head): JsonRpcRequest {
-        val call = token
-            .readBalanceOf(target)
-            .toJson()
-        val height = head.getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
-        return JsonRpcRequest("eth_call", listOf(call, height))
+        return erc20Balance.getBalance(upstream, addr.token, addr.address)
     }
 
     fun getUpstream(chain: Chain): EthereumMultistream {

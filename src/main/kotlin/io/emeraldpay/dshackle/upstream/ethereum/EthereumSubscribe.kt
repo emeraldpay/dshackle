@@ -17,7 +17,7 @@ open class EthereumSubscribe(
     }
 
     private val newHeads = ConnectNewHeads(upstream)
-    private val logs = ConnectLogs(upstream)
+    open val logs = ConnectLogs(upstream)
     private val syncing = ConnectSyncing(upstream)
 
     @Suppress("UNCHECKED_CAST")
