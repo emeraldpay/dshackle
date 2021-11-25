@@ -47,6 +47,8 @@ class Global {
             "polygon" to Chain.MATIC,
             "matic" to Chain.MATIC,
             "etc" to Chain.ETHEREUM_CLASSIC,
+            "bsc" to Chain.BSC, 
+            "avalanche" to Chain.AVALANCHE,
             "morden" to Chain.TESTNET_MORDEN,
             "kovan" to Chain.TESTNET_KOVAN,
             "kovan-testnet" to Chain.TESTNET_KOVAN,
@@ -57,7 +59,13 @@ class Global {
             "ropsten" to Chain.TESTNET_ROPSTEN,
             "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
             "bitcoin" to Chain.BITCOIN,
-            "bitcoin-testnet" to Chain.TESTNET_BITCOIN
+            "bitcoin-testnet" to Chain.TESTNET_BITCOIN,
+            "mumbai" to Chain.TESTNET_MUMBAI,
+            "mumbai-testnet" to Chain.TESTNET_MUMBAI,
+            "bsctest" to Chain.TESTNET_BSC,
+            "bsc-testnet" to Chain.TESTNET_BSC,
+            "fuji" to Chain.TESTNET_FUJI,
+            "fuji-testnet" to Chain.TESTNET_FUJI
         )
 
         fun chainById(id: String?): Chain {

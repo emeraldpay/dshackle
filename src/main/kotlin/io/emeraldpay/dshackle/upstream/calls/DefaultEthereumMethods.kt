@@ -127,6 +127,12 @@ class DefaultEthereumMethods(
                     Chain.MATIC == chain -> {
                         "\"137\""
                     }
+                    Chain.BSC == chain -> {
+                        "\"56\""
+                    }
+                    Chain.AVALANCHE == chain -> {
+                        "\"43114\""
+                    }
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"2\""
                     }
@@ -142,6 +148,15 @@ class DefaultEthereumMethods(
                     Chain.TESTNET_GOERLI == chain -> {
                         "\"5\""
                     }
+                    Chain.TESTNET_MUMBAI == chain -> {
+                        "\"80001\""
+                    }
+                    Chain.TESTNET_BSC == chain -> {
+                        "\"97\""
+                    }
+                    Chain.TESTNET_FUJI == chain -> {
+                        "\"43113\""
+                    }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
@@ -153,6 +168,12 @@ class DefaultEthereumMethods(
                     Chain.MATIC == chain -> {
                         "\"0x89\""
                     }
+                    Chain.BSC == chain -> {
+                        "\"0x38\""
+                    }
+                    Chain.AVALANCHE == chain -> {
+                        "\"0xa86a\""
+                    }                    
                     Chain.TESTNET_ROPSTEN == chain -> {
                         "\"0x3\""
                     }
@@ -170,6 +191,15 @@ class DefaultEthereumMethods(
                     }
                     Chain.TESTNET_GOERLI == chain -> {
                         "\"0x5\""
+                    }
+                    Chain.TESTNET_MUMBAI == chain -> {
+                        "\"0x13881\""
+                    }
+                    Chain.TESTNET_BSC == chain -> {
+                        "\"0x61\""
+                    }
+                    Chain.FUJI == chain -> {
+                        "\"0xa869\""
                     }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
