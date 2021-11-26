@@ -1,9 +1,11 @@
 == Quick Start
+:version: 0.11.0
+:version-short: 0.11
 
 === Prerequisites
 
-Dshackle is designed for the cloud environment and supposed to be used withing Docker and/or Kubernetes. However, it's a JVM
-based application and, therefore, can be used in most of the standard environments where Java Virtual Machine can be installed.
+Dshackle is designed for the cloud environment and supposed to be used withing Docker and/or Kubernetes.
+However, it's a JVM based application and, therefore, can be used in most of the standard environments where Java Virtual Machine can be installed.
 
 We're going to use Docker image for this quick start.
 
@@ -86,9 +88,9 @@ export INFURA_USER=...
 ----
 
 .Run Dshackle
-[source,bash]
+[source,bash,subs="attributes"]
 ----
-docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle:0.10
+docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle:{version-short}
 ----
 
 ==== Access using JSON RPC

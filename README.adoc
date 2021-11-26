@@ -3,6 +3,8 @@
 ifdef::env-github[]
 :imagesdir: https://raw.githubusercontent.com/emeraldpay/dshackle/master/docs/assets
 endif::[]
+:version: 0.11.0
+:version-short: 0.11
 
 image:https://github.com/emeraldpay/dshackle/workflows/Tests/badge.svg["Unit Tests"]
 image:https://codecov.io/gh/emeraldpay/dshackle/branch/master/graph/badge.svg["Coverage",link="https://codecov.io/gh/emeraldpay/dshackle"]
@@ -136,9 +138,9 @@ export INFURA_USER=...
 ----
 
 .Run Dshackle
-[source,bash]
+[source,bash,subs="attributes"]
 ----
-docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle:0.10
+docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle:{version-short}
 ----
 
 Now it listens on port 2449 at the localhost and can be connected from any gRPC compatible client.
