@@ -26,7 +26,6 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
@@ -39,15 +38,12 @@ import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry
 import org.apache.commons.lang3.StringUtils
 
-import java.time.Duration
 import java.time.Instant
-import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalUnit
 
 class TestingCommons {
 
-    static EthereumApiMock api() {
-        return new EthereumApiMock()
+    static ApiReaderMock api() {
+        return new ApiReaderMock()
     }
 
     static EthereumUpstreamMock upstream() {

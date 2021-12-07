@@ -155,6 +155,8 @@ abstract class Multistream(
             .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
+    abstract fun getFeeEstimation(): ChainFees
+
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
      */

@@ -43,7 +43,8 @@ class BlockchainRpc(
     @Autowired private val trackTx: List<TrackTx>,
     @Autowired private val trackAddress: List<TrackAddress>,
     @Autowired private val describe: Describe,
-    @Autowired private val subscribeStatus: SubscribeStatus
+    @Autowired private val subscribeStatus: SubscribeStatus,
+    @Autowired private val estimateFee: EstimateFee
 ) : ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
@@ -163,6 +164,10 @@ class BlockchainRpc(
                 Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
             }
         }
+    }
+
+    override fun estimateFee(request: Mono<BlockchainOuterClass.EstimateFeeRequest>): Mono<BlockchainOuterClass.EstimateFeeResponse> {
+        return request.flatMap { estimateFee.estimateFee(it) }
     }
 
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {

@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
@@ -49,12 +50,17 @@ open class BitcoinMultistream(
     private var reader = BitcoinReader(this, head, esplora)
     private var addressActiveCheck: AddressActiveCheck? = null
     private var xpubAddresses: XpubAddresses? = null
+    private val feeEstimation = BitcoinFees(this, reader, 6)
 
     override fun init() {
         if (upstreams.size > 0) {
             head = updateHead()
         }
         super.init()
+    }
+
+    override fun getFeeEstimation(): ChainFees {
+        return feeEstimation
     }
 
     open fun getXpubAddresses(): XpubAddresses? {

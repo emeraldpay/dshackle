@@ -125,7 +125,14 @@ open class EthereumReader(
         )
     }
 
-    fun txByHash(): Reader<TransactionId, TransactionJson> {
+    open fun blocksByHeightParsed(): Reader<Long, BlockJson<TransactionRefJson>> {
+        return TransformingReader(
+            blocksByHeightAsCont(),
+            extractBlock
+        )
+    }
+
+    open fun txByHash(): Reader<TransactionId, TransactionJson> {
         return TransformingReader(
             CompoundReader(
                 RekeyingReader(txHashToId, caches.getTxByHash()),
