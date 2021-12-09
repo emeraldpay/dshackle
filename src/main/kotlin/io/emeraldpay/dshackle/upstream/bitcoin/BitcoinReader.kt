@@ -55,6 +55,11 @@ open class BitcoinReader(
         return castedRead(JsonRpcRequest("getblock", listOf(hash)), Map::class.java).cast()
     }
 
+    open fun getBlock(height: Long): Mono<Map<String, Any>> {
+        return castedRead(JsonRpcRequest("getblockhash", listOf(height)), String::class.java)
+            .flatMap(this@BitcoinReader::getBlock)
+    }
+
     open fun getTx(txid: String): Mono<Map<String, Any>> {
         return castedRead(JsonRpcRequest("getrawtransaction", listOf(txid, true)), Map::class.java).cast()
     }

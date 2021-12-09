@@ -136,6 +136,14 @@ class Events {
         val request: StreamRequestDetails
     ) : ChainBase(blockchain, "Status", id, Channel.GRPC)
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    class EstimateFee(
+        blockchain: Chain,
+        id: UUID,
+        val request: StreamRequestDetails,
+        val estimateFee: EstimateFeeDetails
+    ) : ChainBase(blockchain, "EstimateFee", id, Channel.GRPC)
+
     data class StreamRequestDetails(
         val id: UUID,
         val start: Instant,
@@ -179,5 +187,10 @@ class Events {
     data class AddressBalance(
         val asset: String,
         val address: String
+    )
+
+    data class EstimateFeeDetails(
+        val mode: String,
+        val blocks: Int
     )
 }

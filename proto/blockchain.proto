@@ -10,6 +10,11 @@ service Blockchain {
 
     rpc GetBalance (BalanceRequest) returns (stream AddressBalance) {}
 
+    /**
+     * Fee Estimation service. The server tries to estimate a fair fee based on the last N blocks.
+     */
+    rpc EstimateFee (EstimateFeeRequest) returns (EstimateFeeResponse) {}
+
     rpc NativeCall (NativeCallRequest) returns (stream NativeCallReplyItem) {}
     rpc NativeSubscribe (NativeSubscribeRequest) returns (stream NativeSubscribeReplyItem) {}
 
@@ -172,4 +177,80 @@ message NotSelector {
 
 message ExistsSelector {
     string name = 1;
+}
+
+/**
+ * Request for Fee Estimation Service
+ */
+message EstimateFeeRequest {
+    // Target chain
+    ChainRef chain = 1;
+    // The way how the fee should be estimated
+    FeeEstimationMode mode = 2;
+    // How many blocks the server is supposed to use to estimate current fee. Note that the server may use value, depending on configuration
+    uint32 blocks = 3;
+}
+
+/**
+ * Responset for Fee Estimation Service
+ */
+message EstimateFeeResponse {
+    // May return different struct, depending on the blockchain
+    oneof fee_type {
+        // Standard Ethereum Fee, supported by majority of forks and by Ethereum Mainnet before EIP-1559
+        EthereumStdFees ethereumStd = 1;
+        // Ethereum Fee for EIP-1559 compatible forks
+        EthereumExtFees ethereumExtended = 2;
+        // Standard Bitcoin Fee
+        BitcoinStdFees bitcoinStd = 3;
+    }
+}
+
+/**
+ * The mode of how the fee must be estimated
+ */
+enum FeeEstimationMode {
+    INVALID = 0;
+    // Average over last transaction in each block
+    AVG_LAST = 1;
+    // Average over transaction 5th from the end in each block
+    AVG_T5 = 2;
+    // Average over transaction 20th from the end in each block
+    AVG_T20 = 3;
+    // Average over transaction 50th from the end in each block
+    AVG_T50 = 4;
+    // Minimal fee that would be accepted by every last block
+    MIN_ALWAYS = 5;
+    // Average over transaction in the middle of each block
+    AVG_MIDDLE = 6;
+    // Average over transaction in head of each block. Note that for Bitcoin it doesn't count COINBASE tx as top tx.
+    AVG_TOP = 7;
+}
+
+/**
+ * Standard Ethereum Fee, supported by majority of forks and by Ethereum Mainnet before EIP-1559
+ */
+message EthereumStdFees {
+    // Fee value in Wei
+    string fee = 1;
+}
+
+/**
+ * Ethereum Fee for EIP-1559 compatible forks
+ */
+message EthereumExtFees {
+    // Estimated fee that would be actually paid. I.e. it's the Base Fee + Priority Fee
+    string expect = 1;
+    // Priority Fee in Wei
+    string priority = 2;
+    // Max Fee value in Wei. Note that it only indicated current preference and actual Max may be significantly lower, depending on the usage scenario.
+    string max = 3;
+}
+
+/**
+ * Standard Bitcoin Fee
+ */
+message BitcoinStdFees {
+    // Fee in Satoshi per Kilobyte. Note that the actual fee calculation MUST divide it by 1024 at the last step to get a fair fee.
+    string satPerKb = 1;
 }

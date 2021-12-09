@@ -225,5 +225,10 @@ class MultistreamSpec extends Specification {
         public <T extends Upstream> T cast(Class<T> selfType) {
             return this
         }
+
+        @Override
+        ChainFees getFeeEstimation() {
+            return null
+        }
     }
 }

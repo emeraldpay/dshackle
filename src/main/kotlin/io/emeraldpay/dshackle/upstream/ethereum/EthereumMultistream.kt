@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -46,6 +47,12 @@ open class EthereumMultistream(
 
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
     private val subscribe = EthereumSubscribe(this)
+    private val supportsEIP1559 = when (chain) {
+        Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY -> true
+        else -> false
+    }
+    private val feeEstimation = if (supportsEIP1559) EthereumPriorityFees(this, reader, 256)
+    else EthereumLegacyFees(this, reader, 256)
 
     init {
         this.init()
@@ -132,5 +139,9 @@ open class EthereumMultistream(
 
     open fun getSubscribe(): EthereumSubscribe {
         return subscribe
+    }
+
+    override fun getFeeEstimation(): ChainFees {
+        return feeEstimation
     }
 }

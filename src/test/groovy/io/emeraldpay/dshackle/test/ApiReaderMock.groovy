@@ -26,7 +26,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.grpc.stub.StreamObserver
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.etherjar.rpc.json.ResponseJson
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufAllocator
 import io.netty.buffer.ByteBufInputStream
@@ -57,7 +56,7 @@ import java.util.function.BiFunction
 import java.util.function.Consumer
 import java.util.function.Predicate
 
-class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
+class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
     private static final Logger log = LoggerFactory.getLogger(this)
     List<PredefinedResponse> predefined = []
@@ -66,15 +65,15 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     String id = "default"
     AtomicInteger calls = new AtomicInteger(0)
 
-    EthereumApiMock() {
+    ApiReaderMock() {
     }
 
-    EthereumApiMock answerOnce(@NotNull String method, List<Object> params, Object result) {
+    ApiReaderMock answerOnce(@NotNull String method, List<Object> params, Object result) {
         return answer(method, params, result, 1)
     }
 
-    EthereumApiMock answer(@NotNull String method, List<Object> params, Object result,
-                           Integer limit = null, Throwable exception = null) {
+    ApiReaderMock answer(@NotNull String method, List<Object> params, Object result,
+                         Integer limit = null, Throwable exception = null) {
         predefined << new PredefinedResponse(method: method, params: params, result: result, limit: limit, exception: exception)
         return this
     }
@@ -169,7 +168,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     }
 
     class WebsocketApi {
-        private final EthereumApiMock api
+        private final ApiReaderMock api
 
         private Sinks.Many<JsonRpcResponse> responses = Sinks
                 .many()
@@ -182,7 +181,7 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
         private WebsocketOutboundMock outbound
         private WebsocketInboundMock inbound
 
-        WebsocketApi(EthereumApiMock api) {
+        WebsocketApi(ApiReaderMock api) {
             this.api = api
             outbound = new WebsocketOutboundMock(api, responses)
             inbound = new WebsocketInboundMock(responses.asFlux(), jsonResponses.asFlux())
@@ -260,10 +259,10 @@ class EthereumApiMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
     class WebsocketOutboundMock implements WebsocketOutbound {
 
-        private final EthereumApiMock api
+        private final ApiReaderMock api
         private final Sinks.Many<JsonRpcResponse> responses
 
-        WebsocketOutboundMock(EthereumApiMock api, Sinks.Many<JsonRpcResponse> responses) {
+        WebsocketOutboundMock(ApiReaderMock api, Sinks.Many<JsonRpcResponse> responses) {
             this.api = api
             this.responses = responses
         }
