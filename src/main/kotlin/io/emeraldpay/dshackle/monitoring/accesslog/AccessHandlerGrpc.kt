@@ -50,6 +50,7 @@ class AccessHandlerGrpc(
             "NativeSubscribe" -> processNativeSubscribe(call, headers, next)
             "Describe" -> processDescribe(call, headers, next)
             "SubscribeStatus" -> processStatus(call, headers, next)
+            "EstimateFee" -> processEstimateFee(call, headers, next)
             else -> {
                 log.warn("unsupported method `{}`", method)
                 next.startCall(call, headers)
@@ -155,6 +156,18 @@ class AccessHandlerGrpc(
         return process(
             call, headers, next,
             EventsBuilder.Status() as EventsBuilder.RequestReply<*, ReqT, RespT>
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <ReqT : Any, RespT : Any> processEstimateFee(
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>
+    ): ServerCall.Listener<ReqT> {
+        return process(
+            call, headers, next,
+            EventsBuilder.EstimateFee() as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 

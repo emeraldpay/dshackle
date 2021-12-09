@@ -452,4 +452,34 @@ class EventsBuilder {
             )
         }
     }
+
+    class EstimateFee :
+        Base<EstimateFee>(),
+        RequestReply<Events.EstimateFee, BlockchainOuterClass.EstimateFeeRequest, BlockchainOuterClass.EstimateFeeResponse> {
+
+        private var mode: String = "UNKNOWN"
+        private var blocks: Int = 0
+
+        override fun getT(): EstimateFee {
+            return this
+        }
+
+        override fun onRequest(msg: BlockchainOuterClass.EstimateFeeRequest) {
+            this.chain = Chain.byId(msg.chain.number)
+            this.mode = msg.mode.name
+            this.blocks = msg.blocks
+        }
+
+        override fun onReply(msg: BlockchainOuterClass.EstimateFeeResponse): Events.EstimateFee {
+            return Events.EstimateFee(
+                blockchain = chain,
+                request = requestDetails,
+                id = UUID.randomUUID(),
+                estimateFee = Events.EstimateFeeDetails(
+                    mode = mode,
+                    blocks = blocks
+                )
+            )
+        }
+    }
 }

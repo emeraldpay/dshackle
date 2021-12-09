@@ -167,7 +167,23 @@ class BlockchainRpc(
     }
 
     override fun estimateFee(request: Mono<BlockchainOuterClass.EstimateFeeRequest>): Mono<BlockchainOuterClass.EstimateFeeResponse> {
-        return request.flatMap { estimateFee.estimateFee(it) }
+        return request
+            .flatMap {
+                val chain = Chain.byId(it.chainValue)
+                val metrics = chainMetrics.get(chain)
+                metrics.estimateFeeMetric.increment()
+                val startTime = System.currentTimeMillis()
+                estimateFee.estimateFee(it).doFinally {
+                    metrics.estimateFeeRespMetric.record(
+                        System.currentTimeMillis() - startTime,
+                        TimeUnit.MILLISECONDS
+                    )
+                }
+            }
+            .doOnError { t ->
+                log.error("Internal error during Fee Estimation", t)
+                errorMetric.increment()
+            }
     }
 
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
@@ -226,6 +242,15 @@ class BlockchainRpc(
             .register(Metrics.globalRegistry)
         val getBalanceRespMetric = Timer.builder("request.grpc.response")
             .tag("type", "getBalance")
+            .tag("chain", chain.chainCode)
+            .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+        val estimateFeeMetric = Counter.builder("request.grpc.request")
+            .tag("type", "estimateFee")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
+        val estimateFeeRespMetric = Timer.builder("request.grpc.response")
+            .tag("type", "estimateFee")
             .tag("chain", chain.chainCode)
             .publishPercentileHistogram()
             .register(Metrics.globalRegistry)
