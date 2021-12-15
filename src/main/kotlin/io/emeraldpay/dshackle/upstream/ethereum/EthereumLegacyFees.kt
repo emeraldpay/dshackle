@@ -32,10 +32,9 @@ class EthereumLegacyFees(upstreams: EthereumMultistream, reader: EthereumReader,
 
     private val toGrpc: Function<EthereumFee, BlockchainOuterClass.EstimateFeeResponse> = Function {
         BlockchainOuterClass.EstimateFeeResponse.newBuilder()
-            .setEthereumExtended(
-                BlockchainOuterClass.EthereumExtFees.newBuilder()
-                    .setMax(it.paid.amount.toString())
-                    .setPriority(it.priority.amount.toString())
+            .setEthereumStd(
+                BlockchainOuterClass.EthereumStdFees.newBuilder()
+                    .setFee(it.paid.amount.toString())
             )
             .build()
     }
