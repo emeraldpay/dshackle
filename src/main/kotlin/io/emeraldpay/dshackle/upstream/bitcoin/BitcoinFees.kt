@@ -134,7 +134,7 @@ class BitcoinFees(
             BlockchainOuterClass.EstimateFeeResponse.newBuilder()
                 .setBitcoinStd(
                     BlockchainOuterClass.BitcoinStdFees.newBuilder()
-                        .setSatPerKb(fee.toString())
+                        .setSatPerKb(fee)
                 )
                 .build()
         }
