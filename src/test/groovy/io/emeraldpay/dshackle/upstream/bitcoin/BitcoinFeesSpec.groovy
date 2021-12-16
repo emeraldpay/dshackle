@@ -201,7 +201,7 @@ class BitcoinFeesSpec extends Specification {
         // second tx fee: 504.40409956076134699854
         // average is 345
         // but if we calculate original fees per KB it's 354222
-        act.bitcoinStd.satPerKb == "354222"
+        act.bitcoinStd.satPerKb == 354222
     }
 
 }
