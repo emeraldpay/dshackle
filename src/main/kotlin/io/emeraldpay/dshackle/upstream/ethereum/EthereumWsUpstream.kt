@@ -49,7 +49,7 @@ class EthereumWsUpstream(
     }
 
     private val head: EthereumWsHead
-    private val connection: EthereumWsFactory.EthereumWs
+    private val connection: WsConnection
     private val api: JsonRpcWsClient
 
     private var validatorSubscription: Disposable? = null

@@ -33,7 +33,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-class EthereumWsFactorySpec extends Specification {
+class WsConnectionSpec extends Specification {
 
     def "Fetch block"() {
         setup:

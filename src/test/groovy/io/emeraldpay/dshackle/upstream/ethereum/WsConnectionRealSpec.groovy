@@ -10,7 +10,7 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class EthereumWsFactoryRealSpec extends Specification {
+class WsConnectionRealSpec extends Specification {
 
     static SLEEP = 500
 
@@ -18,7 +18,7 @@ class EthereumWsFactoryRealSpec extends Specification {
     @Shared
     MockWSServer server
     @Shared
-    EthereumWsFactory.EthereumWs conn
+    WsConnection conn
 
     def setup() {
         if (System.getenv("CI") == "true") {

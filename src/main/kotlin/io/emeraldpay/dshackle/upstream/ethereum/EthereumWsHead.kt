@@ -23,7 +23,7 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
 class EthereumWsHead(
-    private val ws: EthereumWsFactory.EthereumWs
+    private val ws: WsConnection
 ) : DefaultEthereumHead(), Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
