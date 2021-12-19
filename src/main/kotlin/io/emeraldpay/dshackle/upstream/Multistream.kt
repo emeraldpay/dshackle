@@ -295,7 +295,17 @@ abstract class Multistream(
             .groupBy { it }
             .map { "${it.key.name}/${it.value.size}" }
             .joinToString(",")
-        val lag = upstreams.map { it.getLag() }
+        val lag = upstreams
+            .map {
+                // by default, when no lag is available it uses Long.MAX_VALUE, and it doesn't make sense to print
+                // status with such value. use NA (as Not Available) instead
+                val value = it.getLag()
+                if (value == Long.MAX_VALUE) {
+                    "NA"
+                } else {
+                    value.toString()
+                }
+            }
             .joinToString(", ")
         val weak = upstreams
             .filter { it.getStatus() != UpstreamAvailability.OK }
