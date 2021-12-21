@@ -54,7 +54,8 @@ open class EthereumUpstreamValidator(
             .timeout(
                 Defaults.timeoutInternal,
                 Mono.fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for Syncing"))))
+                    .then(Mono.error(TimeoutException("Validation timeout for Syncing")))
+            )
             .flatMap { value ->
                 if (value.isSyncing) {
                     Mono.just(UpstreamAvailability.SYNCING)
