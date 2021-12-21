@@ -31,6 +31,7 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeoutException
 
 open class EthereumUpstreamValidator(
     private val upstream: EthereumUpstream,
@@ -50,7 +51,10 @@ open class EthereumUpstreamValidator(
             .read(JsonRpcRequest("eth_syncing", listOf()))
             .flatMap(JsonRpcResponse::requireResult)
             .map { objectMapper.readValue(it, SyncingJson::class.java) }
-            .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Syncing")))
+            .timeout(
+                Defaults.timeoutInternal,
+                Mono.fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
+                    .then(Mono.error(TimeoutException("Validation timeout for Syncing"))))
             .flatMap { value ->
                 if (value.isSyncing) {
                     Mono.just(UpstreamAvailability.SYNCING)
@@ -60,7 +64,11 @@ open class EthereumUpstreamValidator(
                         .read(JsonRpcRequest("net_peerCount", listOf()))
                         .flatMap(JsonRpcResponse::requireStringResult)
                         .map(Integer::decode)
-                        .timeout(Defaults.timeoutInternal, Mono.error(Exception("Validation timeout for Peers")))
+                        .timeout(
+                            Defaults.timeoutInternal,
+                            Mono.fromCallable { log.warn("No response for net_peerCount from ${upstream.getId()}") }
+                                .then(Mono.error(TimeoutException("Validation timeout for Peers")))
+                        )
                         .map { count ->
                             val minPeers = options.minPeers ?: 1
                             if (count < minPeers) {

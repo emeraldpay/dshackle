@@ -56,6 +56,7 @@ import java.time.Duration
 import java.util.Base64
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -174,7 +175,9 @@ class WsConnection(
                     // going to try to reconnect later
                     tryReconnectLater()
                 },
-                { _, _ -> }
+                { _, t ->
+                    log.warn("Failed to process response from $uri. Error: ${t.message}")
+                }
             )
             .headers { headers ->
                 headers.add(HttpHeaderNames.ORIGIN, origin)
@@ -206,22 +209,6 @@ class WsConnection(
     }
 
     fun handle(inbound: WebsocketInbound, outbound: WebsocketOutbound): Publisher<Void> {
-        // validate the connection, it can also be UNAVAIL if it's marked as such after a disconnect
-        if (validator != null) {
-            return validator.validate()
-                .flatMap {
-                    if (it == UpstreamAvailability.OK) {
-                        Mono.from(handleValidated(inbound, outbound))
-                    } else {
-                        tryReconnectLater()
-                        Mono.empty<Void>()
-                    }
-                }
-        }
-        return handleValidated(inbound, outbound)
-    }
-
-    fun handleValidated(inbound: WebsocketInbound, outbound: WebsocketOutbound): Publisher<Void> {
         // restart backoff after connection
         currentBackOff = reconnectBackoff.start()
 
@@ -250,9 +237,6 @@ class WsConnection(
                 Mono.empty()
             }
 
-        val start = Mono.just(START_REQUEST).map {
-            Unpooled.wrappedBuffer(it.toByteArray())
-        }
         val calls = rpcSend
             .asFlux()
             .map {
@@ -261,11 +245,39 @@ class WsConnection(
 
         return outbound.send(
             Flux.merge(
-                start,
+                startWhenValidated(),
                 calls.subscribeOn(Schedulers.boundedElastic()),
                 consumer.then(Mono.empty<ByteBuf>()).subscribeOn(Schedulers.boundedElastic())
             )
         )
+    }
+
+    /**
+     * Starts subscriptions ('newHeads') when the upstream is fully validated. If upstream is invalid it breaks flow with an Error.
+     * I.e., the first requests are made from a Validator and when it returns OK the Connection continues with other stuff.
+     */
+    fun startWhenValidated(): Publisher<ByteBuf> {
+        val start = Mono.just(START_REQUEST).map {
+            Unpooled.wrappedBuffer(it.toByteArray())
+        }
+
+        return if (validator != null) {
+            validator.validate()
+                .timeout(
+                    Defaults.timeoutInternal,
+                    Mono.fromCallable { log.warn("Not received a validation result from $uri") }.then(Mono.error(TimeoutException()))
+                )
+                .flatMap {
+                    if (it == UpstreamAvailability.OK) {
+                        start
+                    } else {
+                        tryReconnectLater()
+                        Mono.error(IllegalStateException("Upstream $uri is not ready"))
+                    }
+                }
+        } else {
+            start
+        }
     }
 
     fun onRpc(msg: ResponseWSParser.WsResponse): Mono<Void> {
@@ -359,32 +371,25 @@ class WsConnection(
 
     fun waitForResponse(request: JsonRpcRequest, originalId: Int, startTime: Long): Mono<JsonRpcResponse> {
         val expectedId = request.id.toLong()
-        return Mono.just(request)
-            .flatMap {
-                Flux.from(rpcReceive.asFlux())
-                    .doOnSubscribe { sendRpc(request) }
-                    .filter { resp -> resp.id.asNumber() == expectedId }
-                    .take(Defaults.timeout)
-                    .take(1)
-                    .singleOrEmpty()
-                    .doOnNext {
-                        rpcMetrics?.timer?.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS)
-                    }
-                    .doOnError {
-                        rpcMetrics?.errors?.increment()
-                    }
-                    .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
-                    .defaultIfEmpty(
-                        JsonRpcResponse(
-                            null,
-                            JsonRpcError(
-                                RpcResponseError.CODE_INTERNAL_ERROR,
-                                "Response not received from WebSocket"
-                            ),
-                            JsonRpcResponse.Id.from(originalId)
-                        )
-                    )
-            }
+        val failResponse = JsonRpcResponse(
+            null,
+            JsonRpcError(
+                RpcResponseError.CODE_INTERNAL_ERROR,
+                "Response not received from WebSocket"
+            ),
+            JsonRpcResponse.Id.from(originalId)
+        )
+
+        return Flux.from(rpcReceive.asFlux())
+            .doOnSubscribe { sendRpc(request) }
+            .filter { resp -> resp.id.asNumber() == expectedId }
+            .take(Defaults.timeout)
+            .take(1)
+            .singleOrEmpty()
+            .doOnNext { rpcMetrics?.timer?.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS) }
+            .doOnError { rpcMetrics?.errors?.increment() }
+            .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
+            .defaultIfEmpty(failResponse)
     }
 
     fun getBlocksFlux(): Flux<BlockContainer> {
