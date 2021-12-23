@@ -45,7 +45,10 @@ class ProduceLogs(
     // need to keep history of recent messages in case they get removed. cannot rely on
     // any other cache or upstream because if when it gets removed it's unavailable in any other source
     private val oldMessages = CacheBuilder.newBuilder()
-        .expireAfterWrite(5, TimeUnit.HOURS)
+        // in general a block with its events can be replaced in ~90 seconds, but in case of a big network disturbance
+        // it can be much longer. here we keep events up to an hour
+        .expireAfterWrite(60, TimeUnit.MINUTES)
+        .maximumSize(90000)
         .build<LogReference, List<LogMessage>>()
 
     fun produce(block: Flux<ConnectBlockUpdates.Update>): Flux<LogMessage> {
@@ -74,8 +77,11 @@ class ProduceLogs(
                 log.warn("Cannot find receipt for tx ${update.transactionId}")
                 Mono.empty()
             }
-            .map { objectMapper.readValue(it, TransactionReceiptJson::class.java) }
-            .flatMapMany { receipt ->
+            .flatMapMany { jsonBytes ->
+                // receipt could be a null, like when the original block was replaced, etc.
+                // so just skip it as Flux.empty
+                val receipt = objectMapper.readValue(jsonBytes, TransactionReceiptJson::class.java)
+                    ?: return@flatMapMany Flux.empty<LogMessage>()
                 try {
                     val messages = receipt.logs
                         .map { txlog ->

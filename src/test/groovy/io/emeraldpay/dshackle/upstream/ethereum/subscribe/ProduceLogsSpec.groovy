@@ -55,6 +55,28 @@ class ProduceLogsSpec extends Specification {
         act.size() == 0
     }
 
+    def "Produce added as nothing with null receipt"() {
+        setup:
+        String receipt = 'null'
+
+        def receipts = Mock(Reader) {
+            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >> Mono.just(receipt.getBytes())
+        }
+        def producer = new ProduceLogs(receipts)
+        def update = new ConnectBlockUpdates.Update(
+                BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
+                13412871,
+                ConnectBlockUpdates.UpdateType.NEW,
+                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
+        )
+        when:
+        def act = producer.produceAdded(update)
+                .collectList().block(Duration.ofSeconds(1))
+
+        then:
+        act.size() == 0
+    }
+
     def "Produce added with single log"() {
         setup:
         String receipt = '{\n' +
