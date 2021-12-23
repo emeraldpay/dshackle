@@ -61,7 +61,7 @@ class NativeCallSpec extends Specification {
         def upstreams = Stub(MultistreamHolder)
 
         def nativeCall = new NativeCall(upstreams)
-        def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(
+        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
                 1, upstream, Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", [])
         )
@@ -82,7 +82,7 @@ class NativeCallSpec extends Specification {
         def upstreams = Stub(MultistreamHolder)
 
         def nativeCall = new NativeCall(upstreams)
-        def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(
+        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
                 15, upstream, Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", [])
         )
@@ -108,7 +108,7 @@ class NativeCallSpec extends Specification {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, 1))
             }
         }
-        def call = new NativeCall.CallContext(1, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
@@ -128,7 +128,7 @@ class NativeCallSpec extends Specification {
                 1 * read(_) >> Mono.empty()
             }
         }
-        def call = new NativeCall.CallContext(1, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
@@ -295,6 +295,33 @@ class NativeCallSpec extends Specification {
         }
     }
 
+    def "Prepare call with unsupported method"() {
+        setup:
+        def upstreams = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
+        def nativeCall = new NativeCall(upstreams)
+
+        def item = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setId(1)
+                .setMethod("eth_testInvalid")
+                .build()
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(item)
+                .build()
+        when:
+        def act = nativeCall.prepareIndividualCall(Chain.ETHEREUM, req, item, TestingCommons.emptyMultistream())
+                .block(Duration.ofSeconds(1))
+        then:
+        act instanceof NativeCall.InvalidCallContext
+        with(((NativeCall.InvalidCallContext) act).error) {
+            it.upstreamError != null
+            it.upstreamError.code == -32601
+            it.upstreamError.message.contains("eth_testInvalid")
+        }
+    }
+
     def "Prepare call adds height selector for not-lagging quorum"() {
         setup:
         def methods = new ManagedCallMethods(
@@ -339,7 +366,7 @@ class NativeCallSpec extends Specification {
     def "Parse empty params"() {
         setup:
         def nativeCall = new NativeCall(Stub(MultistreamHolder))
-        def ctx = new NativeCall.CallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -352,7 +379,7 @@ class NativeCallSpec extends Specification {
     def "Parse none params"() {
         setup:
         def nativeCall = new NativeCall(Stub(MultistreamHolder))
-        def ctx = new NativeCall.CallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", ""))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -365,7 +392,7 @@ class NativeCallSpec extends Specification {
     def "Parse single param"() {
         setup:
         def nativeCall = new NativeCall(Stub(MultistreamHolder))
-        def ctx = new NativeCall.CallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[false]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -378,7 +405,7 @@ class NativeCallSpec extends Specification {
     def "Parse multi param"() {
         setup:
         def nativeCall = new NativeCall(Stub(MultistreamHolder))
-        def ctx = new NativeCall.CallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[false, 123]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -397,7 +424,7 @@ class NativeCallSpec extends Specification {
         def api = TestingCommons.api()
         def upstream = TestingCommons.multistream(api)
 
-        def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(10,
+        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", []))
@@ -415,7 +442,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = new NativeCall(upstreams)
         def upstream = TestingCommons.multistream(TestingCommons.api())
 
-        def ctx = new NativeCall.CallContext<NativeCall.ParsedCallDetails>(10,
+        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", []))

@@ -77,16 +77,21 @@ open class NativeCall(
 
     open fun nativeCallResult(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<CallResult> {
         return requestMono.flatMapMany(this::prepareCall)
-            .map(this::parseParams)
-            .parallel()
             .flatMap {
-                this.fetch(it)
-                    .doOnError { e -> log.warn("Error during native call: ${e.message}") }
+                if (it.isValid()) {
+                    val parsed = parseParams(it.get())
+                    this.fetch(parsed)
+                        .doOnError { e -> log.warn("Error during native call: ${e.message}") }
+                } else {
+                    val error = it.getError()
+                    Mono.just(
+                        CallResult(error.id, null, error)
+                    )
+                }
             }
-            .sequential()
     }
 
-    fun parseParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
+    fun parseParams(it: ValidCallContext<RawCallDetails>): ValidCallContext<ParsedCallDetails> {
         val params = extractParams(it.payload.params)
         return it.withPayload(ParsedCallDetails(it.payload.method, params))
     }
@@ -121,7 +126,7 @@ open class NativeCall(
             .toMono()
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest): Flux<CallContext<RawCallDetails>> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest): Flux<CallContext> {
         val chain = Chain.byId(request.chain.number)
         if (chain == Chain.UNSPECIFIED) {
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
@@ -140,43 +145,63 @@ open class NativeCall(
     fun prepareCall(
         request: BlockchainOuterClass.NativeCallRequest,
         upstream: Multistream
-    ): Flux<CallContext<RawCallDetails>> {
+    ): Flux<CallContext> {
         val chain = Chain.byId(request.chainValue)
-        return Flux.fromIterable(request.itemsList).flatMap {
-            val method = it.method
-            val params = it.payload.toStringUtf8()
-
-            // for ethereum the actual block needed for the call may be specified in the call parameters
-            val callSpecificMatcher: Mono<Selector.Matcher> =
-                if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
-                    ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead())
-                } else {
-                    null
-                } ?: Mono.empty()
-
-            callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
-                val matcher = Selector.Builder()
-                    .withMatcher(csm)
-                    .forMethod(method)
-                    .forLabels(Selector.convertToMatcher(request.selector))
-
-                val callQuorum = upstream.getMethods().getQuorumFor(method) // can be null in tests
-                callQuorum.init(upstream.getHead())
-
-                // for NotLaggingQuorum it makes sense to select compatible upstreams before the call
-                if (callQuorum is NotLaggingQuorum) {
-                    val lag = callQuorum.maxLag
-                    val minHeight = ((upstream.getHead().getCurrentHeight() ?: 0) - lag).coerceAtLeast(0)
-                    val heightMatcher = Selector.HeightMatcher(minHeight)
-                    matcher.withMatcher(heightMatcher)
-                }
-
-                CallContext(it.id, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
+        return Flux.fromIterable(request.itemsList)
+            .flatMap {
+                prepareIndividualCall(chain, request, it, upstream)
             }
+    }
+
+    fun prepareIndividualCall(
+        chain: Chain,
+        request: BlockchainOuterClass.NativeCallRequest,
+        requestItem: BlockchainOuterClass.NativeCallItem,
+        upstream: Multistream
+    ): Mono<CallContext> {
+        val method = requestItem.method
+        val params = requestItem.payload.toStringUtf8()
+        val availableMethods = upstream.getMethods()
+
+        if (!availableMethods.isAllowed(method)) {
+            val errorMessage = "The method $method does not exist/is not available"
+            return Mono.just(
+                InvalidCallContext(
+                    CallError(requestItem.id, errorMessage, JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage))
+                )
+            )
+        }
+
+        // for ethereum the actual block needed for the call may be specified in the call parameters
+        val callSpecificMatcher: Mono<Selector.Matcher> =
+            if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
+                ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead())
+            } else {
+                null
+            } ?: Mono.empty()
+
+        return callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
+            val matcher = Selector.Builder()
+                .withMatcher(csm)
+                .forMethod(method)
+                .forLabels(Selector.convertToMatcher(request.selector))
+
+            val callQuorum = availableMethods.getQuorumFor(method) // can be null in tests
+            callQuorum.init(upstream.getHead())
+
+            // for NotLaggingQuorum it makes sense to select compatible upstreams before the call
+            if (callQuorum is NotLaggingQuorum) {
+                val lag = callQuorum.maxLag
+                val minHeight = ((upstream.getHead().getCurrentHeight() ?: 0) - lag).coerceAtLeast(0)
+                val heightMatcher = Selector.HeightMatcher(minHeight)
+                matcher.withMatcher(heightMatcher)
+            }
+
+            ValidCallContext(requestItem.id, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
         }
     }
 
-    fun fetch(ctx: CallContext<ParsedCallDetails>): Mono<CallResult> {
+    fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getRoutedApi(ctx.matcher)
             .flatMap { api ->
                 api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
@@ -196,7 +221,7 @@ open class NativeCall(
             }
     }
 
-    fun executeOnRemote(ctx: CallContext<ParsedCallDetails>): Mono<CallResult> {
+    fun executeOnRemote(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
         if (!ctx.upstream.getMethods().isAllowed(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
@@ -228,19 +253,56 @@ open class NativeCall(
         return req as List<Any>
     }
 
-    open class CallContext<T>(
+    interface CallContext {
+        fun isValid(): Boolean
+        fun <T> get(): ValidCallContext<T>
+        fun getError(): CallError
+    }
+
+    open class ValidCallContext<T>(
         val id: Int,
         val upstream: Multistream,
         val matcher: Selector.Matcher,
         val callQuorum: CallQuorum,
         val payload: T
-    ) {
-        fun <X> withPayload(payload: X): CallContext<X> {
-            return CallContext(id, upstream, matcher, callQuorum, payload)
+    ) : CallContext {
+        override fun isValid(): Boolean {
+            return true
+        }
+
+        override fun <X> get(): ValidCallContext<X> {
+            return this as ValidCallContext<X>
+        }
+
+        override fun getError(): CallError {
+            throw IllegalStateException("Invalid context $id")
+        }
+
+        fun <X> withPayload(payload: X): ValidCallContext<X> {
+            return ValidCallContext(id, upstream, matcher, callQuorum, payload)
         }
 
         fun getApis(): ApiSource {
             return upstream.getApiSource(matcher)
+        }
+    }
+
+    /**
+     * Call context when it's known in advance that the call is invalid and should return an error
+     */
+    open class InvalidCallContext(
+        private val error: CallError
+    ) : CallContext {
+        override fun isValid(): Boolean {
+            return false
+        }
+
+        override fun <T> get(): ValidCallContext<T> {
+            throw IllegalStateException("Invalid context ${error.id}")
+        }
+
+        override fun getError(): CallError {
+            return error
         }
     }
 
