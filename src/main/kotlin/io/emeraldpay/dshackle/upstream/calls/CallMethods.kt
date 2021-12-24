@@ -29,9 +29,13 @@ interface CallMethods {
     fun getQuorumFor(method: String): CallQuorum
 
     /**
-     * @return false is call for that method is not allowed. Allowed method may be also Hardcoded
+     * Check if the method can be called on an upstream. Doesn't include Hardcoded methods
+     *
+     * @return false if call for that method is not allowed.
+     * @see isHardcoded
+     * @see isAvailable
      */
-    fun isAllowed(method: String): Boolean
+    fun isCallable(method: String): Boolean
 
     /**
      * @return list of all allowed methods.
@@ -47,4 +51,11 @@ interface CallMethods {
      * Read [supposed to be predefined] method from this config
      */
     fun executeHardcoded(method: String): ByteArray
+
+    /**
+     * Check if the method is available either by an upstream or as a hardcoded response
+     */
+    fun isAvailable(method: String): Boolean {
+        return isCallable(method) || isHardcoded(method)
+    }
 }

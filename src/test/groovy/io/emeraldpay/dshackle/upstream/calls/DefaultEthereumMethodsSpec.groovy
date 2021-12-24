@@ -5,6 +5,15 @@ import spock.lang.Specification
 
 class DefaultEthereumMethodsSpec extends Specification {
 
+    def "eth_chainId is available"() {
+        setup:
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        when:
+        def act = methods.isAvailable("eth_chainId")
+        then:
+        act
+    }
+
     def "eth_chainId is hardcoded"() {
         setup:
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
@@ -12,6 +21,15 @@ class DefaultEthereumMethodsSpec extends Specification {
         def act = methods.isHardcoded("eth_chainId")
         then:
         act
+    }
+
+    def "eth_chainId is not callable"() {
+        setup:
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        when:
+        def act = methods.isCallable("eth_chainId")
+        then:
+        !act
     }
 
     def "Provides hardcoded correct chainId"() {

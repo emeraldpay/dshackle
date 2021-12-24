@@ -44,7 +44,7 @@ class LocalCallRouter(
             return Mono.just(methods.executeHardcoded(key.method))
                 .map { JsonRpcResponse(it, null) }
         }
-        if (!methods.isAllowed(key.method)) {
+        if (!methods.isCallable(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
         return Mono.empty()

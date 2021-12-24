@@ -57,7 +57,7 @@ class DefaultBitcoinMethods : CallMethods {
     ).sorted()
 
     private val allowedMethods =
-        (freshMethods + anyResponseMethods + headVerifiedMethods + hardcodedMethods + broadcastMethods).sorted()
+        (freshMethods + anyResponseMethods + headVerifiedMethods + broadcastMethods).sorted()
 
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
@@ -70,12 +70,12 @@ class DefaultBitcoinMethods : CallMethods {
         }
     }
 
-    override fun isAllowed(method: String): Boolean {
+    override fun isCallable(method: String): Boolean {
         return Collections.binarySearch(allowedMethods, method) >= 0
     }
 
     override fun getSupportedMethods(): Set<String> {
-        return allowedMethods.toSortedSet()
+        return allowedMethods.plus(hardcodedMethods).toSortedSet()
     }
 
     override fun isHardcoded(method: String): Boolean {

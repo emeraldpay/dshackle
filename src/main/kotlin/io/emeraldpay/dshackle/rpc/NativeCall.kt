@@ -163,7 +163,7 @@ open class NativeCall(
         val params = requestItem.payload.toStringUtf8()
         val availableMethods = upstream.getMethods()
 
-        if (!availableMethods.isAllowed(method)) {
+        if (!availableMethods.isAvailable(method)) {
             val errorMessage = "The method $method does not exist/is not available"
             return Mono.just(
                 InvalidCallContext(
@@ -222,7 +222,7 @@ open class NativeCall(
     }
 
     fun executeOnRemote(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
-        if (!ctx.upstream.getMethods().isAllowed(ctx.payload.method)) {
+        if (!ctx.upstream.getMethods().isCallable(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
         val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum)

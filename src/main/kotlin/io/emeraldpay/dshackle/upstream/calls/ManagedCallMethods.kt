@@ -82,7 +82,7 @@ class ManagedCallMethods(
         }
     }
 
-    override fun isAllowed(method: String): Boolean {
+    override fun isCallable(method: String): Boolean {
         return allAllowed.contains(method)
     }
 

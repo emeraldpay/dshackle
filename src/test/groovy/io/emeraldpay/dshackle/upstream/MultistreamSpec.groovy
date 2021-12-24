@@ -45,9 +45,9 @@ class MultistreamSpec extends Specification {
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()
         then:
-        act.isAllowed("eth_test1")
-        act.isAllowed("eth_test2")
-        act.isAllowed("eth_test3")
+        act.isCallable("eth_test1")
+        act.isCallable("eth_test2")
+        act.isCallable("eth_test3")
         act.getQuorumFor("eth_test1") instanceof AlwaysQuorum
         act.getQuorumFor("eth_test2") instanceof AlwaysQuorum
         act.getQuorumFor("eth_test3") instanceof AlwaysQuorum

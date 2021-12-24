@@ -39,15 +39,15 @@ class AggregatedCallMethods(
      */
     override fun getQuorumFor(method: String): CallQuorum {
         return delegates.find {
-            it.isAllowed(method) || it.isHardcoded(method)
+            it.isCallable(method) || it.isHardcoded(method)
         }?.getQuorumFor(method) ?: throw IllegalStateException("No executor delegate for $method")
     }
 
     /**
      * Checks if ANY of delegates supports the method
      */
-    override fun isAllowed(method: String): Boolean {
-        return delegates.any { it.isAllowed(method) }
+    override fun isCallable(method: String): Boolean {
+        return delegates.any { it.isCallable(method) }
     }
 
     /**

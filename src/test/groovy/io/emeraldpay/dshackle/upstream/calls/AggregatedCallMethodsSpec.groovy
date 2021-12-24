@@ -17,9 +17,6 @@
 package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
-import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
-import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import spock.lang.Specification
 
 class AggregatedCallMethodsSpec extends Specification {
@@ -29,11 +26,11 @@ class AggregatedCallMethodsSpec extends Specification {
         def quorum = new AlwaysQuorum()
         def delegate1 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_no_test", "foo_bar"]
-            1 * isAllowed("eth_test") >> false
+            1 * isCallable("eth_test") >> false
         }
         def delegate2 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_test", "foo_bar"]
-            1 * isAllowed("eth_test") >> true
+            1 * isCallable("eth_test") >> true
             1 * getQuorumFor("eth_test") >> quorum
         }
         def aggregate = new AggregatedCallMethods([delegate1, delegate2])
@@ -49,22 +46,22 @@ class AggregatedCallMethodsSpec extends Specification {
         def delegate2 = new DirectCallMethods(["eth_test", "foo_bar"] as Set)
         def aggregate = new AggregatedCallMethods([delegate1, delegate2])
         when:
-        def act = aggregate.isAllowed("eth_test")
+        def act = aggregate.isCallable("eth_test")
         then:
         act
 
         when:
-        act = aggregate.isAllowed("eth_no_test")
+        act = aggregate.isCallable("eth_no_test")
         then:
         act
 
         when:
-        act = aggregate.isAllowed("foo_bar")
+        act = aggregate.isCallable("foo_bar")
         then:
         act
 
         when:
-        act = aggregate.isAllowed("nothing")
+        act = aggregate.isCallable("nothing")
         then:
         !act
     }
@@ -106,12 +103,12 @@ class AggregatedCallMethodsSpec extends Specification {
         setup:
         def delegate1 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_no_test", "foo_bar"]
-            _ * isAllowed(_) >> false
+            _ * isCallable(_) >> false
             1 * isHardcoded("eth_no_test") >> false
         }
         def delegate2 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_test", "foo_bar"]
-            _ * isAllowed(_) >> false
+            _ * isCallable(_) >> false
             1 * isHardcoded("eth_test") >> true
         }
         def aggregate = new AggregatedCallMethods([delegate1, delegate2])

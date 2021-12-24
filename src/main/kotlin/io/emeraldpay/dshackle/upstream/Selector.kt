@@ -157,7 +157,7 @@ class Selector {
         val method: String
     ) : Matcher {
         override fun matches(up: Upstream): Boolean {
-            return up.getMethods().isAllowed(method)
+            return up.getMethods().isCallable(method)
         }
 
         override fun describeInternal(): String {

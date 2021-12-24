@@ -32,7 +32,7 @@ open class DirectCallMethods(private val methods: Set<String>) : CallMethods {
         return AlwaysQuorum()
     }
 
-    override fun isAllowed(method: String): Boolean {
+    override fun isCallable(method: String): Boolean {
         return methods.contains(method)
     }
 

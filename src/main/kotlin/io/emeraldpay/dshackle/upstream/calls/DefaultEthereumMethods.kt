@@ -104,7 +104,7 @@ class DefaultEthereumMethods(
         }
     }
 
-    override fun isAllowed(method: String): Boolean {
+    override fun isCallable(method: String): Boolean {
         return allowedMethods.contains(method)
     }
 
