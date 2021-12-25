@@ -157,7 +157,7 @@ Dshackle currently supports
 
 === Ethereum Methods
 
-.By default an ethereum upstream allows calls to the following JSON RPC methods:
+.By default, an ethereum upstream allows calls to the following JSON RPC methods:
 - `eth_gasPrice`
 - `eth_call`
 - `eth_estimateGas`
@@ -180,6 +180,7 @@ Dshackle currently supports
 - `eth_getTransactionReceipt`
 - `eth_getUncleByBlockNumberAndIndex`
 - `eth_feeHistory`
+- `eth_getLogs`
 
 .Plus following methods are answered directly by Dshackle
 - `net_version`
@@ -193,8 +194,8 @@ Dshackle currently supports
 - `eth_hashrate`
 - `eth_accounts`
 
-It's possible to enable additional methods that are available on upstream, or disable an existing method.For that purpose
-there is `methods` configuration:
+It's possible to enable additional methods that are available on upstream, or disable an existing method.
+For that purpose there is `methods` configuration:
 
 [source, yaml]
 ----
@@ -210,19 +211,16 @@ upstreams:
         - name: eth_getBlockByNumber
 ----
 
-Such configuration option allows to execute method `trace_transaction` and also disables `eth_getBlockByNumber` on that
-particular upstream.If a client requests to execute method `trace_transaction` then it will be scheduled to that upstream (or
-any upstream with such method enabled).
+Such configuration option allows executing method `trace_transaction` and also disables `eth_getBlockByNumber` on that particular upstream.
+If a client requests to execute method `trace_transaction` then it will be scheduled to that upstream (or any upstream with such method enabled).
 
-NOTE: It's especially useful when used together with upstream labels.If an archive upstream has label `archive: true` it's
-possible to specify that the client wants to execute method `trace_transaction` only on an archive node(s), which has
-complete historical data for tracing.
+NOTE: It's especially useful when used together with upstream labels.If an archive upstream has label `archive: true` it's possible to specify that the client wants to execute method `trace_transaction` only on an archive node(s), which has complete historical data for tracing.
 
 === Static Methods
 
 You can overwrite existing methods or add new ones using a static response:
 
-[source, yaml]
+[source,yaml]
 ----
 upstreams:
   - id: my-node

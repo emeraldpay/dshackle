@@ -49,7 +49,8 @@ class DefaultEthereumMethods(
         "eth_getTransactionByBlockHashAndIndex",
         "eth_getStorageAt",
         "eth_getCode",
-        "eth_getUncleByBlockHashAndIndex"
+        "eth_getUncleByBlockHashAndIndex",
+        "eth_getLogs"
     )
 
     private val specialMethods = listOf(
