@@ -616,6 +616,11 @@ Fallback role mean that the upstream is used only after other upstreams failed o
 Cluster may have multiple upstreams for a single blockchain.
 Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, `kovan-testnet`, `rinkeby-testnet`, `ropsten-testnet`, or `goerli-testnet`
 
+| `enabled`
+| no
+| `true` (default) or `false`.
+Enable/disable the upstream.
+
 | `labels`
 | no
 | Key-Value pairs that are assigned to the upstream.

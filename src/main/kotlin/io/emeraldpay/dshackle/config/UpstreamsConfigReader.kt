@@ -194,6 +194,9 @@ class UpstreamsConfigReader(
         upstream.id = getValueAsString(upNode, "id")
         upstream.options = tryReadOptions(upNode)
         upstream.methods = tryReadMethods(upNode)
+        getValueAsBool(upNode, "enabled")?.let {
+            upstream.isEnabled = it
+        }
     }
 
     internal fun readUpstreamGrpc(

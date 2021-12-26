@@ -63,6 +63,10 @@ open class ConfiguredUpstreams(
         log.debug("Starting upstreams")
         val defaultOptions = buildDefaultOptions(config)
         config.upstreams.forEach { up ->
+            if (!up.isEnabled) {
+                log.debug("Upstream ${up.id} is disabled")
+                return@forEach
+            }
             log.debug("Start upstream ${up.id}")
             if (up.connection is UpstreamsConfig.GrpcConnection) {
                 val options = up.options ?: UpstreamsConfig.Options()
