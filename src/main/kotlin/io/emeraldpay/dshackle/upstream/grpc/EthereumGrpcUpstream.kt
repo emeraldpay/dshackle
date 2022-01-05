@@ -48,13 +48,14 @@ import java.util.function.Function
 
 open class EthereumGrpcUpstream(
     private val parentId: String,
+    role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient
 ) : EthereumUpstream(
     "$parentId/${chain.chainCode}",
     UpstreamsConfig.Options.getDefaults(),
-    UpstreamsConfig.UpstreamRole.STANDARD,
+    role,
     null, null
 ),
     GrpcUpstream,

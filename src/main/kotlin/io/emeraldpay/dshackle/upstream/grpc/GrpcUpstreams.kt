@@ -21,6 +21,7 @@ import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -51,6 +52,7 @@ import kotlin.concurrent.withLock
 
 class GrpcUpstreams(
     private val id: String,
+    private val role: UpstreamsConfig.UpstreamRole,
     private val host: String,
     private val port: Int,
     private val auth: AuthConfig.ClientTlsAuth? = null,
@@ -198,7 +200,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = EthereumGrpcUpstream(id, chain, client!!, rpcClient)
+                val created = EthereumGrpcUpstream(id, role, chain, client!!, rpcClient)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
@@ -214,7 +216,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = BitcoinGrpcUpstream(id, chain, client!!, rpcClient)
+                val created = BitcoinGrpcUpstream(id, role, chain, client!!, rpcClient)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()

@@ -45,6 +45,7 @@ import java.util.function.Function
 
 class BitcoinGrpcUpstream(
     private val parentId: String,
+    role: UpstreamsConfig.UpstreamRole,
     chain: Chain,
     val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient
@@ -52,7 +53,7 @@ class BitcoinGrpcUpstream(
     "$parentId/${chain.chainCode}",
     chain,
     UpstreamsConfig.Options.getDefaults(),
-    UpstreamsConfig.UpstreamRole.STANDARD
+    role
 ),
     GrpcUpstream,
     Lifecycle {

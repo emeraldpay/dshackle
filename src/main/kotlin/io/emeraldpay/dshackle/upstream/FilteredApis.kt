@@ -82,7 +82,8 @@ class FilteredApis(
     ) : this(chain, allUpstreams, matcher, 0, 10, 10)
 
     private val delay: Int
-    private val standardUpstreams: List<Upstream>
+    private val primaryUpstreams: List<Upstream>
+    private val secondaryUpstreams: List<Upstream>
     private val standardWithFallback: List<Upstream>
 
     private val control = Sinks.many().unicast().onBackpressureBuffer<Boolean>()
@@ -94,8 +95,13 @@ class FilteredApis(
             DEFAULT_DELAY_STEP
         }
 
-        standardUpstreams = allUpstreams.filter {
-            it.getRole() == UpstreamsConfig.UpstreamRole.STANDARD
+        primaryUpstreams = allUpstreams.filter {
+            it.getRole() == UpstreamsConfig.UpstreamRole.PRIMARY
+        }.let {
+            startFrom(it, pos)
+        }
+        secondaryUpstreams = allUpstreams.filter {
+            it.getRole() == UpstreamsConfig.UpstreamRole.SECONDARY
         }.let {
             startFrom(it, pos)
         }
@@ -105,12 +111,14 @@ class FilteredApis(
             startFrom(it, pos)
         }
         standardWithFallback = emptyList<Upstream>()
-            .plus(standardUpstreams)
+            .plus(primaryUpstreams)
+            .plus(secondaryUpstreams)
             .plus(fallbackUpstreams)
 
         if (Global.metricsExtended) {
             getMetrics(chain).let { monitoring ->
-                monitoring.countStd.record(standardUpstreams.size.toDouble())
+                monitoring.countPrimary.record(primaryUpstreams.size.toDouble())
+                monitoring.countSecondary.record(secondaryUpstreams.size.toDouble())
                 monitoring.countFallback.record(fallbackUpstreams.size.toDouble())
             }
         }
@@ -145,17 +153,18 @@ class FilteredApis(
 
     override fun subscribe(subscriber: Subscriber<in Upstream>) {
         // initially try only standard upstreams
-        val first = Flux.fromIterable(standardUpstreams)
+        val first = Flux.fromIterable(primaryUpstreams)
+        val second = Flux.fromIterable(secondaryUpstreams)
         // if all failed, try both standard and fallback upstreams, repeating in cycle
         val retries = (0 until (retryLimit - 1)).map { r ->
             Flux.fromIterable(standardWithFallback)
-                // add delay to let upstream to restore if it's a temp failure
+                // add a delay to let upstream to restore if it's a temp failure
                 // but delay only start of the check, not between upstreams
                 // i.e. if all upstreams failed -> wait -> check all without waiting in between
                 .delaySubscription(waitDuration(r + 1))
         }.let { Flux.concat(it) }
 
-        var result = Flux.concat(first, retries)
+        var result = Flux.concat(first, second, retries)
 
         if (Global.metricsExtended) {
             var count = 0
@@ -186,9 +195,13 @@ class FilteredApis(
     }
 
     class Monitoring(chain: Chain) {
-        val countStd: DistributionSummary = DistributionSummary.builder("$metricsCode.exist")
+        val countPrimary: DistributionSummary = DistributionSummary.builder("$metricsCode.exist")
             .description("Count of available upstreams to select")
-            .tags(listOf(Tag.of("chain", chain.chainCode), Tag.of("role", "std")))
+            .tags(listOf(Tag.of("chain", chain.chainCode), Tag.of("role", "primary")))
+            .register(Metrics.globalRegistry)
+        val countSecondary: DistributionSummary = DistributionSummary.builder("$metricsCode.exist")
+            .description("Count of available upstreams to select")
+            .tags(listOf(Tag.of("chain", chain.chainCode), Tag.of("role", "secondary")))
             .register(Metrics.globalRegistry)
         val countFallback: DistributionSummary = DistributionSummary.builder("$metricsCode.exist")
             .description("Count of available fallback upstreams to select")

@@ -74,7 +74,7 @@ cluster:
               password: ${INFURA_PASSWD}
 ----
 
-There're two main segments for upstreams configuration:
+There are two main segments for upstreams configuration:
 
 - _upstreams_ - a list of API to connect to, with all configuration specific for upstream and chain
 - and _default options_ as common configuration options applied to all nodes in that group
@@ -94,24 +94,33 @@ In the example above we have:
 ** label `[provider: infura]` is set for that particular upstream, which can be selected during a request.For example for some requests you may want to use nodes with that label only, i.e. _"send that tx to infura nodes only"_, or _"read only from archive node, with label [archive: true]"_
 ** upstream validation (peers, sync status, etc) is disabled for that particular upstream
 
-=== Fallback upstream
+=== Roles and Fallback upstream
 
 By default, the Dshackle connects to each upstream in a Round-Robin basis, i.e. sequentially one by one.
-But if an upstream have `role: fallback` then it's used only in additional to other (_standard_) upstreams when their responses are not enough to finalize the request.
+If you need more gradual control over the order of which upstream is used and when you can assign following roles:
 
-Dshackle always starts with making requests to standard upstreams.
-If all of them failed, if responses are inconsistent (ex. for `eth_getTransactionCount`), or when it needs to broadcast to wider networks (`sendrawtransaction`), then upstreams with role `fallback` are also used.
+- `primary` (default role if nothing specified)
+- `secondary`
+- `fallback`
 
-The internal request order is:
+Where `primary` and `secondary` are considered here a _standard_ upstreams, and `fallback` is used on failure of standard upstreams.
+I.e. the Dshackle always starts with making requests to standard upstreams.
+If all of them failed, if responses are inconsistent (ex. for `eth_getTransactionCount`), or when it needs to broadcast to a wider network (`sendrawtransaction`), then upstreams with role `fallback` cames to use.
 
-1. connect to each standard upstream
-2. delay
-3. try again to connect to standard upstreams
-4. try to connect to fallback upstreams
+The internal request order is (goes to next only if all upstreams on current step a not available or failed):
 
-Steps 2-4 are repeated until a valid response received, or timeout for the original request is reached.
+1. tries with primary upstreams
+2. tries with secondary upstream
+3. ... delay (100ms at first, increased each iteration)
+4. tries with primary upstreams
+5. tries with secondary upstream
+6. tries with fallback upstreams
+7. ... go to step 3
 
-In general, you set role `fallback` only to external nodes provided by a third party, when you want to use it as a last resort.
+Steps 3-6 are repeated until a valid response received, or a timeout for the original request is reached.
+
+In general:
+- you set role `secondary` for upstream in another cluster/datacenter - you set role `fallback` for an external upstream which may be provided by a third party, and you want to use it as a last resort
 
 === Configuration options
 

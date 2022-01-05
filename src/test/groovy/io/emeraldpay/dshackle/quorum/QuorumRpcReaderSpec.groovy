@@ -38,7 +38,7 @@ class QuorumRpcReaderSpec extends Specification {
         setup:
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
-            _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             1 * getApi() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.just(JsonRpcResponse.ok("1"))
             }
@@ -71,7 +71,7 @@ class QuorumRpcReaderSpec extends Specification {
         }
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
-            _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getApi() >> api
         }
         def apis = new FilteredApis(
@@ -98,7 +98,7 @@ class QuorumRpcReaderSpec extends Specification {
         setup:
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
-            _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getApi() >> Mock(Reader) {
                 2 * read(new JsonRpcRequest("eth_test", [])) >>> [
                         Mono.just(JsonRpcResponse.ok("null")),
@@ -130,7 +130,7 @@ class QuorumRpcReaderSpec extends Specification {
         setup:
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
-            _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getApi() >> Mock(Reader) {
                 2 * read(new JsonRpcRequest("eth_test", [])) >>> [
                         Mono.just(JsonRpcResponse.error(1, "test")),
@@ -161,7 +161,7 @@ class QuorumRpcReaderSpec extends Specification {
         setup:
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
-            _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getApi() >> Mock(Reader) {
                 3 * read(new JsonRpcRequest("eth_test", [])) >>> [
                         Mono.just(JsonRpcResponse.ok("null")),
@@ -200,7 +200,7 @@ class QuorumRpcReaderSpec extends Specification {
         }
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
-            _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getApi() >> api
         }
         def apis = new FilteredApis(
@@ -226,7 +226,7 @@ class QuorumRpcReaderSpec extends Specification {
         def up = Mock(Upstream) {
             _ * getLag() >> 0
             _ * isAvailable() >> true
-            _ * getRole() >> UpstreamsConfig.UpstreamRole.STANDARD
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getApi() >> Mock(Reader) {
                 _ * read(new JsonRpcRequest("eth_test", [])) >>> [
                         Mono.just(JsonRpcResponse.error(-3010, "test")),

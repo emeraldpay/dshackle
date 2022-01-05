@@ -343,8 +343,8 @@ class UpstreamsConfigReaderSpec extends Specification {
         then:
         act != null
         act.upstreams.size() == 2
-        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.STANDARD
-        act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.STANDARD
+        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.PRIMARY
+        act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.PRIMARY
     }
 
     def "Parse config with fallback role"() {
@@ -355,8 +355,21 @@ class UpstreamsConfigReaderSpec extends Specification {
         then:
         act != null
         act.upstreams.size() == 2
-        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.STANDARD
+        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.PRIMARY
         act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.FALLBACK
+    }
+
+    def "Parse config with secondary role"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-roles-2.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 3
+        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.PRIMARY
+        act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.SECONDARY
+        act.upstreams.get(2).role == UpstreamsConfig.UpstreamRole.FALLBACK
     }
 
     def "Parse config with invalid role"() {
@@ -367,7 +380,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         then:
         act != null
         act.upstreams.size() == 2
-        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.STANDARD
-        act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.STANDARD
+        act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.PRIMARY
+        act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.PRIMARY
     }
 }

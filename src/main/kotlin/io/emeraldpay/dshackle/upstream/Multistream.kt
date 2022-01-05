@@ -212,7 +212,7 @@ abstract class Multistream(
 
     // TODO roles for multistream are useless
     override fun getRole(): UpstreamsConfig.UpstreamRole {
-        return UpstreamsConfig.UpstreamRole.STANDARD
+        return UpstreamsConfig.UpstreamRole.PRIMARY
     }
 
     override fun getMethods(): CallMethods {

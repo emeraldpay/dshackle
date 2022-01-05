@@ -234,6 +234,7 @@ open class ConfiguredUpstreams(
         val endpoint = config.connection!!
         val ds = GrpcUpstreams(
             config.id!!,
+            config.role,
             endpoint.host!!,
             endpoint.port,
             endpoint.auth,

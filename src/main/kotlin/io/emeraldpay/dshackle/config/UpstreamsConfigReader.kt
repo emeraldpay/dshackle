@@ -214,7 +214,10 @@ class UpstreamsConfigReader(
     internal fun readUpstreamStandard(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
         upstream.chain = getValueAsString(upNode, "chain")
         getValueAsString(upNode, "role")?.let {
-            val name = it.trim()
+            val name = it.trim().let {
+                // `standard` was initial role, now split into `primary` and `secondary`
+                if (it == "standard") "primary" else it
+            }
             try {
                 val role = UpstreamsConfig.UpstreamRole.valueOf(name.uppercase(Locale.getDefault()))
                 upstream.role = role

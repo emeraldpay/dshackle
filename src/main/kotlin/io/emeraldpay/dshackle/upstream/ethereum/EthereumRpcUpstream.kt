@@ -33,7 +33,7 @@ open class EthereumRpcUpstream(
     constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>) :
         this(
             id, chain, api, null,
-            UpstreamsConfig.Options.getDefaults(), UpstreamsConfig.UpstreamRole.STANDARD,
+            UpstreamsConfig.Options.getDefaults(), UpstreamsConfig.UpstreamRole.PRIMARY,
             QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
             DirectCallMethods()
         )

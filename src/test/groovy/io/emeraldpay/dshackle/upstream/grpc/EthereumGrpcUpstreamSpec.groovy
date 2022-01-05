@@ -22,6 +22,7 @@ import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -80,7 +81,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain, metrics))
+        def upstream = new EthereumGrpcUpstream("test", UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics))
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
@@ -138,7 +139,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics))
+        def upstream = new EthereumGrpcUpstream("test", UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics))
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
@@ -200,7 +201,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", chain, client, new JsonRpcGrpcClient(client, chain, metrics))
+        def upstream = new EthereumGrpcUpstream("test", UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics))
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))

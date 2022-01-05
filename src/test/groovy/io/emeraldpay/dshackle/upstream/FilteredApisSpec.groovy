@@ -52,7 +52,7 @@ class FilteredApisSpec extends Specification {
                     TestingCommons.api().tap { it.id = "${i++}" },
                     (EthereumWsFactory) null,
                     new UpstreamsConfig.Options(),
-                    UpstreamsConfig.UpstreamRole.STANDARD,
+                    UpstreamsConfig.UpstreamRole.PRIMARY,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     ethereumTargets
             )
@@ -210,7 +210,7 @@ class FilteredApisSpec extends Specification {
         6   | [0, 1]
     }
 
-    def "Starts with standard"() {
+    def "Starts with primary"() {
         setup:
         List<Upstream> standard = (0..1).collect {
             TestingCommons.upstream(
@@ -237,6 +237,47 @@ class FilteredApisSpec extends Specification {
                 .expectNext(fallback[0]).as("Retry with fallback")
 
                 .expectNext(standard[0], standard[1]).as("Second retry with standard")
+                .expectNext(fallback[0]).as("Second retry with fallback")
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Use secondary after primary"() {
+        setup:
+        List<Upstream> standard = (0..1).collect {
+            TestingCommons.upstream(
+                    it.toString(),
+                    new EthereumApiStub(it)
+            )
+        }
+        List<Upstream> fallback = [
+                Mock([name: "fallback"], Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.FALLBACK
+                    _ * isAvailable() >> true
+                }
+        ]
+        List<Upstream> secondary = [
+                Mock([name: "secondary"], Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.SECONDARY
+                    _ * isAvailable() >> true
+                }
+        ]
+        when:
+        def act = new FilteredApis(Chain.ETHEREUM,
+                [] + fallback + standard + secondary,
+                Selector.empty, 0, 3, 0)
+        act.request(11)
+        then:
+        StepVerifier.create(act)
+                .expectNext(standard[0], standard[1]).as("Initial requests with primary")
+                .expectNext(secondary[0]).as("Initial requests with secondary")
+
+                .expectNext(standard[0], standard[1]).as("Retry with primary")
+                .expectNext(secondary[0]).as("Retry with secondary")
+                .expectNext(fallback[0]).as("Retry with fallback")
+
+                .expectNext(standard[0], standard[1]).as("Second retry with primary")
+                .expectNext(secondary[0]).as("Second retry with secondary")
                 .expectNext(fallback[0]).as("Second retry with fallback")
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))

@@ -75,7 +75,7 @@ open class UpstreamsConfig {
         var connection: T? = null
         val labels = Labels()
         var methods: Methods? = null
-        var role: UpstreamRole = UpstreamRole.STANDARD
+        var role: UpstreamRole = UpstreamRole.PRIMARY
 
         @Suppress("UNCHECKED_CAST")
         fun <Z : UpstreamConnection> cast(type: Class<Z>): Upstream<Z> {
@@ -87,7 +87,8 @@ open class UpstreamsConfig {
     }
 
     enum class UpstreamRole {
-        STANDARD,
+        PRIMARY,
+        SECONDARY,
         FALLBACK
     }
 
