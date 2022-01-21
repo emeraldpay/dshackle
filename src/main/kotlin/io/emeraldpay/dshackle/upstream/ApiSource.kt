@@ -21,5 +21,9 @@ import org.reactivestreams.Publisher
 interface ApiSource : Publisher<Upstream> {
 
     fun resolve()
+
+    /**
+     * Must be called before actual use, it spins off control flow of the API Source
+     */
     fun request(tries: Int)
 }

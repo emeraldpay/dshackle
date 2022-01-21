@@ -35,6 +35,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.random.Random
+import org.slf4j.LoggerFactory
 
 class FilteredApis(
     val chain: Chain,
@@ -49,6 +50,8 @@ class FilteredApis(
 ) : ApiSource {
 
     companion object {
+        private val log = LoggerFactory.getLogger(FilteredApis::class.java)
+
         private const val DEFAULT_DELAY_STEP = 100
         private const val MAX_WAIT_MILLIS = 5000L
 
@@ -86,6 +89,7 @@ class FilteredApis(
     private val secondaryUpstreams: List<Upstream>
     private val standardWithFallback: List<Upstream>
 
+    private var started = false
     private val control = Sinks.many().unicast().onBackpressureBuffer<Boolean>()
 
     init {
@@ -176,6 +180,12 @@ class FilteredApis(
         result.filter { up -> up.isAvailable() && matcher.matches(up) }
             .zipWith(control.asFlux())
             .map { it.t1 }
+            .doOnSubscribe {
+                if (!started) {
+                    // in addition to subscription the FilteredAPI should use request() method to prepare the control flow
+                    log.warn("API Source subscribed before preparing a request")
+                }
+            }
             .subscribe(subscriber)
     }
 
@@ -184,6 +194,7 @@ class FilteredApis(
     }
 
     override fun request(tries: Int) {
+        started = true
         // TODO check the buffer size before submitting
         repeat(tries) {
             control.tryEmitNext(true)

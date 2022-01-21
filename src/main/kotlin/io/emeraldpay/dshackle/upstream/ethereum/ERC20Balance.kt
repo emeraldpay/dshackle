@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -41,9 +42,17 @@ open class ERC20Balance {
         return upstreams
             // use only up-to-date upstreams
             .getApiSource(Selector.HeightMatcher(upstreams.getHead().getCurrentHeight() ?: 0))
-            .let { Flux.from(it) }
+            .let { getBalance(it, token, address) }
+    }
+
+    open fun getBalance(apis: ApiSource, token: ERC20Token, address: Address): Mono<BigInteger> {
+        apis.request(1)
+        return Flux.from(apis)
             .flatMap {
                 getBalance(it.cast(EthereumUpstream::class.java), token, address)
+            }
+            .doOnNext {
+                apis.resolve()
             }
             .next()
     }
