@@ -23,6 +23,7 @@ import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import org.reactivestreams.Subscriber
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import java.time.Duration
@@ -35,7 +36,6 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.random.Random
-import org.slf4j.LoggerFactory
 
 class FilteredApis(
     val chain: Chain,
