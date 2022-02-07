@@ -15,6 +15,7 @@ enum ChainRef {
     CHAIN_ETHEREUM = 100;
     CHAIN_ETHEREUM_CLASSIC = 101;
     CHAIN_FANTOM = 102; // Fantom, https://fantom.foundation/
+    CHAIN_BSC = 103; // Binance Smart Chain
 
     // Sidechains and state channels start with 1_000
     // CHAIN_LIGHTNING = 1001;
