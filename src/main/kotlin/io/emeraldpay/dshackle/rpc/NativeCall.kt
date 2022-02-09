@@ -232,10 +232,10 @@ open class NativeCall(
                 CallResult(ctx.id, it.value, null)
             }
             .onErrorResume { t ->
-                val failure = if (t is CallFailure) {
-                    CallResult.fail(t.id, t.reason)
-                } else {
-                    CallResult.fail(ctx.id, t)
+                val failure = when (t) {
+                    is CallFailure -> CallResult.fail(t.id, t.reason)
+                    is JsonRpcException -> CallResult.fail(ctx.id, t.error.code, t.error.message)
+                    else -> CallResult.fail(ctx.id, t)
                 }
                 Mono.just(failure)
             }

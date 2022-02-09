@@ -221,6 +221,39 @@ class QuorumRpcReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(2))
     }
 
+    def "always-quorum - error if failed"() {
+        setup:
+        def api = Mock(Reader) {
+            1 * read(new JsonRpcRequest("eth_test", [])) >>> [
+                    Mono.just(JsonRpcResponse.error(1, "test error")),
+            ]
+        }
+        def up = Mock(Upstream) {
+            _ * isAvailable() >> true
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+            _ * getApi() >> api
+        }
+        def apis = new FilteredApis(
+                Chain.ETHEREUM,
+                [up], Selector.empty
+        )
+        def reader = new QuorumRpcReader(apis, new AlwaysQuorum())
+
+        when:
+        def act = reader.read(new JsonRpcRequest("eth_test", []))
+                .map {
+                    new String(it.value)
+                }
+
+        then:
+        StepVerifier.create(act)
+                .expectErrorMatches { t ->
+                    println("Error: $t.class / $t.message")
+                    t instanceof JsonRpcException && t.message == "test error" && t.error.code == 1
+                }
+                .verify(Duration.ofSeconds(2))
+    }
+
     def "Return error is upstream returned it"() {
         setup:
         def up = Mock(Upstream) {

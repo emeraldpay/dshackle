@@ -17,20 +17,25 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ApiSource
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
+import java.util.function.BiFunction
+import java.util.function.Function
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
 
 /**
  * Makes request with applying Quorum
  */
 class QuorumRpcReader(
-    private val apis: ApiSource,
+    private val apiControl: ApiSource,
     private val quorum: CallQuorum
 ) : Reader<JsonRpcRequest, QuorumRpcReader.Result> {
 
@@ -38,8 +43,9 @@ class QuorumRpcReader(
         private val log = LoggerFactory.getLogger(QuorumRpcReader::class.java)
     }
 
-    override fun read(key: JsonRpcRequest): Mono<QuorumRpcReader.Result> {
-        apis.request(1)
+    override fun read(key: JsonRpcRequest): Mono<Result> {
+        // needs at least one response, so start a request
+        apiControl.request(1)
 
         // uses a mix of retry strategy and managed Publisher for calls.
         // retry is used when an error happened
@@ -50,66 +56,17 @@ class QuorumRpcReader(
             signal.takeUntil {
                 it.totalRetries() >= 3 || quorum.isResolved() || quorum.isFailed()
             }.doOnNext {
-                // need one more API source if retried
-                apis.request(1)
+                // when retried it needs one more API source
+                apiControl.request(1)
             }
         }
 
-        val defaultResult: Mono<Result> = Mono.just(quorum).flatMap { q ->
-            if (q.isFailed()) {
-                Mono.error<Result>(
-                    q.getError()?.asException(JsonRpcResponse.NumberId(1))
-                        ?: RpcException(-32000, "Unknown Upstream error")
-                )
-            } else {
-                log.warn("Did not get any result from upstream. Method [${key.method}] using [$q]")
-                Mono.empty<Result>()
-            }
-        }
+        val defaultResult: Mono<Result> = setupDefaultResult(key)
 
-        return Flux.from(apis)
-            .takeUntil {
-                quorum.isFailed() || quorum.isResolved()
-            }
-            .flatMap { api ->
-                api.getApi()
-                    .read(key)
-                    .flatMap { response ->
-                        response.requireResult()
-                            .onErrorResume { err ->
-                                if (err is RpcException || err is JsonRpcException) {
-                                    // on error notify quorum, it may use error message or other details
-                                    val cleanErr: JsonRpcException = when (err) {
-                                        is RpcException -> JsonRpcException.from(err)
-                                        is JsonRpcException -> err
-                                        else -> throw IllegalStateException("Cannot convert from exception", err)
-                                    }
-                                    quorum.record(cleanErr, api)
-                                    // it it's failed after that, then we don't need more calls, stop api source
-                                    if (quorum.isFailed()) {
-                                        apis.resolve()
-                                    } else {
-                                        apis.request(1)
-                                    }
-                                } else {
-                                    log.warn("Result processing error", err)
-                                }
-                                Mono.empty()
-                            }
-                    }
-                    .map { Tuples.of(it, api) }
-            }
-            .retryWhen(retrySpec)
-            // record all correct responses until quorum reached
-            .reduce(quorum, { res, a ->
-                if (res.record(a.t1, a.t2)) {
-                    apis.resolve()
-                } else {
-                    apis.request(1)
-                }
-                res
-            })
-            // if last call resulted in error it's still possible that request was resolved correctly. i.e. for BroadcastQuorum
+        return Flux.from(apiControl)
+            .transform(execute(key, retrySpec))
+            .next()
+            // if last call resulted in error it's still possible that request was resolved correctly. ex. for BroadcastQuorum
             .onErrorResume { err ->
                 if (quorum.isResolved()) {
                     Mono.just(quorum)
@@ -122,13 +79,85 @@ class QuorumRpcReader(
                     log.debug("No quorum for ${key.method} using [$quorum]. Error: ${it.getError()?.message ?: ""}")
                 }
             }
-            // return nothing if not resolved
-            .filter { it.isResolved() }
-            .map {
-                // TODO find actual quorum number
-                QuorumRpcReader.Result(it.getResult()!!, 1)
+            .transform(processResult(defaultResult))
+    }
+
+    fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
+        val quorumReduce = BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> { res, a ->
+            if (res.record(a.t1, a.t2)) {
+                apiControl.resolve()
+            } else {
+                // quorum needs more responses, so ask api controller to make another
+                apiControl.request(1)
             }
-            .switchIfEmpty(defaultResult)
+            res
+        }
+        return Function { apiFlux ->
+            apiFlux
+                .takeUntil {
+                    quorum.isFailed() || quorum.isResolved()
+                }
+                .flatMap { api ->
+                    callApi(api, key)
+                }
+                .retryWhen(retrySpec)
+                // record all correct responses until quorum reached
+                .reduce(quorum, quorumReduce)
+        }
+    }
+
+    fun processResult(defaultResult: Mono<Result>): Function<Mono<CallQuorum>, Mono<Result>> {
+        return Function { quorumResult ->
+            quorumResult
+                .filter { it.isResolved() } // return nothing if not resolved
+                .map {
+                    // TODO find actual quorum number
+                    QuorumRpcReader.Result(it.getResult()!!, 1)
+                }
+                .switchIfEmpty(defaultResult)
+        }
+    }
+
+    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple2<ByteArray, Upstream>> {
+        return api.getApi()
+            .read(key)
+            .flatMap { response ->
+                response.requireResult()
+                    .onErrorResume { err ->
+                        // on error notify quorum, it may use error message or other details
+                        val cleanErr: JsonRpcException = when (err) {
+                            is RpcException -> JsonRpcException.from(err)
+                            is JsonRpcException -> err
+                            else -> JsonRpcException(
+                                JsonRpcResponse.NumberId(key.id),
+                                JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}")
+                            )
+                        }
+                        quorum.record(cleanErr, api)
+                        // if it's failed after that, then we don't need more calls, stop api source
+                        if (quorum.isFailed()) {
+                            apiControl.resolve()
+                        } else {
+                            apiControl.request(1)
+                        }
+                        Mono.empty()
+                    }
+            }
+            .map { Tuples.of(it, api) }
+    }
+
+    fun setupDefaultResult(key: JsonRpcRequest): Mono<Result> {
+        return Mono.just(quorum).flatMap { q ->
+            if (q.isFailed()) {
+                Mono.error<Result>(
+                    q.getError()?.asException(JsonRpcResponse.NumberId(key.id))
+                        ?: JsonRpcException(JsonRpcResponse.NumberId(key.id), JsonRpcError(-32603, "Unhandled Upstream error"))
+                )
+            } else {
+                log.warn("Did not get any result from upstream. Method [${key.method}] using [$q]")
+                Mono.empty<Result>()
+            }
+        }
     }
 
     class Result(
