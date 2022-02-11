@@ -126,7 +126,7 @@ class JsonRpcHttpClient(
                     is JsonRpcException -> JsonRpcResponse.error(t.error, JsonRpcResponse.NumberId(1))
                     else -> JsonRpcResponse.error(1, t.message ?: t.javaClass.name)
                 }
-                metrics.errors.increment()
+                metrics.fails.increment()
                 Mono.just(err)
             }
     }

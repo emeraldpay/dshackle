@@ -173,29 +173,44 @@ class ProxyServer(
     interface RequestMetrics {
         val callMetric: Timer
         val errorMetric: Counter
+        val failMetric: Counter
         val requestMetric: Counter
     }
 
     class RequestMetricsBasic(chain: Chain) : RequestMetrics {
         override val callMetric = Timer.builder("request.jsonrpc.call")
+            .description("Time to process a call")
             .tags("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
         override val errorMetric = Counter.builder("request.jsonrpc.err")
+            .description("Number of requests ended with an error response")
+            .tags("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
+        override val failMetric = Counter.builder("request.jsonrpc.fail")
+            .description("Number of requests failed to process")
             .tags("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
         override val requestMetric = Counter.builder("request.jsonrpc.request.total")
+            .description("Number of requests")
             .tags("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
     }
 
     class RequestMetricsWithMethod(chain: Chain, method: String) : RequestMetrics {
         override val callMetric = Timer.builder("request.jsonrpc.call")
+            .description("Time to process a call")
             .tags("chain", chain.chainCode, "method", method)
             .register(Metrics.globalRegistry)
         override val errorMetric = Counter.builder("request.jsonrpc.err")
+            .description("Number of requests ended with an error response")
+            .tags("chain", chain.chainCode, "method", method)
+            .register(Metrics.globalRegistry)
+        override val failMetric = Counter.builder("request.jsonrpc.fail")
+            .description("Number of requests failed to process")
             .tags("chain", chain.chainCode, "method", method)
             .register(Metrics.globalRegistry)
         override val requestMetric = Counter.builder("request.jsonrpc.request.total")
+            .description("Number of requests")
             .tags("chain", chain.chainCode, "method", method)
             .register(Metrics.globalRegistry)
     }

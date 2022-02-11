@@ -57,7 +57,8 @@ class BlockchainRpc(
         .tag("type", "subscribeStatus")
         .tag("chain", "NA")
         .register(Metrics.globalRegistry)
-    private val errorMetric = Counter.builder("request.grpc.err")
+    private val failMetric = Counter.builder("request.grpc.fail")
+        .description("Number of requests failed to process")
         .register(Metrics.globalRegistry)
     private val chainMetrics = ChainValue { chain -> RequestMetrics(chain) }
 
@@ -71,9 +72,14 @@ class BlockchainRpc(
                     metrics!!.nativeCallMetric.increment()
                     startTime = System.currentTimeMillis()
                 }
-        ).doOnNext {
-            metrics?.nativeCallRespMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
-        }.doOnError { errorMetric.increment() }
+        ).doOnNext { reply ->
+            metrics?.let { m ->
+                m.nativeCallRespMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                if (!reply.succeed) {
+                    m.nativeCallErrRespMetric.increment()
+                }
+            }
+        }.doOnError { failMetric.increment() }
     }
 
     override fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
@@ -86,14 +92,14 @@ class BlockchainRpc(
                 }
         ).doOnNext {
             metrics?.nativeSubscribeRespMetric?.increment()
-        }.doOnError { errorMetric.increment() }
+        }.doOnError { failMetric.increment() }
     }
 
     override fun subscribeHead(request: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
         return streamHead.add(
             request
                 .doOnNext { chainMetrics.get(it.type).subscribeHeadMetric.increment() }
-        ).doOnError { errorMetric.increment() }
+        ).doOnError { failMetric.increment() }
     }
 
     override fun subscribeTxStatus(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
@@ -105,11 +111,11 @@ class BlockchainRpc(
                 trackTx.find { it.isSupported(chain) }?.let { track ->
                     track.subscribe(request)
                         .doOnNext { metrics.subscribeHeadRespMetric.increment() }
-                        .doOnError { errorMetric.increment() }
+                        .doOnError { failMetric.increment() }
                 } ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
             } catch (t: Throwable) {
                 log.error("Internal error during Tx Subscription", t)
-                errorMetric.increment()
+                failMetric.increment()
                 Flux.error<BlockchainOuterClass.TxStatus>(IllegalStateException("Internal Error"))
             }
         }
@@ -125,14 +131,14 @@ class BlockchainRpc(
                 trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
                     track.subscribe(request)
                         .doOnNext { metrics.subscribeBalanceRespMetric.increment() }
-                        .doOnError { errorMetric.increment() }
+                        .doOnError { failMetric.increment() }
                 } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
                     .doOnSubscribe {
                         log.error("Balance for $chain:$asset is not supported")
                     }
             } catch (t: Throwable) {
                 log.error("Internal error during Balance Subscription", t)
-                errorMetric.increment()
+                failMetric.increment()
                 Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
             }
         }
@@ -160,7 +166,7 @@ class BlockchainRpc(
                     }
             } catch (t: Throwable) {
                 log.error("Internal error during Balance Request", t)
-                errorMetric.increment()
+                failMetric.increment()
                 Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
             }
         }
@@ -182,20 +188,20 @@ class BlockchainRpc(
             }
             .doOnError { t ->
                 log.error("Internal error during Fee Estimation", t)
-                errorMetric.increment()
+                failMetric.increment()
             }
     }
 
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
         describeMetric.increment()
         return describe.describe(request)
-            .doOnError { errorMetric.increment() }
+            .doOnError { failMetric.increment() }
     }
 
     override fun subscribeStatus(request: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
         subscribeStatusMetric.increment()
         return subscribeStatus.subscribeStatus(request)
-            .doOnError { errorMetric.increment() }
+            .doOnError { failMetric.increment() }
     }
 
     class RequestMetrics(chain: Chain) {
@@ -207,6 +213,10 @@ class BlockchainRpc(
             .tag("type", "nativeCall")
             .tag("chain", chain.chainCode)
             .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+        val nativeCallErrRespMetric = Counter.builder("request.grpc.response.err")
+            .tag("type", "nativeCall")
+            .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
         val nativeSubscribeMetric = Counter.builder("request.grpc.request")
             .tag("type", "nativeSubscribe")

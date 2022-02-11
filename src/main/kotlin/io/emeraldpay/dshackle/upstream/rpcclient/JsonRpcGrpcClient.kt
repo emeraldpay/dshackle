@@ -79,7 +79,7 @@ class JsonRpcGrpcClient(
                                 val bytes = resp.payload.toByteArray()
                                 Mono.just(JsonRpcResponse(bytes, null))
                             } else {
-                                metrics.errors.increment()
+                                metrics.fails.increment()
                                 Mono.error(
                                     RpcException(
                                         RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,

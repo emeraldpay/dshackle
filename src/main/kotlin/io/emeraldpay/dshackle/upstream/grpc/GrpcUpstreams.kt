@@ -175,12 +175,12 @@ class GrpcUpstreams(
 
         val metrics = RpcMetrics(
             Timer.builder("upstream.grpc.conn")
-                .description("Request time through a gRPC connection")
+                .description("Request time through a Dshackle/gRPC connection")
                 .tags(metricsTags)
                 .publishPercentileHistogram()
                 .register(Metrics.globalRegistry),
-            Counter.builder("upstream.grpc.err")
-                .description("Errors received on request through gRPC connection")
+            Counter.builder("upstream.grpc.fail")
+                .description("Number of failures of Dshackle/gRPC requests")
                 .tags(metricsTags)
                 .register(Metrics.globalRegistry)
         )

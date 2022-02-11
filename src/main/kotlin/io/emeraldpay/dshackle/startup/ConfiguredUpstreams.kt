@@ -271,8 +271,8 @@ open class ConfiguredUpstreams(
                     .tags(metricsTags)
                     .publishPercentileHistogram()
                     .register(Metrics.globalRegistry),
-                Counter.builder("upstream.rpc.err")
-                    .description("Errors received on request through HTTP JSON RPC connection")
+                Counter.builder("upstream.rpc.fail")
+                    .description("Number of failures of HTTP JSON RPC requests")
                     .tags(metricsTags)
                     .register(Metrics.globalRegistry)
             )

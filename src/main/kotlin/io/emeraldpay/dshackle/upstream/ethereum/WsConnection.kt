@@ -387,7 +387,7 @@ class WsConnection(
             .take(1)
             .singleOrEmpty()
             .doOnNext { rpcMetrics?.timer?.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS) }
-            .doOnError { rpcMetrics?.errors?.increment() }
+            .doOnError { rpcMetrics?.fails?.increment() }
             .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
             .defaultIfEmpty(failResponse)
     }

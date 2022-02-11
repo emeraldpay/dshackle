@@ -222,6 +222,7 @@ open class NativeCall(
     }
 
     fun executeOnRemote(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
+        // check if method is allowed to be executed at all
         if (!ctx.upstream.getMethods().isCallable(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }

@@ -67,8 +67,8 @@ class EthereumWsUpstream(
                 .tags(metricsTags)
                 .publishPercentileHistogram()
                 .register(Metrics.globalRegistry),
-            Counter.builder("upstream.ws.err")
-                .description("Errors received on request through WebSocket JSON RPC connection")
+            Counter.builder("upstream.ws.fail")
+                .description("Number of failures of WebSocket JSON RPC requests")
                 .tags(metricsTags)
                 .register(Metrics.globalRegistry)
         )

@@ -73,13 +73,16 @@ abstract class BaseHandler(
                 metricById(it.id)?.let { metrics ->
                     metrics.requestMetric.increment()
                     metrics.callMetric.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                    if (it.isError()) {
+                        metrics.errorMetric.increment()
+                    }
                 }
                 handler.onResponse(it)
             }
             .doOnError {
                 // when error happened the whole flux is stopped and no result is produced, so we should mark all the requests as failed
                 items.forEach { item ->
-                    requestMetrics.get(chain, item.method).errorMetric.increment()
+                    requestMetrics.get(chain, item.method).failMetric.increment()
                 }
             }
     }
