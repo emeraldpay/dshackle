@@ -17,7 +17,7 @@ class AccessLogWriterSpec extends Specification {
         File accessLog = new File(dir, "accesslog.jsonl")
         println("Write access log to $accessLog.absolutePath")
         MainConfig config = new MainConfig()
-        config.accessLogConfig = new AccessLogConfig(true).tap {
+        config.accessLogConfig = new AccessLogConfig(true, false).tap {
             it.filename = accessLog.absolutePath
         }
         AccessLogWriter logWriter = new AccessLogWriter(config)

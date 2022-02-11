@@ -108,7 +108,9 @@ class Events {
         val succeed: Boolean,
         val rpcError: Int? = null,
         val payloadSizeBytes: Long,
-        val nativeCall: NativeCallItemDetails
+        val nativeCall: NativeCallItemDetails,
+        val responseBody: String? = null,
+        val errorMessage: String? = null
     ) : ChainBase(blockchain, "NativeCall", id, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -120,7 +122,8 @@ class Events {
         // info about the initial request, that may include several native calls
         val request: StreamRequestDetails,
         val payloadSizeBytes: Long,
-        val nativeSubscribe: NativeSubscribeItemDetails
+        val nativeSubscribe: NativeSubscribeItemDetails,
+        val responseBody: String? = null,
     ) : ChainBase(blockchain, "NativeSubscribe", id, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -159,7 +162,8 @@ class Events {
     data class NativeCallItemDetails(
         val method: String,
         val id: Int,
-        val payloadSizeBytes: Long
+        val payloadSizeBytes: Long,
+        val requestParams: String? = null
     )
 
     data class NativeCallReplyDetails(

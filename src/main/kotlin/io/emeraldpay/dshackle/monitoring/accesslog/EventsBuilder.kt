@@ -17,6 +17,9 @@ package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.config.AccessLogConfig
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.grpc.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc
@@ -36,6 +39,10 @@ class EventsBuilder {
 
     companion object {
         private val log = LoggerFactory.getLogger(EventsBuilder::class.java)
+
+        // A reference to the config for current _running instance_.
+        // Initialized by AccessLogWriter
+        var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
     }
 
     interface StartingHttp2Request {
@@ -306,7 +313,10 @@ class EventsBuilder {
                     Events.NativeCallItemDetails(
                         item.method,
                         item.id,
-                        item.payload.size().toLong()
+                        item.payload.size().toLong(),
+                        if (accessLogConfig.includeMessages) {
+                            if (item.payload != null && !item.payload.isEmpty && item.payload.isValidUtf8) item.payload.toStringUtf8() else ""
+                        } else null
                     )
                 )
             }
@@ -323,7 +333,11 @@ class EventsBuilder {
                 nativeCall = item,
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
-                channel = Events.Channel.GRPC
+                channel = Events.Channel.GRPC,
+                responseBody = if (accessLogConfig.includeMessages) {
+                    if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
+                } else null,
+                errorMessage = if (accessLogConfig.includeMessages) msg.errorMessage else null,
             )
         }
 
@@ -341,7 +355,13 @@ class EventsBuilder {
                 nativeCall = item,
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
-                channel = channel
+                channel = channel,
+                responseBody = if (accessLogConfig.includeMessages) (reply.result?.let { String(it) } ?: "") else null,
+                errorMessage = if (accessLogConfig.includeMessages) {
+                    reply.error?.let {
+                        it.upstreamError?.message ?: it.message
+                    } ?: ""
+                } else null
             )
         }
     }
@@ -373,7 +393,8 @@ class EventsBuilder {
                 nativeSubscribe = item!!,
                 payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
                 id = UUID.randomUUID(),
-                channel = Events.Channel.GRPC
+                channel = Events.Channel.GRPC,
+                responseBody = if (accessLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null,
             )
         }
     }

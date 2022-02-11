@@ -1,7 +1,8 @@
 package io.emeraldpay.dshackle.config
 
 class AccessLogConfig(
-    val enabled: Boolean = false
+    val enabled: Boolean = false,
+    val includeMessages: Boolean = false
 ) {
 
     var filename: String = "./access_log.jsonl"

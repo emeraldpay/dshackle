@@ -430,6 +430,12 @@ accessLog:
 | `false`
 | Enable/Disable Access logging
 
+| `include-messages`
+| `false`
+| Include request params and response result/error (i.e., a JSON) in access log.
+It's an expensive operation, use it for debugging only.
+Note that for errors it provides only error message, not the error response itself.
+
 | `filename`
 | `access_log.jsonl`
 | Path to the access log file
