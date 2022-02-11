@@ -23,13 +23,13 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
-import java.util.function.BiFunction
-import java.util.function.Function
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
+import java.util.function.BiFunction
+import java.util.function.Function
 
 /**
  * Makes request with applying Quorum

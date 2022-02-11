@@ -17,9 +17,7 @@ package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AccessLogConfig
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.grpc.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc

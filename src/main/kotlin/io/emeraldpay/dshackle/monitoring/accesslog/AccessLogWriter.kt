@@ -64,7 +64,7 @@ class AccessLogWriter(
         log.info("Writing Access Log to ${filename.absolutePath}")
         scheduler.schedule(runner, START_SLEEP_MS, TimeUnit.MILLISECONDS)
 
-        //propagate current config to the Event Builder, so it knows which details to include
+        // propagate current config to the Event Builder, so it knows which details to include
         EventsBuilder.accessLogConfig = config
     }
 
