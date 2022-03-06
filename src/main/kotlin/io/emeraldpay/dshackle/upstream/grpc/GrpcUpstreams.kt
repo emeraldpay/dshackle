@@ -69,6 +69,8 @@ class GrpcUpstreams(
     fun start(): Flux<UpstreamChange> {
         val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             NettyChannelBuilder.forAddress(host, port)
+                // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
+                .maxInboundMessageSize(Int.MAX_VALUE)
                 .useTransportSecurity()
                 .enableRetry()
                 .maxRetryAttempts(3)
