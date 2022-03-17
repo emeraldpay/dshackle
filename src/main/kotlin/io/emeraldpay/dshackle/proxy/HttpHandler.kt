@@ -41,7 +41,7 @@ class HttpHandler(
     writeRpcJson: WriteRpcJson,
     nativeCall: NativeCall,
     private val accessHandler: AccessHandlerHttp.HandlerFactory,
-    requestMetrics: ProxyServer.RequestMetricsFactory,
+    private val requestMetrics: ProxyServer.RequestMetricsFactory,
 ) : BaseHandler(writeRpcJson, nativeCall, requestMetrics) {
 
     companion object {
@@ -70,6 +70,13 @@ class HttpHandler(
     ): Flux<ByteBuf> {
         return request
             .map(readRpcJson)
+            .doOnError {
+                log.debug("Failed to process request JSON with: ${it.javaClass} ${it.message}")
+                // most of the metrics are handled inside the execute method, including most of the errors.
+                // but if we have an invalid JSON it stops here, and we cannot handle it in the main onErrorResume
+                // because it's going to be a duplicate call for other errors
+                requestMetrics.get(chain, "invalid_method").errorMetric.increment()
+            }
             .flatMapMany { call ->
                 execute(chain, call, handler)
             }

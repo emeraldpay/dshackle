@@ -23,6 +23,8 @@ import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.grpc.Chain
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.step.StepCounter
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
@@ -72,10 +74,19 @@ class HttpHandlerSpec extends Specification {
         ReadRpcJson read = Mock(ReadRpcJson) {
             1 * apply(_) >> { throw new RpcException(-32123, "test", new JsonRpcResponse.NumberId(4)) }
         }
+        Counter errorMetric = Mock(Counter) {
+            1 * increment()
+        }
+        ProxyServer.RequestMetricsFactory metrics = Mock(ProxyServer.RequestMetricsFactory) {
+            1 * get(Chain.ETHEREUM, "invalid_method") >> Mock(ProxyServer.RequestMetrics) {
+                1 * it.errorMetric >> errorMetric
+            }
+        }
 
         def handler = new HttpHandler(
                 read, new WriteRpcJson(),
-                Stub(NativeCall), Stub(AccessHandlerHttp.HandlerFactory), Stub(ProxyServer.RequestMetricsFactory)
+                Stub(NativeCall), Stub(AccessHandlerHttp.HandlerFactory),
+                metrics
         )
         when:
 
