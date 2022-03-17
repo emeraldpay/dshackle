@@ -46,7 +46,7 @@ class WebsocketHandler(
     nativeCall: NativeCall,
     private val nativeSubscribe: NativeSubscribe,
     private val accessHandler: AccessHandlerHttp.HandlerFactory,
-    requestMetrics: ProxyServer.RequestMetricsFactory,
+    private val requestMetrics: ProxyServer.RequestMetricsFactory,
 ) : BaseHandler(writeRpcJson, nativeCall, requestMetrics) {
 
     companion object {
@@ -68,7 +68,7 @@ class WebsocketHandler(
             val requests: Flux<RequestJson<Any>> = req.aggregateFrames()
                 .receiveFrames()
                 .map { ByteBufInputStream(it.content()).readAllBytes() }
-                .flatMap(this@WebsocketHandler::parseRequest)
+                .flatMap { parseRequest(it, routeConfig.blockchain) }
 
             val eventHandler = accessHandler.start(req, routeConfig.blockchain)
 
@@ -80,12 +80,13 @@ class WebsocketHandler(
         }
     }
 
-    fun parseRequest(data: ByteArray): Mono<RequestJson<Any>> {
+    fun parseRequest(data: ByteArray, blockchain: Chain): Mono<RequestJson<Any>> {
         // try to parse JSON call. If received an invalid value just silently ignore it, that's what other Ethereum servers do
         try {
             val type = readRpcJson.getType(data)
             // WS is not supposed to have batches, so ignore them too
             if (type != ProxyCall.RpcType.SINGLE) {
+                requestMetrics.get(blockchain, "batch").errorMetric.increment()
                 return Mono.empty()
             }
             val items = readRpcJson.extract(type, data)
@@ -96,8 +97,14 @@ class WebsocketHandler(
             return Mono
                 .just(items.first())
                 .map(readRpcJson.jsonExtractor)
-                .onErrorResume { Mono.empty() }
+                .onErrorResume {
+                    log.debug("Failed to process request JSON with: ${it.javaClass} ${it.message}")
+                    requestMetrics.get(blockchain, "invalid_method").errorMetric.increment()
+                    Mono.empty()
+                }
         } catch (t: Throwable) {
+            log.warn("Unhandled exception processing request message: ${t.javaClass} ${t.message}")
+            requestMetrics.get(blockchain, "invalid_method").errorMetric.increment()
             return Mono.empty()
         }
     }
@@ -143,6 +150,7 @@ class WebsocketHandler(
                             eventHandler.onResponse(it.length.toLong())
                         }
                 } else {
+                    requestMetrics.get(blockchain, "eth_subscribe").errorMetric.increment()
                     // TODO should it produce a 404 to the AccessLog?
                     Mono.empty()
                 }

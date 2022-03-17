@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.etherjar.rpc.json.RequestJson
 import io.emeraldpay.grpc.Chain
+import io.micrometer.core.instrument.Counter
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import spock.lang.Specification
@@ -37,7 +38,7 @@ class WebsocketHandlerSpec extends Specification {
                 new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
         when:
-        def act = handler.parseRequest('{"id": 5, "jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["0x100001", false]}'.bytes)
+        def act = handler.parseRequest('{"id": 5, "jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["0x100001", false]}'.bytes, Chain.ETHEREUM)
                 .block(Duration.ofSeconds(1))
 
         then:
@@ -48,11 +49,19 @@ class WebsocketHandlerSpec extends Specification {
 
     def "Parse to empty an invalid request"() {
         setup:
+        Counter errorMetric = Mock(Counter) {
+            1 * increment()
+        }
+        ProxyServer.RequestMetricsFactory metrics = Mock(ProxyServer.RequestMetricsFactory) {
+            1 * get(Chain.ETHEREUM, "invalid_method") >> Mock(ProxyServer.RequestMetrics) {
+                1 * it.errorMetric >> errorMetric
+            }
+        }
         def handler = new WebsocketHandler(
-                new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
+                new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, metrics
         )
         when:
-        def act = handler.parseRequest('hello world'.bytes)
+        def act = handler.parseRequest('hello world'.bytes, Chain.ETHEREUM)
                 .block(Duration.ofSeconds(1))
 
         then:
@@ -66,7 +75,7 @@ class WebsocketHandlerSpec extends Specification {
                 new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
         when:
-        def act = handler.parseRequest("[$req1]".bytes)
+        def act = handler.parseRequest("[$req1]".bytes, Chain.ETHEREUM)
                 .block(Duration.ofSeconds(1))
 
         then:
