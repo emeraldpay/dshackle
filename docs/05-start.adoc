@@ -1,6 +1,6 @@
 == Launch a server
-:version: 0.11.0
-:version-short: 0.11
+:version: 0.12.0
+:version-short: 0.12
 
 === Docker
 
