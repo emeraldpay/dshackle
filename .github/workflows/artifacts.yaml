@@ -28,7 +28,7 @@ jobs:
           java-version: 13
 
       - name: Setup GCP
-        uses: google-github-actions/setup-gcloud@master
+        uses: google-github-actions/setup-gcloud@v0
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_ARTIFACTS_KEY }}
