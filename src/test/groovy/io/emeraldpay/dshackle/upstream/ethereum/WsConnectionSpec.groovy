@@ -66,7 +66,7 @@ class WsConnectionSpec extends Specification {
                 .then { ws.onNewHeads(headBlock).subscribe() }
                 .expectNext(BlockContainer.from(block))
                 .thenCancel()
-                .verify(Duration.ofSeconds(1))
+                .verify(Duration.ofSeconds(5))
     }
 
     def "Makes a RPC call"() {
@@ -91,7 +91,7 @@ class WsConnectionSpec extends Specification {
                     it.id.asNumber() == 15L && Global.objectMapper.readValue(it.result, TransactionJson) == tx
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(1))
+                .verify(Duration.ofSeconds(5))
     }
 
     def "Makes a RPC call - return null"() {
@@ -114,7 +114,7 @@ class WsConnectionSpec extends Specification {
                             it.resultAsRawString == 'null'
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(1))
+                .verify(Duration.ofSeconds(5))
     }
 
     def "Makes a RPC call - return error"() {
@@ -139,6 +139,6 @@ class WsConnectionSpec extends Specification {
                             it.error.code == RpcResponseError.CODE_METHOD_NOT_EXIST && it.error.message == "test"
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(1))
+                .verify(Duration.ofSeconds(5))
     }
 }

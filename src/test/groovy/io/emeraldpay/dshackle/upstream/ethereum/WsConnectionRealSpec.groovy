@@ -63,7 +63,7 @@ class WsConnectionRealSpec extends Specification {
                     it.hasResult() && it.resultAsProcessedString == "baz"
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(3))
+                .verify(Duration.ofSeconds(5))
 
         when:
         Thread.sleep(SLEEP)
@@ -159,6 +159,6 @@ class WsConnectionRealSpec extends Specification {
                     it.hasResult() && it.resultAsProcessedString == "baz"
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(3))
+                .verify(Duration.ofSeconds(5))
     }
 }
