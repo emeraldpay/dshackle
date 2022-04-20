@@ -37,6 +37,7 @@ import java.util.function.BiFunction
  * Responds to HTTP requests made to the Ethereum Proxy Server
  */
 class HttpHandler(
+    private val config: ProxyConfig,
     private val readRpcJson: ReadRpcJson,
     writeRpcJson: WriteRpcJson,
     nativeCall: NativeCall,
@@ -78,7 +79,7 @@ class HttpHandler(
                 requestMetrics.get(chain, "invalid_method").errorMetric.increment()
             }
             .flatMapMany { call ->
-                execute(chain, call, handler)
+                execute(chain, call, handler, config.preserveBatchOrder)
             }
             .onErrorResume(RpcException::class.java) { err ->
                 val id = err.details?.let {

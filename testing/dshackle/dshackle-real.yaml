@@ -22,6 +22,7 @@ cache:
 
 proxy:
   port: 18081
+  preserve-batch-order: true
   tls:
     enabled: false
   routes:

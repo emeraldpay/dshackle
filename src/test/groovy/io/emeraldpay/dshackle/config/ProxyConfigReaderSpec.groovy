@@ -81,6 +81,7 @@ class ProxyConfigReaderSpec extends Specification {
         act.enabled
         act.host == '0.0.0.0'
         act.port == 8080
+        act.preserveBatchOrder
         act.routes.size() == 2
         with(act.routes[0]) {
             id == "ethereum"

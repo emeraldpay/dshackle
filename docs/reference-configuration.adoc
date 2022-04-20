@@ -51,6 +51,7 @@ proxy:
   host: 0.0.0.0
   port: 8080
   websocket: true
+  preserve-batch-order: false
   tls:
     enabled: true
     server:
@@ -352,6 +353,7 @@ health:
 proxy:
   host: 0.0.0.0
   port: 8080
+  preserve-batch-order: false
   tls:
     enabled: true
     server:
@@ -379,6 +381,10 @@ proxy:
 | `port`
 | `8080`
 | Port to bind HTT server
+
+| `port`
+| `false`
+| Should proxy preserve request-response correspondence when sending batch request via http
 
 | `websocket`
 | `true`

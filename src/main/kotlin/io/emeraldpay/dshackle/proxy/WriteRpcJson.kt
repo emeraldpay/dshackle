@@ -45,7 +45,7 @@ open class WriteRpcJson {
         return Function { flux ->
             flux
                 .flatMap { response ->
-                    if (!call.ids.containsKey(response.id)) {
+                    if (call.ids.size <= response.id) {
                         log.warn("ID wasn't requested: ${response.id}")
                         return@flatMap Flux.empty<String>()
                     }

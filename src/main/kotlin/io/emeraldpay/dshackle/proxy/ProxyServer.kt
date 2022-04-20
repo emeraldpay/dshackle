@@ -80,7 +80,7 @@ class ProxyServer(
         StandardRequestMetrics()
     }
 
-    private val httpHandler = HttpHandler(readRpcJson, writeRpcJson, nativeCall, accessHandler, requestMetrics)
+    private val httpHandler = HttpHandler(config, readRpcJson, writeRpcJson, nativeCall, accessHandler, requestMetrics)
     private val wsHandler: WebsocketHandler? = if (config.websocketEnabled) {
         WebsocketHandler(readRpcJson, writeRpcJson, nativeCall, nativeSubscribe, accessHandler, requestMetrics)
     } else null

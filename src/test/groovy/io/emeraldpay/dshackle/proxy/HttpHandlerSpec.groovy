@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.proxy
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -56,6 +57,7 @@ class HttpHandlerSpec extends Specification {
             _ * it.create(_,) >> accessHandler
         }
         def handler = new HttpHandler(
+                new ProxyConfig(),
                 new ReadRpcJson(), new WriteRpcJson(),
                 nativeCall, accessHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
@@ -84,6 +86,7 @@ class HttpHandlerSpec extends Specification {
         }
 
         def handler = new HttpHandler(
+                new ProxyConfig(),
                 read, new WriteRpcJson(),
                 Stub(NativeCall), Stub(AccessHandlerHttp.HandlerFactory),
                 metrics
@@ -110,6 +113,7 @@ class HttpHandlerSpec extends Specification {
 
 
         def handler = new HttpHandler(
+                new ProxyConfig(),
                 new ReadRpcJson(), writeRpcJson,
                 nativeCall, Stub(AccessHandlerHttp.HandlerFactory), Stub(ProxyServer.RequestMetricsFactory)
         )
@@ -122,7 +126,7 @@ class HttpHandlerSpec extends Specification {
                         .build()
         )
         when:
-        def act = handler.execute(Chain.ETHEREUM, call, new AccessHandlerHttp.NoOpHandler())
+        def act = handler.execute(Chain.ETHEREUM, call, new AccessHandlerHttp.NoOpHandler(), false)
 
         then:
         1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, "".bytes, null))

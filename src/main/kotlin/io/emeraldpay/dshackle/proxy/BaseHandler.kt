@@ -36,7 +36,12 @@ abstract class BaseHandler(
         private val log = LoggerFactory.getLogger(BaseHandler::class.java)
     }
 
-    fun execute(chain: Chain, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
+    fun execute(
+        chain: Chain,
+        call: ProxyCall,
+        handler: AccessHandlerHttp.RequestHandler,
+        preserveBatchOrder: Boolean = false
+    ): Publisher<String> {
         // return empty response for empty request
         if (call.items.isEmpty()) {
             return if (call.type == ProxyCall.RpcType.BATCH) {
@@ -45,12 +50,17 @@ abstract class BaseHandler(
                 Mono.just("")
             }
         }
-        val jsons = execute(chain, call.items, handler)
-            .transform(writeRpcJson.toJsons(call))
+        var jsons = execute(chain, call.items, handler)
+
         return if (call.type == ProxyCall.RpcType.SINGLE) {
-            jsons.next()
+            jsons.transform(writeRpcJson.toJsons(call)).next()
         } else {
-            jsons.transform(writeRpcJson.asArray())
+            if (preserveBatchOrder) {
+                jsons = jsons.sort { a, b -> a.id.compareTo(b.id) }
+            }
+            jsons
+                .transform(writeRpcJson.toJsons(call))
+                .transform(writeRpcJson.asArray())
         }
     }
 
