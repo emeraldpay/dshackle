@@ -36,7 +36,7 @@ class ProxyCall(
     /**
      * Mapping from our internal ids to user provided JSON RPC ids.
      */
-    val ids = HashMap<Int, Any>()
+    val ids = ArrayList<Any>()
 
     /**
      * Content of the request

@@ -165,10 +165,9 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
         var seq = seqStart
         return items
             .map { json ->
-                val id = seq++
-                context.ids[id] = json.id
+                context.ids.add(json.id)
                 BlockchainOuterClass.NativeCallItem.newBuilder()
-                    .setId(id)
+                    .setId(context.ids.size - 1)
                     .setMethod(json.method)
                     .setPayload(ByteString.copyFrom(objectMapper.writeValueAsBytes(json.params)))
                     .build()

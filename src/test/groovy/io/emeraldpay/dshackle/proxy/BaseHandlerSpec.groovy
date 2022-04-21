@@ -34,7 +34,7 @@ class BaseHandlerSpec extends Specification {
         setup:
         def handler = new BaseHandlerImpl(new WriteRpcJson(), Stub(NativeCall), Stub(ProxyServer.RequestMetricsFactory))
         when:
-        def act = Mono.from(handler.execute(Chain.ETHEREUM, new ProxyCall(ProxyCall.RpcType.SINGLE), requestHandler))
+        def act = Mono.from(handler.execute(Chain.ETHEREUM, new ProxyCall(ProxyCall.RpcType.SINGLE), requestHandler, false))
                 .block(Duration.ofSeconds(1))
         then:
         act == ""
@@ -44,7 +44,7 @@ class BaseHandlerSpec extends Specification {
         setup:
         def handler = new BaseHandlerImpl(new WriteRpcJson(), Stub(NativeCall), Stub(ProxyServer.RequestMetricsFactory))
         when:
-        def act = Mono.from(handler.execute(Chain.ETHEREUM, new ProxyCall(ProxyCall.RpcType.BATCH), requestHandler))
+        def act = Mono.from(handler.execute(Chain.ETHEREUM, new ProxyCall(ProxyCall.RpcType.BATCH), requestHandler, false))
                 .block(Duration.ofSeconds(1))
         then:
         act == "[]"
@@ -64,7 +64,7 @@ class BaseHandlerSpec extends Specification {
         call.ids[0] = 5
         def response = new NativeCall.CallResult(0, '{"foo": 1}'.bytes, null)
         when:
-        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler))
+        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, false))
                 .collectList()
                 .block(Duration.ofSeconds(1))
                 .join("")
@@ -87,13 +87,119 @@ class BaseHandlerSpec extends Specification {
         call.ids[0] = 5
         def response = new NativeCall.CallResult(0, '{"foo": 1}'.bytes, null)
         when:
-        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler))
+        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, false))
                 .collectList()
                 .block(Duration.ofSeconds(1))
                 .join("")
         then:
         act == '[{"jsonrpc":"2.0","id":5,"result":{"foo": 1}}]'
         1 * nativeCall.nativeCallResult(_) >> Flux.fromIterable([response])
+    }
+
+    def "Execute ordered batch call with 2 items"() {
+        setup:
+        def nativeCall = Mock(NativeCall)
+        def handler = new BaseHandlerImpl(new WriteRpcJson(), nativeCall, Stub(ProxyServer.RequestMetricsFactory))
+
+        def request1 = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setMethod("eth_test")
+                .setId(0)
+                .build()
+        def request2 = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setMethod("eth_test2")
+                .setId(1)
+                .build()
+        def call = new ProxyCall(ProxyCall.RpcType.BATCH)
+        call.items.add(request1)
+        call.ids[0] = 5
+
+        call.items.add(request2)
+        call.ids[1] = 6
+        def response = [
+                new NativeCall.CallResult(1, '{"foo": 2}'.bytes, null),
+                new NativeCall.CallResult(0, '{"foo": 1}'.bytes, null)
+        ]
+        when:
+        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
+                .collectList()
+                .block(Duration.ofSeconds(1))
+                .join("")
+        then:
+        act == '[{"jsonrpc":"2.0","id":5,"result":{"foo": 1}},{"jsonrpc":"2.0","id":6,"result":{"foo": 2}}]'
+        1 * nativeCall.nativeCallResult(_) >> Flux.fromIterable(response)
+    }
+
+    def "Execute ordered batch call with 2 items even if original ids are not in sequence"() {
+        setup:
+        def nativeCall = Mock(NativeCall)
+        def handler = new BaseHandlerImpl(new WriteRpcJson(), nativeCall, Stub(ProxyServer.RequestMetricsFactory))
+
+        def request1 = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setMethod("eth_test")
+                .setId(0)
+                .build()
+        def request2 = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setMethod("eth_test2")
+                .setId(1)
+                .build()
+        def call = new ProxyCall(ProxyCall.RpcType.BATCH)
+        call.items.add(request1)
+        call.ids[0] = 15
+
+        call.items.add(request2)
+        call.ids[1] = 6
+        def response = [
+                new NativeCall.CallResult(1, '{"foo": 2}'.bytes, null),
+                new NativeCall.CallResult(0, '{"foo": 1}'.bytes, null)
+        ]
+        when:
+        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
+                .collectList()
+                .block(Duration.ofSeconds(1))
+                .join("")
+        then:
+        act == '[{"jsonrpc":"2.0","id":15,"result":{"foo": 1}},{"jsonrpc":"2.0","id":6,"result":{"foo": 2}}]'
+        1 * nativeCall.nativeCallResult(_) >> Flux.fromIterable(response)
+    }
+
+    def "Adds a missing element if order is requests"() {
+        setup:
+        def nativeCall = Mock(NativeCall)
+        def handler = new BaseHandlerImpl(new WriteRpcJson(), nativeCall, Stub(ProxyServer.RequestMetricsFactory))
+
+        def request1 = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setMethod("eth_test")
+                .setId(0)
+                .build()
+        def request2 = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setMethod("eth_test2")
+                .setId(1)
+                .build()
+        def request3 = BlockchainOuterClass.NativeCallItem.newBuilder()
+                .setMethod("eth_test3")
+                .setId(2)
+                .build()
+        def call = new ProxyCall(ProxyCall.RpcType.BATCH)
+        call.items.add(request1)
+        call.ids[0] = 5
+        call.items.add(request2)
+        call.ids[1] = 6
+        call.items.add(request3)
+        call.ids[2] = 7
+
+        // note there is only 2 responses
+        def response = [
+                new NativeCall.CallResult(1, '{"foo": 2}'.bytes, null),
+                new NativeCall.CallResult(2, '{"foo": 3}'.bytes, null)
+        ]
+        when:
+        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
+                .collectList()
+                .block(Duration.ofSeconds(1))
+                .join("")
+        then:
+        act == '[{"jsonrpc":"2.0","id":5,"error":{"code":-32002,"message":"No response"}},{"jsonrpc":"2.0","id":6,"result":{"foo": 2}},{"jsonrpc":"2.0","id":7,"result":{"foo": 3}}]'
+        1 * nativeCall.nativeCallResult(_) >> Flux.fromIterable(response)
     }
 
     class BaseHandlerImpl extends BaseHandler {

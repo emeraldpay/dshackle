@@ -50,6 +50,11 @@ open class ProxyConfig {
      */
     var routes: List<Route> = ArrayList()
 
+    /**
+     * Should proxy preserve request-response correspondence when sending batch request via http
+     */
+    var preserveBatchOrder: Boolean = false
+
     class Route(
         /**
          * URL binding for the route. http://$host:$port/$id

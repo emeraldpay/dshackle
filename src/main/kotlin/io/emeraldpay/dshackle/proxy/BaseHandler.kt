@@ -36,7 +36,12 @@ abstract class BaseHandler(
         private val log = LoggerFactory.getLogger(BaseHandler::class.java)
     }
 
-    fun execute(chain: Chain, call: ProxyCall, handler: AccessHandlerHttp.RequestHandler): Publisher<String> {
+    fun execute(
+        chain: Chain,
+        call: ProxyCall,
+        handler: AccessHandlerHttp.RequestHandler,
+        preserveBatchOrder: Boolean = false
+    ): Publisher<String> {
         // return empty response for empty request
         if (call.items.isEmpty()) {
             return if (call.type == ProxyCall.RpcType.BATCH) {
@@ -46,11 +51,20 @@ abstract class BaseHandler(
             }
         }
         val jsons = execute(chain, call.items, handler)
-            .transform(writeRpcJson.toJsons(call))
+
         return if (call.type == ProxyCall.RpcType.SINGLE) {
-            jsons.next()
+            jsons.transform(writeRpcJson.toJsons(call)).next()
         } else {
-            jsons.transform(writeRpcJson.asArray())
+            jsons
+                .let {
+                    if (preserveBatchOrder) {
+                        it.transform(reorderByRequest(call.items))
+                    } else {
+                        it
+                    }
+                }
+                .transform(writeRpcJson.toJsons(call))
+                .transform(writeRpcJson.asArray())
         }
     }
 
@@ -85,5 +99,29 @@ abstract class BaseHandler(
                     requestMetrics.get(chain, item.method).failMetric.increment()
                 }
             }
+    }
+
+    /**
+     * Reorders responses to the original request order.
+     * Note that it's highly inefficient because it requires keeping all the responses in memory until last one is processes, so should be used only if
+     * a client is unable to reference responses by their IDs.
+     */
+    fun reorderByRequest(items: List<BlockchainOuterClass.NativeCallItem>): java.util.function.Function<Flux<NativeCall.CallResult>, Flux<NativeCall.CallResult>> {
+        val order = items.map { it.id }
+        return java.util.function.Function { src ->
+            src.collectList()
+                .map { results ->
+                    order.map { id ->
+                        results.find { it.id == id }
+                            // If Proxy is configured to preserve original order it means that a client expect responses at exact same position
+                            // as requests even if a request completely failed for a some reason. It's very unlikely situation, but still possible
+                            // At this case, if we found a gap in responses, we put a default response with an error
+                            ?: NativeCall.CallResult(id, null, NativeCall.CallError(id, "No response", null))
+                    }
+                }
+                .flatMapMany {
+                    Flux.fromIterable(it)
+                }
+        }
     }
 }

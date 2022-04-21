@@ -51,6 +51,7 @@ proxy:
   host: 0.0.0.0
   port: 8080
   websocket: true
+  preserve-batch-order: false
   tls:
     enabled: true
     server:
@@ -352,6 +353,7 @@ health:
 proxy:
   host: 0.0.0.0
   port: 8080
+  preserve-batch-order: false
   tls:
     enabled: true
     server:
@@ -380,6 +382,10 @@ proxy:
 | `8080`
 | Port to bind HTT server
 
+| `port`
+| `false`
+| Should proxy preserve request-response correspondence when sending batch request via http
+
 | `websocket`
 | `true`
 | Enable WebSocket Proxy
@@ -388,6 +394,12 @@ proxy:
 |
 | Setup TLS configuration for the Proxy server.
 See <<tls>> section
+
+| `preserve-batch-order`
+| false
+| If `false` Dshackle may produce _batch_ response in different order, which is correct as per JSON RPC Spec.
+If set to `true` then Dshackle preserves _batch_ order based on request order.
+Note that latter is ineffective and use this option only when a client cannot reference responses by their IDs.
 
 | `routes`
 |
