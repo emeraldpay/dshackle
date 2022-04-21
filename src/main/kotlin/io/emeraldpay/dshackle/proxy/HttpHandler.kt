@@ -49,6 +49,19 @@ class HttpHandler(
         private val log = LoggerFactory.getLogger(HttpHandler::class.java)
     }
 
+    private fun addCorsHeadersIfSet(resp: HttpServerResponse): HttpServerResponse {
+        return config.corsOrigin?.let {
+            resp.addHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, it)
+                .addHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, config.corsAllowedHeaders)
+        } ?: resp
+    }
+
+    fun preflight(): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
+        return BiFunction { _, resp ->
+            addCorsHeadersIfSet(resp).send()
+        }
+    }
+
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
         return BiFunction { req, resp ->
             // handle access events
@@ -59,7 +72,8 @@ class HttpHandler(
             val results = processRequest(routeConfig.blockchain, request, eventHandler)
                 // make sure that the access log handler is closed at the end, so it can render the logs
                 .doFinally { eventHandler.close() }
-            resp.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+            addCorsHeadersIfSet(resp)
+                .addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .send(results)
         }
     }

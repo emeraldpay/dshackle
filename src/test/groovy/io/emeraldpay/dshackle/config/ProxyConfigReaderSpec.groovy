@@ -83,6 +83,8 @@ class ProxyConfigReaderSpec extends Specification {
         act.port == 8080
         act.preserveBatchOrder
         act.routes.size() == 2
+        act.corsOrigin == "*"
+        act.corsAllowedHeaders == "Content-Type"
         with(act.routes[0]) {
             id == "ethereum"
             blockchain == Chain.ETHEREUM

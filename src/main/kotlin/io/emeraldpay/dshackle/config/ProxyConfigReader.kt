@@ -64,6 +64,12 @@ class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
         getValueAsBool(input, "preserve-batch-order")?.let {
             config.preserveBatchOrder = it
         }
+        getValueAsString(input, "cors-origin")?.let {
+            config.corsOrigin = it
+        }
+        getValueAsString(input, "cors-allowed-headers")?.let {
+            config.corsAllowedHeaders = it
+        }
         val currentRoutes = HashSet<String>()
         getList<MappingNode>(input, "routes")?.let { routes ->
             config.routes = routes.value.map { route ->

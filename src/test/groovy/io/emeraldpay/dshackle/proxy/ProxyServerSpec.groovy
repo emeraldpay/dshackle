@@ -31,6 +31,7 @@ class ProxyServerSpec extends Specification {
 
         then:
         1 * routes.post("/test", _)
+        1 * routes.options("/test", _)
         1 * routes.ws("/test", _)
     }
 

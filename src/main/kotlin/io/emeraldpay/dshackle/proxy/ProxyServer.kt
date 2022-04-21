@@ -114,6 +114,7 @@ class ProxyServer(
         config.routes.forEach { routeConfig ->
             // TODO implement a manual handling of the routes and WS upgrade to have a better control over the connection and improve the access logging
             routes.post("/" + routeConfig.id, httpHandler.proxy(routeConfig))
+            routes.options("/" + routeConfig.id, httpHandler.preflight())
             if (config.websocketEnabled && wsHandler != null) {
                 routes.ws("/" + routeConfig.id, wsHandler.proxy(routeConfig))
             }
