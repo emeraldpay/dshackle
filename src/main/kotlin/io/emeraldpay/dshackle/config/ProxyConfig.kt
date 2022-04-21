@@ -55,6 +55,16 @@ open class ProxyConfig {
      */
     var preserveBatchOrder: Boolean = false
 
+    /**
+     * Access-Control-Allow-Origin contents. If null then will omit this header completely
+     */
+    var corsOrigin: String? = null
+
+    /**
+     * Access-Control-Allow-Headers contents. Takes effect only if corsOrigin is not null
+     */
+    var corsAllowedHeaders: String = "Content-Type"
+
     class Route(
         /**
          * URL binding for the route. http://$host:$port/$id
