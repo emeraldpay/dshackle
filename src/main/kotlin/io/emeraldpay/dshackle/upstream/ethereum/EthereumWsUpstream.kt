@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -104,9 +105,16 @@ class EthereumWsUpstream(
         connection.connect()
         head.start()
 
-        log.debug("Start validation for upstream ${this.getId()}")
-        validatorSubscription = validator.start()
-            .subscribe(this::setStatus)
+        if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
+            log.warn("Disable validation for upstream ${this.getId()}")
+            this.setLag(0)
+            this.setStatus(UpstreamAvailability.OK)
+        } else {
+            log.debug("Start validation for upstream ${this.getId()}")
+            val validator = EthereumUpstreamValidator(this, getOptions())
+            validatorSubscription = validator.start()
+                .subscribe(this::setStatus)
+        }
     }
 
     override fun stop() {
