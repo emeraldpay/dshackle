@@ -62,6 +62,7 @@ class JsonRpcGrpcClient(
 
             BlockchainOuterClass.NativeCallItem.newBuilder()
                 .setId(1)
+                .setNonce(key.nonce)
                 .setMethod(key.method)
                 .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params)))
                 .build().let {
