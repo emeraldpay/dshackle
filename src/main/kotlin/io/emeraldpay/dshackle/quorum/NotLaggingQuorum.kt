@@ -32,6 +32,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     private val result: AtomicReference<ByteArray> = AtomicReference()
     private val failed = AtomicReference(false)
     private var rpcError: JsonRpcError? = null
+    private var sig = ""
 
     override fun init(head: Head) {
     }
@@ -44,16 +45,17 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         return failed.get()
     }
 
-    override fun record(response: ByteArray, upstream: Upstream): Boolean {
+    override fun record(response: ByteArray, signature: String, upstream: Upstream): Boolean {
         val lagging = upstream.getLag() > maxLag
         if (!lagging) {
             result.set(response)
+            sig = signature
             return true
         }
         return false
     }
 
-    override fun record(error: JsonRpcException, upstream: Upstream) {
+    override fun record(error: JsonRpcException, signature: String, upstream: Upstream) {
         this.rpcError = error.error
         val lagging = upstream.getLag() > maxLag
         if (!lagging && result.get() == null) {
@@ -61,6 +63,9 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         }
     }
 
+    override fun getSignature(): String {
+        return sig
+    }
     override fun getResult(): ByteArray {
         return result.get()
     }

@@ -78,7 +78,7 @@ class JsonRpcGrpcClient(
                         .flatMap { resp ->
                             if (resp.succeed) {
                                 val bytes = resp.payload.toByteArray()
-                                Mono.just(JsonRpcResponse(bytes, null))
+                                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), resp.signature))
                             } else {
                                 metrics.fails.increment()
                                 Mono.error(

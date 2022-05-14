@@ -34,26 +34,26 @@ abstract class ValueAwareQuorum<T>(
         return Global.objectMapper.readValue(response.inputStream(), clazz)
     }
 
-    override fun record(response: ByteArray, upstream: Upstream): Boolean {
+    override fun record(response: ByteArray, signature: String, upstream: Upstream): Boolean {
         try {
             val value = extractValue(response, clazz)
-            recordValue(response, value, upstream)
+            recordValue(response, value, signature, upstream)
         } catch (e: RpcException) {
-            recordError(response, e.rpcMessage, upstream)
+            recordError(response, e.rpcMessage, signature, upstream)
         } catch (e: Exception) {
-            recordError(response, e.message, upstream)
+            recordError(response, e.message, signature, upstream)
         }
         return isResolved()
     }
 
-    override fun record(error: JsonRpcException, upstream: Upstream) {
+    override fun record(error: JsonRpcException, signature: String, upstream: Upstream) {
         this.rpcError = error.error
-        recordError(null, error.error.message, upstream)
+        recordError(null, error.error.message,  signature, upstream)
     }
 
-    abstract fun recordValue(response: ByteArray, responseValue: T?, upstream: Upstream)
+    abstract fun recordValue(response: ByteArray, responseValue: T?, signature: String, upstream: Upstream)
 
-    abstract fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream)
+    abstract fun recordError(response: ByteArray?, errorMessage: String?, signature: String, upstream: Upstream)
 
     override fun getError(): JsonRpcError? {
         return rpcError

@@ -26,6 +26,7 @@ open class BroadcastQuorum(
     private var result: ByteArray? = null
     private var txid: String? = null
     private var calls = 0
+    private var sig = ""
 
     override fun init(head: Head) {
     }
@@ -42,19 +43,25 @@ open class BroadcastQuorum(
         return result
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream) {
+    override fun getSignature(): String {
+        return sig
+    }
+
+    override fun recordValue(response: ByteArray, responseValue: String?, signature: String, upstream: Upstream) {
         calls++
         if (txid == null && responseValue != null) {
             txid = responseValue
+            sig = signature
             result = response
         }
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, signature: String, upstream: Upstream) {
         // can be "message: known transaction: TXID", "Transaction with the same hash was already imported" or "message: Nonce too low"
         calls++
         if (result == null) {
             result = response
+            sig = signature
         }
     }
 

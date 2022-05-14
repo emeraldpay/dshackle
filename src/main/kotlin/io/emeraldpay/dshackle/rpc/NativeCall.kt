@@ -49,7 +49,8 @@ import java.util.EnumMap
 
 @Service
 open class NativeCall(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
+    @Autowired private val signer: ResponseSigner,
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -85,7 +86,7 @@ open class NativeCall(
                 } else {
                     val error = it.getError()
                     Mono.just(
-                        CallResult(error.id, "", null, error)
+                        CallResult(error.id, "", null, error, "")
                     )
                 }
             }
@@ -108,7 +109,11 @@ open class NativeCall(
         } else {
             result.payload = ByteString.copyFrom(it.result)
         }
-
+        if (it.nonce != "" && it.signature != "") {
+            result.signature = it.signature
+        } else if (it.nonce != "" && it.result != null) {
+            result.signature = signer.sign(it.nonce.toByteArray() + it.result)
+        }
         return result.build()
     }
 
@@ -208,7 +213,7 @@ open class NativeCall(
                 api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
-                        CallResult.ok(ctx.id, ctx.nonce,  it)
+                        CallResult.ok(ctx.id, "",  it, "")
                     }
             }.switchIfEmpty(
                 Mono.just(ctx).flatMap(this::executeOnRemote)
@@ -231,7 +236,7 @@ open class NativeCall(
         return reader
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
             .map {
-                CallResult(ctx.id, ctx.nonce, it.value, null)
+                CallResult(ctx.id, ctx.nonce, it.value, null, it.signature)
             }
             .onErrorResume { t ->
                 val failure = when (t) {
@@ -324,18 +329,18 @@ open class NativeCall(
         }
     }
 
-    open class CallResult(val id: Int, val nonce: String, val result: ByteArray?, val error: CallError?) {
+    open class CallResult(val id: Int, val nonce: String, val result: ByteArray?, val error: CallError?, val signature: String) {
         companion object {
-            fun ok(id: Int,  nonce : String, result: ByteArray): CallResult {
-                return CallResult(id, nonce, result, null)
+            fun ok(id: Int,  nonce : String, result: ByteArray, signature: String): CallResult {
+                return CallResult(id, nonce, result, null, signature)
             }
 
             fun fail(id: Int, nonce: String, errorCore: Int, errorMessage: String): CallResult {
-                return CallResult(id, nonce,null, CallError(errorCore, errorMessage, null))
+                return CallResult(id, nonce,null, CallError(errorCore, errorMessage, null), "")
             }
 
             fun fail(id: Int, nonce: String, error: Throwable): CallResult {
-                return CallResult(id, nonce, null, CallError.from(error))
+                return CallResult(id, nonce, null, CallError.from(error), "")
             }
         }
 

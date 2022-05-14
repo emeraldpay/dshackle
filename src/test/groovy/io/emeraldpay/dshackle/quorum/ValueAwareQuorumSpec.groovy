@@ -66,12 +66,14 @@ class ValueAwareQuorumSpec extends Specification {
         }
 
         @Override
-        void recordValue(@NotNull byte[] response, @Nullable Object responseValue, @NotNull Upstream upstream) {
+        void recordValue(@NotNull byte[] response, @Nullable Object responseValue, @NotNull String signature, @NotNull Upstream upstream) {
 
         }
 
+
+
         @Override
-        void recordError(@Nullable byte[] response, @Nullable String errorMessage, @NotNull Upstream upstream) {
+        void recordError(@Nullable byte[] response, @Nullable String errorMessage, @NotNull String signature, @NotNull Upstream upstream) {
 
         }
 
@@ -83,6 +85,11 @@ class ValueAwareQuorumSpec extends Specification {
         @Override
         boolean isResolved() {
             return false
+        }
+
+        @Override
+        String getSignature() {
+            return ""
         }
 
         @Override

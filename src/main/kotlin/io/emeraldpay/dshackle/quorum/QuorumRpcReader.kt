@@ -83,8 +83,8 @@ class QuorumRpcReader(
     }
 
     fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
-        val quorumReduce = BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> { res, a ->
-            if (res.record(a.t1, a.t2)) {
+        val quorumReduce = BiFunction<CallQuorum, Tuple2<Tuple2<ByteArray, String>, Upstream>, CallQuorum> { res, a ->
+            if (res.record(a.t1.t1, a.t1.t2, a.t2)) {
                 apiControl.resolve()
             } else {
                 // quorum needs more responses, so ask api controller to make another
@@ -112,17 +112,17 @@ class QuorumRpcReader(
                 .filter { it.isResolved() } // return nothing if not resolved
                 .map {
                     // TODO find actual quorum number
-                    QuorumRpcReader.Result(it.getResult()!!, 1)
+                    QuorumRpcReader.Result(it.getResult()!!, it.getSignature(), 1)
                 }
                 .switchIfEmpty(defaultResult)
         }
     }
 
-    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple2<ByteArray, Upstream>> {
+    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple2<Tuple2<ByteArray, String>, Upstream>> {
         return api.getApi()
             .read(key)
             .flatMap { response ->
-                response.requireResult()
+                response.requireResultWithSignature()
                     .onErrorResume { err ->
                         // on error notify quorum, it may use error message or other details
                         val cleanErr: JsonRpcException = when (err) {
@@ -133,7 +133,7 @@ class QuorumRpcReader(
                                 JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}")
                             )
                         }
-                        quorum.record(cleanErr, api)
+                        quorum.record(cleanErr, response.sig, api)
                         // if it's failed after that, then we don't need more calls, stop api source
                         if (quorum.isFailed()) {
                             apiControl.resolve()
@@ -162,6 +162,7 @@ class QuorumRpcReader(
 
     class Result(
         val value: ByteArray,
+        val signature: String,
         val quorum: Int
     )
 }

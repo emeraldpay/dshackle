@@ -31,23 +31,10 @@ interface CallQuorum {
     fun isResolved(): Boolean
     fun isFailed(): Boolean
 
-    fun record(response: ByteArray, upstream: Upstream): Boolean
-    fun record(error: JsonRpcException, upstream: Upstream)
+    fun record(response: ByteArray, signature: String, upstream: Upstream): Boolean
+    fun record(error: JsonRpcException, signature: String, upstream: Upstream)
+    fun getSignature(): String
     fun getResult(): ByteArray?
     fun getError(): JsonRpcError?
 
-    companion object {
-        fun untilResolved(cq: CallQuorum): Predicate<Any> {
-            return Predicate { _ ->
-                !cq.isResolved()
-            }
-        }
-
-        fun asReducer(): BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> {
-            return BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> { a, b ->
-                a.record(b.t1, b.t2)
-                return@BiFunction a
-            }
-        }
-    }
 }

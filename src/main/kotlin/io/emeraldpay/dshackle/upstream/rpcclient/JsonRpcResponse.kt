@@ -19,14 +19,17 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
 import reactor.core.publisher.Mono
+import reactor.util.function.Tuple2
+import reactor.util.function.Tuples
 
 class JsonRpcResponse(
     private val result: ByteArray?,
     val error: JsonRpcError?,
-    val id: Id
+    val id: Id,
+    val sig: String
 ) {
 
-    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
+    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0), "")
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
@@ -38,7 +41,7 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun ok(value: ByteArray, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(value, null, id)
+            return JsonRpcResponse(value, null, id, "")
         }
 
         @JvmStatic
@@ -53,12 +56,12 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun error(error: JsonRpcError, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, error, id)
+            return JsonRpcResponse(null, error, id, "")
         }
 
         @JvmStatic
         fun error(code: Int, msg: String, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg), id)
+            return JsonRpcResponse(null, JsonRpcError(code, msg), id, "")
         }
     }
 
@@ -98,6 +101,14 @@ class JsonRpcResponse(
         }
     }
 
+    fun requireResultWithSignature(): Mono<Tuple2<ByteArray, String>> {
+        return if (error != null) {
+            Mono.error(error.asException(id))
+        } else {
+            Mono.just(Tuples.of(getResult(), sig))
+        }
+    }
+
     fun requireStringResult(): Mono<String> {
         return if (error != null) {
             Mono.error(error.asException(id))
@@ -107,7 +118,7 @@ class JsonRpcResponse(
     }
 
     fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id)
+        return JsonRpcResponse(result, error, id, sig)
     }
 
     override fun equals(other: Any?): Boolean {

@@ -21,6 +21,7 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.ChainValue
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
@@ -31,6 +32,7 @@ import org.springframework.context.annotation.DependsOn
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.security.Signature
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -44,7 +46,7 @@ class BlockchainRpc(
     @Autowired private val trackAddress: List<TrackAddress>,
     @Autowired private val describe: Describe,
     @Autowired private val subscribeStatus: SubscribeStatus,
-    @Autowired private val estimateFee: EstimateFee
+    @Autowired private val estimateFee: EstimateFee,
 ) : ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)

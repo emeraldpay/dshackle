@@ -26,6 +26,7 @@ open class AlwaysQuorum : CallQuorum {
     private var resolved = false
     private var result: ByteArray? = null
     private var rpcError: JsonRpcError? = null
+    private var sig: String = ""
 
     override fun init(head: Head) {
     }
@@ -38,14 +39,20 @@ open class AlwaysQuorum : CallQuorum {
         return rpcError != null
     }
 
-    override fun record(response: ByteArray, upstream: Upstream): Boolean {
+    override fun getSignature(): String {
+        return sig
+    }
+
+    override fun record(response: ByteArray, signature: String, upstream: Upstream): Boolean {
         result = response
         resolved = true
+        sig = signature
         return true
     }
 
-    override fun record(error: JsonRpcException, upstream: Upstream) {
+    override fun record(error: JsonRpcException, signature: String, upstream: Upstream) {
         this.rpcError = error.error
+        sig = signature
     }
 
     override fun getResult(): ByteArray? {
