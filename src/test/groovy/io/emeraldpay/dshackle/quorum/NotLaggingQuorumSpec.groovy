@@ -31,12 +31,13 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, up)
+        quorum.record(value, "sig1", up)
         then:
         1 * up.getLag() >> 0
         quorum.isResolved()
         !quorum.isFailed()
         quorum.result == value
+        quorum.signature == "sig1"
     }
 
     def "Resolves if ok lag"() {
@@ -46,12 +47,13 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, up)
+        quorum.record(value,"sig1", up)
         then:
         1 * up.getLag() >> 1
         quorum.isResolved()
         !quorum.isFailed()
         quorum.result == value
+        quorum.signature == "sig1"
     }
 
     def "Ignores if lags"() {
@@ -61,11 +63,12 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, up)
+        quorum.record(value, "sig1", up)
         then:
         1 * up.getLag() >> 2
         !quorum.isResolved()
         !quorum.isFailed()
+        quorum.signature == ""
     }
 
     def "Fails if no lag and error response received"() {
@@ -75,10 +78,11 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(new JsonRpcException(-100, "test error"), up)
+        quorum.record(new JsonRpcException(-100, "test error"), "sig1", up)
         then:
         1 * up.getLag() >> 1
         !quorum.isResolved()
         quorum.isFailed()
+        quorum.signature == ""
     }
 }

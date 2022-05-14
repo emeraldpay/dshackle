@@ -172,7 +172,7 @@ class MultistreamSpec extends Specification {
 
     def "Call postprocess after api use"() {
         setup:
-        def request = new JsonRpcRequest("test_foo", [1], 1)
+        def request = new JsonRpcRequest("test_foo", [1], 1, "")
 
         def api = TestingCommons.api()
         api.answer("test_foo", [1], "test")
