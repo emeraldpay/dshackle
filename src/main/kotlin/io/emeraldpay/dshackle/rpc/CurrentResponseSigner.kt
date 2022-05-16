@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.config.SignatureConfig
+import org.apache.commons.codec.binary.Hex
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import java.security.Signature
@@ -21,6 +22,6 @@ open class CurrentResponseSigner(
         }
         sig.initSign(config.privateKey)
         sig.update(message)
-        return sig.sign().toString()
+        return Hex.encodeHexString(sig.sign())
     }
 }
