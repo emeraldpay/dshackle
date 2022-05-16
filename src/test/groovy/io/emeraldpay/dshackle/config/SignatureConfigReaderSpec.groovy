@@ -28,5 +28,6 @@ class SignatureConfigReaderSpec extends Specification {
         resConfig.algorithm == "RSA"
         resConfig.enabled
         resConfig.privateKey == key.getPrivate()
+        file.delete()
     }
 }
