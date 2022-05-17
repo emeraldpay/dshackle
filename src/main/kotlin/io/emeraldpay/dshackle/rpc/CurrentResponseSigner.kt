@@ -1,19 +1,17 @@
 package io.emeraldpay.dshackle.rpc
 
-import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.config.SignatureConfig
 import org.apache.commons.codec.binary.Hex
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import java.security.Signature
-import javax.annotation.PostConstruct
 
 @Repository
 open class CurrentResponseSigner(
-    @Autowired private val config: SignatureConfig?
-) {
-    fun sign(message: ByteArray): String {
-        if (config == null || !config.enabled) {
+    @Autowired private val config: SignatureConfig
+) : ResponseSigner {
+    override fun sign(message: ByteArray): String {
+        if (!config.enabled) {
             return ""
         }
         val sig = Signature.getInstance(config.signScheme)

@@ -1,13 +1,18 @@
 package io.emeraldpay.dshackle.testing.trial.basicproxy
 
+import io.emeraldpay.dshackle.testing.trial.ProtoClient
 import io.emeraldpay.dshackle.testing.trial.ProxyClient
 import spock.lang.IgnoreIf
+import spock.lang.Shared
 import spock.lang.Specification
 
 @IgnoreIf({ System.getProperty('trialMode') != 'basic' })
 class StandardCallsSpec extends Specification {
 
-    def client = ProxyClient.forPrefix("eth")
+    @Shared client_proto = ProtoClient.basic()
+    @Shared client_proxy = ProxyClient.forPrefix("eth")
+
+    @Shared clients = [client_proto, client_proxy]
 
     def "get height"() {
         when:
@@ -15,6 +20,8 @@ class StandardCallsSpec extends Specification {
         then:
         act.result == "0x100001"
         act.error == null
+        where:
+        client << clients
     }
 
     def "get block"() {
@@ -31,6 +38,8 @@ class StandardCallsSpec extends Specification {
             ]
         }
         act.error == null
+        where:
+        client << clients
     }
 
     def "get non-existing block"() {
@@ -39,6 +48,8 @@ class StandardCallsSpec extends Specification {
         then:
         act.result == null
         act.error == null
+        where:
+        client << clients
     }
 
     def "get tx"() {
@@ -50,6 +61,8 @@ class StandardCallsSpec extends Specification {
             blockHash == "0x9a834c53bbee9c2665a5a84789a1d1ad73750b2d77b50de44f457f411d02e52e"
         }
         act.error == null
+        where:
+        client << clients
     }
 
     def "get non-existing tx"() {
@@ -58,6 +71,8 @@ class StandardCallsSpec extends Specification {
         then:
         act.result == null
         act.error == null
+        where:
+        client << clients
     }
 
     def "get block with txes"() {
@@ -76,6 +91,8 @@ class StandardCallsSpec extends Specification {
             }
         }
         act.error == null
+        where:
+        client << clients
     }
 
     def "returns original block json"() {
@@ -87,6 +104,8 @@ class StandardCallsSpec extends Specification {
             testFoo == "bar"
         }
         act.error == null
+        where:
+        client << clients
     }
 
     def "returns original block json with tx"() {
@@ -98,5 +117,21 @@ class StandardCallsSpec extends Specification {
             testFoo == "bar"
         }
         act.error == null
+        where:
+        client << clients
+    }
+
+    def "check response signature with nonce"() {
+        when:
+        def act = client_proto.executeNative("eth_blockNumber", [], "test")
+        then:
+        act.signature == "302e0215009a561b8a8aaa5a4a7c12b672f92da15aacf51940021500ad3ce9f2e20053ceff652130e07674cb3843e6b8"
+    }
+
+    def "check response signature without nonce"() {
+        when:
+        def act = client_proto.executeNative("eth_blockNumber", [], "")
+        then:
+        act.signature == ""
     }
 }

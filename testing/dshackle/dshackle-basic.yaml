@@ -31,6 +31,10 @@ cache:
   redis:
     enabled: false
 
+signature:
+  enabled: true
+  privateKey: "./test_key"
+
 proxy:
   port: 18080
   tls:

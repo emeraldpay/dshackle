@@ -1,6 +1,8 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.test.TestingCommons
+import org.bouncycastle.util.io.pem.PemObject
+import org.bouncycastle.util.io.pem.PemWriter
 import org.yaml.snakeyaml.nodes.MappingNode
 import spock.lang.Specification
 
@@ -14,7 +16,9 @@ class SignatureConfigReaderSpec extends Specification {
         keygen.initialize(2048)
         def key = keygen.generateKeyPair()
         def keyBuilder = new PKCS8EncodedKeySpec(key.getPrivate().getEncoded())
-        (new FileOutputStream(file)).write(keyBuilder.getEncoded())
+        def writer = new PemWriter(new FileWriter(file.path))
+        writer.writeObject(new PemObject("PRIVATE KEY", keyBuilder.getEncoded()))
+        writer.flush()
         def config = "signature:\n" +
                 "  enabled: true\n" +
                 "  scheme: SHA256withRSA\n" +

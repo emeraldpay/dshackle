@@ -7,6 +7,7 @@ plugins {
 repositories {
     mavenLocal()
     mavenCentral()
+    maven { url "https://maven.emrld.io" }
 }
 
 dependencies {
@@ -14,6 +15,10 @@ dependencies {
     implementation "org.codehaus.groovy:groovy:3.0.4"
     implementation "com.fasterxml.jackson.core:jackson-core:2.9.8"
     implementation "com.fasterxml.jackson.core:jackson-databind:2.9.8"
+    implementation "io.grpc:grpc-netty:1.46.0"
+    implementation("io.emeraldpay:emerald-api:0.11.1") {
+        exclude group: 'com.salesforce.servicelibs', module: 'reactor-grpc'
+    }
 
     testImplementation "org.spockframework:spock-core:2.0-M3-groovy-3.0"
 }

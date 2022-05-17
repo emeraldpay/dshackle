@@ -16,13 +16,7 @@
  */
 package io.emeraldpay.dshackle
 
-import io.emeraldpay.dshackle.config.CacheConfig
-import io.emeraldpay.dshackle.config.HealthConfig
-import io.emeraldpay.dshackle.config.MainConfig
-import io.emeraldpay.dshackle.config.MainConfigReader
-import io.emeraldpay.dshackle.config.MonitoringConfig
-import io.emeraldpay.dshackle.config.TokensConfig
-import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.config.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
@@ -117,6 +111,11 @@ open class Config(
     @Bean
     open fun cacheConfig(@Autowired mainConfig: MainConfig): CacheConfig {
         return mainConfig.cache ?: CacheConfig()
+    }
+
+    @Bean
+    open fun signatureConfig(@Autowired mainConfig: MainConfig): SignatureConfig {
+        return mainConfig.signature ?: SignatureConfig()
     }
 
     @Bean
