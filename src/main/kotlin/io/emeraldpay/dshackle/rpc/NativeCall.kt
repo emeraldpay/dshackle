@@ -213,7 +213,7 @@ open class NativeCall(
                 api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
-                        CallResult.ok(ctx.id, "",  it, "")
+                        CallResult.ok(ctx.id, ctx.nonce,  it, "")
                     }
             }.switchIfEmpty(
                 Mono.just(ctx).flatMap(this::executeOnRemote)

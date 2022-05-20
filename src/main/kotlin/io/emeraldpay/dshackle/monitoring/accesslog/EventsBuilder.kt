@@ -312,6 +312,7 @@ class EventsBuilder {
                         item.method,
                         item.id,
                         item.payload.size().toLong(),
+                        item.nonce,
                         if (accessLogConfig.includeMessages) {
                             if (item.payload != null && !item.payload.isEmpty && item.payload.isValidUtf8) item.payload.toStringUtf8() else ""
                         } else null
@@ -336,6 +337,8 @@ class EventsBuilder {
                     if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
                 } else null,
                 errorMessage = if (accessLogConfig.includeMessages) msg.errorMessage else null,
+                signature = msg.signature,
+                nonce = msg.nonce
             )
         }
 
