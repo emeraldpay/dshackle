@@ -14,7 +14,7 @@ open class CurrentResponseSigner(
         if (!config.enabled) {
             return ""
         }
-        val sig = Signature.getInstance(config.signScheme)
+        val sig = Signature.getInstance(SignatureConfig.sigSchemeToString(config.signScheme))
         if (config.privateKey == null) {
             throw Exception("Signatures are enabled, but private key is not configured")
         }

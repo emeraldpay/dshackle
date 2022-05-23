@@ -1,10 +1,18 @@
 package io.emeraldpay.dshackle.testing.trial.basicproxy
 
+import com.google.common.primitives.Bytes
 import io.emeraldpay.dshackle.testing.trial.ProtoClient
 import io.emeraldpay.dshackle.testing.trial.ProxyClient
+import org.apache.commons.codec.binary.Hex
 import spock.lang.IgnoreIf
 import spock.lang.Shared
 import spock.lang.Specification
+import java.security.KeyFactory
+import org.bouncycastle.util.io.pem.PemReader
+
+import java.security.Signature
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 
 @IgnoreIf({ System.getProperty('trialMode') != 'basic' })
 class StandardCallsSpec extends Specification {
@@ -124,8 +132,17 @@ class StandardCallsSpec extends Specification {
     def "check response signature with nonce"() {
         when:
         def act = client_proto.executeNative("eth_blockNumber", [], "test")
+        def keyFactory = KeyFactory.getInstance("EC")
+        def key = new File(System.getProperty('signatureKey'))
+        def reader = new PemReader(key.newReader())
+        def keySpec = new X509EncodedKeySpec(reader.readPemObject().getContent())
+        def pubKey = keyFactory.generatePublic(keySpec)
+        def sig = Signature.getInstance("SHA256withECDSA")
+        sig.initVerify(pubKey)
+        sig.update(Bytes.concat("test".bytes, act.payload.toByteArray()))
         then:
-        act.signature == "302e0215009a561b8a8aaa5a4a7c12b672f92da15aacf51940021500ad3ce9f2e20053ceff652130e07674cb3843e6b8"
+        (new String(act.payload.toByteArray())) == "\"0x100001\""
+        sig.verify(Hex.decodeHex(act.signature))
     }
 
     def "check response signature without nonce"() {

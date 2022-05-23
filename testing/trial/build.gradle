@@ -16,6 +16,7 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-core:2.9.8"
     implementation "com.fasterxml.jackson.core:jackson-databind:2.9.8"
     implementation "io.grpc:grpc-netty:1.46.0"
+    implementation "org.bouncycastle:bcprov-jdk15on:1.61"
     implementation("io.emeraldpay:emerald-api:0.11.1") {
         exclude group: 'com.salesforce.servicelibs', module: 'reactor-grpc'
     }
@@ -23,8 +24,16 @@ dependencies {
     testImplementation "org.spockframework:spock-core:2.0-M3-groovy-3.0"
 }
 
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        substitute module("io.emeraldpay:emerald-api") using project(":api") because "we work with the unreleased development version"
+    }
+}
+
+
 test {
     systemProperty "trialMode", project.getProperty("dshackleTrialMode")
+    systemProperty "signatureKey", project.getProperty("signatureKey")
     useJUnitPlatform()
     testLogging {
         events "PASSED", "FAILED"

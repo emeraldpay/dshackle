@@ -33,6 +33,8 @@ cache:
 
 signature:
   enabled: true
+  algorithm: ECDSA
+  signatureScheme: SHA256withECDSA
   privateKey: "./test_key"
 
 proxy:
