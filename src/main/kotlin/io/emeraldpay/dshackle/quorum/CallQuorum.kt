@@ -20,9 +20,6 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import reactor.util.function.Tuple2
-import java.util.function.BiFunction
-import java.util.function.Predicate
 
 interface CallQuorum {
 
@@ -36,5 +33,4 @@ interface CallQuorum {
     fun getSignature(): ByteArray?
     fun getResult(): ByteArray?
     fun getError(): JsonRpcError?
-
 }
