@@ -1,7 +1,7 @@
 package io.emeraldpay.dshackle.config
 
-import org.bouncycastle.jcajce.provider.asymmetric.ec.KeyFactorySpi.ECDSA
-import java.security.PrivateKey
+import java.security.interfaces.ECPrivateKey
+
 class SignatureConfig {
     enum class Algorithm {
         ECDSA
@@ -28,7 +28,7 @@ class SignatureConfig {
      */
     var enabled: Boolean = false
 
-    var privateKey : PrivateKey? = null
+    var privateKey : ECPrivateKey? = null
 
     fun algorithmAsString(): String {
         val scheme = when (algorithm) {

@@ -8,9 +8,11 @@ import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.KeyFactory;
-import java.security.PrivateKey
+import java.security.interfaces.ECPrivateKey
 
 class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader(), ConfigReader<SignatureConfig> {
+
+    class SignatureCurveError(message: String) : Exception(message)
     companion object {
         private val log = LoggerFactory.getLogger(SignatureConfig::class.java)
     }
@@ -20,7 +22,7 @@ class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader()
         return read(configNode)
     }
 
-    private fun readKey(algorithm: SignatureConfig.Algorithm, pem: PemObject): PrivateKey {
+    private fun readKey(algorithm: SignatureConfig.Algorithm, pem: PemObject): ECPrivateKey {
         val key = when (algorithm) {
             SignatureConfig.Algorithm.ECDSA -> {
                 val keyFactory = KeyFactory.getInstance("EC");
@@ -28,7 +30,14 @@ class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader()
                 keyFactory.generatePrivate(keySpec)
             }
         }
-        return key
+
+        if (key is ECPrivateKey) {
+            if (key.params.toString() != "secp256k1 (1.3.132.0.10)") {
+                throw SignatureCurveError("Only secp256k1 is allowed for private key")
+            }
+            return key
+        }
+        throw Error("Only ECDSA keys are allowed")
     }
 
     override fun read(input: MappingNode?): SignatureConfig? {
