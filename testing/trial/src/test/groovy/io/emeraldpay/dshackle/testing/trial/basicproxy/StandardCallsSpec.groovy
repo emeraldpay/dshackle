@@ -11,6 +11,7 @@ import spock.lang.Specification
 import java.security.KeyFactory
 import org.bouncycastle.util.io.pem.PemReader
 
+import java.security.MessageDigest
 import java.security.Signature
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
@@ -140,7 +141,10 @@ class StandardCallsSpec extends Specification {
         def pubKey = keyFactory.generatePublic(keySpec)
         def sig = Signature.getInstance("SHA256withECDSA")
         sig.initVerify(pubKey)
-        sig.update(Bytes.concat("DSHACKLESIG".bytes, Longs.toByteArray(10), act.payload.toByteArray()))
+        def sep = "/".bytes
+        def digest = MessageDigest.getInstance("SHA-256")
+        def messageHash = digest.digest(act.payload.toByteArray())
+        sig.update(Bytes.concat("DSHACKLESIG".bytes, sep, Longs.toByteArray(10), sep, messageHash))
         then:
         (new String(act.payload.toByteArray())) == "\"0x100001\""
         sig.verify(act.signature.sig.toByteArray())

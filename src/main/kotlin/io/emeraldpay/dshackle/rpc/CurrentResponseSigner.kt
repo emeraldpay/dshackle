@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.config.SignatureConfig
 import org.apache.commons.codec.binary.Hex
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
+import java.security.MessageDigest
 import java.security.Signature
 
 @Repository
@@ -24,9 +25,11 @@ open class CurrentResponseSigner(
             throw Exception("Signatures are enabled, but private key is not configured")
         }
         sig.initSign(config.privateKey)
+        val digest = MessageDigest.getInstance("SHA-256")
         // We add prefix to avoid the attack when data provider and client collude and are able to sign arbitrary messages
         // If instance private key holds some value, it could be dangerous
-        sig.update(SIGN_PREFIX + Longs.toByteArray(nonce) + message)
+        val sep = "/".toByteArray()
+        sig.update(SIGN_PREFIX + sep + Longs.toByteArray(nonce) + sep + digest.digest(message))
         return sig.sign()
     }
 }

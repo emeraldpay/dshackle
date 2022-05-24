@@ -7,8 +7,10 @@ import org.apache.commons.codec.binary.Hex
 import spock.lang.Specification
 
 import java.security.KeyPairGenerator
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.Signature
+import java.security.interfaces.ECPrivateKey
 import java.security.spec.ECGenParameterSpec
 
 class CurrentResponseSignerSpec extends Specification {
@@ -42,11 +44,13 @@ class CurrentResponseSignerSpec extends Specification {
         def ecGenParameterSpec = new ECGenParameterSpec("secp256k1");
         keyPairGen.initialize(ecGenParameterSpec, new SecureRandom())
         def pair = keyPairGen.generateKeyPair()
-        conf.privateKey = pair.getPrivate()
+        conf.privateKey = (pair.getPrivate() as ECPrivateKey)
         def signer = new CurrentResponseSigner(conf)
         def sign = Signature.getInstance(CurrentResponseSigner.SIGN_SCHEME)
         sign.initVerify(pair.getPublic())
-        sign.update(Bytes.concat(CurrentResponseSigner.SIGN_PREFIX, Longs.toByteArray(10), "test".bytes))
+        def sep = "/".bytes
+        def digest = MessageDigest.getInstance("SHA-256")
+        sign.update(Bytes.concat(CurrentResponseSigner.SIGN_PREFIX, sep, Longs.toByteArray(10), sep, digest.digest("test".bytes)))
         when:
         def sig = signer.sign(10, "test".bytes)
         then:
