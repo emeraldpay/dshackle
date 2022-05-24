@@ -155,7 +155,6 @@ class TrackBitcoinTx(
                 Common.BlockInfo.newBuilder()
                     .setBlockId(tx.blockHash!!.substring(2))
                     .setTimestamp(tx.blockTime!!.toEpochMilli())
-                    .setWeight(ByteString.copyFrom(tx.blockTotalDifficulty!!.toByteArray()))
                     .setHeight(tx.height!!)
             )
         }

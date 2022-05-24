@@ -258,7 +258,6 @@ class TrackEthereumTx(
                 Common.BlockInfo.newBuilder()
                     .setBlockId(tx.status.blockHash!!.toHex().substring(2))
                     .setTimestamp(tx.status.blockTime!!.toEpochMilli())
-                    .setWeight(ByteString.copyFrom(tx.status.blockTotalDifficulty!!.toByteArray()))
                     .setHeight(tx.status.height!!)
             )
         }
