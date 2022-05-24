@@ -140,7 +140,7 @@ class StandardCallsSpec extends Specification {
         def pubKey = keyFactory.generatePublic(keySpec)
         def sig = Signature.getInstance("SHA256withECDSA")
         sig.initVerify(pubKey)
-        sig.update(Bytes.concat(Longs.toByteArray(10), act.payload.toByteArray()))
+        sig.update(Bytes.concat("DSHACKLESIG".bytes, Longs.toByteArray(10), act.payload.toByteArray()))
         then:
         (new String(act.payload.toByteArray())) == "\"0x100001\""
         sig.verify(act.signature.sig.toByteArray())

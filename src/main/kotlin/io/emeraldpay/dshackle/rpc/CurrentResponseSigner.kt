@@ -13,6 +13,7 @@ open class CurrentResponseSigner(
 ) : ResponseSigner {
     companion object Constants {
         val SIGN_SCHEME = "SHA256withECDSA"
+        val SIGN_PREFIX = "DSHACKLESIG".toByteArray()
     }
     override fun sign(nonce: Long, message: ByteArray): ByteArray? {
         if (!config.enabled) {
@@ -23,7 +24,9 @@ open class CurrentResponseSigner(
             throw Exception("Signatures are enabled, but private key is not configured")
         }
         sig.initSign(config.privateKey)
-        sig.update(Longs.toByteArray(nonce) + message)
+        // We add prefix to avoid the attack when data provider and client collude and are able to sign arbitrary messages
+        // If instance private key holds some value, it could be dangerous
+        sig.update(SIGN_PREFIX + Longs.toByteArray(nonce) + message)
         return sig.sign()
     }
 }

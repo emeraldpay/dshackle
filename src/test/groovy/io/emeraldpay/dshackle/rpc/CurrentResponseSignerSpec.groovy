@@ -46,7 +46,7 @@ class CurrentResponseSignerSpec extends Specification {
         def signer = new CurrentResponseSigner(conf)
         def sign = Signature.getInstance(CurrentResponseSigner.SIGN_SCHEME)
         sign.initVerify(pair.getPublic())
-        sign.update(Bytes.concat(Longs.toByteArray(10), "test".bytes))
+        sign.update(Bytes.concat(CurrentResponseSigner.SIGN_PREFIX, Longs.toByteArray(10), "test".bytes))
         when:
         def sig = signer.sign(10, "test".bytes)
         then:
