@@ -33,7 +33,7 @@ class ProtoClient implements Client {
         create("localhost", 12448, Chain.ETHEREUM)
     }
 
-    BlockchainOuterClass.NativeCallReplyItem executeNative(String method, List<Object> params, String nonce) {
+    BlockchainOuterClass.NativeCallReplyItem executeNative(String method, List<Object> params, Long nonce) {
         def req = BlockchainOuterClass.NativeCallRequest
                 .newBuilder()
                 .setChain(Common.ChainRef.CHAIN_ETHEREUM)
@@ -54,7 +54,7 @@ class ProtoClient implements Client {
         return execute(sequence++, method, params)
     }
     Map<String, Object> execute(Object id, String method, List<Object> params) {
-        def result = executeNative(method, params, "")
+        def result = executeNative(method, params, 0L)
         if (result.errorMessage != "") {
             return [error: result.errorMessage]
         } else {

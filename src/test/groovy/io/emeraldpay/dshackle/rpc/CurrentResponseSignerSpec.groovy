@@ -44,7 +44,7 @@ class CurrentResponseSignerSpec extends Specification {
         def pair = keyPairGen.generateKeyPair()
         conf.privateKey = pair.getPrivate()
         def signer = new CurrentResponseSigner(conf)
-        def sign = Signature.getInstance(conf.signSchemeAsString())
+        def sign = Signature.getInstance(CurrentResponseSigner.SIGN_SCHEME)
         sign.initVerify(pair.getPublic())
         sign.update(Bytes.concat(Longs.toByteArray(10), "test".bytes))
         when:

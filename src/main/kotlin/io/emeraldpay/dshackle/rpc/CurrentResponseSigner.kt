@@ -11,11 +11,14 @@ import java.security.Signature
 open class CurrentResponseSigner(
     @Autowired private val config: SignatureConfig
 ) : ResponseSigner {
+    companion object Constants {
+        val SIGN_SCHEME = "SHA256withECDSA"
+    }
     override fun sign(nonce: Long, message: ByteArray): ByteArray? {
         if (!config.enabled) {
             return null
         }
-        val sig = Signature.getInstance(config.signSchemeAsString())
+        val sig = Signature.getInstance(SIGN_SCHEME)
         if (config.privateKey == null) {
             throw Exception("Signatures are enabled, but private key is not configured")
         }

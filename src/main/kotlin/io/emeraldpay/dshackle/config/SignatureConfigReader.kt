@@ -35,9 +35,6 @@ class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader()
         return getMapping(input, "signature")?.let { node ->
             val config = SignatureConfig()
             config.enabled = getValueAsBool(node, "enabled") ?: config.enabled
-            getValueAsString(node, "scheme")?.let {
-                config.signScheme = SignatureConfig.sigSchemeOfString(it)
-            }
             getValueAsString(node, "algorithm")?.let {
                 config.algorithm = SignatureConfig.algorithmOfString(it)
             }

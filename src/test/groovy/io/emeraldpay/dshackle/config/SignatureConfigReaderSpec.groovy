@@ -25,14 +25,12 @@ class SignatureConfigReaderSpec extends Specification {
         writer.flush()
         def config = "signature:\n" +
                 "  enabled: true\n" +
-                "  scheme: SHA256withECDSA\n" +
                 "  algorithm: ECDSA\n" +
                 "  privateKey: " + file.path
         when:
         def reader = new SignatureConfigReader(TestingCommons.fileResolver())
         def resConfig = reader.read(new ByteArrayInputStream(config.bytes))
         then:
-        resConfig.signScheme == SignatureConfig.SigScheme.SHA256withECDSA
         resConfig.algorithm == SignatureConfig.Algorithm.ECDSA
         resConfig.enabled
         resConfig.privateKey == key.getPrivate()
@@ -42,24 +40,11 @@ class SignatureConfigReaderSpec extends Specification {
     def "Fails to read restricted key type"() {
         def config = "signature:\n" +
                 "  enabled: true\n" +
-                "  scheme: SHA256withECDSA\n" +
                 "  algorithm: RSA\n"
         when:
         def reader = new SignatureConfigReader(TestingCommons.fileResolver())
         def resConfig = reader.read(new ByteArrayInputStream(config.bytes))
         then:
         thrown SignatureConfig.UnknownAlgorithm
-    }
-
-    def "Fails to read restricted signature scheme"() {
-        def config = "signature:\n" +
-                "  enabled: true\n" +
-                "  scheme: SHA256withRSA\n" +
-                "  algorithm: EC\n"
-        when:
-        def reader = new SignatureConfigReader(TestingCommons.fileResolver())
-        def resConfig = reader.read(new ByteArrayInputStream(config.bytes))
-        then:
-        thrown SignatureConfig.UnknownSignature
     }
 }

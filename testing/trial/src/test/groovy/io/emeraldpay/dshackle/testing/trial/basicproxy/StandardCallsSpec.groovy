@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.testing.trial.basicproxy
 
 import com.google.common.primitives.Bytes
+import com.google.common.primitives.Longs
 import io.emeraldpay.dshackle.testing.trial.ProtoClient
 import io.emeraldpay.dshackle.testing.trial.ProxyClient
 import org.apache.commons.codec.binary.Hex
@@ -131,7 +132,7 @@ class StandardCallsSpec extends Specification {
 
     def "check response signature with nonce"() {
         when:
-        def act = client_proto.executeNative("eth_blockNumber", [], "test")
+        def act = client_proto.executeNative("eth_blockNumber", [], 10)
         def keyFactory = KeyFactory.getInstance("EC")
         def key = new File(System.getProperty('signatureKey'))
         def reader = new PemReader(key.newReader())
@@ -139,16 +140,16 @@ class StandardCallsSpec extends Specification {
         def pubKey = keyFactory.generatePublic(keySpec)
         def sig = Signature.getInstance("SHA256withECDSA")
         sig.initVerify(pubKey)
-        sig.update(Bytes.concat("test".bytes, act.payload.toByteArray()))
+        sig.update(Bytes.concat(Longs.toByteArray(10), act.payload.toByteArray()))
         then:
         (new String(act.payload.toByteArray())) == "\"0x100001\""
-        sig.verify(Hex.decodeHex(act.signature))
+        sig.verify(act.signature.sig.toByteArray())
     }
 
     def "check response signature without nonce"() {
         when:
-        def act = client_proto.executeNative("eth_blockNumber", [], "")
+        def act = client_proto.executeNative("eth_blockNumber", [], 0L)
         then:
-        act.signature == ""
+        act.signature.sig.isEmpty()
     }
 }
