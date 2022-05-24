@@ -43,24 +43,24 @@ class NonceQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record('"0x10"'.bytes, "sig1", upstream1)
+        q.record('"0x10"'.bytes, "sig1".bytes, upstream1)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0x10", _, _)
 
         when:
-        q.record('"0x11"'.bytes, "sig2", upstream2)
+        q.record('"0x11"'.bytes, "sig2".bytes, upstream2)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0x11", _, _)
 
         when:
-        q.record('"0x10"'.bytes, "sig3", upstream3)
+        q.record('"0x10"'.bytes, "sig3".bytes, upstream3)
         then:
         1 * q.recordValue(_, "0x10", _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0x11"
-        q.signature == "sig2"
+        q.signature == "sig2".bytes
     }
 
     def "Ignores errors"() {
@@ -76,30 +76,30 @@ class NonceQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig1", upstream1)
+        q.record(new JsonRpcException(1, "Internal"), "sig1".bytes, upstream1)
         then:
         !q.isResolved()
         1 * q.recordError(_, _, _, _)
 
         when:
-        q.record('"0x11"'.bytes, "sig2", upstream2)
+        q.record('"0x11"'.bytes, "sig2".bytes, upstream2)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0x11", _, _)
 
         when:
-        q.record('"0x10"'.bytes, "sig3", upstream3)
+        q.record('"0x10"'.bytes, "sig3".bytes, upstream3)
         then:
         1 * q.recordValue(_, "0x10", _, _)
         !q.isResolved()
 
         when:
-        q.record('"0x11"'.bytes, "sig4", upstream1)
+        q.record('"0x11"'.bytes, "sig4".bytes, upstream1)
         then:
         1 * q.recordValue(_, "0x11", _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0x11"
-        q.signature == "sig2"
+        q.signature == "sig2".bytes
     }
 
     def "Fail if too many errors"() {
@@ -116,24 +116,24 @@ class NonceQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig1", upstream1)
+        q.record(new JsonRpcException(1, "Internal"), "sig1".bytes, upstream1)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig2", upstream2)
+        q.record(new JsonRpcException(1, "Internal"), "sig2".bytes, upstream2)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig3", upstream3)
+        q.record(new JsonRpcException(1, "Internal"), "sig3".bytes, upstream3)
         then:
         q.isFailed()
         !q.isResolved()
         q.getError() != null
         q.getError().message == "Internal"
-        q.signature == ""
+        q.signature == null
     }
 }

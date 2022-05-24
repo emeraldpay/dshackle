@@ -31,7 +31,7 @@ open class NonceQuorum(
     private var result: ByteArray? = null
     private var receivedTimes = 0
     private var errors = 0
-    private var sig = ""
+    private var sig : ByteArray? = null
 
     override fun init(head: Head) {
     }
@@ -45,11 +45,11 @@ open class NonceQuorum(
     override fun isFailed(): Boolean {
         return errors >= tries
     }
-    override fun getSignature(): String {
+    override fun getSignature(): ByteArray? {
         return sig
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, signature: String, upstream: Upstream) {
+    override fun recordValue(response: ByteArray, responseValue: String?, signature: ByteArray?, upstream: Upstream) {
         val value = responseValue?.let { str ->
             HexQuantity.from(str).value.toLong()
         }
@@ -70,7 +70,7 @@ open class NonceQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, signature: String, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, signature: ByteArray?, upstream: Upstream) {
         errors++
     }
 

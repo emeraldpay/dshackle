@@ -23,6 +23,7 @@ import io.grpc.Attributes
 import io.grpc.Grpc
 import io.grpc.Metadata
 import io.netty.handler.codec.http.HttpHeaders
+import org.apache.commons.codec.binary.Hex
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import reactor.netty.http.server.HttpServerRequest
@@ -337,8 +338,8 @@ class EventsBuilder {
                     if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
                 } else null,
                 errorMessage = if (accessLogConfig.includeMessages) msg.errorMessage else null,
-                signature = msg.signature,
-                nonce = msg.nonce
+                signature = Hex.encodeHexString(msg.signature.sig.toByteArray()),
+                nonce = msg.signature.nonce
             )
         }
 

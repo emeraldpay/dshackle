@@ -31,9 +31,9 @@ interface CallQuorum {
     fun isResolved(): Boolean
     fun isFailed(): Boolean
 
-    fun record(response: ByteArray, signature: String, upstream: Upstream): Boolean
-    fun record(error: JsonRpcException, signature: String, upstream: Upstream)
-    fun getSignature(): String
+    fun record(response: ByteArray, signature: ByteArray?, upstream: Upstream): Boolean
+    fun record(error: JsonRpcException, signature: ByteArray?, upstream: Upstream)
+    fun getSignature(): ByteArray?
     fun getResult(): ByteArray?
     fun getError(): JsonRpcError?
 

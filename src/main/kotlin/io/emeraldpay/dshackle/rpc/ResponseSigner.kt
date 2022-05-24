@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.rpc
 
 interface ResponseSigner {
-    fun sign(message: ByteArray): String
+    fun sign(nonce: Long, message: ByteArray): ByteArray?
+
 }

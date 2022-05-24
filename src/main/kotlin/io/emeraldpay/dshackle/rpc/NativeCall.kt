@@ -86,7 +86,7 @@ open class NativeCall(
                 } else {
                     val error = it.getError()
                     Mono.just(
-                        CallResult(error.id, "", null, error, "")
+                        CallResult(error.id, 0, null, error, null)
                     )
                 }
             }
@@ -98,8 +98,10 @@ open class NativeCall(
     }
 
     fun buildResponse(it: CallResult): BlockchainOuterClass.NativeCallReplyItem {
+        val sig = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
+        it.nonce?.let { sig.setNonce(it) }
+
         val result = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-            .setNonce(it.nonce)
             .setSucceed(!it.isError())
             .setId(it.id)
         if (it.isError()) {
@@ -109,11 +111,12 @@ open class NativeCall(
         } else {
             result.payload = ByteString.copyFrom(it.result)
         }
-        if (it.nonce != "" && it.signature != "") {
-            result.signature = it.signature
-        } else if (it.nonce != "" && it.result != null) {
-            result.signature = signer.sign(it.nonce.toByteArray() + it.result)
+        if (it.nonce != null && it.signature != null) {
+            sig.sig = ByteString.copyFrom(it.signature)
+        } else if (it.nonce != null && it.result != null) {
+            sig.sig = ByteString.copyFrom(signer.sign(it.nonce, it.result))
         }
+        result.signature = sig.build()
         return result.build()
     }
 
@@ -177,7 +180,6 @@ open class NativeCall(
                 )
             )
         }
-
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
             if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
@@ -202,8 +204,7 @@ open class NativeCall(
                 val heightMatcher = Selector.HeightMatcher(minHeight)
                 matcher.withMatcher(heightMatcher)
             }
-
-            ValidCallContext(requestItem.id, requestItem.nonce, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
+            ValidCallContext(requestItem.id, requestItem.nonce.let { if (it == 0L) null else it }, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
         }
     }
 
@@ -213,7 +214,7 @@ open class NativeCall(
                 api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
-                        CallResult.ok(ctx.id, ctx.nonce,  it, "")
+                        CallResult.ok(ctx.id, ctx.nonce,  it, null)
                     }
             }.switchIfEmpty(
                 Mono.just(ctx).flatMap(this::executeOnRemote)
@@ -268,7 +269,7 @@ open class NativeCall(
 
     open class ValidCallContext<T>(
         val id: Int,
-        val nonce: String,
+        val nonce: Long?,
         val upstream: Multistream,
         val matcher: Selector.Matcher,
         val callQuorum: CallQuorum,
@@ -329,18 +330,18 @@ open class NativeCall(
         }
     }
 
-    open class CallResult(val id: Int, val nonce: String, val result: ByteArray?, val error: CallError?, val signature: String) {
+    open class CallResult(val id: Int, val nonce: Long?, val result: ByteArray?, val error: CallError?, val signature: ByteArray?) {
         companion object {
-            fun ok(id: Int,  nonce : String, result: ByteArray, signature: String): CallResult {
+            fun ok(id: Int,  nonce : Long?, result: ByteArray, signature: ByteArray?): CallResult {
                 return CallResult(id, nonce, result, null, signature)
             }
 
-            fun fail(id: Int, nonce: String, errorCore: Int, errorMessage: String): CallResult {
-                return CallResult(id, nonce,null, CallError(errorCore, errorMessage, null), "")
+            fun fail(id: Int, nonce: Long?, errorCore: Int, errorMessage: String): CallResult {
+                return CallResult(id, nonce,null, CallError(errorCore, errorMessage, null), null)
             }
 
-            fun fail(id: Int, nonce: String, error: Throwable): CallResult {
-                return CallResult(id, nonce, null, CallError.from(error), "")
+            fun fail(id: Int, nonce: Long?, error: Throwable): CallResult {
+                return CallResult(id, nonce, null, CallError.from(error), null)
             }
         }
 

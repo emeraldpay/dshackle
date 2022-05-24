@@ -60,7 +60,7 @@ class LocalCallRouter(
         if (!methods.isCallable(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
-        if (key.nonce != "") {
+        if (key.nonce != null) {
             // we do not want to serve any requests (except hardcoded) that have nonces from cache
             return Mono.empty();
         }

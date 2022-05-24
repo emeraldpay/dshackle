@@ -25,10 +25,10 @@ data class JsonRpcRequest(
     val method: String,
     val params: List<Any?>,
     val id: Int,
-    val nonce: String
+    val nonce: Long?
 ) {
 
-    @JvmOverloads constructor(method: String, params: List<Any?>, nonce: String = "") : this(method, params, 1, nonce)
+    @JvmOverloads constructor(method: String, params: List<Any?>, nonce: Long? = null) : this(method, params, 1, nonce)
 
     fun toJson(): ByteArray {
         val json = mapOf(
@@ -63,7 +63,7 @@ data class JsonRpcRequest(
                     throw IllegalStateException("Unsupported param type: ${it.asToken()}")
                 }
             }
-            return JsonRpcRequest(method, params, id, "")
+            return JsonRpcRequest(method, params, id, null)
         }
     }
 }

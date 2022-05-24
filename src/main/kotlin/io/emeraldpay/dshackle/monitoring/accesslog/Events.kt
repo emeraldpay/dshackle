@@ -111,7 +111,7 @@ class Events {
         val nativeCall: NativeCallItemDetails,
         val responseBody: String? = null,
         val errorMessage: String? = null,
-        val nonce: String? = null,
+        val nonce: Long? = null,
         val signature: String? = null
     ) : ChainBase(blockchain, "NativeCall", id, channel)
 
@@ -165,7 +165,7 @@ class Events {
         val method: String,
         val id: Int,
         val payloadSizeBytes: Long,
-        val nonce: String,
+        val nonce: Long,
         val requestParams: String? = null
     )
 

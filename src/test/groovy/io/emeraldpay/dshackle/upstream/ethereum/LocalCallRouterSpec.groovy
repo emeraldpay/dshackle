@@ -50,7 +50,7 @@ class LocalCallRouterSpec extends Specification {
                 new EmptyHead()
         )
         when:
-        def act = router.read(new JsonRpcRequest("eth_getTransactionByHash", ["test"], "test"))
+        def act = router.read(new JsonRpcRequest("eth_getTransactionByHash", ["test"], 10))
                 .block(Duration.ofSeconds(1))
         then:
         act == null

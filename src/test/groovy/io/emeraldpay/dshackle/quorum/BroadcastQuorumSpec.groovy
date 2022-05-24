@@ -43,24 +43,24 @@ class BroadcastQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, "sig1", upstream1)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, "sig1".bytes, upstream1)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, "sig2", upstream2)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, "sig2".bytes, upstream2)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
-        q.record(new JsonRpcException(1, "Nonce too low"), "sig3", upstream3)
+        q.record(new JsonRpcException(1, "Nonce too low"), "sig3".bytes, upstream3)
         then:
         1 * q.recordError(_, _, _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
-        q.signature == "sig1"
+        q.signature == "sig1".bytes
     }
 
     def "Remembers first response"() {
@@ -76,24 +76,24 @@ class BroadcastQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record(new JsonRpcException(1, "Internal error"), "sig1", upstream1)
+        q.record(new JsonRpcException(1, "Internal error"), "sig1".bytes, upstream1)
         then:
         !q.isResolved()
         1 * q.recordError(_, _, _, _)
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, "sig2", upstream2)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, "sig2".bytes, upstream2)
         then:
         !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
-        q.record(new JsonRpcException(1, "Nonce too low"), "sig3", upstream3)
+        q.record(new JsonRpcException(1, "Nonce too low"), "sig3".bytes, upstream3)
         then:
         1 * q.recordError(_, _, _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
-        q.signature == "sig2"
+        q.signature == "sig2".bytes
     }
 
     def "Failed if error received 3+ times"() {
@@ -101,19 +101,19 @@ class BroadcastQuorumSpec extends Specification {
         def quorum = new BroadcastQuorum(3)
         def up = Stub(Upstream)
         when:
-        quorum.record(new JsonRpcException(1, "test 1"), "sig1", up)
+        quorum.record(new JsonRpcException(1, "test 1"), "sig1".bytes, up)
         then:
         !quorum.isFailed()
         !quorum.isResolved()
 
         when:
-        quorum.record(new JsonRpcException(1, "test 2"), "sig2", up)
+        quorum.record(new JsonRpcException(1, "test 2"), "sig2".bytes, up)
         then:
         !quorum.isFailed()
         !quorum.isResolved()
 
         when:
-        quorum.record(new JsonRpcException(1, "test 3"), "sig3", up)
+        quorum.record(new JsonRpcException(1, "test 3"), "sig3".bytes, up)
         then:
         quorum.isFailed()
         !quorum.isResolved()

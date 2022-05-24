@@ -26,12 +26,12 @@ class AlwaysQuorumSpec extends Specification {
         def quorum = new AlwaysQuorum()
         def up = Stub(Upstream)
         when:
-        quorum.record(new JsonRpcException(1, "test"), "sig1", up)
+        quorum.record(new JsonRpcException(1, "test"), "sig1".bytes, up)
         then:
         quorum.isFailed()
         !quorum.isResolved()
         quorum.getError() != null
-        quorum.signature == "sig1"
+        quorum.signature == "sig1".bytes
         with(quorum.getError()) {
             message == "test"
         }
@@ -42,11 +42,11 @@ class AlwaysQuorumSpec extends Specification {
         def quorum = new AlwaysQuorum()
         def up = Stub(Upstream)
         when:
-        quorum.record("123".bytes, "sig1", up)
+        quorum.record("123".bytes, "sig1".bytes, up)
         then:
         quorum.isResolved()
         quorum.getResult() == "123".bytes
-        quorum.signature == "sig1"
+        quorum.signature == "sig1".bytes
         !quorum.isFailed()
     }
 }

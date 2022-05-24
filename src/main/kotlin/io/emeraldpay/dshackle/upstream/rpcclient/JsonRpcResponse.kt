@@ -26,10 +26,10 @@ class JsonRpcResponse(
     private val result: ByteArray?,
     val error: JsonRpcError?,
     val id: Id,
-    val sig: String
+    val sig: ByteArray?
 ) {
 
-    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0), "")
+    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0), null)
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
@@ -41,7 +41,7 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun ok(value: ByteArray, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(value, null, id, "")
+            return JsonRpcResponse(value, null, id, null)
         }
 
         @JvmStatic
@@ -56,12 +56,12 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun error(error: JsonRpcError, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, error, id, "")
+            return JsonRpcResponse(null, error, id, null)
         }
 
         @JvmStatic
         fun error(code: Int, msg: String, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg), id, "")
+            return JsonRpcResponse(null, JsonRpcError(code, msg), id, null)
         }
     }
 
@@ -101,11 +101,11 @@ class JsonRpcResponse(
         }
     }
 
-    fun requireResultWithSignature(): Mono<Tuple2<ByteArray, String>> {
+    fun requireResultWithSignature(): Mono<Pair<ByteArray, ByteArray?>> {
         return if (error != null) {
             Mono.error(error.asException(id))
         } else {
-            Mono.just(Tuples.of(getResult(), sig))
+            Mono.just(Pair(getResult(), sig))
         }
     }
 

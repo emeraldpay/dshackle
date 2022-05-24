@@ -72,7 +72,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
-                1, "", upstream, Selector.empty, new AlwaysQuorum(),
+                1, null, upstream, Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", [])
         )
 
@@ -93,7 +93,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
-                15, "", upstream, Selector.empty, new AlwaysQuorum(),
+                15, null, upstream, Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", [])
         )
 
@@ -115,10 +115,10 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, "signature", 1))
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, "signature".bytes, 1))
             }
         }
-        def call = new NativeCall.ValidCallContext(1, "test", TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
@@ -126,8 +126,8 @@ class NativeCallSpec extends Specification {
         def act = objectMapper.readValue(resp.result, Object)
         then:
         act == "foo"
-        resp.nonce == "test"
-        resp.signature == "signature"
+        resp.nonce == 10
+        resp.signature == "signature".bytes
     }
 
     def "Returns error if no quorum"() {
@@ -137,10 +137,10 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _) >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_test", [], "test")) >> Mono.empty()
+                1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.empty()
             }
         }
-        def call = new NativeCall.ValidCallContext(1, "test", TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
@@ -148,7 +148,7 @@ class NativeCallSpec extends Specification {
         then:
         StepVerifier.create(resp)
                 .expectNextMatches { result ->
-                    result.isError() && result.nonce == "test"
+                    result.isError() && result.nonce == 10
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
@@ -192,13 +192,13 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, "test", objectMapper.writeValueAsBytes(json), null, "signature")
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, "signature".bytes)
         )
         then:
         resp.id == 1561
         resp.succeed
-        resp.nonce == "test"
-        resp.signature == "signature"
+        resp.signature.nonce == 10
+        resp.signature.sig.toByteArray() == "signature".bytes
         objectMapper.readValue(resp.payload.toByteArray(), Map.class) == [jsonrpc:"2.0", id:1, result: "foo"]
     }
 
@@ -206,18 +206,18 @@ class NativeCallSpec extends Specification {
         setup:
         def json = [jsonrpc:"2.0", id:1, result: "foo"]
         def signer = Mock(ResponseSigner) {
-            1 * sign(Bytes.concat("test".bytes, objectMapper.writeValueAsBytes(json))) >> "signature"
+            1 * sign(10, objectMapper.writeValueAsBytes(json)) >> "signature"
         }
         def nativeCall = nativeCall(null, signer)
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, "test", objectMapper.writeValueAsBytes(json), null, "")
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null)
         )
         then:
         resp.id == 1561
         resp.succeed
-        resp.nonce == "test"
-        resp.signature == "signature"
+        resp.signature.nonce == 10
+        resp.signature.sig.toByteArray() == "signature".bytes
         objectMapper.readValue(resp.payload.toByteArray(), Map.class) == [jsonrpc:"2.0", id:1, result: "foo"]
     }
 
@@ -281,7 +281,7 @@ class NativeCallSpec extends Specification {
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
-                                .setNonce("test")
+                                .setNonce(10)
                                 .setMethod("eth_test")
                                 .setPayload(ByteString.copyFromUtf8("[]"))
                 )
@@ -293,6 +293,7 @@ class NativeCallSpec extends Specification {
         act.size() == 1
         with(act[0]) {
             id == 1
+            nonce == 10
             payload.method == "eth_test"
             payload.params == "[]"
         }
@@ -396,7 +397,7 @@ class NativeCallSpec extends Specification {
     def "Parse empty params"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, "", Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -409,7 +410,7 @@ class NativeCallSpec extends Specification {
     def "Parse none params"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, "", Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", ""))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -422,7 +423,7 @@ class NativeCallSpec extends Specification {
     def "Parse single param"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, "", Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[false]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -435,7 +436,7 @@ class NativeCallSpec extends Specification {
     def "Parse multi param"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, "", Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[false, 123]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -453,7 +454,7 @@ class NativeCallSpec extends Specification {
         def api = TestingCommons.api()
         def upstream = TestingCommons.multistream(api)
 
-        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, "",
+        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", []))
@@ -470,7 +471,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def upstream = TestingCommons.multistream(TestingCommons.api())
 
-        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, "",
+        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", []))

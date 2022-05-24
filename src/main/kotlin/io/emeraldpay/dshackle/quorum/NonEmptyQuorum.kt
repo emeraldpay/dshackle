@@ -25,7 +25,7 @@ open class NonEmptyQuorum(
 
     private var result: ByteArray? = null
     private var tries: Int = 0
-    private var sig = ""
+    private var sig : ByteArray? = null
     override fun init(head: Head) {
     }
 
@@ -37,11 +37,11 @@ open class NonEmptyQuorum(
         return tries >= maxTries
     }
 
-    override fun getSignature(): String {
+    override fun getSignature(): ByteArray? {
         return sig
     }
 
-    override fun recordValue(response: ByteArray, responseValue: Any?, signature: String, upstream: Upstream) {
+    override fun recordValue(response: ByteArray, responseValue: Any?, signature: ByteArray?, upstream: Upstream) {
         tries++
         if (responseValue != null) {
             result = response
@@ -53,7 +53,7 @@ open class NonEmptyQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, sig: String, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, sig: ByteArray?, upstream: Upstream) {
         tries++
     }
 

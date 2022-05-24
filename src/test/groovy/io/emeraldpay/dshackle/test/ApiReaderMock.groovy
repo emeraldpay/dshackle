@@ -108,7 +108,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                 }
                 error = new JsonRpcError(-32601, "Method ${request.method} with ${request.params} is not mocked")
             }
-            return new JsonRpcResponse(result, error, JsonRpcResponse.Id.from(request.id), "")
+            return new JsonRpcResponse(result, error, JsonRpcResponse.Id.from(request.id), null)
         } as Callable<JsonRpcResponse>
         return Mono.fromCallable(call)
     }
@@ -323,7 +323,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
         }
 
         @Override
-        def <S> NettyOutbound sendUsing(Callable<? extends S> sourceInput, BiFunction<? super Connection, ? super S, ?> mappedInput, Consumer<? super S> sourceCleanup) {
+        <S> NettyOutbound sendUsing(Callable<? extends S> sourceInput, BiFunction<? super Connection, ? super S, ?> mappedInput, Consumer<? super S> sourceCleanup) {
             return this
         }
 

@@ -83,8 +83,8 @@ class QuorumRpcReader(
     }
 
     fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
-        val quorumReduce = BiFunction<CallQuorum, Tuple2<Tuple2<ByteArray, String>, Upstream>, CallQuorum> { res, a ->
-            if (res.record(a.t1.t1, a.t1.t2, a.t2)) {
+        val quorumReduce = BiFunction<CallQuorum, Pair<Pair<ByteArray, ByteArray?>, Upstream>, CallQuorum> { res, a ->
+            if (res.record(a.first.first, a.first.second, a.second)) {
                 apiControl.resolve()
             } else {
                 // quorum needs more responses, so ask api controller to make another
@@ -118,7 +118,7 @@ class QuorumRpcReader(
         }
     }
 
-    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple2<Tuple2<ByteArray, String>, Upstream>> {
+    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Pair<Pair<ByteArray, ByteArray?>, Upstream>> {
         return api.getApi()
             .read(key)
             .flatMap { response ->
@@ -143,7 +143,7 @@ class QuorumRpcReader(
                         Mono.empty()
                     }
             }
-            .map { Tuples.of(it, api) }
+            .map { Pair(it, api) }
     }
 
     fun setupDefaultResult(key: JsonRpcRequest): Mono<Result> {
@@ -162,7 +162,7 @@ class QuorumRpcReader(
 
     class Result(
         val value: ByteArray,
-        val signature: String,
+        val signature: ByteArray?,
         val quorum: Int
     )
 }

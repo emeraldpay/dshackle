@@ -38,23 +38,23 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig1", upstream1)
+        q.record(new JsonRpcException(1, "Internal"), "sig1".bytes, upstream1)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig2", upstream2)
+        q.record(new JsonRpcException(1, "Internal"), "sig2".bytes, upstream2)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig3", upstream3)
+        q.record(new JsonRpcException(1, "Internal"), "sig3".bytes, upstream3)
         then:
         q.isFailed()
         !q.isResolved()
-        q.signature == ""
+        q.signature == null
     }
 
     def "Fail first if not error"() {
@@ -71,11 +71,11 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record('"0x11"'.bytes, "sig1", upstream1)
+        q.record('"0x11"'.bytes, "sig1".bytes, upstream1)
         then:
         q.isResolved()
         !q.isFailed()
-        q.signature == "sig1"
+        q.signature == "sig1".bytes
     }
 
     def "Fail second if first is error"() {
@@ -92,18 +92,18 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig1", upstream1)
+        q.record(new JsonRpcException(1, "Internal"), "sig1".bytes, upstream1)
         then:
         !q.isFailed()
         !q.isResolved()
-        q.signature == ""
+        q.signature == null
 
         when:
-        q.record('"0x11"'.bytes, "sig2", upstream2)
+        q.record('"0x11"'.bytes, "sig2".bytes, upstream2)
         then:
         q.isResolved()
         !q.isFailed()
-        q.signature == "sig2"
+        q.signature == "sig2".bytes
     }
 
     def "Fail second if first is null"() {
@@ -120,18 +120,18 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record('null'.bytes, "sig1", upstream2)
+        q.record('null'.bytes, "sig1".bytes, upstream2)
         then:
         !q.isFailed()
         !q.isResolved()
 
 
         when:
-        q.record('"0x11"'.bytes, "sig2", upstream2)
+        q.record('"0x11"'.bytes, "sig2".bytes, upstream2)
         then:
         q.isResolved()
         !q.isFailed()
-        q.signature == "sig2"
+        q.signature == "sig2".bytes
     }
 
 

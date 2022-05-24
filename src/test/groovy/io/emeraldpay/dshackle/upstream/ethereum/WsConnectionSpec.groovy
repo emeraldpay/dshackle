@@ -83,7 +83,7 @@ class WsConnectionSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, ""))
+        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
 
         then:
         StepVerifier.create(act)
@@ -105,7 +105,7 @@ class WsConnectionSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, ""))
+        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
 
         then:
         StepVerifier.create(act)
@@ -129,7 +129,7 @@ class WsConnectionSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, ""))
+        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
 
         then:
         StepVerifier.create(act)

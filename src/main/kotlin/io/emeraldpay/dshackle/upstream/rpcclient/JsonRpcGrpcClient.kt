@@ -60,14 +60,14 @@ class JsonRpcGrpcClient(
                 }
             }
 
-            BlockchainOuterClass.NativeCallItem.newBuilder()
+            val reqItem = BlockchainOuterClass.NativeCallItem.newBuilder()
                 .setId(1)
-                .setNonce(key.nonce)
                 .setMethod(key.method)
                 .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params)))
-                .build().let {
-                    req.addItems(it)
-                }
+            if (key.nonce != null) {
+                reqItem.nonce = key.nonce
+            }
+            req.addItems(reqItem.build())
 
             return Mono.just(key)
                 .doOnNext {
@@ -78,7 +78,8 @@ class JsonRpcGrpcClient(
                         .flatMap { resp ->
                             if (resp.succeed) {
                                 val bytes = resp.payload.toByteArray()
-                                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), resp.signature))
+                                val sigBytes = if (resp.signature.sig.isEmpty) null else resp.signature.sig.toByteArray()
+                                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), sigBytes))
                             } else {
                                 metrics.fails.increment()
                                 Mono.error(
