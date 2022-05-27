@@ -22,12 +22,15 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.util.function.Tuple2
+import reactor.util.function.Tuple3
 import reactor.util.function.Tuples
+import java.util.Optional
 import java.util.function.BiFunction
 import java.util.function.Function
 
@@ -36,12 +39,15 @@ import java.util.function.Function
  */
 class QuorumRpcReader(
     private val apiControl: ApiSource,
-    private val quorum: CallQuorum
+    private val quorum: CallQuorum,
+    private val signer: ResponseSigner?,
 ) : Reader<JsonRpcRequest, QuorumRpcReader.Result> {
 
     companion object {
         private val log = LoggerFactory.getLogger(QuorumRpcReader::class.java)
     }
+
+    constructor(apiControl: ApiSource, quorum: CallQuorum) : this(apiControl, quorum, null)
 
     override fun read(key: JsonRpcRequest): Mono<Result> {
         // needs at least one response, so start a request
@@ -83,8 +89,8 @@ class QuorumRpcReader(
     }
 
     fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
-        val quorumReduce = BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> { res, a ->
-            if (res.record(a.t1, a.t2)) {
+        val quorumReduce = BiFunction<CallQuorum, Tuple3<ByteArray, Optional<ResponseSigner.Signature>, Upstream>, CallQuorum> { res, a ->
+            if (res.record(a.t1, a.t2.orElse(null), a.t3)) {
                 apiControl.resolve()
             } else {
                 // quorum needs more responses, so ask api controller to make another
@@ -112,38 +118,61 @@ class QuorumRpcReader(
                 .filter { it.isResolved() } // return nothing if not resolved
                 .map {
                     // TODO find actual quorum number
-                    QuorumRpcReader.Result(it.getResult()!!, 1)
+                    QuorumRpcReader.Result(it.getResult()!!, it.getSignature(), 1)
                 }
                 .switchIfEmpty(defaultResult)
         }
     }
 
-    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple2<ByteArray, Upstream>> {
+    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple3<ByteArray, Optional<ResponseSigner.Signature>, Upstream>> {
         return api.getApi()
             .read(key)
             .flatMap { response ->
                 response.requireResult()
-                    .onErrorResume { err ->
-                        // on error notify quorum, it may use error message or other details
-                        val cleanErr: JsonRpcException = when (err) {
-                            is RpcException -> JsonRpcException.from(err)
-                            is JsonRpcException -> err
-                            else -> JsonRpcException(
-                                JsonRpcResponse.NumberId(key.id),
-                                JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}")
-                            )
-                        }
-                        quorum.record(cleanErr, api)
-                        // if it's failed after that, then we don't need more calls, stop api source
-                        if (quorum.isFailed()) {
-                            apiControl.resolve()
-                        } else {
-                            apiControl.request(1)
-                        }
-                        Mono.empty()
-                    }
+                    .transform(withSignature(api, key, response))
+                    .transform(withErrorResume(api, key))
             }
-            .map { Tuples.of(it, api) }
+            .map { Tuples.of(it.t1, it.t2, api) }
+    }
+
+    fun withSignature(api: Upstream, key: JsonRpcRequest, response: JsonRpcResponse): Function<Mono<ByteArray>, Mono<Tuple2<ByteArray, Optional<ResponseSigner.Signature>>>> {
+        return Function { src ->
+            src.map {
+                val signature = response.providedSignature
+                    ?: if (key.nonce != null) {
+                        signer?.sign(key.nonce, response.getResult(), api)
+                    } else {
+                        null
+                    }
+                Tuples.of(it, Optional.ofNullable(signature))
+            }
+        }
+    }
+
+    fun <T> withErrorResume(api: Upstream, key: JsonRpcRequest): Function<Mono<T>, Mono<T>> {
+        return Function { src ->
+            src.onErrorResume { err ->
+                // when the call failed with an error we want to notify the quorum because
+                // it may use the error message or other details
+                //
+                val cleanErr: JsonRpcException = when (err) {
+                    is RpcException -> JsonRpcException.from(err)
+                    is JsonRpcException -> err
+                    else -> JsonRpcException(
+                        JsonRpcResponse.NumberId(key.id),
+                        JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}")
+                    )
+                }
+                quorum.record(cleanErr, null, api)
+                // if it's failed after that, then we don't need more calls, stop api source
+                if (quorum.isFailed()) {
+                    apiControl.resolve()
+                } else {
+                    apiControl.request(1)
+                }
+                Mono.empty()
+            }
+        }
     }
 
     fun setupDefaultResult(key: JsonRpcRequest): Mono<Result> {
@@ -162,6 +191,7 @@ class QuorumRpcReader(
 
     class Result(
         val value: ByteArray,
+        val signature: ResponseSigner.Signature?,
         val quorum: Int
     )
 }

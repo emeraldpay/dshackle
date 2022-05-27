@@ -44,7 +44,7 @@ class BlockchainRpc(
     @Autowired private val trackAddress: List<TrackAddress>,
     @Autowired private val describe: Describe,
     @Autowired private val subscribeStatus: SubscribeStatus,
-    @Autowired private val estimateFee: EstimateFee
+    @Autowired private val estimateFee: EstimateFee,
 ) : ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)

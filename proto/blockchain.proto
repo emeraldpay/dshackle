@@ -34,6 +34,29 @@ message NativeCallItem {
     uint32 id = 1;
     string method = 3;
     bytes payload = 4;
+    uint64 nonce = 5;
+}
+
+/**
+ * Signature for a response
+ */
+message NativeCallReplySignature {
+    /**
+     * Original nonce value used for the call
+     */
+    uint64 nonce = 1;
+    /**
+     * Signature value
+     */
+    bytes signature = 2;
+    /**
+     * Key Id used for the signing
+     */
+    uint64 key_id = 3;
+    /**
+     * Id of the upstream produced the response
+     */
+    string upstream_id = 4;
 }
 
 message NativeCallReplyItem {
@@ -41,6 +64,11 @@ message NativeCallReplyItem {
     bool succeed = 2;
     bytes payload = 3;
     string errorMessage = 4;
+    /**
+     * Optional signature for the response.
+     * Available only when it's configured at the edge dshackle and nonce is provided wit the request.
+     */
+    NativeCallReplySignature signature = 5;
 }
 
 message NativeSubscribeRequest {
@@ -231,7 +259,7 @@ enum FeeEstimationMode {
  * Standard Ethereum Fee, supported by majority of forks and by Ethereum Mainnet before EIP-1559
  */
 message EthereumStdFees {
-    // Fee value in Wei
+    // Big Number encoded as string. Fee value in Wei
     string fee = 1;
 }
 
@@ -239,11 +267,11 @@ message EthereumStdFees {
  * Ethereum Fee for EIP-1559 compatible forks
  */
 message EthereumExtFees {
-    // Estimated fee that would be actually paid. I.e. it's the Base Fee + Priority Fee
+    // Big Number encoded as string. Estimated fee that expected to be actually paid. I.e. it's the Base Fee + Priority Fee
     string expect = 1;
-    // Priority Fee in Wei
+    // Big Number encoded as string. Priority Fee in Wei
     string priority = 2;
-    // Max Fee value in Wei. Note that it only indicated current preference and actual Max may be significantly lower, depending on the usage scenario.
+    // Big Number encoded as string. Max Fee value in Wei. Note that it only indicates the current preference, and the actual Max may be significantly lower, depending on the usage scenario.
     string max = 3;
 }
 
@@ -252,5 +280,5 @@ message EthereumExtFees {
  */
 message BitcoinStdFees {
     // Fee in Satoshi per Kilobyte. Note that the actual fee calculation MUST divide it by 1024 at the last step to get a fair fee.
-    string satPerKb = 1;
+    uint64 satPerKb = 1;
 }

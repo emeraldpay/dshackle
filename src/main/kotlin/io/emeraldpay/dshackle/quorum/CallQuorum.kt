@@ -20,9 +20,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import reactor.util.function.Tuple2
-import java.util.function.BiFunction
-import java.util.function.Predicate
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 interface CallQuorum {
 
@@ -31,23 +29,9 @@ interface CallQuorum {
     fun isResolved(): Boolean
     fun isFailed(): Boolean
 
-    fun record(response: ByteArray, upstream: Upstream): Boolean
-    fun record(error: JsonRpcException, upstream: Upstream)
+    fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean
+    fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream)
+    fun getSignature(): ResponseSigner.Signature?
     fun getResult(): ByteArray?
     fun getError(): JsonRpcError?
-
-    companion object {
-        fun untilResolved(cq: CallQuorum): Predicate<Any> {
-            return Predicate { _ ->
-                !cq.isResolved()
-            }
-        }
-
-        fun asReducer(): BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> {
-            return BiFunction<CallQuorum, Tuple2<ByteArray, Upstream>, CallQuorum> { a, b ->
-                a.record(b.t1, b.t2)
-                return@BiFunction a
-            }
-        }
-    }
 }

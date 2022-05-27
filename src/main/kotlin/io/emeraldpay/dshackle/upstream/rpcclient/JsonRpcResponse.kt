@@ -18,12 +18,18 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import reactor.core.publisher.Mono
 
 class JsonRpcResponse(
     private val result: ByteArray?,
     val error: JsonRpcError?,
-    val id: Id
+    val id: Id,
+
+    /**
+     * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
+     */
+    val providedSignature: ResponseSigner.Signature? = null
 ) {
 
     constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
@@ -107,7 +113,11 @@ class JsonRpcResponse(
     }
 
     fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id)
+        return JsonRpcResponse(result, error, id, providedSignature)
+    }
+
+    fun copyWithSignature(signature: ResponseSigner.Signature): JsonRpcResponse {
+        return JsonRpcResponse(result, error, id, signature)
     }
 
     override fun equals(other: Any?): Boolean {

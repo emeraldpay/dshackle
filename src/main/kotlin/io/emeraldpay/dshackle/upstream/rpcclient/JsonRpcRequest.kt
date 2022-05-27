@@ -24,10 +24,11 @@ import io.emeraldpay.dshackle.Global
 data class JsonRpcRequest(
     val method: String,
     val params: List<Any?>,
-    val id: Int
+    val id: Int,
+    val nonce: Long?
 ) {
 
-    constructor(method: String, params: List<Any?>) : this(method, params, 1)
+    @JvmOverloads constructor(method: String, params: List<Any?>, nonce: Long? = null) : this(method, params, 1, nonce)
 
     fun toJson(): ByteArray {
         val json = mapOf(
@@ -62,7 +63,7 @@ data class JsonRpcRequest(
                     throw IllegalStateException("Unsupported param type: ${it.asToken()}")
                 }
             }
-            return JsonRpcRequest(method, params, id)
+            return JsonRpcRequest(method, params, id, null)
         }
     }
 }

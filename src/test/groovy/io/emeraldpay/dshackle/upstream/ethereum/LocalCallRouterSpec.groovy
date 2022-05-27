@@ -37,6 +37,25 @@ class LocalCallRouterSpec extends Specification {
         act.resultAsProcessedString == "0x0000000000000000000000000000000000000000"
     }
 
+    def "Returns empty if nonce set"() {
+        setup:
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        def router = new LocalCallRouter(
+                new EthereumReader(
+                        TestingCommons.multistream(TestingCommons.api()),
+                        Caches.default(),
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
+                ),
+                methods,
+                new EmptyHead()
+        )
+        when:
+        def act = router.read(new JsonRpcRequest("eth_getTransactionByHash", ["test"], 10))
+                .block(Duration.ofSeconds(1))
+        then:
+        act == null
+    }
+
     def "getBlockByNumber with latest uses latest id"() {
         setup:
         def head = Mock(Head) {

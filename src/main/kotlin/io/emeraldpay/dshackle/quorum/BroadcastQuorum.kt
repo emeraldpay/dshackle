@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class BroadcastQuorum(
     val quorum: Int = 3
@@ -26,6 +27,7 @@ open class BroadcastQuorum(
     private var result: ByteArray? = null
     private var txid: String? = null
     private var calls = 0
+    private var sig: ResponseSigner.Signature? = null
 
     override fun init(head: Head) {
     }
@@ -42,19 +44,25 @@ open class BroadcastQuorum(
         return result
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, upstream: Upstream) {
+    override fun getSignature(): ResponseSigner.Signature? {
+        return sig
+    }
+
+    override fun recordValue(response: ByteArray, responseValue: String?, signature: ResponseSigner.Signature?, upstream: Upstream) {
         calls++
         if (txid == null && responseValue != null) {
             txid = responseValue
+            sig = signature
             result = response
         }
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, signature: ResponseSigner.Signature?, upstream: Upstream) {
         // can be "message: known transaction: TXID", "Transaction with the same hash was already imported" or "message: Nonce too low"
         calls++
         if (result == null) {
             result = response
+            sig = signature
         }
     }
 

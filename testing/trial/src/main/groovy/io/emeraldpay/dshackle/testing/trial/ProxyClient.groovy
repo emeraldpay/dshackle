@@ -12,7 +12,7 @@ import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.impl.client.HttpClients
 
-class ProxyClient {
+class ProxyClient implements Client {
 
     private int sequence = 0;
 

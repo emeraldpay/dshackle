@@ -34,6 +34,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.grpc.BlockchainType
@@ -49,7 +50,8 @@ import java.util.EnumMap
 
 @Service
 open class NativeCall(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
+    @Autowired private val signer: ResponseSigner,
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -85,7 +87,7 @@ open class NativeCall(
                 } else {
                     val error = it.getError()
                     Mono.just(
-                        CallResult(error.id, null, error)
+                        CallResult(error.id, 0, null, error, null)
                     )
                 }
             }
@@ -107,8 +109,19 @@ open class NativeCall(
         } else {
             result.payload = ByteString.copyFrom(it.result)
         }
-
+        if (it.nonce != null && it.signature != null) {
+            result.signature = buildSignature(it.nonce, it.signature)
+        }
         return result.build()
+    }
+
+    fun buildSignature(nonce: Long, signature: ResponseSigner.Signature): BlockchainOuterClass.NativeCallReplySignature {
+        val msg = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
+        msg.signature = ByteString.copyFrom(signature.value)
+        msg.keyId = signature.keyId
+        msg.upstreamId = signature.upstreamId
+        msg.nonce = nonce
+        return msg.build()
     }
 
     fun processException(it: Throwable?): Mono<BlockchainOuterClass.NativeCallReplyItem> {
@@ -171,7 +184,6 @@ open class NativeCall(
                 )
             )
         }
-
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
             if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
@@ -179,7 +191,6 @@ open class NativeCall(
             } else {
                 null
             } ?: Mono.empty()
-
         return callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
             val matcher = Selector.Builder()
                 .withMatcher(csm)
@@ -196,27 +207,27 @@ open class NativeCall(
                 val heightMatcher = Selector.HeightMatcher(minHeight)
                 matcher.withMatcher(heightMatcher)
             }
-
-            ValidCallContext(requestItem.id, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
+            val nonce = requestItem.nonce.let { if (it == 0L) null else it }
+            ValidCallContext(requestItem.id, nonce, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
         }
     }
 
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getRoutedApi(ctx.matcher)
             .flatMap { api ->
-                api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+                api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
-                        CallResult.ok(ctx.id, it)
+                        CallResult.ok(ctx.id, ctx.nonce, it, null)
                     }
             }.switchIfEmpty(
                 Mono.just(ctx).flatMap(this::executeOnRemote)
             )
             .onErrorResume {
                 if (it is CallFailure) {
-                    Mono.just(CallResult.fail(it.id, it.reason))
+                    Mono.just(CallResult.fail(it.id, ctx.nonce, it.reason))
                 } else {
-                    Mono.just(CallResult.fail(ctx.id, it))
+                    Mono.just(CallResult.fail(ctx.id, ctx.nonce, it))
                 }
             }
     }
@@ -226,22 +237,22 @@ open class NativeCall(
         if (!ctx.upstream.getMethods().isCallable(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
-        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum)
+        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum, signer)
         return reader
-            .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params))
+            .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
             .map {
-                CallResult(ctx.id, it.value, null)
+                CallResult(ctx.id, ctx.nonce, it.value, null, it.signature)
             }
             .onErrorResume { t ->
                 val failure = when (t) {
-                    is CallFailure -> CallResult.fail(t.id, t.reason)
-                    is JsonRpcException -> CallResult.fail(ctx.id, t.error.code, t.error.message)
-                    else -> CallResult.fail(ctx.id, t)
+                    is CallFailure -> CallResult.fail(t.id, ctx.nonce, t.reason)
+                    is JsonRpcException -> CallResult.fail(ctx.id, ctx.nonce, t.error.code, t.error.message)
+                    else -> CallResult.fail(ctx.id, ctx.nonce, t)
                 }
                 Mono.just(failure)
             }
             .switchIfEmpty(
-                Mono.just(CallResult.fail(ctx.id, 1, "No response or no available upstream for ${ctx.payload.method}"))
+                Mono.just(CallResult.fail(ctx.id, ctx.nonce, 1, "No response or no available upstream for ${ctx.payload.method}"))
             )
     }
 
@@ -262,6 +273,7 @@ open class NativeCall(
 
     open class ValidCallContext<T>(
         val id: Int,
+        val nonce: Long?,
         val upstream: Multistream,
         val matcher: Selector.Matcher,
         val callQuorum: CallQuorum,
@@ -280,7 +292,7 @@ open class NativeCall(
         }
 
         fun <X> withPayload(payload: X): ValidCallContext<X> {
-            return ValidCallContext(id, upstream, matcher, callQuorum, payload)
+            return ValidCallContext(id, nonce, upstream, matcher, callQuorum, payload)
         }
 
         fun getApis(): ApiSource {
@@ -322,18 +334,18 @@ open class NativeCall(
         }
     }
 
-    open class CallResult(val id: Int, val result: ByteArray?, val error: CallError?) {
+    open class CallResult(val id: Int, val nonce: Long?, val result: ByteArray?, val error: CallError?, val signature: ResponseSigner.Signature?) {
         companion object {
-            fun ok(id: Int, result: ByteArray): CallResult {
-                return CallResult(id, result, null)
+            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?): CallResult {
+                return CallResult(id, nonce, result, null, signature)
             }
 
-            fun fail(id: Int, errorCore: Int, errorMessage: String): CallResult {
-                return CallResult(id, null, CallError(errorCore, errorMessage, null))
+            fun fail(id: Int, nonce: Long?, errorCore: Int, errorMessage: String): CallResult {
+                return CallResult(id, nonce, null, CallError(errorCore, errorMessage, null), null)
             }
 
-            fun fail(id: Int, error: Throwable): CallResult {
-                return CallResult(id, null, CallError.from(error))
+            fun fail(id: Int, nonce: Long?, error: Throwable): CallResult {
+                return CallResult(id, nonce, null, CallError.from(error), null)
             }
         }
 

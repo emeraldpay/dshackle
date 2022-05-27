@@ -31,11 +31,11 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
@@ -51,6 +51,16 @@ class NativeCallSpec extends Specification {
 
     ObjectMapper objectMapper = Global.objectMapper
 
+    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null) {
+        if (upstreams == null) {
+            upstreams = Stub(MultistreamHolder)
+        }
+        if (signer == null) {
+            signer = Stub(ResponseSigner)
+        }
+        new NativeCall(upstreams, signer)
+    }
+
     def "Tries router first"() {
         def routedApi = Mock(Reader) {
             1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.just(new JsonRpcResponse("1".bytes, null))
@@ -58,11 +68,10 @@ class NativeCallSpec extends Specification {
         def upstream = Mock(Multistream) {
             1 * getRoutedApi(_) >> Mono.just(routedApi)
         }
-        def upstreams = Stub(MultistreamHolder)
 
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
-                1, upstream, Selector.empty, new AlwaysQuorum(),
+                1, null, upstream, Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", [])
         )
 
@@ -72,6 +81,7 @@ class NativeCallSpec extends Specification {
         act.result == "1".bytes
     }
 
+
     def "Return error if router denied the requests"() {
         def routedApi = Mock(Reader) {
             1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.error(new RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Test message"))
@@ -79,11 +89,10 @@ class NativeCallSpec extends Specification {
         def upstream = Mock(Multistream) {
             1 * getRoutedApi(_) >> Mono.just(routedApi)
         }
-        def upstreams = Stub(MultistreamHolder)
 
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
-                15, upstream, Selector.empty, new AlwaysQuorum(),
+                15, null, upstream, Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", [])
         )
 
@@ -102,13 +111,13 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = new AlwaysQuorum()
 
-        def nativeCall = new NativeCall(Stub(MultistreamHolder))
+        def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, 1))
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1))
             }
         }
-        def call = new NativeCall.ValidCallContext(1, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
@@ -116,19 +125,20 @@ class NativeCallSpec extends Specification {
         def act = objectMapper.readValue(resp.result, Object)
         then:
         act == "foo"
+        resp.nonce == 10
     }
 
     def "Returns error if no quorum"() {
         setup:
         def quorum = new AlwaysQuorum()
 
-        def nativeCall = new NativeCall(Stub(MultistreamHolder))
+        def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.empty()
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.empty()
             }
         }
-        def call = new NativeCall.ValidCallContext(1, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_test", []))
 
         when:
@@ -136,7 +146,7 @@ class NativeCallSpec extends Specification {
         then:
         StepVerifier.create(resp)
                 .expectNextMatches { result ->
-                    result.isError()
+                    result.isError() && result.nonce == 10
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
@@ -144,8 +154,7 @@ class NativeCallSpec extends Specification {
 
     def "Packs call exception into response with id"() {
         setup:
-        def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall()
         when:
         def resp = nativeCall.processException(new NativeCall.CallFailure(5, new IllegalArgumentException("test test")))
         then:
@@ -161,8 +170,7 @@ class NativeCallSpec extends Specification {
 
     def "Packs unknown exception into response"() {
         setup:
-        def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall()
         when:
         def resp = nativeCall.processException(new IllegalArgumentException("test test"))
         then:
@@ -177,13 +185,12 @@ class NativeCallSpec extends Specification {
 
     def "Builds normal response"() {
         setup:
-        def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall()
         def json = [jsonrpc:"2.0", id:1, result: "foo"]
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, objectMapper.writeValueAsBytes(json), null)
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null)
         )
         then:
         resp.id == 1561
@@ -191,10 +198,28 @@ class NativeCallSpec extends Specification {
         objectMapper.readValue(resp.payload.toByteArray(), Map.class) == [jsonrpc:"2.0", id:1, result: "foo"]
     }
 
+    def "Builds response with signature"() {
+        setup:
+        def nativeCall = nativeCall()
+        def json = [jsonrpc:"2.0", id:1, result: "foo"]
+
+        when:
+        def resp = nativeCall.buildResponse(
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100))
+        )
+        then:
+        resp.id == 1561
+        resp.succeed
+        resp.signature.nonce == 10
+        resp.signature.signature.toByteArray() == "sig1".bytes
+        resp.signature.keyId == 100
+        resp.signature.upstreamId == "test"
+        objectMapper.readValue(resp.payload.toByteArray(), Map.class) == [jsonrpc:"2.0", id:1, result: "foo"]
+    }
+
     def "Returns error for invalid chain"() {
         setup:
-        def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall()
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
             .setChainValue(0)
@@ -210,7 +235,6 @@ class NativeCallSpec extends Specification {
         then:
         StepVerifier.create(resp)
                 .expectErrorMatches({t -> t instanceof NativeCall.CallFailure && t.id == 0})
-//                .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
 
@@ -219,7 +243,7 @@ class NativeCallSpec extends Specification {
         def upstreams = Mock(MultistreamHolder) {
             _ * it.observeChains() >> Flux.empty()
         }
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChainValue(Chain.TESTNET_MORDEN.id)
@@ -245,13 +269,14 @@ class NativeCallSpec extends Specification {
         def upstreams = Mock(MultistreamHolder) {
             _ * it.observeChains() >> Flux.empty()
         }
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChain(Common.ChainRef.CHAIN_ETHEREUM)
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
+                                .setNonce(10)
                                 .setMethod("eth_test")
                                 .setPayload(ByteString.copyFromUtf8("[]"))
                 )
@@ -263,6 +288,7 @@ class NativeCallSpec extends Specification {
         act.size() == 1
         with(act[0]) {
             id == 1
+            nonce == 10
             payload.method == "eth_test"
             payload.params == "[]"
         }
@@ -273,7 +299,7 @@ class NativeCallSpec extends Specification {
         def upstreams = Mock(MultistreamHolder) {
             _ * it.observeChains() >> Flux.empty()
         }
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChain(Common.ChainRef.CHAIN_ETHEREUM)
@@ -300,7 +326,7 @@ class NativeCallSpec extends Specification {
         def upstreams = Mock(MultistreamHolder) {
             _ * it.observeChains() >> Flux.empty()
         }
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall(upstreams)
 
         def item = BlockchainOuterClass.NativeCallItem.newBuilder()
                 .setId(1)
@@ -338,7 +364,7 @@ class NativeCallSpec extends Specification {
         def multistreamHolder = Mock(MultistreamHolder) {
             _ * it.observeChains() >> Flux.empty()
         }
-        def nativeCall = new NativeCall(multistreamHolder)
+        def nativeCall = nativeCall(multistreamHolder)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChain(Common.ChainRef.CHAIN_ETHEREUM)
@@ -365,8 +391,8 @@ class NativeCallSpec extends Specification {
 
     def "Parse empty params"() {
         setup:
-        def nativeCall = new NativeCall(Stub(MultistreamHolder))
-        def ctx = new NativeCall.ValidCallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def nativeCall = nativeCall()
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -378,8 +404,8 @@ class NativeCallSpec extends Specification {
 
     def "Parse none params"() {
         setup:
-        def nativeCall = new NativeCall(Stub(MultistreamHolder))
-        def ctx = new NativeCall.ValidCallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def nativeCall = nativeCall()
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", ""))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -391,8 +417,8 @@ class NativeCallSpec extends Specification {
 
     def "Parse single param"() {
         setup:
-        def nativeCall = new NativeCall(Stub(MultistreamHolder))
-        def ctx = new NativeCall.ValidCallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def nativeCall = nativeCall()
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[false]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -404,8 +430,8 @@ class NativeCallSpec extends Specification {
 
     def "Parse multi param"() {
         setup:
-        def nativeCall = new NativeCall(Stub(MultistreamHolder))
-        def ctx = new NativeCall.ValidCallContext(1, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def nativeCall = nativeCall()
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_test", "[false, 123]"))
         when:
         def act = nativeCall.parseParams(ctx)
@@ -419,12 +445,11 @@ class NativeCallSpec extends Specification {
     //TODO
     def "Calls cache before remote"() {
         setup:
-        def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall()
         def api = TestingCommons.api()
         def upstream = TestingCommons.multistream(api)
 
-        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10,
+        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", []))
@@ -438,11 +463,10 @@ class NativeCallSpec extends Specification {
     //TODO
     def "Uses cached value"() {
         setup:
-        def upstreams = Stub(MultistreamHolder)
-        def nativeCall = new NativeCall(upstreams)
+        def nativeCall = nativeCall()
         def upstream = TestingCommons.multistream(TestingCommons.api())
 
-        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10,
+        def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", []))

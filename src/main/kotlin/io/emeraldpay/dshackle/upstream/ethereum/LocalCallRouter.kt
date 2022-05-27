@@ -56,8 +56,13 @@ class LocalCallRouter(
             return Mono.just(methods.executeHardcoded(key.method))
                 .map { JsonRpcResponse(it, null) }
         }
+
         if (!methods.isCallable(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
+        }
+        if (key.nonce != null) {
+            // we do not want to serve any requests (except hardcoded) that have nonces from cache
+            return Mono.empty()
         }
         val common = commonRequests(key)
         if (common != null) {

@@ -26,4 +26,5 @@ class MainConfig {
     var monitoring: MonitoringConfig = MonitoringConfig.default()
     var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
     var health: HealthConfig = HealthConfig.default()
+    var signature: SignatureConfig? = null
 }

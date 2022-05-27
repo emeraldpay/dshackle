@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.quorum
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 // creates instance of a Quorum based reader
 interface QuorumReaderFactory {
@@ -28,11 +29,11 @@ interface QuorumReaderFactory {
         }
     }
 
-    fun create(apis: ApiSource, quorum: CallQuorum): Reader<JsonRpcRequest, QuorumRpcReader.Result>
+    fun create(apis: ApiSource, quorum: CallQuorum, signer: ResponseSigner?): Reader<JsonRpcRequest, QuorumRpcReader.Result>
 
     class Default : QuorumReaderFactory {
-        override fun create(apis: ApiSource, quorum: CallQuorum): Reader<JsonRpcRequest, QuorumRpcReader.Result> {
-            return QuorumRpcReader(apis, quorum)
+        override fun create(apis: ApiSource, quorum: CallQuorum, signer: ResponseSigner?): Reader<JsonRpcRequest, QuorumRpcReader.Result> {
+            return QuorumRpcReader(apis, quorum, signer)
         }
     }
 }

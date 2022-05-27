@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class NonEmptyQuorum(
     val maxTries: Int = 3
@@ -25,7 +26,7 @@ open class NonEmptyQuorum(
 
     private var result: ByteArray? = null
     private var tries: Int = 0
-
+    private var sig: ResponseSigner.Signature? = null
     override fun init(head: Head) {
     }
 
@@ -37,10 +38,15 @@ open class NonEmptyQuorum(
         return tries >= maxTries
     }
 
-    override fun recordValue(response: ByteArray, responseValue: Any?, upstream: Upstream) {
+    override fun getSignature(): ResponseSigner.Signature? {
+        return sig
+    }
+
+    override fun recordValue(response: ByteArray, responseValue: Any?, signature: ResponseSigner.Signature?, upstream: Upstream) {
         tries++
         if (responseValue != null) {
             result = response
+            sig = signature
         }
     }
 
@@ -48,7 +54,7 @@ open class NonEmptyQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, sig: ResponseSigner.Signature?, upstream: Upstream) {
         tries++
     }
 

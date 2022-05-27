@@ -43,21 +43,21 @@ class NonceQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record('"0x10"'.bytes, upstream1)
+        q.record('"0x10"'.bytes, null, upstream1)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0x10", _)
+        1 * q.recordValue(_, "0x10", _, _)
 
         when:
-        q.record('"0x11"'.bytes, upstream2)
+        q.record('"0x11"'.bytes, null, upstream2)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0x11", _)
+        1 * q.recordValue(_, "0x11", _, _)
 
         when:
-        q.record('"0x10"'.bytes, upstream3)
+        q.record('"0x10"'.bytes, null, upstream3)
         then:
-        1 * q.recordValue(_, "0x10", _)
+        1 * q.recordValue(_, "0x10", _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0x11"
     }
@@ -75,27 +75,27 @@ class NonceQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), upstream1)
+        q.record(new JsonRpcException(1, "Internal"), null, upstream1)
         then:
         !q.isResolved()
-        1 * q.recordError(_, _, _)
+        1 * q.recordError(_, _, _, _)
 
         when:
-        q.record('"0x11"'.bytes, upstream2)
+        q.record('"0x11"'.bytes, null, upstream2)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0x11", _)
+        1 * q.recordValue(_, "0x11", _, _)
 
         when:
-        q.record('"0x10"'.bytes, upstream3)
+        q.record('"0x10"'.bytes, null, upstream3)
         then:
-        1 * q.recordValue(_, "0x10", _)
+        1 * q.recordValue(_, "0x10", _, _)
         !q.isResolved()
 
         when:
-        q.record('"0x11"'.bytes, upstream1)
+        q.record('"0x11"'.bytes, null, upstream1)
         then:
-        1 * q.recordValue(_, "0x11", _)
+        1 * q.recordValue(_, "0x11", _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0x11"
     }
@@ -114,23 +114,24 @@ class NonceQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), upstream1)
+        q.record(new JsonRpcException(1, "Internal"), null, upstream1)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), upstream2)
+        q.record(new JsonRpcException(1, "Internal"), null, upstream2)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), upstream3)
+        q.record(new JsonRpcException(1, "Internal"), null, upstream3)
         then:
         q.isFailed()
         !q.isResolved()
         q.getError() != null
         q.getError().message == "Internal"
+        q.signature == null
     }
 }

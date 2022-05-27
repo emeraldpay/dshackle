@@ -214,7 +214,7 @@ class FilteredApisSpec extends Specification {
         setup:
         List<Upstream> standard = (0..1).collect {
             TestingCommons.upstream(
-                    it.toString(),
+                    "test_" + it,
                     new EthereumApiStub(it)
             )
         }
@@ -246,7 +246,7 @@ class FilteredApisSpec extends Specification {
         setup:
         List<Upstream> standard = (0..1).collect {
             TestingCommons.upstream(
-                    it.toString(),
+                    "test_" + it,
                     new EthereumApiStub(it)
             )
         }

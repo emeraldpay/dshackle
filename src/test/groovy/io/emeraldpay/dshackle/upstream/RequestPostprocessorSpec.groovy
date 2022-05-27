@@ -13,7 +13,7 @@ class RequestPostprocessorSpec extends Specification {
 
     def "Wrappers calls onReceive for a value"() {
         setup:
-        def request = new JsonRpcRequest("test_foo", [1], 1)
+        def request = new JsonRpcRequest("test_foo", [1], 1, null)
         def processor = Mock(RequestPostprocessor)
         def api = TestingCommons.api()
         api.answer("test_foo", [1], "test")
@@ -30,7 +30,7 @@ class RequestPostprocessorSpec extends Specification {
 
     def "Wrappers doesn't call onReceive for no value"() {
         setup:
-        def request = new JsonRpcRequest("test_foo", [1], 1)
+        def request = new JsonRpcRequest("test_foo", [1], 1, null)
         def processor = Mock(RequestPostprocessor)
         Reader<JsonRpcRequest, JsonRpcResponse> reader = Mock(Reader) {
             1 * it.read(request) >> Mono.empty()

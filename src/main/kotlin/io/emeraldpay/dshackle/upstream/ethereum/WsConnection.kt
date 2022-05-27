@@ -283,7 +283,7 @@ class WsConnection(
     fun onRpc(msg: ResponseWSParser.WsResponse): Mono<Void> {
         return if (msg.id.isNumber()) {
             val resp = JsonRpcResponse(
-                msg.value, msg.error, msg.id
+                msg.value, msg.error, msg.id, null
             )
             Mono.fromCallable {
                 val status = rpcReceive.tryEmitNext(resp)
@@ -377,7 +377,7 @@ class WsConnection(
                 RpcResponseError.CODE_INTERNAL_ERROR,
                 "Response not received from WebSocket"
             ),
-            JsonRpcResponse.Id.from(originalId)
+            JsonRpcResponse.Id.from(originalId), null
         )
 
         return Flux.from(rpcReceive.asFlux())

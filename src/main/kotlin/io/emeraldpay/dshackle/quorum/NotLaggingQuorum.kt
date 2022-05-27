@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -32,6 +33,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     private val result: AtomicReference<ByteArray> = AtomicReference()
     private val failed = AtomicReference(false)
     private var rpcError: JsonRpcError? = null
+    private var sig: ResponseSigner.Signature? = null
 
     override fun init(head: Head) {
     }
@@ -44,16 +46,17 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         return failed.get()
     }
 
-    override fun record(response: ByteArray, upstream: Upstream): Boolean {
+    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
         val lagging = upstream.getLag() > maxLag
         if (!lagging) {
             result.set(response)
+            sig = signature
             return true
         }
         return false
     }
 
-    override fun record(error: JsonRpcException, upstream: Upstream) {
+    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
         this.rpcError = error.error
         val lagging = upstream.getLag() > maxLag
         if (!lagging && result.get() == null) {
@@ -61,6 +64,9 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         }
     }
 
+    override fun getSignature(): ResponseSigner.Signature? {
+        return sig
+    }
     override fun getResult(): ByteArray {
         return result.get()
     }

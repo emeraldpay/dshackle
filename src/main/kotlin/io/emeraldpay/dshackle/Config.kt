@@ -21,8 +21,10 @@ import io.emeraldpay.dshackle.config.HealthConfig
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.config.MainConfigReader
 import io.emeraldpay.dshackle.config.MonitoringConfig
+import io.emeraldpay.dshackle.config.SignatureConfig
 import io.emeraldpay.dshackle.config.TokensConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
@@ -37,6 +39,7 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.io.File
+import java.security.Security
 import java.util.concurrent.Executors
 import kotlin.system.exitProcess
 
@@ -66,6 +69,8 @@ open class Config(
                 it
             }
         }
+
+        Security.addProvider(BouncyCastleProvider())
     }
 
     fun getConfigPath(): File {
@@ -117,6 +122,11 @@ open class Config(
     @Bean
     open fun cacheConfig(@Autowired mainConfig: MainConfig): CacheConfig {
         return mainConfig.cache ?: CacheConfig()
+    }
+
+    @Bean
+    open fun signatureConfig(@Autowired mainConfig: MainConfig): SignatureConfig {
+        return mainConfig.signature ?: SignatureConfig()
     }
 
     @Bean

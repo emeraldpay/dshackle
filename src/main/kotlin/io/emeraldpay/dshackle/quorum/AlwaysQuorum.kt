@@ -20,12 +20,14 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class AlwaysQuorum : CallQuorum {
 
     private var resolved = false
     private var result: ByteArray? = null
     private var rpcError: JsonRpcError? = null
+    private var sig: ResponseSigner.Signature? = null
 
     override fun init(head: Head) {
     }
@@ -38,14 +40,20 @@ open class AlwaysQuorum : CallQuorum {
         return rpcError != null
     }
 
-    override fun record(response: ByteArray, upstream: Upstream): Boolean {
+    override fun getSignature(): ResponseSigner.Signature? {
+        return sig
+    }
+
+    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
         result = response
         resolved = true
+        sig = signature
         return true
     }
 
-    override fun record(error: JsonRpcException, upstream: Upstream) {
+    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
         this.rpcError = error.error
+        sig = signature
     }
 
     override fun getResult(): ByteArray? {
