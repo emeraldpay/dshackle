@@ -16,9 +16,9 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class NonEmptyQuorum(
     val maxTries: Int = 3
@@ -26,7 +26,7 @@ open class NonEmptyQuorum(
 
     private var result: ByteArray? = null
     private var tries: Int = 0
-    private var sig : ResponseSigner.Signature? = null
+    private var sig: ResponseSigner.Signature? = null
     override fun init(head: Head) {
     }
 

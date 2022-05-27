@@ -16,9 +16,9 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.hex.HexQuantity
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -32,7 +32,7 @@ open class NonceQuorum(
     private var result: ByteArray? = null
     private var receivedTimes = 0
     private var errors = 0
-    private var sig : ResponseSigner.Signature? = null
+    private var sig: ResponseSigner.Signature? = null
 
     override fun init(head: Head) {
     }

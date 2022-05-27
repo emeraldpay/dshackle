@@ -17,10 +17,10 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 
@@ -49,7 +49,7 @@ abstract class ValueAwareQuorum<T>(
 
     override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
         this.rpcError = error.error
-        recordError(null, error.error.message,  signature, upstream)
+        recordError(null, error.error.message, signature, upstream)
     }
 
     abstract fun recordValue(response: ByteArray, responseValue: T?, signature: ResponseSigner.Signature?, upstream: Upstream)

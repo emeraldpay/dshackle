@@ -1,20 +1,15 @@
 package io.emeraldpay.dshackle.upstream.signature
 
 import io.emeraldpay.dshackle.upstream.Upstream
-import java.security.KeyFactory
+import org.apache.commons.codec.binary.Hex
 import java.security.MessageDigest
-import java.security.PublicKey
 import java.security.Signature
 import java.security.interfaces.ECPrivateKey
-import org.apache.commons.codec.binary.Hex
-import org.bouncycastle.jce.ECNamedCurveTable
-import org.bouncycastle.jce.spec.ECPublicKeySpec
-import org.bouncycastle.math.ec.ECPoint
 
 class Secp256KSigner(
-        private val privateKey: ECPrivateKey,
-        val keyId: Long,
-): ResponseSigner {
+    private val privateKey: ECPrivateKey,
+    val keyId: Long,
+) : ResponseSigner {
 
     companion object {
         const val SIGN_SCHEME = "SHA256withECDSA"
@@ -29,7 +24,7 @@ class Secp256KSigner(
         sig.update(wrapped.toByteArray())
         val value = sig.sign()
         return ResponseSigner.Signature(
-                value, source.getId(), keyId
+            value, source.getId(), keyId
         )
     }
 

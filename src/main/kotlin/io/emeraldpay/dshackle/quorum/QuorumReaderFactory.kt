@@ -16,9 +16,9 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 // creates instance of a Quorum based reader
 interface QuorumReaderFactory {

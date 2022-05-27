@@ -1,25 +1,24 @@
 package io.emeraldpay.dshackle.upstream.signature
 
 import io.emeraldpay.dshackle.config.SignatureConfig
+import org.apache.commons.codec.binary.Hex
+import org.bouncycastle.jce.ECNamedCurveTable
+import org.bouncycastle.jce.spec.ECPublicKeySpec
+import org.bouncycastle.math.ec.ECPoint
+import org.bouncycastle.util.io.pem.PemObject
+import org.bouncycastle.util.io.pem.PemReader
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.FactoryBean
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Repository
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.KeyFactory
 import java.security.MessageDigest
-import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.interfaces.ECPrivateKey
 import java.security.spec.PKCS8EncodedKeySpec
-import org.apache.commons.codec.binary.Hex
-import org.bouncycastle.jce.ECNamedCurveTable
-import org.bouncycastle.math.ec.ECPoint
-import org.bouncycastle.util.io.pem.PemObject
-import org.bouncycastle.util.io.pem.PemReader
-import org.bouncycastle.jce.spec.ECPublicKeySpec
-import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.FactoryBean
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.stereotype.Repository
 
 @Repository
 open class ResponseSignerFactory(
@@ -86,5 +85,4 @@ open class ResponseSignerFactory(
     override fun getObjectType(): Class<*>? {
         return ResponseSigner::class.java
     }
-
 }

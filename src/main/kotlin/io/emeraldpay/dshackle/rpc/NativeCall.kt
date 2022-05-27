@@ -218,7 +218,7 @@ open class NativeCall(
                 api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
-                        CallResult.ok(ctx.id, ctx.nonce,  it, null)
+                        CallResult.ok(ctx.id, ctx.nonce, it, null)
                     }
             }.switchIfEmpty(
                 Mono.just(ctx).flatMap(this::executeOnRemote)
@@ -336,12 +336,12 @@ open class NativeCall(
 
     open class CallResult(val id: Int, val nonce: Long?, val result: ByteArray?, val error: CallError?, val signature: ResponseSigner.Signature?) {
         companion object {
-            fun ok(id: Int,  nonce : Long?, result: ByteArray, signature: ResponseSigner.Signature?): CallResult {
+            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?): CallResult {
                 return CallResult(id, nonce, result, null, signature)
             }
 
             fun fail(id: Int, nonce: Long?, errorCore: Int, errorMessage: String): CallResult {
-                return CallResult(id, nonce,null, CallError(errorCore, errorMessage, null), null)
+                return CallResult(id, nonce, null, CallError(errorCore, errorMessage, null), null)
             }
 
             fun fail(id: Int, nonce: Long?, error: Throwable): CallResult {

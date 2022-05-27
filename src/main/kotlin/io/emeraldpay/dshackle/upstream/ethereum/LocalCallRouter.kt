@@ -62,7 +62,7 @@ class LocalCallRouter(
         }
         if (key.nonce != null) {
             // we do not want to serve any requests (except hardcoded) that have nonces from cache
-            return Mono.empty();
+            return Mono.empty()
         }
         val common = commonRequests(key)
         if (common != null) {

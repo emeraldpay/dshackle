@@ -15,7 +15,6 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.SilentException

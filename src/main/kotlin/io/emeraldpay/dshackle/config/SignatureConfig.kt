@@ -27,6 +27,5 @@ class SignatureConfig {
      */
     var enabled: Boolean = false
 
-    var privateKey : String? = null
-
+    var privateKey: String? = null
 }

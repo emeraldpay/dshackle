@@ -16,23 +16,23 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
-import java.util.Optional
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.util.function.Tuple2
+import reactor.util.function.Tuple3
 import reactor.util.function.Tuples
+import java.util.Optional
 import java.util.function.BiFunction
 import java.util.function.Function
-import reactor.util.function.Tuple3
 
 /**
  * Makes request with applying Quorum
@@ -47,7 +47,7 @@ class QuorumRpcReader(
         private val log = LoggerFactory.getLogger(QuorumRpcReader::class.java)
     }
 
-    constructor(apiControl: ApiSource, quorum: CallQuorum): this(apiControl, quorum, null)
+    constructor(apiControl: ApiSource, quorum: CallQuorum) : this(apiControl, quorum, null)
 
     override fun read(key: JsonRpcRequest): Mono<Result> {
         // needs at least one response, so start a request

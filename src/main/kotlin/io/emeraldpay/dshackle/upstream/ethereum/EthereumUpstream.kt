@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import org.apache.commons.lang3.StringUtils
 
 abstract class EthereumUpstream(
     id: String,

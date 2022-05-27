@@ -16,11 +16,14 @@
  */
 package io.emeraldpay.dshackle
 
-import io.emeraldpay.dshackle.config.*
-import java.io.File
-import java.security.Security
-import java.util.concurrent.Executors
-import kotlin.system.exitProcess
+import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.config.HealthConfig
+import io.emeraldpay.dshackle.config.MainConfig
+import io.emeraldpay.dshackle.config.MainConfigReader
+import io.emeraldpay.dshackle.config.MonitoringConfig
+import io.emeraldpay.dshackle.config.SignatureConfig
+import io.emeraldpay.dshackle.config.TokensConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -35,6 +38,10 @@ import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
+import java.io.File
+import java.security.Security
+import java.util.concurrent.Executors
+import kotlin.system.exitProcess
 
 @Configuration
 @EnableScheduling
