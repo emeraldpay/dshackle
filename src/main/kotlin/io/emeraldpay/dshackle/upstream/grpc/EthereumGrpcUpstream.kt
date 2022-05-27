@@ -43,6 +43,7 @@ import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
+import java.util.Locale
 import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
@@ -53,7 +54,7 @@ open class EthereumGrpcUpstream(
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient
 ) : EthereumUpstream(
-    "$parentId/${chain.chainCode}",
+    "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     UpstreamsConfig.Options.getDefaults(),
     role,
     null, null

@@ -47,6 +47,11 @@ cache:
     db: 0
     password: I1y0dGKy01by
 
+signed-response:
+  enabled: true
+  algorithm: SECP256K1
+  private-key: /path/key.pem
+
 proxy:
   host: 0.0.0.0
   port: 8080
@@ -198,6 +203,11 @@ See <<tokens>> section
 |
 | Caching configuration.
 See <<cache>> section.
+
+| `signed-response`
+|
+| Signed responses
+See <<signed-response>> section.
 
 | `cluster`
 |
@@ -545,6 +555,38 @@ cache:
 | Password for connection, if required
 
 |===
+
+[#signed-response]
+== Signed Response
+
+[source,yaml]
+----
+signed-response:
+  enabled: true
+  algorithm: SECP256K1
+  private-key: /path/key.pem
+----
+
+.Redis Config
+[cols="2a,2,5"]
+|===
+| Option | Default Value | Description
+
+| `enabled`
+| `false`
+| Enable/disable Signed Responses
+
+| `algorithm`
+| `SECP256K1`
+| SECP256K1 only possible at this moment
+
+| `private-key`
+|
+| Path to a private key in PEM format
+
+|===
+
+See more details at link:07-methods.adoc#signatures[Signed Response]  in gRPC Methods.
 
 [#cluster]
 == Cluster

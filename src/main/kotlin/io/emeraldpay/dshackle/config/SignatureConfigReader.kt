@@ -1,18 +1,12 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.FileResolver
-import org.bouncycastle.util.io.pem.PemObject
-import org.bouncycastle.util.io.pem.PemReader
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.KeyFactory;
-import java.security.interfaces.ECPrivateKey
 
 class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader(), ConfigReader<SignatureConfig> {
 
-    class SignatureCurveError(message: String) : Exception(message)
     companion object {
         private val log = LoggerFactory.getLogger(SignatureConfig::class.java)
     }
@@ -22,35 +16,23 @@ class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader()
         return read(configNode)
     }
 
-    private fun readKey(algorithm: SignatureConfig.Algorithm, pem: PemObject): ECPrivateKey {
-        val key = when (algorithm) {
-            SignatureConfig.Algorithm.ECDSA -> {
-                val keyFactory = KeyFactory.getInstance("EC");
-                val keySpec = PKCS8EncodedKeySpec(pem.content)
-                keyFactory.generatePrivate(keySpec)
-            }
-        }
-
-        if (key is ECPrivateKey) {
-            if (key.params.toString() != "secp256k1 (1.3.132.0.10)") {
-                throw SignatureCurveError("Only secp256k1 is allowed for private key")
-            }
-            return key
-        }
-        throw Error("Only ECDSA keys are allowed")
-    }
-
     override fun read(input: MappingNode?): SignatureConfig? {
-        return getMapping(input, "signature")?.let { node ->
+        return getMapping(input, "signed-response")?.let { node ->
             val config = SignatureConfig()
-            config.enabled = getValueAsBool(node, "enabled") ?: config.enabled
-            getValueAsString(node, "algorithm")?.let {
-                config.algorithm = SignatureConfig.algorithmOfString(it)
+            getValueAsBool(node, "enabled")?.let {
+                config.enabled = it
             }
-            getValueAsString(node, "privateKey")?.let {
-                val key = fileResolver.resolve(it)
-                val reader = PemReader(key.reader())
-                config.privateKey = readKey(config.algorithm, reader.readPemObject())
+            if (config.enabled) {
+                getValueAsString(node, "algorithm")?.let {
+                    config.algorithm = SignatureConfig.algorithmOfString(it)
+                }
+                getValueAsString(node, "private-key")?.let {
+                    val key = fileResolver.resolve(it)
+                    config.privateKey = key.absolutePath
+                }
+            }
+            if (config.enabled && config.privateKey == null) {
+                throw IllegalStateException("Path to a private key (`signature.private-key`) is required when Response signature is enabled.")
             }
             config
         }

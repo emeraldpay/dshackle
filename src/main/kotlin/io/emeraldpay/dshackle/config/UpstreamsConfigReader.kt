@@ -183,6 +183,8 @@ class UpstreamsConfigReader(
 
     fun isValid(upstream: UpstreamsConfig.Upstream<*>): Boolean {
         val id = upstream.id
+        // In general, we just check that id is suitable for urls and references,
+        // Besides that, if Response Signatures are enabled (CurrentResponseSigner) then it's critical that the id cannot have `/` symbol
         if (id == null || id.length < 3 || !id.matches(Regex("[a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9]"))) {
             log.warn("Invalid id: $id")
             return false

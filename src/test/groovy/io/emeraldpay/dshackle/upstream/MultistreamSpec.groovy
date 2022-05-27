@@ -68,8 +68,8 @@ class MultistreamSpec extends Specification {
 
     def "Filter Best Status accepts better input"() {
         setup:
-        def up1 = TestingCommons.upstream("1")
-        def up2 = TestingCommons.upstream("2")
+        def up1 = TestingCommons.upstream("test-1")
+        def up2 = TestingCommons.upstream("test-2")
         def time0 = Instant.now() - Duration.ofSeconds(60)
         def filter = new Multistream.FilterBestAvailability()
         def update0 = new Multistream.UpstreamStatus(
@@ -87,8 +87,8 @@ class MultistreamSpec extends Specification {
 
     def "Filter Best Status declines worse input"() {
         setup:
-        def up1 = TestingCommons.upstream("1")
-        def up2 = TestingCommons.upstream("2")
+        def up1 = TestingCommons.upstream("test-1")
+        def up2 = TestingCommons.upstream("test-2")
         def time0 = Instant.now() - Duration.ofSeconds(60)
         def filter = new Multistream.FilterBestAvailability()
         def update0 = new Multistream.UpstreamStatus(
@@ -106,7 +106,7 @@ class MultistreamSpec extends Specification {
 
     def "Filter Best Status accepts worse input from same upstream"() {
         setup:
-        def up = TestingCommons.upstream("1")
+        def up = TestingCommons.upstream("test-1")
         def time0 = Instant.now() - Duration.ofSeconds(60)
         def filter = new Multistream.FilterBestAvailability()
         def update0 = new Multistream.UpstreamStatus(
@@ -124,8 +124,8 @@ class MultistreamSpec extends Specification {
 
     def "Filter Best Status accepts any input if existing is outdated"() {
         setup:
-        def up1 = TestingCommons.upstream("1")
-        def up2 = TestingCommons.upstream("2")
+        def up1 = TestingCommons.upstream("test-1")
+        def up2 = TestingCommons.upstream("test-2")
         def time0 = Instant.now() - Duration.ofSeconds(90)
         def filter = new Multistream.FilterBestAvailability()
         def update0 = new Multistream.UpstreamStatus(
@@ -143,9 +143,9 @@ class MultistreamSpec extends Specification {
 
     def "Filter Best Status declines same status"() {
         setup:
-        def up1 = TestingCommons.upstream("1")
-        def up2 = TestingCommons.upstream("2")
-        def up3 = TestingCommons.upstream("3")
+        def up1 = TestingCommons.upstream("test-1")
+        def up2 = TestingCommons.upstream("test-2")
+        def up3 = TestingCommons.upstream("test-3")
         def time0 = Instant.now() - Duration.ofSeconds(60)
         def filter = new Multistream.FilterBestAvailability()
         def update0 = new Multistream.UpstreamStatus(

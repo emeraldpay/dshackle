@@ -64,6 +64,12 @@ abstract class DefaultUpstream(
         .multicast()
         .directBestEffort<UpstreamAvailability>()
 
+    init {
+        if (id.length < 3 || !id.matches(Regex("[a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9]"))) {
+            throw IllegalArgumentException("Invalid upstream id: $id")
+        }
+    }
+
     override fun isAvailable(): Boolean {
         return getStatus() == UpstreamAvailability.OK
     }

@@ -91,7 +91,6 @@ class TrackEthereumTxSpec extends Specification {
                 .setBlock(
                         Common.BlockInfo.newBuilder()
                                 .setHeight(blockJson.number)
-                                .setWeight(ByteString.copyFrom(blockJson.totalDifficulty.toByteArray()))
                         .setBlockId(blockJson.hash.toHex().substring(2))
                         .setTimestamp(blockJson.timestamp.toEpochMilli())
             ).build()
@@ -280,7 +279,6 @@ class TrackEthereumTxSpec extends Specification {
                 .setBlock(
                         Common.BlockInfo.newBuilder()
                                 .setHeight(blocks[2].number)
-                                .setWeight(ByteString.copyFrom(blocks[2].totalDifficulty.toByteArray()))
                                 .setBlockId(blocks[2].hash.toHex().substring(2))
                                 .setTimestamp(blocks[2].timestamp.toEpochMilli())
                 )

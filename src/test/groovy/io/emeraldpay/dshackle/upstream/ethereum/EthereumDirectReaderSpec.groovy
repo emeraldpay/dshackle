@@ -50,7 +50,7 @@ class EthereumDirectReaderSpec extends Specification {
                 up, Caches.default(), new CurrentBlockCache(), calls
         )
         reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
+            1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> Mono.just(
                         new QuorumRpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1
@@ -81,7 +81,7 @@ class EthereumDirectReaderSpec extends Specification {
                 up, Caches.default(), new CurrentBlockCache(), calls
         )
         reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
+            1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> Mono.just(
                         new QuorumRpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(null), null, 1
@@ -116,7 +116,7 @@ class EthereumDirectReaderSpec extends Specification {
                 up, Caches.default(), new CurrentBlockCache(), calls
         )
         reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
+            1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >> Mono.just(
                         new QuorumRpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1
@@ -152,7 +152,7 @@ class EthereumDirectReaderSpec extends Specification {
                 up, Caches.default(), new CurrentBlockCache(), calls
         )
         reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
+            1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_getTransactionByHash", [hash1])) >> Mono.just(
                         new QuorumRpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1
@@ -183,7 +183,7 @@ class EthereumDirectReaderSpec extends Specification {
                 up, Caches.default(), new CurrentBlockCache(), calls
         )
         reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
+            1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_getTransactionByHash", [hash1])) >> Mono.just(
                         new QuorumRpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(null), null, 1
@@ -214,7 +214,7 @@ class EthereumDirectReaderSpec extends Specification {
                 up, Caches.default(), new CurrentBlockCache(), calls
         )
         reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
+            1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_getBalance", [address1, "latest"])) >> Mono.just(
                         new QuorumRpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes("0x100"), null, 1
@@ -246,7 +246,7 @@ class EthereumDirectReaderSpec extends Specification {
                 up, Caches.default(), new CurrentBlockCache(), calls
         )
         reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
+            1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_getBalance", [address1, "0xa8c9bb"])) >> Mono.just(
                         new QuorumRpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes("0x100"), null, 1

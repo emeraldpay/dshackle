@@ -17,7 +17,6 @@
 package io.emeraldpay.dshackle.rpc
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.common.primitives.Bytes
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
@@ -32,11 +31,11 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
@@ -114,8 +113,8 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, "signature".bytes, 1))
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
@@ -127,7 +126,6 @@ class NativeCallSpec extends Specification {
         then:
         act == "foo"
         resp.nonce == 10
-        resp.signature == "signature".bytes
     }
 
     def "Returns error if no quorum"() {
@@ -136,7 +134,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _) >> Mock(Reader) {
+            1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.empty()
             }
         }
@@ -192,32 +190,30 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, "signature".bytes)
-        )
-        then:
-        resp.id == 1561
-        resp.succeed
-        resp.signature.nonce == 10
-        resp.signature.sig.toByteArray() == "signature".bytes
-        objectMapper.readValue(resp.payload.toByteArray(), Map.class) == [jsonrpc:"2.0", id:1, result: "foo"]
-    }
-
-    def "Builds normal response and signs it"() {
-        setup:
-        def json = [jsonrpc:"2.0", id:1, result: "foo"]
-        def signer = Mock(ResponseSigner) {
-            1 * sign(10, objectMapper.writeValueAsBytes(json)) >> "signature"
-        }
-        def nativeCall = nativeCall(null, signer)
-        when:
-        def resp = nativeCall.buildResponse(
                 new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null)
         )
         then:
         resp.id == 1561
         resp.succeed
+        objectMapper.readValue(resp.payload.toByteArray(), Map.class) == [jsonrpc:"2.0", id:1, result: "foo"]
+    }
+
+    def "Builds response with signature"() {
+        setup:
+        def nativeCall = nativeCall()
+        def json = [jsonrpc:"2.0", id:1, result: "foo"]
+
+        when:
+        def resp = nativeCall.buildResponse(
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100))
+        )
+        then:
+        resp.id == 1561
+        resp.succeed
         resp.signature.nonce == 10
-        resp.signature.sig.toByteArray() == "signature".bytes
+        resp.signature.signature.toByteArray() == "sig1".bytes
+        resp.signature.keyId == 100
+        resp.signature.upstreamId == "test"
         objectMapper.readValue(resp.payload.toByteArray(), Map.class) == [jsonrpc:"2.0", id:1, result: "foo"]
     }
 
@@ -239,7 +235,6 @@ class NativeCallSpec extends Specification {
         then:
         StepVerifier.create(resp)
                 .expectErrorMatches({t -> t instanceof NativeCall.CallFailure && t.id == 0})
-//                .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
 

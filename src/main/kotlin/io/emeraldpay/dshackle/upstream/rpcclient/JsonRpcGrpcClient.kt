@@ -17,9 +17,11 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.BlockchainOuterClass.NativeCallReplySignature
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
@@ -78,8 +80,12 @@ class JsonRpcGrpcClient(
                         .flatMap { resp ->
                             if (resp.succeed) {
                                 val bytes = resp.payload.toByteArray()
-                                val sigBytes = if (resp.signature.sig.isEmpty) null else resp.signature.sig.toByteArray()
-                                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), sigBytes))
+                                val signature = if (resp.hasSignature()) {
+                                    extractSignature(resp.signature)
+                                } else {
+                                    null
+                                }
+                                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), signature))
                             } else {
                                 metrics.fails.increment()
                                 Mono.error(
@@ -97,6 +103,17 @@ class JsonRpcGrpcClient(
                         metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
                     }
                 }
+        }
+
+        fun extractSignature(resp: NativeCallReplySignature?): ResponseSigner.Signature? {
+            if (resp == null || resp.signature == null || resp.signature.isEmpty || resp.upstreamId == null || resp.upstreamId.isEmpty()) {
+                return null
+            }
+            return ResponseSigner.Signature(
+                resp.signature.toByteArray(),
+                resp.upstreamId,
+                resp.keyId
+            )
         }
     }
 }

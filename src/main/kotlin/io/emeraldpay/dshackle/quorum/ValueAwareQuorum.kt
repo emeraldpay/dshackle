@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
@@ -34,7 +35,7 @@ abstract class ValueAwareQuorum<T>(
         return Global.objectMapper.readValue(response.inputStream(), clazz)
     }
 
-    override fun record(response: ByteArray, signature: ByteArray?, upstream: Upstream): Boolean {
+    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
         try {
             val value = extractValue(response, clazz)
             recordValue(response, value, signature, upstream)
@@ -46,14 +47,14 @@ abstract class ValueAwareQuorum<T>(
         return isResolved()
     }
 
-    override fun record(error: JsonRpcException, signature: ByteArray?, upstream: Upstream) {
+    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
         this.rpcError = error.error
         recordError(null, error.error.message,  signature, upstream)
     }
 
-    abstract fun recordValue(response: ByteArray, responseValue: T?, signature: ByteArray?, upstream: Upstream)
+    abstract fun recordValue(response: ByteArray, responseValue: T?, signature: ResponseSigner.Signature?, upstream: Upstream)
 
-    abstract fun recordError(response: ByteArray?, errorMessage: String?, signature: ByteArray?, upstream: Upstream)
+    abstract fun recordError(response: ByteArray?, errorMessage: String?, signature: ResponseSigner.Signature?, upstream: Upstream)
 
     override fun getError(): JsonRpcError? {
         return rpcError

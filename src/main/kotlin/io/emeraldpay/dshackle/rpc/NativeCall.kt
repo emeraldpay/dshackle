@@ -34,6 +34,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.grpc.BlockchainType
@@ -98,9 +99,6 @@ open class NativeCall(
     }
 
     fun buildResponse(it: CallResult): BlockchainOuterClass.NativeCallReplyItem {
-        val sig = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
-        it.nonce?.let { sig.setNonce(it) }
-
         val result = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
             .setSucceed(!it.isError())
             .setId(it.id)
@@ -112,12 +110,18 @@ open class NativeCall(
             result.payload = ByteString.copyFrom(it.result)
         }
         if (it.nonce != null && it.signature != null) {
-            sig.sig = ByteString.copyFrom(it.signature)
-        } else if (it.nonce != null && it.result != null) {
-            sig.sig = ByteString.copyFrom(signer.sign(it.nonce, it.result))
+            result.signature = buildSignature(it.nonce, it.signature)
         }
-        result.signature = sig.build()
         return result.build()
+    }
+
+    fun buildSignature(nonce: Long, signature: ResponseSigner.Signature): BlockchainOuterClass.NativeCallReplySignature {
+        val msg = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
+        msg.signature = ByteString.copyFrom(signature.value)
+        msg.keyId = signature.keyId
+        msg.upstreamId = signature.upstreamId
+        msg.nonce = nonce
+        return msg.build()
     }
 
     fun processException(it: Throwable?): Mono<BlockchainOuterClass.NativeCallReplyItem> {
@@ -203,7 +207,8 @@ open class NativeCall(
                 val heightMatcher = Selector.HeightMatcher(minHeight)
                 matcher.withMatcher(heightMatcher)
             }
-            ValidCallContext(requestItem.id, requestItem.nonce.let { if (it == 0L) null else it }, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
+            val nonce = requestItem.nonce.let { if (it == 0L) null else it }
+            ValidCallContext(requestItem.id, nonce, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
         }
     }
 
@@ -232,7 +237,7 @@ open class NativeCall(
         if (!ctx.upstream.getMethods().isCallable(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
-        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum)
+        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum, signer)
         return reader
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
             .map {
@@ -329,9 +334,9 @@ open class NativeCall(
         }
     }
 
-    open class CallResult(val id: Int, val nonce: Long?, val result: ByteArray?, val error: CallError?, val signature: ByteArray?) {
+    open class CallResult(val id: Int, val nonce: Long?, val result: ByteArray?, val error: CallError?, val signature: ResponseSigner.Signature?) {
         companion object {
-            fun ok(id: Int,  nonce : Long?, result: ByteArray, signature: ByteArray?): CallResult {
+            fun ok(id: Int,  nonce : Long?, result: ByteArray, signature: ResponseSigner.Signature?): CallResult {
                 return CallResult(id, nonce, result, null, signature)
             }
 

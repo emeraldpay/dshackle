@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.etherjar.hex.HexQuantity
@@ -31,7 +32,7 @@ open class NonceQuorum(
     private var result: ByteArray? = null
     private var receivedTimes = 0
     private var errors = 0
-    private var sig : ByteArray? = null
+    private var sig : ResponseSigner.Signature? = null
 
     override fun init(head: Head) {
     }
@@ -45,11 +46,11 @@ open class NonceQuorum(
     override fun isFailed(): Boolean {
         return errors >= tries
     }
-    override fun getSignature(): ByteArray? {
+    override fun getSignature(): ResponseSigner.Signature? {
         return sig
     }
 
-    override fun recordValue(response: ByteArray, responseValue: String?, signature: ByteArray?, upstream: Upstream) {
+    override fun recordValue(response: ByteArray, responseValue: String?, signature: ResponseSigner.Signature?, upstream: Upstream) {
         val value = responseValue?.let { str ->
             HexQuantity.from(str).value.toLong()
         }
@@ -70,7 +71,7 @@ open class NonceQuorum(
         return result
     }
 
-    override fun recordError(response: ByteArray?, errorMessage: String?, signature: ByteArray?, upstream: Upstream) {
+    override fun recordError(response: ByteArray?, errorMessage: String?, signature: ResponseSigner.Signature?, upstream: Upstream) {
         errors++
     }
 

@@ -18,18 +18,21 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import reactor.core.publisher.Mono
-import reactor.util.function.Tuple2
-import reactor.util.function.Tuples
 
 class JsonRpcResponse(
     private val result: ByteArray?,
     val error: JsonRpcError?,
     val id: Id,
-    val sig: ByteArray?
+
+    /**
+     * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
+     */
+    val providedSignature: ResponseSigner.Signature? = null
 ) {
 
-    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0), null)
+    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
@@ -41,7 +44,7 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun ok(value: ByteArray, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(value, null, id, null)
+            return JsonRpcResponse(value, null, id)
         }
 
         @JvmStatic
@@ -56,12 +59,12 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun error(error: JsonRpcError, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, error, id, null)
+            return JsonRpcResponse(null, error, id)
         }
 
         @JvmStatic
         fun error(code: Int, msg: String, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg), id, null)
+            return JsonRpcResponse(null, JsonRpcError(code, msg), id)
         }
     }
 
@@ -101,14 +104,6 @@ class JsonRpcResponse(
         }
     }
 
-    fun requireResultWithSignature(): Mono<Pair<ByteArray, ByteArray?>> {
-        return if (error != null) {
-            Mono.error(error.asException(id))
-        } else {
-            Mono.just(Pair(getResult(), sig))
-        }
-    }
-
     fun requireStringResult(): Mono<String> {
         return if (error != null) {
             Mono.error(error.asException(id))
@@ -118,7 +113,11 @@ class JsonRpcResponse(
     }
 
     fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, sig)
+        return JsonRpcResponse(result, error, id, providedSignature)
+    }
+
+    fun copyWithSignature(signature: ResponseSigner.Signature): JsonRpcResponse {
+        return JsonRpcResponse(result, error, id, signature)
     }
 
     override fun equals(other: Any?): Boolean {

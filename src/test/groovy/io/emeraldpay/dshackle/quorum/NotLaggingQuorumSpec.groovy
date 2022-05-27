@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.quorum
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import spock.lang.Specification
 
@@ -31,13 +32,28 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, "sig1".bytes, up)
+        quorum.record(value, null, up)
         then:
         1 * up.getLag() >> 0
         quorum.isResolved()
         !quorum.isFailed()
         quorum.result == value
-        quorum.signature == "sig1".bytes
+    }
+
+    def "Keeps signature"() {
+        setup:
+        def up = Mock(Upstream)
+        def value = "foo".getBytes()
+        def quorum = new NotLaggingQuorum(1)
+
+        when:
+        quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
+        then:
+        1 * up.getLag() >> 0
+        quorum.isResolved()
+        !quorum.isFailed()
+        quorum.result == value
+        quorum.signature == new ResponseSigner.Signature("sig1".bytes, "test", 100)
     }
 
     def "Resolves if ok lag"() {
@@ -47,13 +63,12 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value,"sig1".bytes, up)
+        quorum.record(value, null, up)
         then:
         1 * up.getLag() >> 1
         quorum.isResolved()
         !quorum.isFailed()
         quorum.result == value
-        quorum.signature == "sig1".bytes
     }
 
     def "Ignores if lags"() {
@@ -63,12 +78,11 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, "sig1".bytes, up)
+        quorum.record(value, null, up)
         then:
         1 * up.getLag() >> 2
         !quorum.isResolved()
         !quorum.isFailed()
-        quorum.signature == null
     }
 
     def "Fails if no lag and error response received"() {
@@ -78,11 +92,10 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(new JsonRpcException(-100, "test error"), "sig1".bytes, up)
+        quorum.record(new JsonRpcException(-100, "test error"), null, up)
         then:
         1 * up.getLag() >> 1
         !quorum.isResolved()
         quorum.isFailed()
-        quorum.signature == null
     }
 }

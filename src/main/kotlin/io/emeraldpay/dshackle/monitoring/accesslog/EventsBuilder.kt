@@ -338,7 +338,7 @@ class EventsBuilder {
                     if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
                 } else null,
                 errorMessage = if (accessLogConfig.includeMessages) msg.errorMessage else null,
-                signature = Hex.encodeHexString(msg.signature.sig.toByteArray()),
+                signature = Hex.encodeHexString(msg.signature.signature.toByteArray()),
                 nonce = msg.signature.nonce
             )
         }

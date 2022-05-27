@@ -49,6 +49,7 @@ message NativeCallItem {
     uint32 id = 1;
     string method = 3;
     bytes payload = 4;
+    uint64 nonce = 5;
 }
 ----
 
@@ -70,6 +71,14 @@ message NativeCallReplyItem {
     bool succeed = 2;
     bytes payload = 3;
     bytes error = 4;
+    NativeCallReplySignature signature = 5;
+}
+
+message NativeCallReplySignature {
+    uint64 nonce = 1;
+    bytes signature = 2;
+    uint64 key_id = 3;
+    string upstream_id = 4;
 }
 ----
 
@@ -79,7 +88,104 @@ Where:
 - or `error` if request failed (`succeed` is false)
 
 NOTE: Reply Items comes right after their execution on an upstream, therefore streaming response.
-It allows to build non-blocking queries
+It allows building non-blocking queries
+
+[#signatures]
+=== Signed JSON RPC Responses
+
+Dshackle can sign the responses it received from an upstream.
+It can be enabled on server by configuring a path to a Secp256K1 Key used for signing.
+And passing a `nonce` as part of the call request.
+When both of them are set Dshackle adds a Signature to the response, which can travel through multiple levels of Dshackle-Dshackle connections.
+
+WARNING: Caching is disabled for signed requests, and you always touch an actual node even if there is a ready to use data in local cache.
+
+The signed message looks like:
+----
+DSHACKLESIG/$nonce/$upstreamId/hex(sha256($response))
+----
+
+.Where
+- `nonce` is a 64-bit number provided with the request
+- `upstreamId` id of an upstream which produced the result
+- `response` is a part of the original JSON RPC message, i.e. it's what you have in `payload` field of `NativeCallReplyItem`
+
+.A signed response includes:
+- `nonce` original nonce used for the call
+- `signature` signature bytes (of the message above)
+- `key_id` identifier of a key used for the signing
+- `upstream_id` id of upstream which produce the response
+
+==== How to generate a key
+
+Here we generate a pair of Secret and Public keys using openssl.
+
+[source, bash]
+----
+export KEYNAME=mykey
+
+openssl ecparam -name secp256k1 -out $KEYNAME_param.pem
+openssl ecparam -in $KEYNAME_param.pem -genkey -noout -out $KEYNAME.pem
+
+openssl ec -in $KEYNAME.pem -text
+openssl ec -in $KEYNAME.pem -out ${KEYNAME}_pub.pem -pubout
+
+rm $KEYNAME_param.pem
+cat ${KEYNAME}_pub.pem
+----
+
+As a result you get `mykey.pem` with secret key to use on server, and `mykey_pub.pem` with public key to use on client to verify signatures.
+
+==== How to verify a signature
+
+Here is the example how to verify the signature with command line, and it can be easily adapted for your language of choice.
+
+.First, let's prepare all the values:
+[source, bash]
+----
+export PUBKEY=testing/dshackle/test_key.pub
+export NONCE=10
+
+export UPSTREAM=infura
+export PAYLOAD='["0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331", true]'
+
+export SIGNATURE=3045022100be1d730e0e381e25bff64f0fc598d19e31688a01db751098d0ed21847ca785b0022002f5651a0e8d447b0815aeb7b48738cb470cf46d60ee4e2f5bc9c0dc4e072dc3
+----
+
+.Then rebuild the signed message:
+[source, bash]
+----
+echo -n "DSHACKLESIG/$NONCE/$UPSTREAM/" > msg.txt
+echo -n $PAYLOAD | shasum -a 256 - | awk '{ printf $1 }' >> msg.txt
+----
+
+.And save signature as a binary file:
+[source, bash]
+----
+rm -f msg.sig && echo $SIGNATURE | xxd -r -p - msg.sig
+----
+
+.Now you can verify the payload with the following:
+[source, bash]
+----
+openssl dgst -sha256 -verify $PUBKEY -signature msg.sig msg.txt
+----
+
+.Which should print:
+----
+Verified OK
+----
+
+==== What is the Key Identifier?
+
+Key Id is the first 64 bits of SHA-256 hash of the x509 encoded Public Key.
+It's provided with the Signed Response for a reference.
+
+You can get it with:
+[source, bash]
+----
+cat $PUBKEY | sed -e '$ d' | awk '(NR>1)' | base64 -d | shasum -a 256 - | head -c 16
+----
 
 === Wrapped JSON RPC subscriptions
 

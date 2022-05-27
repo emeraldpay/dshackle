@@ -40,6 +40,7 @@ import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
+import java.util.Locale
 import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
@@ -50,7 +51,7 @@ class BitcoinGrpcUpstream(
     val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient
 ) : BitcoinUpstream(
-    "$parentId/${chain.chainCode}",
+    "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     chain,
     UpstreamsConfig.Options.getDefaults(),
     role

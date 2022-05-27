@@ -38,19 +38,19 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig1".bytes, upstream1)
+        q.record(new JsonRpcException(1, "Internal"), null, upstream1)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig2".bytes, upstream2)
+        q.record(new JsonRpcException(1, "Internal"), null, upstream2)
         then:
         !q.isResolved()
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig3".bytes, upstream3)
+        q.record(new JsonRpcException(1, "Internal"), null, upstream3)
         then:
         q.isFailed()
         !q.isResolved()
@@ -71,11 +71,10 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record('"0x11"'.bytes, "sig1".bytes, upstream1)
+        q.record('"0x11"'.bytes, null, upstream1)
         then:
         q.isResolved()
         !q.isFailed()
-        q.signature == "sig1".bytes
     }
 
     def "Fail second if first is error"() {
@@ -92,18 +91,17 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record(new JsonRpcException(1, "Internal"), "sig1".bytes, upstream1)
+        q.record(new JsonRpcException(1, "Internal"), null, upstream1)
         then:
         !q.isFailed()
         !q.isResolved()
         q.signature == null
 
         when:
-        q.record('"0x11"'.bytes, "sig2".bytes, upstream2)
+        q.record('"0x11"'.bytes, null, upstream2)
         then:
         q.isResolved()
         !q.isFailed()
-        q.signature == "sig2".bytes
     }
 
     def "Fail second if first is null"() {
@@ -120,18 +118,17 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record('null'.bytes, "sig1".bytes, upstream2)
+        q.record('null'.bytes, null, upstream2)
         then:
         !q.isFailed()
         !q.isResolved()
 
 
         when:
-        q.record('"0x11"'.bytes, "sig2".bytes, upstream2)
+        q.record('"0x11"'.bytes, null, upstream2)
         then:
         q.isResolved()
         !q.isFailed()
-        q.signature == "sig2".bytes
     }
 
 

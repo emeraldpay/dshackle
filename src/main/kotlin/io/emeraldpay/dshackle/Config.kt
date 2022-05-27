@@ -17,6 +17,11 @@
 package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.*
+import java.io.File
+import java.security.Security
+import java.util.concurrent.Executors
+import kotlin.system.exitProcess
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
@@ -30,9 +35,6 @@ import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
-import java.io.File
-import java.util.concurrent.Executors
-import kotlin.system.exitProcess
 
 @Configuration
 @EnableScheduling
@@ -60,6 +62,8 @@ open class Config(
                 it
             }
         }
+
+        Security.addProvider(BouncyCastleProvider())
     }
 
     fun getConfigPath(): File {
