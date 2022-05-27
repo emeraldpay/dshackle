@@ -21,14 +21,19 @@ import io.netty.handler.ssl.ClientAuth
 import io.netty.handler.ssl.OpenSsl
 import io.netty.handler.ssl.OpenSslServerContext
 import io.netty.handler.ssl.SslContext
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import spock.lang.Specification
 import sun.security.x509.X509CertImpl
+
+import java.security.Security
 
 class TlsSetupSpec extends Specification {
 
     TlsSetup tlsSetup = new TlsSetup(new FileResolver(new File("src/test/resources/tls-local")))
 
-    def setup() {
+    def setupSpec() {
+        Security.addProvider(new BouncyCastleProvider())
+
         // !!!!!!!!!!!!
         // run test on OS with OpenSSL installed
         // !!!!!!!!!!!!
@@ -148,12 +153,13 @@ class TlsSetupSpec extends Specification {
         def config = new AuthConfig.ServerTlsAuth(
                 enabled: true,
                 certificate: "127.0.0.1.crt",
-                key: "127.0.0.1.key",
+                // note that JDK Security doesn't accept non-P8 keys, but with Bouncy Castle we should test with a really invalid key
+                key: "127.0.0.1.invalid.key",
         )
         when:
         tlsSetup.setupServer("test", config, false)
         then:
-        def t = thrown(IllegalArgumentException)
+        thrown(Exception)
     }
 
     def "Fail if client certificate not set but required"() {
