@@ -144,16 +144,23 @@ class StandardCallsSpec extends Specification {
         def sep = "/".bytes
         def digest = MessageDigest.getInstance("SHA-256")
         def messageHash = digest.digest(act.payload.toByteArray())
-        sig.update(Bytes.concat("DSHACKLESIG".bytes, sep, Longs.toByteArray(10), sep, messageHash))
+        def sigmessage = Bytes.concat("DSHACKLESIG".bytes,
+                sep,
+                10L.toString().bytes,
+                sep,
+                act.signature.upstreamId.bytes,
+                sep,
+                Hex.encodeHexString(messageHash).bytes)
+        sig.update(sigmessage)
         then:
         (new String(act.payload.toByteArray())) == "\"0x100001\""
-        sig.verify(act.signature.sig.toByteArray())
+        sig.verify(act.signature.signature.toByteArray())
     }
 
     def "check response signature without nonce"() {
         when:
         def act = client_proto.executeNative("eth_blockNumber", [], 0L)
         then:
-        act.signature.sig.isEmpty()
+        act.signature.signature.isEmpty()
     }
 }
