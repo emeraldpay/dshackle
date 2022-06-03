@@ -31,11 +31,10 @@ cache:
   redis:
     enabled: false
 
-signature:
+signed-response:
   enabled: true
-  algorithm: ECDSA
-  signatureScheme: SHA256withECDSA
-  privateKey: "./test_key"
+  algorithm: SECP256K1
+  private-key: "./test_key"
 
 proxy:
   port: 18080
