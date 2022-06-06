@@ -5,13 +5,15 @@ import java.util.Locale
 class SignatureConfig {
 
     enum class Algorithm {
-        SECP256K1
+        SECP256K1,
+        ECDSA_P256
     }
 
     companion object {
         fun algorithmOfString(algo: String): Algorithm {
             val algorithm = when (algo.uppercase(Locale.getDefault())) {
                 "SECP256K1" -> Algorithm.SECP256K1
+                "ECDSA_P256" -> Algorithm.ECDSA_P256
                 else -> throw IllegalArgumentException("Unknown algorithm or not allowed")
             }
             return algorithm

@@ -37,18 +37,22 @@ open class ResponseSignerFactory(
     private fun readKey(algorithm: SignatureConfig.Algorithm, pem: PemObject): Pair<ECPrivateKey, Long> {
         val keyFactory = KeyFactory.getInstance("EC")
         val key = when (algorithm) {
-            SignatureConfig.Algorithm.SECP256K1 -> {
+            SignatureConfig.Algorithm.SECP256K1, SignatureConfig.Algorithm.ECDSA_P256 -> {
                 val keySpec = PKCS8EncodedKeySpec(pem.content)
                 keyFactory.generatePrivate(keySpec)
             }
         }
 
         if (key !is ECPrivateKey) {
-            throw IllegalStateException("Only ECDSA SECP256K1 keys are allowed")
+            throw IllegalStateException("Only EC keys are allowed")
         }
 
-        if (key.params.toString() != "secp256k1 (1.3.132.0.10)") {
-            throw IllegalStateException("Only SECP256K1 are allowed for signing a response")
+        if (algorithm == SignatureConfig.Algorithm.SECP256K1 && key.params.toString().indexOf("secp256k1") < 0) {
+            throw IllegalStateException("Key is not SECP256K1, generate SECP256K1 or use another algorithm")
+        }
+
+        if (algorithm == SignatureConfig.Algorithm.ECDSA_P256 && key.params.toString().indexOf("secp256r1") < 0) {
+            throw IllegalStateException("Key is not PRIME256v1, generae PRIME256v1 or use another algorithm")
         }
 
         val publicKey = extractPublicKey(keyFactory, key)
@@ -79,7 +83,7 @@ open class ResponseSignerFactory(
             return NoSigner()
         }
         val key = readKey(config.algorithm, config.privateKey!!)
-        return Secp256KSigner(key.first, key.second)
+        return EcdsaSigner(key.first, key.second)
     }
 
     override fun getObjectType(): Class<*>? {

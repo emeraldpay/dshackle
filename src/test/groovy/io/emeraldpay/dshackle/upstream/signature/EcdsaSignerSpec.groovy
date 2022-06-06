@@ -1,8 +1,6 @@
 package io.emeraldpay.dshackle.upstream.signature
 
 import io.emeraldpay.dshackle.config.SignatureConfig
-import io.emeraldpay.dshackle.config.SignatureConfigReader
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Upstream
 import org.apache.commons.codec.binary.Hex
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -13,14 +11,13 @@ import spock.lang.Specification
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
-import java.security.SecureRandom
 import java.security.Security
 import java.security.Signature
 import java.security.interfaces.ECPrivateKey
 import java.security.spec.ECGenParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
 
-class Secp256KSignerSpec extends Specification {
+class EcdsaSignerSpec extends Specification {
 
     def setupSpec() {
         Security.addProvider(new BouncyCastleProvider())
@@ -53,7 +50,7 @@ class Secp256KSignerSpec extends Specification {
         def conf = new SignatureConfig()
         conf.enabled = true
         conf.privateKey = "testing/dshackle/test_key"
-        def signer = new ResponseSignerFactory(conf).getObject() as Secp256KSigner
+        def signer = new ResponseSignerFactory(conf).getObject() as EcdsaSigner
 
         // To verify the test, check the hash of test key above:
         //
@@ -73,7 +70,7 @@ class Secp256KSignerSpec extends Specification {
         def up = Mock(Upstream) {
             _ * getId() >> "infura"
         }
-        def signer = new Secp256KSigner(Stub(ECPrivateKey), 100L)
+        def signer = new EcdsaSigner(Stub(ECPrivateKey), 100L)
 
         when:
         def act = signer.wrapMessage(10, "test".bytes, up)
@@ -96,7 +93,7 @@ class Secp256KSignerSpec extends Specification {
         verifier.initVerify(pair.getPublic())
         verifier.update("DSHACKLESIG/10/infura/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08".getBytes())
 
-        def signer = new Secp256KSigner((pair.getPrivate() as ECPrivateKey), 100L)
+        def signer = new EcdsaSigner((pair.getPrivate() as ECPrivateKey), 100L)
 
         when:
         def sig = signer.sign(10, result, up)
@@ -126,7 +123,7 @@ class Secp256KSignerSpec extends Specification {
         verifier.initVerify(pk)
         verifier.update("DSHACKLESIG/10/infura/${Hex.encodeHexString(sha256.digest(result))}".getBytes())
 
-        def signer = factory.getObject() as Secp256KSigner
+        def signer = factory.getObject() as EcdsaSigner
 
         when:
         def sig = signer.sign(10, result, up)

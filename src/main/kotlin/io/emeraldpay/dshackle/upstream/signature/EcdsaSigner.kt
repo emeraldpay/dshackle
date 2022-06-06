@@ -6,7 +6,7 @@ import java.security.MessageDigest
 import java.security.Signature
 import java.security.interfaces.ECPrivateKey
 
-class Secp256KSigner(
+class EcdsaSigner(
     private val privateKey: ECPrivateKey,
     val keyId: Long,
 ) : ResponseSigner {
@@ -55,6 +55,6 @@ class Secp256KSigner(
             .append(source.getId())
             .append(MSG_SEPARATOR)
             .append(Hex.encodeHexString(sha256.digest(message)))
-        return formatterMsg.toString()
+            return formatterMsg.toString()
     }
 }
