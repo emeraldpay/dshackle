@@ -125,6 +125,9 @@ class DefaultEthereumMethods(
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"1\""
                     }
+                    Chain.GNOSIS == chain -> {
+                        "\"100\""
+                    }
                     Chain.MATIC == chain -> {
                         "\"137\""
                     }
@@ -150,6 +153,9 @@ class DefaultEthereumMethods(
                 when {
                     Chain.ETHEREUM == chain -> {
                         "\"0x1\""
+                    }
+                    Chain.GNOSIS == chain -> {
+                        "\"0x64\""
                     }
                     Chain.MATIC == chain -> {
                         "\"0x89\""

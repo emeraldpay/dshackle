@@ -20,6 +20,7 @@ enum ChainRef {
     // CHAIN_LIGHTNING = 1001;
     CHAIN_MATIC = 1002; // Matic PoS Ethereum sidechain based on Polygon
     CHAIN_RSK = 1003; // RSK sidechain, https://www.rsk.co/
+    CHAIN_GNOSIS = 1004; // Gnosis sidechain, https://www.gnosischain.com/
 
     // Testnets start with 10_000
     CHAIN_MORDEN = 10001;
