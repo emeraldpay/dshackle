@@ -149,7 +149,7 @@ jib {
         //  dshackle:<versionMajor.versionMinor>
         //  dshackle:latest only when publishing first version with zero patch (ex. 1.2.0)
         image = [
-                project.hasProperty('docker') ? project.property('docker') : 'emeraldpay',
+                project.hasProperty('docker') ? project.property('docker') : 'vandot',
                 '/dshackle:',
                 'snapshot'
         ].join('')
@@ -158,7 +158,7 @@ jib {
             add project.version.toString().replaceAll('(\\d+\\.\\d+).+', '$1')
         }
         auth {
-            username = 'splix'
+            username = 'vandot'
             password = System.getenv('DOCKER_KEY')
         }
     }
