@@ -20,9 +20,9 @@ jobs:
     runs-on: ubuntu-latest
 
     # for GCP Auth
-    permissions:
-      contents: 'read'
-      id-token: 'write'
+#    permissions:
+#      contents: 'read'
+#      id-token: 'write'
 
     steps:
       - name: Checkout the code
