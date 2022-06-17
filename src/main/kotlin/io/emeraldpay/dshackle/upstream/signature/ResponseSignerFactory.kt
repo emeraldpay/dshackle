@@ -37,7 +37,7 @@ open class ResponseSignerFactory(
     private fun readKey(algorithm: SignatureConfig.Algorithm, pem: PemObject): Pair<ECPrivateKey, Long> {
         val keyFactory = KeyFactory.getInstance("EC")
         val key = when (algorithm) {
-            SignatureConfig.Algorithm.SECP256K1, SignatureConfig.Algorithm.ECDSA_P256 -> {
+            SignatureConfig.Algorithm.SECP256K1, SignatureConfig.Algorithm.NIST_P256 -> {
                 val keySpec = PKCS8EncodedKeySpec(pem.content)
                 keyFactory.generatePrivate(keySpec)
             }
@@ -47,22 +47,22 @@ open class ResponseSignerFactory(
             throw IllegalStateException("Only EC keys are allowed")
         }
 
-        if (algorithm == SignatureConfig.Algorithm.SECP256K1 && key.params.toString().indexOf("secp256k1") < 0) {
+        if (algorithm == SignatureConfig.Algorithm.SECP256K1 && key.params.toString().indexOf(SignatureConfig.Algorithm.SECP256K1.getCurveName()) < 0) {
             throw IllegalStateException("Key is not SECP256K1, generate SECP256K1 or use another algorithm")
         }
 
-        if (algorithm == SignatureConfig.Algorithm.ECDSA_P256 && key.params.toString().indexOf("secp256r1") < 0) {
-            throw IllegalStateException("Key is not PRIME256v1, generae PRIME256v1 or use another algorithm")
+        if (algorithm == SignatureConfig.Algorithm.NIST_P256 && key.params.toString().indexOf(SignatureConfig.Algorithm.NIST_P256.getCurveName()) < 0) {
+            throw IllegalStateException("Key is not NIST P256, generate NIST P256 or use another algorithm")
         }
 
-        val publicKey = extractPublicKey(keyFactory, key)
+        val publicKey = extractPublicKey(keyFactory, key, algorithm)
         val id = getPublicKeyId(publicKey)
 
         return Pair(key, id)
     }
 
-    fun extractPublicKey(keyFactory: KeyFactory, privateKey: ECPrivateKey): PublicKey {
-        val ecSpec = ECNamedCurveTable.getParameterSpec("secp256k1")
+    fun extractPublicKey(keyFactory: KeyFactory, privateKey: ECPrivateKey, algorithm: SignatureConfig.Algorithm): PublicKey {
+        val ecSpec = ECNamedCurveTable.getParameterSpec(algorithm.getCurveName())
         val q: ECPoint = ecSpec.g.multiply(privateKey.s)
         return keyFactory.generatePublic(ECPublicKeySpec(q, ecSpec))
     }

@@ -45,6 +45,28 @@ class EcdsaSignerSpec extends Specification {
         file.delete()
     }
 
+    def "Reads private key NIST P256"() {
+        setup:
+        def file = File.createTempFile("test", ".pem")
+        def keygen = KeyPairGenerator.getInstance("EC")
+        keygen.initialize(new ECGenParameterSpec("secp256r1"))
+        def key = keygen.generateKeyPair()
+        def keyBuilder = new PKCS8EncodedKeySpec(key.getPrivate().getEncoded())
+        def writer = new PemWriter(new FileWriter(file.path))
+        writer.writeObject(new PemObject("PRIVATE KEY", keyBuilder.getEncoded()))
+        writer.close()
+
+        when:
+        def signer = new ResponseSignerFactory(new SignatureConfig())
+        def act = signer.readKey(SignatureConfig.Algorithm.NIST_P256, file.absolutePath).first
+
+        then:
+        act == key.getPrivate()
+
+        cleanup:
+        file.delete()
+    }
+
     def "Id is a hash of x509 public key"() {
         setup:
         def conf = new SignatureConfig()
@@ -118,7 +140,7 @@ class EcdsaSignerSpec extends Specification {
         def factory = new ResponseSignerFactory(conf)
 
         def sk = factory.readKey(conf.algorithm, conf.privateKey).first
-        def pk = factory.extractPublicKey(KeyFactory.getInstance("EC"), sk)
+        def pk = factory.extractPublicKey(KeyFactory.getInstance("EC"), sk, SignatureConfig.Algorithm.SECP256K1)
         def verifier = Signature.getInstance("SHA256withECDSA")
         verifier.initVerify(pk)
         verifier.update("DSHACKLESIG/10/infura/${Hex.encodeHexString(sha256.digest(result))}".getBytes())
