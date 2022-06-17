@@ -18,6 +18,12 @@ jobs:
 
   publish-gcp:
     runs-on: ubuntu-latest
+
+    # for GCP Auth
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     steps:
       - name: Checkout the code
         uses: actions/checkout@v2
@@ -27,12 +33,13 @@ jobs:
         with:
           java-version: 13
 
+      - name: Auth GCP
+        uses: 'google-github-actions/auth@v0'
+        with:
+          credentials_json: ${{ secrets.GCP_ARTIFACTS_KEY }}
+
       - name: Setup GCP
         uses: google-github-actions/setup-gcloud@v0
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_ARTIFACTS_KEY }}
-          export_default_credentials: true
 
         # needed for GitVersion
       - name: Fetch all history
