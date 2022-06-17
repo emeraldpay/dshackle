@@ -17,7 +17,7 @@ class SimpleUpstream {
         internalHandler = new InternalHandler()
 
         handlers << new TestcaseHandler(objectMapper)
-        handlers << new CommonHandlers()
+        handlers << new CommonHandlers(objectMapper)
         handlers << new BlocksHandler(objectMapper)
         handlers << new PingPongHandler()
         handlers << internalHandler

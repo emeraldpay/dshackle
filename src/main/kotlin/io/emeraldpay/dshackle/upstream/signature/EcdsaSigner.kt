@@ -6,7 +6,7 @@ import java.security.MessageDigest
 import java.security.Signature
 import java.security.interfaces.ECPrivateKey
 
-class Secp256KSigner(
+class EcdsaSigner(
     private val privateKey: ECPrivateKey,
     val keyId: Long,
 ) : ResponseSigner {

@@ -578,7 +578,7 @@ signed-response:
 
 | `algorithm`
 | `SECP256K1`
-| SECP256K1 only possible at this moment
+| `SECP256K1` or `NIST-P256`
 
 | `private-key`
 |
