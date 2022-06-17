@@ -55,6 +55,6 @@ class EcdsaSigner(
             .append(source.getId())
             .append(MSG_SEPARATOR)
             .append(Hex.encodeHexString(sha256.digest(message)))
-            return formatterMsg.toString()
+        return formatterMsg.toString()
     }
 }
