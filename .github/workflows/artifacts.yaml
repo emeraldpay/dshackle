@@ -1,13 +1,11 @@
 name: Artifacts
 
 on:
-  # if pushed directly
   push:
     branches:
       - master
       - release/*
       - ci/*
-  # on a pull request
   pull_request:
     branches:
       - master
@@ -18,11 +16,6 @@ jobs:
 
   publish-gcp:
     runs-on: ubuntu-latest
-
-    # for GCP Auth
-#    permissions:
-#      contents: 'read'
-#      id-token: 'write'
 
     steps:
       - name: Checkout the code
