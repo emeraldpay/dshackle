@@ -72,7 +72,7 @@ class ManagedCallMethodsSpec extends Specification {
         def delegated = ["eth_test", "eth_test2"] as Set
         def delegate = Mock(CallMethods) {
             _ * it.getSupportedMethods() >> delegated
-            1 * it.getQuorumFor("eth_test") >> new BroadcastQuorum()
+            0 * it.getQuorumFor("eth_test") >> new BroadcastQuorum()
         }
         def managed = new ManagedCallMethods(
                 delegate,
@@ -83,7 +83,7 @@ class ManagedCallMethodsSpec extends Specification {
         def act = managed.getQuorumFor("eth_test")
         then:
         act != null
-        act instanceof BroadcastQuorum
+        act instanceof AlwaysQuorum
     }
 
     def "Use custom quorum if provided"() {
