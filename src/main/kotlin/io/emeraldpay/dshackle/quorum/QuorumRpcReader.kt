@@ -130,8 +130,9 @@ class QuorumRpcReader(
             .flatMap { response ->
                 response.requireResult()
                     .transform(withSignature(api, key, response))
-                    .transform(withErrorResume(api, key))
             }
+            // must catch not only the processing of a response but also errors thrown from the .read() call
+            .transform(withErrorResume(api, key))
             .map { Tuples.of(it.t1, it.t2, api) }
     }
 

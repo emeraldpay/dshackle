@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.rpc.RpcException
 import reactor.core.publisher.Mono
@@ -62,7 +63,7 @@ class QuorumRpcReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
-    def "always-quorum - return upstream error"() {
+    def "always-quorum - return upstream error returned"() {
         setup:
         def api = Mock(Reader) {
             1 * read(new JsonRpcRequest("eth_test", [])) >>> [
@@ -90,6 +91,43 @@ class QuorumRpcReaderSpec extends Specification {
         StepVerifier.create(act)
                 .expectErrorMatches {
                     it instanceof JsonRpcException && ((JsonRpcException) it).error.message == "test"
+                }
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "always-quorum - return upstream error thrown"() {
+        setup:
+        def api = Mock(Reader) {
+            1 * read(new JsonRpcRequest("eth_test", [])) >>> [
+                    Mono.error(
+                            new RpcException(
+                                    RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                                    "test-123"
+                            )
+                    )
+            ]
+        }
+        def up = Mock(Upstream) {
+            _ * isAvailable() >> true
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+            _ * getApi() >> api
+        }
+        def apis = new FilteredApis(
+                Chain.ETHEREUM,
+                [up], Selector.empty
+        )
+        def reader = new QuorumRpcReader(apis, new AlwaysQuorum())
+
+        when:
+        def act = reader.read(new JsonRpcRequest("eth_test", []))
+                .map {
+                    new String(it.value)
+                }
+
+        then:
+        StepVerifier.create(act)
+                .expectErrorMatches {
+                    it instanceof JsonRpcException && ((JsonRpcException) it).error.message == "test-123"
                 }
                 .verify(Duration.ofSeconds(1))
     }
