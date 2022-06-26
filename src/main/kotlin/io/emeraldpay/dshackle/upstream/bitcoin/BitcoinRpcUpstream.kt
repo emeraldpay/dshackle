@@ -34,6 +34,7 @@ open class BitcoinRpcUpstream(
     id: String,
     chain: Chain,
     private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val head: Head,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     node: QuorumForLabels.QuorumItem,
@@ -45,7 +46,6 @@ open class BitcoinRpcUpstream(
         private val log = LoggerFactory.getLogger(BitcoinRpcUpstream::class.java)
     }
 
-    private val head: Head = createHead()
     private var validatorSubscription: Disposable? = null
 
     private val capabilities = if (options.providesBalance == true) {

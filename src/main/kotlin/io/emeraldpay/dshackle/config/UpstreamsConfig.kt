@@ -111,7 +111,13 @@ open class UpstreamsConfig {
 
     class BitcoinConnection : RpcConnection() {
         var esplora: HttpEndpoint? = null
+        var zeroMq: BitcoinZeroMq? = null
     }
+
+    data class BitcoinZeroMq(
+        val host: String = "127.0.0.1",
+        val port: Int
+    )
 
     class HttpEndpoint(val url: URI) {
         var basicAuth: AuthConfig.ClientBasicAuth? = null

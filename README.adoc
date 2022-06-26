@@ -44,13 +44,7 @@ Blockchains support:
 
 image::dshackle-intro.png[alt="",width=80%,align="center"]
 
-== Roadmap
-
 WARNING: The project is still under development, please use with caution.
-
-- [ ] Subscription to bitcoind notification over gRPC (instead of ZeroMQ)
-- [ ] Lightweight sidecar node connector
-- [ ] Configurable upstream roles
 
 == Quick Start
 

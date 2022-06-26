@@ -37,6 +37,7 @@ import java.util.Collections
 import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
+import javax.annotation.PreDestroy
 import kotlin.concurrent.withLock
 
 @Repository
@@ -144,5 +145,16 @@ open class CurrentMultistreamHolder(
 
     override fun isAvailable(chain: Chain): Boolean {
         return chainMapping.containsKey(chain) && callTargets.containsKey(chain)
+    }
+
+    @PreDestroy
+    fun shutdown() {
+        log.info("Closing upstream connections...")
+        updateLock.withLock {
+            chainMapping.values.forEach {
+                it.stop()
+            }
+            chainMapping.clear()
+        }
     }
 }

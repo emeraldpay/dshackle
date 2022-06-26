@@ -18,12 +18,17 @@ package io.emeraldpay.dshackle.startup
 
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinZMQHead
 import io.emeraldpay.dshackle.upstream.bitcoin.EsploraClient
+import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
+import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
@@ -52,7 +57,6 @@ open class ConfiguredUpstreams(
     @Autowired private val currentUpstreams: CurrentMultistreamHolder,
     @Autowired private val fileResolver: FileResolver,
     @Autowired private val config: UpstreamsConfig,
-    @Autowired private val cachesFactory: CachesFactory
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -159,11 +163,19 @@ open class ConfiguredUpstreams(
             EsploraClient(endpoint.url, endpoint.basicAuth, tls)
         }
 
+        val extractBlock = ExtractBlock()
+        val rpcHead = BitcoinRpcHead(directApi, extractBlock)
+        val head: Head = conn.zeroMq?.let { zeroMq ->
+            val server = ZMQServer(zeroMq.host, zeroMq.port, "hashblock")
+            val zeroMqHead = BitcoinZMQHead(server, directApi, extractBlock)
+            MergedHead(listOf(rpcHead, zeroMqHead))
+        } ?: rpcHead
+
         val methods = buildMethods(config, chain)
         val upstream = BitcoinRpcUpstream(
             config.id
                 ?: "bitcoin-${seq.getAndIncrement()}",
-            chain, directApi,
+            chain, directApi, head,
             options, config.role,
             QuorumForLabels.QuorumItem(1, config.labels),
             methods, esplora

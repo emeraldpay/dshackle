@@ -86,6 +86,8 @@ netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }
 netty-tcnative-core = { module = "io.netty:netty-tcnative", version.ref = "netty-tcnative" }
 netty-tcnative-boringssl = { module = "io.netty:netty-tcnative-boringssl-static", version.ref = "netty-tcnative" }
 
+zeromq = "org.zeromq:jeromq:0.5.2"
+
 objgenesis = "org.objenesis:objenesis:3.1"
 
 reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor" }

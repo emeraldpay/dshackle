@@ -153,6 +153,25 @@ class UpstreamsConfigReader(
                             connection.esplora = http
                         }
                     }
+                    getMapping(connConfigNode, "zeromq")?.let { node ->
+                        getValueAsString(node, "address")?.let { address ->
+                            val zmqConfig: Pair<String, Int>? = try {
+                                if (address.contains(":")) {
+                                    address.split(":").let {
+                                        Pair(it[0], it[1].toInt())
+                                    }
+                                } else {
+                                    Pair("127.0.0.1", address.toInt())
+                                }
+                            } catch (t: Throwable) {
+                                log.warn("Invalid config for ZeroMQ: $address. Expected to be in format HOST:PORT")
+                                null
+                            }
+                            zmqConfig?.let {
+                                connection.zeroMq = UpstreamsConfig.BitcoinZeroMq(it.first, it.second)
+                            }
+                        }
+                    }
                 } else {
                     log.error("Upstream at #0 has invalid configuration")
                 }

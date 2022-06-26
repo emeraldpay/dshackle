@@ -142,9 +142,12 @@ cluster:
             basic-auth:
               username: bitcoin
               password: e984af45bb888428207c290
-          # uses Esplora index to fetch balances and utxo for an address
+          # use Esplora index to fetch balances and utxo for an address
           esplora:
             url: "http://localhost:3001"
+          # connect via ZeroMQ to get notifications about new blocks
+          zeromq:
+            address: "http://localhost:5555"
     - id: remote
       connection:
         grpc:
@@ -720,7 +723,9 @@ See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 
 |===
 
-.Connection Config
+==== Ethereum Connection Options
+
+.Connection Config for Ethereum Upstream
 [cols="2a,5"]
 |===
 | Option | Description
@@ -761,6 +766,41 @@ Default is 5Mb
 | Total limit for a message size consisting from multiple frames.
 Ex `1kb`, `1024` (same as `1kb), `2mb`, etc.
 Default is 15Mb
+
+|===
+
+==== Bitcoin Connection Options
+
+.Connection Config for Bitcoin Upstream
+[cols="2a,5"]
+|===
+| Option | Description
+
+| `rpc.url`
+a| HTTP URL to connect to. This is required for a connection. +
+URL can be configured with Environment Variable placeholders `${ENV_VAR_NAME}`. +
+Example: `http://${NODE_HOST}:${NODE_PORT}`
+
+| `rpc.basic-auth` + `rpc.basic-auth.username`, `rpc.basic-auth.password`
+a| HTTP Basic Auth configuration, which is required by the Bitcoind server. +
+Values can also reference env variables, for example:
+[source,yaml]
+----
+rpc:
+  url: "http://127.0.0.1:8332"
+  basic-auth:
+    username: "${NODE_USERNAME}"
+    password: "${NODE_PASSWORD}"
+----
+
+| `zeromq.address`
+a| Set up an additional connection via ZeroMQ protocol to subscribe to the new blocks.
+The node must be launched with the same address specified as `-zmqpubhashblock="tcp://${HOST}:${POST}"` or in `bitcoin.conf`
+[source,yaml]
+----
+zeromq:
+  address: "127.0.0.1:5555"
+----
 
 |===
 

@@ -18,7 +18,7 @@ class ConfiguredUpstreamsSpec extends Specification {
             _ * getDefaultMethods(Chain.ETHEREUM) >> new DefaultEthereumMethods(Chain.ETHEREUM)
         }
         def configurer = new ConfiguredUpstreams(
-                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig), Stub(CachesFactory)
+                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig)
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -42,7 +42,7 @@ class ConfiguredUpstreamsSpec extends Specification {
             _ * getDefaultMethods(Chain.ETHEREUM) >> new DefaultEthereumMethods(Chain.ETHEREUM)
         }
         def configurer = new ConfiguredUpstreams(
-                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig), Stub(CachesFactory)
+                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig)
         )
         def methods = new UpstreamsConfig.Methods(
                 [
