@@ -20,9 +20,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinZMQHead
@@ -31,20 +29,14 @@ import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
-import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.Metrics
-import io.micrometer.core.instrument.Tag
-import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
@@ -83,17 +75,23 @@ open class ConfiguredUpstreams(
                 }
                 val options = (up.options ?: UpstreamsConfig.Options())
                     .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
-                when (BlockchainType.from(chain)) {
+                val upstream = when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> {
                         buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
                     }
                     BlockchainType.BITCOIN -> {
                         buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options)
                     }
+//                    BlockchainType.ETHEREUM_POS -> {
+//                        buildEthereumPosUpstream(up.cast(UpstreamsConfig.EthereumPosConnection::class.java), chain, options)
+//                    }
                     else -> {
                         log.error("Chain is unsupported: ${up.chain}")
                         return@forEach
                     }
+                }
+                upstream?.let {
+                    currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
                 }
             }
         }
@@ -141,19 +139,33 @@ open class ConfiguredUpstreams(
         }
     }
 
+//    private fun buildEthereumPosUpstream(
+//        config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumPosConnection>,
+//        chain: Chain,
+//        options: UpstreamsConfig.Options
+//    ) : Upstream? {
+//        val conn = config.connection!!
+//        val execution = conn.execution
+//        if (execution == null) {
+//            log.warn("Upstream doesn't have execution layer configuration")
+//            return null
+//        }
+//
+//        val connectorFactory = buildEthereumConnectorFactory(execution, chain)
+//    }
+
     private fun buildBitcoinUpstream(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>,
         chain: Chain,
         options: UpstreamsConfig.Options
-    ) {
-
+    ) : Upstream? {
         val conn = config.connection!!
-        val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
-        if (directApi == null) {
+        val httpFactory = buildHttpFactory(conn)
+        if (httpFactory == null) {
             log.warn("Upstream doesn't have API configuration")
-            return
+            return null
         }
-
+        val directApi: Reader<JsonRpcRequest, JsonRpcResponse> = httpFactory.create(config.id, chain)
         val esplora = conn.esplora?.let { endpoint ->
             val tls = endpoint.tls?.let { tls ->
                 tls.ca?.let { ca ->
@@ -180,63 +192,34 @@ open class ConfiguredUpstreams(
             QuorumForLabels.QuorumItem(1, config.labels),
             methods, esplora
         )
-
         upstream.start()
-        currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
+        return upstream
     }
 
     private fun buildEthereumUpstream(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
         chain: Chain,
         options: UpstreamsConfig.Options
-    ) {
+    ) : EthereumUpstream? {
         val conn = config.connection!!
 
         val urls = ArrayList<URI>()
         val methods = buildMethods(config, chain)
-        conn.rpc?.let { endpoint ->
-            urls.add(endpoint.url)
-        }
 
-        val wsFactoryApi: EthereumWsFactory? = conn.ws?.let { endpoint ->
-            val wsApi = EthereumWsFactory(
-                endpoint.url,
-                endpoint.origin ?: URI("http://localhost"),
-            )
-            wsApi.config = endpoint
-            endpoint.basicAuth?.let { auth ->
-                wsApi.basicAuth = auth
-            }
-            urls.add(endpoint.url)
-            wsApi
+        val connectorFactory = buildEthereumConnectorFactory(conn, chain, urls)
+        if (connectorFactory == null) {
+            return null
         }
-
-        log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-        val ethereumUpstream = if (wsFactoryApi != null && !conn.preferHttp) {
-            EthereumWsUpstream(
-                config.id!!,
-                chain, wsFactoryApi,
-                options, config.role,
-                QuorumForLabels.QuorumItem(1, config.labels),
-                methods
-            )
-        } else {
-            val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
-            if (directApi == null) {
-                log.warn("Upstream doesn't have API configuration")
-                return
-            }
-            EthereumRpcUpstream(
-                config.id!!,
-                chain, directApi, wsFactoryApi,
-                options, config.role,
-                QuorumForLabels.QuorumItem(1, config.labels),
-                methods
-            )
-        }
-
-        ethereumUpstream.start()
-        currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
+        val upstream = EthereumUpstream(
+            config.id!!,
+            chain,
+            options, config.role,
+            methods,
+            QuorumForLabels.QuorumItem(1, config.labels),
+            connectorFactory
+        )
+        upstream.start()
+        return upstream
     }
 
     private fun buildGrpcUpstream(
@@ -262,39 +245,42 @@ open class ConfiguredUpstreams(
             .subscribe(currentUpstreams::update)
     }
 
-    private fun buildHttpClient(config: UpstreamsConfig.Upstream<out UpstreamsConfig.RpcConnection>): JsonRpcHttpClient? {
-        val conn = config.connection!!
-        val urls = ArrayList<URI>()
+    private fun buildHttpFactory(conn: UpstreamsConfig.RpcConnection, urls: ArrayList<URI>? = null): HttpRpcFactory? {
         return conn.rpc?.let { endpoint ->
             val tls = conn.rpc?.tls?.let { tls ->
                 tls.ca?.let { ca ->
                     fileResolver.resolve(ca).readBytes()
                 }
             }
-            val metricsTags = listOf(
-                // "unknown" is not supposed to happen
-                Tag.of("upstream", config.id ?: "unknown"),
-                // UNSPECIFIED shouldn't happen too
-                Tag.of("chain", (Global.chainById(config.chain).chainCode))
-            )
-            val metrics = RpcMetrics(
-                Timer.builder("upstream.rpc.conn")
-                    .description("Request time through a HTTP JSON RPC connection")
-                    .tags(metricsTags)
-                    .publishPercentileHistogram()
-                    .register(Metrics.globalRegistry),
-                Counter.builder("upstream.rpc.fail")
-                    .description("Number of failures of HTTP JSON RPC requests")
-                    .tags(metricsTags)
-                    .register(Metrics.globalRegistry)
-            )
-            urls.add(endpoint.url)
-            JsonRpcHttpClient(
-                endpoint.url.toString(),
-                metrics,
-                conn.rpc?.basicAuth,
-                tls
-            )
+            urls?.add(endpoint.url)
+            HttpRpcFactory(endpoint.url.toString(), conn.rpc?.basicAuth, tls)
         }
+    }
+
+    private fun buildWsFactory(conn: UpstreamsConfig.EthereumConnection, urls: ArrayList<URI>? = null): EthereumWsFactory? {
+        return conn.ws?.let { endpoint ->
+            val wsApi = EthereumWsFactory(
+                endpoint.url,
+                endpoint.origin ?: URI("http://localhost"),
+            )
+            wsApi.config = endpoint
+            endpoint.basicAuth?.let { auth ->
+                wsApi.basicAuth = auth
+            }
+            urls?.add(endpoint.url)
+            wsApi
+        }
+    }
+
+    private fun buildEthereumConnectorFactory(conn: UpstreamsConfig.EthereumConnection, chain: Chain, urls: ArrayList<URI>): EthereumConnectorFactory?  {
+        val wsFactoryApi = buildWsFactory(conn, urls)
+        val httpFactory = buildHttpFactory(conn, urls)
+        log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
+        val connectorFactory = EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory)
+        if (!connectorFactory.isValid()) {
+            log.warn("Upstream configuration is invalid (probably no http endpoint)")
+            return null
+        }
+        return connectorFactory
     }
 }

@@ -114,6 +114,11 @@ open class UpstreamsConfig {
         var zeroMq: BitcoinZeroMq? = null
     }
 
+    class EthereumPosConnection : UpstreamConnection() {
+        var execution : EthereumConnection? = null
+        var blockPriority : Int = 0
+    }
+
     data class BitcoinZeroMq(
         val host: String = "127.0.0.1",
         val port: Int

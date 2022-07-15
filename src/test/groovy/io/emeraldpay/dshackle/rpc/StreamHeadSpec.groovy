@@ -87,7 +87,9 @@ class StreamHeadSpec extends Specification {
         )
         then:
         StepVerifier.create(flux.take(2))
-                .then { upstream.nextBlock(BlockContainer.from(blocks[0])) }
+                .then {
+                    upstream.nextBlock(BlockContainer.from(blocks[0]))
+                }
                 .expectNext(heads[0])
                 .then { upstream.nextBlock(BlockContainer.from(blocks[1])) }
                 .expectNext(heads[1])

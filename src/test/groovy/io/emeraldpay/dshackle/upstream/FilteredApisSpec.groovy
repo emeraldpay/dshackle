@@ -21,11 +21,9 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.grpc.Chain
-import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Retry
 import spock.lang.Specification
@@ -46,15 +44,18 @@ class FilteredApisSpec extends Specification {
                 [test: "foo"],
                 [test: "baz"]
         ].collect {
-            new EthereumRpcUpstream(
+            def httpFactory = Mock(HttpFactory) {
+                create(_, _) >> TestingCommons.api().tap { it.id = "${i++}" }
+            }
+            def connectorFactory = new EthereumConnectorFactory(false, null, httpFactory)
+            new EthereumUpstream(
                     "test",
                     Chain.ETHEREUM,
-                    TestingCommons.api().tap { it.id = "${i++}" },
-                    (EthereumWsFactory) null,
                     new UpstreamsConfig.Options(),
                     UpstreamsConfig.UpstreamRole.PRIMARY,
+                    ethereumTargets,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
-                    ethereumTargets
+                    connectorFactory
             )
         }
         def matcher = new Selector.LabelMatcher("test", ["foo"])

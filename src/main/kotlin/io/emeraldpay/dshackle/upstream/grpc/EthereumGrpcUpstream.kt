@@ -24,11 +24,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
-import io.emeraldpay.dshackle.upstream.Capability
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
@@ -53,7 +49,7 @@ open class EthereumGrpcUpstream(
     private val chain: Chain,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient
-) : EthereumUpstream(
+) : DefaultUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     UpstreamsConfig.Options.getDefaults(),
     role,

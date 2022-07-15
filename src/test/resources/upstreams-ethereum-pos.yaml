@@ -1,0 +1,9 @@
+  upstreams:
+    - id: eth2-1
+      chain: ropsten
+      connection:
+        ethereum-pos:
+          execution:
+            rpc:
+              url: "http://34.106.60.110:8545"
+          block-priority: 100

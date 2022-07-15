@@ -154,6 +154,26 @@ class UpstreamsConfigReaderSpec extends Specification {
         }
     }
 
+    def "Parse ethereum pos upstreams"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-ethereum-pos.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "eth2-1"
+            chain == "ropsten"
+            connection instanceof UpstreamsConfig.EthereumPosConnection
+            with((UpstreamsConfig.EthereumPosConnection) connection) {
+                execution.rpc != null
+                execution.rpc.url == new URI("http://34.106.60.110:8545")
+                blockPriority == 100
+            }
+        }
+    }
+
     def "Parse bitcoin upstreams with esplora"() {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("upstreams-bitcoin-esplora.yaml")
