@@ -103,6 +103,10 @@ open class EthereumGrpcUpstream(
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
     var timeout = Defaults.timeout
 
+    override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
+        return remote
+    }
+
     override fun start() {
     }
 

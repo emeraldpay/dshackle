@@ -180,8 +180,8 @@ class TrackBitcoinAddress(
             .timeout(Defaults.timeoutInternal, Mono.empty())
             .switchIfEmpty(
                 Mono.fromCallable {
-                        log.warn("No upstream providing balance for ${api.chain}")
-                    }
+                    log.warn("No upstream providing balance for ${api.chain}")
+                }
                     .then(Mono.error(SilentException.DataUnavailable("BALANCE")))
             )
     }

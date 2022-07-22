@@ -20,5 +20,4 @@ data class RpcUnspent(
     val vout: Int,
     val address: String,
     val amount: Long,
-    val confirmations: Long
 )

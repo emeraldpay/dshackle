@@ -30,7 +30,6 @@ class RpcUnspentDeserializer : JsonDeserializer<RpcUnspent>() {
             node.get("vout").asInt(),
             node.get("address").asText(),
             BigDecimal(node.get("amount").asText()).multiply(BigDecimal.TEN.pow(8)).longValueExact(),
-            node.get("confirmations").asLong()
         )
     }
 }

@@ -19,5 +19,4 @@ data class SimpleUnspent(
     val txid: String,
     val vout: Int,
     val value: Long,
-    val confirmations: Long
 )
