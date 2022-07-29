@@ -4,8 +4,8 @@ import io.emeraldpay.dshackle.data.BlockContainer
 
 class DistanceExtractor {
     sealed class ChainDistance {
-        data class Distance(val dist: Long): ChainDistance()
-        object Fork: ChainDistance()
+        data class Distance(val dist: Long) : ChainDistance()
+        object Fork : ChainDistance()
     }
 
     companion object {

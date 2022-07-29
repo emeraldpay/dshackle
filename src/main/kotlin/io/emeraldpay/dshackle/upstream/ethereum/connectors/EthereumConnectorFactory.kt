@@ -2,7 +2,6 @@ package io.emeraldpay.dshackle.upstream.ethereum.connectors
 
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.HttpFactory
-import io.emeraldpay.dshackle.upstream.HttpRpcFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
@@ -14,18 +13,18 @@ open class EthereumConnectorFactory(
     private val wsFactory: EthereumWsFactory?,
     private val httpFactory: HttpFactory?,
     private val forkChoice: ForkChoice
-): ConnectorFactory {
+) : ConnectorFactory {
     private val log = LoggerFactory.getLogger(EthereumConnectorFactory::class.java)
 
     override fun isValid(): Boolean {
         if (preferHttp && httpFactory == null) {
-            return false;
+            return false
         }
         return true
     }
 
     override fun create(upstream: DefaultUpstream, validator: EthereumUpstreamValidator, chain: Chain): EthereumConnector {
-        if (wsFactory!= null && !preferHttp) {
+        if (wsFactory != null && !preferHttp) {
             return EthereumWsConnector(wsFactory, upstream, validator, chain, forkChoice)
         }
         if (httpFactory == null) {

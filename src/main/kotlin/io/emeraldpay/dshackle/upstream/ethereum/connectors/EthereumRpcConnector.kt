@@ -5,9 +5,11 @@ import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.ethereum.*
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcHead
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnection
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
@@ -15,13 +17,13 @@ import org.springframework.context.Lifecycle
 import java.time.Duration
 
 class EthereumRpcConnector(
-    private val directReader : Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
     wsFactory: EthereumWsFactory?,
-    id : String,
+    id: String,
     forkChoice: ForkChoice
 ) : EthereumConnector, CachesEnabled {
-    private val conn : WsConnection?
-    private val head : Head
+    private val conn: WsConnection?
+    private val head: Head
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumRpcConnector::class.java)

@@ -5,8 +5,8 @@ import io.emeraldpay.dshackle.data.BlockContainer
 interface ForkChoice {
 
     sealed class ChoiceResult {
-        data class Updated(val nwhead: BlockContainer): ChoiceResult()
-        data class Same(val head: BlockContainer?): ChoiceResult()
+        data class Updated(val nwhead: BlockContainer) : ChoiceResult()
+        data class Same(val head: BlockContainer?) : ChoiceResult()
     }
 
     fun getHead(): BlockContainer?

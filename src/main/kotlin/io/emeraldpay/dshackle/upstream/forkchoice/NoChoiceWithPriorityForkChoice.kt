@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 class NoChoiceWithPriorityForkChoice(
     private val nodeRating: Int
-): ForkChoice {
+) : ForkChoice {
     private val head = AtomicReference<BlockContainer>(null)
     private val seenBlocks = RingSet<BlockId>(10)
 

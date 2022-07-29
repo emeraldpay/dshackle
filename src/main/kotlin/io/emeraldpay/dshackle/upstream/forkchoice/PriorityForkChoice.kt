@@ -5,7 +5,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.RingSet
 import java.util.concurrent.atomic.AtomicReference
 
-class PriorityForkChoice: ForkChoice {
+class PriorityForkChoice : ForkChoice {
     private val head = AtomicReference<BlockContainer>(null)
     private val seenBlocks = RingSet<BlockId>(10)
 

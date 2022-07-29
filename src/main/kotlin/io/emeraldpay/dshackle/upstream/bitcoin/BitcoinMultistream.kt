@@ -86,8 +86,8 @@ open class BitcoinMultistream(
             }
         } else {
             val newHead = MergedHead(upstreams.map { it.getHead() }, MostWorkForkChoice()).apply {
-                this.start()
-            }
+            this.start()
+        }
             val lagObserver = BitcoinHeadLagObserver(newHead, upstreams)
             this.lagObserver = lagObserver
             lagObserver.start()

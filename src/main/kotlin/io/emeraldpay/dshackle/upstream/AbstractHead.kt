@@ -20,11 +20,9 @@ import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.toMono
-import java.util.concurrent.atomic.AtomicReference
 
 abstract class AbstractHead(
     private val forkChoice: ForkChoice

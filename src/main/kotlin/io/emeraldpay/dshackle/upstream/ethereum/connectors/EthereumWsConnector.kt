@@ -58,7 +58,7 @@ class EthereumWsConnector(
     }
 
     override fun isRunning(): Boolean {
-       return head.isRunning
+        return head.isRunning
     }
 
     override fun stop() {

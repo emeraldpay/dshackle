@@ -17,7 +17,6 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import java.time.Duration

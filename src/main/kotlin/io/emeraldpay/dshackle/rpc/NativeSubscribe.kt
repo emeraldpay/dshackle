@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.grpc.Status

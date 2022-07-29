@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicReference
 class MostWorkForkChoice : ForkChoice {
     private val head = AtomicReference<BlockContainer>(null)
 
-    override fun getHead() : BlockContainer? {
+    override fun getHead(): BlockContainer? {
         return head.get()
     }
 
@@ -28,5 +28,4 @@ class MostWorkForkChoice : ForkChoice {
         }
         return ForkChoice.ChoiceResult.Same(nwhead)
     }
-
 }

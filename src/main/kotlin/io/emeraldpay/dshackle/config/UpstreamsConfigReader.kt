@@ -165,7 +165,7 @@ class UpstreamsConfigReader(
         return connection
     }
 
-    private fun readEthereumPosConnection(connConfigNode: MappingNode) : UpstreamsConfig.EthereumPosConnection {
+    private fun readEthereumPosConnection(connConfigNode: MappingNode): UpstreamsConfig.EthereumPosConnection {
         val connection = UpstreamsConfig.EthereumPosConnection()
         getMapping(connConfigNode, "execution")?.let {
             connection.execution = readEthereumConnection(it)
@@ -175,7 +175,7 @@ class UpstreamsConfigReader(
         }
         return connection
     }
-    private fun readEthereumConnection(connConfigNode : MappingNode) : UpstreamsConfig.EthereumConnection {
+    private fun readEthereumConnection(connConfigNode: MappingNode): UpstreamsConfig.EthereumConnection {
         val connection = UpstreamsConfig.EthereumConnection()
         getMapping(connConfigNode, "rpc")?.let { node ->
             getValueAsString(node, "url")?.let { url ->
@@ -211,7 +211,7 @@ class UpstreamsConfigReader(
         return connection
     }
 
-    private fun <T : UpstreamsConfig.UpstreamConnection>readUpstream(config: UpstreamsConfig, upNode: MappingNode, connFactory: () -> T) {
+    private fun <T : UpstreamsConfig.UpstreamConnection> readUpstream(config: UpstreamsConfig, upNode: MappingNode, connFactory: () -> T) {
         val upstream = UpstreamsConfig.Upstream<T>()
         readUpstreamCommon(upNode, upstream)
         readUpstreamStandard(upNode, upstream)

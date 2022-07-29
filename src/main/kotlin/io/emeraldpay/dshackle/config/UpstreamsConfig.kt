@@ -116,8 +116,8 @@ open class UpstreamsConfig {
     }
 
     class EthereumPosConnection : UpstreamConnection() {
-        var execution : EthereumConnection? = null
-        var blockPriority : Int = 0
+        var execution: EthereumConnection? = null
+        var blockPriority: Int = 0
     }
 
     data class BitcoinZeroMq(

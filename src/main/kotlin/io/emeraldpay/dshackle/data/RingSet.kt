@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 class RingSet<T>(
     private val maxSize: Int
-): Set<T> {
+) : Set<T> {
     private var seqValues: AtomicReference<List<T>> = AtomicReference(emptyList())
     private var set: Set<T> = emptySet()
     override val size: Int
