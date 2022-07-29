@@ -34,6 +34,8 @@ import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.resolver.DefaultAddressResolverGroup
+import io.netty.resolver.DefaultNameResolver
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.util.backoff.BackOff
@@ -161,6 +163,7 @@ class WsConnection(
         log.info("Connecting to WebSocket: $uri")
         connection?.dispose()
         connection = HttpClient.create()
+            .resolver(DefaultAddressResolverGroup.INSTANCE)
             .doOnDisconnected {
                 log.info("Disconnected from $uri")
                 // mark upstream as UNAVAIL
