@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.domain.Address
@@ -25,7 +26,7 @@ import reactor.core.publisher.Flux
 import java.util.function.Function
 
 open class ConnectLogs(
-    upstream: EthereumMultistream,
+    upstream: EthereumLikeMultistream,
     private val connectBlockUpdates: ConnectBlockUpdates,
 ) {
 
@@ -36,7 +37,7 @@ open class ConnectLogs(
         private val TOPIC_COMPARATOR = HexDataComparator()
     }
 
-    constructor(upstream: EthereumMultistream) : this(upstream, ConnectBlockUpdates(upstream))
+    constructor(upstream: EthereumLikeMultistream) : this(upstream, ConnectBlockUpdates(upstream))
 
     private val produceLogs = ProduceLogs(upstream)
 

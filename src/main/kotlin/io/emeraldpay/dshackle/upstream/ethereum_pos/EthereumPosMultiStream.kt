@@ -38,7 +38,7 @@ open class EthereumPosMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumPosUpstream>,
     caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)) {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumPosMultistream::class.java)
@@ -48,6 +48,8 @@ open class EthereumPosMultistream(
 
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
     private val feeEstimation = EthereumPriorityFees(this, reader, 256)
+    private val subscribe = EthereumSubscribe(this)
+
     init {
         this.init()
     }
@@ -73,7 +75,7 @@ open class EthereumPosMultistream(
         return super.isRunning() || reader.isRunning
     }
 
-    open fun getReader(): EthereumReader {
+    override fun getReader(): EthereumReader {
         return reader
     }
 
@@ -131,8 +133,8 @@ open class EthereumPosMultistream(
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead()))
     }
 
-    open fun getSubscribe(): EthereumSubscribe {
-        throw Error("Does not supports subscription for PoS ethereum")
+    override fun getSubscribe(): EthereumSubscribe {
+        return subscribe
     }
 
     override fun getFeeEstimation(): ChainFees {

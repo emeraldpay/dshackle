@@ -38,7 +38,7 @@ open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
     caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)) {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
@@ -80,7 +80,7 @@ open class EthereumMultistream(
         return super.isRunning() || reader.isRunning
     }
 
-    open fun getReader(): EthereumReader {
+    override fun getReader(): EthereumReader {
         return reader
     }
 
@@ -138,7 +138,7 @@ open class EthereumMultistream(
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead()))
     }
 
-    open fun getSubscribe(): EthereumSubscribe {
+    override fun getSubscribe(): EthereumSubscribe {
         return subscribe
     }
 
