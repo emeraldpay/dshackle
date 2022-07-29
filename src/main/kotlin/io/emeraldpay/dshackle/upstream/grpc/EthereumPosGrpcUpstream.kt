@@ -44,7 +44,7 @@ import java.util.Locale
 import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
-open class EthereumGrpcUpstream(
+open class EthereumPosGrpcUpstream(
     private val parentId: String,
     role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,

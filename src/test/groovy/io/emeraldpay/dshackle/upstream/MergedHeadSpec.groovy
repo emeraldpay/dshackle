@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import org.springframework.context.Lifecycle
 import reactor.core.publisher.Flux
 import spock.lang.Specification
@@ -36,7 +37,7 @@ class MergedHeadSpec extends Specification {
         }
 
         when:
-        def merged = new MergedHead([head1, head2, head3])
+        def merged = new MergedHead([head1, head2, head3], new MostWorkForkChoice())
         merged.start()
 
         then:
@@ -44,10 +45,16 @@ class MergedHeadSpec extends Specification {
     }
 
     class TestHead1 extends AbstractHead {
-
+        TestHead1() {
+            super(new MostWorkForkChoice())
+        }
     }
 
     class TestHead2 extends AbstractHead implements Lifecycle {
+
+        TestHead2() {
+            super(new MostWorkForkChoice())
+        }
 
         @Override
         void start() {

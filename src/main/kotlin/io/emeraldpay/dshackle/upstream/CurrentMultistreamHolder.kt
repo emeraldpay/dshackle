@@ -25,6 +25,8 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
@@ -65,6 +67,14 @@ open class CurrentMultistreamHolder(
                         val current = chainMapping[chain]
                         val factory = Callable<Multistream> {
                             EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
+                        }
+                        processUpdate(change, up, current, factory)
+                    }
+                    BlockchainType.ETHEREUM_POS -> {
+                        val up = change.upstream.cast(EthereumPosUpstream::class.java)
+                        val current = chainMapping[chain]
+                        val factory = Callable<Multistream> {
+                            EthereumPosMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
                         }
                         processUpdate(change, up, current, factory)
                     }
@@ -137,6 +147,7 @@ open class CurrentMultistreamHolder(
         val created = when (BlockchainType.from(chain)) {
             BlockchainType.ETHEREUM -> DefaultEthereumMethods(chain)
             BlockchainType.BITCOIN -> DefaultBitcoinMethods()
+            BlockchainType.ETHEREUM_POS -> DefaultEthereumMethods(chain)
             else -> throw IllegalStateException("Unsupported chain: $chain")
         }
         callTargets[chain] = created

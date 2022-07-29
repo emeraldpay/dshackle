@@ -16,21 +16,24 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Schedulers
+import reactor.kotlin.core.publisher.toMono
 import java.util.concurrent.atomic.AtomicReference
 
-abstract class AbstractHead : Head {
+abstract class AbstractHead(
+    private val forkChoice: ForkChoice
+) : Head {
 
     companion object {
         private val log = LoggerFactory.getLogger(AbstractHead::class.java)
     }
 
-    private val head = AtomicReference<BlockContainer>(null)
     private var stream = Sinks.many().multicast().directBestEffort<BlockContainer>()
     private var completed = false
     private val beforeBlockHandlers = ArrayList<Runnable>()
@@ -44,10 +47,8 @@ abstract class AbstractHead : Head {
         return source
             .distinctUntilChanged {
                 it.hash
-            }.filter { block ->
-                val curr = head.get()
-                curr == null || curr.difficulty < block.difficulty
             }
+            .filter { forkChoice.filter(it) }
             .doFinally {
                 // close internal stream if upstream is finished, otherwise it gets stuck,
                 // but technically it should never happen during normal work, only when the Head
@@ -58,19 +59,16 @@ abstract class AbstractHead : Head {
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe { block ->
                 notifyBeforeBlock()
-                val prev = head.getAndUpdate { curr ->
-                    if (curr == null || curr.difficulty < block.difficulty) {
-                        block
-                    } else {
-                        curr
+                when (val choiceResult = forkChoice.choose(block)) {
+                    is ForkChoice.ChoiceResult.Updated -> {
+                        val newHead = choiceResult.nwhead
+                        log.debug("New block ${newHead.height} ${newHead.hash}")
+                        val result = stream.tryEmitNext(newHead)
+                        if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
+                            log.warn("Failed to dispatch block: $result as ${this.javaClass}")
+                        }
                     }
-                }
-                if (prev == null || prev.hash != block.hash) {
-                    log.debug("New block ${block.height} ${block.hash}")
-                    val result = stream.tryEmitNext(block)
-                    if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-                        log.warn("Failed to dispatch block: $result as ${this.javaClass}")
-                    }
+                    is ForkChoice.ChoiceResult.Same -> {}
                 }
             }
     }
@@ -90,14 +88,15 @@ abstract class AbstractHead : Head {
     }
 
     override fun getFlux(): Flux<BlockContainer> {
+        val curHead = forkChoice.getHead()
         return Flux.concat(
-            Mono.justOrEmpty(head.get()),
+            forkChoice.getHead().toMono(),
             stream.asFlux()
         ).onBackpressureLatest()
     }
 
     fun getCurrent(): BlockContainer? {
-        return head.get()
+        return forkChoice.getHead()
     }
 
     override fun getCurrentHeight(): Long? {

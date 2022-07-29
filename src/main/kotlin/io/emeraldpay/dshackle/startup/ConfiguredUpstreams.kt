@@ -29,9 +29,13 @@ import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
+import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
+import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -82,9 +86,9 @@ open class ConfiguredUpstreams(
                     BlockchainType.BITCOIN -> {
                         buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options)
                     }
-//                    BlockchainType.ETHEREUM_POS -> {
-//                        buildEthereumPosUpstream(up.cast(UpstreamsConfig.EthereumPosConnection::class.java), chain, options)
-//                    }
+                    BlockchainType.ETHEREUM_POS -> {
+                        buildEthereumPosUpstream(up.cast(UpstreamsConfig.EthereumPosConnection::class.java), chain, options)
+                    }
                     else -> {
                         log.error("Chain is unsupported: ${up.chain}")
                         return@forEach
@@ -139,20 +143,34 @@ open class ConfiguredUpstreams(
         }
     }
 
-//    private fun buildEthereumPosUpstream(
-//        config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumPosConnection>,
-//        chain: Chain,
-//        options: UpstreamsConfig.Options
-//    ) : Upstream? {
-//        val conn = config.connection!!
-//        val execution = conn.execution
-//        if (execution == null) {
-//            log.warn("Upstream doesn't have execution layer configuration")
-//            return null
-//        }
-//
-//        val connectorFactory = buildEthereumConnectorFactory(execution, chain)
-//    }
+    private fun buildEthereumPosUpstream(
+        config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumPosConnection>,
+        chain: Chain,
+        options: UpstreamsConfig.Options
+    ) : Upstream? {
+        val conn = config.connection!!
+        val execution = conn.execution
+        if (execution == null) {
+            log.warn("Upstream doesn't have execution layer configuration")
+            return null
+        }
+        val urls = ArrayList<URI>()
+        val connectorFactory = buildEthereumConnectorFactory(execution, chain, urls, NoChoiceWithPriorityForkChoice(conn.blockPriority))
+        val methods = buildMethods(config, chain)
+        if (connectorFactory == null) {
+            return null
+        }
+        val upstream = EthereumPosUpstream(
+            config.id!!,
+            chain,
+            options, config.role,
+            methods,
+            QuorumForLabels.QuorumItem(1, config.labels),
+            connectorFactory
+        )
+        upstream.start()
+        return upstream
+    }
 
     private fun buildBitcoinUpstream(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>,
@@ -180,7 +198,7 @@ open class ConfiguredUpstreams(
         val head: Head = conn.zeroMq?.let { zeroMq ->
             val server = ZMQServer(zeroMq.host, zeroMq.port, "hashblock")
             val zeroMqHead = BitcoinZMQHead(server, directApi, extractBlock)
-            MergedHead(listOf(rpcHead, zeroMqHead))
+            MergedHead(listOf(rpcHead, zeroMqHead), MostWorkForkChoice())
         } ?: rpcHead
 
         val methods = buildMethods(config, chain)
@@ -206,7 +224,7 @@ open class ConfiguredUpstreams(
         val urls = ArrayList<URI>()
         val methods = buildMethods(config, chain)
 
-        val connectorFactory = buildEthereumConnectorFactory(conn, chain, urls)
+        val connectorFactory = buildEthereumConnectorFactory(conn, chain, urls, MostWorkForkChoice())
         if (connectorFactory == null) {
             return null
         }
@@ -272,11 +290,11 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildEthereumConnectorFactory(conn: UpstreamsConfig.EthereumConnection, chain: Chain, urls: ArrayList<URI>): EthereumConnectorFactory?  {
+    private fun buildEthereumConnectorFactory(conn: UpstreamsConfig.EthereumConnection, chain: Chain, urls: ArrayList<URI>, forkChoice: ForkChoice): EthereumConnectorFactory?  {
         val wsFactoryApi = buildWsFactory(conn, urls)
         val httpFactory = buildHttpFactory(conn, urls)
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-        val connectorFactory = EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory)
+        val connectorFactory = EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory, forkChoice)
         if (!connectorFactory.isValid()) {
             log.warn("Upstream configuration is invalid (probably no http endpoint)")
             return null

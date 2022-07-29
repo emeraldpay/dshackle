@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2020 EmeraldPay, Inc
+ * Copyright (c) 2020 ETCDEV GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.bitcoin
+package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ChainFees
-import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.RequestPostprocessor
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.ethereum.LocalCallRouter
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
+import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -36,22 +35,23 @@ import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
-open class BitcoinMultistream(
+open class EthereumPosMultistream(
     chain: Chain,
-    val upstreams: MutableList<BitcoinUpstream>,
+    val upstreams: MutableList<EthereumPosUpstream>,
     caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
+        private val log = LoggerFactory.getLogger(EthereumPosMultistream::class.java)
     }
 
-    private var head: Head = EmptyHead()
-    private var esplora = upstreams.find { it.esploraClient != null }?.esploraClient
-    private var reader = BitcoinReader(this, head, esplora)
-    private var addressActiveCheck: AddressActiveCheck? = null
-    private var xpubAddresses: XpubAddresses? = null
-    private val feeEstimation = BitcoinFees(this, reader, 6)
+    private var head: Head? = null
+
+    private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
+    private val feeEstimation = EthereumPriorityFees(this, reader, 256)
+    init {
+        this.init()
+    }
 
     override fun init() {
         if (upstreams.size > 0) {
@@ -60,16 +60,34 @@ open class BitcoinMultistream(
         super.init()
     }
 
-    override fun getFeeEstimation(): ChainFees {
-        return feeEstimation
+    override fun start() {
+        super.start()
+        reader.start()
     }
 
-    open fun getXpubAddresses(): XpubAddresses? {
-        return xpubAddresses
+    override fun stop() {
+        super.stop()
+        reader.stop()
+    }
+
+    override fun isRunning(): Boolean {
+        return super.isRunning() || reader.isRunning
+    }
+
+    open fun getReader(): EthereumReader {
+        return reader
+    }
+
+    override fun getHead(): Head {
+        return head!!
+    }
+
+    override fun setHead(head: Head) {
+        this.head = head
     }
 
     override fun updateHead(): Head {
-        head.let {
+        head?.let {
             if (it is Lifecycle) {
                 it.stop()
             }
@@ -85,40 +103,16 @@ open class BitcoinMultistream(
                 }
             }
         } else {
-            val newHead = MergedHead(upstreams.map { it.getHead() }, MostWorkForkChoice()).apply {
+            val heads = upstreams.map { it.getHead() }
+            val newHead = MergedHead(heads, PriorityForkChoice()).apply {
                 this.start()
             }
-            val lagObserver = BitcoinHeadLagObserver(newHead, upstreams)
+            val lagObserver = EthereumPostHeadLagObserver(newHead, upstreams as Collection<Upstream>)
             this.lagObserver = lagObserver
             lagObserver.start()
             newHead
         }
         onHeadUpdated(head)
-        return head
-    }
-
-    override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        return Mono.just(LocalCallRouter(getMethods()))
-    }
-
-    open fun getReader(): BitcoinReader {
-        return reader
-    }
-
-    override fun onUpstreamsUpdated() {
-        super.onUpstreamsUpdated()
-        esplora = upstreams.find { it.esploraClient != null }?.esploraClient
-        reader = BitcoinReader(this, this.head, esplora)
-        addressActiveCheck = esplora?.let { AddressActiveCheck(it) }
-        xpubAddresses = addressActiveCheck?.let { XpubAddresses(it) }
-    }
-
-    override fun setHead(head: Head) {
-        this.head = head
-        reader = BitcoinReader(this, head, esplora)
-    }
-
-    override fun getHead(): Head {
         return head
     }
 
@@ -134,17 +128,15 @@ open class BitcoinMultistream(
         return this as T
     }
 
-    override fun isRunning(): Boolean {
-        return super.isRunning() || reader.isRunning
+    override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+        return Mono.just(LocalCallRouter(reader, getMethods(), getHead()))
     }
 
-    override fun start() {
-        super.start()
-        reader.start()
+    open fun getSubscribe(): EthereumSubscribe {
+        throw Error("Does not supports subscription for PoS ethereum")
     }
 
-    override fun stop() {
-        super.stop()
-        reader.stop()
+    override fun getFeeEstimation(): ChainFees {
+        return feeEstimation
     }
 }

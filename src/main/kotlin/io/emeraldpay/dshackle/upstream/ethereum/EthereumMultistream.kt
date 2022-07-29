@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -109,7 +110,7 @@ open class EthereumMultistream(
             }
         } else {
             val heads = upstreams.map { it.getHead() }
-            val newHead = MergedHead(heads).apply {
+            val newHead = MergedHead(heads, MostWorkForkChoice()).apply {
                 this.start()
             }
             val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>)

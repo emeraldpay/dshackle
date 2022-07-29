@@ -30,7 +30,8 @@ class BlockContainer(
     val full: Boolean,
     json: ByteArray?,
     val parsed: Any?,
-    val transactions: List<TxId> = emptyList()
+    val transactions: List<TxId> = emptyList(),
+    val nodeRating: Int = 0
 ) : SourceContainer(json, parsed) {
 
     companion object {
@@ -80,6 +81,10 @@ class BlockContainer(
         if (transactions != other.transactions) return false
 
         return true
+    }
+
+    fun copyWithRating(nodeRating: Int): BlockContainer {
+        return BlockContainer(height, hash, difficulty, timestamp, full, json, parsed, transactions, nodeRating)
     }
 
     override fun hashCode(): Int {

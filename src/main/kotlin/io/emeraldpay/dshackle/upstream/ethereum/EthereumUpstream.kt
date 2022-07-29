@@ -63,7 +63,6 @@ open class EthereumUpstream(
             this.setStatus(UpstreamAvailability.OK)
         } else {
             log.debug("Start validation for upstream ${this.getId()}")
-            val validator = EthereumUpstreamValidator(this, getOptions())
             validatorSubscription = validator.start()
                 .subscribe(this::setStatus)
         }

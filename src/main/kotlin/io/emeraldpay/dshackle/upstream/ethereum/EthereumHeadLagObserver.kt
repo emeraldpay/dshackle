@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -25,7 +26,7 @@ import org.slf4j.LoggerFactory
 class EthereumHeadLagObserver(
     master: Head,
     followers: Collection<Upstream>
-) : HeadLagObserver(master, followers) {
+) : HeadLagObserver(master, followers, DistanceExtractor::extractPowDistance) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumHeadLagObserver::class.java)

@@ -20,7 +20,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.json.SyncingJson
@@ -34,7 +36,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
 
 open class EthereumUpstreamValidator(
-    private val upstream: EthereumUpstream,
+    private val upstream: Upstream,
     private val options: UpstreamsConfig.Options
 ) {
     companion object {

@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.upstream.AbstractChainFees
 import io.emeraldpay.dshackle.upstream.ChainFees
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
@@ -28,7 +29,7 @@ import reactor.util.function.Tuples
 import java.util.function.Function
 
 abstract class EthereumFees(
-    upstreams: EthereumMultistream,
+    upstreams: Multistream,
     private val reader: EthereumReader,
     heightLimit: Int,
 ) : AbstractChainFees<EthereumFees.EthereumFee, BlockJson<TransactionRefJson>, TransactionRefJson, TransactionJson>(heightLimit, upstreams, extractTx), ChainFees {

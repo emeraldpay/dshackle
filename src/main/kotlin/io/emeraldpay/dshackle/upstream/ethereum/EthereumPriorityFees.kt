@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
@@ -23,7 +24,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import java.util.function.Function
 
-class EthereumPriorityFees(upstreams: EthereumMultistream, reader: EthereumReader, heightLimit: Int) :
+class EthereumPriorityFees(upstreams: Multistream, reader: EthereumReader, heightLimit: Int) :
     EthereumFees(upstreams, reader, heightLimit) {
 
     companion object {

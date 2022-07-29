@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.grpc.Chain
 import reactor.test.StepVerifier
 import spock.lang.Retry
@@ -47,7 +48,7 @@ class FilteredApisSpec extends Specification {
             def httpFactory = Mock(HttpFactory) {
                 create(_, _) >> TestingCommons.api().tap { it.id = "${i++}" }
             }
-            def connectorFactory = new EthereumConnectorFactory(false, null, httpFactory)
+            def connectorFactory = new EthereumConnectorFactory(false, null, httpFactory, new MostWorkForkChoice())
             new EthereumUpstream(
                     "test",
                     Chain.ETHEREUM,

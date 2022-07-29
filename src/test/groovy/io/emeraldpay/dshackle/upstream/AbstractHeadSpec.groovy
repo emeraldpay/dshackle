@@ -17,6 +17,9 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
+import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import reactor.test.StepVerifier
@@ -31,7 +34,7 @@ class AbstractHeadSpec extends Specification {
     def blocks = [1L, 2, 3, 4].collect { i ->
         byte[] hash = new byte[32]
         hash[0] = i as byte
-        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, [])
+        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, [], 0)
     }
 
     def "Calls beforeBlock on each block"() {
@@ -85,7 +88,7 @@ class AbstractHeadSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
-    def "Ignores block will less difficulty"() {
+    def "Ignores block that is filtered by forkchoice"() {
         setup:
         Sinks.Many<BlockContainer> source = Sinks.many().unicast().onBackpressureBuffer()
         def head = new TestHead()
@@ -93,7 +96,7 @@ class AbstractHeadSpec extends Specification {
                 blocks[1].height, BlockId.from(blocks[1].hash.value.clone().tap { it[1] = 0xff as byte }),
                 blocks[1].difficulty - 1,
                 Instant.now(),
-                false, null, null, []
+                false, null, null, [], 0
         )
         when:
         head.follow(source.asFlux())
@@ -113,6 +116,23 @@ class AbstractHeadSpec extends Specification {
     }
 
     class TestHead extends AbstractHead {
+        TestHead() {
+            super(new ForkChoice() {
+                @Override
+                boolean filter(@NotNull BlockContainer block) {
+                    return block.hash != BlockId.from("02ff000000000000000000000000000000000000000000000000000000000000")
+                }
 
+                @Override
+                ForkChoice.ChoiceResult choose(@NotNull BlockContainer block) {
+                    return new ForkChoice.ChoiceResult.Updated(block)
+                }
+
+                @Override
+                BlockContainer getHead() {
+                    return null
+                }
+            })
+        }
     }
 }

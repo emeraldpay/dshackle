@@ -111,45 +111,10 @@ class HeadLagObserverSpec extends Specification {
                 .verifyComplete()
     }
 
-    def "Correct distance"() {
-        setup:
-        Head master = Mock()
-        HeadLagObserver observer = new TestHeadLagObserver(master, [])
-        expect:
-        def top = new BlockJson().with {
-            it.number = topHeight
-            it.totalDifficulty = topDiff
-            it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915123")
-            it.timestamp = Instant.now()
-            return it
-        }
-        def curr = new BlockJson().with {
-            it.number = currHeight
-            it.totalDifficulty = currDiff
-            it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915123")
-            it.timestamp = Instant.now()
-            return it
-        }
-        delta as Long == observer.extractDistance(BlockContainer.from(top), BlockContainer.from(curr))
-        where:
-        topHeight | topDiff | currHeight | currDiff | delta
-        100       | 1000    | 100        | 1000     | 0
-        101       | 1010    | 100        | 1000     | 1
-        102       | 1020    | 100        | 1000     | 2
-        103       | 1030    | 100        | 1000     | 3
-        150       | 1500    | 100        | 1000     | 50
-
-        100       | 1000    | 101        | 1010     | 0
-        100       | 1000    | 102        | 1020     | 0
-        100       | 1000    | 100        | 1010     | 11
-        100       | 1100    | 100        | 1000     | 11
-
-    }
-
     class TestHeadLagObserver extends HeadLagObserver {
 
         TestHeadLagObserver(@NotNull Head master, @NotNull Collection<? extends Upstream> followers) {
-            super(master, followers)
+            super(master, followers, DistanceExtractor.@Companion::extractPowDistance)
         }
 
         @Override

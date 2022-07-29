@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
@@ -45,8 +46,9 @@ class GrpcHead(
     /**
      * Populate block data with all missing details, of any
      */
-    private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?
-) : AbstractHead(), Lifecycle {
+    private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?,
+    private val forkChoice: ForkChoice
+) : AbstractHead(forkChoice), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(GrpcHead::class.java)
@@ -94,10 +96,7 @@ class GrpcHead(
         var blocks = source.map(converter)
             .distinctUntilChanged {
                 it.hash
-            }.filter { block ->
-                val curr = this.getCurrent()
-                curr == null || curr.difficulty < block.difficulty
-            }
+            }.filter { forkChoice.filter(it) }
         if (enhancer != null) {
             blocks = blocks.flatMap(enhancer)
         }

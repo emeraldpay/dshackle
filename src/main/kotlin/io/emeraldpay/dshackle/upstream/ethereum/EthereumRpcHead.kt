@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
@@ -30,8 +31,9 @@ import java.util.concurrent.Executors
 
 class EthereumRpcHead(
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
-    private val interval: Duration = Duration.ofSeconds(10)
-) : DefaultEthereumHead(), Lifecycle {
+    forkChoice: ForkChoice,
+    private val interval: Duration = Duration.ofSeconds(10),
+) : DefaultEthereumHead(forkChoice), Lifecycle {
 
     companion object {
         val scheduler =

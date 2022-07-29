@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -23,8 +24,9 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
 class EthereumWsHead(
-    private val ws: WsConnection
-) : DefaultEthereumHead(), Lifecycle {
+    private val ws: WsConnection,
+    forkChoice: ForkChoice
+) : DefaultEthereumHead(forkChoice), Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 

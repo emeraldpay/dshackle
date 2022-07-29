@@ -18,13 +18,15 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
+import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
 class MergedHead(
-    private val sources: Iterable<Head>
-) : AbstractHead(), Lifecycle, CachesEnabled {
+    private val sources: Iterable<Head>,
+    forkChoice: ForkChoice
+) : AbstractHead(forkChoice), Lifecycle, CachesEnabled {
 
     private var subscription: Disposable? = null
 
