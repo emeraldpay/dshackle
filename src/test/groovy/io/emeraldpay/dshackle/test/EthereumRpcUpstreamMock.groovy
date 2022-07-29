@@ -25,7 +25,7 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -35,7 +35,7 @@ import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
 
 
-class EthereumUpstreamMock extends EthereumUpstream {
+class EthereumRpcUpstreamMock extends EthereumRpcUpstream {
     EthereumHeadMock ethereumHeadMock
 
 
@@ -47,19 +47,19 @@ class EthereumUpstreamMock extends EthereumUpstream {
         ])
     }
 
-    EthereumUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    EthereumRpcUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
         this(chain, api, allMethods())
     }
 
-    EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    EthereumRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
         this(id, chain, api, allMethods())
     }
 
-    EthereumUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
+    EthereumRpcUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
         this("test", chain, api, methods)
     }
 
-    EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
+    EthereumRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
         super(id, chain,
                 UpstreamsConfig.Options.getDefaults(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,

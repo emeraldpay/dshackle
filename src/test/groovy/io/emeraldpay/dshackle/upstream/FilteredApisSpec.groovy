@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.grpc.Chain
@@ -38,7 +38,7 @@ class FilteredApisSpec extends Specification {
     def "Verifies labels"() {
         setup:
         def i = 0
-        List<EthereumUpstream> upstreams = [
+        List<EthereumRpcUpstream> upstreams = [
                 [test: "foo"],
                 [test: "bar"],
                 [test: "foo", test2: "baz"],
@@ -49,7 +49,7 @@ class FilteredApisSpec extends Specification {
                 create(_, _) >> TestingCommons.api().tap { it.id = "${i++}" }
             }
             def connectorFactory = new EthereumConnectorFactory(false, null, httpFactory, new MostWorkForkChoice())
-            new EthereumUpstream(
+            new EthereumRpcUpstream(
                     "test",
                     Chain.ETHEREUM,
                     new UpstreamsConfig.Options(),

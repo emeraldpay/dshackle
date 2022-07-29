@@ -102,6 +102,7 @@ open class UpstreamsConfig {
         var host: String? = null
         var port: Int = 0
         var auth: AuthConfig.ClientTlsAuth? = null
+        var nodeRating: Int = 0
     }
 
     class EthereumConnection : RpcConnection() {

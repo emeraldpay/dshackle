@@ -22,10 +22,10 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.test.EthereumUpstreamMock
+import io.emeraldpay.dshackle.test.EthereumRpcUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
@@ -43,7 +43,7 @@ class StreamHeadSpec extends Specification {
 
     def "Errors on unavailable chain"() {
         setup:
-        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM, Stub(EthereumUpstream))
+        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM, Stub(EthereumRpcUpstream))
         def streamHead = new StreamHead(upstreams)
         when:
         def flux = streamHead.add(
@@ -78,7 +78,7 @@ class StreamHeadSpec extends Specification {
                 .build()
         }
 
-        def upstream = new EthereumUpstreamMock(Chain.ETHEREUM, TestingCommons.api())
+        def upstream = new EthereumRpcUpstreamMock(Chain.ETHEREUM, TestingCommons.api())
         def upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstream)
         def streamHead = new StreamHead(upstreams)
         when:

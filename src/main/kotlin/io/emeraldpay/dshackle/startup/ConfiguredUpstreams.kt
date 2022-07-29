@@ -29,8 +29,8 @@ import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
@@ -160,7 +160,7 @@ open class ConfiguredUpstreams(
         if (connectorFactory == null) {
             return null
         }
-        val upstream = EthereumPosUpstream(
+        val upstream = EthereumPosRpcUpstream(
             config.id!!,
             chain,
             options, config.role,
@@ -218,7 +218,7 @@ open class ConfiguredUpstreams(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
         chain: Chain,
         options: UpstreamsConfig.Options
-    ) : EthereumUpstream? {
+    ) : EthereumRpcUpstream? {
         val conn = config.connection!!
 
         val urls = ArrayList<URI>()
@@ -228,7 +228,7 @@ open class ConfiguredUpstreams(
         if (connectorFactory == null) {
             return null
         }
-        val upstream = EthereumUpstream(
+        val upstream = EthereumRpcUpstream(
             config.id!!,
             chain,
             options, config.role,
@@ -251,7 +251,8 @@ open class ConfiguredUpstreams(
             endpoint.host!!,
             endpoint.port,
             endpoint.auth,
-            fileResolver
+            fileResolver,
+            endpoint.nodeRating
         ).apply {
             timeout = options.timeout
         }

@@ -56,7 +56,8 @@ class GrpcUpstreams(
     private val host: String,
     private val port: Int,
     private val auth: AuthConfig.ClientTlsAuth? = null,
-    private val fileResolver: FileResolver
+    private val fileResolver: FileResolver,
+    private val nodeRating: Int
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -192,6 +193,8 @@ class GrpcUpstreams(
             return getOrCreateEthereum(chain, metrics)
         } else if (blockchainType == BlockchainType.BITCOIN) {
             return getOrCreateBitcoin(chain, metrics)
+        } else if (blockchainType == BlockchainType.ETHEREUM_POS) {
+            return getOrCreateEthereumPos(chain, metrics)
         } else {
             throw IllegalArgumentException("Unsupported blockchain: $chain")
         }
@@ -203,6 +206,22 @@ class GrpcUpstreams(
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
                 val created = EthereumGrpcUpstream(id, role, chain, client!!, rpcClient)
+                created.timeout = this.timeout
+                known[chain] = created
+                created.start()
+                UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)
+            } else {
+                UpstreamChange(chain, current, UpstreamChange.ChangeType.REVALIDATED)
+            }
+        }
+    }
+
+    fun getOrCreateEthereumPos(chain: Chain, metrics: RpcMetrics): UpstreamChange {
+        lock.withLock {
+            val current = known[chain]
+            return if (current == null) {
+                val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
+                val created = EthereumPosGrpcUpstream(id, role, chain, client!!, rpcClient, nodeRating)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()

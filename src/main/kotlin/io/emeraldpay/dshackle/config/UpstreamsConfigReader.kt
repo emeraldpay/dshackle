@@ -106,6 +106,9 @@ class UpstreamsConfigReader(
                     config.upstreams.add(upstream)
                     val connection = UpstreamsConfig.GrpcConnection()
                     upstream.connection = connection
+                    getValueAsInt(connConfigNode, "node-rating")?.let {
+                        connection.nodeRating = it
+                    }
                     getValueAsString(connConfigNode, "host")?.let {
                         connection.host = it
                     }
