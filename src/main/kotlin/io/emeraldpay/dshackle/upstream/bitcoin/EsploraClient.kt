@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpHeaders
 import io.netty.handler.ssl.SslContextBuilder
+import io.netty.resolver.DefaultAddressResolverGroup
 import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -47,6 +48,7 @@ class EsploraClient(
 
     init {
         var build = HttpClient.create()
+            .resolver(DefaultAddressResolverGroup.INSTANCE)
 
         build = build.headers { h ->
             h.add(HttpHeaderNames.CONTENT_TYPE, "application/json")
