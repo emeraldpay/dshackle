@@ -5,40 +5,36 @@ import java.util.concurrent.atomic.AtomicReference
 class RingSet<T>(
     private val maxSize: Int
 ) : Set<T> {
-    private var seqValues: AtomicReference<List<T>> = AtomicReference(emptyList())
-    private var set: Set<T> = emptySet()
+    private var setRef: AtomicReference<LinkedHashSet<T>> = AtomicReference(LinkedHashSet<T>())
     override val size: Int
-        get() = set.size
+        get() = setRef.get().size
 
     fun add(element: T) {
-        if (set.contains(element)) {
-            return
-        }
-        seqValues.getAndUpdate { vals ->
-            vals.let {
-                if (vals.size > maxSize) {
-                    vals.drop(1)
-                } else {
-                    vals
+        setRef.getAndUpdate { set ->
+            if (!set.contains(element)) {
+                val copyset = LinkedHashSet<T>(set)
+                copyset.add(element)
+                if (copyset.size > maxSize) {
+                    copyset.remove(set.elementAt(0))
                 }
-            }.plus(element).let {
-                set = HashSet(it)
-                it
+                copyset
+            } else {
+                set
             }
         }
     }
 
     override fun isEmpty(): Boolean {
-        return set.isEmpty()
+        return setRef.get().isEmpty()
     }
     override fun contains(element: @UnsafeVariance T): Boolean {
-        return set.contains(element)
+        return setRef.get().contains(element)
     }
     override fun iterator(): Iterator<T> {
-        return set.iterator()
+        return setRef.get().iterator()
     }
 
     override fun containsAll(elements: Collection<@UnsafeVariance T>): Boolean {
-        return set.containsAll(elements)
+        return setRef.get().containsAll(elements)
     }
 }

@@ -9,7 +9,7 @@ class NoChoiceWithPriorityForkChoice(
     private val nodeRating: Int
 ) : ForkChoice {
     private val head = AtomicReference<BlockContainer>(null)
-    private val seenBlocks = RingSet<BlockId>(10)
+    private val seenBlocks = RingSet<BlockId>(100)
 
     override fun getHead(): BlockContainer? {
         return head.get()
