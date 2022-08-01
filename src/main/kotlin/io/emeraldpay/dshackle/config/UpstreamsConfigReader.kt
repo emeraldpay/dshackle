@@ -107,7 +107,7 @@ class UpstreamsConfigReader(
                     val connection = UpstreamsConfig.GrpcConnection()
                     upstream.connection = connection
                     getValueAsInt(connConfigNode, "node-rating")?.let {
-                        connection.nodeRating = it
+                        connection.upstreamRating = it
                     }
                     getValueAsString(connConfigNode, "host")?.let {
                         connection.host = it
@@ -170,8 +170,8 @@ class UpstreamsConfigReader(
         getMapping(connConfigNode, "execution")?.let {
             connection.execution = readEthereumConnection(it)
         }
-        getValueAsInt(connConfigNode, "block-priority")?.let {
-            connection.blockPriority = it
+        getValueAsInt(connConfigNode, "node-rating")?.let {
+            connection.upstreamRating = it
         }
         return connection
     }

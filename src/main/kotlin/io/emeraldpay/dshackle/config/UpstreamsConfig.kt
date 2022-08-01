@@ -102,7 +102,7 @@ open class UpstreamsConfig {
         var host: String? = null
         var port: Int = 0
         var auth: AuthConfig.ClientTlsAuth? = null
-        var nodeRating: Int = 0
+        var upstreamRating: Int = 0
     }
 
     class EthereumConnection : RpcConnection() {
@@ -117,7 +117,7 @@ open class UpstreamsConfig {
 
     class EthereumPosConnection : UpstreamConnection() {
         var execution: EthereumConnection? = null
-        var blockPriority: Int = 0
+        var upstreamRating: Int = 0
     }
 
     data class BitcoinZeroMq(

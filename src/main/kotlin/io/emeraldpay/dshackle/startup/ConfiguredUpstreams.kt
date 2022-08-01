@@ -159,7 +159,7 @@ open class ConfiguredUpstreams(
             return null
         }
         val urls = ArrayList<URI>()
-        val connectorFactory = buildEthereumConnectorFactory(execution, chain, urls, NoChoiceWithPriorityForkChoice(conn.blockPriority))
+        val connectorFactory = buildEthereumConnectorFactory(execution, chain, urls, NoChoiceWithPriorityForkChoice(conn.upstreamRating))
         val methods = buildMethods(config, chain)
         if (connectorFactory == null) {
             return null
@@ -256,7 +256,7 @@ open class ConfiguredUpstreams(
             endpoint.port,
             endpoint.auth,
             fileResolver,
-            endpoint.nodeRating
+            endpoint.upstreamRating
         ).apply {
             timeout = options.timeout
         }
