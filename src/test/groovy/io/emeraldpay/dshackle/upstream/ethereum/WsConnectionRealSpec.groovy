@@ -93,6 +93,20 @@ class WsConnectionRealSpec extends Specification {
         act[0].value.contains("\"params\":[\"newHeads\"]")
     }
 
+    def "Error on request when server disconnects"() {
+        when:
+        conn.connect()
+        conn.reconnectIntervalSeconds = 2
+
+        def resp = conn.call(new JsonRpcRequest("foo_bar", []))
+
+        then:
+        StepVerifier.create(resp)
+            .then { server.stop() }
+            .expectError()
+            .verify(Duration.ofSeconds(1))
+    }
+
     def "Gets UNAVAIL status right after disconnect"() {
         setup:
         def up = Mock(DefaultUpstream)
