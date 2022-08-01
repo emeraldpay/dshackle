@@ -101,7 +101,7 @@ class UpstreamsConfigReader(
                 val connConfigNode = getMapping(connNode, "grpc")!!
                 val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>()
                 readUpstreamCommon(upNode, upstream)
-                readUpstreamGrpc(upNode, upstream)
+                readUpstreamGrpc(upNode)
                 if (isValid(upstream)) {
                     config.upstreams.add(upstream)
                     val connection = UpstreamsConfig.GrpcConnection()
@@ -245,7 +245,6 @@ class UpstreamsConfigReader(
 
     internal fun readUpstreamGrpc(
         upNode: MappingNode,
-        upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>
     ) {
         // Dshackle gRPC connection dispatches requests to different upstreams, which may
         // be on different blockchains, and each may have different set of labels.

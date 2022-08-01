@@ -48,7 +48,7 @@ open class EthereumPosGrpcUpstream(
     private val parentId: String,
     role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,
-    remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
+    private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     client: JsonRpcGrpcClient,
     nodeRating: Int
 ) : EthereumPosUpstream(
@@ -119,6 +119,10 @@ open class EthereumPosGrpcUpstream(
 
     override fun getQuorumByLabel(): QuorumForLabels {
         return upstreamStatus.getNodes()
+    }
+
+    override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
+        return remote
     }
 
     // ------------------------------------------------------------------------------------------
