@@ -263,7 +263,7 @@ open class ConfiguredUpstreams(
         log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
         ds.start()
             .doOnNext {
-                log.info("Chain ${it.chain} has ${it.type} through gRPC at ${endpoint.host}:${endpoint.port}")
+                log.info("Chain ${it.chain} ${it.type} through gRPC at ${endpoint.host}:${endpoint.port}. With caps: ${it.upstream.getCapabilities()}")
             }
             .subscribe(currentUpstreams::update)
     }

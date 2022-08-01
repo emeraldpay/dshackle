@@ -34,7 +34,8 @@ class BitcoinReaderSpec extends Specification {
         api.answerOnce("getblockhash", [100000], "000000000003ba27aa200b1cecaad478d2b00432346c3f1f3986da1afd33e506")
         api.answerOnce("getblock", ["000000000003ba27aa200b1cecaad478d2b00432346c3f1f3986da1afd33e506"], block)
         def ups = Mock(BitcoinMultistream) {
-            _ * it.getDirectApi(_) >> Mono.just(api)
+            _ * getDirectApi(_) >> Mono.just(api)
+            _ * upstreams >> []
         }
         def reader = new BitcoinReader(ups, Stub(Head), null)
 

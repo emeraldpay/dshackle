@@ -51,7 +51,7 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Correct sum for single"() {
         setup:
         def unspents = [
-                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L, 123L)
+                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L)
         ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
@@ -68,8 +68,8 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Correct sum for few"() {
         setup:
         def unspents = [
-                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L, 123L),
-                new SimpleUnspent("17d1c4adf14b222e652c58d11435fa9ee2ddea000c6f5e20e6b715eb940fc28f", 0, 123L, 123L),
+                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L),
+                new SimpleUnspent("17d1c4adf14b222e652c58d11435fa9ee2ddea000c6f5e20e6b715eb940fc28f", 0, 123L),
         ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
@@ -120,8 +120,8 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Correct sum for few with utxo"() {
         setup:
         def unspents = [
-                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L, 123L),
-                new SimpleUnspent("17d1c4adf14b222e652c58d11435fa9ee2ddea000c6f5e20e6b715eb940fc28f", 0, 123L, 123L),
+                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 100L),
+                new SimpleUnspent("17d1c4adf14b222e652c58d11435fa9ee2ddea000c6f5e20e6b715eb940fc28f", 0, 123L),
         ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
@@ -282,7 +282,7 @@ class TrackBitcoinAddressSpec extends Specification {
                 2 * listUnspent(_) >>> [
                         Mono.just([]),
                         Mono.just([
-                                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 1230000L, 123L)
+                                new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 1230000L)
                         ])
                 ]
             }

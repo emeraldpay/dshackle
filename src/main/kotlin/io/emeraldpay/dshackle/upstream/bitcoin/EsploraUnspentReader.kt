@@ -37,7 +37,6 @@ class EsploraUnspentReader(
             base.txid,
             base.vout,
             base.value,
-            head.getCurrentHeight()?.let { base.height - it } ?: 0
         )
     }
 

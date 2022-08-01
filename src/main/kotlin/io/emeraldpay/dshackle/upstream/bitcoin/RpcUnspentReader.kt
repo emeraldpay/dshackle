@@ -16,6 +16,8 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
@@ -38,14 +40,17 @@ class RpcUnspentReader(
             base.txid,
             base.vout,
             base.amount,
-            base.confirmations
         )
     }
 
+    private val selector = Selector.CapabilityMatcher(Capability.BALANCE)
+
     override fun read(key: Address): Mono<List<SimpleUnspent>> {
+        // docs: https://developer.bitcoin.org/reference/rpc/listunspent.html
+        //
         val address = key.toString()
-        return upstreams.getDirectApi(Selector.empty).flatMap { api ->
-            api.read(JsonRpcRequest("listunspent", emptyList()))
+        return upstreams.getDirectApi(selector).flatMap { api ->
+            api.read(JsonRpcRequest("listunspent", listOf(1, 9999999, listOf(address))))
                 .flatMap(JsonRpcResponse::requireResult)
                 .map {
                     Global.objectMapper.readerFor(RpcUnspent::class.java).readValues<RpcUnspent>(it).readAll()
@@ -55,6 +60,6 @@ class RpcUnspentReader(
                         it.address == address
                     }.map(convert)
                 }
-        }
+        }.switchIfEmpty(Mono.error(SilentException.DataUnavailable("BALANCE")))
     }
 }

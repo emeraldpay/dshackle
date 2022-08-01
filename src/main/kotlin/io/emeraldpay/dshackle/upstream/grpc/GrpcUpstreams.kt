@@ -92,7 +92,7 @@ class GrpcUpstreams(
                 client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
             }.onErrorContinue { t, _ ->
                 if (ExceptionUtils.indexOfType(t, ConnectException::class.java) >= 0) {
-                    log.warn("gRPC upstream $host:$port is unavailable")
+                    log.warn("gRPC upstream $host:$port is unavailable. (${t.javaClass}: ${t.message})")
                     known.values.forEach {
                         it.setStatus(UpstreamAvailability.UNAVAILABLE)
                     }

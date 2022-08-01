@@ -26,8 +26,9 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.RequestPostprocessor
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.ethereum.LocalCallRouter
+import io.emeraldpay.dshackle.upstream.bitcoin.LocalCallRouter
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
+import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -38,27 +39,33 @@ import reactor.core.publisher.Mono
 @Suppress("UNCHECKED_CAST")
 open class BitcoinMultistream(
     chain: Chain,
-    val upstreams: MutableList<BitcoinUpstream>,
+    private val sourceUpstreams: MutableList<BitcoinUpstream>,
     caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
+) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
     }
 
     private var head: Head = EmptyHead()
-    private var esplora = upstreams.find { it.esploraClient != null }?.esploraClient
+    private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
     private var reader = BitcoinReader(this, head, esplora)
     private var addressActiveCheck: AddressActiveCheck? = null
     private var xpubAddresses: XpubAddresses? = null
     private val feeEstimation = BitcoinFees(this, reader, 6)
+    private var callRouter: LocalCallRouter = LocalCallRouter(DefaultBitcoinMethods(), reader)
 
     override fun init() {
-        if (upstreams.size > 0) {
+        if (sourceUpstreams.size > 0) {
             head = updateHead()
         }
         super.init()
     }
+
+    open val upstreams: List<BitcoinUpstream>
+        get() {
+            return sourceUpstreams
+        }
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation
@@ -76,8 +83,8 @@ open class BitcoinMultistream(
         }
         lagObserver?.stop()
         lagObserver = null
-        val head = if (upstreams.size == 1) {
-            val upstream = upstreams.first()
+        val head = if (sourceUpstreams.size == 1) {
+            val upstream = sourceUpstreams.first()
             upstream.setLag(0)
             upstream.getHead().apply {
                 if (this is Lifecycle) {
@@ -85,10 +92,10 @@ open class BitcoinMultistream(
                 }
             }
         } else {
-            val newHead = MergedHead(upstreams.map { it.getHead() }, MostWorkForkChoice()).apply {
-            this.start()
-        }
-            val lagObserver = BitcoinHeadLagObserver(newHead, upstreams)
+            val newHead = MergedHead(sourceUpstreams.map { it.getHead() }, MostWorkForkChoice()).apply {
+                this.start()
+            }
+            val lagObserver = BitcoinHeadLagObserver(newHead, sourceUpstreams)
             this.lagObserver = lagObserver
             lagObserver.start()
             newHead
@@ -98,7 +105,7 @@ open class BitcoinMultistream(
     }
 
     override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        return Mono.just(LocalCallRouter(getMethods()))
+        return Mono.just(callRouter)
     }
 
     open fun getReader(): BitcoinReader {
@@ -107,10 +114,11 @@ open class BitcoinMultistream(
 
     override fun onUpstreamsUpdated() {
         super.onUpstreamsUpdated()
-        esplora = upstreams.find { it.esploraClient != null }?.esploraClient
+        esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
         reader = BitcoinReader(this, this.head, esplora)
         addressActiveCheck = esplora?.let { AddressActiveCheck(it) }
         xpubAddresses = addressActiveCheck?.let { XpubAddresses(it) }
+        callRouter = LocalCallRouter(getMethods(), reader)
     }
 
     override fun setHead(head: Head) {
@@ -123,7 +131,7 @@ open class BitcoinMultistream(
     }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return upstreams.flatMap { it.getLabels() }
+        return sourceUpstreams.flatMap { it.getLabels() }
     }
 
     @Suppress("UNCHECKED_CAST")

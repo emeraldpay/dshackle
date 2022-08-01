@@ -247,7 +247,11 @@ class UpstreamsConfigReader(
         upNode: MappingNode,
         upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>
     ) {
+        // Dshackle gRPC connection dispatches requests to different upstreams, which may
+        // be on different blockchains, and each may have different set of labels.
+        // So the labels and chains assigned to the gRPC connection make no sense.
         if (hasAny(upNode, "labels")) {
+            // Actual labels from underlying upstreams are handled by GrpcUpstreamStatus
             log.warn("Labels should be not applied to gRPC upstream")
         }
         if (hasAny(upNode, "chain")) {
