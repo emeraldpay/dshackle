@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
@@ -43,6 +44,8 @@ open class BitcoinReader(
 
     private val unspentReader: UnspentReader = if (esploraClient != null) {
         EsploraUnspentReader(esploraClient, head)
+    } else if (upstreams.upstreams.any { it.isGrpc() && it.getCapabilities().contains(Capability.BALANCE) }) {
+        RemoteUnspentReader(upstreams)
     } else {
         RpcUnspentReader(upstreams)
     }

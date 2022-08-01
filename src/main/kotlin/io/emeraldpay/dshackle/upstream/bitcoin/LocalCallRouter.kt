@@ -15,12 +15,17 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
+import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
@@ -33,6 +38,7 @@ import reactor.core.publisher.Mono
  */
 class LocalCallRouter(
     private val methods: CallMethods,
+    private val reader: BitcoinReader,
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
     companion object {
@@ -47,6 +53,39 @@ class LocalCallRouter(
         if (!methods.isCallable(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
+        if (key.method == "listunspent") {
+            return processUnspentRequest(key)
+        }
         return Mono.empty()
+    }
+
+    /**
+     *
+     */
+    fun processUnspentRequest(key: JsonRpcRequest): Mono<JsonRpcResponse> {
+        if (key.params.size < 3) {
+            return Mono.error(SilentException("Invalid call to unspent. Address is missing"))
+        }
+        val addresses = key.params[2]
+        if (addresses is List<*> && addresses.size > 0) {
+            val address = addresses[0].toString().let { Address.fromString(null, it) }
+            return reader.listUnspent(address).map {
+                val rpc = it.map(convertUnspent(address))
+                val json = Global.objectMapper.writeValueAsBytes(rpc)
+                JsonRpcResponse.ok(json, JsonRpcResponse.NumberId(key.id))
+            }
+        }
+        return Mono.error(SilentException("Invalid call to unspent"))
+    }
+
+    fun convertUnspent(address: Address): (SimpleUnspent) -> RpcUnspent {
+        return { base ->
+            RpcUnspent(
+                base.txid,
+                base.vout,
+                address.toString(),
+                base.value,
+            )
+        }
     }
 }

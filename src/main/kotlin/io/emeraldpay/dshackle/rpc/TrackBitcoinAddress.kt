@@ -57,7 +57,7 @@ class TrackBitcoinAddress(
     /**
      * Keep tracking of the current state of local upstreams. True for a chain that has an upstream with balance data.
      */
-    private val balanceAvailable: MutableMap<Chain, Boolean> = ConcurrentHashMap()
+    private val localBalanceAvailable: MutableMap<Chain, Boolean> = ConcurrentHashMap()
 
     /**
      * Criteria for a remote grpc upstream that can provide a balance
@@ -72,7 +72,7 @@ class TrackBitcoinAddress(
         multistreamHolder.observeChains().subscribe { chain ->
             multistreamHolder.getUpstream(chain)?.let { mup ->
                 val available = mup.getAll().any { up ->
-                    !up.isGrpc() && (up.getOptions().providesBalance ?: false)
+                    !up.isGrpc() && up.getCapabilities().contains(Capability.BALANCE)
                 }
                 setBalanceAvailability(chain, available)
             }
@@ -80,14 +80,14 @@ class TrackBitcoinAddress(
     }
 
     fun setBalanceAvailability(chain: Chain, enabled: Boolean) {
-        balanceAvailable[chain] = enabled
+        localBalanceAvailable[chain] = enabled
     }
 
     /**
      * @return true if the current instance has data sources to provide the balance
      */
     fun isBalanceAvailable(chain: Chain): Boolean {
-        return balanceAvailable[chain] ?: false
+        return localBalanceAvailable[chain] ?: false
     }
 
     fun allAddresses(api: BitcoinMultistream, request: BlockchainOuterClass.BalanceRequest): Flux<String> {
@@ -179,10 +179,9 @@ class TrackBitcoinAddress(
             }
             .timeout(Defaults.timeoutInternal, Mono.empty())
             .switchIfEmpty(
-                Mono.just(0)
-                    .doOnNext {
-                        log.warn("No upstream providing balance for ${api.chain}")
-                    }
+                Mono.fromCallable {
+                    log.warn("No upstream providing balance for ${api.chain}")
+                }
                     .then(Mono.error(SilentException.DataUnavailable("BALANCE")))
             )
     }

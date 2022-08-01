@@ -99,6 +99,10 @@ class BitcoinGrpcUpstream(
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
 
+    override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
+        return remote
+    }
+
     override fun getHead(): Head {
         return grpcHead
     }
