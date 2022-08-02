@@ -112,7 +112,6 @@ class JsonRpcHttpClient(
         return Mono.just(key)
             .map(JsonRpcRequest::toJson)
             .doOnNext {
-                println("rpc connection ${key.method}")
                 startTime = System.nanoTime()
             }
             .flatMap(this@JsonRpcHttpClient::execute)
