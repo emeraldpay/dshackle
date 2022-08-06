@@ -20,18 +20,49 @@ import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
+import io.emeraldpay.grpc.Chain
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.Tag
+import io.micrometer.core.instrument.Timer
 import java.net.URI
 
 class EthereumWsFactory(
+    private val id: String,
+    private val chain: Chain,
     private val uri: URI,
-    private val origin: URI
+    private val origin: URI,
 ) {
 
     var basicAuth: AuthConfig.ClientBasicAuth? = null
     var config: UpstreamsConfig.WsEndpoint? = null
 
-    fun create(upstream: DefaultUpstream?, validator: EthereumUpstreamValidator?, rpcMetrics: RpcMetrics?): WsConnection {
-        return WsConnection(uri, origin, basicAuth, rpcMetrics, upstream, validator).also { ws ->
+    // metrics are shared between all connections to the same WS
+    private val metrics: RpcMetrics = run {
+        val metricsTags = listOf(
+            Tag.of("upstream", id),
+            // UNSPECIFIED shouldn't happen too
+            Tag.of("chain", chain.chainCode)
+        )
+
+        RpcMetrics(
+            Timer.builder("upstream.ws.conn")
+                .description("Request time through a WebSocket JSON RPC connection")
+                .tags(metricsTags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry),
+            Counter.builder("upstream.ws.fail")
+                .description("Number of failures of WebSocket JSON RPC requests")
+                .tags(metricsTags)
+                .register(Metrics.globalRegistry)
+        )
+    }
+
+    fun create(upstream: DefaultUpstream?, validator: EthereumUpstreamValidator?): WsConnection {
+        require(upstream == null || upstream.getId() == id) {
+            "Creating instance for different upstream. ${upstream?.getId()} != id"
+        }
+        return WsConnection(uri, origin, basicAuth, metrics, upstream, validator).also { ws ->
             config?.frameSize?.let {
                 ws.frameSize = it
             }

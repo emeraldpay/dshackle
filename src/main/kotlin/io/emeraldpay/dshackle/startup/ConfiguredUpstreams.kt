@@ -200,6 +200,7 @@ open class ConfiguredUpstreams(
 
         val wsFactoryApi: EthereumWsFactory? = conn.ws?.let { endpoint ->
             val wsApi = EthereumWsFactory(
+                config.id!!, chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
             )
@@ -212,20 +213,22 @@ open class ConfiguredUpstreams(
         }
 
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
+
+        val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
+        if (directApi == null) {
+            log.warn("Upstream doesn't have API configuration")
+            return
+        }
+
         val ethereumUpstream = if (wsFactoryApi != null && !conn.preferHttp) {
             EthereumWsUpstream(
                 config.id!!,
-                chain, wsFactoryApi,
+                chain, directApi, wsFactoryApi,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods
             )
         } else {
-            val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
-            if (directApi == null) {
-                log.warn("Upstream doesn't have API configuration")
-                return
-            }
             EthereumRpcUpstream(
                 config.id!!,
                 chain, directApi, wsFactoryApi,

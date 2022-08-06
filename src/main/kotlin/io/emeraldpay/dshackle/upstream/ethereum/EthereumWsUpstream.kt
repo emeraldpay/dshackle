@@ -24,13 +24,9 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
-import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.Chain
-import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.Metrics
-import io.micrometer.core.instrument.Tag
-import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -38,6 +34,7 @@ import reactor.core.Disposable
 class EthereumWsUpstream(
     id: String,
     val chain: Chain,
+    httpConnection: Reader<JsonRpcRequest, JsonRpcResponse>,
     ethereumWsFactory: EthereumWsFactory,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
@@ -51,34 +48,21 @@ class EthereumWsUpstream(
 
     private val head: EthereumWsHead
     private val connection: WsConnection
-    private val api: JsonRpcWsClient
+    private val api: Reader<JsonRpcRequest, JsonRpcResponse>
 
     private var validatorSubscription: Disposable? = null
     private val validator: EthereumUpstreamValidator
 
     init {
-        val metricsTags = listOf(
-            Tag.of("upstream", id),
-            // UNSPECIFIED shouldn't happen too
-            Tag.of("chain", chain.chainCode)
-        )
-        val metrics = RpcMetrics(
-            Timer.builder("upstream.ws.conn")
-                .description("Request time through a WebSocket JSON RPC connection")
-                .tags(metricsTags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry),
-            Counter.builder("upstream.ws.fail")
-                .description("Number of failures of WebSocket JSON RPC requests")
-                .tags(metricsTags)
-                .register(Metrics.globalRegistry)
-        )
-
         validator = EthereumUpstreamValidator(this, getOptions())
-
-        connection = ethereumWsFactory.create(this, validator, metrics)
+        connection = ethereumWsFactory.create(this, validator)
         head = EthereumWsHead(connection)
-        api = JsonRpcWsClient(connection)
+        // Sometimes the server may close the WebSocket connection during the execution of a call, for example if the response
+        // is too large for WebSockets Frame (and Geth is unable to split messages into separate frames)
+        // In this case the failed request must be rerouted to the HTTP connection, because otherwise it would always fail
+        api = JsonRpcSwitchClient(
+            JsonRpcWsClient(connection), httpConnection
+        )
     }
 
     override fun getHead(): Head {
