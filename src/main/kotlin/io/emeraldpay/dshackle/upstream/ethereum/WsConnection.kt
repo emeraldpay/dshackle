@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
@@ -34,6 +35,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.resolver.DefaultAddressResolverGroup
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.util.backoff.BackOff
@@ -53,6 +55,7 @@ import reactor.retry.Repeat
 import reactor.util.function.Tuples
 import java.net.URI
 import java.time.Duration
+import java.time.Instant
 import java.util.Base64
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -60,7 +63,7 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-class WsConnection(
+open class WsConnection(
     private val uri: URI,
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
@@ -111,11 +114,18 @@ class WsConnection(
         .many()
         .multicast()
         .directBestEffort<JsonRpcResponse>()
+    private val disconnects = Sinks
+        .many()
+        .multicast()
+        .directBestEffort<Instant>()
     private val sendIdSeq = AtomicInteger(IDS_START)
     private val sendExecutor = Executors.newSingleThreadExecutor()
     private var keepConnection = true
     private var connection: Disposable? = null
     private val reconnecting = AtomicBoolean(false)
+
+    open val isConnected: Boolean
+        get() = connection != null && !reconnecting.get()
 
     fun setReconnectIntervalSeconds(value: Long) {
         reconnectBackoff = FixedBackOff(value * 1000, FixedBackOff.UNLIMITED_ATTEMPTS)
@@ -161,7 +171,9 @@ class WsConnection(
         log.info("Connecting to WebSocket: $uri")
         connection?.dispose()
         connection = HttpClient.create()
+            .resolver(DefaultAddressResolverGroup.INSTANCE)
             .doOnDisconnected {
+                disconnects.tryEmitNext(Instant.now())
                 log.info("Disconnected from $uri")
                 // mark upstream as UNAVAIL
                 upstream?.setStatus(UpstreamAvailability.UNAVAILABLE)
@@ -371,25 +383,39 @@ class WsConnection(
 
     fun waitForResponse(request: JsonRpcRequest, originalId: Int, startTime: Long): Mono<JsonRpcResponse> {
         val expectedId = request.id.toLong()
-        val failResponse = JsonRpcResponse(
-            null,
+        val noResponse = JsonRpcException(
+            JsonRpcResponse.Id.from(originalId),
             JsonRpcError(
                 RpcResponseError.CODE_INTERNAL_ERROR,
                 "Response not received from WebSocket"
-            ),
-            JsonRpcResponse.Id.from(originalId), null
+            )
         )
 
-        return Flux.from(rpcReceive.asFlux())
+        val response = Flux.from(rpcReceive.asFlux())
             .doOnSubscribe { sendRpc(request) }
             .filter { resp -> resp.id.asNumber() == expectedId }
             .take(Defaults.timeout)
             .take(1)
             .singleOrEmpty()
+
+        val failOnDisconnect = Mono.from(disconnects.asFlux())
+            .flatMap {
+                Mono.error<JsonRpcResponse>(
+                    JsonRpcException(
+                        JsonRpcResponse.Id.from(originalId),
+                        JsonRpcError(
+                            RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                            "Disconnected from WebSocket"
+                        )
+                    )
+                )
+            }
+
+        return response.or(failOnDisconnect)
             .doOnNext { rpcMetrics?.timer?.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS) }
             .doOnError { rpcMetrics?.fails?.increment() }
             .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
-            .defaultIfEmpty(failResponse)
+            .switchIfEmpty(Mono.error(noResponse))
     }
 
     fun getBlocksFlux(): Flux<BlockContainer> {

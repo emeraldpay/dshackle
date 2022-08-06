@@ -6,4 +6,4 @@
           execution:
             rpc:
               url: "http://34.106.60.110:8545"
-          block-priority: 100
+          upstream-rating: 100

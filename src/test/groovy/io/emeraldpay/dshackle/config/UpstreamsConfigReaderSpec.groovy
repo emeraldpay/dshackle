@@ -166,7 +166,7 @@ class UpstreamsConfigReaderSpec extends Specification {
             with((UpstreamsConfig.EthereumPosConnection) connection) {
                 execution.rpc != null
                 execution.rpc.url == new URI("http://34.106.60.110:8545")
-                blockPriority == 100
+                upstreamRating == 100
             }
         }
     }

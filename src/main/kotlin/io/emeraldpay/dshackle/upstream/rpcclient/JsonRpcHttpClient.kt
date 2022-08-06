@@ -23,6 +23,7 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpHeaders
 import io.netty.handler.ssl.SslContextBuilder
+import io.netty.resolver.DefaultAddressResolverGroup
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.netty.http.client.HttpClient
@@ -53,6 +54,7 @@ class JsonRpcHttpClient(
 
     init {
         var build = HttpClient.create()
+            .resolver(DefaultAddressResolverGroup.INSTANCE)
 
         build = build.headers { h ->
             h.add(HttpHeaderNames.CONTENT_TYPE, "application/json")

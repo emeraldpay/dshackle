@@ -30,24 +30,7 @@ class EthereumWsConnector(
     private val head: EthereumWsHead
 
     init {
-        val metricsTags = listOf(
-            Tag.of("upstream", upstream.getId()),
-            // UNSPECIFIED shouldn't happen too
-            Tag.of("chain", chain.chainCode)
-        )
-        val metrics = RpcMetrics(
-            Timer.builder("upstream.ws.conn")
-                .description("Request time through a WebSocket JSON RPC connection")
-                .tags(metricsTags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry),
-            Counter.builder("upstream.ws.fail")
-                .description("Number of failures of WebSocket JSON RPC requests")
-                .tags(metricsTags)
-                .register(Metrics.globalRegistry)
-        )
-
-        conn = wsFactory.create(upstream, validator, metrics)
+        conn = wsFactory.create(upstream, validator)
         head = EthereumWsHead(conn, forkChoice)
         api = JsonRpcWsClient(conn)
     }

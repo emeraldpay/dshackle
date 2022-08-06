@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.test.MockWSServer
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.grpc.Chain
 import reactor.test.StepVerifier
 import spock.lang.Shared
 import spock.lang.Specification
@@ -30,7 +31,7 @@ class WsConnectionRealSpec extends Specification {
         server = new MockWSServer(port)
         server.start()
         Thread.sleep(SLEEP)
-        conn = new EthereumWsFactory("ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null, null, null)
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null, null)
     }
 
     def cleanup() {
@@ -93,10 +94,26 @@ class WsConnectionRealSpec extends Specification {
         act[0].value.contains("\"params\":[\"newHeads\"]")
     }
 
+    def "Error on request when server disconnects"() {
+        when:
+        conn.connect()
+        conn.reconnectIntervalSeconds = 2
+
+        def resp = conn.call(new JsonRpcRequest("foo_bar", []))
+
+        then:
+        StepVerifier.create(resp)
+            .then { server.stop() }
+            .expectError()
+            .verify(Duration.ofSeconds(1))
+    }
+
     def "Gets UNAVAIL status right after disconnect"() {
         setup:
-        def up = Mock(DefaultUpstream)
-        conn = new EthereumWsFactory("ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(up, null, null)
+        def up = Mock(DefaultUpstream) {
+            _ * getId() >> "test"
+        }
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(up, null)
         when:
         conn.connect()
         conn.reconnectIntervalSeconds = 10
@@ -111,7 +128,7 @@ class WsConnectionRealSpec extends Specification {
     def "Validates after connect"() {
         setup:
         def validator = Mock(EthereumUpstreamValidator)
-        conn = new EthereumWsFactory("ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null, validator, null)
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null, validator)
         when:
         conn.connect()
         Thread.sleep(100)

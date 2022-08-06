@@ -159,7 +159,7 @@ open class ConfiguredUpstreams(
             return null
         }
         val urls = ArrayList<URI>()
-        val connectorFactory = buildEthereumConnectorFactory(execution, chain, urls, NoChoiceWithPriorityForkChoice(conn.upstreamRating))
+        val connectorFactory = buildEthereumConnectorFactory(config.id!!, execution, chain, urls, NoChoiceWithPriorityForkChoice(conn.upstreamRating))
         val methods = buildMethods(config, chain)
         if (connectorFactory == null) {
             return null
@@ -228,7 +228,7 @@ open class ConfiguredUpstreams(
         val urls = ArrayList<URI>()
         val methods = buildMethods(config, chain)
 
-        val connectorFactory = buildEthereumConnectorFactory(conn, chain, urls, MostWorkForkChoice())
+        val connectorFactory = buildEthereumConnectorFactory(config.id!!, conn, chain, urls, MostWorkForkChoice())
         if (connectorFactory == null) {
             return null
         }
@@ -280,9 +280,10 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildWsFactory(conn: UpstreamsConfig.EthereumConnection, urls: ArrayList<URI>? = null): EthereumWsFactory? {
+    private fun buildWsFactory(id: String, chain: Chain, conn: UpstreamsConfig.EthereumConnection, urls: ArrayList<URI>? = null): EthereumWsFactory? {
         return conn.ws?.let { endpoint ->
             val wsApi = EthereumWsFactory(
+                id, chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
             )
@@ -295,8 +296,8 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildEthereumConnectorFactory(conn: UpstreamsConfig.EthereumConnection, chain: Chain, urls: ArrayList<URI>, forkChoice: ForkChoice): EthereumConnectorFactory? {
-        val wsFactoryApi = buildWsFactory(conn, urls)
+    private fun buildEthereumConnectorFactory(id: String, conn: UpstreamsConfig.EthereumConnection, chain: Chain, urls: ArrayList<URI>, forkChoice: ForkChoice): EthereumConnectorFactory? {
+        val wsFactoryApi = buildWsFactory(id, chain, conn, urls)
         val httpFactory = buildHttpFactory(conn, urls)
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
         val connectorFactory = EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory, forkChoice)

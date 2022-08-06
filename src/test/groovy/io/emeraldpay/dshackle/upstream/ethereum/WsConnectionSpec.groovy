@@ -25,6 +25,7 @@ import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -37,7 +38,7 @@ class WsConnectionSpec extends Specification {
 
     def "Fetch block"() {
         setup:
-        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
+        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
 
         def block = new BlockJson<TransactionRefJson>()
         block.number = 100
@@ -53,7 +54,7 @@ class WsConnectionSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null, null, null)
+        def ws = wsf.create(null, null)
 
         apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], block)
 
@@ -71,10 +72,10 @@ class WsConnectionSpec extends Specification {
 
     def "Makes a RPC call"() {
         setup:
-        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
+        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null, null, null)
+        def ws = wsf.create(null, null)
 
         def tx = new TransactionJson().tap {
             hash = TransactionId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
@@ -96,10 +97,10 @@ class WsConnectionSpec extends Specification {
 
     def "Makes a RPC call - return null"() {
         setup:
-        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
+        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null, null, null)
+        def ws = wsf.create(null, null)
 
         apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], null)
 
@@ -119,10 +120,10 @@ class WsConnectionSpec extends Specification {
 
     def "Makes a RPC call - return error"() {
         setup:
-        def wsf = new EthereumWsFactory(new URI("http://localhost"), new URI("http://localhost"))
+        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null, null, null)
+        def ws = wsf.create(null, null)
 
         apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"],
                 new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "test"))
