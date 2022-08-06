@@ -26,12 +26,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
-import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.Chain
-import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.Metrics
-import io.micrometer.core.instrument.Tag
-import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -59,26 +54,8 @@ class EthereumWsUpstream(
     private val validator: EthereumUpstreamValidator
 
     init {
-        val metricsTags = listOf(
-            Tag.of("upstream", id),
-            // UNSPECIFIED shouldn't happen too
-            Tag.of("chain", chain.chainCode)
-        )
-        val metrics = RpcMetrics(
-            Timer.builder("upstream.ws.conn")
-                .description("Request time through a WebSocket JSON RPC connection")
-                .tags(metricsTags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry),
-            Counter.builder("upstream.ws.fail")
-                .description("Number of failures of WebSocket JSON RPC requests")
-                .tags(metricsTags)
-                .register(Metrics.globalRegistry)
-        )
-
         validator = EthereumUpstreamValidator(this, getOptions())
-
-        connection = ethereumWsFactory.create(this, validator, metrics)
+        connection = ethereumWsFactory.create(this, validator)
         head = EthereumWsHead(connection)
         // Sometimes the server may close the WebSocket connection during the execution of a call, for example if the response
         // is too large for WebSockets Frame (and Geth is unable to split messages into separate frames)

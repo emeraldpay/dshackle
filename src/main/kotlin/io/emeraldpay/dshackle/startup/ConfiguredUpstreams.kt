@@ -200,6 +200,7 @@ open class ConfiguredUpstreams(
 
         val wsFactoryApi: EthereumWsFactory? = conn.ws?.let { endpoint ->
             val wsApi = EthereumWsFactory(
+                config.id!!, chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
             )
