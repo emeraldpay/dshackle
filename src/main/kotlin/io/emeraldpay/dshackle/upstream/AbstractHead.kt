@@ -46,7 +46,7 @@ abstract class AbstractHead : Head {
                 it.hash
             }.filter { block ->
                 val curr = head.get()
-                curr == null || curr.difficulty < block.difficulty
+                curr == null || curr.difficulty <= block.difficulty
             }
             .doFinally {
                 // close internal stream if upstream is finished, otherwise it gets stuck,
@@ -59,7 +59,7 @@ abstract class AbstractHead : Head {
             .subscribe { block ->
                 notifyBeforeBlock()
                 val prev = head.getAndUpdate { curr ->
-                    if (curr == null || curr.difficulty < block.difficulty) {
+                    if (curr == null || curr.difficulty <= block.difficulty) {
                         block
                     } else {
                         curr
