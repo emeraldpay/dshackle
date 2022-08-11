@@ -30,6 +30,7 @@ import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.websocket.WebsocketInbound
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.time.Duration
 import java.time.Instant
 import java.util.Locale
 import java.util.UUID
@@ -294,7 +295,7 @@ class EventsBuilder {
         }
     }
 
-    class NativeCall :
+    class NativeCall(private val startTs : Instant) :
         Base<NativeCall>(),
         RequestReply<Events.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
         val items = ArrayList<Events.NativeCallItemDetails>()
@@ -330,6 +331,7 @@ class EventsBuilder {
                 index = index++,
                 succeed = msg.succeed,
                 blockchain = chain,
+                latency = Duration.between(Instant.now(), startTs).toMillis(),
                 nativeCall = item,
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
@@ -354,6 +356,7 @@ class EventsBuilder {
                 index = index++,
                 succeed = !reply.isError(),
                 blockchain = chain,
+                latency = Duration.between(startTs, Instant.now()).toMillis(),
                 nativeCall = item,
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
