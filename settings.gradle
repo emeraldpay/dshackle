@@ -1,2 +1,8 @@
 enableFeaturePreview("VERSION_CATALOGS")
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
+includeBuild('./emerald-java-client') {
+    dependencySubstitution {
+        substitute module('io.emeraldpay:emerald-api:0.12-alpha.1') using project(':')
+    }
+}
