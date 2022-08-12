@@ -1,0 +1,3 @@
+[submodule "emerald-java-client"]
+	path = emerald-java-client
+	url = git@github.com:p2p-org/emerald-java-client.git

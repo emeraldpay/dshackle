@@ -17,6 +17,13 @@ Those protocols can be configures with additional security, TLS and authenticati
 - Most of Ethereum nodes support WebSocket connection, in addition to the JSON RPC.
 If it's available on your node, it's suggested to configure both JSON RPC and WebSocket connection
 
+==== Ethereum PoS
+
+- The support for PoS Ethereum isn't fully implemented yet. However, we support it in a simplified way.
+As we can no longer rely on the difficulty parameter of a block for fork choice algorithm we implement upstream rating.
+In short terms, we just consider the upstream with the highest rating to be always correct when reporting its head.
+Unless it's down then we will fallback on the upstream with the second highest rating, etc.
+
 ==== Bitcoin
 
 - Bitcoind needs to be configured to index/track addresses that you're going to request.
@@ -72,6 +79,15 @@ cluster:
             basic-auth:
               username: ${INFURA_USER}
               password: ${INFURA_PASSWD}
+    - id: ethereum-pos
+      chain: ropsten
+      connection:
+        ethereum-pos:
+            execution:
+              rpc:
+                url: ${ROPSTEN_NODE_RPC_URL}
+              ws:
+                url: ${ROPSTEN_NODE_WS_URL}
 ----
 
 There are two main segments for upstreams configuration:

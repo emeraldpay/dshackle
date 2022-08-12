@@ -49,7 +49,7 @@ open class ERC20Balance {
         apis.request(1)
         return Flux.from(apis)
             .flatMap {
-                getBalance(it.cast(EthereumUpstream::class.java), token, address)
+                getBalance(it.cast(EthereumRpcUpstream::class.java), token, address)
             }
             .doOnNext {
                 apis.resolve()
@@ -57,7 +57,7 @@ open class ERC20Balance {
             .next()
     }
 
-    open fun getBalance(upstream: EthereumUpstream, token: ERC20Token, address: Address): Mono<BigInteger> {
+    open fun getBalance(upstream: EthereumRpcUpstream, token: ERC20Token, address: Address): Mono<BigInteger> {
         return upstream
             .getApi()
             .read(prepareEthCall(token, address, upstream.getHead()))

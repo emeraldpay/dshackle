@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
@@ -35,7 +36,7 @@ class BitcoinRpcHead(
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
     private val extractBlock: ExtractBlock,
     private val interval: Duration = Duration.ofSeconds(15)
-) : Head, AbstractHead(), Lifecycle {
+) : Head, AbstractHead(MostWorkForkChoice()), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinRpcHead::class.java)

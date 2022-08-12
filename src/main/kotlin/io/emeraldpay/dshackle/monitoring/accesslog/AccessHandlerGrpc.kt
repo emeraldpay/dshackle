@@ -25,6 +25,7 @@ import io.grpc.ServerInterceptor
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import java.time.Instant
 
 @Service
 class AccessHandlerGrpc(
@@ -119,7 +120,7 @@ class AccessHandlerGrpc(
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.NativeCall() as EventsBuilder.RequestReply<*, ReqT, RespT>
+            EventsBuilder.NativeCall(Instant.now()) as EventsBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 

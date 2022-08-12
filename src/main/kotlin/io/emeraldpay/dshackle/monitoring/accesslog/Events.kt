@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.monitoring.accesslog
 import com.fasterxml.jackson.annotation.JsonInclude
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
@@ -104,6 +105,7 @@ class Events {
         val selector: String? = null,
         val quorum: Long? = null,
         val minAvailability: String? = null,
+        val latency: Long,
 
         val succeed: Boolean,
         val rpcError: Int? = null,

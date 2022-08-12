@@ -769,6 +769,22 @@ Default is 15Mb
 
 |===
 
+==== PoS Ethereum Connection Options
+.Connection Config for PoS Ethereum Upstream
+[cols="2a,5"]
+|===
+| Option | Description
+
+| `execution`
+a| Here you can specify any option from plain ethereum connection options listed above +
+This is your connection to an execution layer of PoS Ethereum
+
+| `upstream-rating`
+a| Rating for this upstream. We will always consider the head of the chain to be +
+the latest block we saw from the upstream with the highest rating.
+
+|===
+
 ==== Bitcoin Connection Options
 
 .Connection Config for Bitcoin Upstream

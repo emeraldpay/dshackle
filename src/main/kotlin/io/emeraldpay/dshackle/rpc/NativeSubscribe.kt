@@ -20,7 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.grpc.Status
@@ -83,7 +83,7 @@ open class NativeSubscribe(
 
     open fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
         val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
-        return (up as EthereumMultistream)
+        return (up as EthereumLikeMultistream)
             .getSubscribe()
             .subscribe(method, params)
     }

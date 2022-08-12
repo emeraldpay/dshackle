@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -28,7 +28,7 @@ import kotlin.concurrent.withLock
  * Connects/reconnects to the upstream to produce NewHeads messages
  */
 class ConnectNewHeads(
-    private val upstream: EthereumMultistream
+    private val upstream: EthereumLikeMultistream
 ) {
 
     companion object {

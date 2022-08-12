@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.apache.commons.codec.binary.Hex
@@ -20,7 +21,7 @@ class BitcoinZMQHead(
     private val server: ZMQServer,
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
     private val extractBlock: ExtractBlock,
-) : Head, AbstractHead(), Lifecycle {
+) : Head, AbstractHead(MostWorkForkChoice()), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinZMQHead::class.java)

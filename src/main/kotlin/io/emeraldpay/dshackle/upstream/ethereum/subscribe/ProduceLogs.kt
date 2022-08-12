@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
@@ -38,7 +38,7 @@ class ProduceLogs(
         private val log = LoggerFactory.getLogger(ProduceLogs::class.java)
     }
 
-    constructor(upstream: EthereumMultistream) : this(upstream.getReader().receipts())
+    constructor(upstream: EthereumLikeMultistream) : this(upstream.getReader().receipts())
 
     private val objectMapper = Global.objectMapper
 

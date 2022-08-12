@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 
 open class EthereumSubscribe(
-    val upstream: EthereumMultistream
+    val upstream: EthereumLikeMultistream
 ) {
 
     companion object {

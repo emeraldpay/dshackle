@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import java.time.Duration
@@ -24,7 +24,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 class ConnectSyncing(
-    private val upstream: EthereumMultistream
+    private val upstream: EthereumLikeMultistream
 ) {
 
     companion object {

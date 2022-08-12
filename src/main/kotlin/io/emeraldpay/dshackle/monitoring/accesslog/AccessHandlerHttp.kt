@@ -127,11 +127,13 @@ class AccessHandlerHttp(
         private val accessLogWriter: AccessLogWriter,
         private val channel: Events.Channel
     ) : RequestHandler {
+        protected var startTs: Instant? = null
         protected var request: BlockchainOuterClass.NativeCallRequest? = null
         protected val responses = ArrayList<NativeCall.CallResult>()
         protected val updateLock = ReentrantLock()
 
         override fun onRequest(request: BlockchainOuterClass.NativeCallRequest) {
+            this.startTs = Instant.now()
             this.request = request
         }
 
@@ -164,7 +166,7 @@ class AccessHandlerHttp(
             if (request == null) {
                 return
             }
-            val builder = EventsBuilder.NativeCall()
+            val builder = EventsBuilder.NativeCall(startTs!!)
             builder.withChain(blockchain.id)
             builder.start(httpRequest)
             builder.onRequest(request!!)
@@ -182,7 +184,7 @@ class AccessHandlerHttp(
             if (request == null) {
                 return
             }
-            val builder = EventsBuilder.NativeCall()
+            val builder = EventsBuilder.NativeCall(startTs!!)
             builder.withChain(blockchain.id)
             builder.start(wsRequest)
             builder.onRequest(request!!)

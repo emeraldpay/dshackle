@@ -29,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -95,7 +96,7 @@ class BitcoinGrpcUpstream(
             }
     }
     private val upstreamStatus = GrpcUpstreamStatus()
-    private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock)
+    private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, MostWorkForkChoice())
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
 

@@ -86,104 +86,29 @@ class UpstreamsConfigReader(
         getList<MappingNode>(input, "upstreams")?.value?.forEachIndexed { _, upNode ->
             val connNode = getMapping(upNode, "connection")
             if (hasAny(connNode, "ethereum")) {
-                val connConfigNode = getMapping(connNode, "ethereum")!!
-                val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>()
-                readUpstreamCommon(upNode, upstream)
-                readUpstreamStandard(upNode, upstream)
-                if (isValid(upstream)) {
-                    config.upstreams.add(upstream)
-                    val connection = UpstreamsConfig.EthereumConnection()
-                    upstream.connection = connection
-                    getMapping(connConfigNode, "rpc")?.let { node ->
-                        getValueAsString(node, "url")?.let { url ->
-                            val http = UpstreamsConfig.HttpEndpoint(URI(url))
-                            connection.rpc = http
-                            http.basicAuth = authConfigReader.readClientBasicAuth(node)
-                            http.tls = authConfigReader.readClientTls(node)
-                        }
-                    }
-                    getMapping(connConfigNode, "ws")?.let { node ->
-                        getValueAsString(node, "url")?.let { url ->
-                            val ws = UpstreamsConfig.WsEndpoint(URI(url))
-                            connection.ws = ws
-                            getValueAsString(node, "origin")?.let { origin ->
-                                ws.origin = URI(origin)
-                            }
-                            ws.basicAuth = authConfigReader.readClientBasicAuth(node)
-
-                            getValueAsBytes(node, "frameSize")?.let {
-                                if (it < 65_535) {
-                                    throw IllegalStateException("frameSize cannot be less than 64Kb")
-                                }
-                                ws.frameSize = it
-                            }
-                            getValueAsBytes(node, "msgSize")?.let {
-                                if (it < 65_535) {
-                                    throw IllegalStateException("msgSize cannot be less than 64Kb")
-                                }
-                                ws.msgSize = it
-                            }
-                        }
-                    }
-                } else {
-                    log.error("Upstream at #0 has invalid configuration")
+                readUpstream(config, upNode) {
+                    readEthereumConnection(getMapping(connNode, "ethereum")!!)
                 }
             } else if (hasAny(connNode, "bitcoin")) {
-                val connConfigNode = getMapping(connNode, "bitcoin")!!
-                val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>()
-                readUpstreamCommon(upNode, upstream)
-                readUpstreamStandard(upNode, upstream)
-                if (isValid(upstream)) {
-                    config.upstreams.add(upstream)
-                    val connection = UpstreamsConfig.BitcoinConnection()
-                    upstream.connection = connection
-                    getMapping(connConfigNode, "rpc")?.let { node ->
-                        getValueAsString(node, "url")?.let { url ->
-                            val http = UpstreamsConfig.HttpEndpoint(URI(url))
-                            connection.rpc = http
-                            http.basicAuth = authConfigReader.readClientBasicAuth(node)
-                            http.tls = authConfigReader.readClientTls(node)
-                        }
-                    }
-                    getMapping(connConfigNode, "esplora")?.let { node ->
-                        getValueAsString(node, "url")?.let { url ->
-                            val http = UpstreamsConfig.HttpEndpoint(URI(url))
-                            http.basicAuth = authConfigReader.readClientBasicAuth(node)
-                            http.tls = authConfigReader.readClientTls(node)
-                            connection.esplora = http
-                        }
-                    }
-                    getMapping(connConfigNode, "zeromq")?.let { node ->
-                        getValueAsString(node, "address")?.let { address ->
-                            val zmqConfig: Pair<String, Int>? = try {
-                                if (address.contains(":")) {
-                                    address.split(":").let {
-                                        Pair(it[0], it[1].toInt())
-                                    }
-                                } else {
-                                    Pair("127.0.0.1", address.toInt())
-                                }
-                            } catch (t: Throwable) {
-                                log.warn("Invalid config for ZeroMQ: $address. Expected to be in format HOST:PORT")
-                                null
-                            }
-                            zmqConfig?.let {
-                                connection.zeroMq = UpstreamsConfig.BitcoinZeroMq(it.first, it.second)
-                            }
-                        }
-                    }
-                } else {
-                    log.error("Upstream at #0 has invalid configuration")
+                readUpstream(config, upNode) {
+                    readBitcoinConnection(getMapping(connNode, "bitcoin")!!)
+                }
+            } else if (hasAny(connNode, "ethereum-pos")) {
+                readUpstream(config, upNode) {
+                    readEthereumPosConnection(getMapping(connNode, "ethereum-pos")!!)
                 }
             } else if (hasAny(connNode, "grpc")) {
                 val connConfigNode = getMapping(connNode, "grpc")!!
                 val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>()
                 readUpstreamCommon(upNode, upstream)
-                readUpstreamGrpc(upNode, upstream)
+                readUpstreamGrpc(upNode)
                 if (isValid(upstream)) {
                     config.upstreams.add(upstream)
                     val connection = UpstreamsConfig.GrpcConnection()
                     upstream.connection = connection
+                    getValueAsInt(connConfigNode, "upstream-rating")?.let {
+                        connection.upstreamRating = it
+                    }
                     getValueAsString(connConfigNode, "host")?.let {
                         connection.host = it
                     }
@@ -198,6 +123,104 @@ class UpstreamsConfigReader(
         }
 
         return config
+    }
+
+    private fun readBitcoinConnection(connConfigNode: MappingNode): UpstreamsConfig.BitcoinConnection {
+        val connection = UpstreamsConfig.BitcoinConnection()
+        getMapping(connConfigNode, "rpc")?.let { node ->
+            getValueAsString(node, "url")?.let { url ->
+                val http = UpstreamsConfig.HttpEndpoint(URI(url))
+                connection.rpc = http
+                http.basicAuth = authConfigReader.readClientBasicAuth(node)
+                http.tls = authConfigReader.readClientTls(node)
+            }
+        }
+        getMapping(connConfigNode, "esplora")?.let { node ->
+            getValueAsString(node, "url")?.let { url ->
+                val http = UpstreamsConfig.HttpEndpoint(URI(url))
+                http.basicAuth = authConfigReader.readClientBasicAuth(node)
+                http.tls = authConfigReader.readClientTls(node)
+                connection.esplora = http
+            }
+        }
+        getMapping(connConfigNode, "zeromq")?.let { node ->
+            getValueAsString(node, "address")?.let { address ->
+                val zmqConfig: Pair<String, Int>? = try {
+                    if (address.contains(":")) {
+                        address.split(":").let {
+                            Pair(it[0], it[1].toInt())
+                        }
+                    } else {
+                        Pair("127.0.0.1", address.toInt())
+                    }
+                } catch (t: Throwable) {
+                    log.warn("Invalid config for ZeroMQ: $address. Expected to be in format HOST:PORT")
+                    null
+                }
+                zmqConfig?.let {
+                    connection.zeroMq = UpstreamsConfig.BitcoinZeroMq(it.first, it.second)
+                }
+            }
+        }
+        return connection
+    }
+
+    private fun readEthereumPosConnection(connConfigNode: MappingNode): UpstreamsConfig.EthereumPosConnection {
+        val connection = UpstreamsConfig.EthereumPosConnection()
+        getMapping(connConfigNode, "execution")?.let {
+            connection.execution = readEthereumConnection(it)
+        }
+        getValueAsInt(connConfigNode, "upstream-rating")?.let {
+            connection.upstreamRating = it
+        }
+        return connection
+    }
+    private fun readEthereumConnection(connConfigNode: MappingNode): UpstreamsConfig.EthereumConnection {
+        val connection = UpstreamsConfig.EthereumConnection()
+        getMapping(connConfigNode, "rpc")?.let { node ->
+            getValueAsString(node, "url")?.let { url ->
+                val http = UpstreamsConfig.HttpEndpoint(URI(url))
+                connection.rpc = http
+                http.basicAuth = authConfigReader.readClientBasicAuth(node)
+                http.tls = authConfigReader.readClientTls(node)
+            }
+        }
+        getMapping(connConfigNode, "ws")?.let { node ->
+            getValueAsString(node, "url")?.let { url ->
+                val ws = UpstreamsConfig.WsEndpoint(URI(url))
+                connection.ws = ws
+                getValueAsString(node, "origin")?.let { origin ->
+                    ws.origin = URI(origin)
+                }
+                ws.basicAuth = authConfigReader.readClientBasicAuth(node)
+
+                getValueAsBytes(node, "frameSize")?.let {
+                    if (it < 65_535) {
+                        throw IllegalStateException("frameSize cannot be less than 64Kb")
+                    }
+                    ws.frameSize = it
+                }
+                getValueAsBytes(node, "msgSize")?.let {
+                    if (it < 65_535) {
+                        throw IllegalStateException("msgSize cannot be less than 64Kb")
+                    }
+                    ws.msgSize = it
+                }
+            }
+        }
+        return connection
+    }
+
+    private fun <T : UpstreamsConfig.UpstreamConnection> readUpstream(config: UpstreamsConfig, upNode: MappingNode, connFactory: () -> T) {
+        val upstream = UpstreamsConfig.Upstream<T>()
+        readUpstreamCommon(upNode, upstream)
+        readUpstreamStandard(upNode, upstream)
+        if (isValid(upstream)) {
+            config.upstreams.add(upstream)
+            upstream.connection = connFactory()
+        } else {
+            log.error("Upstream at #0 has invalid configuration")
+        }
     }
 
     fun isValid(upstream: UpstreamsConfig.Upstream<*>): Boolean {
@@ -222,7 +245,6 @@ class UpstreamsConfigReader(
 
     internal fun readUpstreamGrpc(
         upNode: MappingNode,
-        upstream: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>
     ) {
         // Dshackle gRPC connection dispatches requests to different upstreams, which may
         // be on different blockchains, and each may have different set of labels.

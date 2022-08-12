@@ -86,7 +86,8 @@ class ReceiptMemCacheSpec extends Specification {
                 false,
                 "{}".bytes,
                 null,
-                [TxId.from(receipt.transactionHash)]
+                [TxId.from(receipt.transactionHash)],
+                0
         )
 
         when:

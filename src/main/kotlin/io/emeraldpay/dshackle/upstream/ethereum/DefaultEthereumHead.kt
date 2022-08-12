@@ -20,13 +20,16 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
-open class DefaultEthereumHead : Head, AbstractHead() {
+open class DefaultEthereumHead(
+    forkChoice: ForkChoice
+) : Head, AbstractHead(forkChoice) {
 
     companion object {
         private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)

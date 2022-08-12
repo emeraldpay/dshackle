@@ -19,7 +19,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
@@ -32,7 +32,7 @@ import kotlin.concurrent.withLock
 import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
-    private val upstream: EthereumMultistream
+    private val upstream: EthereumLikeMultistream
 ) {
 
     companion object {

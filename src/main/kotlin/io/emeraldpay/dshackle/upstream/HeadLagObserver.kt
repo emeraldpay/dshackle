@@ -30,9 +30,11 @@ import java.time.Duration
  * Observer group of upstreams and defined a distance in blocks (lag) between a leader (best height/difficulty) and
  * other upstreams.
  */
+typealias Extractor = (top: BlockContainer, curr: BlockContainer) -> DistanceExtractor.ChainDistance
 abstract class HeadLagObserver(
     private val master: Head,
-    private val followers: Collection<Upstream>
+    private val followers: Collection<Upstream>,
+    private val distanceExtractor: Extractor
 ) : Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
@@ -85,10 +87,9 @@ abstract class HeadLagObserver(
     }
 
     open fun extractDistance(top: BlockContainer, curr: BlockContainer): Long {
-        return when {
-            curr.height > top.height -> if (curr.difficulty >= top.difficulty) 0 else forkDistance(top, curr)
-            curr.height == top.height -> if (curr.difficulty == top.difficulty) 0 else forkDistance(top, curr)
-            else -> top.height - curr.height
+        return when (val distance = distanceExtractor(top, curr)) {
+            is DistanceExtractor.ChainDistance.Distance -> distance.dist
+            is DistanceExtractor.ChainDistance.Fork -> forkDistance(top, curr)
         }
     }
 

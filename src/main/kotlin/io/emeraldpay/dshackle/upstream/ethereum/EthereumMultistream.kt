@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -37,7 +38,7 @@ open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
     caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)) {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
@@ -79,7 +80,7 @@ open class EthereumMultistream(
         return super.isRunning() || reader.isRunning
     }
 
-    open fun getReader(): EthereumReader {
+    override fun getReader(): EthereumReader {
         return reader
     }
 
@@ -109,7 +110,7 @@ open class EthereumMultistream(
             }
         } else {
             val heads = upstreams.map { it.getHead() }
-            val newHead = MergedHead(heads).apply {
+            val newHead = MergedHead(heads, MostWorkForkChoice()).apply {
                 this.start()
             }
             val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>)
@@ -137,7 +138,7 @@ open class EthereumMultistream(
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead()))
     }
 
-    open fun getSubscribe(): EthereumSubscribe {
+    override fun getSubscribe(): EthereumSubscribe {
         return subscribe
     }
 
