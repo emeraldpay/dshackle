@@ -829,6 +829,8 @@ It's more effective, easier to secure connection, and allows to build a distribu
 [source,yaml]
 ----
 - id: test1
+  labels:
+    provider: some
   connection:
     grpc:
       host: eu-api.mycompany.com
@@ -847,6 +849,10 @@ It's more effective, easier to secure connection, and allows to build a distribu
 | `id`
 | yes
 | Per-cluster identifier of an upstream
+
+| `labels`
+| no
+| Defines the labels can be used for the proper upstream instance selection. Overrides the labels retrieved by the `describe` method
 
 | `connection.grpc`
 | yes

@@ -25,7 +25,7 @@ class GrpcUpstreamStatusSpec extends Specification {
 
     def "Updates with new labels"() {
         setup:
-        def status = new GrpcUpstreamStatus()
+        def status = new GrpcUpstreamStatus(null)
         when:
         status.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
@@ -86,9 +86,74 @@ class GrpcUpstreamStatusSpec extends Specification {
         ]
     }
 
+    def "Updates with new labels override"() {
+        setup:
+        def status = new GrpcUpstreamStatus(UpstreamsConfig.Labels.fromMap([fix: "value"]))
+        when:
+        status.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .addNodes(
+                                BlockchainOuterClass.NodeDetails.newBuilder()
+                                        .setQuorum(1)
+                                        .addLabels(
+                                                BlockchainOuterClass.Label.newBuilder().setName("test").setValue("foo")
+                                        )
+                        )
+                        .build()
+        )
+        def act = status.getLabels()
+        then:
+        act.toList() == [
+                UpstreamsConfig.Labels.fromMap([test: "foo", fix: "value"])
+        ]
+
+        // replace with new value
+        when:
+        status.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .addNodes(
+                                BlockchainOuterClass.NodeDetails.newBuilder()
+                                        .setQuorum(1)
+                                        .addLabels(
+                                                BlockchainOuterClass.Label.newBuilder().setName("test").setValue("bar")
+                                        ).addLabels(
+                                        BlockchainOuterClass.Label.newBuilder().setName("fix").setValue("val")
+                                )
+                        )
+                        .build()
+        )
+        act = status.getLabels()
+        then:
+        act.toList() == [
+                UpstreamsConfig.Labels.fromMap([test: "bar", fix: "value"])
+        ]
+
+        // more values
+        when:
+        status.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .addNodes(
+                                BlockchainOuterClass.NodeDetails.newBuilder()
+                                        .setQuorum(1)
+                                        .addLabels(
+                                                BlockchainOuterClass.Label.newBuilder().setName("test1").setValue("bar")
+                                        )
+                                        .addLabels(
+                                                BlockchainOuterClass.Label.newBuilder().setName("test2").setValue("baz")
+                                        )
+                        )
+                        .build()
+        )
+        act = status.getLabels()
+        then:
+        act.toList() == [
+                UpstreamsConfig.Labels.fromMap([test1: "bar", test2: "baz", fix: "value"])
+        ]
+    }
+
     def "Updates with new nodes"() {
         setup:
-        def status = new GrpcUpstreamStatus()
+        def status = new GrpcUpstreamStatus(null)
         when:
         status.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
@@ -108,9 +173,34 @@ class GrpcUpstreamStatusSpec extends Specification {
         }
     }
 
+    def "Updates with new nodes override labels"() {
+        setup:
+        def status = new GrpcUpstreamStatus(UpstreamsConfig.Labels.fromMap([fix: "value"]))
+        when:
+        status.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .addNodes(
+                                BlockchainOuterClass.NodeDetails.newBuilder()
+                                        .setQuorum(1)
+                                        .addLabels(
+                                                BlockchainOuterClass.Label.newBuilder().setName("test").setValue("foo")
+                                        )
+                                        .addLabels(
+                                                BlockchainOuterClass.Label.newBuilder().setName("fix").setValue("val")
+                                        )
+                        )
+                        .build()
+        )
+        def act = status.getNodes()
+        then:
+        act == new QuorumForLabels().tap {
+            it.add(new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap([test: "foo", fix: "value"])))
+        }
+    }
+
     def "Updates with methods"() {
         setup:
-        def status = new GrpcUpstreamStatus()
+        def status = new GrpcUpstreamStatus(null)
         when:
         status.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()

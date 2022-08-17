@@ -24,14 +24,15 @@ import org.slf4j.LoggerFactory
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
 
-class GrpcUpstreamStatus {
-
+class GrpcUpstreamStatus(
+    private val overrideLabels: UpstreamsConfig.Labels?
+) {
     companion object {
         private val log = LoggerFactory.getLogger(GrpcUpstreamStatus::class.java)
     }
 
     private val allLabels: AtomicReference<Collection<UpstreamsConfig.Labels>> = AtomicReference(emptyList())
-    private val nodes = AtomicReference<QuorumForLabels>(QuorumForLabels())
+    private val nodes = AtomicReference(QuorumForLabels())
     private var targets: CallMethods? = null
 
     fun update(conf: BlockchainOuterClass.DescribeChain) {
@@ -39,18 +40,17 @@ class GrpcUpstreamStatus {
         val updateNodes = QuorumForLabels()
 
         conf.nodesList.forEach { remoteNode ->
+            val labels = UpstreamsConfig.Labels()
+            remoteNode.labelsList.forEach {
+                labels[it.name] = it.value
+            }
+            overrideLabels?.let { labels.putAll(it) }
             val node = QuorumForLabels.QuorumItem(
                 remoteNode.quorum,
-                remoteNode.labelsList.let { provided ->
-                    val labels = UpstreamsConfig.Labels()
-                    provided.forEach {
-                        labels[it.name] = it.value
-                    }
-                    updateLabels.add(labels)
-                    labels
-                }
+                labels
             )
             updateNodes.add(node)
+            updateLabels.add(labels)
         }
 
         this.nodes.set(updateNodes)

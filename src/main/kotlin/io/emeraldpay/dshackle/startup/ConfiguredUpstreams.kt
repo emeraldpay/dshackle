@@ -256,7 +256,8 @@ open class ConfiguredUpstreams(
             endpoint.port,
             endpoint.auth,
             fileResolver,
-            endpoint.upstreamRating
+            endpoint.upstreamRating,
+            config.labels
         ).apply {
             timeout = options.timeout
         }
