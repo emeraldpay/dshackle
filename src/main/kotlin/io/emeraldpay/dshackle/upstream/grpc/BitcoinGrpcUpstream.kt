@@ -50,7 +50,8 @@ class BitcoinGrpcUpstream(
     role: UpstreamsConfig.UpstreamRole,
     chain: Chain,
     val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
-    private val client: JsonRpcGrpcClient
+    private val client: JsonRpcGrpcClient,
+    overrideLabels: UpstreamsConfig.Labels?
 ) : BitcoinUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     chain,
@@ -95,7 +96,7 @@ class BitcoinGrpcUpstream(
                 }
             }
     }
-    private val upstreamStatus = GrpcUpstreamStatus()
+    private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
     private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, MostWorkForkChoice())
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()

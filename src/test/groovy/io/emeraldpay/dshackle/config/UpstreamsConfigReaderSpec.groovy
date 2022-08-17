@@ -233,7 +233,8 @@ class UpstreamsConfigReaderSpec extends Specification {
         act.upstreams.size() == 2
         with(act.upstreams.get(0)) {
             connection instanceof UpstreamsConfig.GrpcConnection
-            labels.isEmpty()
+            labels.size() == 1
+            labels["provider"] == "some_service"
         }
         with(act.upstreams.get(1)) {
             !labels.isEmpty()

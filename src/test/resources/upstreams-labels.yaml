@@ -8,6 +8,8 @@ defaultOptions:
 
 upstreams:
   - id: remote
+    labels:
+      provider: some_service
     connection:
       grpc:
         host: "10.2.0.15"

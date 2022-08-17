@@ -20,8 +20,6 @@ import io.emeraldpay.dshackle.FileResolver
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
-import org.yaml.snakeyaml.nodes.ScalarNode
-import reactor.util.function.Tuples
 import java.io.InputStream
 import java.net.URI
 import java.time.Duration
@@ -83,7 +81,7 @@ class UpstreamsConfigReader(
             }
         }
 
-        getList<MappingNode>(input, "upstreams")?.value?.forEachIndexed { _, upNode ->
+        getList<MappingNode>(input, "upstreams")?.value?.forEach { upNode ->
             val connNode = getMapping(upNode, "connection")
             if (hasAny(connNode, "ethereum")) {
                 readUpstream(config, upNode) {
@@ -211,7 +209,11 @@ class UpstreamsConfigReader(
         return connection
     }
 
-    private fun <T : UpstreamsConfig.UpstreamConnection> readUpstream(config: UpstreamsConfig, upNode: MappingNode, connFactory: () -> T) {
+    private fun <T : UpstreamsConfig.UpstreamConnection> readUpstream(
+        config: UpstreamsConfig,
+        upNode: MappingNode,
+        connFactory: () -> T
+    ) {
         val upstream = UpstreamsConfig.Upstream<T>()
         readUpstreamCommon(upNode, upstream)
         readUpstreamStandard(upNode, upstream)
@@ -241,18 +243,21 @@ class UpstreamsConfigReader(
         getValueAsBool(upNode, "enabled")?.let {
             upstream.isEnabled = it
         }
+        if (hasAny(upNode, "labels")) {
+            getMapping(upNode, "labels")?.let { labels ->
+                labels.value.stream()
+                    .map { it.keyNode.valueAsString() to it.valueNode.valueAsString() }
+                    .filter { StringUtils.isNotBlank(it.first) && StringUtils.isNotBlank(it.second) }
+                    .forEach {
+                        upstream.labels[it.first!!.trim()] = it.second!!.trim()
+                    }
+            }
+        }
     }
 
     internal fun readUpstreamGrpc(
         upNode: MappingNode,
     ) {
-        // Dshackle gRPC connection dispatches requests to different upstreams, which may
-        // be on different blockchains, and each may have different set of labels.
-        // So the labels and chains assigned to the gRPC connection make no sense.
-        if (hasAny(upNode, "labels")) {
-            // Actual labels from underlying upstreams are handled by GrpcUpstreamStatus
-            log.warn("Labels should be not applied to gRPC upstream")
-        }
         if (hasAny(upNode, "chain")) {
             log.warn("Chain should be not applied to gRPC upstream")
         }
@@ -270,18 +275,6 @@ class UpstreamsConfigReader(
                 upstream.role = role
             } catch (e: IllegalArgumentException) {
                 log.warn("Unsupported role `$name` for upstream ${upstream.id}")
-            }
-        }
-        if (hasAny(upNode, "labels")) {
-            getMapping(upNode, "labels")?.let { labels ->
-                labels.value.stream()
-                    .filter { n -> n.keyNode is ScalarNode && n.valueNode is ScalarNode }
-                    .map { n -> Tuples.of((n.keyNode as ScalarNode).value, (n.valueNode as ScalarNode).value) }
-                    .map { kv -> Tuples.of(kv.t1.trim(), kv.t2.trim()) }
-                    .filter { kv -> StringUtils.isNotEmpty(kv.t1) && StringUtils.isNotEmpty(kv.t2) }
-                    .forEach { kv ->
-                        upstream.labels[kv.t1] = kv.t2
-                    }
             }
         }
     }
