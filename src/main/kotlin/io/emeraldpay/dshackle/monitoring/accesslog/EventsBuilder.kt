@@ -236,7 +236,10 @@ class EventsBuilder {
 
         override fun onReply(msg: BlockchainOuterClass.ChainHead): Events.SubscribeHead {
             return Events.SubscribeHead(
-                chain, UUID.randomUUID(), requestDetails, index++
+                chain,
+                UUID.randomUUID(),
+                requestDetails,
+                index++
             )
         }
     }
@@ -266,7 +269,13 @@ class EventsBuilder {
             val addressBalance = Events.AddressBalance(msg.asset.code, msg.address.address)
             val chain = Chain.byId(msg.asset.chain.number)
             return Events.SubscribeBalance(
-                chain, UUID.randomUUID(), subscribe, requestDetails, balanceRequest!!, addressBalance, index++
+                chain,
+                UUID.randomUUID(),
+                subscribe,
+                requestDetails,
+                balanceRequest!!,
+                addressBalance,
+                index++
             )
         }
     }
@@ -284,7 +293,10 @@ class EventsBuilder {
 
         override fun onReply(msg: BlockchainOuterClass.TxStatus): Events.TxStatus {
             return Events.TxStatus(
-                chain, UUID.randomUUID(), requestDetails, txStatusRequest!!,
+                chain,
+                UUID.randomUUID(),
+                requestDetails,
+                txStatusRequest!!,
                 Events.TxStatusResponse(msg.confirmations),
                 index++
             )
@@ -295,7 +307,7 @@ class EventsBuilder {
         }
     }
 
-    class NativeCall(private val startTs : Instant) :
+    class NativeCall(private val startTs: Instant) :
         Base<NativeCall>(),
         RequestReply<Events.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
         val items = ArrayList<Events.NativeCallItemDetails>()
@@ -399,14 +411,14 @@ class EventsBuilder {
                 payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
                 id = UUID.randomUUID(),
                 channel = Events.Channel.GRPC,
-                responseBody = if (accessLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null,
+                responseBody = if (accessLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null
             )
         }
     }
 
     class NativeSubscribeHttp(
         val channel: Events.Channel,
-        chain: Chain,
+        chain: Chain
     ) :
         Base<NativeSubscribeHttp>(),
         RequestReply<Events.NativeSubscribe, Pair<String, ByteArray?>, Long> {

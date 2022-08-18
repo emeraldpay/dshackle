@@ -24,7 +24,10 @@ import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.*
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
