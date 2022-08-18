@@ -57,7 +57,8 @@ class GrpcUpstreams(
     private val port: Int,
     private val auth: AuthConfig.ClientTlsAuth? = null,
     private val fileResolver: FileResolver,
-    private val nodeRating: Int
+    private val nodeRating: Int,
+    private val labels: UpstreamsConfig.Labels
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -205,7 +206,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = EthereumGrpcUpstream(id, role, chain, client!!, rpcClient)
+                val created = EthereumGrpcUpstream(id, role, chain, client!!, rpcClient, labels)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
@@ -221,7 +222,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = EthereumPosGrpcUpstream(id, role, chain, client!!, rpcClient, nodeRating)
+                val created = EthereumPosGrpcUpstream(id, role, chain, client!!, rpcClient, nodeRating, labels)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
@@ -237,7 +238,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = BitcoinGrpcUpstream(id, role, chain, client!!, rpcClient)
+                val created = BitcoinGrpcUpstream(id, role, chain, client!!, rpcClient, labels)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()

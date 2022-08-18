@@ -49,7 +49,8 @@ open class EthereumGrpcUpstream(
     role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
-    private val client: JsonRpcGrpcClient
+    private val client: JsonRpcGrpcClient,
+    overrideLabels: UpstreamsConfig.Labels?
 ) : EthereumUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     UpstreamsConfig.Options.getDefaults(),
@@ -93,7 +94,7 @@ open class EthereumGrpcUpstream(
     }
 
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
-    private val upstreamStatus = GrpcUpstreamStatus()
+    private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
     private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, MostWorkForkChoice())
     private var capabilities: Set<Capability> = emptySet()
 

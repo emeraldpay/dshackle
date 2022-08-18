@@ -37,18 +37,12 @@ abstract class YamlConfigReader {
         return asMappingNode(yaml.compose(InputStreamReader(input)))
     }
 
-    protected fun hasAny(mappingNode: MappingNode?, key: String): Boolean {
-        if (mappingNode == null) {
-            return false
-        }
-        return mappingNode.value
-            .stream()
-            .filter { n -> n.keyNode is ScalarNode }
-            .filter { n ->
-                val sn = n.keyNode as ScalarNode
-                key == sn.value
-            }.count() > 0
-    }
+    protected fun hasAny(mappingNode: MappingNode?, key: String): Boolean =
+        mappingNode?.let { node ->
+            node.value
+                .stream()
+                .anyMatch { it.keyNode.valueAsString() == key }
+        } ?: false
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> getValue(mappingNode: MappingNode?, key: String, type: Class<T>): T? {
@@ -57,20 +51,14 @@ abstract class YamlConfigReader {
         }
         return mappingNode.value
             .stream()
-            .filter { n -> n.keyNode is ScalarNode && type.isAssignableFrom(n.valueNode.javaClass) }
-            .filter { n ->
-                val sn = n.keyNode as ScalarNode
-                key == sn.value
-            }
+            .filter { type.isAssignableFrom(it.valueNode.javaClass) }
+            .filter { it.keyNode.valueAsString() == key }
             .map { n -> n.valueNode as T }
-            .findFirst().let {
-                if (it.isPresent) {
-                    it.get()
-                } else {
-                    null
-                }
-            }
+            .findFirst()
+            .orElse(null)
     }
+
+    fun Node.valueAsString(): String? = if (this is ScalarNode) this.value else null
 
     protected fun getMapping(mappingNode: MappingNode?, key: String): MappingNode? {
         return getValue(mappingNode, key, MappingNode::class.java)

@@ -24,7 +24,11 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
@@ -50,7 +54,8 @@ open class EthereumPosGrpcUpstream(
     private val chain: Chain,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     client: JsonRpcGrpcClient,
-    nodeRating: Int
+    nodeRating: Int,
+    overrideLabels: UpstreamsConfig.Labels?
 ) : EthereumPosUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     UpstreamsConfig.Options.getDefaults(),
@@ -94,7 +99,7 @@ open class EthereumPosGrpcUpstream(
     }
 
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
-    private val upstreamStatus = GrpcUpstreamStatus()
+    private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
     private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, NoChoiceWithPriorityForkChoice(nodeRating))
     private var capabilities: Set<Capability> = emptySet()
 
