@@ -4,14 +4,6 @@ on:
   push:
     branches:
       - master
-      - release/*
-      - ci/*
-  pull_request:
-    branches:
-      - master
-      - release/*
-      - ci/*
-
 jobs:
 
   publish-gcp:
@@ -25,41 +17,12 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 13
-
-      - name: Auth GCP
-        uses: google-github-actions/auth@v0
-        with:
-          credentials_json: ${{ secrets.GCP_ARTIFACTS_KEY }}
-
-      - name: Setup GCP
-        uses: google-github-actions/setup-gcloud@v0
-
-        # needed for GitVersion
-      - name: Fetch all history
-        run: git fetch --prune --unshallow
-
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v0.9.7
-        with:
-          versionSpec: '5.x'
-
-        # step id used as reference for output values
-      - name: Use GitVersion
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@v0.9.7
-
-      - name: Get Time
-        id: time
-        uses: nanzm/get-time-action@v1.0
-        with:
-          timeZone: 0
-          format: 'YYYYMMDD-HHmm'
-
-      - name: Build zip
+      - name: Upload to Docker
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: distZip
-
-      - name: Upload to GCP
-        run: |
-          gsutil cp -n ./build/distributions/*.zip gs://artifacts.emerald.cash/builds/dshackle/${{ steps.gitversion.outputs.commitDate }}/${{ steps.time.outputs.time }}-${{ steps.gitversion.outputs.shortSha }}/
+          arguments: jibBuildTar
+      - name: Docker image
+        uses: actions/upload-artifact@v3
+        with:
+          name: dshackle-image
+          path: build/jib-image.tar
