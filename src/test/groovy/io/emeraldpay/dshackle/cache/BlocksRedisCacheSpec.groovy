@@ -41,7 +41,6 @@ class BlocksRedisCacheSpec extends Specification {
     String hash1 = "0xd3f34def3c56ba4e701540d15edaff9acd2a1c968a7ff83b3300ab5dfd5f6aab"
     String hash2 = "0x4aabdaff9acd2f30d15e00ab5dfd5f6c56ba4ea1c968a7ff8d3f34de70153b33"
     String hash3 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
-    String hash4 = "0xa4e7a75dfd5f6a83b3304dc56bfa0abfd3fef01540d15edafc9683f9acd2a13b"
 
     ObjectMapper objectMapper = Global.objectMapper
 
@@ -63,7 +62,7 @@ class BlocksRedisCacheSpec extends Specification {
                 false,
                 "test".bytes,
                 null,
-                [TxId.from(hash2), TxId.from(hash1)]
+                [TxId.from(hash2), TxId.from(hash1)], 0
         )
 
         when:

@@ -30,11 +30,11 @@ class HeightByHashRedisCacheSpec extends Specification {
 
     def block1 = new BlockContainer(
             12079192L, BlockId.from("0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"),
-            BigInteger.ONE, Instant.now(), false, "".bytes, null, []
+            BigInteger.ONE, Instant.now(), false, "".bytes, null, [], 0
     )
     def block2 = new BlockContainer(
             12079193L, BlockId.from("0xd27944b460632699768fbfec3e5d454db590cae43d470b5f42fc4d091e372c25"),
-            BigInteger.ONE, Instant.now(), false, "".bytes, null, []
+            BigInteger.ONE, Instant.now(), false, "".bytes, null, [], 0
     )
 
     StatefulRedisConnection<String, byte[]> redis
