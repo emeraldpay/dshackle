@@ -7,13 +7,13 @@ import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
 import org.slf4j.LoggerFactory
 
-class EthereumPostHeadLagObserver(
+class EthereumPosHeadLagObserver(
     master: Head,
     followers: Collection<Upstream>
 ) : HeadLagObserver(master, followers, DistanceExtractor::extractPriorityDistance) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumPostHeadLagObserver::class.java)
+        private val log = LoggerFactory.getLogger(EthereumPosHeadLagObserver::class.java)
     }
 
     override fun forkDistance(top: BlockContainer, curr: BlockContainer): Long {

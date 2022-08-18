@@ -25,7 +25,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.BlockchainType
@@ -74,7 +74,7 @@ open class CurrentMultistreamHolder(
                         val up = change.upstream.cast(EthereumPosUpstream::class.java)
                         val current = chainMapping[chain]
                         val factory = Callable<Multistream> {
-                            EthereumPosMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
+                            EthereumPosMultiStream(chain, ArrayList(), cachesFactory.getCaches(chain))
                         }
                         processUpdate(change, up, current, factory)
                     }

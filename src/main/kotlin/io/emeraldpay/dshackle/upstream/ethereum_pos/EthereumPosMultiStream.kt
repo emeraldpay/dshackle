@@ -34,14 +34,14 @@ import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
-open class EthereumPosMultistream(
+open class EthereumPosMultiStream(
     chain: Chain,
     val upstreams: MutableList<EthereumPosUpstream>,
     caches: Caches
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumPosMultistream::class.java)
+        private val log = LoggerFactory.getLogger(EthereumPosMultiStream::class.java)
     }
 
     private var head: Head? = null
@@ -108,7 +108,7 @@ open class EthereumPosMultistream(
             val newHead = MergedHead(heads, PriorityForkChoice()).apply {
                 this.start()
             }
-            val lagObserver = EthereumPostHeadLagObserver(newHead, upstreams as Collection<Upstream>)
+            val lagObserver = EthereumPosHeadLagObserver(newHead, upstreams as Collection<Upstream>)
             this.lagObserver = lagObserver
             lagObserver.start()
             newHead
