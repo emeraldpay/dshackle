@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: textbook/git-checkout-submodule-action@master
 
       - name: Set up JDK
         uses: actions/setup-java@v1
@@ -55,6 +56,7 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v2
+      - uses: textbook/git-checkout-submodule-action@master
 
       - name: Set up JDK
         uses: actions/setup-java@v1
