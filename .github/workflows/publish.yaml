@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@master
         with:
           ref: ${{ github.ref }}
-      - uses: textbook/git-checkout-submodule-action@master
+          submodules: recursive
       - name: Set up JDK
         uses: actions/setup-java@v1
         with:
@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@master
         with:
           ref: ${{ github.ref }}
-      - uses: textbook/git-checkout-submodule-action@master
+          submodules: recursive
       - name: Set up JDK
         uses: actions/setup-java@v1
         with:
