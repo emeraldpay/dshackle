@@ -1,0 +1,22 @@
+{
+  "baseFeePerGas": "0x1bee2dd60",
+  "difficulty": "0x2a392ce7577bb6",
+  "extraData": "0x706f6f6c696e2e636f6d203bb704c2ea57e9ea",
+  "gasLimit": "0x1c95111",
+  "gasUsed": "0x1c92201",
+  "hash": "0x95fd7b85ed04cc67884d7c33d13df3ebb568a2c1532021316c296038bda71776",
+  "logsBloom": "0xcebecdfb7deb7ced9da83f9dfbbadf778315b7cb669d85bee9af5a76dcaebdbf9f7eb5ed9dd15d1ff4a1bb6f67ff4bdc4f1db5a95efbbbf4a655b2ff6d3ff7fde4fb98b99f59b5fefa921fd962296df2bcdbdfbf8ff55d7d12c2df1fbcbddadc5f12abc5e72af47ec084be69a17a3fdbff7dea6fff7d5ff60fdbecd2cf6cbebdcf789f4ce95fbbe416ef9bffcf6ea4f65fa9adf3fb6bdd1a7efffbfe49bbbbb5fbddab6df5ea7e689fa9ebf6ed76bdb497dc2bceff39f31a1e33fff7dcfd637cdb53f70fb3cf0cfb6ff0fbbebdfbd7dcaffaff46ea5f8b9e6e757ffefcfdf7dea17f7f7cffef7f4d5ea055fd7f6c7cafaeeb98b9496d0e5df7eedab1be5b79ef",
+  "miner": "0x8f03f1a3f10c05e7cccf75c1fd10168e06659be7",
+  "mixHash": "0x1071fcdfa97b5a7a7c65ff9376ad212815d89986c1530c8b23f84d31c13cad12",
+  "nonce": "0xe6de1dde14d49aeb",
+  "number": "0xeaf0bb",
+  "parentHash": "0x431533a3fec65477d91c310a78ac766c2c660b4c410db6c429cb71ca069cc441",
+  "receiptsRoot": "0x01253f659cdf7e7223ef4b254fa7e654c1813bb1f39676033ff34b18c65ccb83",
+  "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+  "size": "0x230b2",
+  "stateRoot": "0x482376d49e5a49695f28fbc43cadb7c09ec1486d0951280ca1d92590b5b83c8d",
+  "timestamp": "0x6304e043",
+  "totalDifficulty": "0xc1370904c375c59ceb9",
+  "transactionsRoot": "0x7ada19c3ef58d5470452dfa2a45611c632e36204b90a77da0419225f0364f713",
+  "uncles": []
+}

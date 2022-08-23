@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.AbstractHead
+import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -29,7 +30,7 @@ import reactor.core.publisher.Mono
 
 open class DefaultEthereumHead(
     forkChoice: ForkChoice
-) : Head, AbstractHead(forkChoice) {
+) : Head, AbstractHead(forkChoice, EthereumBlockValidator()) {
 
     companion object {
         private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)
