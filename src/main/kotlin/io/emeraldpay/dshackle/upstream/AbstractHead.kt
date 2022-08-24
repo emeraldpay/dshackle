@@ -16,7 +16,6 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumBlockValidator
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
