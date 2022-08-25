@@ -33,6 +33,7 @@ import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
+import reactor.util.function.Tuple2
 
 class MultistreamHolderMock implements MultistreamHolder {
 
@@ -97,6 +98,11 @@ class MultistreamHolderMock implements MultistreamHolder {
     @Override
     boolean isAvailable(@NotNull Chain chain) {
         return upstreams.containsKey(chain)
+    }
+
+    @Override
+    Flux<Tuple2<Chain, Upstream>> observeAddedUpstreams() {
+        return Flux.empty()
     }
 
     static class EthereumMultistreamMock extends EthereumMultistream {

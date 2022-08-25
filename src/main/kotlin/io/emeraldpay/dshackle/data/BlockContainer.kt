@@ -25,21 +25,29 @@ import java.time.Instant
 class BlockContainer(
     val height: Long,
     val hash: BlockId,
+    val parentHash: BlockId?,
     val difficulty: BigInteger,
     val timestamp: Instant,
-    val full: Boolean,
+    val includesFullTransactions: Boolean,
     json: ByteArray?,
     val parsed: Any?,
     val transactions: List<TxId> = emptyList()
 ) : SourceContainer(json, parsed) {
 
+    constructor(height: Long, hash: BlockId, difficulty: BigInteger, timestamp: Instant) :
+        this(height, hash, null, difficulty, timestamp, false, null, null)
+
+    constructor(height: Long, hash: BlockId, difficulty: BigInteger, timestamp: Instant, transactions: List<TxId>) :
+        this(height, hash, null, difficulty, timestamp, false, null, null, transactions)
+
     companion object {
         @JvmStatic
         fun from(block: BlockJson<*>, raw: ByteArray): BlockContainer {
-            val hasTransactions = block.transactions?.filterIsInstance<TransactionJson>()?.count() ?: 0 > 0
+            val hasTransactions = (block.transactions?.filterIsInstance<TransactionJson>()?.count() ?: 0) > 0
             return BlockContainer(
                 block.number,
                 BlockId.from(block),
+                block.parentHash?.let(BlockId.Companion::from),
                 block.totalDifficulty,
                 block.timestamp,
                 hasTransactions,
@@ -76,7 +84,7 @@ class BlockContainer(
         if (hash != other.hash) return false
         if (difficulty != other.difficulty) return false
         if (timestamp != other.timestamp) return false
-        if (full != other.full) return false
+        if (includesFullTransactions != other.includesFullTransactions) return false
         if (transactions != other.transactions) return false
 
         return true

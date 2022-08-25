@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -33,6 +34,7 @@ import reactor.core.Disposable
 open class BitcoinRpcUpstream(
     id: String,
     chain: Chain,
+    forkWatch: ForkWatch,
     private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
     private val head: Head,
     options: UpstreamsConfig.Options,
@@ -40,7 +42,7 @@ open class BitcoinRpcUpstream(
     node: QuorumForLabels.QuorumItem,
     callMethods: CallMethods,
     esploraClient: EsploraClient? = null
-) : BitcoinUpstream(id, chain, options, role, callMethods, node, esploraClient), Lifecycle {
+) : BitcoinUpstream(id, chain, forkWatch, options, role, callMethods, node, esploraClient), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinRpcUpstream::class.java)
@@ -91,6 +93,7 @@ open class BitcoinRpcUpstream(
 
     override fun isRunning(): Boolean {
         var runningAny = validatorSubscription != null
+        runningAny = runningAny || super.isRunning()
         if (head is Lifecycle) {
             runningAny = runningAny || head.isRunning
         }
@@ -99,6 +102,7 @@ open class BitcoinRpcUpstream(
 
     override fun start() {
         log.info("Configured for ${chain.chainName}")
+        super.start()
         if (head is Lifecycle) {
             if (!head.isRunning) {
                 head.start()
@@ -118,6 +122,7 @@ open class BitcoinRpcUpstream(
     }
 
     override fun stop() {
+        super.stop()
         if (head is Lifecycle) {
             head.stop()
         }

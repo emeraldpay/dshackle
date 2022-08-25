@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -29,10 +28,5 @@ class EthereumHeadLagObserver(
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumHeadLagObserver::class.java)
-    }
-
-    override fun forkDistance(top: BlockContainer, curr: BlockContainer): Long {
-        // TODO look for common ancestor? though it may be a corruption
-        return 6
     }
 }

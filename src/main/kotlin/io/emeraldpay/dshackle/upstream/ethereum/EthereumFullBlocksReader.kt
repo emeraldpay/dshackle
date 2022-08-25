@@ -58,7 +58,7 @@ class EthereumFullBlocksReader(
             if (block.transactions.isEmpty()) {
                 // in fact it's not necessary to create a copy, made just for code clarity but it may be a performance loss
                 val fullBlock = BlockContainer(
-                    block.height, block.hash, block.difficulty, block.timestamp,
+                    block.height, block.hash, block.parentHash, block.difficulty, block.timestamp,
                     true,
                     block.json,
                     block.parsed,
@@ -88,7 +88,7 @@ class EthereumFullBlocksReader(
                         .map(this@EthereumFullBlocksReader::extractContent)
                         .map { json ->
                             BlockContainer(
-                                block.height, block.hash, block.difficulty, block.timestamp,
+                                block.height, block.hash, block.parentHash, block.difficulty, block.timestamp,
                                 true,
                                 json,
                                 null,

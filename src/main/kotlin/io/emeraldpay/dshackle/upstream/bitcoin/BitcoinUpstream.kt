@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.grpc.Chain
@@ -26,19 +27,21 @@ import org.slf4j.LoggerFactory
 abstract class BitcoinUpstream(
     id: String,
     val chain: Chain,
+    forkWatch: ForkWatch,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     callMethods: CallMethods,
     node: QuorumForLabels.QuorumItem,
     val esploraClient: EsploraClient? = null
-) : DefaultUpstream(id, options, role, callMethods, node) {
+) : DefaultUpstream(id, forkWatch, options, role, callMethods, node) {
 
     constructor(
         id: String,
         chain: Chain,
+        forkWatch: ForkWatch,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole
-    ) : this(id, chain, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty())
+    ) : this(id, chain, forkWatch, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty())
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstream::class.java)

@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -39,6 +40,7 @@ import org.reactivestreams.Publisher
 class EthereumUpstreamMock extends EthereumRpcUpstream {
 
     EthereumHeadMock ethereumHeadMock = new EthereumHeadMock()
+    UpstreamAvailability mockStatus = null
 
     static CallMethods allMethods() {
         new AggregatedCallMethods([
@@ -61,7 +63,7 @@ class EthereumUpstreamMock extends EthereumRpcUpstream {
     }
 
     EthereumUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
-        super(id, chain, api, null,
+        super(id, chain, new ForkWatch.Never(), api, null,
                 UpstreamsConfig.Options.getDefaults(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
@@ -77,6 +79,14 @@ class EthereumUpstreamMock extends EthereumRpcUpstream {
 
     void setBlocks(Publisher<BlockContainer> blocks) {
         ethereumHeadMock.predefined = blocks
+    }
+
+    @Override
+    UpstreamAvailability getStatus() {
+        if (mockStatus != null) {
+            return mockStatus
+        }
+        return super.getStatus()
     }
 
     @Override

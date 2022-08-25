@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import reactor.test.StepVerifier
+import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.time.Duration
@@ -31,7 +32,7 @@ class AbstractHeadSpec extends Specification {
     def blocks = [1L, 2, 3, 4].collect { i ->
         byte[] hash = new byte[32]
         hash[0] = i as byte
-        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, [])
+        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now())
     }
 
     def "Calls beforeBlock on each block"() {
@@ -44,7 +45,7 @@ class AbstractHeadSpec extends Specification {
         head.onBeforeBlock {
             called = true
         }
-        def act = head.flux
+        def act = head.flux.take(2)
         then:
         StepVerifier.create(act)
                 .then { source.tryEmitNext(blocks[0]) }
@@ -57,7 +58,6 @@ class AbstractHeadSpec extends Specification {
                 .expectNext(blocks[1])
                 .then {
                     assert called
-                    source.tryEmitComplete()
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
@@ -69,7 +69,7 @@ class AbstractHeadSpec extends Specification {
         def head = new TestHead()
         when:
         head.follow(source.asFlux())
-        def act = head.flux
+        def act = head.flux.take(4)
         then:
         StepVerifier.create(act)
                 .then { source.tryEmitNext(blocks[0]) }
@@ -78,33 +78,6 @@ class AbstractHeadSpec extends Specification {
                 .expectNext(blocks[1])
                 .then { source.tryEmitNext(blocks[2]) }
                 .expectNext(blocks[2])
-                .then { source.tryEmitNext(blocks[3]) }
-                .expectNext(blocks[3])
-                .then { source.tryEmitComplete() }
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
-    }
-
-    def "Ignores block will less difficulty"() {
-        setup:
-        Sinks.Many<BlockContainer> source = Sinks.many().unicast().onBackpressureBuffer()
-        def head = new TestHead()
-        def wrongblock = new BlockContainer(
-                blocks[1].height, BlockId.from(blocks[1].hash.value.clone().tap { it[1] = 0xff as byte }),
-                blocks[1].difficulty - 1,
-                Instant.now(),
-                false, null, null, []
-        )
-        when:
-        head.follow(source.asFlux())
-        def act = head.flux
-        then:
-        StepVerifier.create(act)
-                .then { source.tryEmitNext(blocks[0]) }
-                .expectNext(blocks[0])
-                .then { source.tryEmitNext(blocks[1]) }
-                .expectNext(blocks[1])
-                .then { source.tryEmitNext(wrongblock) }
                 .then { source.tryEmitNext(blocks[3]) }
                 .expectNext(blocks[3])
                 .then { source.tryEmitComplete() }

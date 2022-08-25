@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Flux
 
 interface Upstream {
+
     fun isAvailable(): Boolean
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>

@@ -18,12 +18,12 @@ package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.ForkWatchFactory
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
@@ -52,6 +52,7 @@ import kotlin.concurrent.withLock
 
 class GrpcUpstreams(
     private val id: String,
+    private val forkWatchFactory: ForkWatchFactory,
     private val role: UpstreamsConfig.UpstreamRole,
     private val host: String,
     private val port: Int,
@@ -60,7 +61,7 @@ class GrpcUpstreams(
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
-    var timeout = Defaults.timeout
+    var options = UpstreamsConfig.Options.getDefaults()
 
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
     private val known = HashMap<Chain, DefaultUpstream>()
@@ -202,8 +203,8 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = EthereumGrpcUpstream(id, role, chain, client!!, rpcClient)
-                created.timeout = this.timeout
+                val created = EthereumGrpcUpstream(id, forkWatchFactory.create(chain), role, chain, this.options, client!!, rpcClient)
+                created.timeout = this.options.timeout
                 known[chain] = created
                 created.start()
                 UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)
@@ -218,8 +219,8 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = BitcoinGrpcUpstream(id, role, chain, client!!, rpcClient)
-                created.timeout = this.timeout
+                val created = BitcoinGrpcUpstream(id, forkWatchFactory.create(chain), role, chain, this.options, client!!, rpcClient)
+                created.timeout = this.options.timeout
                 known[chain] = created
                 created.start()
                 UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)

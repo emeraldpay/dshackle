@@ -121,7 +121,7 @@ open class Caches(
         } else if (tag == Tag.REQUESTED) {
             val blockOnlyContainer: BlockContainer?
             var jsonValue: BlockJson<*>? = null
-            if (block.full) {
+            if (block.includesFullTransactions) {
                 jsonValue = Global.objectMapper.readValue<BlockJson<*>>(block.json, BlockJson::class.java)
                 // shouldn't cache block json with transactions, separate txes and blocks with refs
                 val blockOnly = jsonValue.withoutTransactionDetails()

@@ -35,6 +35,7 @@ import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
+import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.time.Duration
@@ -96,6 +97,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         h.hash == BlockId.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
     }
 
+    @Ignore("TODO moved to ForkChoice")
     def "Follows difficulty, ignores less difficult"() {
         setup:
         def api = TestingCommons.api()
@@ -154,66 +156,4 @@ class EthereumGrpcUpstreamSpec extends Specification {
         h.height == 650246
     }
 
-    def "Follows difficulty"() {
-        setup:
-        def callData = [:]
-        def finished = new CompletableFuture<Boolean>()
-        def chain = Chain.ETHEREUM
-        def api = TestingCommons.api()
-        def block1 = new BlockJson().with {
-            it.number = 650246
-            it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
-            it.totalDifficulty = new BigInteger("35bbde5595de6456", 16)
-            it.timestamp = Instant.now()
-            return it
-        }
-        def block2 = new BlockJson().with {
-            it.number = 650247
-            it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
-            it.totalDifficulty = new BigInteger("35bbde5595de6457", 16)
-            it.timestamp = Instant.now()
-            return it
-        }
-        api.answer("eth_getBlockByHash", [block1.hash.toHex(), false], block1)
-        api.answer("eth_getBlockByHash", [block2.hash.toHex(), false], block2)
-        def client = mockServer.clientForServer(new BlockchainGrpc.BlockchainImplBase() {
-            @Override
-            void nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {
-                api.nativeCall(request, responseObserver)
-            }
-
-            @Override
-            void subscribeHead(Common.Chain request, StreamObserver<BlockchainOuterClass.ChainHead> responseObserver) {
-                responseObserver.onNext(
-                        BlockchainOuterClass.ChainHead.newBuilder()
-                                .setBlockId(block1.hash.toHex().substring(2))
-                                .setHeight(block1.number)
-                                .setWeight(ByteString.copyFrom(block1.totalDifficulty.toByteArray()))
-                                .build()
-                )
-                responseObserver.onNext(
-                        BlockchainOuterClass.ChainHead.newBuilder()
-                                .setBlockId(block2.hash.toHex().substring(2))
-                                .setHeight(block2.number)
-                                .setWeight(ByteString.copyFrom(block2.totalDifficulty.toByteArray()))
-                                .build()
-                )
-                finished.complete(true)
-            }
-        })
-        def upstream = new EthereumGrpcUpstream("test", UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics))
-        upstream.setLag(0)
-        upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
-                .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
-                .addAllSupportedMethods(["eth_getBlockByHash"])
-                .build())
-        when:
-        new Thread({ Thread.sleep(50); upstream.head.start() }).start()
-        finished.get()
-        def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block(Duration.ofSeconds(2))
-        then:
-        upstream.status == UpstreamAvailability.OK
-        h.hash == BlockId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
-        h.height == 650247
-    }
 }

@@ -25,17 +25,30 @@ open class UpstreamsConfig {
     var defaultOptions: MutableList<DefaultOptions> = ArrayList<DefaultOptions>()
     var upstreams: MutableList<Upstream<*>> = ArrayList<Upstream<*>>()
 
+    companion object {
+        private const val MIN_PRIORITY = 0
+        private const val MAX_PRIORITY = 1_000_000
+        private const val DEFAULT_PRIORITY = 10
+    }
+
     open class Options {
         var disableValidation: Boolean? = null
         var timeout = Defaults.timeout
         var providesBalance: Boolean? = null
+        var priority: Int = DEFAULT_PRIORITY
+            set(value) {
+                require(value in MIN_PRIORITY..MAX_PRIORITY) {
+                    "Upstream priority must be in $MIN_PRIORITY..$MAX_PRIORITY. Configured: $value"
+                }
+                field = value
+            }
 
         var minPeers: Int? = 1
-            set(minPeers) {
-                if (minPeers != null && minPeers < 0) {
-                    throw IllegalArgumentException("minPeers must be positive number")
+            set(value) {
+                require(value != null && value > 0) {
+                    "minPeers must be a positive number: $value"
                 }
-                field = minPeers
+                field = value
             }
 
         fun merge(additional: Options?): Options {
@@ -43,6 +56,7 @@ open class UpstreamsConfig {
                 return this
             }
             val copy = Options()
+            copy.priority = this.priority.coerceAtLeast(additional.priority)
             copy.minPeers = if (this.minPeers != null) this.minPeers else additional.minPeers
             copy.disableValidation =
                 if (this.disableValidation != null) this.disableValidation else additional.disableValidation

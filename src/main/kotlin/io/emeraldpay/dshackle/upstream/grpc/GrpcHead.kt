@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
@@ -94,16 +95,17 @@ class GrpcHead(
         var blocks = source.map(converter)
             .distinctUntilChanged {
                 it.hash
-            }.filter { block ->
-                val curr = this.getCurrent()
-                curr == null || curr.difficulty < block.difficulty
             }
         if (enhancer != null) {
             blocks = blocks.flatMap(enhancer)
         }
 
         blocks = blocks.onErrorContinue { err, _ ->
-            log.error("Head subscription error. ${err.javaClass.name}:${err.message}", err)
+            if (err is RpcException) {
+                log.error("Head subscription error on ${parent.getId()}. ${err.javaClass.name}:${err.message}")
+            } else {
+                log.error("Head subscription error on ${parent.getId()}. ${err.javaClass.name}:${err.message}", err)
+            }
         }
 
         headSubscription = super.follow(blocks)
@@ -114,6 +116,7 @@ class GrpcHead(
     }
 
     override fun start() {
+        headSubscription?.dispose()
         this.internalStart(remote)
     }
 
