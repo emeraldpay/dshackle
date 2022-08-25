@@ -60,9 +60,6 @@ class BlocksRedisCacheSpec extends Specification {
                 BlockId.from(hash3),
                 BigInteger.valueOf(10515),
                 Instant.ofEpochSecond(10501050),
-                false,
-                "test".bytes,
-                null,
                 [TxId.from(hash2), TxId.from(hash1)]
         )
 
