@@ -96,7 +96,7 @@ open class WsConnection(
 
     private var reconnectBackoff: BackOff = ExponentialBackOff().also {
         it.initialInterval = Duration.ofMillis(100).toMillis()
-        it.maxInterval = Duration.ofMinutes(1).toMillis()
+        it.maxInterval = Duration.ofMinutes(5).toMillis()
     }
     private var currentBackOff = reconnectBackoff.start()
 
@@ -229,18 +229,20 @@ open class WsConnection(
         val consumer = inbound
             .aggregateFrames(msgSizeLimit)
             .receiveFrames()
-            .doOnNext {
-                if (!read) {
-                    // restart backoff only after a successful read from the connection,
-                    // otherwise it may restart it even if the connection is faulty
-                    currentBackOff = reconnectBackoff.start()
-                    read = true
-                }
-            }
             .map { ByteBufInputStream(it.content()).readAllBytes() }
             .flatMap {
                 try {
                     val msg = parser.parse(it)
+                    if (!read) {
+                        if (msg.error != null) {
+                            log.warn("Received error ${msg.error.code} from $uri: ${msg.error.message}")
+                        } else {
+                            // restart backoff only after a successful read from the connection,
+                            // otherwise it may restart it even if the connection is faulty or responds only with error
+                            currentBackOff = reconnectBackoff.start()
+                            read = true
+                        }
+                    }
                     if (msg.type == ResponseWSParser.Type.SUBSCRIPTION) {
                         onSubscription(msg)
                     } else {
