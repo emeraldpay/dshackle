@@ -46,7 +46,6 @@ class EthereumBlockValidator : BlockValidator {
 
     override fun isValid(currentHead: BlockContainer?, newHead: BlockContainer): Boolean =
         newHead.json?.let {
-            println(String(it))
             val validBlocksSequence = currentHead?.let { cur -> validateTotalDifficulty(cur, newHead) } ?: true
             val node = Global.objectMapper.readTree(it)
             val rlpEncoded = rlp(node)
