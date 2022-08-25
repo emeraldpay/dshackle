@@ -28,6 +28,7 @@ message ValueContainer {
 message BlockMeta {
     uint64 height = 1;
     bytes hash = 2;
+    bytes parentHash = 6;
     bytes difficulty = 3;
     uint64 timestamp = 4;
     repeated bytes tx_hashes = 5;

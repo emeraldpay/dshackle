@@ -83,9 +83,6 @@ class ReceiptMemCacheSpec extends Specification {
                 receipt.blockNumber, BlockId.from(receipt.blockHash),
                 BigInteger.ONE,
                 Instant.now(),
-                false,
-                "{}".bytes,
-                null,
                 [TxId.from(receipt.transactionHash)]
         )
 

@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
+import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -22,21 +23,30 @@ import java.time.Duration
 open class EthereumRpcUpstream(
     id: String,
     val chain: Chain,
+    forkWatch: ForkWatch,
     private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
     private val ethereumWsFactory: EthereumWsFactory? = null,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     private val node: QuorumForLabels.QuorumItem,
     targets: CallMethods
-) : EthereumUpstream(id, options, role, targets, node), Upstream, CachesEnabled, Lifecycle {
+) : EthereumUpstream(id, forkWatch, options, role, targets, node), Upstream, CachesEnabled, Lifecycle {
 
-    constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>) :
+    constructor(id: String, chain: Chain, directReader: Reader<JsonRpcRequest, JsonRpcResponse>, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, node: QuorumForLabels.QuorumItem, targets: CallMethods) :
         this(
-            id, chain, api, null,
+            id, chain, ForkWatch.Never(), directReader, null, options, role, node, targets
+        )
+
+    constructor(id: String, chain: Chain, forkWatch: ForkWatch, api: Reader<JsonRpcRequest, JsonRpcResponse>) :
+        this(
+            id, chain, forkWatch, api, null,
             UpstreamsConfig.Options.getDefaults(), UpstreamsConfig.UpstreamRole.PRIMARY,
             QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
             DirectCallMethods()
         )
+
+    constructor(id: String, chain: Chain, api: Reader<JsonRpcRequest, JsonRpcResponse>) :
+        this(id, chain, ForkWatch.Never(), api)
 
     private val log = LoggerFactory.getLogger(EthereumRpcUpstream::class.java)
 
@@ -51,7 +61,7 @@ open class EthereumRpcUpstream(
 
     override fun start() {
         log.info("Configured for ${chain.chainName}")
-
+        super.start()
         if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
             log.warn("Disable validation for upstream ${this.getId()}")
             this.setLag(0)
@@ -69,6 +79,7 @@ open class EthereumRpcUpstream(
     }
 
     override fun stop() {
+        super.stop()
         validatorSubscription?.dispose()
         validatorSubscription = null
         if (head is Lifecycle) {

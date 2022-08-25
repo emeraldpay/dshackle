@@ -197,7 +197,7 @@ class TrackEthereumTxSpec extends Specification {
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
-                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null,
+                100, BlockId.from(txId), BigInteger.ONE, Instant.now(),
                 [TxId.from(txId)]
         )
 
@@ -219,7 +219,7 @@ class TrackEthereumTxSpec extends Specification {
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
-                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null,
+                100, BlockId.from(txId), BigInteger.ONE, Instant.now(),
                 [TxId.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")]
         )
         apiMock.answer("eth_getTransactionByHash", [txId], null)

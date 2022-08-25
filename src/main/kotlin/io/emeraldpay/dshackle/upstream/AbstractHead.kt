@@ -22,6 +22,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Schedulers
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
 abstract class AbstractHead : Head {
@@ -44,9 +45,6 @@ abstract class AbstractHead : Head {
         return source
             .distinctUntilChanged {
                 it.hash
-            }.filter { block ->
-                val curr = head.get()
-                curr == null || curr.difficulty < block.difficulty
             }
             .doFinally {
                 // close internal stream if upstream is finished, otherwise it gets stuck,
@@ -58,19 +56,11 @@ abstract class AbstractHead : Head {
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe { block ->
                 notifyBeforeBlock()
-                val prev = head.getAndUpdate { curr ->
-                    if (curr == null || curr.difficulty < block.difficulty) {
-                        block
-                    } else {
-                        curr
-                    }
-                }
-                if (prev == null || prev.hash != block.hash) {
-                    log.debug("New block ${block.height} ${block.hash}")
-                    val result = stream.tryEmitNext(block)
-                    if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-                        log.warn("Failed to dispatch block: $result as ${this.javaClass}")
-                    }
+                head.set(block)
+                log.debug("New block ${block.height} ${block.hash}")
+                val result = stream.tryEmitNext(block)
+                if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
+                    log.warn("Failed to dispatch block: $result as ${this.javaClass}")
                 }
             }
     }
@@ -92,8 +82,15 @@ abstract class AbstractHead : Head {
     override fun getFlux(): Flux<BlockContainer> {
         return Flux.concat(
             Mono.justOrEmpty(head.get()),
-            stream.asFlux()
-        ).onBackpressureLatest()
+            stream.asFlux(),
+            // when the upstream makes a reconfiguration the head may be restarted,
+            // i.e. `follow` can be called multiple times and create a new stream each time
+            // in this case just continue with the new stream for all existing subscribers
+            Mono.fromCallable { log.warn("Restarting the Head...") }
+                .delaySubscription(Duration.ofMillis(100))
+                .thenMany { getFlux() }
+        )
+            .onBackpressureLatest()
     }
 
     fun getCurrent(): BlockContainer? {

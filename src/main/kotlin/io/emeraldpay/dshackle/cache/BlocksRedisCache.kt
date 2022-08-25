@@ -61,6 +61,7 @@ class BlocksRedisCache(
         return BlockContainer(
             meta.height,
             BlockId(meta.hash.toByteArray()),
+            if (meta.parentHash.isEmpty) null else BlockId(meta.parentHash.toByteArray()),
             BigInteger(meta.difficulty.toByteArray()),
             Instant.ofEpochMilli(meta.timestamp),
             false,
@@ -76,7 +77,7 @@ class BlocksRedisCache(
         if (block.timestamp == null || block.hash == null) { // null in unit tests
             return Mono.empty()
         }
-        if (block.full) {
+        if (block.includesFullTransactions) {
             return Mono.error(IllegalArgumentException("Full Block is not supposed to be cached"))
         }
         return super.add(block, block)

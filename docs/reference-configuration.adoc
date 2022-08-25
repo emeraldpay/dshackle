@@ -713,6 +713,12 @@ See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 `not_empty` - accept not _null_ value, otherwise retry another upstream;
 `not_lagging` - accept response only from a fully synced upstream.
 
+| `priority`
+| no
+| Upstream priority used to resolve Fork Conflicts between different upstreams when a Proof-of-Stake blockchain is used.
+When two upstreams has different blocks at the same height then the value from Upstreams with higher `priority` value wins.
+Configuration has no effect in Proof-of-Work blockchains.
+
 | `connection.ethereum`
 | yes
 | Connection configuration for Ethereum API

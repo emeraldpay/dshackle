@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.api.proto.ReactorBlockchainGrpc.ReactorBlockchainStub
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -25,6 +26,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -49,23 +51,29 @@ import java.util.function.Function
 
 open class EthereumGrpcUpstream(
     private val parentId: String,
+    forkWatch: ForkWatch,
     role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,
+    options: UpstreamsConfig.Options,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient
 ) : EthereumUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
-    UpstreamsConfig.Options.getDefaults(),
+    forkWatch,
+    options,
     role,
     null, null
 ),
     GrpcUpstream,
     Lifecycle {
 
+    constructor(parentId: String, role: UpstreamsConfig.UpstreamRole, chain: Chain, remote: ReactorBlockchainStub, client: JsonRpcGrpcClient) :
+        this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.Options.getDefaults(), remote, client)
+
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val block = BlockContainer(
             value.height,
-            BlockId.from(BlockHash.from("0x" + value.blockId)),
+            BlockId.from(BlockHash.from("0x" + value.blockId)), null,
             BigInteger(1, value.weight.toByteArray()),
             Instant.ofEpochMilli(value.timestamp),
             false,
@@ -108,6 +116,7 @@ open class EthereumGrpcUpstream(
     }
 
     override fun start() {
+        super.start()
     }
 
     override fun isRunning(): Boolean {
@@ -115,6 +124,7 @@ open class EthereumGrpcUpstream(
     }
 
     override fun stop() {
+        super.stop()
     }
 
     override fun update(conf: BlockchainOuterClass.DescribeChain) {

@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
+import io.emeraldpay.dshackle.upstream.ForkWatchFactory
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
@@ -61,6 +62,8 @@ open class ConfiguredUpstreams(
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
     private var seq = AtomicInteger(0)
+
+    private val forkWatchFactory = ForkWatchFactory(currentUpstreams)
 
     @PostConstruct
     fun start() {
@@ -175,7 +178,7 @@ open class ConfiguredUpstreams(
         val upstream = BitcoinRpcUpstream(
             config.id
                 ?: "bitcoin-${seq.getAndIncrement()}",
-            chain, directApi, head,
+            chain, forkWatchFactory.create(chain), directApi, head,
             options, config.role,
             QuorumForLabels.QuorumItem(1, config.labels),
             methods, esplora
@@ -223,7 +226,7 @@ open class ConfiguredUpstreams(
         val ethereumUpstream = if (wsFactoryApi != null && !conn.preferHttp) {
             EthereumWsUpstream(
                 config.id!!,
-                chain, directApi, wsFactoryApi,
+                chain, forkWatchFactory.create(chain), directApi, wsFactoryApi,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods
@@ -231,7 +234,7 @@ open class ConfiguredUpstreams(
         } else {
             EthereumRpcUpstream(
                 config.id!!,
-                chain, directApi, wsFactoryApi,
+                chain, forkWatchFactory.create(chain), directApi, wsFactoryApi,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods
@@ -249,13 +252,14 @@ open class ConfiguredUpstreams(
         val endpoint = config.connection!!
         val ds = GrpcUpstreams(
             config.id!!,
+            forkWatchFactory,
             config.role,
             endpoint.host!!,
             endpoint.port,
             endpoint.auth,
             fileResolver
         ).apply {
-            timeout = options.timeout
+            this.options = options
         }
         log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
         ds.start()

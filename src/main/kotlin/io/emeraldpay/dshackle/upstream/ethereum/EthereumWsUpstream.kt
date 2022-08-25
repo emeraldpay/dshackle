@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
+import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -34,13 +35,14 @@ import reactor.core.Disposable
 class EthereumWsUpstream(
     id: String,
     val chain: Chain,
+    forkWatch: ForkWatch,
     httpConnection: Reader<JsonRpcRequest, JsonRpcResponse>,
     ethereumWsFactory: EthereumWsFactory,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     node: QuorumForLabels.QuorumItem,
     targets: CallMethods
-) : EthereumUpstream(id, options, role, targets, node), Upstream, Lifecycle {
+) : EthereumUpstream(id, forkWatch, options, role, targets, node), Upstream, Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumWsUpstream::class.java)
@@ -86,6 +88,7 @@ class EthereumWsUpstream(
     }
 
     override fun start() {
+        super.start()
         connection.connect()
         head.start()
 
@@ -102,6 +105,7 @@ class EthereumWsUpstream(
     }
 
     override fun stop() {
+        super.stop()
         validatorSubscription?.dispose()
         validatorSubscription = null
         head.stop()
@@ -109,6 +113,6 @@ class EthereumWsUpstream(
     }
 
     override fun isRunning(): Boolean {
-        return head.isRunning
+        return super.isRunning() || head.isRunning
     }
 }

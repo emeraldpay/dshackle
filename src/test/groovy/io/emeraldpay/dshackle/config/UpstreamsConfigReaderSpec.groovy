@@ -99,6 +99,19 @@ class UpstreamsConfigReaderSpec extends Specification {
         }
     }
 
+    def "Parse priorities"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-priority.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 3
+        act.upstreams[0].options.priority == 100
+        act.upstreams[1].options.priority == 50
+        act.upstreams[2].options.priority == 75
+    }
+
     def "Parse full defined websocket config"() {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("upstreams-ws-full.yaml")

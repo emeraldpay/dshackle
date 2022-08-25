@@ -141,8 +141,8 @@ class HeadLagObserverSpec extends Specification {
 
         100       | 1000    | 101        | 1010     | 0
         100       | 1000    | 102        | 1020     | 0
-        100       | 1000    | 100        | 1010     | 11
-        100       | 1100    | 100        | 1000     | 11
+        100       | 1000    | 100        | 1010     | 0
+        100       | 1100    | 100        | 1000     | 0
 
     }
 
@@ -152,9 +152,5 @@ class HeadLagObserverSpec extends Specification {
             super(master, followers)
         }
 
-        @Override
-        long forkDistance(@NotNull BlockContainer top, @NotNull BlockContainer curr) {
-            return 11
-        }
     }
 }

@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
-import io.emeraldpay.dshackle.test.TestingCommons
+
 import spock.lang.Specification
 
 class ExtractBlockSpec extends Specification {
@@ -32,7 +32,7 @@ class ExtractBlockSpec extends Specification {
         act.height == 626472
         act.timestamp.toString() == "2020-04-18T00:58:46Z"
         act.difficulty.toString(16) == "e9baec5f63190a2b0bbcf6b"
-        !act.full
+        !act.includesFullTransactions
         act.transactions.size() == 1487
         act.json == json
     }

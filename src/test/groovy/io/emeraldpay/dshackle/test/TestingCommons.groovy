@@ -31,6 +31,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.etherjar.hex.Hex32
 import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
@@ -92,10 +93,15 @@ class TestingCommons {
         return new FileResolver(new File("src/test/resources"))
     }
 
-    static BlockContainer blockForEthereum(Long height) {
+    static BlockContainer blockForEthereum(Long height, BlockHash hash = null) {
         BlockJson block = new BlockJson().tap {
             setNumber(height)
-            setHash(BlockHash.from("0xc4b01774e426325b50f0c709753ec7cf1f1774439d587dfb91f2a4eeb8179cde"))
+            if (hash != null) {
+                setHash(hash)
+            } else {
+                setHash(BlockHash.from(Hex32.extendFrom(height).getBytes()))
+            }
+            setParentHash(BlockHash.from(Hex32.extendFrom(height - 1).getBytes()))
             setTotalDifficulty(BigInteger.ONE)
             setTimestamp(predictableTimestamp(height, 14))
         }
@@ -107,11 +113,7 @@ class TestingCommons {
                 height,
                 BlockId.from(StringUtils.leftPad(height.toString(), 64, "0")),
                 BigInteger.valueOf(height),
-                predictableTimestamp(height, 60),
-                false,
-                null,
-                null,
-                []
+                predictableTimestamp(height, 60)
         )
     }
 

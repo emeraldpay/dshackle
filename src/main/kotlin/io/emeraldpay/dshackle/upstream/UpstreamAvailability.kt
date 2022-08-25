@@ -43,6 +43,10 @@ enum class UpstreamAvailability(val grpcId: Int) {
      */
     UNAVAILABLE(5);
 
+    fun isBetterTo(other: UpstreamAvailability): Boolean {
+        return other.grpcId > grpcId
+    }
+
     companion object {
         fun fromGrpc(id: Int?): UpstreamAvailability {
             if (id == null) {

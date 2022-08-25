@@ -271,7 +271,7 @@ class TrackBitcoinAddressSpec extends Specification {
         Head head = Mock(Head) {
             1 * getFlux() >> Flux.concat(
                     Flux.just(
-                            new BlockContainer(0L, BlockId.from(hash1), BigInteger.ZERO, Instant.now(), false, null, null, [])
+                            new BlockContainer(0L, BlockId.from(hash1), BigInteger.ZERO, Instant.now())
                     ),
                     blocks.asFlux()
             )
@@ -312,7 +312,7 @@ class TrackBitcoinAddressSpec extends Specification {
         StepVerifier.create(resp)
                 .expectNext("0")
                 .then {
-                    blocks.tryEmitNext(new BlockContainer(1L, BlockId.from(hash1), BigInteger.ONE, Instant.now(), false, null, null, []))
+                    blocks.tryEmitNext(new BlockContainer(1L, BlockId.from(hash1), BigInteger.ONE, Instant.now()))
                 }
                 .expectNext("1230000")
                 .then {

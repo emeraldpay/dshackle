@@ -15,7 +15,6 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
-import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -28,10 +27,5 @@ class BitcoinHeadLagObserver(
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinHeadLagObserver::class.java)
-    }
-
-    override fun forkDistance(top: BlockContainer, curr: BlockContainer): Long {
-        // TODO fetch actual blocks
-        return 3
     }
 }

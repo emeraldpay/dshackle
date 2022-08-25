@@ -85,12 +85,6 @@ abstract class HeadLagObserver(
     }
 
     open fun extractDistance(top: BlockContainer, curr: BlockContainer): Long {
-        return when {
-            curr.height > top.height -> if (curr.difficulty >= top.difficulty) 0 else forkDistance(top, curr)
-            curr.height == top.height -> if (curr.difficulty == top.difficulty) 0 else forkDistance(top, curr)
-            else -> top.height - curr.height
-        }
+        return (top.height - curr.height).coerceAtLeast(0)
     }
-
-    abstract fun forkDistance(top: BlockContainer, curr: BlockContainer): Long
 }

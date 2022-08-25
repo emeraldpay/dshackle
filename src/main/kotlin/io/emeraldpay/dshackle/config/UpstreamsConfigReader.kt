@@ -215,6 +215,12 @@ class UpstreamsConfigReader(
         upstream.id = getValueAsString(upNode, "id")
         upstream.options = tryReadOptions(upNode)
         upstream.methods = tryReadMethods(upNode)
+        getValueAsInt(upNode, "priority")?.let {
+            if (upstream.options == null) {
+                upstream.options = UpstreamsConfig.Options.getDefaults()
+            }
+            upstream.options!!.priority = it
+        }
         getValueAsBool(upNode, "enabled")?.let {
             upstream.isEnabled = it
         }
@@ -312,6 +318,9 @@ class UpstreamsConfigReader(
         }
         getValueAsBool(values, "balance")?.let {
             options.providesBalance = it
+        }
+        getValueAsInt(values, "priority")?.let {
+            options.priority = it
         }
         return options
     }

@@ -20,12 +20,10 @@ import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
@@ -33,6 +31,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
+import reactor.util.function.Tuple2
+import reactor.util.function.Tuples
 import java.util.Collections
 import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
@@ -51,6 +51,9 @@ open class CurrentMultistreamHolder(
     private val chainsBus = Sinks.many()
         .multicast()
         .directBestEffort<Chain>()
+    private val addedUpstreams = Sinks.many()
+        .multicast()
+        .directBestEffort<Tuple2<Chain, Upstream>>()
     private val callTargets = HashMap<Chain, CallMethods>()
     private val updateLock = ReentrantLock()
 
@@ -59,35 +62,26 @@ open class CurrentMultistreamHolder(
             log.debug("Upstream update: ${change.type} ${change.chain} via ${change.upstream.getId()}")
             val chain = change.chain
             try {
-                when (BlockchainType.from(chain)) {
-                    BlockchainType.ETHEREUM -> {
-                        val up = change.upstream.cast(EthereumUpstream::class.java)
-                        val current = chainMapping[chain]
-                        val factory = Callable<Multistream> {
-                            EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
-                        }
-                        processUpdate(change, up, current, factory)
+                val current = chainMapping[chain]
+                val factory = when (BlockchainType.from(chain)) {
+                    BlockchainType.ETHEREUM -> Callable<Multistream> {
+                        EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
                     }
-                    BlockchainType.BITCOIN -> {
-                        val up = change.upstream.cast(BitcoinUpstream::class.java)
-                        val current = chainMapping[chain]
-                        val factory = Callable<Multistream> {
-                            BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
-                        }
-                        processUpdate(change, up, current, factory)
+                    BlockchainType.BITCOIN -> Callable<Multistream> {
+                        BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
                     }
-                    else -> {
-                        log.error("Update for unsupported chain: $chain")
-                    }
+                    else -> throw IllegalStateException("Update for unsupported chain: $chain")
                 }
+                processUpdate(change, current, factory)
             } catch (e: Throwable) {
                 log.error("Failed to update upstream", e)
             }
         }
     }
 
-    fun processUpdate(change: UpstreamChange, up: Upstream, current: Multistream?, factory: Callable<Multistream>) {
+    fun processUpdate(change: UpstreamChange, current: Multistream?, factory: Callable<Multistream>) {
         val chain = change.chain
+        val up: Upstream = change.upstream
         if (change.type == UpstreamChange.ChangeType.REMOVED) {
             current?.removeUpstream(up.getId())
             log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
@@ -111,6 +105,7 @@ open class CurrentMultistreamHolder(
                 setupDefaultMethods(chain)
             }
             log.info("Upstream ${change.upstream.getId()} with chain $chain has been added")
+            addedUpstreams.tryEmitNext(Tuples.of(chain, up))
         }
     }
 
@@ -120,6 +115,10 @@ open class CurrentMultistreamHolder(
 
     override fun getAvailable(): List<Chain> {
         return Collections.unmodifiableList(chainMapping.keys.toList())
+    }
+
+    override fun observeAddedUpstreams(): Flux<Tuple2<Chain, Upstream>> {
+        return Flux.from(addedUpstreams.asFlux())
     }
 
     override fun observeChains(): Flux<Chain> {

@@ -1,6 +1,5 @@
 /**
- * Copyright (c) 2020 EmeraldPay, Inc
- * Copyright (c) 2019 ETCDEV GmbH
+ * Copyright (c) 2022 EmeraldPay, Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.test
 
-import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ForkWatch
+import io.emeraldpay.dshackle.upstream.NeverForkChoice
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.grpc.Chain
+import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
-import reactor.util.function.Tuple2
 
-/**
- * Holds Multistreams configured for a chain.
- */
-interface MultistreamHolder {
-    fun getUpstream(chain: Chain): Multistream?
-    fun getAvailable(): List<Chain>
-    fun observeChains(): Flux<Chain>
-    fun observeAddedUpstreams(): Flux<Tuple2<Chain, Upstream>>
-    fun getDefaultMethods(chain: Chain): CallMethods
-    fun isAvailable(chain: Chain): Boolean
+class ForkWatchMock extends ForkWatch {
+
+    private Flux<Boolean> results
+
+    ForkWatchMock(Flux<Boolean> results) {
+        super(new NeverForkChoice(), Chain.ETHEREUM)
+        this.results = results
+    }
+
+    @Override
+    Flux<Boolean> register(@NotNull Upstream upstream) {
+        return results
+    }
 }

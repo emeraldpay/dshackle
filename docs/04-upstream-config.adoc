@@ -45,6 +45,7 @@ cluster:
   upstreams:
     - id: us-nodes
       chain: auto
+      priority: 10
       connection:
         grpc:
           host: 35.226.252.117
@@ -55,6 +56,7 @@ cluster:
             key: client.p8.key
     - id: infura-eth
       chain: ethereum
+      priority: 5
       role: fallback
       labels:
         provider: infura
@@ -93,6 +95,40 @@ In the example above we have:
 ** uses Basic Authentication to authenticate requests on Infura
 ** label `[provider: infura]` is set for that particular upstream, which can be selected during a request.For example for some requests you may want to use nodes with that label only, i.e. _"send that tx to infura nodes only"_, or _"read only from archive node, with label [archive: true]"_
 ** upstream validation (peers, sync status, etc) is disabled for that particular upstream
+* upstream `us-nodes` has a higher priority than `infura-eth` so if there is a different block on the same height (i.e., a fork) then Dshackle chooses block from `us-nodes`. Note that it is specific only for Proof-of-Stake blockchains, such as Ethereum.
+
+=== Fork Choice configuration
+
+When two different upstream produce a different block it's critical to route the request traffic to an upstream on the right fork.
+
+With Proof-of-Work blockchains Dshackle chooses the block with more works produced, and that's the general consensus for PoW blockchains.
+
+For Proof-of-Stake this is impossible and instead of Total Work you have to configure a priority of upstream, i.e., the process is more manual.
+In a situation when Dshackle sees a fork it chooses the upstreams with the block on the side with the highest priority.
+
+.Configuration option for priorities is `priority`:
+[source, yaml]
+----
+- id: eth-one
+  chain: ethereum
+  priority: 10
+
+- id: eth-two
+  chain: ethereum
+  priority: 20
+
+- id: eth-three
+  chain: ethereum
+  priority: 15
+----
+
+In this case upstream `eth-two` has the highest priority, and it's blocks are considered as _true_ in case of a fork.
+If the upstream is down for a some reason, then blocks from `eth-three` are used instead.
+
+NOTE: Priority is a configuration for a Fork decision, and it doesn't change the priority of the traffic.
+Except the situation when Dshackle sees a fork between different upstreams; in this case all traffic is routed only to upstreams on the right side of the fork.
+
+NOTE: Configuration applies only for Proof-of-Stack and for Proof-of-Work blockchains priority options is not used.
 
 === Roles and Fallback upstream
 

@@ -42,4 +42,14 @@ class BlockIdSpec extends Specification {
         "00e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27100" | "0x00e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27100"
     }
 
+    def "Same hash makes equal ids"() {
+        expect:
+        BlockId.from("01") == BlockId.from("01")
+    }
+
+    def "Different hashes makes non equal ids"() {
+        expect:
+        BlockId.from("01") != BlockId.from("02")
+    }
+
 }
