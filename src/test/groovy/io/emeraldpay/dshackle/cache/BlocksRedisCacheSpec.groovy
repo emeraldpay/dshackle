@@ -57,9 +57,12 @@ class BlocksRedisCacheSpec extends Specification {
         setup:
         BlockContainer cont = new BlockContainer(
                 100,
-                BlockId.from(hash3),
+                BlockId.from(hash3), null,
                 BigInteger.valueOf(10515),
                 Instant.ofEpochSecond(10501050),
+                false,
+                "test".bytes,
+                null,
                 [TxId.from(hash2), TxId.from(hash1)]
         )
 
