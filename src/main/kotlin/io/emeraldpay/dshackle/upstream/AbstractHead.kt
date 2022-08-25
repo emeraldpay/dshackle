@@ -57,7 +57,7 @@ abstract class AbstractHead(
             }
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe { block ->
-                if (blockValidator.isValid(block)) {
+                if (blockValidator.isValid(forkChoice.getHead(), block)) {
                     notifyBeforeBlock()
                     when (val choiceResult = forkChoice.choose(block)) {
                         is ForkChoice.ChoiceResult.Updated -> {

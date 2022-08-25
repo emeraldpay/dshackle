@@ -4,10 +4,10 @@ import io.emeraldpay.dshackle.data.BlockContainer
 
 interface BlockValidator {
 
-    fun isValid(block: BlockContainer): Boolean
+    fun isValid(currentHead: BlockContainer?, newHead: BlockContainer): Boolean
 
     class AlwaysValid : BlockValidator {
-        override fun isValid(block: BlockContainer): Boolean = true
+        override fun isValid(currentHead: BlockContainer?, newHead: BlockContainer): Boolean = true
     }
 
     companion object {
