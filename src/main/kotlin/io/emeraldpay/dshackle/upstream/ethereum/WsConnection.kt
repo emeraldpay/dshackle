@@ -225,12 +225,18 @@ open class WsConnection(
     }
 
     fun handle(inbound: WebsocketInbound, outbound: WebsocketOutbound): Publisher<Void> {
-        // restart backoff after connection
-        currentBackOff = reconnectBackoff.start()
-
+        var read = false
         val consumer = inbound
             .aggregateFrames(msgSizeLimit)
             .receiveFrames()
+            .doOnNext {
+                if (!read) {
+                    // restart backoff only after a successful read from the connection,
+                    // otherwise it may restart it even if the connection is faulty
+                    currentBackOff = reconnectBackoff.start()
+                    read = true
+                }
+            }
             .map { ByteBufInputStream(it.content()).readAllBytes() }
             .flatMap {
                 try {
