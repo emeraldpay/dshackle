@@ -132,7 +132,7 @@ class AbstractHeadSpec extends Specification {
                 BlockContainer getHead() {
                     return null
                 }
-            })
+            },  new BlockValidator.AlwaysValid())
         }
     }
 }

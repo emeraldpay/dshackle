@@ -25,7 +25,8 @@ import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.toMono
 
 abstract class AbstractHead(
-    private val forkChoice: ForkChoice
+    private val forkChoice: ForkChoice,
+    private val blockValidator: BlockValidator = BlockValidator.ALWAYS_VALID
 ) : Head {
 
     companion object {
@@ -56,17 +57,22 @@ abstract class AbstractHead(
             }
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe { block ->
-                notifyBeforeBlock()
-                when (val choiceResult = forkChoice.choose(block)) {
-                    is ForkChoice.ChoiceResult.Updated -> {
-                        val newHead = choiceResult.nwhead
-                        log.debug("New block ${newHead.height} ${newHead.hash}")
-                        val result = stream.tryEmitNext(newHead)
-                        if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-                            log.warn("Failed to dispatch block: $result as ${this.javaClass}")
+                if (blockValidator.isValid(forkChoice.getHead(), block)) {
+                    notifyBeforeBlock()
+                    when (val choiceResult = forkChoice.choose(block)) {
+                        is ForkChoice.ChoiceResult.Updated -> {
+                            val newHead = choiceResult.nwhead
+                            log.debug("New block ${newHead.height} ${newHead.hash}")
+                            val result = stream.tryEmitNext(newHead)
+                            if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
+                                log.warn("Failed to dispatch block: $result as ${this.javaClass}")
+                            }
                         }
+
+                        is ForkChoice.ChoiceResult.Same -> {}
                     }
-                    is ForkChoice.ChoiceResult.Same -> {}
+                } else {
+                    log.warn("Invalid block $block}")
                 }
             }
     }
