@@ -171,6 +171,7 @@ open class WsConnection(
 
     private fun connectInternal() {
         log.info("Connecting to WebSocket: $uri")
+        log.info("Available processors: ${Runtime.getRuntime().availableProcessors()}")
         connection?.dispose()
         connection = HttpClient.create()
             .resolver(DefaultAddressResolverGroup.INSTANCE)
