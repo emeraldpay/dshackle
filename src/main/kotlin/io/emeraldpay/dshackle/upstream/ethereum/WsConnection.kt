@@ -119,7 +119,9 @@ open class WsConnection(
         .multicast()
         .directBestEffort<Instant>()
     private val sendIdSeq = AtomicInteger(IDS_START)
-    private val sendExecutor = Executors.newSingleThreadExecutor()
+    private val sendExecutor = Executors.newFixedThreadPool(
+        1.coerceAtLeast(Runtime.getRuntime().availableProcessors() / 2)
+    )
     private var keepConnection = true
     private var connection: Disposable? = null
     private val reconnecting = AtomicBoolean(false)
