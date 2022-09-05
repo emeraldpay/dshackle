@@ -57,7 +57,12 @@ abstract class AbstractHead(
             }
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe { block ->
-                if (blockValidator.isValid(forkChoice.getHead(), block)) {
+                val valid = runCatching {
+                    blockValidator.isValid(forkChoice.getHead(), block)
+                }.onFailure {
+                    log.error("Block ${block.hash} validation failed with '${it.message}'", it)
+                }.getOrElse { false }
+                if (valid) {
                     notifyBeforeBlock()
                     when (val choiceResult = forkChoice.choose(block)) {
                         is ForkChoice.ChoiceResult.Updated -> {
