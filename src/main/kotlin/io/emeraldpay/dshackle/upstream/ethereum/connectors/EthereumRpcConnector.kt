@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.connectors
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcHead
@@ -20,7 +21,8 @@ class EthereumRpcConnector(
     private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
     wsFactory: EthereumWsFactory?,
     id: String,
-    forkChoice: ForkChoice
+    forkChoice: ForkChoice,
+    blockValidator: BlockValidator
 ) : EthereumConnector, CachesEnabled {
     private val conn: WsConnection?
     private val head: Head
@@ -33,14 +35,14 @@ class EthereumRpcConnector(
         if (wsFactory != null) {
             // do not set upstream to the WS, since it doesn't control the RPC upstream
             conn = wsFactory.create(null, null)
-            val wsHead = EthereumWsHead(conn, forkChoice)
+            val wsHead = EthereumWsHead(conn, forkChoice, blockValidator)
             // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(directReader, forkChoice, Duration.ofSeconds(60))
+            val rpcHead = EthereumRpcHead(directReader, forkChoice, blockValidator, Duration.ofSeconds(60))
             head = MergedHead(listOf(rpcHead, wsHead), forkChoice)
         } else {
             conn = null
             log.warn("Setting up connector for $id upstream with RPC-only access, less effective than WS+RPC")
-            head = EthereumRpcHead(directReader, forkChoice)
+            head = EthereumRpcHead(directReader, forkChoice, blockValidator)
         }
     }
 

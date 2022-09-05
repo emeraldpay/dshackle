@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import org.slf4j.LoggerFactory
@@ -25,8 +26,9 @@ import reactor.core.publisher.Flux
 
 class EthereumWsHead(
     private val ws: WsConnection,
-    forkChoice: ForkChoice
-) : DefaultEthereumHead(forkChoice), Lifecycle {
+    forkChoice: ForkChoice,
+    blockValidator: BlockValidator
+) : DefaultEthereumHead(forkChoice, blockValidator), Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 

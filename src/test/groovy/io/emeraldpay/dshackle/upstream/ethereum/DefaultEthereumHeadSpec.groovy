@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
@@ -31,7 +32,7 @@ import java.time.Instant
 
 class DefaultEthereumHeadSpec extends Specification {
 
-    DefaultEthereumHead head = new DefaultEthereumHead(new MostWorkForkChoice())
+    DefaultEthereumHead head = new DefaultEthereumHead(new MostWorkForkChoice(), BlockValidator.@Companion.ALWAYS_VALID)
     ObjectMapper objectMapper = Global.objectMapper
 
     def blocks = (10L..20L).collect { i ->
