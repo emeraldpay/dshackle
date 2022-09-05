@@ -48,7 +48,7 @@ class FilteredApisSpec extends Specification {
             def httpFactory = Mock(HttpFactory) {
                 create(_, _) >> TestingCommons.api().tap { it.id = "${i++}" }
             }
-            def connectorFactory = new EthereumConnectorFactory(false, null, httpFactory, new MostWorkForkChoice())
+            def connectorFactory = new EthereumConnectorFactory(false, null, httpFactory, new MostWorkForkChoice(), BlockValidator.@Companion.ALWAYS_VALID)
             new EthereumRpcUpstream(
                     "test",
                     Chain.ETHEREUM,

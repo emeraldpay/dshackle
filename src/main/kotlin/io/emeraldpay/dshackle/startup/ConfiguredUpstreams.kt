@@ -20,11 +20,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.HttpRpcFactory
-import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinZMQHead
@@ -33,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumBlockValidator
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
@@ -159,7 +156,7 @@ open class ConfiguredUpstreams(
             return null
         }
         val urls = ArrayList<URI>()
-        val connectorFactory = buildEthereumConnectorFactory(config.id!!, execution, chain, urls, NoChoiceWithPriorityForkChoice(conn.upstreamRating))
+        val connectorFactory = buildEthereumConnectorFactory(config.id!!, execution, chain, urls, NoChoiceWithPriorityForkChoice(conn.upstreamRating), BlockValidator.ALWAYS_VALID)
         val methods = buildMethods(config, chain)
         if (connectorFactory == null) {
             return null
@@ -228,7 +225,7 @@ open class ConfiguredUpstreams(
         val urls = ArrayList<URI>()
         val methods = buildMethods(config, chain)
 
-        val connectorFactory = buildEthereumConnectorFactory(config.id!!, conn, chain, urls, MostWorkForkChoice())
+        val connectorFactory = buildEthereumConnectorFactory(config.id!!, conn, chain, urls, MostWorkForkChoice(), EthereumBlockValidator())
         if (connectorFactory == null) {
             return null
         }
@@ -297,11 +294,11 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildEthereumConnectorFactory(id: String, conn: UpstreamsConfig.EthereumConnection, chain: Chain, urls: ArrayList<URI>, forkChoice: ForkChoice): EthereumConnectorFactory? {
+    private fun buildEthereumConnectorFactory(id: String, conn: UpstreamsConfig.EthereumConnection, chain: Chain, urls: ArrayList<URI>, forkChoice: ForkChoice, blockValidator: BlockValidator): EthereumConnectorFactory? {
         val wsFactoryApi = buildWsFactory(id, chain, conn, urls)
         val httpFactory = buildHttpFactory(conn, urls)
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-        val connectorFactory = EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory, forkChoice)
+        val connectorFactory = EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory, forkChoice, blockValidator)
         if (!connectorFactory.isValid()) {
             log.warn("Upstream configuration is invalid (probably no http endpoint)")
             return null
