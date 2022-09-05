@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 @Service
@@ -65,18 +66,28 @@ class BlockchainRpc(
     override fun nativeCall(request: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         var startTime = 0L
         var metrics: RequestMetrics? = null
+        val idsMap = mutableMapOf<Int, String>()
         return nativeCall.nativeCall(
             request
-                .doOnNext {
-                    metrics = chainMetrics.get(it.chain)
-                    metrics!!.nativeCallMetric.increment()
+                .doOnNext { req ->
+                    metrics = chainMetrics.get(req.chain)
+                    metrics?.let { m ->
+                        m.nativeCallMetric.increment()
+                        req.itemsList.forEach { item ->
+                            idsMap[item.id] = item.method
+                            m.getNativeItemMetrics(item.method).nativeItemRequest.increment()
+                        }
+                    }
                     startTime = System.currentTimeMillis()
                 }
         ).doOnNext { reply ->
-            metrics?.let { m ->
-                m.nativeCallRespMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+            metrics?.getNativeItemMetrics(idsMap[reply.id] ?: "unknown")?.let { itemMetrics ->
+                itemMetrics.nativeItemResponse.record(
+                    System.currentTimeMillis() - startTime,
+                    TimeUnit.MILLISECONDS
+                )
                 if (!reply.succeed) {
-                    m.nativeCallErrRespMetric.increment()
+                    itemMetrics.nativeItemResponseErr.increment()
                 }
             }
         }.doOnError { failMetric.increment() }
@@ -204,17 +215,8 @@ class BlockchainRpc(
             .doOnError { failMetric.increment() }
     }
 
-    class RequestMetrics(chain: Chain) {
+    class RequestMetrics(val chain: Chain) {
         val nativeCallMetric = Counter.builder("request.grpc.request")
-            .tag("type", "nativeCall")
-            .tag("chain", chain.chainCode)
-            .register(Metrics.globalRegistry)
-        val nativeCallRespMetric = Timer.builder("request.grpc.response")
-            .tag("type", "nativeCall")
-            .tag("chain", chain.chainCode)
-            .publishPercentileHistogram()
-            .register(Metrics.globalRegistry)
-        val nativeCallErrRespMetric = Counter.builder("request.grpc.response.err")
             .tag("type", "nativeCall")
             .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
@@ -263,6 +265,27 @@ class BlockchainRpc(
             .tag("type", "estimateFee")
             .tag("chain", chain.chainCode)
             .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+
+        private val nativeItemMetrics = ConcurrentHashMap<String, NativeRequestItemsMetrics>()
+
+        fun getNativeItemMetrics(method: String) =
+            nativeItemMetrics.computeIfAbsent(method) { NativeRequestItemsMetrics(chain, it) }
+    }
+
+    class NativeRequestItemsMetrics(chain: Chain, method: String) {
+        val nativeItemRequest = Counter.builder("request.grpc.native.request")
+            .tag("chain", chain.chainCode)
+            .tag("method", method)
+            .register(Metrics.globalRegistry)
+        val nativeItemResponse = Timer.builder("request.grpc.native.response")
+            .tag("chain", chain.chainCode)
+            .tag("method", method)
+            .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+        val nativeItemResponseErr = Counter.builder("request.grpc.native.request")
+            .tag("chain", chain.chainCode)
+            .tag("method", method)
             .register(Metrics.globalRegistry)
     }
 }

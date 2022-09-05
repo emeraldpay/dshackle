@@ -33,9 +33,7 @@ import org.slf4j.LoggerFactory
 import reactor.netty.http.server.HttpServer
 import reactor.netty.http.server.HttpServerRoutes
 import java.util.EnumMap
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
-import kotlin.concurrent.write
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * HTTP Proxy Server
@@ -143,32 +141,13 @@ class ProxyServer(
         }
     }
 
-    /**
-     * Monitoring that has separate metrics per RPC method.
-     * Slightly slower to use than StandardRequestMetrics
-     */
     class ExtendedRequestMetrics : RequestMetricsFactory {
-        private val current = HashMap<Ref, RequestMetrics>()
-        private val lock = ReentrantReadWriteLock()
+        private val current = ConcurrentHashMap<Ref, RequestMetrics>()
 
-        override fun get(chain: Chain, method: String): RequestMetrics {
-            val ref = Ref(chain, method)
-            lock.read {
-                val existing = current[ref]
-                if (existing != null) {
-                    return existing
-                }
+        override fun get(chain: Chain, method: String): RequestMetrics =
+            current.computeIfAbsent(Ref(chain, method)) {
+                RequestMetricsWithMethod(it.chain, it.method)
             }
-            lock.write {
-                val existing = current[ref]
-                if (existing != null) {
-                    return existing
-                }
-                val created = RequestMetricsWithMethod(chain, method)
-                current[ref] = created
-                return created
-            }
-        }
 
         data class Ref(val chain: Chain, val method: String)
     }
