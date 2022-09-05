@@ -20,7 +20,12 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.BlockValidator
+import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.HttpRpcFactory
+import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinZMQHead
@@ -53,7 +58,7 @@ import javax.annotation.PostConstruct
 open class ConfiguredUpstreams(
     @Autowired private val currentUpstreams: CurrentMultistreamHolder,
     @Autowired private val fileResolver: FileResolver,
-    @Autowired private val config: UpstreamsConfig,
+    @Autowired private val config: UpstreamsConfig
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)

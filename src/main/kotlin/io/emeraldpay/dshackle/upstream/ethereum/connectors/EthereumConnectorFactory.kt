@@ -3,7 +3,6 @@ package io.emeraldpay.dshackle.upstream.ethereum.connectors
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.HttpFactory
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumBlockValidator
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
