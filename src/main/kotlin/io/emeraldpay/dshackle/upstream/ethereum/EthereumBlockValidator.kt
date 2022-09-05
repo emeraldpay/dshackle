@@ -174,7 +174,7 @@ class EthereumBlockValidator : BlockValidator {
     private fun BigInteger.asUint64() = this.toByteArray().let { bytes ->
         ByteArray(8) {
             val index = bytes.size - it - 1
-            if (index < bytes.size) bytes[index] else 0
+            if (index < bytes.size && index >= 0) bytes[index] else 0
         }
     }
 
