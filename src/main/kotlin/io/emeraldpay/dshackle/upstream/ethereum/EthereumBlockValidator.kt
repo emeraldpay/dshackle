@@ -80,7 +80,7 @@ class EthereumBlockValidator : BlockValidator {
 
     private fun validateDifficulty(node: JsonNode, rlpEncoded: Map<String, ByteArray>): Boolean {
         val difficulty = fromHexStringI(node["difficulty"].asText())
-        if (difficulty.signum() < 0) {
+        if (difficulty.signum() <= 0) {
             return false
         }
         val nonce = fromHexStringI(node["nonce"].asText())
