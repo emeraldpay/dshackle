@@ -1,3 +1,6 @@
 [submodule "emerald-java-client"]
 	path = emerald-java-client
 	url = git@github.com:p2p-org/emerald-java-client.git
+[submodule "dshackle-cli/grpc"]
+	path = dshackle-cli/grpc
+	url = https://github.com/emeraldpay/emerald-grpc.git
