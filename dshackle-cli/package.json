@@ -1,6 +1,6 @@
 {
   "name": "dshackle-cli-tool",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "",
   "main": "src/index.js",
   "scripts": {
@@ -24,6 +24,6 @@
   "files": [
     "bin/",
     "src/",
-    "proto/"
+    "grpc/"
   ]
 }
