@@ -165,7 +165,8 @@ open class WsConnection(
                 reconnecting.set(false)
                 connectInternal()
             },
-            retryInterval, TimeUnit.MILLISECONDS
+            retryInterval,
+            TimeUnit.MILLISECONDS
         )
     }
 
@@ -298,7 +299,10 @@ open class WsConnection(
     fun onRpc(msg: ResponseWSParser.WsResponse): Mono<Void> {
         return if (msg.id.isNumber()) {
             val resp = JsonRpcResponse(
-                msg.value, msg.error, msg.id, null
+                msg.value,
+                msg.error,
+                msg.id,
+                null
             )
             Mono.fromCallable {
                 val status = rpcReceive.tryEmitNext(resp)
