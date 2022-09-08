@@ -183,6 +183,9 @@ class UpstreamsConfigReader(
                 http.tls = authConfigReader.readClientTls(node)
             }
         }
+        getValueAsBool(connConfigNode, "prefer-http")?.let {
+            connection.preferHttp = it
+        }
         getMapping(connConfigNode, "ws")?.let { node ->
             getValueAsString(node, "url")?.let { url ->
                 val ws = UpstreamsConfig.WsEndpoint(URI(url))
@@ -256,7 +259,7 @@ class UpstreamsConfigReader(
     }
 
     internal fun readUpstreamGrpc(
-        upNode: MappingNode,
+        upNode: MappingNode
     ) {
         if (hasAny(upNode, "chain")) {
             log.warn("Chain should be not applied to gRPC upstream")
@@ -309,7 +312,8 @@ class UpstreamsConfigReader(
             }?.filterNotNull()?.toSet() ?: emptySet()
 
             UpstreamsConfig.Methods(
-                enabled, disabled
+                enabled,
+                disabled
             )
         }
     }
