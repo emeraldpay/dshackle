@@ -388,10 +388,7 @@ open class WsConnection(
     fun sendRpc(request: JsonRpcRequest) {
         // submit to upstream in a separate thread, to free current thread (needs for subscription, etc)
         sendExecutor.execute {
-            val result = rpcSend.tryEmitNext(request)
-            if (result.isFailure) {
-                log.warn("Failed to send RPC request: $result")
-            }
+            rpcSend.emitNext(request) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
         }
     }
 
