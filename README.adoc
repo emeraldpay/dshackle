@@ -3,8 +3,8 @@
 ifdef::env-github[]
 :imagesdir: https://raw.githubusercontent.com/emeraldpay/dshackle/master/docs/assets
 endif::[]
-:version: 0.12.0
-:version-short: 0.12
+:version: 0.13.0
+:version-short: 0.13
 
 image:https://github.com/emeraldpay/dshackle/workflows/Tests/badge.svg["Unit Tests"]
 image:https://codecov.io/gh/emeraldpay/dshackle/branch/master/graph/badge.svg["Coverage",link="https://codecov.io/gh/emeraldpay/dshackle"]

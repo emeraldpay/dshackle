@@ -1,6 +1,6 @@
 == Launch a server
-:version: 0.12.0
-:version-short: 0.12
+:version: 0.13.0
+:version-short: 0.13
 
 === Docker
 
@@ -13,8 +13,8 @@ docker run -p 2449:2449 -v $(pwd):/config -w /config emeraldpay/dshackle:{versio
 
 === Install & Run manually
 
-1. Download latest release from https://github.com/emeraldpay/dshackle/releases
-2. Unpack `unzip dshackle-0.6.0.zip`
+1. Download the latest release from https://github.com/emeraldpay/dshackle/releases
+2. Unpack `unzip dshackle-{version}.zip`
 3. Copy to `/opt/dshackle`
 4. Setup configuration in `/etc/dshackle`
 5. Run as `cp /etc/dshackle && /opt/dshackle/bin/dshackle`
