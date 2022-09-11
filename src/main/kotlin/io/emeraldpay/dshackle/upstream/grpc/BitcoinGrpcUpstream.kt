@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.OptionalHead
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -102,7 +103,9 @@ class BitcoinGrpcUpstream(
             }
     }
     private val upstreamStatus = GrpcUpstreamStatus()
-    private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock)
+    private val grpcHead = OptionalHead(
+        GrpcHead(chain, this, remote, blockConverter, reloadBlock)
+    )
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
 
@@ -153,6 +156,7 @@ class BitcoinGrpcUpstream(
     override fun update(conf: BlockchainOuterClass.DescribeChain) {
         upstreamStatus.update(conf)
         this.capabilities = RemoteCapabilities.extract(conf)
+        grpcHead.setEnabled(this.capabilities.contains(Capability.RPC))
         conf.status?.let { status -> onStatus(status) }
     }
 }

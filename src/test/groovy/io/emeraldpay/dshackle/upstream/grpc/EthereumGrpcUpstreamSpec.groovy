@@ -85,6 +85,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         def upstream = new EthereumGrpcUpstream("test", UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics))
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
+                .addAllCapabilities([BlockchainOuterClass.Capabilities.CAP_CALLS])
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
                 .addAllSupportedMethods(["eth_getBlockByHash"])
                 .build())

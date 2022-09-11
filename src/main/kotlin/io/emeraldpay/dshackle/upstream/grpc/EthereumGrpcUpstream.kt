@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.OptionalHead
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -105,7 +106,9 @@ open class EthereumGrpcUpstream(
 
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
     private val upstreamStatus = GrpcUpstreamStatus()
-    private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock)
+    private val grpcHead = OptionalHead(
+        GrpcHead(chain, this, remote, blockConverter, reloadBlock)
+    )
     private var capabilities: Set<Capability> = emptySet()
 
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
@@ -130,6 +133,7 @@ open class EthereumGrpcUpstream(
     override fun update(conf: BlockchainOuterClass.DescribeChain) {
         upstreamStatus.update(conf)
         capabilities = RemoteCapabilities.extract(conf)
+        grpcHead.setEnabled(this.capabilities.contains(Capability.RPC))
         conf.status?.let { status -> onStatus(status) }
     }
 
@@ -148,7 +152,7 @@ open class EthereumGrpcUpstream(
     }
 
     override fun isAvailable(): Boolean {
-        return super.isAvailable() && grpcHead.getCurrent() != null && getQuorumByLabel().getAll().any {
+        return super.isAvailable() && getQuorumByLabel().getAll().any {
             it.quorum > 0
         }
     }
