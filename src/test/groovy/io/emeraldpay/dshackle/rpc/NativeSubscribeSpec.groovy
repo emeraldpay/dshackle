@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
 import io.emeraldpay.grpc.Chain
@@ -32,7 +33,7 @@ class NativeSubscribeSpec extends Specification {
     def "Call with empty params when not provided"() {
         setup:
         def subscribe = Mock(EthereumSubscribe) {
-            1 * it.subscribe("newHeads", null) >> Flux.just("{}")
+            1 * it.subscribe("newHeads", null, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
         def up = Mock(EthereumMultistream) {
             1 * it.getSubscribe() >> subscribe
@@ -64,7 +65,7 @@ class NativeSubscribeSpec extends Specification {
                         params["topics"][0] == "0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"
                 println("ok: $ok")
                 ok
-            }) >> Flux.just("{}")
+            }, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
         def up = Mock(EthereumMultistream) {
             1 * it.getSubscribe() >> subscribe

@@ -27,10 +27,8 @@ import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.util.LinkedList
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
-import kotlin.concurrent.withLock
 import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
@@ -50,6 +48,7 @@ class ConnectBlockUpdates(
     private val historyUpdateLock = ReentrantReadWriteLock()
     private val connected: MutableMap<String, Flux<Update>> = ConcurrentHashMap()
 
+    fun connect() = connect(Selector.empty)
     fun connect(matcher: Selector.Matcher): Flux<Update> {
         return connected.computeIfAbsent(matcher.describeInternal()) { key ->
             extract(upstream.getHead(matcher))

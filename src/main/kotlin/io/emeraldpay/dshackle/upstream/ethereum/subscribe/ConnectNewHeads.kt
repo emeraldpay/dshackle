@@ -49,5 +49,4 @@ class ConnectNewHeads(
                     connected.remove(key)
                 }
         }
-
 }
