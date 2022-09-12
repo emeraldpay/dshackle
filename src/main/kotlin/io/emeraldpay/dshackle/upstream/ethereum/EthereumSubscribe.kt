@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectNewHeads
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectSyncing
@@ -21,9 +22,9 @@ open class EthereumSubscribe(
     private val syncing = ConnectSyncing(upstream)
 
     @Suppress("UNCHECKED_CAST")
-    open fun subscribe(method: String, params: Any?): Flux<out Any> {
+    open fun subscribe(method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> {
         if (method == "newHeads") {
-            return newHeads.connect()
+            return newHeads.connect(matcher)
         }
         if (method == "logs") {
             val paramsMap = try {
@@ -35,7 +36,7 @@ open class EthereumSubscribe(
             } catch (t: Throwable) {
                 return Flux.error(UnsupportedOperationException("Invalid parameter for $method. Error: ${t.message}"))
             }
-            return logs.start(paramsMap.address, paramsMap.topics)
+            return logs.start(paramsMap.address, paramsMap.topics, matcher)
         }
         if (method == "syncing") {
             return syncing.connect()

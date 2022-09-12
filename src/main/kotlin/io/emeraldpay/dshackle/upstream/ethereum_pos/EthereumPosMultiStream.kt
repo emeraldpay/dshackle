@@ -137,6 +137,9 @@ open class EthereumPosMultiStream(
         return subscribe
     }
 
+    override fun getHead(mather: Selector.Matcher): Head =
+        getHead() //TODO
+
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation
     }

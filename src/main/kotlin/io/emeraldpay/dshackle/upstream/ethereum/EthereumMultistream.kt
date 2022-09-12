@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ChainFees
+import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -32,6 +33,7 @@ import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
+import java.util.concurrent.ConcurrentHashMap
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
@@ -45,6 +47,7 @@ open class EthereumMultistream(
     }
 
     private var head: Head? = null
+    private val filteredHeads: MutableMap<String, Head> = ConcurrentHashMap()
 
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
     private val subscribe = EthereumSubscribe(this)
@@ -74,6 +77,7 @@ open class EthereumMultistream(
     override fun stop() {
         super.stop()
         reader.stop()
+        filteredHeads.clear()
     }
 
     override fun isRunning(): Boolean {
@@ -118,6 +122,7 @@ open class EthereumMultistream(
             lagObserver.start()
             newHead
         }
+        filteredHeads[Selector.AnyLabelMatcher().describeInternal()] = head
         onHeadUpdated(head)
         return head
     }
@@ -141,6 +146,24 @@ open class EthereumMultistream(
     override fun getSubscribe(): EthereumSubscribe {
         return subscribe
     }
+
+    override fun getHead(mather: Selector.Matcher): Head =
+        filteredHeads.computeIfAbsent(mather.describeInternal()) { _ ->
+            upstreams.filter { mather.matches(it) }
+                .apply {
+                    log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
+                }
+                .map { it.getHead() }
+                .let {
+                    when (it.size) {
+                        0 -> EmptyHead()
+                        1 -> it.first()
+                        else -> MergedHead(it, MostWorkForkChoice()).apply {
+                            start()
+                        }
+                    }
+                }
+        }//TODO track unused heads and remove
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation
