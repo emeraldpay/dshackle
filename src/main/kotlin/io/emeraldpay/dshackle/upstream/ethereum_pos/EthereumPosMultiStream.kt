@@ -26,15 +26,14 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Mono
-import java.util.concurrent.ConcurrentHashMap
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumPosMultiStream(
@@ -52,7 +51,8 @@ open class EthereumPosMultiStream(
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
     private val feeEstimation = EthereumPriorityFees(this, reader, 256)
     private val subscribe = EthereumSubscribe(this)
-    private val filteredHeads: MutableMap<String, Head> = ConcurrentHashMap()
+    private val filteredHeads: MutableMap<String, Head> =
+        ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
     init {
         this.init()
@@ -143,7 +143,7 @@ open class EthereumPosMultiStream(
     }
 
     override fun getHead(mather: Selector.Matcher): Head =
-        filteredHeads.computeIfAbsent(mather.describeInternal()) { _ ->
+        filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
             upstreams.filter { mather.matches(it) }
                 .apply {
                     log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
@@ -153,13 +153,12 @@ open class EthereumPosMultiStream(
                     when (it.size) {
                         0 -> EmptyHead()
                         1 -> it.first()
-                        else -> MergedHead(it, MostWorkForkChoice()).apply {
+                        else -> MergedHead(it, PriorityForkChoice()).apply {
                             start()
                         }
                     }
                 }
         }
-    // TODO track unused heads and remove
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation

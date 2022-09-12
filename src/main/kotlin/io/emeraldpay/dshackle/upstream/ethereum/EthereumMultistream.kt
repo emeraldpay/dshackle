@@ -32,8 +32,8 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Mono
-import java.util.concurrent.ConcurrentHashMap
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
@@ -47,7 +47,8 @@ open class EthereumMultistream(
     }
 
     private var head: Head? = null
-    private val filteredHeads: MutableMap<String, Head> = ConcurrentHashMap()
+    private val filteredHeads: MutableMap<String, Head> =
+        ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
     private val subscribe = EthereumSubscribe(this)
@@ -148,7 +149,7 @@ open class EthereumMultistream(
     }
 
     override fun getHead(mather: Selector.Matcher): Head =
-        filteredHeads.computeIfAbsent(mather.describeInternal()) { _ ->
+        filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
             upstreams.filter { mather.matches(it) }
                 .apply {
                     log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
@@ -164,7 +165,6 @@ open class EthereumMultistream(
                     }
                 }
         }
-    // TODO track unused heads and remove
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation
