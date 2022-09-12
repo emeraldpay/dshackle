@@ -21,7 +21,7 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.grpc.BlockchainType
@@ -43,7 +43,7 @@ class TrackEthereumAddress(
 
     override fun isSupported(chain: Chain, asset: String): Boolean {
         return asset == "ether" &&
-            BlockchainType.from(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
+            (BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && multistreamHolder.isAvailable(chain)
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
@@ -89,8 +89,8 @@ class TrackEthereumAddress(
         }
     }
 
-    fun getUpstream(chain: Chain): EthereumMultistream {
-        return multistreamHolder.getUpstream(chain)?.cast(EthereumMultistream::class.java)
+    fun getUpstream(chain: Chain): EthereumPosMultiStream {
+        return multistreamHolder.getUpstream(chain)?.cast(EthereumPosMultiStream::class.java)
             ?: throw SilentException.UnsupportedBlockchain(chain)
     }
 

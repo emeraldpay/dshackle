@@ -7,6 +7,7 @@ import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
@@ -180,9 +181,9 @@ class TrackERC20AddressSpec extends Specification {
         def sub = Mock(EthereumSubscribe) {
             1 * getLogs() >> logs
         }
-        def up = Mock(EthereumMultistream) {
+        def up = Mock(EthereumPosMultiStream) {
             1 * getSubscribe() >> sub
-            _ * cast(EthereumMultistream) >> { args ->
+            _ * cast(EthereumPosMultiStream) >> { args ->
                 it
             }
         }

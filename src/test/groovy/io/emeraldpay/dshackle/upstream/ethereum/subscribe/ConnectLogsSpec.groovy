@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -86,7 +87,7 @@ class ConnectLogsSpec extends Specification {
 
     def "Filter is empty"() {
         setup:
-        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumMultistream)
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream)
         when:
         def input = Flux.fromIterable([
                 log1, log2, log3, log4
@@ -104,7 +105,7 @@ class ConnectLogsSpec extends Specification {
 
     def "Filter by address"() {
         setup:
-        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumMultistream)
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream)
         when:
         def input = Flux.fromIterable([
                 log1, log2
@@ -119,7 +120,7 @@ class ConnectLogsSpec extends Specification {
 
     def "Filter by topic"() {
         setup:
-        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumMultistream)
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream)
         when:
         def input = Flux.fromIterable([
                 log1, log2, log3, log4
@@ -136,7 +137,7 @@ class ConnectLogsSpec extends Specification {
 
     def "Filter by address and topic"() {
         setup:
-        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumMultistream)
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream)
         when:
         def input = Flux.fromIterable([
                 log1, log2, log3, log4

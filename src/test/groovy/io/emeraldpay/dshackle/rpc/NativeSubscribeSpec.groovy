@@ -20,6 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
@@ -35,7 +36,7 @@ class NativeSubscribeSpec extends Specification {
         def subscribe = Mock(EthereumSubscribe) {
             1 * it.subscribe("newHeads", null, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
-        def up = Mock(EthereumMultistream) {
+        def up = Mock(EthereumPosMultiStream) {
             1 * it.getSubscribe() >> subscribe
         }
 
@@ -67,7 +68,7 @@ class NativeSubscribeSpec extends Specification {
                 ok
             }, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
-        def up = Mock(EthereumMultistream) {
+        def up = Mock(EthereumPosMultiStream) {
             1 * it.getSubscribe() >> subscribe
         }
 

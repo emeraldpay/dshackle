@@ -27,6 +27,7 @@ import io.netty.resolver.DefaultAddressResolverGroup
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.netty.http.client.HttpClient
+import reactor.netty.resources.ConnectionProvider
 import java.io.ByteArrayInputStream
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
@@ -53,7 +54,11 @@ class JsonRpcHttpClient(
     private val httpClient: HttpClient
 
     init {
-        var build = HttpClient.create()
+        val connectionProvider = ConnectionProvider.builder("dshackleConnectionPool")
+            .maxConnections(1000)
+            .pendingAcquireMaxCount(5000)
+            .build()
+        var build = HttpClient.create(connectionProvider)
             .resolver(DefaultAddressResolverGroup.INSTANCE)
 
         build = build.headers { h ->
