@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
@@ -118,7 +119,7 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
-        ((EthereumMultistream) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
+        ((EthereumPosMultiStream) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
             _ * getFlux() >> Flux.empty()
         }
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
@@ -130,7 +131,7 @@ class TrackEthereumTxSpec extends Specification {
         when:
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def act = StepVerifier.withVirtualTime(
-                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM).cast(EthereumMultistream)) },
+                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM).cast(EthereumPosMultiStream)) },
                 { scheduler },
                 5)
 

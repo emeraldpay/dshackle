@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.RpcException
@@ -62,7 +62,7 @@ class TrackEthereumTx(
     private val log = LoggerFactory.getLogger(TrackEthereumTx::class.java)
 
     override fun isSupported(chain: Chain): Boolean {
-        return BlockchainType.from(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
+        return (BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && multistreamHolder.isAvailable(chain)
     }
 
     override fun subscribe(request: BlockchainOuterClass.TxStatusRequest): Flux<BlockchainOuterClass.TxStatus> {
@@ -81,12 +81,12 @@ class TrackEthereumTx(
             }
     }
 
-    fun getUpstream(chain: Chain): EthereumMultistream {
-        return multistreamHolder.getUpstream(chain)?.cast(EthereumMultistream::class.java)
+    fun getUpstream(chain: Chain): EthereumPosMultiStream {
+        return multistreamHolder.getUpstream(chain)?.cast(EthereumPosMultiStream::class.java)
             ?: throw SilentException.UnsupportedBlockchain(chain)
     }
 
-    fun subscribe(base: TxDetails, up: EthereumMultistream): Flux<TxDetails> {
+    fun subscribe(base: TxDetails, up: EthereumPosMultiStream): Flux<TxDetails> {
         var latestTx = base
 
         val untilFound = Mono.just(latestTx)
@@ -213,7 +213,7 @@ class TrackEthereumTx(
             }
     }
 
-    fun updateFromBlock(upstream: EthereumMultistream, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
+    fun updateFromBlock(upstream: EthereumPosMultiStream, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
         return if (blockTx.blockNumber != null && blockTx.blockHash != null && blockTx.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
                 blockHash = blockTx.blockHash,

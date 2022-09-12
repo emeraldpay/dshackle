@@ -38,7 +38,7 @@ open class ERC20Balance {
         private val log = LoggerFactory.getLogger(ERC20Balance::class.java)
     }
 
-    open fun getBalance(upstreams: EthereumMultistream, token: ERC20Token, address: Address): Mono<BigInteger> {
+    open fun getBalance(upstreams: EthereumPosMultiStream, token: ERC20Token, address: Address): Mono<BigInteger> {
         return upstreams
             // use only up-to-date upstreams
             .getApiSource(Selector.HeightMatcher(upstreams.getHead().getCurrentHeight() ?: 0))
@@ -49,7 +49,7 @@ open class ERC20Balance {
         apis.request(1)
         return Flux.from(apis)
             .flatMap {
-                getBalance(it.cast(EthereumRpcUpstream::class.java), token, address)
+                getBalance(it.cast(EthereumPosRpcUpstream::class.java), token, address)
             }
             .doOnNext {
                 apis.resolve()
@@ -57,7 +57,7 @@ open class ERC20Balance {
             .next()
     }
 
-    open fun getBalance(upstream: EthereumRpcUpstream, token: ERC20Token, address: Address): Mono<BigInteger> {
+    open fun getBalance(upstream: EthereumPosRpcUpstream, token: ERC20Token, address: Address): Mono<BigInteger> {
         return upstream
             .getApi()
             .read(prepareEthCall(token, address, upstream.getHead()))

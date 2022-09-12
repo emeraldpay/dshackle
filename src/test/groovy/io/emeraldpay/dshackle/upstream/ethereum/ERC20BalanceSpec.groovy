@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
 import io.emeraldpay.dshackle.test.EthereumRpcUpstreamMock
 import io.emeraldpay.dshackle.test.ReaderMock
 import io.emeraldpay.dshackle.upstream.ApiSource
@@ -47,7 +48,7 @@ class ERC20BalanceSpec extends Specification {
                         JsonRpcResponse.ok('"0x0000000000000000000000000000000000000000000000000000001f28d72868"')
                 )
 
-        EthereumRpcUpstream upstream = new EthereumRpcUpstreamMock(Chain.ETHEREUM, api)
+        EthereumPosRpcUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
         ERC20Token token = new ERC20Token(Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9"))
         ERC20Balance query = new ERC20Balance()
 
@@ -73,7 +74,7 @@ class ERC20BalanceSpec extends Specification {
                         JsonRpcResponse.ok('"0x0000000000000000000000000000000000000000000000000000001f28d72868"')
                 )
 
-        EthereumRpcUpstream upstream = new EthereumRpcUpstreamMock(Chain.ETHEREUM, api)
+        EthereumPosRpcUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
         ERC20Token token = new ERC20Token(Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9"))
         ERC20Balance query = new ERC20Balance()
 

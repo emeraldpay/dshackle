@@ -28,6 +28,8 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -46,36 +48,36 @@ class TestingCommons {
         return new ApiReaderMock()
     }
 
-    static EthereumRpcUpstreamMock upstream() {
-        return new EthereumRpcUpstreamMock(Chain.ETHEREUM, api())
+    static EthereumPosRpcUpstreamMock upstream() {
+        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api())
     }
 
-    static EthereumRpcUpstreamMock upstream(String id) {
-        return new EthereumRpcUpstreamMock(id, Chain.ETHEREUM, api())
+    static EthereumPosRpcUpstreamMock upstream(String id) {
+        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM, api())
     }
 
-    static EthereumRpcUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        return new EthereumRpcUpstreamMock(id, Chain.ETHEREUM, api)
+    static EthereumPosRpcUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {
+        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM, api)
     }
 
-    static EthereumRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        return new EthereumRpcUpstreamMock(Chain.ETHEREUM, api)
+    static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
+        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
     }
 
-    static EthereumRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, String method) {
+    static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, String method) {
         return upstream(api, [method])
     }
 
-    static EthereumRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, List<String> methods) {
-        return new EthereumRpcUpstreamMock(Chain.ETHEREUM, api, new DirectCallMethods(methods))
+    static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, List<String> methods) {
+        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api, new DirectCallMethods(methods))
     }
 
     static Multistream multistream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
         return multistream(upstream(api))
     }
 
-    static Multistream multistream(EthereumRpcUpstream up) {
-        return new EthereumMultistream(Chain.ETHEREUM, [up], Caches.default()).tap {
+    static Multistream multistream(EthereumPosRpcUpstreamMock up) {
+        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default()).tap {
             start()
         }
     }
