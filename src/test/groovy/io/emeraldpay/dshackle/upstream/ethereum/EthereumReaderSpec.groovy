@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
+import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
 import io.emeraldpay.dshackle.test.EthereumRpcUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -203,7 +204,7 @@ class EthereumReaderSpec extends Specification {
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "latest"], "0x10")
         // height 101 + 1 => 102 => 0x66
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "0x66"], "0xff")
-        EthereumRpcUpstreamMock upstream = new EthereumRpcUpstreamMock(Chain.ETHEREUM, api)
+        EthereumPosRpcUpstreamMock upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
         def upstreams = TestingCommons.multistream(upstream)
         def reader = new EthereumReader(upstreams, Caches.default(), calls)
         reader.start()
@@ -241,7 +242,7 @@ class EthereumReaderSpec extends Specification {
         api.answerOnce("eth_getTransactionReceipt", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2"], [
                 transactionHash: "0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2"
         ])
-        EthereumRpcUpstreamMock upstream = new EthereumRpcUpstreamMock(Chain.ETHEREUM, api)
+        EthereumPosRpcUpstreamMock upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
         def upstreams = TestingCommons.multistream(upstream)
         def reader = new EthereumReader(upstreams, Caches.default(), calls)
         reader.start()
@@ -257,7 +258,7 @@ class EthereumReaderSpec extends Specification {
     def "Read receipt from cache if available"() {
         setup:
         def api = TestingCommons.api()
-        EthereumRpcUpstreamMock upstream = new EthereumRpcUpstreamMock(Chain.ETHEREUM, api)
+        EthereumPosRpcUpstreamMock upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
         def upstreams = TestingCommons.multistream(upstream)
         def receiptCache = Mock(ReceiptRedisCache) {
             1 * it.read(TxId.from("0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2")) >>

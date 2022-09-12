@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.TokensConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.EventId
 import io.emeraldpay.etherjar.erc20.ERC20Token
@@ -58,7 +58,8 @@ class TrackERC20Address(
             val asset = token.name!!.lowercase(Locale.getDefault())
             val id = TokenId(chain, asset)
             val definition = TokenDefinition(
-                chain, asset,
+                chain,
+                asset,
                 ERC20Token(Address.from(token.address))
             )
             tokens[id] = definition
@@ -68,7 +69,7 @@ class TrackERC20Address(
 
     override fun isSupported(chain: Chain, asset: String): Boolean {
         return tokens.containsKey(TokenId(chain, asset.lowercase(Locale.getDefault()))) &&
-            BlockchainType.from(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
+            (BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && multistreamHolder.isAvailable(chain)
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
@@ -121,8 +122,8 @@ class TrackERC20Address(
         return erc20Balance.getBalance(upstream, addr.token, addr.address)
     }
 
-    fun getUpstream(chain: Chain): EthereumMultistream {
-        return multistreamHolder.getUpstream(chain)?.cast(EthereumMultistream::class.java)
+    fun getUpstream(chain: Chain): EthereumPosMultiStream {
+        return multistreamHolder.getUpstream(chain)?.cast(EthereumPosMultiStream::class.java)
             ?: throw SilentException.UnsupportedBlockchain(chain)
     }
 

@@ -51,7 +51,7 @@ import java.util.EnumMap
 @Service
 open class NativeCall(
     @Autowired private val multistreamHolder: MultistreamHolder,
-    @Autowired private val signer: ResponseSigner,
+    @Autowired private val signer: ResponseSigner
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -62,7 +62,8 @@ open class NativeCall(
 
     init {
         multistreamHolder.observeChains().subscribe { chain ->
-            if (BlockchainType.from(chain) == BlockchainType.ETHEREUM && !ethereumCallSelectors.containsKey(chain)) {
+            if ((BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && !ethereumCallSelectors.containsKey(chain)
+            ) {
                 multistreamHolder.getUpstream(chain)?.let { up ->
                     val reader = up.cast(EthereumMultistream::class.java).getReader()
                     ethereumCallSelectors[chain] = EthereumCallSelector(reader.heightByHash())
@@ -186,7 +187,7 @@ open class NativeCall(
         }
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
-            if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
+            if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
                 ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead())
             } else {
                 null
