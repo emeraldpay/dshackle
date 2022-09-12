@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -32,8 +33,9 @@ import java.util.concurrent.Executors
 class EthereumRpcHead(
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
     forkChoice: ForkChoice,
+    blockValidator: BlockValidator,
     private val interval: Duration = Duration.ofSeconds(10),
-) : DefaultEthereumHead(forkChoice), Lifecycle {
+) : DefaultEthereumHead(forkChoice, blockValidator), Lifecycle {
 
     companion object {
         val scheduler =

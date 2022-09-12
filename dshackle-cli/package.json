@@ -1,0 +1,29 @@
+{
+  "name": "dshackle-cli-tool",
+  "version": "1.0.4",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "@mfomenkov/dshackle-cli-tool": "bin/dshackle-cli-tool",
+    "dshackle-cli-tool": "bin/dshackle-cli-tool"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.6.12",
+    "@grpc/proto-loader": "^0.7.2",
+    "arg": "^5.0.2",
+    "cli-color": "^2.0.3",
+    "esm": "^3.2.25",
+    "inquirer": "^9.1.1"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "grpc/"
+  ]
+}

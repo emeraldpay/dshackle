@@ -12,3 +12,4 @@ testsetup/
 
 # nix
 env
+/dshackle-cli/node_modules/

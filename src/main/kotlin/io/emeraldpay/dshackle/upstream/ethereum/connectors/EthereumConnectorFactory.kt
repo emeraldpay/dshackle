@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum.connectors
 
+import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.HttpFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
@@ -12,7 +13,8 @@ open class EthereumConnectorFactory(
     private val preferHttp: Boolean,
     private val wsFactory: EthereumWsFactory?,
     private val httpFactory: HttpFactory?,
-    private val forkChoice: ForkChoice
+    private val forkChoice: ForkChoice,
+    private val blockValidator: BlockValidator
 ) : ConnectorFactory {
     private val log = LoggerFactory.getLogger(EthereumConnectorFactory::class.java)
 
@@ -25,11 +27,11 @@ open class EthereumConnectorFactory(
 
     override fun create(upstream: DefaultUpstream, validator: EthereumUpstreamValidator, chain: Chain): EthereumConnector {
         if (wsFactory != null && !preferHttp) {
-            return EthereumWsConnector(wsFactory, upstream, validator, chain, forkChoice)
+            return EthereumWsConnector(wsFactory, upstream, validator, chain, forkChoice, blockValidator)
         }
         if (httpFactory == null) {
             throw java.lang.IllegalArgumentException("Can't create rpc connector if no http factory set")
         }
-        return EthereumRpcConnector(httpFactory.create(upstream.getId(), chain), wsFactory, upstream.getId(), forkChoice)
+        return EthereumRpcConnector(httpFactory.create(upstream.getId(), chain), wsFactory, upstream.getId(), forkChoice, blockValidator)
     }
 }
