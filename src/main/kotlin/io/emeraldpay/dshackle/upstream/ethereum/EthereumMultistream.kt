@@ -164,7 +164,7 @@ open class EthereumMultistream(
                     }
                 }
         }
-    //TODO track unused heads and remove
+    // TODO track unused heads and remove
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation
