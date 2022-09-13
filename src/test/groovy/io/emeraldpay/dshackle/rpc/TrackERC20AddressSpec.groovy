@@ -4,6 +4,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.config.TokensConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
@@ -170,7 +171,8 @@ class TrackERC20AddressSpec extends Specification {
         def logs = Mock(ConnectLogs) {
             1 * start(
                     [Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")],
-                    [Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")]
+                    [Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")],
+                    Selector.empty
             ) >> { args ->
                 println("ConnectLogs.start $args")
                 Flux.fromIterable(events)

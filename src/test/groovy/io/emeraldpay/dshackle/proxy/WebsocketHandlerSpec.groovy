@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.proxy
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.rpc.json.RequestJson
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
@@ -108,7 +109,7 @@ class WebsocketHandlerSpec extends Specification {
         def response2 = [foo: 2]
 
         def nativeSubscribe = Mock(NativeSubscribe) {
-            1 * it.subscribe(Chain.ETHEREUM, "foo_test", null) >> Flux.fromIterable([response1, response2])
+            1 * it.subscribe(Chain.ETHEREUM, "foo_test", null, Selector.empty) >> Flux.fromIterable([response1, response2])
         }
         def handler = new WebsocketHandler(
                 new ReadRpcJson(), new WriteRpcJson(), Stub(NativeCall), nativeSubscribe, requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
