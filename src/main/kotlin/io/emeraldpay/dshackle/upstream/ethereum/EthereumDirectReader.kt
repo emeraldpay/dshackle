@@ -119,7 +119,7 @@ class EthereumDirectReader(
                 if (block == null) {
                     Mono.empty<BlockContainer>()
                 } else {
-                    Mono.just(BlockContainer.from(block, blockbytes))
+                    Mono.just(BlockContainer.from(block, blockbytes, "unknown"))
                 }
             }
             .doOnNext { block ->

@@ -16,7 +16,9 @@ open class EthereumConnectorFactory(
     private val forkChoice: ForkChoice,
     private val blockValidator: BlockValidator
 ) : ConnectorFactory {
-    private val log = LoggerFactory.getLogger(EthereumConnectorFactory::class.java)
+    companion object {
+        private val log = LoggerFactory.getLogger(EthereumConnectorFactory::class.java)
+    }
 
     override fun isValid(): Boolean {
         if (preferHttp && httpFactory == null) {
@@ -27,7 +29,7 @@ open class EthereumConnectorFactory(
 
     override fun create(upstream: DefaultUpstream, validator: EthereumUpstreamValidator, chain: Chain): EthereumConnector {
         if (wsFactory != null && !preferHttp) {
-            return EthereumWsConnector(wsFactory, upstream, validator, chain, forkChoice, blockValidator)
+            return EthereumWsConnector(wsFactory, upstream, validator, forkChoice, blockValidator)
         }
         if (httpFactory == null) {
             throw java.lang.IllegalArgumentException("Can't create rpc connector if no http factory set")

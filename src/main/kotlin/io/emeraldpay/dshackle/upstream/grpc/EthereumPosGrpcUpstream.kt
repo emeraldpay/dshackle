@@ -84,7 +84,7 @@ open class EthereumPosGrpcUpstream(
         defaultReader.read(JsonRpcRequest("eth_getBlockByHash", listOf(existingBlock.hash.toHexWithPrefix(), false)))
             .flatMap(JsonRpcResponse::requireResult)
             .map {
-                BlockContainer.fromEthereumJson(it)
+                BlockContainer.fromEthereumJson(it, getId())
             }
             .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
             .doOnError { t ->

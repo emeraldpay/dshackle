@@ -15,7 +15,6 @@ class EthereumWsConnector(
     wsFactory: EthereumWsFactory,
     upstream: DefaultUpstream,
     validator: EthereumUpstreamValidator,
-    chain: Chain,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
 ) : EthereumConnector {
@@ -24,8 +23,8 @@ class EthereumWsConnector(
     private val head: EthereumWsHead
 
     init {
-        conn = wsFactory.create(upstream, validator)
-        head = EthereumWsHead(conn, forkChoice, blockValidator)
+        conn = wsFactory.create(upstream.getId(), upstream, validator)
+        head = EthereumWsHead(conn, upstream.getId(), forkChoice, blockValidator)
         api = JsonRpcWsClient(conn)
     }
 

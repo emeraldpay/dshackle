@@ -118,7 +118,7 @@ class EcdsaSignerSpec extends Specification {
         def signer = new EcdsaSigner((pair.getPrivate() as ECPrivateKey), 100L)
 
         when:
-        def sig = signer.sign(10, result, up)
+        def sig = signer.sign(10, result, up.id)
 
         then:
         verifier.verify(sig.value)
@@ -148,7 +148,7 @@ class EcdsaSignerSpec extends Specification {
         def signer = factory.getObject() as EcdsaSigner
 
         when:
-        def sig = signer.sign(10, result, up)
+        def sig = signer.sign(10, result, up.id)
         println("Signature: ${Hex.encodeHexString(sig.value)}")
 
         then:

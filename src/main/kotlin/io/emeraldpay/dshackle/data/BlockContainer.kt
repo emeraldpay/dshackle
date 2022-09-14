@@ -31,34 +31,40 @@ class BlockContainer(
     json: ByteArray?,
     val parsed: Any?,
     val transactions: List<TxId> = emptyList(),
-    val nodeRating: Int = 0
+    val nodeRating: Int = 0,
+    val upstreamId: String = ""
 ) : SourceContainer(json, parsed) {
 
     companion object {
         @JvmStatic
-        fun from(block: BlockJson<*>, raw: ByteArray): BlockContainer {
-            val hasTransactions = block.transactions?.filterIsInstance<TransactionJson>()?.count() ?: 0 > 0
+        fun from(block: BlockJson<*>, raw: ByteArray, upstreamId: String): BlockContainer {
+            val hasTransactions = !block.transactions?.filterIsInstance<TransactionJson>().isNullOrEmpty()
             return BlockContainer(
-                block.number,
-                BlockId.from(block),
-                block.totalDifficulty,
-                block.timestamp,
-                hasTransactions,
-                raw,
-                block,
-                block.transactions?.map { TxId.from(it.hash) } ?: emptyList()
+                height = block.number,
+                hash = BlockId.from(block),
+                difficulty = block.totalDifficulty,
+                timestamp = block.timestamp,
+                full = hasTransactions,
+                json = raw,
+                parsed = block,
+                transactions = block.transactions?.map { TxId.from(it.hash) } ?: emptyList(),
+                upstreamId = upstreamId
             )
         }
 
         @JvmStatic
         fun from(block: BlockJson<*>): BlockContainer {
-            return from(block, Global.objectMapper.writeValueAsBytes(block))
+            return from(block, "unknown")
+        }
+        @JvmStatic
+        fun from(block: BlockJson<*>, upstream: String): BlockContainer {
+            return from(block, Global.objectMapper.writeValueAsBytes(block), upstream)
         }
 
         @JvmStatic
-        fun fromEthereumJson(raw: ByteArray): BlockContainer {
+        fun fromEthereumJson(raw: ByteArray, upstream: String): BlockContainer {
             val block = Global.objectMapper.readValue(raw, BlockJson::class.java)
-            return from(block, raw)
+            return from(block, raw, upstream)
         }
     }
 

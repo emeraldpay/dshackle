@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe.json
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import io.emeraldpay.etherjar.domain.Address
@@ -50,5 +51,7 @@ data class NewHeadMessage(
     val miner: Address,
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
     @get:JsonInclude(JsonInclude.Include.NON_NULL)
-    val baseFeePerGas: BigInteger?
-)
+    val baseFeePerGas: BigInteger?,
+    @get:JsonIgnore
+    override val upstreamId: String
+) : HasUpstream

@@ -33,9 +33,10 @@ import java.util.concurrent.Executors
 class EthereumRpcHead(
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
     forkChoice: ForkChoice,
+    upstreamId: String,
     blockValidator: BlockValidator,
     private val interval: Duration = Duration.ofSeconds(10),
-) : DefaultEthereumHead(forkChoice, blockValidator), Lifecycle {
+) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
 
     companion object {
         val scheduler =

@@ -65,6 +65,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 open class WsConnection(
+    private val id: String,
     private val uri: URI,
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
@@ -352,7 +353,7 @@ open class WsConnection(
                             }
                         }
                         .flatMap(JsonRpcResponse::requireResult)
-                        .map { BlockContainer.fromEthereumJson(it) }
+                        .map { BlockContainer.fromEthereumJson(it, id) }
                         .subscribeOn(Schedulers.boundedElastic())
                         .timeout(Defaults.timeoutInternal, Mono.empty())
                 }.repeatWhenEmpty { n ->
@@ -368,7 +369,7 @@ open class WsConnection(
                 .then()
         } else {
             Mono.fromCallable {
-                blocks.tryEmitNext(BlockContainer.from(block))
+                blocks.tryEmitNext(BlockContainer.from(block, id))
             }.then()
         }
     }

@@ -22,6 +22,8 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.HasUpstream
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.grpc.Status
@@ -35,7 +37,8 @@ import reactor.core.publisher.Mono
 
 @Service
 open class NativeSubscribe(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
+    @Autowired private val signer: ResponseSigner
 ) {
 
     companion object {
@@ -51,7 +54,7 @@ open class NativeSubscribe(
             .onErrorMap(this@NativeSubscribe::convertToStatus)
     }
 
-    fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<out Any> {
+    fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<ResponseHolder> {
         val chain = Chain.byId(request.chainValue)
         if (BlockchainType.from(chain) != BlockchainType.ETHEREUM_POS && BlockchainType.from(chain) != BlockchainType.ETHEREUM) {
             return Mono.error(UnsupportedOperationException("Native subscribe is not supported for ${chain.chainCode}"))
@@ -61,7 +64,9 @@ open class NativeSubscribe(
             objectMapper.readValue(it.newInput(), Map::class.java)
         }
         val matcher = Selector.convertToMatcher(request.selector)
-        return subscribe(chain, method, params, matcher)
+        return subscribe(chain, method, params, matcher).map { resp ->
+            ResponseHolder(resp, request.nonce.takeIf { it != 0L })
+        }
     }
 
     fun convertToStatus(t: Throwable) = when (t) {
@@ -86,10 +91,43 @@ open class NativeSubscribe(
             .subscribe(method, params, matcher)
     }
 
-    fun convertToProto(value: Any): BlockchainOuterClass.NativeSubscribeReplyItem {
-        val result = objectMapper.writeValueAsBytes(value)
-        return BlockchainOuterClass.NativeSubscribeReplyItem.newBuilder()
+    fun convertToProto(holder: ResponseHolder): BlockchainOuterClass.NativeSubscribeReplyItem {
+        val result = objectMapper.writeValueAsBytes(holder.response)
+        val builder = BlockchainOuterClass.NativeSubscribeReplyItem.newBuilder()
             .setPayload(ByteString.copyFrom(result))
-            .build()
+
+        holder.nonce?.also { nonce ->
+            holder.getSource()?.let {
+                   signer.sign(nonce, result, it)
+            }?.let {
+                buildSignature(nonce, it)
+            }?.also {
+                builder.signature = it
+            }
+        }
+
+        return builder.build()
+    }
+
+    fun buildSignature(
+        nonce: Long,
+        signature: ResponseSigner.Signature
+    ): BlockchainOuterClass.NativeCallReplySignature {
+        val msg = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
+        msg.signature = ByteString.copyFrom(signature.value)
+        msg.keyId = signature.keyId
+        msg.upstreamId = signature.upstreamId
+        msg.nonce = nonce
+        return msg.build()
+    }
+
+    data class ResponseHolder(
+        val response: Any,
+        val nonce: Long?
+    ) {
+        fun getSource(): String? =
+            if (response is HasUpstream) {
+                response.upstreamId.takeIf { it != "unknown" }
+            } else null
     }
 }

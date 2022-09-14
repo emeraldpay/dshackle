@@ -94,7 +94,9 @@ class ProduceLogs(
                                 txlog.topics,
                                 txlog.transactionHash,
                                 txlog.transactionIndex,
-                                false
+                                false,
+                                update.upstreamId
+
                             )
                         }
                     oldMessages.put(LogReference(update.blockHash, update.transactionId), messages)
