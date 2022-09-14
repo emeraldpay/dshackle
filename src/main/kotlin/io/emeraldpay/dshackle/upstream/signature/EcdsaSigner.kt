@@ -1,6 +1,5 @@
 package io.emeraldpay.dshackle.upstream.signature
 
-import io.emeraldpay.dshackle.upstream.Upstream
 import org.apache.commons.codec.binary.Hex
 import java.security.MessageDigest
 import java.security.Signature

@@ -1,7 +1,5 @@
 package io.emeraldpay.dshackle.upstream.signature
 
-import io.emeraldpay.dshackle.upstream.Upstream
-
 interface ResponseSigner {
 
     fun sign(nonce: Long, message: ByteArray, source: String): Signature?
