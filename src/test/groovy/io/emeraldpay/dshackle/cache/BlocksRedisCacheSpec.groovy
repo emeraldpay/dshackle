@@ -62,7 +62,7 @@ class BlocksRedisCacheSpec extends Specification {
                 false,
                 "test".bytes,
                 null,
-                [TxId.from(hash2), TxId.from(hash1)], 0
+                [TxId.from(hash2), TxId.from(hash1)], 0, "BlocksRedisCacheSpec"
         )
 
         when:
