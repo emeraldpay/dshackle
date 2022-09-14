@@ -165,7 +165,8 @@ class TrackERC20AddressSpec extends Specification {
                         ],
                         TransactionId.from("0x5a7898e27120575c33d3d0179af3b6353c7268bbad4255df079ed26b743a21a5"),
                         1,
-                        false
+                        false,
+                        "unknown"
                 )
         ]
         def logs = Mock(ConnectLogs) {

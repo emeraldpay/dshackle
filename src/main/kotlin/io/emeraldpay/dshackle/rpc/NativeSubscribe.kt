@@ -73,9 +73,11 @@ open class NativeSubscribe(
         is SilentException.UnsupportedBlockchain -> StatusException(
             Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}")
         )
+
         is UnsupportedOperationException -> StatusException(
             Status.UNIMPLEMENTED.withDescription(t.message)
         )
+
         else -> {
             log.warn("Unhandled error", t)
             StatusException(
@@ -98,7 +100,7 @@ open class NativeSubscribe(
 
         holder.nonce?.also { nonce ->
             holder.getSource()?.let {
-                   signer.sign(nonce, result, it)
+                signer.sign(nonce, result, it)
             }?.let {
                 buildSignature(nonce, it)
             }?.also {

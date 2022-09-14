@@ -114,7 +114,8 @@ class TestingCommons {
                 null,
                 null,
                 [],
-                0
+                0,
+                "upstream"
         )
     }
 

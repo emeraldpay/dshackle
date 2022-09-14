@@ -34,7 +34,7 @@ class AbstractHeadSpec extends Specification {
     def blocks = [1L, 2, 3, 4].collect { i ->
         byte[] hash = new byte[32]
         hash[0] = i as byte
-        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, [], 0)
+        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, [], 0, "AbstractHeadSpec")
     }
 
     def "Calls beforeBlock on each block"() {
@@ -96,7 +96,7 @@ class AbstractHeadSpec extends Specification {
                 blocks[1].height, BlockId.from(blocks[1].hash.value.clone().tap { it[1] = 0xff as byte }),
                 blocks[1].difficulty - 1,
                 Instant.now(),
-                false, null, null, [], 0
+                false, null, null, [], 0, "AbstractHeadSpec"
         )
         when:
         head.follow(source.asFlux())

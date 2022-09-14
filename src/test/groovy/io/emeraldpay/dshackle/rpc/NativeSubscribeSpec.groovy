@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
+import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
@@ -30,6 +31,7 @@ import spock.lang.Specification
 import java.time.Duration
 
 class NativeSubscribeSpec extends Specification {
+    def signer = new NoSigner()
 
     def "Call with empty params when not provided"() {
         setup:
@@ -40,7 +42,7 @@ class NativeSubscribeSpec extends Specification {
             1 * it.getSubscribe() >> subscribe
         }
 
-        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up))
+        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
         def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
                 .setChainValue(Chain.ETHEREUM.id)
                 .setMethod("newHeads")
@@ -50,7 +52,7 @@ class NativeSubscribeSpec extends Specification {
 
         then:
         StepVerifier.create(act)
-                .expectNext("{}")
+                .expectNext(new NativeSubscribe.ResponseHolder("{}", null))
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
@@ -72,7 +74,7 @@ class NativeSubscribeSpec extends Specification {
             1 * it.getSubscribe() >> subscribe
         }
 
-        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up))
+        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
         def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
                 .setChainValue(Chain.ETHEREUM.id)
                 .setMethod("logs")
@@ -86,7 +88,7 @@ class NativeSubscribeSpec extends Specification {
 
         then:
         StepVerifier.create(act)
-                .expectNext("{}")
+                .expectNext(new NativeSubscribe.ResponseHolder("{}", null))
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }

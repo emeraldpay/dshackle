@@ -34,7 +34,7 @@ class EthereumRpcConnector(
     init {
         if (wsFactory != null) {
             // do not set upstream to the WS, since it doesn't control the RPC upstream
-            conn = wsFactory.create(id, null, null)
+            conn = wsFactory.create(null, null)
             val wsHead = EthereumWsHead(conn, id, forkChoice, blockValidator)
             // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
             val rpcHead = EthereumRpcHead(directReader, forkChoice, id, blockValidator, Duration.ofSeconds(60))

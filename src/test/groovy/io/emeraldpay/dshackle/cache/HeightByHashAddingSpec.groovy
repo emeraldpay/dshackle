@@ -27,7 +27,7 @@ class HeightByHashAddingSpec extends Specification {
 
     def block = new BlockContainer(
             12079192L, BlockId.from("0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"),
-            BigInteger.ONE, Instant.now(), false, "".bytes, null, [], 0
+            BigInteger.ONE, Instant.now(), false, "".bytes, null, [], 0, "upstream"
     )
 
     def "use memory if available"() {

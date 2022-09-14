@@ -40,7 +40,8 @@ class ConnectLogsSpec extends Specification {
             ],
             TransactionId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec"),
             1L,
-            false
+            false,
+            "upstream"
     )
 
     def log2 = new LogMessage(
@@ -54,7 +55,8 @@ class ConnectLogsSpec extends Specification {
             ],
             TransactionId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec"),
             1L,
-            false
+            false,
+            "upstream"
     )
 
     def log3 = new LogMessage(
@@ -68,7 +70,8 @@ class ConnectLogsSpec extends Specification {
             ],
             TransactionId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec"),
             1L,
-            false
+            false,
+            "upstream"
     )
 
     def log4 = new LogMessage(
@@ -82,7 +85,8 @@ class ConnectLogsSpec extends Specification {
             ],
             TransactionId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec"),
             1L,
-            false
+            false,
+            "upstream"
     )
 
     def "Filter is empty"() {

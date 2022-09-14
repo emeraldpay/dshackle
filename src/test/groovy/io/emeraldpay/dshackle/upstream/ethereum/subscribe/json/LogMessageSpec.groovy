@@ -41,7 +41,8 @@ class LogMessageSpec extends Specification {
                 ],
                 TransactionId.from("0xc7529e79f78f58125abafeaea01fe3abdc6f45c173d5dfb36716cbc526e5b2d1"),
                 0xa3,
-                false)
+                false,
+                "LogMessageSpec")
         ObjectMapper objectMapper = Global.getObjectMapper()
         def exp = '{' +
                 '"address":"0x011b6e24ffb0b5f5fcc564cf4183c5bbbc96d515",' +

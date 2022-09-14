@@ -58,7 +58,7 @@ class EthereumWsFactory(
         )
     }
 
-    fun create(id: String, upstream: DefaultUpstream?, validator: EthereumUpstreamValidator?): WsConnection {
+    fun create(upstream: DefaultUpstream?, validator: EthereumUpstreamValidator?): WsConnection {
         require(upstream == null || upstream.getId() == id) {
             "Creating instance for different upstream. ${upstream?.getId()} != id"
         }

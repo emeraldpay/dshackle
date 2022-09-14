@@ -45,7 +45,8 @@ class ProduceLogsSpec extends Specification {
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
                 ConnectBlockUpdates.UpdateType.NEW,
-                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
+                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af"),
+                "upstream"
         )
         when:
         def act = producer.produceAdded(update)
@@ -67,7 +68,8 @@ class ProduceLogsSpec extends Specification {
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
                 ConnectBlockUpdates.UpdateType.NEW,
-                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
+                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af"),
+                "upstream"
         )
         when:
         def act = producer.produceAdded(update)
@@ -112,7 +114,8 @@ class ProduceLogsSpec extends Specification {
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
                 ConnectBlockUpdates.UpdateType.NEW,
-                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
+                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af"),
+                "upstream"
         )
         when:
         def act = producer.produceAdded(update)
@@ -157,7 +160,8 @@ class ProduceLogsSpec extends Specification {
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
                 ConnectBlockUpdates.UpdateType.NEW,
-                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
+                TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af"),
+                "upstream"
         )
         when:
         def act = producer.produceAdded(update)
@@ -267,7 +271,8 @@ class ProduceLogsSpec extends Specification {
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
                 ConnectBlockUpdates.UpdateType.NEW,
-                TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")
+                TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec"),
+                "upstream"
         )
         when:
         def act = producer.produceAdded(update)
@@ -345,13 +350,15 @@ class ProduceLogsSpec extends Specification {
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
                 ConnectBlockUpdates.UpdateType.NEW,
-                TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")
+                TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec"),
+                "upstream"
         )
         def update2 = new ConnectBlockUpdates.Update(
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
                 ConnectBlockUpdates.UpdateType.DROP,
-                TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")
+                TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec"),
+                "upstream"
         )
         when:
         // first need to produce them as added, because that's when it remembers logs to "remove"

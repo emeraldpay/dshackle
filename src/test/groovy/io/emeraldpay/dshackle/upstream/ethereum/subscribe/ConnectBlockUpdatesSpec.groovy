@@ -81,7 +81,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             ]
         })
         when:
-        def act = connectBlockUpdates.whenReplaced(block)
+        def act = connectBlockUpdates.whenReplaced(block, "ConnectBlockUpdatesSpec")
                 .collectList().block(Duration.ofSeconds(3))
 
         then:

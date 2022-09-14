@@ -95,7 +95,7 @@ class EcdsaSignerSpec extends Specification {
         def signer = new EcdsaSigner(Stub(ECPrivateKey), 100L)
 
         when:
-        def act = signer.wrapMessage(10, "test".bytes, up)
+        def act = signer.wrapMessage(10, "test".bytes, up.id)
 
         then:
         act == "DSHACKLESIG/10/infura/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
