@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.rpc
 
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeReplyItem
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -47,7 +48,7 @@ open class NativeSubscribe(
 
     private val objectMapper = Global.objectMapper
 
-    fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
+    fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<NativeSubscribeReplyItem> {
         return request
             .flatMapMany(this@NativeSubscribe::start)
             .map(this@NativeSubscribe::convertToProto)
@@ -59,14 +60,17 @@ open class NativeSubscribe(
         if (BlockchainType.from(chain) != BlockchainType.ETHEREUM_POS && BlockchainType.from(chain) != BlockchainType.ETHEREUM) {
             return Mono.error(UnsupportedOperationException("Native subscribe is not supported for ${chain.chainCode}"))
         }
-        val method = request.method
-        val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
-            objectMapper.readValue(it.newInput(), Map::class.java)
-        }
+
+        val nonce = request.nonce.takeIf { it != 0L }
         val matcher = Selector.convertToMatcher(request.selector)
-        return subscribe(chain, method, params, matcher).map { resp ->
-            ResponseHolder(resp, request.nonce.takeIf { it != 0L })
+        val publisher = getUpstream(chain)?.tryProxy(matcher, request) ?: run {
+            val method = request.method
+            val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
+                objectMapper.readValue(it.newInput(), Map::class.java)
+            }
+            subscribe(chain, method, params, matcher)
         }
+        return publisher.map { ResponseHolder(it, nonce) }
     }
 
     fun convertToStatus(t: Throwable) = when (t) {
@@ -86,16 +90,20 @@ open class NativeSubscribe(
         }
     }
 
-    open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> {
-        val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
-        return (up as EthereumLikeMultistream)
-            .getSubscribe()
-            .subscribe(method, params, matcher)
-    }
+    open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> =
+        getUpstream(chain)?.getSubscribe()?.subscribe(method, params, matcher)
+            ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
 
-    fun convertToProto(holder: ResponseHolder): BlockchainOuterClass.NativeSubscribeReplyItem {
+    private fun getUpstream(chain: Chain): EthereumLikeMultistream? =
+        multistreamHolder.getUpstream(chain)
+            ?.let { it as EthereumLikeMultistream }
+
+    fun convertToProto(holder: ResponseHolder): NativeSubscribeReplyItem {
+        if (holder.response is NativeSubscribeReplyItem) {
+            return holder.response
+        }
         val result = objectMapper.writeValueAsBytes(holder.response)
-        val builder = BlockchainOuterClass.NativeSubscribeReplyItem.newBuilder()
+        val builder = NativeSubscribeReplyItem.newBuilder()
             .setPayload(ByteString.copyFrom(result))
 
         holder.nonce?.also { nonce ->
