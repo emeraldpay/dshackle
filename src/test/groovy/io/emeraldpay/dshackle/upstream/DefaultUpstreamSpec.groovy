@@ -62,6 +62,54 @@ class DefaultUpstreamSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
+    def "Availability for always valid upstream doesn't react on old height"() {
+        setup:
+        def upstream = new DefaultUpstreamTestImpl("test",
+                new ForkWatch.Never(),
+                UpstreamsConfig.Options.getDefaults().tap {
+                    it.disableValidation = true
+                }
+        )
+        when: "we have a zero height"
+        upstream.setStatus(UpstreamAvailability.OK)
+        def act = upstream.getStatus()
+        then:
+        act == UpstreamAvailability.OK
+
+        when: "we set large lag"
+        upstream.setLag(100)
+        upstream.setStatus(UpstreamAvailability.OK)
+        act = upstream.getStatus()
+        then:
+        act == UpstreamAvailability.OK
+    }
+
+    def "Can turn off always valid upstream without making it as lagging"() {
+        setup:
+        def upstream = new DefaultUpstreamTestImpl("test",
+                new ForkWatch.Never(),
+                UpstreamsConfig.Options.getDefaults().tap {
+                    it.disableValidation = true
+                }
+        )
+        upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
+        when:
+        def act = upstream.getAvailabilityByStatus().take(3)
+        then:
+        StepVerifier.create(act)
+                .expectNext(UpstreamAvailability.UNAVAILABLE)
+                .then { upstream.setStatus(UpstreamAvailability.OK) }
+                // syncing because we didn't not set the height lag
+                .expectNext(UpstreamAvailability.OK)
+                .then { upstream.setStatus(UpstreamAvailability.OK) }
+                .expectNoEvent(Duration.ofMillis(50))
+                .then { upstream.setStatus(UpstreamAvailability.UNAVAILABLE) }
+                // syncing because we didn't not set the height lag
+                .expectNext(UpstreamAvailability.UNAVAILABLE)
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
     def "Availability by fork produce current status"() {
         setup:
         def results = Sinks.many().unicast().<Boolean>onBackpressureBuffer()
@@ -96,7 +144,13 @@ class DefaultUpstreamSpec extends Specification {
 
         DefaultUpstreamTestImpl(@NotNull String id,
                                 @NotNull ForkWatch forkWatch) {
-            super(id, forkWatch, UpstreamsConfig.Options.getDefaults(), UpstreamsConfig.UpstreamRole.PRIMARY, new DefaultEthereumMethods(Chain.ETHEREUM))
+            this(id, forkWatch, UpstreamsConfig.Options.getDefaults())
+        }
+
+        DefaultUpstreamTestImpl(@NotNull String id,
+                                @NotNull ForkWatch forkWatch,
+                                @NotNull UpstreamsConfig.Options options) {
+            super(id, forkWatch, options, UpstreamsConfig.UpstreamRole.PRIMARY, new DefaultEthereumMethods(Chain.ETHEREUM))
         }
 
         @Override
