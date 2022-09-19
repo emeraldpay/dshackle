@@ -152,6 +152,9 @@ class LocalCallRouter(
                 blockRef == "earliest" -> {
                     number = 0
                 }
+                blockRef == "finalized" -> {
+                    return null
+                }
                 blockRef == "pending" -> {
                     return null
                 }
