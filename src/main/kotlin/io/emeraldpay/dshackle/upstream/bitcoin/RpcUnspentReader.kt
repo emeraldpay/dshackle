@@ -43,7 +43,12 @@ class RpcUnspentReader(
         )
     }
 
-    private val selector = Selector.CapabilityMatcher(Capability.BALANCE)
+    private val selector = Selector.Builder()
+        // for BITCOIN balance we need an upstream can provide a balance
+        .withMatcher(Selector.CapabilityMatcher(Capability.BALANCE))
+        // but since we make an RPC call we need this capability as well (as opposed to RemoteUnspentReader)
+        .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
+        .build()
 
     override fun read(key: Address): Mono<List<SimpleUnspent>> {
         // docs: https://developer.bitcoin.org/reference/rpc/listunspent.html
