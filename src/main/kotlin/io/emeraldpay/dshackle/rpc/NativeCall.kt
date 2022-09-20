@@ -29,7 +29,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -65,7 +65,7 @@ open class NativeCall(
             if ((BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && !ethereumCallSelectors.containsKey(chain)
             ) {
                 multistreamHolder.getUpstream(chain)?.let { up ->
-                    val reader = up.cast(EthereumMultistream::class.java).getReader()
+                    val reader = up.cast(EthereumPosMultiStream::class.java).getReader()
                     ethereumCallSelectors[chain] = EthereumCallSelector(reader.heightByHash())
                 }
             }

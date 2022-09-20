@@ -152,7 +152,7 @@ class LocalCallRouter(
                 blockRef == "earliest" -> {
                     number = 0
                 }
-                blockRef == "pending" -> {
+                blockRef == "finalized" || blockRef == "safe" || blockRef == "pending" -> {
                     return null
                 }
                 else -> {
