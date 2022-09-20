@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.test
 
-
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
@@ -27,15 +26,12 @@ import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry
 import org.apache.commons.lang3.StringUtils
@@ -54,6 +50,10 @@ class TestingCommons {
 
     static EthereumPosRpcUpstreamMock upstream(String id) {
         return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM, api())
+    }
+
+    static EthereumPosRpcUpstreamMock upstream(String id, String provider) {
+        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM, api(), Collections.singletonMap("provider", provider))
     }
 
     static EthereumPosRpcUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {

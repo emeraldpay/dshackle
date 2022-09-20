@@ -41,6 +41,7 @@ import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
@@ -109,6 +110,9 @@ open class EthereumGrpcUpstream(
     override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
         return remote
     }
+
+    override fun proxySubscribe(request: BlockchainOuterClass.NativeSubscribeRequest): Flux<out Any> =
+        remote.nativeSubscribe(request)
 
     override fun start() {
     }

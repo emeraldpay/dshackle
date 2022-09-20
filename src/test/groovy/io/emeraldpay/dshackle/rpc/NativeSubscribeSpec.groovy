@@ -19,7 +19,6 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
@@ -35,18 +34,21 @@ class NativeSubscribeSpec extends Specification {
 
     def "Call with empty params when not provided"() {
         setup:
-        def subscribe = Mock(EthereumSubscribe) {
-            1 * it.subscribe("newHeads", null, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
-        }
-        def up = Mock(EthereumPosMultiStream) {
-            1 * it.getSubscribe() >> subscribe
-        }
-
-        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
         def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
                 .setChainValue(Chain.ETHEREUM.id)
                 .setMethod("newHeads")
                 .build()
+
+        def subscribe = Mock(EthereumSubscribe) {
+            1 * it.subscribe("newHeads", null, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
+        }
+        def up = Mock(EthereumPosMultiStream) {
+            1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> null
+            1 * it.getSubscribe() >> subscribe
+        }
+
+        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
+
         when:
         def act = nativeSubscribe.start(call)
 
@@ -59,6 +61,15 @@ class NativeSubscribeSpec extends Specification {
 
     def "Call with params when provided"() {
         setup:
+        def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
+                .setChainValue(Chain.ETHEREUM.id)
+                .setMethod("logs")
+                .setPayload(ByteString.copyFromUtf8(
+                        '{"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", ' +
+                                '"topics": ["0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"]}'
+                ))
+                .build()
+
         def subscribe = Mock(EthereumSubscribe) {
             1 * it.subscribe("logs", { params ->
                 println("params: $params")
@@ -71,18 +82,35 @@ class NativeSubscribeSpec extends Specification {
             }, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
         def up = Mock(EthereumPosMultiStream) {
+            1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> null
             1 * it.getSubscribe() >> subscribe
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
+
+        when:
+        def act = nativeSubscribe.start(call)
+
+        then:
+        StepVerifier.create(act)
+                .expectNext(new NativeSubscribe.ResponseHolder("{}", null))
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Proxy call"() {
+        setup:
         def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
                 .setChainValue(Chain.ETHEREUM.id)
-                .setMethod("logs")
-                .setPayload(ByteString.copyFromUtf8(
-                        '{"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", ' +
-                                '"topics": ["0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"]}'
-                ))
+                .setMethod("newHeads")
                 .build()
+        def up = Mock(EthereumPosMultiStream) {
+            1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> Flux.just("{}")
+            0 * it.getSubscribe()
+        }
+
+        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
+
         when:
         def act = nativeSubscribe.start(call)
 
@@ -93,3 +121,4 @@ class NativeSubscribeSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 }
+

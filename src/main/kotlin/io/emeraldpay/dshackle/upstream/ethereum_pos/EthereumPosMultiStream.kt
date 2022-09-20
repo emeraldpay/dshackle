@@ -99,7 +99,7 @@ open class EthereumPosMultiStream(
         }?.map {
             it as GrpcUpstream
         }?.map {
-            it.getBlockchainApi().nativeSubscribe(request)
+            it.proxySubscribe(request)
         }?.let {
             Flux.merge(it)
         }
