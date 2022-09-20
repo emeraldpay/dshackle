@@ -41,6 +41,9 @@ open class BitcoinReader(
 
     private val objectMapper: ObjectMapper = Global.objectMapper
     private val mempool = CachingMempoolData(upstreams, head)
+    private val selector = Selector.Builder()
+        .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
+        .build()
 
     private val unspentReader: UnspentReader = if (esploraClient != null) {
         EsploraUnspentReader(esploraClient, head)
@@ -84,7 +87,7 @@ open class BitcoinReader(
     }
 
     fun <T> castedRead(req: JsonRpcRequest, clazz: Class<T>): Mono<T> {
-        return upstreams.getDirectApi(Selector.empty).flatMap { api ->
+        return upstreams.getDirectApi(selector).flatMap { api ->
             api.read(req)
                 .flatMap(JsonRpcResponse::requireResult)
                 .map {

@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.reader
 
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -44,7 +45,7 @@ class RpcReader<T>(
     }
 
     override fun read(key: T): Mono<ByteArray> {
-        return up.getDirectApi(Selector.empty)
+        return up.getDirectApi(Selector.CapabilityMatcher(Capability.RPC))
             .flatMap { rdr ->
                 rdr.read(paramsBuilder(key)).flatMap {
                     it.requireResult()

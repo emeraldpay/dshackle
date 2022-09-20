@@ -9,6 +9,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -46,6 +47,10 @@ class EthereumDirectReader(
 
     private val objectMapper: ObjectMapper = Global.objectMapper
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
+
+    private val selector = Selector.Builder()
+        .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
+        .build()
 
     val blockReader: Reader<BlockHash, BlockContainer>
     val blockByHeightReader: Reader<Long, BlockContainer>
@@ -132,8 +137,12 @@ class EthereumDirectReader(
      */
     private fun readWithQuorum(request: JsonRpcRequest): Mono<ByteArray> {
         return quorumReaderFactory
-            // we do not use Signer for internal requests because it doesn't make much sense
-            .create(up.getApiSource(Selector.empty), callMethodsFactory.create().getQuorumFor(request.method), null)
+            .create(
+                up.getApiSource(selector),
+                callMethodsFactory.create().getQuorumFor(request.method),
+                // we do not use Signer for internal requests because it doesn't make much sense
+                null
+            )
             .read(request)
             .map { it.value }
     }
