@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.upstream.ApiSource
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
@@ -193,6 +194,7 @@ open class NativeCall(
             } ?: Mono.empty()
         return callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
             val matcher = Selector.Builder()
+                .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
                 .withMatcher(csm)
                 .forMethod(method)
                 .forLabels(Selector.convertToMatcher(request.selector))
