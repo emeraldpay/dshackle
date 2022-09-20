@@ -97,21 +97,17 @@ open class EthereumMultistream(
     }
 
     override fun tryProxy(
-        mather: Selector.Matcher,
+        matcher: Selector.Matcher,
         request: BlockchainOuterClass.NativeSubscribeRequest
     ): Flux<out Any>? =
         upstreams.filter {
-            mather.matches(it)
+            matcher.matches(it)
         }.takeIf { ups ->
             ups.all { it.isGrpc() }
         }?.map {
             it as GrpcUpstream
         }?.map {
-            it.getBlockchainApi().nativeSubscribe(
-                request.toBuilder()
-                    .setSelector(BlockchainOuterClass.Selector.getDefaultInstance())
-                    .build()
-            )
+            it.getBlockchainApi().nativeSubscribe(request)
         }?.let {
             Flux.merge(it)
         }

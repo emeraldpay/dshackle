@@ -63,6 +63,12 @@ open class NativeSubscribe(
 
         val nonce = request.nonce.takeIf { it != 0L }
         val matcher = Selector.convertToMatcher(request.selector)
+
+        /**
+         * Try to proxy request subscription directly to the upstream dshackle instance.
+         * If not possible - performs subscription logic on the current instance
+         * @see EthereumLikeMultistream.tryProxy
+         */
         val publisher = getUpstream(chain)?.tryProxy(matcher, request) ?: run {
             val method = request.method
             val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {

@@ -12,5 +12,12 @@ interface EthereumLikeMultistream : Upstream {
 
     fun getHead(mather: Selector.Matcher): Head
 
-    fun tryProxy(mather: Selector.Matcher, request: BlockchainOuterClass.NativeSubscribeRequest): Flux<out Any>?
+    /**
+     * Tries to proxy the native subscribe request to the managed upstreams if
+     * - any of them matches the matcher criteria
+     * - all of matching above are gRPC ones
+     * in this case the upstream dshackle instances can sign the results and they will just proxied as is with original signs
+     * Otherwise return null
+     */
+    fun tryProxy(matcher: Selector.Matcher, request: BlockchainOuterClass.NativeSubscribeRequest): Flux<out Any>?
 }
