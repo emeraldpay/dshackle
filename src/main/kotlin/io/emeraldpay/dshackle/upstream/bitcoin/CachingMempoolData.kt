@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -64,7 +65,7 @@ open class CachingMempoolData(
 
     @Suppress("UNCHECKED_CAST")
     fun fetchFromUpstream(): Mono<List<String>> {
-        return upstreams.getDirectApi(Selector.empty).flatMap { api ->
+        return upstreams.getDirectApi(Selector.CapabilityMatcher(Capability.RPC)).flatMap { api ->
             api.read(JsonRpcRequest("getrawmempool", emptyList()))
                 .flatMap(JsonRpcResponse::requireResult)
                 .map { objectMapper.readValue(it, List::class.java) as List<String> }
