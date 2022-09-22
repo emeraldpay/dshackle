@@ -19,16 +19,16 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.util.LinkedList
-import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
-import kotlin.concurrent.withLock
 import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
@@ -46,30 +46,19 @@ class ConnectBlockUpdates(
      */
     private val history = LinkedList<BlockContainer>()
     private val historyUpdateLock = ReentrantReadWriteLock()
+    private val connected: MutableMap<String, Flux<Update>> = ConcurrentHashMap()
 
-    private var connected: Flux<Update>? = null
-    private val connectLock = ReentrantLock()
-
-    fun connect(): Flux<Update> {
-        val current = connected
-        if (current != null) {
-            return current
-        }
-        connectLock.withLock {
-            val currentRecheck = connected
-            if (currentRecheck != null) {
-                return currentRecheck
-            }
-            val created = extract(upstream.getHead())
+    fun connect() = connect(Selector.empty)
+    fun connect(matcher: Selector.Matcher): Flux<Update> {
+        return connected.computeIfAbsent(matcher.describeInternal()) { key ->
+            extract(upstream.getHead(matcher))
                 .publishOn(Schedulers.boundedElastic())
                 .publish()
                 .refCount(1, Duration.ofSeconds(60))
                 .doFinally {
                     // forget it on disconnect, so next time it's recreated
-                    connected = null
+                    connected.remove(key)
                 }
-            connected = created
-            return created
         }
     }
 

@@ -15,14 +15,14 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Connects/reconnects to the upstream to produce NewHeads messages
@@ -35,30 +35,18 @@ class ConnectNewHeads(
         private val log = LoggerFactory.getLogger(ConnectNewHeads::class.java)
     }
 
-    private var connected: Flux<NewHeadMessage>? = null
-    private val connectLock = ReentrantLock()
+    private val connected: MutableMap<String, Flux<NewHeadMessage>> = ConcurrentHashMap()
 
-    fun connect(): Flux<NewHeadMessage> {
-        val current = connected
-        if (current != null) {
-            return current
-        }
-        connectLock.withLock {
-            val currentRecheck = connected
-            if (currentRecheck != null) {
-                return currentRecheck
-            }
-            val created = ProduceNewHeads(upstream.getHead())
+    fun connect(matcher: Selector.Matcher): Flux<NewHeadMessage> =
+        connected.computeIfAbsent(matcher.describeInternal()) { key ->
+            ProduceNewHeads(upstream.getHead(matcher))
                 .start()
                 .publishOn(Schedulers.boundedElastic())
                 .publish()
                 .refCount(1, Duration.ofSeconds(60))
                 .doFinally {
                     // forget it on disconnect, so next time it's recreated
-                    connected = null
+                    connected.remove(key)
                 }
-            connected = created
-            return created
         }
-    }
 }
