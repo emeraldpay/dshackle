@@ -203,34 +203,19 @@ class MultistreamSpec extends Specification {
 
     def "Filter upstream matching selector single"() {
         setup:
-
-        def block1 = createBlock(111111)
-        def block2 = createBlock(222222)
-        def block3 = createBlock(222222)
-
-        def up1 = TestingCommons.upstream("test-1", "internal").tap {
-            it.ethereumHeadMock.predefined = Flux.just(block1)
-        }
-        def up2 = TestingCommons.upstream("test-2", "external").tap {
-            it.ethereumHeadMock.predefined = Flux.just(block2)
-        }
-        def up3 = TestingCommons.upstream("test-3", "external").tap {
-            it.ethereumHeadMock.predefined = Flux.just(block3)
-        }
+        def up1 = TestingCommons.upstream("test-1", "internal")
+        def up2 = TestingCommons.upstream("test-2", "external")
+        def up3 = TestingCommons.upstream("test-3", "external")
         def multistream = new EthereumPosMultiStream(Chain.ETHEREUM, [up1, up2, up3], Caches.default())
 
+        expect:
+        multistream.getHead(new Selector.LabelMatcher("provider", ["internal"])).is(up1.ethereumHeadMock)
+        multistream.getHead(new Selector.LabelMatcher("provider", ["unknown"])) in EmptyHead
 
-        up1.ethereumHeadMock.toString()
-
-        when:
-        def head = multistream.getHead(new Selector.LabelMatcher("provider", ["internal"])).flux
-
-        then:
-        StepVerifier.create(head)
-                .expectNext(block1)
-                .expectNext(block1)
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
+        def head = multistream.getHead(new Selector.LabelMatcher("provider", ["external"]))
+        head in MergedHead
+        (head as MergedHead).isRunning()
+        (head as MergedHead).getSources().sort() == [up2.ethereumHeadMock, up3.ethereumHeadMock].sort()
 
     }
 
