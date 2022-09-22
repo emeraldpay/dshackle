@@ -20,7 +20,6 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ChainFees
-import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -32,7 +31,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
-import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
@@ -51,8 +49,6 @@ open class EthereumPosMultiStream(
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
     private val feeEstimation = EthereumPriorityFees(this, reader, 256)
     private val subscribe = EthereumSubscribe(this)
-    private val filteredHeads: MutableMap<String, Head> =
-        ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
     init {
         this.init()
@@ -73,7 +69,6 @@ open class EthereumPosMultiStream(
     override fun stop() {
         super.stop()
         reader.stop()
-        filteredHeads.clear()
     }
 
     override fun isRunning(): Boolean {
@@ -141,24 +136,6 @@ open class EthereumPosMultiStream(
     override fun getSubscribe(): EthereumSubscribe {
         return subscribe
     }
-
-    override fun getHead(mather: Selector.Matcher): Head =
-        filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
-            upstreams.filter { mather.matches(it) }
-                .apply {
-                    log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
-                }
-                .map { it.getHead() }
-                .let {
-                    when (it.size) {
-                        0 -> EmptyHead()
-                        1 -> it.first()
-                        else -> MergedHead(it, PriorityForkChoice()).apply {
-                            start()
-                        }
-                    }
-                }
-        }
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation

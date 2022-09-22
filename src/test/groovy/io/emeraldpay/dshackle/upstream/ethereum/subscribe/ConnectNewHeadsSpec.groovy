@@ -2,7 +2,6 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
@@ -18,12 +17,12 @@ class ConnectNewHeadsSpec extends Specification {
             ])
         }
         def up = Mock(EthereumMultistream) {
-            1 * getHead(Selector.empty) >> head
+            1 * getHead() >> head
         }
         ConnectNewHeads connectNewHeads = new ConnectNewHeads(up)
         when:
-        def act1 = connectNewHeads.connect(Selector.empty)
-        def act2 = connectNewHeads.connect(Selector.empty)
+        def act1 = connectNewHeads.connect()
+        def act2 = connectNewHeads.connect()
         then:
         StepVerifier.create(act1)
                 .expectNextCount(1)

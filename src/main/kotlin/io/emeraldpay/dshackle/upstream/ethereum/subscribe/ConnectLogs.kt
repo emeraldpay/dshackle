@@ -15,7 +15,6 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.domain.Address
@@ -41,17 +40,17 @@ open class ConnectLogs(
 
     private val produceLogs = ProduceLogs(upstream)
 
-    fun start(matcher: Selector.Matcher): Flux<LogMessage> {
-        return produceLogs.produce(connectBlockUpdates.connect(matcher))
+    fun start(): Flux<LogMessage> {
+        return produceLogs.produce(connectBlockUpdates.connect())
     }
 
-    open fun start(addresses: List<Address>, topics: List<Hex32>, matcher: Selector.Matcher): Flux<LogMessage> {
+    open fun start(addresses: List<Address>, topics: List<Hex32>): Flux<LogMessage> {
         // shortcut to the whole output if we don't have any filters
         if (addresses.isEmpty() && topics.isEmpty()) {
-            return start(matcher)
+            return start()
         }
         // filtered output
-        return start(matcher)
+        return start()
             .transform(filtered(addresses, topics))
     }
 

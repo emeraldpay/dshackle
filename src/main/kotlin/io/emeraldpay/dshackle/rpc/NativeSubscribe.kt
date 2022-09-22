@@ -20,7 +20,6 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
@@ -51,17 +50,20 @@ open class NativeSubscribe(
             .onErrorMap(this@NativeSubscribe::convertToStatus)
     }
 
-    fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<out Any> {
-        val chain = Chain.byId(request.chainValue)
+    fun start(it: BlockchainOuterClass.NativeSubscribeRequest): Publisher<out Any> {
+        val chain = Chain.byId(it.chainValue)
         if (BlockchainType.from(chain) != BlockchainType.ETHEREUM_POS && BlockchainType.from(chain) != BlockchainType.ETHEREUM) {
             return Mono.error(UnsupportedOperationException("Native subscribe is not supported for ${chain.chainCode}"))
         }
-        val method = request.method
-        val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
-            objectMapper.readValue(it.newInput(), Map::class.java)
+        val method = it.method
+        val params: Any? = it.payload?.let { payload ->
+            if (payload.size() > 0) {
+                objectMapper.readValue(payload.newInput(), Map::class.java)
+            } else {
+                null
+            }
         }
-        val matcher = Selector.convertToMatcher(request.selector)
-        return subscribe(chain, method, params, matcher)
+        return subscribe(chain, method, params)
     }
 
     fun convertToStatus(t: Throwable) = when (t) {
@@ -79,11 +81,11 @@ open class NativeSubscribe(
         }
     }
 
-    open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> {
+    open fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
         val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
         return (up as EthereumLikeMultistream)
             .getSubscribe()
-            .subscribe(method, params, matcher)
+            .subscribe(method, params)
     }
 
     fun convertToProto(value: Any): BlockchainOuterClass.NativeSubscribeReplyItem {

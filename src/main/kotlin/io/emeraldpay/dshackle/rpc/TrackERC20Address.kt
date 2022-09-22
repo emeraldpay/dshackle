@@ -20,7 +20,6 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.TokensConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.etherjar.domain.Address
@@ -91,8 +90,7 @@ class TrackERC20Address(
             .getSubscribe().logs
             .start(
                 listOf(tokenDefinition.token.contract),
-                listOf(EventId.fromSignature("Transfer", "address", "address", "uint256")),
-                Selector.empty
+                listOf(EventId.fromSignature("Transfer", "address", "address", "uint256"))
             )
 
         return ethereumAddresses.extract(request.address)

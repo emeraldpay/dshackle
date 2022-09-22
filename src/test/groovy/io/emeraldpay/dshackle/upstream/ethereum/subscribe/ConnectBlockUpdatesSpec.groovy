@@ -19,7 +19,6 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
@@ -224,7 +223,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             1 * getFlux() >> Flux.never()
         }
         def up = Mock(EthereumMultistream) {
-            1 * getHead(Selector.empty) >> head
+            1 * getHead() >> head
         }
         def connectBlockUpdates = new ConnectBlockUpdates(up)
 
