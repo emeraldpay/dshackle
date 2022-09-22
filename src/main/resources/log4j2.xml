@@ -26,6 +26,10 @@
 
         <!-- Reactor Netty produces warnings that are ok,
              ex. when Dshackle closes a connection too fast and Reactor Netty HTTPClient doesn't like that -->
+        <Logger name="io.grpc.netty" level="error" additivity="false">
+            <AppenderRef ref="STDOUT"/>
+            <AppenderRef ref="STDERR" level="warn"/>
+        </Logger>
         <Logger name="reactor.netty.http.client" level="error" additivity="false">
             <AppenderRef ref="STDOUT"/>
             <AppenderRef ref="STDERR" level="warn"/>
