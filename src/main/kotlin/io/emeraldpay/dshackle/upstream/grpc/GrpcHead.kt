@@ -80,6 +80,7 @@ class GrpcHead(
             .setTypeValue(chain.id)
             .build()
         return client.subscribeHead(chainRef)
+            .doOnError { log.error("subscribeHead err: ${it.message}", it) }
             // simple retry on failure, if eventually failed then it supposed to resubscribe later from outer method
             .retryWhen(Retry.backoff(4, Duration.ofSeconds(1)))
             .onErrorContinue { err, _ ->

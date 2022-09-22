@@ -161,7 +161,7 @@ class QuorumRpcReader(
                     is JsonRpcException -> err
                     else -> JsonRpcException(
                         JsonRpcResponse.NumberId(key.id),
-                        JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}")
+                        JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}: ${err.message}")
                     )
                 }
                 quorum.record(cleanErr, null, api)
