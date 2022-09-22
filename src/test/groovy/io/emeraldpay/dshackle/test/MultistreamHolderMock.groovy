@@ -20,6 +20,7 @@ package io.emeraldpay.dshackle.test
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -141,6 +142,14 @@ class MultistreamHolderMock implements MultistreamHolder {
                 return customHead
             }
             return super.getHead()
+        }
+
+        @Override
+        Head getHead(@NotNull Selector.Matcher mather) {
+            if (customHead != null) {
+                return customHead
+            }
+            return super.getHead(mather)
         }
     }
 

@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.proxy
 
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.BlockchainOuterClass.Selector
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
@@ -139,7 +140,7 @@ class WebsocketHandler(
                     }
                     // produce actual responses
                     val responses = nativeSubscribe
-                        .subscribe(blockchain, methodParams.first, methodParams.second)
+                        .subscribe(blockchain, methodParams.first, methodParams.second, io.emeraldpay.dshackle.upstream.Selector.empty)
                         .map { event ->
                             WsSubscriptionResponse(params = WsSubscriptionData(event, subscriptionId))
                         }
