@@ -106,6 +106,7 @@ log4j-slf4j = "org.apache.logging.log4j:log4j-slf4j-impl:2.17.0"
 snake-yaml = "org.yaml:snakeyaml:1.24"
 
 spockframework-core = "org.spockframework:spock-core:2.0-groovy-3.0"
+testcontainers = "org.testcontainers:spock:1.17.3"
 
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "spring-boot" }
 spring-security-core = { module = "org.springframework.security:spring-security-core", version.ref = "spring-security" }

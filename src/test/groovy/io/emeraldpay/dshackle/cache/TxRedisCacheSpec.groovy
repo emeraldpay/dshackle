@@ -35,14 +35,21 @@ import io.lettuce.core.api.StatefulRedisConnection
 import io.lettuce.core.codec.ByteArrayCodec
 import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.codec.StringCodec
+import org.testcontainers.containers.GenericContainer
+import org.testcontainers.spock.Testcontainers
+import org.testcontainers.utility.DockerImageName
 import spock.lang.IgnoreIf
 import spock.lang.Specification
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-@IgnoreIf({ IntegrationTestingCommons.isDisabled("redis") })
+@Testcontainers
 class TxRedisCacheSpec extends Specification {
+
+    GenericContainer redisContainer = new GenericContainer(
+            DockerImageName.parse("redis:5.0.3-alpine")
+    ).withExposedPorts(6379)
 
     String hash1 = "0xd3f34def3c56ba4e701540d15edaff9acd2a1c968a7ff83b3300ab5dfd5f6aab"
     String hash2 = "0x4aabdaff9acd2f30d15e00ab5dfd5f6c56ba4ea1c968a7ff8d3f34de70153b33"
@@ -51,11 +58,16 @@ class TxRedisCacheSpec extends Specification {
     TxRedisCache cache
 
     ObjectMapper objectMapper = Global.objectMapper
+    StatefulRedisConnection<String, byte[]> redis
 
     def setup() {
-        StatefulRedisConnection<String, byte[]> redis = IntegrationTestingCommons.redisConnection()
+        redis = IntegrationTestingCommons.redisConnection(redisContainer.firstMappedPort)
         redis.sync().flushdb()
         cache = new TxRedisCache(redis.reactive(), Chain.ETHEREUM)
+    }
+
+    def cleanup() {
+        redis.close()
     }
 
     def "Decode encoded"() {

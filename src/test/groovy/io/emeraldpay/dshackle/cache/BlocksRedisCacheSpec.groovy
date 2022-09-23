@@ -26,14 +26,20 @@ import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import io.lettuce.core.api.StatefulRedisConnection
-import spock.lang.IgnoreIf
+import org.testcontainers.containers.GenericContainer
+import org.testcontainers.spock.Testcontainers
+import org.testcontainers.utility.DockerImageName
 import spock.lang.Specification
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-@IgnoreIf({ IntegrationTestingCommons.isDisabled("redis") })
+@Testcontainers
 class BlocksRedisCacheSpec extends Specification {
+
+    GenericContainer redisContainer = new GenericContainer(
+            DockerImageName.parse("redis:5.0.3-alpine")
+    ).withExposedPorts(6379)
 
     StatefulRedisConnection<String, byte[]> redis
     BlocksRedisCache cache
@@ -46,11 +52,15 @@ class BlocksRedisCacheSpec extends Specification {
     ObjectMapper objectMapper = Global.objectMapper
 
     def setup() {
-        redis = IntegrationTestingCommons.redisConnection()
+        redis = IntegrationTestingCommons.redisConnection(redisContainer.firstMappedPort)
         redis.sync().flushdb()
         cache = new BlocksRedisCache(
                 redis.reactive(), Chain.ETHEREUM
         )
+    }
+
+    def cleanup() {
+        redis.close()
     }
 
     def "Decode encoded"() {
