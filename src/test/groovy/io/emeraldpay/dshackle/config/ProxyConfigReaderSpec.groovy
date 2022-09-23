@@ -24,7 +24,7 @@ class ProxyConfigReaderSpec extends Specification {
 
     def "Read basic proxy config"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("dshackle-proxy-basic.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-proxy-basic.yaml")
         when:
         def act = reader.read(config)
 
@@ -42,7 +42,7 @@ class ProxyConfigReaderSpec extends Specification {
 
     def "Read proxy config with websocket disabled"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("dshackle-proxy-no-ws.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-proxy-no-ws.yaml")
         when:
         def act = reader.read(config)
 
@@ -53,7 +53,7 @@ class ProxyConfigReaderSpec extends Specification {
 
     def "Read proxy config with two elements"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("dshackle-proxy-two.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-proxy-two.yaml")
         when:
         def act = reader.read(config)
 
@@ -73,7 +73,7 @@ class ProxyConfigReaderSpec extends Specification {
 
     def "Read max proxy config"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("dshackle-proxy-max.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-proxy-max.yaml")
         when:
         def act = reader.read(config)
 
