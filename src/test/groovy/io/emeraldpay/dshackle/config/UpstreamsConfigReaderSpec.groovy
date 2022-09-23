@@ -25,7 +25,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse standard config"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-basic.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-basic.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -73,7 +73,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse websocket-only config"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-ws-only.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-ws-only.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -98,7 +98,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse full defined websocket config"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-ws-full.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-ws-full.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -125,7 +125,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse bitcoin upstreams"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-bitcoin.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-bitcoin.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -173,7 +173,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse bitcoin upstreams with esplora"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-bitcoin-esplora.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-bitcoin-esplora.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -202,7 +202,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse ds config"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-ds.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-ds.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -225,7 +225,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config with labels"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-labels.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-labels.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -246,7 +246,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config with options"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-options.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-options.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -262,7 +262,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config without defaults"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-no-defaults.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-no-defaults.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -285,7 +285,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config with methods"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-methods.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-methods.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -305,7 +305,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config with methods and quorum"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-methods-quorum.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-methods-quorum.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -328,7 +328,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config with invalid ids"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-no-id.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-no-id.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -355,7 +355,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config without fallback role"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-basic.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-basic.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -367,7 +367,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config with fallback role"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-roles.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-roles.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -379,7 +379,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config with secondary role"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-roles-2.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-roles-2.yaml")
         when:
         def act = reader.read(config)
         then:
@@ -392,7 +392,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse config with invalid role"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-roles-invalid.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-roles-invalid.yaml")
         when:
         def act = reader.read(config)
         then:

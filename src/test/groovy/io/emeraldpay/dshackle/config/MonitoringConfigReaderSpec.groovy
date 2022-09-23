@@ -23,7 +23,7 @@ class MonitoringConfigReaderSpec extends Specification {
 
     def "Read basic monitoring config"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("dshackle-monitoring-basic.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-monitoring-basic.yaml")
         when:
         def act = reader.read(config)
 

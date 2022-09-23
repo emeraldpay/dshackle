@@ -1,0 +1,26 @@
+version: v1
+
+upstreams:
+
+  - id: local
+    chain: ethereum
+    priority: 100
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+
+  - id: infura
+    chain: ethereum
+    role: fallback
+    priority: 50
+    connection:
+      ethereum:
+        rpc:
+          url: "https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2"
+
+  - id: remote
+    priority: 75
+    connection:
+      grpc:
+        host: "10.2.0.15"
