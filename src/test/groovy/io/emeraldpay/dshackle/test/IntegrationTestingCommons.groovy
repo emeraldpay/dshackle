@@ -31,17 +31,12 @@ class IntegrationTestingCommons {
         return !isEnabled(name)
     }
 
-    static String env(String name, String defaultValue) {
-        return System.getenv(name) ?: defaultValue
-    }
-
-    static RedisClient redis() {
-        String host = env("REDIS_HOST", "localhost")
-        String port = env("REDIS_PORT", "6379")
+    static RedisClient redis(int port) {
+        String host = "localhost"
         return RedisClient.create("redis://${host}:${port}")
     }
 
-    static StatefulRedisConnection<String, byte[]> redisConnection() {
-        return redis().connect(RedisCodec.of(StringCodec.ASCII, ByteArrayCodec.INSTANCE))
+    static StatefulRedisConnection<String, byte[]> redisConnection(int port) {
+        return redis(port).connect(RedisCodec.of(StringCodec.ASCII, ByteArrayCodec.INSTANCE))
     }
 }

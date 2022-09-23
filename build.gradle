@@ -96,6 +96,7 @@ dependencies {
     testImplementation libs.java.websocket
     testImplementation libs.equals.verifier
     testImplementation libs.groovy
+    testImplementation libs.testcontainers
 
     detektPlugins libs.detekt.formatting
 }

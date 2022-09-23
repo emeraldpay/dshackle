@@ -11,11 +11,18 @@ import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.lettuce.core.api.StatefulRedisConnection
+import org.testcontainers.containers.GenericContainer
+import org.testcontainers.spock.Testcontainers
+import org.testcontainers.utility.DockerImageName
 import spock.lang.IgnoreIf
 import spock.lang.Specification
 
-@IgnoreIf({ IntegrationTestingCommons.isDisabled("redis") })
+@Testcontainers
 class ReceiptRedisCacheSpec extends Specification {
+
+    GenericContainer redisContainer = new GenericContainer(
+            DockerImageName.parse("redis:5.0.3-alpine")
+    ).withExposedPorts(6379)
 
     StatefulRedisConnection<String, byte[]> redis
     ReceiptRedisCache cache
@@ -44,11 +51,15 @@ class ReceiptRedisCacheSpec extends Specification {
     }
 
     def setup() {
-        redis = IntegrationTestingCommons.redisConnection()
+        redis = IntegrationTestingCommons.redisConnection(redisContainer.firstMappedPort)
         redis.sync().flushdb()
         cache = new ReceiptRedisCache(
                 redis.reactive(), Chain.ETHEREUM
         )
+    }
+
+    def cleanup() {
+        redis.close()
     }
 
     def "Add and read"() {
