@@ -1,6 +1,0 @@
-= Simple Testing Upstream
-
-.Run from current directory
-----
-./gradlew run
-----

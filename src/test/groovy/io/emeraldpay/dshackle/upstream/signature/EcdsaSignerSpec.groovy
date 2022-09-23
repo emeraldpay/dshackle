@@ -71,7 +71,7 @@ class EcdsaSignerSpec extends Specification {
         setup:
         def conf = new SignatureConfig()
         conf.enabled = true
-        conf.privateKey = "testing/dshackle/test_key"
+        conf.privateKey = "src/test/resources/signer/test_key"
         def signer = new ResponseSignerFactory(conf).getObject() as EcdsaSigner
 
         // To verify the test, check the hash of test key above:
@@ -136,7 +136,7 @@ class EcdsaSignerSpec extends Specification {
 
         def conf = new SignatureConfig()
         conf.enabled = true
-        conf.privateKey = "testing/dshackle/test_key"
+        conf.privateKey = "src/test/resources/signer/test_key"
         def factory = new ResponseSignerFactory(conf)
 
         def sk = factory.readKey(conf.algorithm, conf.privateKey).first
