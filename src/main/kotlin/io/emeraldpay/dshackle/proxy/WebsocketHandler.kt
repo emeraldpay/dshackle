@@ -26,7 +26,6 @@ import io.emeraldpay.etherjar.rpc.json.RequestJson
 import io.emeraldpay.etherjar.rpc.json.ResponseJson
 import io.emeraldpay.grpc.Chain
 import io.netty.buffer.ByteBufInputStream
-import io.netty.buffer.Unpooled
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -73,9 +72,8 @@ class WebsocketHandler(
             val eventHandler = accessHandler.start(req, routeConfig.blockchain)
 
             val responses = respond(routeConfig.blockchain, control, requests, eventHandler)
-                .map { Unpooled.wrappedBuffer(it.toByteArray()) }
 
-            resp.send(responses)
+            resp.sendString(responses, Charsets.UTF_8)
                 .then()
         }
     }
