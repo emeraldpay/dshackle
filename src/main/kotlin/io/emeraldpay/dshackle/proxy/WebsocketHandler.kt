@@ -26,7 +26,6 @@ import io.emeraldpay.etherjar.rpc.json.RequestJson
 import io.emeraldpay.etherjar.rpc.json.ResponseJson
 import io.emeraldpay.grpc.Chain
 import io.netty.buffer.ByteBufInputStream
-import io.netty.buffer.Unpooled
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
