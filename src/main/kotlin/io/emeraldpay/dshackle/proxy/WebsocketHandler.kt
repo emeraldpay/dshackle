@@ -73,9 +73,8 @@ class WebsocketHandler(
             val eventHandler = accessHandler.start(req, routeConfig.blockchain)
 
             val responses = respond(routeConfig.blockchain, control, requests, eventHandler)
-                .map { Unpooled.wrappedBuffer(it.toByteArray()) }
 
-            resp.send(responses)
+            resp.sendString(responses, Charsets.UTF_8)
                 .then()
         }
     }
