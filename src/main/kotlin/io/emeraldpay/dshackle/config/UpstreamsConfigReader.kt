@@ -307,6 +307,12 @@ class UpstreamsConfigReader(
 
     internal fun readOptions(values: MappingNode): UpstreamsConfig.Options {
         val options = UpstreamsConfig.Options()
+        getValueAsBool(values, "validate-peers")?.let {
+            options.validatePeers = it
+        }
+        getValueAsBool(values, "validate-syncing")?.let {
+            options.validateSyncing = it
+        }
         getValueAsInt(values, "min-peers")?.let {
             options.minPeers = it
         }
@@ -315,6 +321,9 @@ class UpstreamsConfigReader(
         }
         getValueAsBool(values, "disable-validation")?.let {
             options.disableValidation = it
+        }
+        getValueAsInt(values, "validation-interval")?.let {
+            options.validationInterval = it
         }
         getValueAsBool(values, "balance")?.let {
             options.providesBalance = it

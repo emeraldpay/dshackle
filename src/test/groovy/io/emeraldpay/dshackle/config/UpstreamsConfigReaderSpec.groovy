@@ -396,4 +396,29 @@ class UpstreamsConfigReaderSpec extends Specification {
         act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.PRIMARY
         act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.PRIMARY
     }
+
+    def "Parse config with validation options"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-validation.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 3
+        with(act.upstreams.get(0).options) {
+            disableValidation == false
+            validateSyncing == true
+            validatePeers == false
+        }
+        with(act.upstreams.get(1).options) {
+            disableValidation == false
+            validateSyncing == false
+            validatePeers == false
+        }
+        with(act.upstreams.get(2).options) {
+            disableValidation == true
+            validateSyncing == true
+            validatePeers == true
+        }
+    }
 }
