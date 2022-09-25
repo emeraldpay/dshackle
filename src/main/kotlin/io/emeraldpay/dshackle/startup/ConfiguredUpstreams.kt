@@ -84,8 +84,8 @@ open class ConfiguredUpstreams(
                     log.error("Chain is unknown: ${up.chain}")
                     return@forEach
                 }
-                val options = (up.options ?: UpstreamsConfig.Options())
-                    .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
+                val options = (defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
+                    .merge(up.options ?: UpstreamsConfig.Options())
                 when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> {
                         buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
@@ -116,9 +116,6 @@ open class ConfiguredUpstreams(
                     }
                 }
             }
-        }
-        defaultOptions.keys.forEach { chain ->
-            defaultOptions[chain] = defaultOptions[chain]!!.merge(UpstreamsConfig.Options.getDefaults())
         }
         return defaultOptions
     }

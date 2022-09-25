@@ -29,6 +29,7 @@ import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import reactor.util.function.Tuple2
 import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
@@ -46,6 +47,23 @@ open class EthereumUpstreamValidator(
     private val objectMapper: ObjectMapper = Global.objectMapper
 
     open fun validate(): Mono<UpstreamAvailability> {
+        return Mono.zip(
+            validateSyncing(),
+            validatePeers()
+        )
+            .map(::resolve)
+            .defaultIfEmpty(UpstreamAvailability.UNAVAILABLE)
+            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+    }
+
+    fun resolve(results: Tuple2<UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability {
+        return if (results.t1.isBetterTo(results.t2)) results.t2 else results.t1
+    }
+
+    fun validateSyncing(): Mono<UpstreamAvailability> {
+        if (!options.validateSyncing) {
+            return Mono.just(UpstreamAvailability.OK)
+        }
         return upstream
             .getApi()
             .read(JsonRpcRequest("eth_syncing", listOf()))
@@ -56,35 +74,43 @@ open class EthereumUpstreamValidator(
                 Mono.fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
                     .then(Mono.error(TimeoutException("Validation timeout for Syncing")))
             )
-            .flatMap { value ->
+            .map { value ->
                 if (value.isSyncing) {
-                    Mono.just(UpstreamAvailability.SYNCING)
+                    UpstreamAvailability.SYNCING
                 } else {
-                    upstream
-                        .getApi()
-                        .read(JsonRpcRequest("net_peerCount", listOf()))
-                        .flatMap(JsonRpcResponse::requireStringResult)
-                        .map(Integer::decode)
-                        .timeout(
-                            Defaults.timeoutInternal,
-                            Mono.fromCallable { log.warn("No response for net_peerCount from ${upstream.getId()}") }
-                                .then(Mono.error(TimeoutException("Validation timeout for Peers")))
-                        )
-                        .map { count ->
-                            val minPeers = options.minPeers ?: 1
-                            if (count < minPeers) {
-                                UpstreamAvailability.IMMATURE
-                            } else {
-                                UpstreamAvailability.OK
-                            }
-                        }
+                    UpstreamAvailability.OK
+                }
+            }
+            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+    }
+
+    fun validatePeers(): Mono<UpstreamAvailability> {
+        if (!options.validatePeers || options.minPeers == 0) {
+            return Mono.just(UpstreamAvailability.OK)
+        }
+        return upstream
+            .getApi()
+            .read(JsonRpcRequest("net_peerCount", listOf()))
+            .flatMap(JsonRpcResponse::requireStringResult)
+            .map(Integer::decode)
+            .timeout(
+                Defaults.timeoutInternal,
+                Mono.fromCallable { log.warn("No response for net_peerCount from ${upstream.getId()}") }
+                    .then(Mono.error(TimeoutException("Validation timeout for Peers")))
+            )
+            .map { count ->
+                val minPeers = options.minPeers ?: 1
+                if (count < minPeers) {
+                    UpstreamAvailability.IMMATURE
+                } else {
+                    UpstreamAvailability.OK
                 }
             }
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
     fun start(): Flux<UpstreamAvailability> {
-        return Flux.interval(Duration.ofSeconds(15))
+        return Flux.interval(Duration.ofSeconds(options.validationInterval.toLong()))
             .subscribeOn(scheduler)
             .flatMap {
                 validate()

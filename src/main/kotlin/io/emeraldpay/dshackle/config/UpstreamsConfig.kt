@@ -33,6 +33,13 @@ open class UpstreamsConfig {
 
     open class Options {
         var disableValidation: Boolean? = null
+        var validationInterval: Int = 30
+            set(value) {
+                require(value > 0) {
+                    "validation-interval must be a positive number: $value"
+                }
+                field = value
+            }
         var timeout = Defaults.timeout
         var providesBalance: Boolean? = null
         var priority: Int = DEFAULT_PRIORITY
@@ -42,26 +49,30 @@ open class UpstreamsConfig {
                 }
                 field = value
             }
-
+        var validatePeers: Boolean = true
         var minPeers: Int? = 1
             set(value) {
-                require(value != null && value > 0) {
-                    "minPeers must be a positive number: $value"
+                require(value != null && value >= 0) {
+                    "min-peers must be a positive number: $value"
                 }
                 field = value
             }
+        var validateSyncing: Boolean = true
 
-        fun merge(additional: Options?): Options {
-            if (additional == null) {
+        fun merge(overwrites: Options?): Options {
+            if (overwrites == null) {
                 return this
             }
             val copy = Options()
-            copy.priority = this.priority.coerceAtLeast(additional.priority)
-            copy.minPeers = if (this.minPeers != null) this.minPeers else additional.minPeers
+            copy.priority = this.priority.coerceAtLeast(overwrites.priority)
+            copy.validatePeers = this.validatePeers && overwrites.validatePeers
+            copy.minPeers = if (this.minPeers != null) this.minPeers else overwrites.minPeers
             copy.disableValidation =
-                if (this.disableValidation != null) this.disableValidation else additional.disableValidation
+                if (this.disableValidation != null) this.disableValidation else overwrites.disableValidation
+            copy.validationInterval = overwrites.validationInterval
             copy.providesBalance =
-                if (this.providesBalance != null) this.providesBalance else additional.providesBalance
+                if (this.providesBalance != null) this.providesBalance else overwrites.providesBalance
+            copy.validateSyncing = this.validateSyncing && overwrites.validateSyncing
             return copy
         }
 

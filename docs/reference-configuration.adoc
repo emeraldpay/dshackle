@@ -699,6 +699,10 @@ Enable/disable the upstream.
 Used to select an upstream per-request.
 See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 
+| `options`
+|
+| Other configuration options. See <<general-options>>
+
 | `methods`
 | no
 | Enable (`enabled`) or disable (`disabled`) additional JSON RPC methods that are provided by that particular upstream
@@ -727,6 +731,54 @@ Configuration has no effect in Proof-of-Work blockchains.
 | `connection.bitcoin`
 | yes
 | Connection configuration for Bitcoin API
+
+|===
+
+[#general-options]
+=== General Upstream Options
+
+[cols="2a,1,1a,5"]
+|===
+| Option | Type | Default | Description
+
+| `disable-validation`
+| boolean
+| `false`
+| Disables all the validations of the upstream. I.e., it turns off `validate-peers` and `validate-syncing` checks if set to `true`.
+
+| `validation-interval`
+| number
+| `30`
+| Period in seconds to re-validate the upstream.
+
+| `validate-peers`
+| boolean
+| `true`
+| Disables validation of the peers connected to the upstream (as `net_peerCount` method).
+Dshackle assumes that if there are too few peers then the Upstream is just started and may produce invalid/outdated responses
+
+| `min-peers`
+| number
+| `1`
+| The minimum number of connected peer to consider the upstream valid if `validate-peers` is enabled.
+If it's set to `0` it essentially disables the peer validation.
+
+| `validate-syncing`
+| boolean
+| `true`
+| Disables checking for the state of syncing on the upstream (as `eth_syncing` method).
+If the Upstream is in _syncing_ state then the Dshackle doesn't use it for call until it reaches the blockchain head.
+
+| `timeout`
+| number
+| `60`
+| Timeout in seconds to wait for an answer from the upstream before considering it as failed.
+
+| `balance`
+| boolean
+|
+| Suitable for Bitcoin upstream.
+Tells if the Upstream can be used to call balance methods, which requires that the node has the indexing as turned on.
 
 |===
 

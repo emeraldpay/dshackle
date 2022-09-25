@@ -1,0 +1,36 @@
+version: v1
+
+upstreams:
+
+  - id: test-1
+    chain: ethereum
+    options:
+      disable-validation: false
+      validate-syncing: true
+      validate-peers: false
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+
+  - id: test-2
+    chain: ethereum
+    options:
+      disable-validation: false
+      validate-syncing: false
+      validate-peers: false
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8546"
+
+  - id: test-3
+    chain: ethereum
+    options:
+      disable-validation: true
+      validate-syncing: true
+      validate-peers: true
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8547"
