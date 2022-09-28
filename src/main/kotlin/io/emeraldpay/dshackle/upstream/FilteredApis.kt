@@ -17,7 +17,6 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.DistributionSummary
