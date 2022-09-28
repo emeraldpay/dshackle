@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.DistributionSummary
@@ -156,6 +157,10 @@ class FilteredApis(
     }
 
     override fun subscribe(subscriber: Subscriber<in Upstream>) {
+        if (allUpstreams.none { matcher.matches(it) }) {
+            Flux.empty<Upstream>().subscribe(subscriber)
+            return
+        }
         // initially try only standard upstreams
         val first = Flux.fromIterable(primaryUpstreams)
         val second = Flux.fromIterable(secondaryUpstreams)
