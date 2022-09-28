@@ -156,10 +156,6 @@ class FilteredApis(
     }
 
     override fun subscribe(subscriber: Subscriber<in Upstream>) {
-        if (allUpstreams.none { matcher.matches(it) }) {
-            Flux.empty<Upstream>().subscribe(subscriber)
-            return
-        }
         // initially try only standard upstreams
         val first = Flux.fromIterable(primaryUpstreams)
         val second = Flux.fromIterable(secondaryUpstreams)

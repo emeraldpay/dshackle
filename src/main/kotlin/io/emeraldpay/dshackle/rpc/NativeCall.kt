@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -51,6 +52,7 @@ import java.util.EnumMap
 @Service
 open class NativeCall(
     @Autowired private val multistreamHolder: MultistreamHolder,
+    @Autowired private val configuredUpstreams: ConfiguredUpstreams,
     @Autowired private val signer: ResponseSigner
 ) {
 
@@ -148,6 +150,11 @@ open class NativeCall(
 
         if (!multistreamHolder.isAvailable(chain)) {
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
+        }
+
+        val matcher = Selector.convertToMatcher(request.selector)
+        if (!configuredUpstreams.hasMatchingUpstream(chain, matcher)) {
+            return Flux.error(CallFailure(0, SilentException.NoMatchingUpstream(matcher)))
         }
 
         val upstream = multistreamHolder.getUpstream(chain)

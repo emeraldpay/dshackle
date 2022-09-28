@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HttpRpcFactory
 import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
@@ -106,6 +107,11 @@ open class ConfiguredUpstreams(
             }
         }
     }
+
+    fun hasMatchingUpstream(chain: Chain, matcher: Selector.LabelSelectorMatcher): Boolean =
+        config.upstreams.any { up ->
+            up.chain?.equals(chain.chainName, ignoreCase = true) ?: true && matcher.matches(up.labels)
+        }
 
     private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.Options> {
         val defaultOptions = HashMap<Chain, UpstreamsConfig.Options>()

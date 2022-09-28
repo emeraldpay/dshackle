@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle
 
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.grpc.Chain
 
 /**
@@ -30,4 +31,6 @@ open class SilentException(message: String) : Exception(message) {
     }
 
     class DataUnavailable(val code: String) : SilentException("Data is unavailable: $code")
+
+    class NoMatchingUpstream(matcher: Selector.LabelSelectorMatcher) : SilentException("No configured upstream matching selector [${matcher.describeInternal()}]")
 }
