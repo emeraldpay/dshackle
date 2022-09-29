@@ -40,12 +40,17 @@ class BitcoinUpstreamValidator(
     }
 
     fun validate(): Mono<UpstreamAvailability> {
+        if (options.disableValidation) {
+            return Mono.just(UpstreamAvailability.OK)
+        }
+        if (!options.validatePeers || options.minPeers == 0) {
+            return Mono.just(UpstreamAvailability.OK)
+        }
         return api.read(JsonRpcRequest("getconnectioncount", emptyList()))
             .flatMap(JsonRpcResponse::requireResult)
             .map { Integer.parseInt(String(it)) }
             .map { count ->
-                val minPeers = options.minPeers ?: 1
-                if (count < minPeers) {
+                if (count < options.minPeers) {
                     UpstreamAvailability.IMMATURE
                 } else {
                     UpstreamAvailability.OK
