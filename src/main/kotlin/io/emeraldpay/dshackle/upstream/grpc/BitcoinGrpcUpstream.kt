@@ -69,7 +69,7 @@ class BitcoinGrpcUpstream(
     }
 
     constructor(parentId: String, role: UpstreamsConfig.UpstreamRole, chain: Chain, remote: ReactorBlockchainStub, client: JsonRpcGrpcClient) :
-        this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.Options.getDefaults(), remote, client)
+        this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.PartialOptions.getDefaults().build(), remote, client)
 
     private val extractBlock = ExtractBlock()
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
