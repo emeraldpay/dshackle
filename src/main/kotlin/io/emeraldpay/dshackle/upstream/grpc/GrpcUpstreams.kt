@@ -61,7 +61,7 @@ class GrpcUpstreams(
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
-    var options = UpstreamsConfig.Options.getDefaults()
+    var options = UpstreamsConfig.PartialOptions.getDefaults().build()
 
     private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
     private val known = HashMap<Chain, DefaultUpstream>()

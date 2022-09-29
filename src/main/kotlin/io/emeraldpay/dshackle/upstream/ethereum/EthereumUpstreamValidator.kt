@@ -30,7 +30,6 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.util.function.Tuple2
-import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
 
@@ -110,7 +109,7 @@ open class EthereumUpstreamValidator(
     }
 
     fun start(): Flux<UpstreamAvailability> {
-        return Flux.interval(Duration.ofSeconds(options.validationInterval.toLong()))
+        return Flux.interval(options.validationInterval)
             .subscribeOn(scheduler)
             .flatMap {
                 validate()

@@ -30,7 +30,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Resolve to final availability"() {
         setup:
-        def validator = new EthereumUpstreamValidator(Stub(EthereumUpstream), UpstreamsConfig.Options.getDefaults())
+        def validator = new EthereumUpstreamValidator(Stub(EthereumUpstream), UpstreamsConfig.PartialOptions.getDefaults().build())
         expect:
         validator.resolve(Tuples.of(sync, peers)) == exp
         where:
@@ -48,9 +48,9 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Doesnt check eth_syncing when disabled"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validateSyncing = false
-        }
+        }.build()
         def up = Mock(EthereumUpstream)
         def validator = new EthereumUpstreamValidator(up, options)
 
@@ -63,9 +63,9 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Syncing is OK when false returned from upstream"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validateSyncing = true
-        }
+        }.build()
         def up = TestingCommons.upstream(
                 new ApiReaderMock().tap {
                     answer("eth_syncing", [], false)
@@ -81,9 +81,9 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Syncing is SYNCING when state returned from upstream"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validateSyncing = true
-        }
+        }.build()
         def up = TestingCommons.upstream(
                 new ApiReaderMock().tap {
                     answer("eth_syncing", [], [startingBlock: 100, currentBlock: 50])
@@ -99,9 +99,9 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Syncing is UNAVAILABLE when error returned from upstream"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validateSyncing = true
-        }
+        }.build()
         def up = TestingCommons.upstream(
                 new ApiReaderMock().tap {
                     answer("eth_syncing", [], new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unavailable"))
@@ -117,10 +117,10 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Doesnt validate peers when disabled"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validatePeers = false
             it.minPeers = 10
-        }
+        }.build()
         def up = Mock(EthereumUpstream)
         def validator = new EthereumUpstreamValidator(up, options)
 
@@ -133,10 +133,10 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Doesnt validate peers when zero peers is expected"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 0
-        }
+        }.build()
         def up = Mock(EthereumUpstream)
         def validator = new EthereumUpstreamValidator(up, options)
 
@@ -149,10 +149,10 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Peers is IMMATURE when state returned too few peers"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 10
-        }
+        }.build()
         def up = TestingCommons.upstream(
                 new ApiReaderMock().tap {
                     answer("net_peerCount", [], "0x5")
@@ -168,10 +168,10 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Peers is OK when state returned exactly min peers"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 10
-        }
+        }.build()
         def up = TestingCommons.upstream(
                 new ApiReaderMock().tap {
                     answer("net_peerCount", [], "0xa")
@@ -187,10 +187,10 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Peers is OK when state returned more than enough peers"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 10
-        }
+        }.build()
         def up = TestingCommons.upstream(
                 new ApiReaderMock().tap {
                     answer("net_peerCount", [], "0xff")
@@ -206,10 +206,10 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Peers is UNAVAILABLE when state returned error"() {
         setup:
-        def options = UpstreamsConfig.Options.getDefaults().tap {
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 10
-        }
+        }.build()
         def up = TestingCommons.upstream(
                 new ApiReaderMock().tap {
                     answer("net_peerCount", [], new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unavailable"))

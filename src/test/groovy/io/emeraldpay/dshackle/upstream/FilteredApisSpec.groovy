@@ -50,7 +50,7 @@ class FilteredApisSpec extends Specification {
                     "test",
                     Chain.ETHEREUM,
                     TestingCommons.api().tap { it.id = "${i++}" },
-                    new UpstreamsConfig.Options(),
+                    UpstreamsConfig.PartialOptions.getDefaults().build(),
                     UpstreamsConfig.UpstreamRole.PRIMARY,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     ethereumTargets

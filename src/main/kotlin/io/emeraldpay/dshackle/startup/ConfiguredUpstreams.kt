@@ -76,22 +76,22 @@ open class ConfiguredUpstreams(
             }
             log.debug("Start upstream ${up.id}")
             if (up.connection is UpstreamsConfig.GrpcConnection) {
-                val options = up.options ?: UpstreamsConfig.Options()
-                buildGrpcUpstream(up.cast(UpstreamsConfig.GrpcConnection::class.java), options)
+                val options = up.options ?: UpstreamsConfig.PartialOptions()
+                buildGrpcUpstream(up.cast(UpstreamsConfig.GrpcConnection::class.java), options.build())
             } else {
                 val chain = Global.chainById(up.chain)
                 if (chain == Chain.UNSPECIFIED) {
                     log.error("Chain is unknown: ${up.chain}")
                     return@forEach
                 }
-                val options = (defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
-                    .merge(up.options ?: UpstreamsConfig.Options())
+                val options = (defaultOptions[chain] ?: UpstreamsConfig.PartialOptions.getDefaults())
+                    .merge(up.options ?: UpstreamsConfig.PartialOptions())
                 when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> {
-                        buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
+                        buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options.build())
                     }
                     BlockchainType.BITCOIN -> {
-                        buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options)
+                        buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options.build())
                     }
                     else -> {
                         log.error("Chain is unsupported: ${up.chain}")
@@ -102,8 +102,8 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.Options> {
-        val defaultOptions = HashMap<Chain, UpstreamsConfig.Options>()
+    private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.PartialOptions> {
+        val defaultOptions = HashMap<Chain, UpstreamsConfig.PartialOptions>()
         config.defaultOptions.forEach { defaultsConfig ->
             defaultsConfig.chains?.forEach { chainName ->
                 Global.chainById(chainName).let { chain ->
