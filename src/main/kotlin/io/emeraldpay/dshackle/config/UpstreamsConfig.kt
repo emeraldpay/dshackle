@@ -17,7 +17,9 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Defaults
+import org.apache.commons.lang3.ObjectUtils
 import java.net.URI
+import java.time.Duration
 import java.util.Arrays
 import java.util.Locale
 
@@ -29,57 +31,84 @@ open class UpstreamsConfig {
         private const val MIN_PRIORITY = 0
         private const val MAX_PRIORITY = 1_000_000
         private const val DEFAULT_PRIORITY = 10
+        private const val DEFAULT_VALIDATION_INTERVAL = 30
     }
 
-    open class Options {
+    data class Options(
+        var disableValidation: Boolean,
+        var validationInterval: Duration,
+        var timeout: Duration,
+        var providesBalance: Boolean,
+        var priority: Int,
+        var validatePeers: Boolean,
+        var minPeers: Int,
+        var validateSyncing: Boolean
+    )
+
+    open class PartialOptions {
+
         var disableValidation: Boolean? = null
-        var validationInterval: Int = 30
+        var validationInterval: Int? = null
             set(value) {
-                require(value > 0) {
+                require(value == null || value > 0) {
                     "validation-interval must be a positive number: $value"
                 }
                 field = value
             }
-        var timeout = Defaults.timeout
+
+        var timeout: Int? = null
         var providesBalance: Boolean? = null
-        var priority: Int = DEFAULT_PRIORITY
+        var priority: Int? = null
             set(value) {
-                require(value in MIN_PRIORITY..MAX_PRIORITY) {
+                require(value == null || value in MIN_PRIORITY..MAX_PRIORITY) {
                     "Upstream priority must be in $MIN_PRIORITY..$MAX_PRIORITY. Configured: $value"
                 }
                 field = value
             }
-        var validatePeers: Boolean = true
-        var minPeers: Int? = 1
+        var validatePeers: Boolean? = null
+        var minPeers: Int? = null
             set(value) {
-                require(value != null && value >= 0) {
+                require(value == null || value >= 0) {
                     "min-peers must be a positive number: $value"
                 }
                 field = value
             }
-        var validateSyncing: Boolean = true
+        var validateSyncing: Boolean? = null
 
-        fun merge(overwrites: Options?): Options {
+        fun merge(overwrites: PartialOptions?): PartialOptions {
             if (overwrites == null) {
                 return this
             }
-            val copy = Options()
-            copy.priority = this.priority.coerceAtLeast(overwrites.priority)
-            copy.validatePeers = this.validatePeers && overwrites.validatePeers
-            copy.minPeers = if (this.minPeers != null) this.minPeers else overwrites.minPeers
-            copy.disableValidation =
-                if (this.disableValidation != null) this.disableValidation else overwrites.disableValidation
-            copy.validationInterval = overwrites.validationInterval
-            copy.providesBalance =
-                if (this.providesBalance != null) this.providesBalance else overwrites.providesBalance
-            copy.validateSyncing = this.validateSyncing && overwrites.validateSyncing
+            val copy = PartialOptions()
+            copy.disableValidation = ObjectUtils.firstNonNull(overwrites.disableValidation, this.disableValidation)
+            copy.validationInterval = ObjectUtils.firstNonNull(overwrites.validationInterval, this.validationInterval)
+            copy.timeout = ObjectUtils.firstNonNull(overwrites.timeout, this.timeout)
+            copy.providesBalance = ObjectUtils.firstNonNull(overwrites.providesBalance, this.providesBalance)
+            copy.priority = ObjectUtils.firstNonNull(overwrites.priority, this.priority)
+            copy.validatePeers = ObjectUtils.firstNonNull(overwrites.validatePeers, this.validatePeers)
+            copy.minPeers = ObjectUtils.firstNonNull(overwrites.minPeers, this.minPeers)
+            copy.validateSyncing = ObjectUtils.firstNonNull(overwrites.validateSyncing, this.validateSyncing)
             return copy
+        }
+
+        fun build(): Options {
+            return Options(
+                disableValidation = ObjectUtils.firstNonNull(this.disableValidation, false)!!,
+                validationInterval = ObjectUtils.firstNonNull(this.validationInterval, DEFAULT_VALIDATION_INTERVAL)!!
+                    .toLong().let(Duration::ofSeconds),
+                timeout = ObjectUtils.firstNonNull(this.timeout?.toLong()?.let(Duration::ofSeconds), Defaults.timeout)!!,
+                providesBalance = ObjectUtils.firstNonNull(this.providesBalance, false)!!,
+                priority = ObjectUtils.firstNonNull(this.priority, DEFAULT_PRIORITY)!!,
+                validatePeers = ObjectUtils.firstNonNull(this.validatePeers, true)!!,
+                minPeers = ObjectUtils.firstNonNull(this.minPeers, 1)!!,
+                validateSyncing = ObjectUtils.firstNonNull(this.validateSyncing, true)!!,
+            )
         }
 
         companion object {
             @JvmStatic
-            fun getDefaults(): Options {
-                val options = Options()
+            fun getDefaults(): PartialOptions {
+                val options = PartialOptions()
                 options.minPeers = 1
                 options.disableValidation = false
                 return options
@@ -87,15 +116,15 @@ open class UpstreamsConfig {
         }
     }
 
-    class DefaultOptions : Options() {
+    class DefaultOptions : PartialOptions() {
         var chains: List<String>? = null
-        var options: Options? = null
+        var options: PartialOptions? = null
     }
 
     class Upstream<T : UpstreamConnection> {
         var id: String? = null
         var chain: String? = null
-        var options: Options? = null
+        var options: PartialOptions? = null
         var isEnabled = true
         var connection: T? = null
         val labels = Labels()

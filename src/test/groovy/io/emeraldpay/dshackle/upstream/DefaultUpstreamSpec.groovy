@@ -66,9 +66,9 @@ class DefaultUpstreamSpec extends Specification {
         setup:
         def upstream = new DefaultUpstreamTestImpl("test",
                 new ForkWatch.Never(),
-                UpstreamsConfig.Options.getDefaults().tap {
+                UpstreamsConfig.PartialOptions.getDefaults().tap {
                     it.disableValidation = true
-                }
+                }.build()
         )
         when: "we have a zero height"
         upstream.setStatus(UpstreamAvailability.OK)
@@ -88,9 +88,9 @@ class DefaultUpstreamSpec extends Specification {
         setup:
         def upstream = new DefaultUpstreamTestImpl("test",
                 new ForkWatch.Never(),
-                UpstreamsConfig.Options.getDefaults().tap {
+                UpstreamsConfig.PartialOptions.getDefaults().tap {
                     it.disableValidation = true
-                }
+                }.build()
         )
         upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
         when:
@@ -144,7 +144,7 @@ class DefaultUpstreamSpec extends Specification {
 
         DefaultUpstreamTestImpl(@NotNull String id,
                                 @NotNull ForkWatch forkWatch) {
-            this(id, forkWatch, UpstreamsConfig.Options.getDefaults())
+            this(id, forkWatch, UpstreamsConfig.PartialOptions.getDefaults().build())
         }
 
         DefaultUpstreamTestImpl(@NotNull String id,

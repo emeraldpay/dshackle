@@ -24,7 +24,6 @@ import org.yaml.snakeyaml.nodes.ScalarNode
 import reactor.util.function.Tuples
 import java.io.InputStream
 import java.net.URI
-import java.time.Duration
 import java.util.Locale
 
 class UpstreamsConfigReader(
@@ -217,7 +216,7 @@ class UpstreamsConfigReader(
         upstream.methods = tryReadMethods(upNode)
         getValueAsInt(upNode, "priority")?.let {
             if (upstream.options == null) {
-                upstream.options = UpstreamsConfig.Options.getDefaults()
+                upstream.options = UpstreamsConfig.PartialOptions.getDefaults()
             }
             upstream.options!!.priority = it
         }
@@ -270,7 +269,7 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun tryReadOptions(upNode: MappingNode): UpstreamsConfig.Options? {
+    internal fun tryReadOptions(upNode: MappingNode): UpstreamsConfig.PartialOptions? {
         return if (hasAny(upNode, "options")) {
             return getMapping(upNode, "options")?.let { values ->
                 readOptions(values)
@@ -305,8 +304,8 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun readOptions(values: MappingNode): UpstreamsConfig.Options {
-        val options = UpstreamsConfig.Options()
+    internal fun readOptions(values: MappingNode): UpstreamsConfig.PartialOptions {
+        val options = UpstreamsConfig.PartialOptions()
         getValueAsBool(values, "validate-peers")?.let {
             options.validatePeers = it
         }
@@ -317,7 +316,7 @@ class UpstreamsConfigReader(
             options.minPeers = it
         }
         getValueAsInt(values, "timeout")?.let {
-            options.timeout = Duration.ofSeconds(it.toLong())
+            options.timeout = it
         }
         getValueAsBool(values, "disable-validation")?.let {
             options.disableValidation = it

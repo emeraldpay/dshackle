@@ -421,4 +421,140 @@ class UpstreamsConfigReaderSpec extends Specification {
             validatePeers == true
         }
     }
+
+    def "Merge options for disableValidation"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { disableValidation = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { disableValidation = overwrite }
+        def result = a.merge(b)
+        result.disableValidation == exp
+
+        where:
+        base        | overwrite     | exp
+        true        | true          | true
+        true        | false         | false
+        true        | null          | true
+
+        false       | true          | true
+        false       | false         | false
+        false       | null          | false
+
+        null        | true          | true
+        null        | false         | false
+        null        | null          | null
+    }
+
+    def "Merge options for providesBalance"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { providesBalance = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { providesBalance = overwrite }
+        def result = a.merge(b)
+        result.providesBalance == exp
+
+        where:
+        base        | overwrite     | exp
+        true        | true          | true
+        true        | false         | false
+        true        | null          | true
+
+        false       | true          | true
+        false       | false         | false
+        false       | null          | false
+
+        null        | true          | true
+        null        | false         | false
+        null        | null          | null
+    }
+
+    def "Merge options for validatePeers"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { validatePeers = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { validatePeers = overwrite }
+        def result = a.merge(b)
+        result.validatePeers == exp
+
+        where:
+        base        | overwrite     | exp
+        true        | true          | true
+        true        | false         | false
+        true        | null          | true
+
+        false       | true          | true
+        false       | false         | false
+        false       | null          | false
+
+        null        | true          | true
+        null        | false         | false
+        null        | null          | null
+    }
+
+    def "Merge options for validateSyncing"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { validateSyncing = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { validateSyncing = overwrite }
+        def result = a.merge(b)
+        result.validateSyncing == exp
+
+        where:
+        base        | overwrite     | exp
+        true        | true          | true
+        true        | false         | false
+        true        | null          | true
+
+        false       | true          | true
+        false       | false         | false
+        false       | null          | false
+
+        null        | true          | true
+        null        | false         | false
+        null        | null          | null
+    }
+
+    def "Merge options for timeout"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { timeout = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { timeout = overwrite }
+        def result = a.merge(b)
+        result.timeout == exp
+
+        where:
+        base     | overwrite  | exp
+        1        | 2          | 2
+        3        | 4          | 4
+        5        | null       | 5
+        null     | 6          | 6
+        null     | null       | null
+    }
+
+    def "Merge options for priority"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { priority = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { priority = overwrite }
+        def result = a.merge(b)
+        result.priority == exp
+
+        where:
+        base     | overwrite  | exp
+        1        | 2          | 2
+        3        | 4          | 4
+        5        | null       | 5
+        null     | 6          | 6
+        null     | null       | null
+    }
+
+    def "Merge options for minPeers"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { minPeers = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { minPeers = overwrite }
+        def result = a.merge(b)
+        result.minPeers == exp
+
+        where:
+        base     | overwrite  | exp
+        1        | 2          | 2
+        3        | 4          | 4
+        5        | null       | 5
+        null     | 6          | 6
+        null     | null       | null
+    }
 }

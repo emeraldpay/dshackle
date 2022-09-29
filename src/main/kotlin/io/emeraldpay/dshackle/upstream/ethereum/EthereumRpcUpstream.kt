@@ -40,7 +40,7 @@ open class EthereumRpcUpstream(
     constructor(id: String, chain: Chain, forkWatch: ForkWatch, api: Reader<JsonRpcRequest, JsonRpcResponse>) :
         this(
             id, chain, forkWatch, api, null,
-            UpstreamsConfig.Options.getDefaults(), UpstreamsConfig.UpstreamRole.PRIMARY,
+            UpstreamsConfig.PartialOptions.getDefaults().build(), UpstreamsConfig.UpstreamRole.PRIMARY,
             QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels()),
             DirectCallMethods()
         )
@@ -62,7 +62,7 @@ open class EthereumRpcUpstream(
     override fun start() {
         log.info("Configured for ${chain.chainName}")
         super.start()
-        if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
+        if (getOptions().disableValidation) {
             log.warn("Disable validation for upstream ${this.getId()}")
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)

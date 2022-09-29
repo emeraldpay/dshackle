@@ -207,7 +207,7 @@ abstract class Multistream(
 
     // TODO options for multistream are useless
     override fun getOptions(): UpstreamsConfig.Options {
-        return UpstreamsConfig.Options()
+        throw RuntimeException("No options for multistream")
     }
 
     // TODO roles for multistream are useless
