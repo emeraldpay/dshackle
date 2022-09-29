@@ -115,22 +115,46 @@ class JsonRpcHttpClient(
             }
             .transform(asJsonRpcResponse(key))
             .transform(convertErrors(key))
+            .transform(throwIfError())
     }
 
-    private fun convertErrors(key: JsonRpcRequest): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
+    /**
+     * The subscribers expect to catch an exception if the response contains JSON RPC Error. Convert it here to JsonRpcException
+     */
+    private fun throwIfError(): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
         return Function { resp ->
-            resp.onErrorResume { t ->
-                val err = when (t) {
-                    is RpcException -> JsonRpcResponse.error(t.code, t.rpcMessage)
-                    is JsonRpcException -> JsonRpcResponse.error(t.error, JsonRpcResponse.NumberId(key.id))
-                    else -> JsonRpcResponse.error(1, t.message ?: t.javaClass.name)
+            resp.flatMap {
+                if (it.hasError()) {
+                    Mono.error(JsonRpcException(it.id, it.error!!))
+                } else {
+                    Mono.just(it)
                 }
-                metrics.fails.increment()
-                Mono.just(err)
             }
         }
     }
 
+    /**
+     * Convert internal exceptions to standard JsonRpcException
+     */
+    private fun convertErrors(key: JsonRpcRequest): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
+        return Function { resp ->
+            resp.onErrorResume { t ->
+                val err = when (t) {
+                    is RpcException -> JsonRpcException.from(t)
+                    is JsonRpcException -> t
+                    else -> JsonRpcException(key.id, t.message ?: t.javaClass.name)
+                }
+                // here we're measure the internal errors, not upstream errors
+                metrics.fails.increment()
+                Mono.error(err)
+            }
+        }
+    }
+
+    /**
+     * Process response from the upstream and convert it to JsonRpcResponse.
+     * The input is a pair of (Http Status Code, Http Response Body)
+     */
     private fun asJsonRpcResponse(key: JsonRpcRequest): Function<Mono<Tuple2<Int, ByteArray>>, Mono<JsonRpcResponse>> {
         return Function { resp ->
             resp.map {

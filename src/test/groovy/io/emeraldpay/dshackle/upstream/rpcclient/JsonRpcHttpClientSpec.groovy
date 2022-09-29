@@ -116,8 +116,9 @@ class JsonRpcHttpClientSpec extends Specification {
                 new JsonRpcRequest("ping", [])
         ).block(Duration.ofSeconds(1))
         then:
-        act.hasError()
-        with(act.error) {
+        def t = thrown(RuntimeException) // reactor.core.Exceptions$ReactiveException
+        t.cause instanceof JsonRpcException
+        with(((JsonRpcException)t.cause).error) {
             code == RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
             message == "HTTP Code: 500"
         }
@@ -143,8 +144,9 @@ class JsonRpcHttpClientSpec extends Specification {
                 new JsonRpcRequest("ping", [])
         ).block(Duration.ofSeconds(1))
         then:
-        act.hasError()
-        with(act.error) {
+        def t = thrown(RuntimeException) // reactor.core.Exceptions$ReactiveException
+        t.cause instanceof JsonRpcException
+        with(((JsonRpcException)t.cause).error) {
             code == -32603
             message == "Something happened"
         }
