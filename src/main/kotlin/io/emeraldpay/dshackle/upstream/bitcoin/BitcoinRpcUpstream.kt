@@ -22,7 +22,6 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -101,24 +100,17 @@ open class BitcoinRpcUpstream(
     }
 
     override fun start() {
-        log.info("Configured for ${chain.chainName}")
+        log.info("Configure upstream ${getId()} for ${chain.chainName}")
         super.start()
         if (head is Lifecycle) {
             if (!head.isRunning) {
                 head.start()
             }
         }
-
         validatorSubscription?.dispose()
-
-        if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
-            this.setLag(0)
-            this.setStatus(UpstreamAvailability.OK)
-        } else {
-            val validator = BitcoinUpstreamValidator(directApi, getOptions())
-            validatorSubscription = validator.start()
-                .subscribe(this::setStatus)
-        }
+        val validator = BitcoinUpstreamValidator(directApi, getOptions())
+        validatorSubscription = validator.start()
+            .subscribe(this::setStatus)
     }
 
     override fun stop() {
