@@ -52,6 +52,8 @@ class EthereumBlockValidatorSpec extends Specification {
                 true, bytes,
                 block,
                 Collections.emptyList(),
-                1)
+                1,
+                "upstream"
+        )
     }
 }

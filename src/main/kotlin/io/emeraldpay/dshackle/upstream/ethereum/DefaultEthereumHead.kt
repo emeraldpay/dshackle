@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 open class DefaultEthereumHead(
+    private val upstreamId: String,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
 ) : Head, AbstractHead(forkChoice, blockValidator) {
@@ -57,7 +58,7 @@ open class DefaultEthereumHead(
                     .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
             }
             .map {
-                BlockContainer.fromEthereumJson(it.getResult())
+                BlockContainer.fromEthereumJson(it.getResult(), upstreamId)
             }
             .onErrorResume { err ->
                 log.debug("Failed to fetch latest block: ${err.message}")

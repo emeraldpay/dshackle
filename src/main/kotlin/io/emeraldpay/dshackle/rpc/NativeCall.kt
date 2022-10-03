@@ -220,7 +220,7 @@ open class NativeCall(
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
                         if (ctx.nonce != null) {
-                            CallResult.ok(ctx.id, ctx.nonce, it, signer.sign(ctx.nonce, it, ctx.upstream))
+                            CallResult.ok(ctx.id, ctx.nonce, it, signer.sign(ctx.nonce, it, ctx.upstream.getId()))
                         } else {
                             CallResult.ok(ctx.id, null, it, null)
                         }

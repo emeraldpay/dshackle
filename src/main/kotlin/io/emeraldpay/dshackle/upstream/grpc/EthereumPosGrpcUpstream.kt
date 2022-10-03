@@ -41,6 +41,7 @@ import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
@@ -84,7 +85,7 @@ open class EthereumPosGrpcUpstream(
         defaultReader.read(JsonRpcRequest("eth_getBlockByHash", listOf(existingBlock.hash.toHexWithPrefix(), false)))
             .flatMap(JsonRpcResponse::requireResult)
             .map {
-                BlockContainer.fromEthereumJson(it)
+                BlockContainer.fromEthereumJson(it, getId())
             }
             .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
             .doOnError { t ->
@@ -129,6 +130,9 @@ open class EthereumPosGrpcUpstream(
     override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
         return remote
     }
+
+    override fun proxySubscribe(request: BlockchainOuterClass.NativeSubscribeRequest): Flux<out Any> =
+        remote.nativeSubscribe(request)
 
     // ------------------------------------------------------------------------------------------
 

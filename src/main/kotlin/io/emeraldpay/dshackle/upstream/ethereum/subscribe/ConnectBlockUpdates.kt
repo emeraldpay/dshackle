@@ -71,7 +71,7 @@ class ConnectBlockUpdates(
         val prev = findPrevious(block)
         remember(block)
         val removed = if (prev != null) {
-            whenReplaced(prev)
+            whenReplaced(prev, block.upstreamId)
         } else {
             Flux.empty()
         }
@@ -103,13 +103,14 @@ class ConnectBlockUpdates(
     /**
      * Produce updates for transactions when a block is replaces with a different one on the same height.
      */
-    fun whenReplaced(prev: BlockContainer): Flux<Update> {
+    fun whenReplaced(prev: BlockContainer, source: String): Flux<Update> {
         return Flux.fromIterable(prev.transactions).map {
             Update(
                 prev.hash,
                 prev.height,
                 UpdateType.DROP,
-                it
+                it,
+                source
             )
         }
     }
@@ -121,7 +122,8 @@ class ConnectBlockUpdates(
                     block.hash,
                     block.height,
                     UpdateType.NEW,
-                    it
+                    it,
+                    block.upstreamId
                 )
             }
     }
@@ -131,6 +133,7 @@ class ConnectBlockUpdates(
         val blockNumber: Long,
         val type: UpdateType,
         val transactionId: TxId,
+        val upstreamId: String
     )
 
     enum class UpdateType {

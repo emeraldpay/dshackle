@@ -16,8 +16,10 @@
 package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeRequest
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.upstream.Upstream
+import reactor.core.publisher.Flux
 
 interface GrpcUpstream : Upstream {
 
@@ -28,4 +30,6 @@ interface GrpcUpstream : Upstream {
     fun update(conf: BlockchainOuterClass.DescribeChain)
 
     fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub
+
+    fun proxySubscribe(request: NativeSubscribeRequest): Flux<out Any>
 }

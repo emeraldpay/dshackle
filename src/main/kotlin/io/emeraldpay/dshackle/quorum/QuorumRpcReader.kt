@@ -141,7 +141,7 @@ class QuorumRpcReader(
             src.map {
                 val signature = response.providedSignature
                     ?: if (key.nonce != null) {
-                        signer?.sign(key.nonce, response.getResult(), api)
+                        signer?.sign(key.nonce, response.getResult(), api.getId())
                     } else {
                         null
                     }

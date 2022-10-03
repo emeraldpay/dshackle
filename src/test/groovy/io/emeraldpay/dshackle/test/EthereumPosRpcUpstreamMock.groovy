@@ -52,6 +52,10 @@ class EthereumPosRpcUpstreamMock extends EthereumPosRpcUpstream {
         this(chain, api, allMethods())
     }
 
+    EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, Map<String, String> labels) {
+        this(id, chain, api, allMethods(), labels)
+    }
+
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
         this(id, chain, api, allMethods())
     }
@@ -61,11 +65,15 @@ class EthereumPosRpcUpstreamMock extends EthereumPosRpcUpstream {
     }
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
+        this(id, chain, api, methods, Collections.<String, String>emptyMap())
+    }
+
+    EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels) {
         super(id, chain,
                 UpstreamsConfig.Options.getDefaults(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,
-                new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
+                new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(labels)),
                 new ConnectorFactoryMock(api, new EthereumHeadMock()))
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock
         setLag(0)

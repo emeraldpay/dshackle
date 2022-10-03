@@ -26,9 +26,10 @@ import reactor.core.publisher.Flux
 
 class EthereumWsHead(
     private val ws: WsConnection,
+    upstreamId: String,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
-) : DefaultEthereumHead(forkChoice, blockValidator), Lifecycle {
+) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 

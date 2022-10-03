@@ -302,7 +302,7 @@ class EthereumFullBlocksReaderSpec extends Specification {
             "extraField2": "extraValue2"
         }
         '''
-        blocks.add(BlockContainer.fromEthereumJson(blockJson.bytes))
+        blocks.add(BlockContainer.fromEthereumJson(blockJson.bytes, "EthereumFullBlocksReaderSpec"))
 
         def tx1 = '''
         {

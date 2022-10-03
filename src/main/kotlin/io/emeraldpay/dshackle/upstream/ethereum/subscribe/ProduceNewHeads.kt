@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import io.emeraldpay.etherjar.rpc.json.BlockJson
@@ -41,13 +42,7 @@ class ProduceNewHeads(
     fun start(): Flux<NewHeadMessage> {
         return head.getFlux()
             .map {
-                if (it.parsed != null) {
-                    it.parsed as BlockJson<TransactionRefJson>
-                } else {
-                    objectMapper.readValue(it.json, BlockJson::class.java)
-                }
-            }
-            .map { block ->
+                val block = extractBlock(it)
                 NewHeadMessage(
                     block.number,
                     block.hash,
@@ -58,8 +53,16 @@ class ProduceNewHeads(
                     block.gasUsed,
                     block.logsBloom,
                     block.miner,
-                    block.baseFeePerGas?.amount
+                    block.baseFeePerGas?.amount,
+                    it.upstreamId
                 )
             }
     }
+
+    private fun extractBlock(blockContainer: BlockContainer): BlockJson<out TransactionRefJson> =
+        if (blockContainer.parsed != null) {
+            blockContainer.parsed as BlockJson<TransactionRefJson>
+        } else {
+            objectMapper.readValue(blockContainer.json, BlockJson::class.java)
+        }
 }

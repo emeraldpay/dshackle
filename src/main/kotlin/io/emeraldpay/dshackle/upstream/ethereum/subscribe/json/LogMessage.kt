@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe.json
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -40,5 +41,7 @@ data class LogMessage(
     val transactionHash: TransactionId,
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
     val transactionIndex: Long,
-    val removed: Boolean
-)
+    val removed: Boolean,
+    @get:JsonIgnore
+    override val upstreamId: String
+) : HasUpstream

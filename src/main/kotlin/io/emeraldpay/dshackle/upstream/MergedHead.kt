@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import com.google.common.annotations.VisibleForTesting
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
@@ -61,4 +62,8 @@ class MergedHead(
             }
         }
     }
+
+    @VisibleForTesting
+    private fun getSources() =
+        sources
 }

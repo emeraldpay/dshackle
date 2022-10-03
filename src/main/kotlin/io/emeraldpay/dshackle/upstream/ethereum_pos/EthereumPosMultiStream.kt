@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
@@ -27,12 +28,14 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
+import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import org.springframework.util.ConcurrentReferenceHashMap
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
@@ -87,6 +90,19 @@ open class EthereumPosMultiStream(
     override fun getHead(): Head {
         return head!!
     }
+
+    override fun tryProxy(matcher: Selector.Matcher, request: BlockchainOuterClass.NativeSubscribeRequest): Flux<out Any>? =
+        upstreams.filter {
+            matcher.matches(it)
+        }.takeIf { ups ->
+            ups.all { it.isGrpc() }
+        }?.map {
+            it as GrpcUpstream
+        }?.map {
+            it.proxySubscribe(request)
+        }?.let {
+            Flux.merge(it)
+        }
 
     override fun setHead(head: Head) {
         this.head = head

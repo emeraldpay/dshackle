@@ -4,18 +4,19 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.*
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnection
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
-import io.emeraldpay.grpc.Chain
 
 class EthereumWsConnector(
     wsFactory: EthereumWsFactory,
     upstream: DefaultUpstream,
     validator: EthereumUpstreamValidator,
-    chain: Chain,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
 ) : EthereumConnector {
@@ -25,7 +26,7 @@ class EthereumWsConnector(
 
     init {
         conn = wsFactory.create(upstream, validator)
-        head = EthereumWsHead(conn, forkChoice, blockValidator)
+        head = EthereumWsHead(conn, upstream.getId(), forkChoice, blockValidator)
         api = JsonRpcWsClient(conn)
     }
 

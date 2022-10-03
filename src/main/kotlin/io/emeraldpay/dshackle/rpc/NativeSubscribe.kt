@@ -17,11 +17,14 @@ package io.emeraldpay.dshackle.rpc
 
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeReplyItem
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.HasUpstream
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.grpc.Status
@@ -35,7 +38,8 @@ import reactor.core.publisher.Mono
 
 @Service
 open class NativeSubscribe(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
+    @Autowired private val signer: ResponseSigner
 ) {
 
     companion object {
@@ -44,33 +48,46 @@ open class NativeSubscribe(
 
     private val objectMapper = Global.objectMapper
 
-    fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
+    fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<NativeSubscribeReplyItem> {
         return request
             .flatMapMany(this@NativeSubscribe::start)
             .map(this@NativeSubscribe::convertToProto)
             .onErrorMap(this@NativeSubscribe::convertToStatus)
     }
 
-    fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<out Any> {
+    fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<ResponseHolder> {
         val chain = Chain.byId(request.chainValue)
         if (BlockchainType.from(chain) != BlockchainType.ETHEREUM_POS && BlockchainType.from(chain) != BlockchainType.ETHEREUM) {
             return Mono.error(UnsupportedOperationException("Native subscribe is not supported for ${chain.chainCode}"))
         }
-        val method = request.method
-        val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
-            objectMapper.readValue(it.newInput(), Map::class.java)
-        }
+
+        val nonce = request.nonce.takeIf { it != 0L }
         val matcher = Selector.convertToMatcher(request.selector)
-        return subscribe(chain, method, params, matcher)
+
+        /**
+         * Try to proxy request subscription directly to the upstream dshackle instance.
+         * If not possible - performs subscription logic on the current instance
+         * @see EthereumLikeMultistream.tryProxy
+         */
+        val publisher = getUpstream(chain)?.tryProxy(matcher, request) ?: run {
+            val method = request.method
+            val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
+                objectMapper.readValue(it.newInput(), Map::class.java)
+            }
+            subscribe(chain, method, params, matcher)
+        }
+        return publisher.map { ResponseHolder(it, nonce) }
     }
 
     fun convertToStatus(t: Throwable) = when (t) {
         is SilentException.UnsupportedBlockchain -> StatusException(
             Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}")
         )
+
         is UnsupportedOperationException -> StatusException(
             Status.UNIMPLEMENTED.withDescription(t.message)
         )
+
         else -> {
             log.warn("Unhandled error", t)
             StatusException(
@@ -79,17 +96,54 @@ open class NativeSubscribe(
         }
     }
 
-    open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> {
-        val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
-        return (up as EthereumLikeMultistream)
-            .getSubscribe()
-            .subscribe(method, params, matcher)
+    open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> =
+        getUpstream(chain)?.getSubscribe()?.subscribe(method, params, matcher)
+            ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+
+    private fun getUpstream(chain: Chain): EthereumLikeMultistream? =
+        multistreamHolder.getUpstream(chain)
+            ?.let { it as EthereumLikeMultistream }
+
+    fun convertToProto(holder: ResponseHolder): NativeSubscribeReplyItem {
+        if (holder.response is NativeSubscribeReplyItem) {
+            return holder.response
+        }
+        val result = objectMapper.writeValueAsBytes(holder.response)
+        val builder = NativeSubscribeReplyItem.newBuilder()
+            .setPayload(ByteString.copyFrom(result))
+
+        holder.nonce?.also { nonce ->
+            holder.getSource()?.let {
+                signer.sign(nonce, result, it)
+            }?.let {
+                buildSignature(nonce, it)
+            }?.also {
+                builder.signature = it
+            }
+        }
+
+        return builder.build()
     }
 
-    fun convertToProto(value: Any): BlockchainOuterClass.NativeSubscribeReplyItem {
-        val result = objectMapper.writeValueAsBytes(value)
-        return BlockchainOuterClass.NativeSubscribeReplyItem.newBuilder()
-            .setPayload(ByteString.copyFrom(result))
-            .build()
+    fun buildSignature(
+        nonce: Long,
+        signature: ResponseSigner.Signature
+    ): BlockchainOuterClass.NativeCallReplySignature {
+        val msg = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
+        msg.signature = ByteString.copyFrom(signature.value)
+        msg.keyId = signature.keyId
+        msg.upstreamId = signature.upstreamId
+        msg.nonce = nonce
+        return msg.build()
+    }
+
+    data class ResponseHolder(
+        val response: Any,
+        val nonce: Long?
+    ) {
+        fun getSource(): String? =
+            if (response is HasUpstream) {
+                response.upstreamId.takeIf { it != "unknown" }
+            } else null
     }
 }

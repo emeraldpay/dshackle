@@ -62,7 +62,7 @@ class EthereumWsFactory(
         require(upstream == null || upstream.getId() == id) {
             "Creating instance for different upstream. ${upstream?.getId()} != id"
         }
-        return WsConnection(uri, origin, basicAuth, metrics, upstream, validator).also { ws ->
+        return WsConnection(id, uri, origin, basicAuth, metrics, upstream, validator).also { ws ->
             config?.frameSize?.let {
                 ws.frameSize = it
             }
