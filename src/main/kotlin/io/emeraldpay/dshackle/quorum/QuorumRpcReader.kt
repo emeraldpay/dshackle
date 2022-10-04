@@ -31,6 +31,7 @@ import reactor.util.function.Tuple2
 import reactor.util.function.Tuple3
 import reactor.util.function.Tuples
 import java.util.Optional
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.BiFunction
 import java.util.function.Function
 
@@ -189,6 +190,9 @@ class QuorumRpcReader(
             }
         }
     }
+
+    fun getValidAttemptsCount(): AtomicInteger =
+        apiControl.attempts()
 
     class Result(
         val value: ByteArray,
