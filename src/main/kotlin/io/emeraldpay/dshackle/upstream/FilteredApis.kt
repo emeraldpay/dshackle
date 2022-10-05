@@ -28,6 +28,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.EnumMap
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -88,6 +89,8 @@ class FilteredApis(
     private val primaryUpstreams: List<Upstream>
     private val secondaryUpstreams: List<Upstream>
     private val standardWithFallback: List<Upstream>
+
+    private val counter: AtomicInteger = AtomicInteger(0)
 
     private var started = false
     private val control = Sinks.many().unicast().onBackpressureBuffer<Boolean>()
@@ -177,7 +180,13 @@ class FilteredApis(
                 .doFinally { metrics[chain]?.tried?.record(count.toDouble()) }
         }
 
-        result.filter { up -> up.isAvailable() && matcher.matches(up) }
+        result.filter { up ->
+            (up.isAvailable() && matcher.matches(up)).also {
+                if (it) {
+                    counter.incrementAndGet()
+                }
+            }
+        }
             .zipWith(control.asFlux())
             .map { it.t1 }
             .doOnSubscribe {
@@ -200,6 +209,9 @@ class FilteredApis(
             control.tryEmitNext(true)
         }
     }
+
+    override fun attempts(): AtomicInteger =
+        counter
 
     override fun toString(): String {
         return "Filter API: ${allUpstreams.size} upstreams with $matcher"

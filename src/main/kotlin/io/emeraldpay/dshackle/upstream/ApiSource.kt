@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import org.reactivestreams.Publisher
+import java.util.concurrent.atomic.AtomicInteger
 
 interface ApiSource : Publisher<Upstream> {
 
@@ -26,4 +27,6 @@ interface ApiSource : Publisher<Upstream> {
      * Must be called before actual use, it spins off control flow of the API Source
      */
     fun request(tries: Int)
+
+    fun attempts(): AtomicInteger
 }

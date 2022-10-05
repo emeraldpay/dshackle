@@ -24,6 +24,8 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.quorum.QuorumRpcReader
+import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -39,6 +41,7 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
+import io.micrometer.core.instrument.Metrics
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -47,10 +50,12 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 import java.util.EnumMap
+import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 open class NativeCall(
     @Autowired private val multistreamHolder: MultistreamHolder,
+    @Autowired private val configuredUpstreams: ConfiguredUpstreams,
     @Autowired private val signer: ResponseSigner
 ) {
 
@@ -62,7 +67,9 @@ open class NativeCall(
 
     init {
         multistreamHolder.observeChains().subscribe { chain ->
-            if ((BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && !ethereumCallSelectors.containsKey(chain)
+            if ((BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && !ethereumCallSelectors.containsKey(
+                    chain
+                )
             ) {
                 multistreamHolder.getUpstream(chain)?.let { up ->
                     val reader = up.cast(EthereumPosMultiStream::class.java).getReader()
@@ -116,7 +123,10 @@ open class NativeCall(
         return result.build()
     }
 
-    fun buildSignature(nonce: Long, signature: ResponseSigner.Signature): BlockchainOuterClass.NativeCallReplySignature {
+    fun buildSignature(
+        nonce: Long,
+        signature: ResponseSigner.Signature
+    ): BlockchainOuterClass.NativeCallReplySignature {
         val msg = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
         msg.signature = ByteString.copyFrom(signature.value)
         msg.keyId = signature.keyId
@@ -150,6 +160,16 @@ open class NativeCall(
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
         }
 
+        val matcher = Selector.convertToMatcher(request.selector)
+        if (!configuredUpstreams.hasMatchingUpstream(chain, matcher)) {
+            if (Global.metricsExtended) {
+                Metrics.globalRegistry
+                    .counter("no_matching_upstream", "chain", chain.chainCode, "matcher", matcher.describeInternal())
+                    .increment()
+            }
+            return Flux.error(CallFailure(0, SilentException.NoMatchingUpstream(matcher)))
+        }
+
         val upstream = multistreamHolder.getUpstream(chain)
             ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
@@ -181,7 +201,11 @@ open class NativeCall(
             val errorMessage = "The method $method does not exist/is not available"
             return Mono.just(
                 InvalidCallContext(
-                    CallError(requestItem.id, errorMessage, JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage))
+                    CallError(
+                        requestItem.id,
+                        errorMessage,
+                        JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage)
+                    )
                 )
             )
         }
@@ -209,7 +233,14 @@ open class NativeCall(
                 matcher.withMatcher(heightMatcher)
             }
             val nonce = requestItem.nonce.let { if (it == 0L) null else it }
-            ValidCallContext(requestItem.id, nonce, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
+            ValidCallContext(
+                requestItem.id,
+                nonce,
+                upstream,
+                matcher.build(),
+                callQuorum,
+                RawCallDetails(method, params)
+            )
         }
     }
 
@@ -243,6 +274,11 @@ open class NativeCall(
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
         val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum, signer)
+        val counter = if (reader is QuorumRpcReader) {
+            reader.getValidAttemptsCount()
+        } else {
+            AtomicInteger(-1)
+        }
         return reader
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
             .map {
@@ -257,9 +293,46 @@ open class NativeCall(
                 Mono.just(failure)
             }
             .switchIfEmpty(
-                Mono.just(CallResult.fail(ctx.id, ctx.nonce, 1, "No response or no available upstream for ${ctx.payload.method}"))
+                Mono.fromSupplier {
+                    counter.get().let { attempts ->
+                        CallResult.fail(
+                            ctx.id,
+                            ctx.nonce,
+                            1,
+                            errorMessage(attempts, ctx.payload.method)
+                        ).also {
+                            countFailure(attempts, ctx)
+                        }
+                    }
+                }
             )
     }
+
+    private fun errorMessage(attempts: Int, method: String): String =
+        when (attempts) {
+            -1 -> "No response or no available upstream for $method"
+            0 -> "No available upstream for $method"
+            else -> "No response for $method"
+        }
+
+    private fun countFailure(counter: Int, ctx: ValidCallContext<ParsedCallDetails>) =
+        when (counter) {
+            -1 -> "UNDEFINED"
+            0 -> "NO_AVAIL_UPSTREAM"
+            else -> "NO_RESPONSE"
+        }.let { reason ->
+            if (Global.metricsExtended) {
+                Metrics.globalRegistry.counter(
+                    "native_call_failure",
+                    "upstream",
+                    ctx.upstream.getId(),
+                    "reason",
+                    reason,
+                    "chain",
+                    ctx.upstream.chain.chainCode,
+                ).increment()
+            }
+        }
 
     @Suppress("UNCHECKED_CAST")
     private fun extractParams(jsonParams: String): List<Any> {
@@ -339,7 +412,13 @@ open class NativeCall(
         }
     }
 
-    open class CallResult(val id: Int, val nonce: Long?, val result: ByteArray?, val error: CallError?, val signature: ResponseSigner.Signature?) {
+    open class CallResult(
+        val id: Int,
+        val nonce: Long?,
+        val result: ByteArray?,
+        val error: CallError?,
+        val signature: ResponseSigner.Signature?
+    ) {
         companion object {
             fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?): CallResult {
                 return CallResult(id, nonce, result, null, signature)

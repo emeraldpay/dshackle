@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
@@ -51,14 +52,17 @@ class NativeCallSpec extends Specification {
 
     ObjectMapper objectMapper = Global.objectMapper
 
-    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null) {
+    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null, ConfiguredUpstreams configuredUpstreams = null) {
         if (upstreams == null) {
             upstreams = Stub(MultistreamHolder)
         }
         if (signer == null) {
             signer = Stub(ResponseSigner)
         }
-        new NativeCall(upstreams, signer)
+        if (configuredUpstreams == null) {
+            configuredUpstreams = Stub(ConfiguredUpstreams)
+        }
+        new NativeCall(upstreams, configuredUpstreams, signer)
     }
 
     def "Tries router first"() {
