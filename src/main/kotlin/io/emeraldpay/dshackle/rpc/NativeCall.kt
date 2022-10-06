@@ -112,7 +112,7 @@ open class NativeCall(
             .setId(it.id)
         if (it.isError()) {
             it.error?.let { error ->
-                result.setErrorMessage(error.message)
+                result.setErrorMessage(error.message).setErrorCode(error.id)
             }
         } else {
             result.payload = ByteString.copyFrom(it.result)
@@ -145,6 +145,7 @@ open class NativeCall(
         return BlockchainOuterClass.NativeCallReplyItem.newBuilder()
             .setSucceed(false)
             .setErrorMessage(it?.message ?: "Internal error")
+            .setErrorCode(500)
             .setId(id)
             .build()
             .toMono()
