@@ -104,6 +104,8 @@ class GrpcHead(
 
         blocks = blocks.onErrorContinue { err, _ ->
             log.error("Head subscription error. ${err.javaClass.name}:${err.message}", err)
+        }.doOnNext{
+            log.info("Received block ${it.height}")
         }
 
         headSubscription = super.follow(blocks)
