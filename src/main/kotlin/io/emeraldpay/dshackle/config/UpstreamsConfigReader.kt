@@ -24,6 +24,7 @@ import org.yaml.snakeyaml.nodes.ScalarNode
 import reactor.util.function.Tuples
 import java.io.InputStream
 import java.net.URI
+import java.net.URISyntaxException
 import java.util.Locale
 
 class UpstreamsConfigReader(
@@ -50,8 +51,12 @@ class UpstreamsConfigReader(
         getList<MappingNode>(input, "defaults")?.value?.forEach { opts ->
             val defaultOptions = UpstreamsConfig.DefaultOptions()
             config.defaultOptions.add(defaultOptions)
-            defaultOptions.chains = getListOfString(opts, "chains")
-            getMapping(opts, "options")?.let { values ->
+            defaultOptions.blockchains = getListOfString(opts, "blockchains", "chains")
+            if (hasAny(opts, "options")) {
+                getMapping(opts, "options")
+            } else {
+                opts
+            }?.let { values ->
                 defaultOptions.options = readOptions(values)
             }
         }
@@ -110,13 +115,13 @@ class UpstreamsConfigReader(
                             }
                             ws.basicAuth = authConfigReader.readClientBasicAuth(node)
 
-                            getValueAsBytes(node, "frameSize")?.let {
+                            getValueAsBytes(node, "frame-size", "frameSize")?.let {
                                 if (it < 65_535) {
                                     throw IllegalStateException("frameSize cannot be less than 64Kb")
                                 }
                                 ws.frameSize = it
                             }
-                            getValueAsBytes(node, "msgSize")?.let {
+                            getValueAsBytes(node, "msg-size", "msgSize")?.let {
                                 if (it < 65_535) {
                                     throw IllegalStateException("msgSize cannot be less than 64Kb")
                                 }
@@ -153,29 +158,22 @@ class UpstreamsConfigReader(
                         }
                     }
                     getMapping(connConfigNode, "zeromq")?.let { node ->
-                        getValueAsString(node, "address")?.let { address ->
-                            val zmqConfig: Pair<String, Int>? = try {
-                                if (address.contains(":")) {
-                                    address.split(":").let {
-                                        Pair(it[0], it[1].toInt())
-                                    }
-                                } else {
-                                    Pair("127.0.0.1", address.toInt())
-                                }
-                            } catch (t: Throwable) {
-                                log.warn("Invalid config for ZeroMQ: $address. Expected to be in format HOST:PORT")
-                                null
+                        getValueAsString(node, "url", "address")?.let { address ->
+                            // may be in form:
+                            //   tcp://127.0.0.1:1234
+                            //   127.0.0.1:1234
+                            //   1234 <- assume localhost connection
+                            val conn: Pair<String, Int> = parseHostPort(address, defaultHost = "127.0.0.1") {
+                                "Invalid config for ZeroMQ: $address. Expected to be in format HOST:PORT"
                             }
-                            zmqConfig?.let {
-                                connection.zeroMq = UpstreamsConfig.BitcoinZeroMq(it.first, it.second)
-                            }
+                            connection.zeroMq = UpstreamsConfig.BitcoinZeroMq(conn.first, conn.second)
                         }
                     }
                 } else {
                     log.error("Upstream at #0 has invalid configuration")
                 }
-            } else if (hasAny(connNode, "grpc")) {
-                val connConfigNode = getMapping(connNode, "grpc")!!
+            } else if (hasAny(connNode, "dshackle", "grpc")) {
+                val connConfigNode = getMapping(connNode, "dshackle", "grpc")!!
                 val upstream = UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>()
                 readUpstreamCommon(upNode, upstream)
                 readUpstreamGrpc(upNode, upstream)
@@ -183,11 +181,42 @@ class UpstreamsConfigReader(
                     config.upstreams.add(upstream)
                     val connection = UpstreamsConfig.GrpcConnection()
                     upstream.connection = connection
-                    getValueAsString(connConfigNode, "host")?.let {
-                        connection.host = it
-                    }
-                    getValueAsInt(connConfigNode, "port")?.let {
-                        connection.port = it
+                    if (hasAny(connConfigNode, "url")) {
+                        getValueAsString(connConfigNode, "url")?.let { address ->
+                            try {
+                                val uri = URI(address)
+                                if (uri.host == null) {
+                                    parseHostPort(address) {
+                                        "Dshackle port is not specified in address: $address"
+                                    }.let {
+                                        connection.host = it.first
+                                        connection.port = it.second
+                                    }
+                                } else {
+                                    connection.host = uri.host
+                                    connection.port = if (uri.port > 0) {
+                                        uri.port
+                                    } else if (uri.scheme == "https") {
+                                        443
+                                    } else if (uri.scheme == "http") {
+                                        80
+                                    } else {
+                                        throw IllegalStateException("Dshackle port is not specified in address: $address")
+                                    }
+                                }
+
+                                connection.autoTls = uri.scheme == "https"
+                            } catch (t: Throwable) {
+                                log.error("Invalid URL: $address. ${t.message}")
+                            }
+                        }
+                    } else {
+                        getValueAsString(connConfigNode, "host")?.let {
+                            connection.host = it
+                        }
+                        getValueAsInt(connConfigNode, "port")?.let {
+                            connection.port = it
+                        }
                     }
                     connection.auth = authConfigReader.readClientTls(connConfigNode)
                 } else {
@@ -197,6 +226,28 @@ class UpstreamsConfigReader(
         }
 
         return config
+    }
+
+    fun parseHostPort(address: String, defaultHost: String? = null, defaultPort: Int? = null, error: (() -> String)?): Pair<String, Int> {
+        return try {
+            URI(address).let {
+                // it tries to parse addresses like localhost:1234, but produces invalid URL
+                if (it.port < 0 || it.host == null) {
+                    throw URISyntaxException(address, "Invalid")
+                }
+                Pair(it.host, it.port)
+            }
+        } catch (t: URISyntaxException) {
+            if (address.contains(":")) {
+                address.split(":").let {
+                    Pair(it[0], it[1].toInt())
+                }
+            } else if (defaultHost != null) {
+                Pair(defaultHost, address.toInt())
+            } else {
+                throw IllegalArgumentException(error?.invoke() ?: "Invalid address: $address")
+            }
+        }
     }
 
     fun isValid(upstream: UpstreamsConfig.Upstream<*>): Boolean {
@@ -214,12 +265,6 @@ class UpstreamsConfigReader(
         upstream.id = getValueAsString(upNode, "id")
         upstream.options = tryReadOptions(upNode)
         upstream.methods = tryReadMethods(upNode)
-        getValueAsInt(upNode, "priority")?.let {
-            if (upstream.options == null) {
-                upstream.options = UpstreamsConfig.PartialOptions.getDefaults()
-            }
-            upstream.options!!.priority = it
-        }
         getValueAsBool(upNode, "enabled")?.let {
             upstream.isEnabled = it
         }
@@ -236,13 +281,13 @@ class UpstreamsConfigReader(
             // Actual labels from underlying upstreams are handled by GrpcUpstreamStatus
             log.warn("Labels should be not applied to gRPC upstream")
         }
-        if (hasAny(upNode, "chain")) {
+        if (hasAny(upNode, "blockchain", "chain")) {
             log.warn("Chain should be not applied to gRPC upstream")
         }
     }
 
     internal fun readUpstreamStandard(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
-        upstream.chain = getValueAsString(upNode, "chain")
+        upstream.blockchain = getValueAsString(upNode, "blockchain", "chain")
         getValueAsString(upNode, "role")?.let {
             val name = it.trim().let {
                 // `standard` was initial role, now split into `primary` and `secondary`
@@ -275,7 +320,7 @@ class UpstreamsConfigReader(
                 readOptions(values)
             }
         } else {
-            null
+            readOptions(upNode)
         }
     }
 

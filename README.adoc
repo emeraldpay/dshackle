@@ -73,7 +73,7 @@ proxy:
 cluster:
   upstreams:
     - id: infura-eth
-      chain: ethereum
+      blockchain: ethereum
       connection:
         ethereum:
           rpc:
@@ -81,7 +81,7 @@ cluster:
           ws:
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
     - id: infura-kovan
-      chain: kovan
+      blockchain: kovan
       connection:
         ethereum:
           rpc:
@@ -89,7 +89,7 @@ cluster:
           ws:
             url: "wss://kovan.infura.io/ws/v3/${INFURA_USER}"
     - id: bitcoin-main
-      chain: bitcoin
+      blockchain: bitcoin
       connection:
         bitcoin:
           rpc:

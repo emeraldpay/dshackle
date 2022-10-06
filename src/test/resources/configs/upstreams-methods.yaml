@@ -1,16 +1,14 @@
 version: v1
 
 defaultOptions:
-  - chains:
+  - blockchains:
       - ethereum
-    options:
-      min-peers: 3
+    min-peers: 3
 
 upstreams:
   - id: local
-    chain: ethereum
-    options:
-      min-peers: 7
+    blockchain: ethereum
+    min-peers: 7
     methods:
       enabled:
         - name: "parity_trace"

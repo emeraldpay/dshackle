@@ -17,9 +17,6 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.grpc.Chain
-import io.emeraldpay.etherjar.rpc.RpcClient
 import spock.lang.Specification
 
 class UpstreamsConfigReaderSpec extends Specification {
@@ -36,14 +33,14 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.defaultOptions) {
             size() == 1
             with(get(0)) {
-                chains == ["ethereum"]
+                blockchains == ["ethereum"]
                 options.minPeers == 3
             }
         }
         act.upstreams.size() == 2
         with(act.upstreams.get(0)) {
             id == "local"
-            chain == "ethereum"
+            blockchain == "ethereum"
             connection instanceof UpstreamsConfig.EthereumConnection
             with((UpstreamsConfig.EthereumConnection)connection) {
                 rpc != null
@@ -59,7 +56,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         }
         with(act.upstreams.get(1)) {
             id == "infura"
-            chain == "ethereum"
+            blockchain == "ethereum"
             connection instanceof UpstreamsConfig.EthereumConnection
             with((UpstreamsConfig.EthereumConnection)connection) {
                 rpc.url == new URI("https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2")
@@ -84,7 +81,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         act.upstreams.size() == 1
         with(act.upstreams.get(0)) {
             id == "local"
-            chain == "ethereum"
+            blockchain == "ethereum"
             connection instanceof UpstreamsConfig.EthereumConnection
             with((UpstreamsConfig.EthereumConnection) connection) {
                 rpc == null
@@ -122,7 +119,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         act.upstreams.size() == 1
         with(act.upstreams.get(0)) {
             id == "local"
-            chain == "ethereum"
+            blockchain == "ethereum"
             connection instanceof UpstreamsConfig.EthereumConnection
             with((UpstreamsConfig.EthereumConnection) connection) {
                 rpc == null
@@ -149,15 +146,15 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.defaultOptions) {
             size() == 1
             with(get(0)) {
-                chains == ["bitcoin"]
+                blockchains == ["bitcoin"]
                 options.minPeers == 3
             }
         }
         act.upstreams.size() == 1
         with(act.upstreams.get(0)) {
             id == "local"
-            chain == "bitcoin"
-            options == null || options.providesBalance == false
+            blockchain == "bitcoin"
+            options == null || options.providesBalance == null
             connection instanceof UpstreamsConfig.BitcoinConnection
             with((UpstreamsConfig.BitcoinConnection) connection) {
                 rpc != null
@@ -177,14 +174,14 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.defaultOptions) {
             size() == 1
             with(get(0)) {
-                chains == ["bitcoin"]
+                blockchains == ["bitcoin"]
                 options.minPeers == 3
             }
         }
         act.upstreams.size() == 1
         with(act.upstreams.get(0)) {
             id == "local"
-            chain == "bitcoin"
+            blockchain == "bitcoin"
             options.providesBalance == true
             connection instanceof UpstreamsConfig.BitcoinConnection
             with((UpstreamsConfig.BitcoinConnection) connection) {
@@ -196,6 +193,32 @@ class UpstreamsConfigReaderSpec extends Specification {
         }
     }
 
+    def "Parse bitcoin with zmq"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-bitcoin-zmq.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 2
+        with(act.upstreams.get(0)) {
+            connection instanceof UpstreamsConfig.BitcoinConnection
+            with((UpstreamsConfig.BitcoinConnection) connection) {
+                zeroMq != null
+                zeroMq.host == "191.168.1.5"
+                zeroMq.port == 1234
+            }
+        }
+        with(act.upstreams.get(1)) {
+            connection instanceof UpstreamsConfig.BitcoinConnection
+            with((UpstreamsConfig.BitcoinConnection) connection) {
+                zeroMq != null
+                zeroMq.host == "localhost"
+                zeroMq.port == 1234
+            }
+        }
+    }
+
     def "Parse ds config"() {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-ds.yaml")
@@ -203,9 +226,9 @@ class UpstreamsConfigReaderSpec extends Specification {
         def act = reader.read(config)
         then:
         act != null
-        act.upstreams.size() == 1
+        act.upstreams.size() == 2
         with(act.upstreams.get(0)) {
-            id == "remote"
+            id == "internal"
             connection instanceof UpstreamsConfig.GrpcConnection
             with((UpstreamsConfig.GrpcConnection)connection) {
                 host == "10.2.0.15"
@@ -215,6 +238,16 @@ class UpstreamsConfigReaderSpec extends Specification {
                     certificate == "/etc/client1.myservice.com.crt"
                     key == "/etc/client1.myservice.com.key"
                 }
+            }
+        }
+        with(act.upstreams.get(1)) {
+            id == "public"
+            connection instanceof UpstreamsConfig.GrpcConnection
+            with((UpstreamsConfig.GrpcConnection)connection) {
+                host == "rpc.provider.io"
+                port == 443
+                autoTls == true
+                auth == null
             }
         }
     }
@@ -268,7 +301,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         act.upstreams.size() == 1
         with(act.upstreams.get(0)) {
             id == "local"
-            chain == "ethereum"
+            blockchain == "ethereum"
             connection instanceof UpstreamsConfig.EthereumConnection
             with((UpstreamsConfig.EthereumConnection)connection) {
                 rpc != null

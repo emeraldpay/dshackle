@@ -54,9 +54,7 @@ class GrpcUpstreams(
     private val id: String,
     private val forkWatchFactory: ForkWatchFactory,
     private val role: UpstreamsConfig.UpstreamRole,
-    private val host: String,
-    private val port: Int,
-    private val auth: AuthConfig.ClientTlsAuth? = null,
+    private val conn: UpstreamsConfig.GrpcConnection,
     private val fileResolver: FileResolver
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
@@ -68,18 +66,24 @@ class GrpcUpstreams(
     private val lock = ReentrantLock()
 
     fun start(): Flux<UpstreamChange> {
-        val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
-            NettyChannelBuilder.forAddress(host, port)
+        val channel: ManagedChannelBuilder<*> = if (conn.auth != null && StringUtils.isNotEmpty(conn.auth!!.ca)) {
+            NettyChannelBuilder.forAddress(conn.host, conn.port)
                 // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
                 .maxInboundMessageSize(Int.MAX_VALUE)
                 .useTransportSecurity()
                 .enableRetry()
                 .maxRetryAttempts(3)
-                .sslContext(withTls(auth))
+                .sslContext(withTls(conn.auth!!))
         } else {
-            log.warn("Using insecure connection to $host:$port")
-            ManagedChannelBuilder.forAddress(host, port)
-                .usePlaintext()
+            ManagedChannelBuilder.forAddress(conn.host, conn.port)
+                .let {
+                    if (conn.autoTls == true) {
+                        it.useTransportSecurity()
+                    } else {
+                        log.warn("Using insecure connection to ${conn.host}:${conn.port}")
+                        it.usePlaintext()
+                    }
+                }
         }
 
         val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
@@ -92,12 +96,12 @@ class GrpcUpstreams(
                 client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
             }.onErrorContinue { t, _ ->
                 if (ExceptionUtils.indexOfType(t, ConnectException::class.java) >= 0) {
-                    log.warn("gRPC upstream $host:$port is unavailable. (${t.javaClass}: ${t.message})")
+                    log.warn("gRPC upstream ${conn.host}:${conn.port} is unavailable. (${t.javaClass}: ${t.message})")
                     known.values.forEach {
                         it.setStatus(UpstreamAvailability.UNAVAILABLE)
                     }
                 } else {
-                    log.error("Failed to get description from $host:$port", t)
+                    log.error("Failed to get description from ${conn.host}:${conn.port}", t)
                 }
             }.flatMap { value ->
                 processDescription(value)

@@ -89,7 +89,7 @@ class MainConfigReaderSpec extends Specification {
             defaultOptions != null
             defaultOptions.size() == 1
             with(defaultOptions[0]) {
-                chains == ["ethereum"]
+                blockchains == ["ethereum"]
                 options.minPeers == 3
             }
             upstreams.size() == 3

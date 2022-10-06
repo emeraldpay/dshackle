@@ -1,14 +1,13 @@
 version: v1
 
 defaults:
-  - chains:
+  - blockchains:
       - ethereum
-    options:
-      min-peers: 3
+    min-peers: 3
 
 upstreams:
   - id: local
-    chain: ethereum
+    blockchain: ethereum
     connection:
       ethereum:
         rpc:
@@ -20,7 +19,7 @@ upstreams:
             username: 9c199ad8f281f20154fc258fe41a6814
             password: 258fe4149c199ad8f2811a68f20154fc
   - id: infura
-    chain: ethereum
+    blockchain: ethereum
     role: fallback
     connection:
       ethereum:

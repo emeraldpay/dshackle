@@ -2,7 +2,7 @@ version: v1
 
 upstreams:
   - id: local
-    chain: ethereum
+    blockchain: ethereum
     connection:
       ethereum:
         rpc:

@@ -36,7 +36,7 @@ health:
   host: 127.0.0.1
   path: /health
   blockchains:
-   - chain: ethereum
+   - blockchain: ethereum
      min-availability: 1
 
 cache:
@@ -83,25 +83,23 @@ tokens:
     type: ERC-20
     address: 0xdac17f958d2ee523a2206206994597c13d831ec7
 
-accessLog:
+access-log:
   enabled: true
   filename: /var/log/dshackle/access_log.jsonl
 
 cluster:
   defaults:
-    - chains:
+    - blockchains:
         - ethereum
-      options:
-        min-peers: 10
-    - chains:
+      min-peers: 10
+    - blockchains:
         - kovan
-      options:
-        min-peers: 3
+      min-peers: 3
   include:
     - "upstreams-extra.yaml"
   upstreams:
     - id: local
-      chain: ethereum
+      blockchain: ethereum
       labels:
         fullnode: true
       methods:
@@ -120,9 +118,8 @@ cluster:
               username: 9c199ad8f281f20154fc258fe41a6814
               password: 258fe4149c199ad8f2811a68f20154fc
     - id: infura
-      chain: ethereum
-      options:
-        disable-validation: true
+      blockchain: ethereum
+      disable-validation: true
       connection:
         ethereum:
           rpc:
@@ -131,10 +128,9 @@ cluster:
               username: 4fc258fe41a68149c199ad8f281f2015
               password: 1a68f20154fc258fe4149c199ad8f281
     - id: bitcoin
-      chain: bitcoin
-      options:
-        # use the node to fetch balances
-        balance: true
+      blockchain: bitcoin
+      # use the node to fetch balances
+      balance: true
       connection:
         bitcoin:
           rpc:
@@ -147,10 +143,10 @@ cluster:
             url: "http://localhost:3001"
           # connect via ZeroMQ to get notifications about new blocks
           zeromq:
-            address: "http://localhost:5555"
+            url: "tcp://localhost:5555"
     - id: remote
       connection:
-        grpc:
+        dshackle:
           host: "10.2.0.15"
           tls:
             ca: /path/ca.dshackle.test.crt
@@ -322,9 +318,9 @@ health:
   host: 127.0.0.1
   path: /health
   blockchains:
-    - chain: ethereum
+    - blockchain: ethereum
       min-available: 2
-    - chain: bitcoin
+    - blockchain: bitcoin
       min-available: 1
 ----
 
@@ -348,7 +344,7 @@ health:
 |
 | List of blockchains that must be available to consider the server _healthy_
 
-| `[blockchain].chain`
+| `[blockchain].blockchain`
 |
 | Blockchain id
 
@@ -449,7 +445,7 @@ For WebSocket it's `wss` / `ws`, accordingly.
 
 [source,yaml]
 ----
-accessLog:
+access-log:
   enabled: true
   filename: /var/log/dshackle/access_log.jsonl
 ----
@@ -600,13 +596,12 @@ The cluster config is the main part, that defines all connection to nodes and ot
 ----
 cluster:
   defaults:
-    - chains:
+    - blockchains:
         - ethereum
-      options:
-        min-peers: 10
+      min-peers: 10
   upstreams:
     - id: local
-      chain: ethereum
+      blockchain: ethereum
       connection:
         ethereum:
           rpc:
@@ -643,7 +638,7 @@ configuration, and may be omitted for most of the situations.
 [source,yaml]
 ----
 - id: local
-  chain: ethereum
+  blockchain: ethereum
   role: standard
   labels:
     fullnode: true
@@ -663,8 +658,8 @@ configuration, and may be omitted for most of the situations.
         basic-auth:
           username: 9c199ad8f281f20154fc258fe41a6814
           password: 258fe4149c199ad8f2811a68f20154fc
-        frameSize: 5mb
-        msgSize: 15mb
+        frame-size: 5mb
+        msg-size: 15mb
 ----
 
 .Main Config
@@ -676,22 +671,12 @@ configuration, and may be omitted for most of the situations.
 | yes
 | Per-cluster identifier of an upstream
 
-| `role`
-| no
-| `primary` (default), `secondary` or `fallback`.
-First it makes the requests to the upstreams with role `primary`, then if none are available to upstreams with role `secondary`.
-Fallback role mean that the upstream is used only after other upstreams failed or didn't return quorum
-
-| `chain`
+| `blockchain`
 | yes
 | Blockchain which is the provided by the upstream.
 Cluster may have multiple upstreams for a single blockchain.
 Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, `kovan-testnet`, `rinkeby-testnet`, `ropsten-testnet`, or `goerli-testnet`
 
-| `enabled`
-| no
-| `true` (default) or `false`.
-Enable/disable the upstream.
 
 | `labels`
 | no
@@ -699,9 +684,9 @@ Enable/disable the upstream.
 Used to select an upstream per-request.
 See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 
-| `options`
 |
-| Other configuration options. See <<general-options>>
+|
+| + Additional options, see <<general-options>>
 
 | `methods`
 | no
@@ -718,11 +703,6 @@ See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 `not_empty` - accept not _null_ value, otherwise retry another upstream;
 `not_lagging` - accept response only from a fully synced upstream.
 
-| `priority`
-| no
-| Upstream priority used to resolve Fork Conflicts between different upstreams when a Proof-of-Stake blockchain is used.
-When two upstreams has different blocks at the same height then the value from Upstreams with higher `priority` value wins.
-Configuration has no effect in Proof-of-Work blockchains.
 
 | `connection.ethereum`
 | yes
@@ -735,11 +715,31 @@ Configuration has no effect in Proof-of-Work blockchains.
 |===
 
 [#general-options]
-=== General Upstream Options
+=== Additional Options
 
 [cols="2a,1,1a,5"]
 |===
 | Option | Type | Default | Description
+
+
+| `enabled`
+| boolean
+| `true`
+| Enable/disable the upstream.
+
+| `role`
+| enum
+| `primary`
+| `primary`, `secondary` or `fallback`.
+First it makes the requests to the upstreams with role `primary`, then if none are available to upstreams with role `secondary`.
+Fallback role mean that the upstream is used only after other upstreams failed or didn't return quorum
+
+| `priority`
+| number
+| 10
+| Upstream priority used to resolve Fork Conflicts between different upstreams when a Proof-of-Stake blockchain is used.
+When two upstreams has different blocks at the same height then the value from Upstreams with higher `priority` value wins.
+Configuration has no effect in Proof-of-Work blockchains.
 
 | `disable-validation`
 | boolean
@@ -816,12 +816,12 @@ Optional, but optimizes performance if it's available.
 | `ws.basic-auth` + ...
 | WebSocket Basic Auth configuration, if required by the remote server
 
-| `ws.frameSize`
+| `ws.frame-size`
 | WebSocket frame size limit.
 Ex `1kb`, `1024` (same as `1kb), `2mb`, etc.
 Default is 5Mb
 
-| `ws.msgSize`
+| `ws.msg-size`
 | Total limit for a message size consisting from multiple frames.
 Ex `1kb`, `1024` (same as `1kb), `2mb`, etc.
 Default is 15Mb
@@ -858,7 +858,7 @@ The node must be launched with the same address specified as `-zmqpubhashblock="
 [source,yaml]
 ----
 zeromq:
-  address: "127.0.0.1:5555"
+  url: "tcp://127.0.0.1:5555"
 ----
 
 |===
@@ -873,9 +873,8 @@ It's more effective, easier to secure connection, and allows to build a distribu
 ----
 - id: test1
   connection:
-    grpc:
-      host: eu-api.mycompany.com
-      port: 2449
+    dshackle:
+      url: eu-api.mycompany.com:2449
       tls:
         ca: ca.api.mycompany.crt
         certificate: client-1.api.mycompany.crt
@@ -891,7 +890,7 @@ It's more effective, easier to secure connection, and allows to build a distribu
 | yes
 | Per-cluster identifier of an upstream
 
-| `connection.grpc`
+| `connection.dshackle`
 | yes
 | Connection configuration for Dshackle gRPC
 |===
@@ -901,13 +900,13 @@ It's more effective, easier to secure connection, and allows to build a distribu
 |===
 | Option | Description
 
-| `host` and `port`
+| `host` and `port`, or `url`
 | Address to connect to
 
 | `tls`
 a| TLC configuration for the connection.
-In general it's an optional configuration, but it's strongly recommended.
-Also HTTP2 + gRPC is designed to be used with TLS, and some of the related software is unable to use it without TLS. +
+It's an optional, but it's strongly recommended to use a TLS even for internal network.
+HTTP2 + gRPC is designed to be used with TLS, and some related software is unable to use it without TLS. +
 See link:08-authentication.adoc[Authentication] docs and <<tls>>.
 
 | `tls.ca`

@@ -34,34 +34,30 @@ version: v1
 
 cluster:
   defaults:
-  - chains:
+  - blockchains:
       - ethereum
-    options:
-      min-peers: 10
-  - chains:
+    min-peers: 10
+  - blockchains:
       - kovan
-    options:
-      min-peers: 2
+    min-peers: 2
   upstreams:
     - id: us-nodes
-      chain: auto
+      blockchain: auto
       priority: 10
       connection:
-        grpc:
-          host: 35.226.252.117
-          port: 443
+        dshackle:
+          url: https://35.226.252.117
           tls:
             ca: ca.crt
             certificate: client.crt
             key: client.p8.key
     - id: infura-eth
-      chain: ethereum
+      blockchain: ethereum
       priority: 5
       role: fallback
       labels:
         provider: infura
-      options:
-        disable-validation: true
+      disable-validation: true
       connection:
         ethereum:
           rpc:
@@ -110,15 +106,15 @@ In a situation when Dshackle sees a fork it chooses the upstreams with the block
 [source, yaml]
 ----
 - id: eth-one
-  chain: ethereum
+  blockchain: ethereum
   priority: 10
 
 - id: eth-two
-  chain: ethereum
+  blockchain: ethereum
   priority: 20
 
 - id: eth-three
-  chain: ethereum
+  blockchain: ethereum
   priority: 15
 ----
 
@@ -179,11 +175,11 @@ Dshackle currently supports
 
 - `rpc` a standard Ethereum JSON RPC
 - `ws` websocket connection (supposed to be used in addition to `rpc` connection)
-- `grpc` connects to another Dshackle instance
+- `dshackle` connects to another Dshackle instance
 
 === Bitcoin Methods
 
-.By default an ethereum upstream allows call to the following JSON RPC methods:
+.By default, an ethereum upstream allows call to the following JSON RPC methods:
 - `getbestblockhash`
 - `getblock`
 - `getblocknumber`
@@ -246,7 +242,7 @@ For that purpose there is `methods` configuration:
 ----
 upstreams:
   - id: my-node
-    chain: ethereum
+    blockchain: ethereum
     labels:
       archive: true
     methods:
@@ -269,7 +265,7 @@ You can overwrite existing methods or add new ones using a static response:
 ----
 upstreams:
   - id: my-node
-    chain: ethereum
+    blockchain: ethereum
     methods:
       enabled:
         - name: net_version

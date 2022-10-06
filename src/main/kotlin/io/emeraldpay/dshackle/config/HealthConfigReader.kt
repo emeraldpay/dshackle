@@ -60,7 +60,7 @@ class HealthConfigReader : YamlConfigReader(), ConfigReader<HealthConfig> {
             return
         }
         input.value.forEach { conf ->
-            val chain = getValueAsString(conf, "chain")
+            val chain = getValueAsString(conf, "blockchain", "chain")
                 ?.let { Global.chainById(it) }
             if (chain == null) {
                 log.warn("Blockchain is not specified for a Health Check")

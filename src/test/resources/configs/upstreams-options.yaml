@@ -1,15 +1,15 @@
 version: v1
 
 defaultOptions:
-  - chains:
+  - blockchains:
       - ethereum
-    options:
+    options: # backward compatibility, `options` as separate entry
       min-peers: 3
 
 upstreams:
   - id: local
-    chain: ethereum
-    options:
+    blockchain: ethereum
+    options: # backward compatibility, `options` as separate entry
       min-peers: 7
     connection:
       ethereum:
@@ -18,10 +18,10 @@ upstreams:
         ws:
           url: "ws://localhost:8546"
           origin: "http://localhost"
+
   - id: infura
-    chain: ethereum
-    options:
-      disable-validation: true
+    blockchain: ethereum
+    disable-validation: true
     connection:
       ethereum:
         rpc:

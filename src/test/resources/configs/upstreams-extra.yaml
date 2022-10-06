@@ -1,7 +1,7 @@
 upstreams:
   - id: remote
     connection:
-      grpc:
+      dshackle:
         host: "10.2.0.15"
         tls:
           ca: /etc/ca.myservice.com.crt

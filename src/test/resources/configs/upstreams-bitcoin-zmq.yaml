@@ -1,0 +1,20 @@
+version: v1
+
+upstreams:
+  - id: local-1
+    blockchain: bitcoin
+    connection:
+      bitcoin:
+        rpc:
+          url: "http://localhost:8545"
+        zeromq:
+          url: "tcp://191.168.1.5:1234"
+
+  - id: local-2
+    blockchain: bitcoin
+    connection:
+      bitcoin:
+        rpc:
+          url: "http://localhost:8545"
+        zeromq:
+          url: "localhost:1234"

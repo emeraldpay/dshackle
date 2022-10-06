@@ -1,24 +1,24 @@
 version: v1
 
 upstreams:
-  - chain: ethereum
+  - blockchain: ethereum
     connection:
       ethereum:
         rpc:
           url: "http://localhost:8545"
-  - chain: ethereum
+  - blockchain: ethereum
     id: test
     connection:
       ethereum:
         rpc:
           url: "http://localhost:8545"
-  - chain: ethereum
+  - chain: ethereum # `chain` for backward compatibility
     id: test/test
     connection:
       ethereum:
         rpc:
           url: "http://localhost:8545"
-  - chain: ethereum
+  - chain: ethereum # `chain` for backward compatibility
     id: !test
     connection:
       ethereum:

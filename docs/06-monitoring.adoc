@@ -13,7 +13,7 @@ To enable access log add following configuration:
 
 [source,yaml]
 ----
-accessLog:
+access-log:
   enabled: true
   filename: /var/log/dshackle/access_log.jsonl
 ----
