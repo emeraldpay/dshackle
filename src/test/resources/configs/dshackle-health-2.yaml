@@ -5,7 +5,8 @@ health:
   host: 0.0.0.0
   path: /healtz
   blockchains:
-    - chain: ethereum
+    - blockchain: ethereum
       min-available: 2
+    # use `chain` for backward compatibility
     - chain: bitcoin
       min-available: 1

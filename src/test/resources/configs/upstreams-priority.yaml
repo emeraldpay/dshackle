@@ -3,7 +3,7 @@ version: v1
 upstreams:
 
   - id: local
-    chain: ethereum
+    blockchain: ethereum
     priority: 100
     connection:
       ethereum:
@@ -11,7 +11,7 @@ upstreams:
           url: "http://localhost:8545"
 
   - id: infura
-    chain: ethereum
+    blockchain: ethereum
     role: fallback
     priority: 50
     connection:

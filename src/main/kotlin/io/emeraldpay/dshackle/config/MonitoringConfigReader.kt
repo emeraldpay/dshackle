@@ -44,8 +44,7 @@ class MonitoringConfigReader : YamlConfigReader(), ConfigReader<MonitoringConfig
         }
         val prometheus = readPrometheus(getMapping(input, "prometheus"))
         return MonitoringConfig(enabled, prometheus).also { conf ->
-            getValueAsBool(input, "JVM")?.let { conf.enableJvm = it }
-            getValueAsBool(input, "jvm")?.let { conf.enableJvm = it }
+            getValueAsBool(input, "JVM", "jvm")?.let { conf.enableJvm = it }
             getValueAsBool(input, "extended")?.let { conf.enableExtended = it }
         }
     }

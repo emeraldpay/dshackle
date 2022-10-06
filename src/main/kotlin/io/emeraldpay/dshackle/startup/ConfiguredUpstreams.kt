@@ -79,9 +79,9 @@ open class ConfiguredUpstreams(
                 val options = up.options ?: UpstreamsConfig.PartialOptions()
                 buildGrpcUpstream(up.cast(UpstreamsConfig.GrpcConnection::class.java), options.build())
             } else {
-                val chain = Global.chainById(up.chain)
+                val chain = Global.chainById(up.blockchain)
                 if (chain == Chain.UNSPECIFIED) {
-                    log.error("Chain is unknown: ${up.chain}")
+                    log.error("Chain is unknown: ${up.blockchain}")
                     return@forEach
                 }
                 val options = (defaultOptions[chain] ?: UpstreamsConfig.PartialOptions.getDefaults())
@@ -94,7 +94,7 @@ open class ConfiguredUpstreams(
                         buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options.build())
                     }
                     else -> {
-                        log.error("Chain is unsupported: ${up.chain}")
+                        log.error("Chain is unsupported: ${up.blockchain}")
                         return@forEach
                     }
                 }
@@ -105,7 +105,7 @@ open class ConfiguredUpstreams(
     private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.PartialOptions> {
         val defaultOptions = HashMap<Chain, UpstreamsConfig.PartialOptions>()
         config.defaultOptions.forEach { defaultsConfig ->
-            defaultsConfig.chains?.forEach { chainName ->
+            defaultsConfig.blockchains?.forEach { chainName ->
                 Global.chainById(chainName).let { chain ->
                     defaultsConfig.options?.let { options ->
                         if (!defaultOptions.containsKey(chain)) {
@@ -251,9 +251,7 @@ open class ConfiguredUpstreams(
             config.id!!,
             forkWatchFactory,
             config.role,
-            endpoint.host!!,
-            endpoint.port,
-            endpoint.auth,
+            endpoint,
             fileResolver
         ).apply {
             this.options = options
@@ -279,7 +277,7 @@ open class ConfiguredUpstreams(
                 // "unknown" is not supposed to happen
                 Tag.of("upstream", config.id ?: "unknown"),
                 // UNSPECIFIED shouldn't happen too
-                Tag.of("chain", (Global.chainById(config.chain).chainCode))
+                Tag.of("chain", (Global.chainById(config.blockchain).chainCode))
             )
             val metrics = RpcMetrics(
                 Timer.builder("upstream.rpc.conn")

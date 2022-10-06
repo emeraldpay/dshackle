@@ -1,17 +1,16 @@
 version: v1
 
-defaultOptions:
-  - chains:
-      - ethereum
-    options:
-      min-peers: 3
-
 upstreams:
-  - id: remote
+  - id: internal
     connection:
-      grpc:
+      dshackle:
         host: "10.2.0.15"
         tls:
           ca: /etc/ca.myservice.com.crt
           certificate: /etc/client1.myservice.com.crt
           key: /etc/client1.myservice.com.key
+
+  - id: public
+    connection:
+      dshackle:
+        url: "https://rpc.provider.io/"

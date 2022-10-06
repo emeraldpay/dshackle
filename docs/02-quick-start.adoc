@@ -34,7 +34,7 @@ proxy:
 cluster:
   upstreams: # <4>
     - id: infura-eth
-      chain: ethereum # <5>
+      blockchain: ethereum # <5>
       connection:
         ethereum:
           rpc: # <6>
@@ -42,7 +42,7 @@ cluster:
           ws: # <8>
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
     - id: local-eth # <9>
-      chain: ethereum
+      blockchain: ethereum
       connection:
         ethereum:
           rpc:
@@ -50,7 +50,7 @@ cluster:
           ws:
             url: "ws://192.168.1.100:8546"
     - id: bitcoin-main
-      chain: bitcoin # <11>
+      blockchain: bitcoin # <11>
       connection:
         bitcoin:
           rpc:

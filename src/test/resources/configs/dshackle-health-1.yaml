@@ -2,5 +2,5 @@ version: v1
 
 health:
   blockchains:
-    - chain: ethereum
+    - blockchain: ethereum
       min-available: 2

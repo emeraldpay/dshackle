@@ -117,13 +117,13 @@ open class UpstreamsConfig {
     }
 
     class DefaultOptions : PartialOptions() {
-        var chains: List<String>? = null
+        var blockchains: List<String>? = null
         var options: PartialOptions? = null
     }
 
     class Upstream<T : UpstreamConnection> {
         var id: String? = null
-        var chain: String? = null
+        var blockchain: String? = null
         var options: PartialOptions? = null
         var isEnabled = true
         var connection: T? = null
@@ -156,6 +156,7 @@ open class UpstreamsConfig {
         var host: String? = null
         var port: Int = 0
         var auth: AuthConfig.ClientTlsAuth? = null
+        var autoTls: Boolean? = null
     }
 
     class EthereumConnection : RpcConnection() {

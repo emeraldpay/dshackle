@@ -37,7 +37,7 @@ abstract class YamlConfigReader {
         return asMappingNode(yaml.compose(InputStreamReader(input)))
     }
 
-    protected fun hasAny(mappingNode: MappingNode?, key: String): Boolean {
+    protected fun hasAny(mappingNode: MappingNode?, vararg key: String): Boolean {
         if (mappingNode == null) {
             return false
         }
@@ -46,7 +46,7 @@ abstract class YamlConfigReader {
             .filter { n -> n.keyNode is ScalarNode }
             .filter { n ->
                 val sn = n.keyNode as ScalarNode
-                key == sn.value
+                key.any { it == sn.value }
             }.count() > 0
     }
 
@@ -72,8 +72,10 @@ abstract class YamlConfigReader {
             }
     }
 
-    protected fun getMapping(mappingNode: MappingNode?, key: String): MappingNode? {
-        return getValue(mappingNode, key, MappingNode::class.java)
+    protected fun getMapping(mappingNode: MappingNode?, vararg keys: String): MappingNode? {
+        return keys
+            .find { key -> hasAny(mappingNode, key) }
+            ?.let { key -> getValue(mappingNode, key, MappingNode::class.java) }
     }
 
     private fun getValue(mappingNode: MappingNode?, key: String): ScalarNode? {
@@ -81,41 +83,60 @@ abstract class YamlConfigReader {
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun <T> getList(mappingNode: MappingNode?, key: String): CollectionNode<T>? {
-        val value = getValue(mappingNode, key, CollectionNode::class.java) ?: return null
-        return value as CollectionNode<T>
-    }
-
-    protected fun getListOfString(mappingNode: MappingNode?, key: String): List<String>? {
-        return getList<ScalarNode>(mappingNode, key)?.value
-            ?.map { it.value }
-            ?.map(envVariables::postProcess)
-    }
-
-    protected fun getValueAsString(mappingNode: MappingNode?, key: String): String? {
-        return getValue(mappingNode, key)?.let {
-            return@let it.value
-        }?.let(envVariables::postProcess)
-    }
-
-    protected fun getValueAsInt(mappingNode: MappingNode?, key: String): Int? {
-        return getValue(mappingNode, key)?.let {
-            return@let if (it.isPlain) {
-                it.value.toIntOrNull()
-            } else {
-                null
+    protected fun <T> getList(mappingNode: MappingNode?, vararg keys: String): CollectionNode<T>? {
+        return keys
+            .find { key -> hasAny(mappingNode, key) }
+            ?.let { key ->
+                getValue(mappingNode, key, CollectionNode::class.java) as CollectionNode<T>
             }
-        }
     }
 
-    protected fun getValueAsBool(mappingNode: MappingNode?, key: String): Boolean? {
-        return getValue(mappingNode, key)?.let {
-            return@let if (it.isPlain) {
-                it.value.lowercase(Locale.getDefault()) == "true"
-            } else {
-                null
+    protected fun getListOfString(mappingNode: MappingNode?, vararg keys: String): List<String>? {
+        return keys
+            .find { key -> hasAny(mappingNode, key) }
+            ?.let { key ->
+                getList<ScalarNode>(mappingNode, key)?.value
+                    ?.map { it.value }
+                    ?.map(envVariables::postProcess)
             }
-        }
+    }
+
+    protected fun getValueAsString(mappingNode: MappingNode?, vararg keys: String): String? {
+        return keys
+            .find { key -> hasAny(mappingNode, key) }
+            ?.let { key ->
+                getValue(mappingNode, key)
+                    ?.value
+                    ?.let(envVariables::postProcess)
+            }
+    }
+
+    protected fun getValueAsInt(mappingNode: MappingNode?, vararg keys: String): Int? {
+        return keys
+            .find { key -> hasAny(mappingNode, key) }
+            ?.let { key ->
+                getValue(mappingNode, key)?.let {
+                    if (it.isPlain) {
+                        it.value.toIntOrNull()
+                    } else {
+                        null
+                    }
+                }
+            }
+    }
+
+    protected fun getValueAsBool(mappingNode: MappingNode?, vararg keys: String): Boolean? {
+        return keys
+            .find { key -> hasAny(mappingNode, key) }
+            ?.let { key ->
+                getValue(mappingNode, key)?.let {
+                    if (it.isPlain) {
+                        it.value.lowercase(Locale.getDefault()) == "true"
+                    } else {
+                        null
+                    }
+                }
+            }
     }
 
     protected fun asMappingNode(node: Node): MappingNode {
@@ -126,19 +147,23 @@ abstract class YamlConfigReader {
         }
     }
 
-    fun getValueAsBytes(mappingNode: MappingNode?, key: String): Int? {
-        return getValueAsString(mappingNode, key)?.let(envVariables::postProcess)?.let {
-            val m = Regex("^(\\d+)(m|mb|k|kb|b)?$").find(it.lowercase().trim())
-                ?: throw IllegalArgumentException("Not a data size: $it. Example of correct values: '1024', '1kb', '5mb'")
-            val multiplier = m.groups[2]?.let {
-                when (it.value) {
-                    "k", "kb" -> 1024
-                    "m", "mb" -> 1024 * 1024
-                    else -> 1
+    fun getValueAsBytes(mappingNode: MappingNode?, vararg keys: String): Int? {
+        return keys
+            .find { key -> hasAny(mappingNode, key) }
+            ?.let { key ->
+                getValueAsString(mappingNode, key)?.let(envVariables::postProcess)?.let {
+                    val m = Regex("^(\\d+)(m|mb|k|kb|b)?$").find(it.lowercase().trim())
+                        ?: throw IllegalArgumentException("Not a data size: $it. Example of correct values: '1024', '1kb', '5mb'")
+                    val multiplier = m.groups[2]?.let {
+                        when (it.value) {
+                            "k", "kb" -> 1024
+                            "m", "mb" -> 1024 * 1024
+                            else -> 1
+                        }
+                    } ?: 1
+                    val base = m.groups[1]!!.value.toInt()
+                    base * multiplier
                 }
-            } ?: 1
-            val base = m.groups[1]!!.value.toInt()
-            base * multiplier
-        }
+            }
     }
 }

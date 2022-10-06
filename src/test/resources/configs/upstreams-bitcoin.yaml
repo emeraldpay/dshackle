@@ -1,14 +1,13 @@
 version: v1
 
 defaults:
-  - chains:
+  - blockchains:
       - bitcoin
-    options:
-      min-peers: 3
+    min-peers: 3
 
 upstreams:
   - id: local
-    chain: bitcoin
+    blockchain: bitcoin
     connection:
       bitcoin:
         rpc:

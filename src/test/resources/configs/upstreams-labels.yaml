@@ -1,7 +1,7 @@
 version: v1
 
 defaultOptions:
-  - chains:
+  - blockchains:
       - ethereum
     options:
       min-peers: 3
@@ -9,14 +9,14 @@ defaultOptions:
 upstreams:
   - id: remote
     connection:
-      grpc:
+      dshackle:
         host: "10.2.0.15"
         tls:
           ca: /etc/ca.myservice.com.crt
           certificate: /etc/client1.myservice.com.crt
           key: /etc/client1.myservice.com.key
   - id: local
-    chain: ethereum
+    blockchain: ethereum
     labels:
       api: geth
       fullnode: true

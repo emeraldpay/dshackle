@@ -10,7 +10,7 @@ class AccessLogReader : YamlConfigReader(), ConfigReader<AccessLogConfig> {
     }
 
     override fun read(input: MappingNode?): AccessLogConfig {
-        return getMapping(input, "accessLog")?.let { node ->
+        return getMapping(input, "access-log", "accessLog")?.let { node ->
             val enabled = getValueAsBool(node, "enabled") ?: false
             if (!enabled) {
                 AccessLogConfig.disabled()
