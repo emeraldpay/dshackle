@@ -31,4 +31,6 @@ class EmptyHead : Head {
     override fun getCurrentHeight(): Long? {
         return null
     }
+
+    override fun getLastUpdateTime(): Long = 0L
 }

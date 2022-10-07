@@ -23,6 +23,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.toMono
+import java.util.concurrent.atomic.AtomicLong
 
 abstract class AbstractHead(
     private val forkChoice: ForkChoice,
@@ -36,6 +37,7 @@ abstract class AbstractHead(
     private var stream = Sinks.many().multicast().directBestEffort<BlockContainer>()
     private var completed = false
     private val beforeBlockHandlers = ArrayList<Runnable>()
+    private val lastUpdateTime = AtomicLong(0L)
 
     fun follow(source: Flux<BlockContainer>): Disposable {
         if (completed) {
@@ -72,6 +74,7 @@ abstract class AbstractHead(
                             if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
                                 log.warn("Failed to dispatch block: $result as ${this.javaClass}")
                             }
+                            lastUpdateTime.set(System.currentTimeMillis())
                         }
 
                         is ForkChoice.ChoiceResult.Same -> {}
@@ -111,4 +114,7 @@ abstract class AbstractHead(
     override fun getCurrentHeight(): Long? {
         return getCurrent()?.height
     }
+
+    override fun getLastUpdateTime(): Long =
+        lastUpdateTime.get()
 }
