@@ -60,6 +60,7 @@ class AbstractHeadSpec extends Specification {
                 .expectNext(blocks[1])
                 .then {
                     assert called
+                    head.stop()
                     source.tryEmitComplete()
                 }
                 .expectComplete()
@@ -83,7 +84,10 @@ class AbstractHeadSpec extends Specification {
                 .expectNext(blocks[2])
                 .then { source.tryEmitNext(blocks[3]) }
                 .expectNext(blocks[3])
-                .then { source.tryEmitComplete() }
+                .then {
+                    head.stop()
+                    source.tryEmitComplete()
+                }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
@@ -110,7 +114,10 @@ class AbstractHeadSpec extends Specification {
                 .then { source.tryEmitNext(wrongblock) }
                 .then { source.tryEmitNext(blocks[3]) }
                 .expectNext(blocks[3])
-                .then { source.tryEmitComplete() }
+                .then {
+                    head.stop()
+                    source.tryEmitComplete()
+                }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
@@ -132,7 +139,7 @@ class AbstractHeadSpec extends Specification {
                 BlockContainer getHead() {
                     return null
                 }
-            },  new BlockValidator.AlwaysValid())
+            },  new BlockValidator.AlwaysValid(), 100_000)
         }
     }
 }

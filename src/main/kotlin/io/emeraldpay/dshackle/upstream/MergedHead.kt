@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -29,6 +30,10 @@ class MergedHead(
     forkChoice: ForkChoice
 ) : AbstractHead(forkChoice), Lifecycle, CachesEnabled {
 
+    companion object {
+        private val log = LoggerFactory.getLogger(MergedHead::class.java)
+    }
+
     private var subscription: Disposable? = null
 
     override fun isRunning(): Boolean {
@@ -36,16 +41,20 @@ class MergedHead(
     }
 
     override fun start() {
+        super.start()
         sources.forEach { head ->
             if (head is Lifecycle && !head.isRunning) {
                 head.start()
             }
         }
         subscription?.dispose()
-        subscription = super.follow(Flux.merge(sources.map { it.getFlux() }))
+        subscription = super.follow(
+            Flux.merge(sources.map { it.getFlux() }).doOnNext { log.debug("New MERGED head $it") }
+        )
     }
 
     override fun stop() {
+        super.stop()
         sources.forEach { head ->
             if (head is Lifecycle && head.isRunning) {
                 head.stop()

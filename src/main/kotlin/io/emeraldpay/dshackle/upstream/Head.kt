@@ -37,5 +37,8 @@ interface Head {
     fun onBeforeBlock(handler: Runnable)
 
     fun getCurrentHeight(): Long?
-    fun getLastUpdateTime(): Long
+
+    fun start()
+
+    fun stop()
 }

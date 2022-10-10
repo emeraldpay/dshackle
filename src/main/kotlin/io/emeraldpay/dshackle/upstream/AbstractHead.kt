@@ -21,13 +21,17 @@ import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
+import reactor.core.publisher.Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER
+import reactor.core.publisher.Sinks.EmitResult.OK
 import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.toMono
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 abstract class AbstractHead(
     private val forkChoice: ForkChoice,
-    private val blockValidator: BlockValidator = BlockValidator.ALWAYS_VALID
+    private val blockValidator: BlockValidator = BlockValidator.ALWAYS_VALID,
+    awaitHeadTimeoutMs: Long = 60_000
 ) : Head {
 
     companion object {
@@ -37,7 +41,20 @@ abstract class AbstractHead(
     private var stream = Sinks.many().multicast().directBestEffort<BlockContainer>()
     private var completed = false
     private val beforeBlockHandlers = ArrayList<Runnable>()
-    private val lastUpdateTime = AtomicLong(0L)
+    private var stopping = false
+    private var lastHeadUpdated = 0L
+
+    init {
+        Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(
+            {
+                val delay = System.currentTimeMillis() - lastHeadUpdated
+                if (delay > awaitHeadTimeoutMs) {
+                    log.warn("No head updates for $delay ms @ ${this.javaClass} - restart")
+                    start()
+                }
+            }, 300, 30, TimeUnit.SECONDS
+        )
+    }
 
     fun follow(source: Flux<BlockContainer>): Disposable {
         if (completed) {
@@ -54,8 +71,14 @@ abstract class AbstractHead(
                 // close internal stream if upstream is finished, otherwise it gets stuck,
                 // but technically it should never happen during normal work, only when the Head
                 // is stopping
-                completed = true
-                stream.tryEmitComplete()
+                if (stopping) {
+                    log.info("Received signal $it - stop emit new head!!!")
+                    completed = true
+                    stream.tryEmitComplete()
+                } else {
+                    log.warn("Received signal $it unexpectedly - restart head")
+                    start()
+                }
             }
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe { block ->
@@ -69,12 +92,12 @@ abstract class AbstractHead(
                     when (val choiceResult = forkChoice.choose(block)) {
                         is ForkChoice.ChoiceResult.Updated -> {
                             val newHead = choiceResult.nwhead
-                            log.debug("New block ${newHead.height} ${newHead.hash}")
-                            val result = stream.tryEmitNext(newHead)
-                            if (result.isFailure && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-                                log.warn("Failed to dispatch block: $result as ${this.javaClass}")
+                            lastHeadUpdated = System.currentTimeMillis()
+                            when (val result = stream.tryEmitNext(newHead)) {
+                                OK -> log.debug("New block ${newHead.height} ${newHead.hash} @ ${this.javaClass}")
+                                FAIL_ZERO_SUBSCRIBER -> log.debug("No subscribers for ${this.javaClass}")
+                                else -> log.warn("Failed to dispatch block: $result as ${this.javaClass}")
                             }
-                            lastUpdateTime.set(System.currentTimeMillis())
                         }
 
                         is ForkChoice.ChoiceResult.Same -> {}
@@ -100,7 +123,6 @@ abstract class AbstractHead(
     }
 
     override fun getFlux(): Flux<BlockContainer> {
-        val curHead = forkChoice.getHead()
         return Flux.concat(
             forkChoice.getHead().toMono(),
             stream.asFlux()
@@ -115,6 +137,11 @@ abstract class AbstractHead(
         return getCurrent()?.height
     }
 
-    override fun getLastUpdateTime(): Long =
-        lastUpdateTime.get()
+    override fun stop() {
+        stopping = true
+    }
+
+    override fun start() {
+        stopping = false
+    }
 }

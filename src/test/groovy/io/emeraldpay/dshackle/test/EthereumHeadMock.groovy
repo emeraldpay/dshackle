@@ -69,7 +69,12 @@ class EthereumHeadMock implements Head {
     }
 
     @Override
-    long getLastUpdateTime() {
-        return 0
+    void start() {
+
+    }
+
+    @Override
+    void stop() {
+
     }
 }

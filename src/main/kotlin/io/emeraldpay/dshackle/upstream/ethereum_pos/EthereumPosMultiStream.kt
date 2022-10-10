@@ -37,8 +37,6 @@ import org.springframework.context.Lifecycle
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 
 @Suppress("UNCHECKED_CAST")
@@ -70,20 +68,6 @@ open class EthereumPosMultiStream(
             head = updateHead()
         }
         super.init()
-        Executors.newScheduledThreadPool(1).scheduleAtFixedRate({
-            val timeout = System.currentTimeMillis() - (head?.getLastUpdateTime() ?: 0L)
-            log.debug("Check head is active! Lst updated $timeout ms ago")
-            if (timeout > 60_000 && lock.tryLock()) {
-                log.warn("Timeout is over 1 min - restart head")
-                try {
-                    head = updateHead()
-                } catch (e: Exception) {
-                    log.error(e.message, e)
-                } finally {
-                    lock.unlock()
-                }
-            }
-        }, 60, 30, TimeUnit.SECONDS)
     }
 
     override fun start() {

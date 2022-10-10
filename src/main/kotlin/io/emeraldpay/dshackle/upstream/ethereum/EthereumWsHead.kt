@@ -40,6 +40,7 @@ class EthereumWsHead(
     }
 
     override fun start() {
+        super.start()
         this.subscription?.dispose()
         val heads = Flux.merge(
             // get the current block, not just wait for the next update
@@ -50,6 +51,7 @@ class EthereumWsHead(
     }
 
     override fun stop() {
+        super.stop()
         subscription?.dispose()
         subscription = null
     }
