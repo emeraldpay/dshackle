@@ -37,7 +37,6 @@ import org.springframework.context.Lifecycle
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.concurrent.locks.ReentrantLock
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumPosMultiStream(
@@ -57,7 +56,6 @@ open class EthereumPosMultiStream(
     private val subscribe = EthereumSubscribe(this)
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
-    private val lock = ReentrantLock()
 
     init {
         this.init()
