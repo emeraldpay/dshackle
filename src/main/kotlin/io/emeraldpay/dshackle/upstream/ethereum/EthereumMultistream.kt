@@ -25,6 +25,9 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
@@ -46,7 +49,8 @@ open class EthereumMultistream(
     private var head: Head? = null
 
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
-    private val subscribe = EthereumSubscribe(this)
+
+    private var subscribe = EthereumSubscriptionApi(this, NoPendingTxes())
     private val supportsEIP1559 = when (chain) {
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY -> true
         else -> false
@@ -63,6 +67,24 @@ open class EthereumMultistream(
             head = updateHead()
         }
         super.init()
+    }
+
+    override fun onUpstreamsUpdated() {
+        super.onUpstreamsUpdated()
+
+        val pendingTxes: PendingTxesSource = upstreams
+            .mapNotNull {
+                it.getUpstreamSubscriptions().getPendingTxes()
+            }.let {
+                if (it.isEmpty()) {
+                    NoPendingTxes()
+                } else if (it.size == 1) {
+                    it.first()
+                } else {
+                    AggregatedPendingTxes(it)
+                }
+            }
+        subscribe = EthereumSubscriptionApi(this, pendingTxes)
     }
 
     override fun start() {
@@ -137,7 +159,7 @@ open class EthereumMultistream(
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead()))
     }
 
-    open fun getSubscribe(): EthereumSubscribe {
+    open fun getSubscribtionApi(): EthereumSubscriptionApi {
         return subscribe
     }
 

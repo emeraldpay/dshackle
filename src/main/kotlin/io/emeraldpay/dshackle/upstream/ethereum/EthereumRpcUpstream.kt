@@ -8,12 +8,15 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.NoUpstreamSubscriptions
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamSubscriptions
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -59,6 +62,10 @@ open class EthereumRpcUpstream(
         }
     }
 
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return NoEthereumUpstreamSubscriptions.DEFAULT
+    }
+
     override fun start() {
         log.info("Configured for ${chain.chainName}")
         super.start()
@@ -90,13 +97,14 @@ open class EthereumRpcUpstream(
     open fun createHead(): Head {
         return if (ethereumWsFactory != null) {
             // do not set upstream to the WS, since it doesn't control the RPC upstream
-            val ws = ethereumWsFactory.create(null, null).apply {
+            val ws = ethereumWsFactory.create(null).apply {
                 connect()
             }
-            val wsHead = EthereumWsHead(ws).apply {
+            val subscriptions = WsSubscriptionsImpl(ws)
+            val wsHead = EthereumWsHead(getApi(), subscriptions).apply {
                 start()
             }
-            // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
+            // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
             val rpcHead = EthereumRpcHead(getApi(), Duration.ofSeconds(60)).apply {
                 start()
             }

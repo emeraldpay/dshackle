@@ -84,7 +84,7 @@ open class NativeSubscribe(
     open fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
         val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
         return (up as EthereumMultistream)
-            .getSubscribe()
+            .getSubscribtionApi()
             .subscribe(method, params)
     }
 

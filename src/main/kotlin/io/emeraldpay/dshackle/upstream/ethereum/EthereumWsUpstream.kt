@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsSubscriptions
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
@@ -49,22 +50,24 @@ class EthereumWsUpstream(
     }
 
     private val head: EthereumWsHead
-    private val connection: WsConnection
+    private val connection: WsConnectionImpl
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>
+    private val subscriptions: EthereumUpstreamSubscriptions
 
     private var validatorSubscription: Disposable? = null
-    private val validator: EthereumUpstreamValidator
 
     init {
-        validator = EthereumUpstreamValidator(this, getOptions())
-        connection = ethereumWsFactory.create(this, validator)
-        head = EthereumWsHead(connection)
+        connection = ethereumWsFactory.create(this)
+        val wsSubscriptions = WsSubscriptionsImpl(connection)
         // Sometimes the server may close the WebSocket connection during the execution of a call, for example if the response
         // is too large for WebSockets Frame (and Geth is unable to split messages into separate frames)
         // In this case the failed request must be rerouted to the HTTP connection, because otherwise it would always fail
         api = JsonRpcSwitchClient(
             JsonRpcWsClient(connection), httpConnection
         )
+
+        head = EthereumWsHead(getApi(), wsSubscriptions)
+        subscriptions = EthereumWsSubscriptions(wsSubscriptions)
     }
 
     override fun getHead(): Head {
@@ -77,6 +80,10 @@ class EthereumWsUpstream(
 
     override fun isGrpc(): Boolean {
         return false
+    }
+
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return subscriptions
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -92,7 +99,7 @@ class EthereumWsUpstream(
         connection.connect()
         head.start()
 
-        if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
+        if (getOptions().disableValidation) {
             log.warn("Disable validation for upstream ${this.getId()}")
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)

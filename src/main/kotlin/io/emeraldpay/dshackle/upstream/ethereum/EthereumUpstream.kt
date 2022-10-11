@@ -21,7 +21,9 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ForkWatch
+import io.emeraldpay.dshackle.upstream.UpstreamSubscriptions
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 
 abstract class EthereumUpstream(
     id: String,
@@ -45,4 +47,6 @@ abstract class EthereumUpstream(
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return node?.let { listOf(it.labels) } ?: emptyList()
     }
+
+    abstract fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions
 }
