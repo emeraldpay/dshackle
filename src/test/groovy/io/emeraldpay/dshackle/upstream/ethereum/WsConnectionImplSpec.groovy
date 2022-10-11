@@ -34,48 +34,14 @@ import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-class WsConnectionSpec extends Specification {
-
-    def "Fetch block"() {
-        setup:
-        def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
-
-        def block = new BlockJson<TransactionRefJson>()
-        block.number = 100
-        block.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
-        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
-        block.transactions = []
-        block.uncles = []
-        block.totalDifficulty = BigInteger.ONE
-
-        def headBlock = block.copy().tap {
-            it.transactions = null
-        }
-
-        def apiMock = TestingCommons.api()
-        def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null, null)
-
-        apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], block)
-
-        when:
-        Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = Flux.from(ws.getBlocksFlux())
-
-        then:
-        StepVerifier.create(act)
-                .then { ws.onNewHeads(headBlock).subscribe() }
-                .expectNext(BlockContainer.from(block))
-                .thenCancel()
-                .verify(Duration.ofSeconds(5))
-    }
+class WsConnectionImplSpec extends Specification {
 
     def "Makes a RPC call"() {
         setup:
         def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null, null)
+        def ws = wsf.create(null)
 
         def tx = new TransactionJson().tap {
             hash = TransactionId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
@@ -84,7 +50,7 @@ class WsConnectionSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
+        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
 
         then:
         StepVerifier.create(act)
@@ -100,13 +66,13 @@ class WsConnectionSpec extends Specification {
         def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null, null)
+        def ws = wsf.create(null)
 
         apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], null)
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
+        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
 
         then:
         StepVerifier.create(act)
@@ -123,14 +89,14 @@ class WsConnectionSpec extends Specification {
         def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null, null)
+        def ws = wsf.create(null)
 
         apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"],
                 new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "test"))
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.call(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
+        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null))
 
         then:
         StepVerifier.create(act)

@@ -3,18 +3,13 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.config.TokensConfig
-import io.emeraldpay.dshackle.test.EthereumUpstreamMock
-import io.emeraldpay.dshackle.test.MultistreamHolderMock
-import io.emeraldpay.dshackle.test.ReaderMock
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.hex.Hex32
@@ -22,11 +17,9 @@ import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.erc20.ERC20Token
 import io.emeraldpay.etherjar.hex.HexData
-import io.emeraldpay.etherjar.rpc.json.TransactionCallJson
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
-import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.time.Duration
@@ -174,20 +167,23 @@ class TrackERC20AddressSpec extends Specification {
                         false
                 )
         ]
+        def logsConnect = Mock(SubscriptionConnect) {
+            1 * connect() >> Flux.fromIterable(events)
+        }
         def logs = Mock(ConnectLogs) {
-            1 * start(
+            1 * create(
                     [Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")],
                     [Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")]
             ) >> { args ->
-                println("ConnectLogs.start $args")
-                Flux.fromIterable(events)
+                println("ConnectLogs.create $args")
+                logsConnect
             }
         }
-        def sub = Mock(EthereumSubscribe) {
+        def sub = Mock(EthereumSubscriptionApi) {
             1 * getLogs() >> logs
         }
         def up = Mock(EthereumMultistream) {
-            1 * getSubscribe() >> sub
+            1 * getSubscribtionApi() >> sub
             _ * cast(EthereumMultistream) >> { args ->
                 it
             }

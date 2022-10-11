@@ -45,4 +45,6 @@ abstract class EthereumUpstream(
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return node?.let { listOf(it.labels) } ?: emptyList()
     }
+
+    abstract fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions
 }

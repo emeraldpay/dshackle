@@ -59,6 +59,10 @@ open class EthereumRpcUpstream(
         }
     }
 
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return NoEthereumUpstreamSubscriptions.DEFAULT
+    }
+
     override fun start() {
         log.info("Configured for ${chain.chainName}")
         super.start()
@@ -90,13 +94,14 @@ open class EthereumRpcUpstream(
     open fun createHead(): Head {
         return if (ethereumWsFactory != null) {
             // do not set upstream to the WS, since it doesn't control the RPC upstream
-            val ws = ethereumWsFactory.create(null, null).apply {
+            val ws = ethereumWsFactory.create(null).apply {
                 connect()
             }
-            val wsHead = EthereumWsHead(ws).apply {
+            val subscriptions = WsSubscriptionsImpl(ws)
+            val wsHead = EthereumWsHead(getApi(), subscriptions).apply {
                 start()
             }
-            // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
+            // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
             val rpcHead = EthereumRpcHead(getApi(), Duration.ofSeconds(60)).apply {
                 start()
             }

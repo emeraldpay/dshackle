@@ -17,20 +17,17 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsMessage
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.etherjar.rpc.json.BlockJson
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.Unpooled
@@ -51,7 +48,6 @@ import reactor.netty.http.client.HttpClient
 import reactor.netty.http.client.WebsocketClientSpec
 import reactor.netty.http.websocket.WebsocketInbound
 import reactor.netty.http.websocket.WebsocketOutbound
-import reactor.retry.Repeat
 import reactor.util.function.Tuples
 import java.net.URI
 import java.time.Duration
@@ -59,25 +55,21 @@ import java.time.Instant
 import java.util.Base64
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-open class WsConnection(
+open class WsConnectionImpl(
     private val uri: URI,
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
     private val upstream: DefaultUpstream?,
-    private val validator: EthereumUpstreamValidator?
 ) : AutoCloseable {
 
     companion object {
-        private val log = LoggerFactory.getLogger(WsConnection::class.java)
+        private val log = LoggerFactory.getLogger(WsConnectionImpl::class.java)
 
         private const val IDS_START = 100
-        private const val START_REQUEST =
-            "{\"jsonrpc\":\"2.0\", \"method\":\"eth_subscribe\", \"id\":\"blocks\", \"params\":[\"newHeads\"]}"
 
         // WebSocket Frame limit.
         // Default is 65_536, but Geth responds with larger frames,
@@ -102,18 +94,16 @@ open class WsConnection(
 
     private val parser = ResponseWSParser()
 
-    private val blocks = Sinks
+    private val messages = Sinks
         .many()
         .multicast()
-        .directBestEffort<BlockContainer>()
+        .directBestEffort<ResponseWSParser.WsResponse>()
+
     private var rpcSend = Sinks
         .many()
         .unicast()
         .onBackpressureBuffer<JsonRpcRequest>()
-    private val rpcReceive = Sinks
-        .many()
-        .multicast()
-        .directBestEffort<JsonRpcResponse>()
+
     private val disconnects = Sinks
         .many()
         .multicast()
@@ -239,11 +229,7 @@ open class WsConnection(
                             read = true
                         }
                     }
-                    if (msg.type == ResponseWSParser.Type.SUBSCRIPTION) {
-                        onSubscription(msg)
-                    } else {
-                        onRpc(msg)
-                    }
+                    onMessage(msg)
                 } catch (t: Throwable) {
                     log.warn("Failed to process WS message. ${t.javaClass}: ${t.message}")
                     Mono.empty()
@@ -265,109 +251,52 @@ open class WsConnection(
 
         return outbound.send(
             Flux.merge(
-                startWhenValidated(),
                 calls.subscribeOn(Schedulers.boundedElastic()),
                 consumer.then(Mono.empty<ByteBuf>()).subscribeOn(Schedulers.boundedElastic())
             )
         )
     }
 
-    /**
-     * Starts subscriptions ('newHeads') when the upstream is fully validated. If upstream is invalid it breaks flow with an Error.
-     * I.e., the first requests are made from a Validator and when it returns OK the Connection continues with other stuff.
-     */
-    fun startWhenValidated(): Publisher<ByteBuf> {
-        val start = Mono.just(START_REQUEST).map {
-            Unpooled.wrappedBuffer(it.toByteArray())
-        }
-
-        return if (validator != null) {
-            validator.validate()
-                .timeout(
-                    Defaults.timeoutInternal,
-                    Mono.fromCallable { log.warn("Not received a validation result from $uri") }.then(Mono.error(TimeoutException()))
-                )
-                .flatMap {
-                    if (it == UpstreamAvailability.OK) {
-                        start
-                    } else {
-                        tryReconnectLater()
-                        Mono.error(IllegalStateException("Upstream $uri is not ready"))
-                    }
-                }
-        } else {
-            start
-        }
-    }
-
-    fun onRpc(msg: ResponseWSParser.WsResponse): Mono<Void> {
-        return if (msg.id.isNumber()) {
-            val resp = JsonRpcResponse(
-                msg.value, msg.error, msg.id, null
-            )
-            Mono.fromCallable {
-                val status = rpcReceive.tryEmitNext(resp)
-                if (status.isFailure) {
-                    if (status == Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-                        log.debug("No subscribers to WS response")
-                    } else {
-                        log.warn("Failed to proceed with a RPC message: $status")
-                    }
-                }
-            }.then()
-        } else {
-            // it's a response to the newHeads subscription, just ignore it
-            Mono.empty<Void>()
-        }
-    }
-
-    fun onSubscription(msg: ResponseWSParser.WsResponse): Mono<Void> {
-        if (msg.error != null) {
-            return Mono.error(IllegalStateException("Received error from WS upstream: ${msg.error.message}"))
-        }
-        // we always expect an answer to the `newHeads`, since we are not initiating any other subscriptions
+    fun onMessage(msg: ResponseWSParser.WsResponse): Mono<Void> {
         return Mono.fromCallable {
-            Global.objectMapper.readValue(msg.value, BlockJson::class.java) as BlockJson<TransactionRefJson>
-        }.flatMap { onNewHeads(it) }.then()
+            val status = messages.tryEmitNext(msg)
+            if (status.isFailure) {
+                if (status == Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
+                    log.debug("No subscribers to WS response")
+                } else {
+                    log.warn("Failed to proceed with a WS message: $status")
+                }
+            }
+        }.then()
     }
 
-    fun onNewHeads(block: BlockJson<TransactionRefJson>): Mono<Void> {
-        // newHeads returns incomplete blocks, i.e. without some fields and without transaction hashes,
-        // so we need to fetch the full block data
-        return if (block.difficulty == null || block.transactions == null) {
-            Mono.just(block.hash)
-                .flatMap { hash ->
-                    call(JsonRpcRequest("eth_getBlockByHash", listOf(hash.toHex(), false)))
-                        .flatMap { resp ->
-                            if (resp.isNull()) {
-                                Mono.error(SilentException("Received null for block $hash"))
-                            } else {
-                                Mono.just(resp)
-                            }
-                        }
-                        .flatMap(JsonRpcResponse::requireResult)
-                        .map { BlockContainer.fromEthereumJson(it) }
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .timeout(Defaults.timeoutInternal, Mono.empty())
-                }.repeatWhenEmpty { n ->
-                    Repeat.times<Any>(5)
-                        .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(500))
-                        .apply(n)
-                }
-                .timeout(Defaults.timeout, Mono.empty())
-                .onErrorResume { Mono.empty() }
-                .doOnNext {
-                    blocks.tryEmitNext(it)
-                }
-                .then()
-        } else {
-            Mono.fromCallable {
-                blocks.tryEmitNext(BlockContainer.from(block))
-            }.then()
-        }
+    open fun getRpcResponses(): Flux<JsonRpcResponse> {
+        return Flux.from(messages.asFlux())
+            .publishOn(Schedulers.boundedElastic())
+            .filter {
+                it.type == ResponseWSParser.Type.RPC
+            }
+            .map { msg ->
+                JsonRpcResponse(
+                    msg.value, msg.error, msg.id, null
+                )
+            }
     }
 
-    fun call(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
+    open fun getSubscribeResponses(): Flux<JsonRpcWsMessage> {
+        return Flux.from(messages.asFlux())
+            .publishOn(Schedulers.boundedElastic())
+            .filter {
+                it.type == ResponseWSParser.Type.SUBSCRIPTION
+            }
+            .map { msg ->
+                JsonRpcWsMessage(
+                    msg.value, msg.error, msg.id.asString(),
+                )
+            }
+    }
+
+    open fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
         return Mono.fromCallable {
             val startTime = System.nanoTime()
             // use an internal id sequence, to avoid id conflicts with user calls
@@ -379,7 +308,7 @@ open class WsConnection(
         }
     }
 
-    fun sendRpc(request: JsonRpcRequest) {
+    private fun sendRpc(request: JsonRpcRequest) {
         // submit to upstream in a separate thread, to free current thread (needs for subscription, etc)
         sendExecutor.execute {
             val result = rpcSend.tryEmitNext(request)
@@ -399,7 +328,7 @@ open class WsConnection(
             )
         )
 
-        val response = Flux.from(rpcReceive.asFlux())
+        val response = Flux.from(getRpcResponses())
             .doOnSubscribe { sendRpc(request) }
             .filter { resp -> resp.id.asNumber() == expectedId }
             .take(Defaults.timeout)
@@ -424,10 +353,6 @@ open class WsConnection(
             .doOnError { rpcMetrics?.fails?.increment() }
             .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
             .switchIfEmpty(Mono.error(noResponse))
-    }
-
-    fun getBlocksFlux(): Flux<BlockContainer> {
-        return this.blocks.asFlux()
     }
 
     override fun close() {

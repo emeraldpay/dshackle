@@ -16,12 +16,12 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ethereum.WsConnection
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionImpl
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import reactor.core.publisher.Mono
 
 class JsonRpcWsClient(
-    private val ws: WsConnection
+    private val ws: WsConnectionImpl
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
@@ -36,6 +36,6 @@ class JsonRpcWsClient(
                 )
             )
         }
-        return ws.call(key)
+        return ws.callRpc(key)
     }
 }

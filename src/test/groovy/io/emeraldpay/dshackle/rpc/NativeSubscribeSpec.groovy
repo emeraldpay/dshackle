@@ -19,7 +19,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
@@ -31,11 +31,11 @@ class NativeSubscribeSpec extends Specification {
 
     def "Call with empty params when not provided"() {
         setup:
-        def subscribe = Mock(EthereumSubscribe) {
+        def subscribe = Mock(EthereumSubscriptionApi) {
             1 * it.subscribe("newHeads", null) >> Flux.just("{}")
         }
         def up = Mock(EthereumMultistream) {
-            1 * it.getSubscribe() >> subscribe
+            1 * it.getSubscribtionApi() >> subscribe
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up))
@@ -55,7 +55,7 @@ class NativeSubscribeSpec extends Specification {
 
     def "Call with params when provided"() {
         setup:
-        def subscribe = Mock(EthereumSubscribe) {
+        def subscribe = Mock(EthereumSubscriptionApi) {
             1 * it.subscribe("logs", { params ->
                 println("params: $params")
                 def ok = params instanceof Map &&
@@ -67,7 +67,7 @@ class NativeSubscribeSpec extends Specification {
             }) >> Flux.just("{}")
         }
         def up = Mock(EthereumMultistream) {
-            1 * it.getSubscribe() >> subscribe
+            1 * it.getSubscribtionApi() >> subscribe
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up))

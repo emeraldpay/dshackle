@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import org.slf4j.LoggerFactory
@@ -29,7 +30,7 @@ import kotlin.concurrent.withLock
  */
 class ConnectNewHeads(
     private val upstream: EthereumMultistream
-) {
+) : SubscriptionConnect<NewHeadMessage> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ConnectNewHeads::class.java)
@@ -38,7 +39,7 @@ class ConnectNewHeads(
     private var connected: Flux<NewHeadMessage>? = null
     private val connectLock = ReentrantLock()
 
-    fun connect(): Flux<NewHeadMessage> {
+    override fun connect(): Flux<NewHeadMessage> {
         val current = connected
         if (current != null) {
             return current

@@ -17,7 +17,6 @@
 package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc.ReactorBlockchainStub
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -34,6 +33,8 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleSubscriptions
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -56,7 +57,7 @@ open class EthereumGrpcUpstream(
     role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,
     options: UpstreamsConfig.Options,
-    private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
+    private val remote: ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient
 ) : EthereumUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
@@ -113,8 +114,9 @@ open class EthereumGrpcUpstream(
 
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
     var timeout = Defaults.timeout
+    private val ethereumSubscriptions = EthereumDshackleSubscriptions(chain, remote)
 
-    override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
+    override fun getBlockchainApi(): ReactorBlockchainStub {
         return remote
     }
 
@@ -163,6 +165,10 @@ open class EthereumGrpcUpstream(
 
     override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
         return defaultReader
+    }
+
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return ethereumSubscriptions
     }
 
     @Suppress("UNCHECKED_CAST")

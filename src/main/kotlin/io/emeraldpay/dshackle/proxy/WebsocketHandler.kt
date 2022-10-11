@@ -115,7 +115,6 @@ class WebsocketHandler(
     ): Flux<String> {
         return requests.flatMap { call ->
             val method = call.method
-
             if (method == "eth_subscribe") {
                 val methodParams = splitMethodParams(call.params)
                 if (methodParams != null) {
