@@ -21,7 +21,7 @@ class BitcoinZMQHead(
     private val server: ZMQServer,
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
     private val extractBlock: ExtractBlock,
-) : Head, AbstractHead(MostWorkForkChoice()), Lifecycle {
+) : Head, AbstractHead(MostWorkForkChoice(), awaitHeadTimeoutMs = 1200_000), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinZMQHead::class.java)
@@ -51,11 +51,13 @@ class BitcoinZMQHead(
     }
 
     override fun start() {
+        super.start()
         server.start()
         refreshSubscription = super.follow(connect())
     }
 
     override fun stop() {
+        super.stop()
         server.stop()
         val copy = refreshSubscription
         refreshSubscription = null

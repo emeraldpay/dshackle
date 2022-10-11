@@ -44,7 +44,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import java.net.ConnectException
+import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
@@ -92,7 +92,7 @@ class GrpcUpstreams(
             .flatMap {
                 client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
             }.onErrorContinue { t, _ ->
-                if (ExceptionUtils.indexOfType(t, ConnectException::class.java) >= 0) {
+                if (ExceptionUtils.indexOfType(t, IOException::class.java) >= 0) {
                     log.warn("gRPC upstream $host:$port is unavailable. (${t.javaClass}: ${t.message})")
                     known.values.forEach {
                         it.setStatus(UpstreamAvailability.UNAVAILABLE)

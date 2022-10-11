@@ -46,14 +46,14 @@ class MergedHeadSpec extends Specification {
 
     class TestHead1 extends AbstractHead {
         TestHead1() {
-            super(new MostWorkForkChoice())
+            super(new MostWorkForkChoice(), new BlockValidator.AlwaysValid(), 100_000)
         }
     }
 
     class TestHead2 extends AbstractHead implements Lifecycle {
 
         TestHead2() {
-            super(new MostWorkForkChoice())
+            super(new MostWorkForkChoice(), new BlockValidator.AlwaysValid(), 100_000)
         }
 
         @Override

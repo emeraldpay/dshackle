@@ -91,7 +91,10 @@ open class EthereumPosMultiStream(
         return head!!
     }
 
-    override fun tryProxy(matcher: Selector.Matcher, request: BlockchainOuterClass.NativeSubscribeRequest): Flux<out Any>? =
+    override fun tryProxy(
+        matcher: Selector.Matcher,
+        request: BlockchainOuterClass.NativeSubscribeRequest
+    ): Flux<out Any>? =
         upstreams.filter {
             matcher.matches(it)
         }.takeIf { ups ->

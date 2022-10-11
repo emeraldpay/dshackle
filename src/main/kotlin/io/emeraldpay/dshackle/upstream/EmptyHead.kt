@@ -31,4 +31,9 @@ class EmptyHead : Head {
     override fun getCurrentHeight(): Long? {
         return null
     }
+    override fun start() {
+    }
+
+    override fun stop() {
+    }
 }

@@ -87,7 +87,7 @@ class GrpcHead(
                 log.warn("Disconnected $chain from ${parent.getId()}: ${err.message}")
                 parent.setStatus(UpstreamAvailability.UNAVAILABLE)
                 Mono.empty<BlockchainOuterClass.ChainHead>()
-            }
+            }.doFinally { log.warn("Head subscription finished: $it") }
     }
 
     /**
@@ -104,6 +104,8 @@ class GrpcHead(
 
         blocks = blocks.onErrorContinue { err, _ ->
             log.error("Head subscription error. ${err.javaClass.name}:${err.message}", err)
+        }.doOnNext {
+            log.info("Received block ${it.height}")
         }
 
         headSubscription = super.follow(blocks)
@@ -114,10 +116,12 @@ class GrpcHead(
     }
 
     override fun start() {
+        super.start()
         this.internalStart(remote)
     }
 
     override fun stop() {
+        super.stop()
         headSubscription?.dispose()
     }
 }

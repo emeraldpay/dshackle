@@ -67,4 +67,14 @@ class EthereumHeadMock implements Head {
     Long getCurrentHeight() {
         return latest?.height
     }
+
+    @Override
+    void start() {
+
+    }
+
+    @Override
+    void stop() {
+
+    }
 }

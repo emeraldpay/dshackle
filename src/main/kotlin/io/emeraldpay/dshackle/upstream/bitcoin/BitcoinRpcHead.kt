@@ -36,7 +36,7 @@ class BitcoinRpcHead(
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
     private val extractBlock: ExtractBlock,
     private val interval: Duration = Duration.ofSeconds(15)
-) : Head, AbstractHead(MostWorkForkChoice()), Lifecycle {
+) : Head, AbstractHead(MostWorkForkChoice(), awaitHeadTimeoutMs = 1200_000), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinRpcHead::class.java)
@@ -51,6 +51,7 @@ class BitcoinRpcHead(
     }
 
     override fun start() {
+        super.start()
         if (refreshSubscription != null) {
             log.warn("Called to start when running")
             return
@@ -76,6 +77,7 @@ class BitcoinRpcHead(
     }
 
     override fun stop() {
+        super.stop()
         val copy = refreshSubscription
         refreshSubscription = null
         copy?.dispose()
