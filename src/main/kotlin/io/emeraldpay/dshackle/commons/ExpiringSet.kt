@@ -1,12 +1,12 @@
 package io.emeraldpay.dshackle.commons
 
+import org.apache.commons.collections4.iterators.UnmodifiableIterator
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.LinkedList
 import java.util.TreeSet
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
-import org.apache.commons.collections4.iterators.UnmodifiableIterator
-import org.slf4j.LoggerFactory
 
 /**
  * A naive implementation of a Set with a limit for elements and an expiration time. Supposed to be used a filter for uniqueness.
@@ -17,7 +17,7 @@ class ExpiringSet<T>(
     ttl: Duration,
     comparator: Comparator<T>,
     val limit: Int,
-): MutableSet<T> {
+) : MutableSet<T> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ExpiringSet::class.java)
@@ -149,5 +149,4 @@ class ExpiringSet<T>(
             count -= removed
         }
     }
-
 }

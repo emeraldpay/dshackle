@@ -38,5 +38,4 @@ interface WsSubscriptions {
      * Subscribe on remote
      */
     fun subscribe(method: String): Flux<ByteArray>
-
 }

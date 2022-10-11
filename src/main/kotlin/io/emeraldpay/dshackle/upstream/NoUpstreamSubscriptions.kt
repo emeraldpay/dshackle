@@ -24,5 +24,4 @@ open class NoUpstreamSubscriptions : UpstreamSubscriptions {
     override fun <T> get(method: String): SubscriptionConnect<T>? {
         return null
     }
-
 }

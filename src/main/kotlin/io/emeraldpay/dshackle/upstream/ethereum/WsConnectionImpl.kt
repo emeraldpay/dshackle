@@ -20,11 +20,11 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsMessage
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsMessage
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.etherjar.rpc.RpcResponseError
@@ -64,7 +64,7 @@ open class WsConnectionImpl(
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
     private val upstream: DefaultUpstream?,
-): AutoCloseable {
+) : AutoCloseable {
 
     companion object {
         private val log = LoggerFactory.getLogger(WsConnectionImpl::class.java)

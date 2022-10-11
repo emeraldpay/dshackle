@@ -27,7 +27,7 @@ import reactor.core.publisher.Flux
 class DshacklePendingTxesSource(
     private val blockchain: Chain,
     private val conn: ReactorBlockchainGrpc.ReactorBlockchainStub,
-): PendingTxesSource, DefaultPendingTxesSource() {
+) : PendingTxesSource, DefaultPendingTxesSource() {
 
     private val request = NativeSubscribeRequest.newBuilder()
         .setChainValue(blockchain.id)

@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory
 
 class EthereumWsSubscriptions(
     private val conn: WsSubscriptions
-): UpstreamSubscriptions, EthereumUpstreamSubscriptions {
+) : UpstreamSubscriptions, EthereumUpstreamSubscriptions {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumWsSubscriptions::class.java)
@@ -42,5 +42,4 @@ class EthereumWsSubscriptions(
     override fun getPendingTxes(): PendingTxesSource? {
         return pendingTxes
     }
-
 }

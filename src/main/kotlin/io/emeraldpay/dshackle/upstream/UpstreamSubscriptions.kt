@@ -21,5 +21,4 @@ package io.emeraldpay.dshackle.upstream
 interface UpstreamSubscriptions {
 
     fun <T> get(method: String): SubscriptionConnect<T>?
-
 }

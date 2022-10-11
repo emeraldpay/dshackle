@@ -34,7 +34,7 @@ import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
     private val upstream: EthereumMultistream
-): SubscriptionConnect<ConnectBlockUpdates.Update> {
+) : SubscriptionConnect<ConnectBlockUpdates.Update> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ConnectBlockUpdates::class.java)

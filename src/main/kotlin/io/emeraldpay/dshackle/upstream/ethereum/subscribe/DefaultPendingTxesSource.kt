@@ -19,10 +19,10 @@ import io.emeraldpay.dshackle.commons.DurableFlux
 import io.emeraldpay.dshackle.commons.SharedFluxHolder
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.etherjar.domain.TransactionId
-import java.time.Duration
 import reactor.core.publisher.Flux
+import java.time.Duration
 
-abstract class DefaultPendingTxesSource: SubscriptionConnect<TransactionId>, PendingTxesSource {
+abstract class DefaultPendingTxesSource : SubscriptionConnect<TransactionId>, PendingTxesSource {
 
     private val connectionSource = DurableFlux
         .newBuilder()

@@ -21,7 +21,7 @@ import com.fasterxml.jackson.databind.SerializerProvider
 import io.emeraldpay.etherjar.domain.TransactionId
 import org.slf4j.LoggerFactory
 
-class TransactionIdSerializer: JsonSerializer<TransactionId>() {
+class TransactionIdSerializer : JsonSerializer<TransactionId>() {
 
     companion object {
         private val log = LoggerFactory.getLogger(TransactionIdSerializer::class.java)
@@ -34,5 +34,4 @@ class TransactionIdSerializer: JsonSerializer<TransactionId>() {
         }
         gen.writeString(value.toHex())
     }
-
 }

@@ -18,13 +18,13 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import io.emeraldpay.dshackle.commons.ExpiringSet
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.hex.HexDataComparator
-import java.time.Duration
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
+import java.time.Duration
 
 class AggregatedPendingTxes(
     private val sources: List<PendingTxesSource>
-): PendingTxesSource {
+) : PendingTxesSource {
 
     companion object {
         private val log = LoggerFactory.getLogger(AggregatedPendingTxes::class.java)
@@ -41,5 +41,4 @@ class AggregatedPendingTxes(
             sources.map(PendingTxesSource::connect)
         ).filter(track::add)
     }
-
 }

@@ -17,16 +17,15 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
-import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 class WsSubscriptionsImpl(
     val conn: WsConnectionImpl,
-): WsSubscriptions {
+) : WsSubscriptions {
 
     companion object {
         private val log = LoggerFactory.getLogger(WsSubscriptionsImpl::class.java)

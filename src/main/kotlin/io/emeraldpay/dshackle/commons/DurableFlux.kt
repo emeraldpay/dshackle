@@ -1,6 +1,5 @@
 package io.emeraldpay.dshackle.commons
 
-import java.time.Duration
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.util.backoff.BackOff
@@ -9,6 +8,7 @@ import org.springframework.util.backoff.ExponentialBackOff
 import org.springframework.util.backoff.FixedBackOff
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.time.Duration
 
 /**
  * A flux holder that reconnects to it on failure taking into account a back off strategy
@@ -95,8 +95,7 @@ class DurableFlux<T>(
             if (provider == null) {
                 throw IllegalStateException("No provider for original Flux")
             }
-            return DurableFlux(provider!!,errorBackOff, log)
+            return DurableFlux(provider!!, errorBackOff, log)
         }
     }
-
 }

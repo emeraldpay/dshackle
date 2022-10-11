@@ -23,5 +23,4 @@ import reactor.core.publisher.Flux
 interface SubscriptionConnect<T> {
 
     fun connect(): Flux<T>
-
 }

@@ -19,10 +19,10 @@ import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.etherjar.domain.TransactionId
-import java.time.Duration
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.time.Duration
 
 class WebsocketPendingTxes(
     private val wsSubscriptions: WsSubscriptions
@@ -44,5 +44,4 @@ class WebsocketPendingTxes(
             .doOnError { t -> log.warn("Invalid pending transaction", t) }
             .onErrorResume { Mono.empty() }
     }
-
 }

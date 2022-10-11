@@ -30,7 +30,7 @@ import kotlin.concurrent.withLock
  */
 class ConnectNewHeads(
     private val upstream: EthereumMultistream
-): SubscriptionConnect<NewHeadMessage> {
+) : SubscriptionConnect<NewHeadMessage> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ConnectNewHeads::class.java)

@@ -1,11 +1,11 @@
 package io.emeraldpay.dshackle.commons
 
+import org.slf4j.LoggerFactory
+import reactor.core.publisher.Flux
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
-import org.slf4j.LoggerFactory
-import reactor.core.publisher.Flux
 
 /**
  * A flux holder that that creates it only if requested. Keeps it for the following calls, so all the following calls will

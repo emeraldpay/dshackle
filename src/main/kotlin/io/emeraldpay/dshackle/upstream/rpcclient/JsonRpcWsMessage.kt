@@ -19,5 +19,4 @@ class JsonRpcWsMessage(
     val result: ByteArray?,
     val error: JsonRpcError?,
     val subscriptionId: String,
-) {
-}
+)

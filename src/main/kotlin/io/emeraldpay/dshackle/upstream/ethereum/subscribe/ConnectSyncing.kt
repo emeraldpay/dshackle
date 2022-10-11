@@ -26,7 +26,7 @@ import kotlin.concurrent.withLock
 
 class ConnectSyncing(
     private val upstream: EthereumMultistream
-): SubscriptionConnect<Boolean> {
+) : SubscriptionConnect<Boolean> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ConnectSyncing::class.java)

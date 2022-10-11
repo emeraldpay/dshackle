@@ -19,7 +19,7 @@ import io.emeraldpay.etherjar.domain.TransactionId
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 
-class NoPendingTxes: PendingTxesSource {
+class NoPendingTxes : PendingTxesSource {
 
     companion object {
         private val log = LoggerFactory.getLogger(NoPendingTxes::class.java)
@@ -30,5 +30,4 @@ class NoPendingTxes: PendingTxesSource {
     override fun connect(): Flux<TransactionId> {
         return Flux.empty()
     }
-
 }

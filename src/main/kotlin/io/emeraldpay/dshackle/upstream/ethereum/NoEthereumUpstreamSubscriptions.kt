@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.upstream.NoUpstreamSubscriptions
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 
-class NoEthereumUpstreamSubscriptions: NoUpstreamSubscriptions(), EthereumUpstreamSubscriptions {
+class NoEthereumUpstreamSubscriptions : NoUpstreamSubscriptions(), EthereumUpstreamSubscriptions {
 
     companion object {
         val DEFAULT = NoEthereumUpstreamSubscriptions()
@@ -27,5 +27,4 @@ class NoEthereumUpstreamSubscriptions: NoUpstreamSubscriptions(), EthereumUpstre
     override fun getPendingTxes(): PendingTxesSource? {
         return null
     }
-
 }

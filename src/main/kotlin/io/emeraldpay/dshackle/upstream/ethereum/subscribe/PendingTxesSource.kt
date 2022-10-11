@@ -22,4 +22,4 @@ import io.emeraldpay.etherjar.domain.TransactionId
  * A source to subscribe to newPendingTransactions.
  * When using a Websocket RPC on a node, it produces hashes of new transactions received.
  */
-interface PendingTxesSource: SubscriptionConnect<TransactionId>
+interface PendingTxesSource : SubscriptionConnect<TransactionId>

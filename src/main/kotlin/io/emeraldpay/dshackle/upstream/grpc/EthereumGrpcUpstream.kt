@@ -17,7 +17,6 @@
 package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc.ReactorBlockchainStub
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -32,7 +31,6 @@ import io.emeraldpay.dshackle.upstream.OptionalHead
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.UpstreamSubscriptions
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
