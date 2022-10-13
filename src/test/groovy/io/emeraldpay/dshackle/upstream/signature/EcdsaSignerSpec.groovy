@@ -23,28 +23,6 @@ class EcdsaSignerSpec extends Specification {
         Security.addProvider(new BouncyCastleProvider())
     }
 
-    def "Reads private key"() {
-        setup:
-        def file = File.createTempFile("test", ".pem")
-        def keygen = KeyPairGenerator.getInstance("EC")
-        keygen.initialize(new ECGenParameterSpec("secp256k1"))
-        def key = keygen.generateKeyPair()
-        def keyBuilder = new PKCS8EncodedKeySpec(key.getPrivate().getEncoded())
-        def writer = new PemWriter(new FileWriter(file.path))
-        writer.writeObject(new PemObject("PRIVATE KEY", keyBuilder.getEncoded()))
-        writer.close()
-
-        when:
-        def signer = new ResponseSignerFactory(new SignatureConfig())
-        def act = signer.readKey(SignatureConfig.Algorithm.SECP256K1, file.absolutePath).first
-
-        then:
-        act == key.getPrivate()
-
-        cleanup:
-        file.delete()
-    }
-
     def "Reads private key NIST P256"() {
         setup:
         def file = File.createTempFile("test", ".pem")
@@ -84,7 +62,7 @@ class EcdsaSignerSpec extends Specification {
         def id = signer.keyId
 
         then:
-        id == 0xd25f1ff2c1a57235L
+        id == 0xed397068b172b393L
     }
 
     def "Wrap message"() {
@@ -109,7 +87,7 @@ class EcdsaSignerSpec extends Specification {
         }
 
         def keyPairGen = KeyPairGenerator.getInstance("EC")
-        keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
+        keyPairGen.initialize(new ECGenParameterSpec("secp256r1"))
         def pair = keyPairGen.generateKeyPair()
         def verifier = Signature.getInstance("SHA256withECDSA")
         verifier.initVerify(pair.getPublic())
@@ -140,7 +118,7 @@ class EcdsaSignerSpec extends Specification {
         def factory = new ResponseSignerFactory(conf)
 
         def sk = factory.readKey(conf.algorithm, conf.privateKey).first
-        def pk = factory.extractPublicKey(KeyFactory.getInstance("EC"), sk, SignatureConfig.Algorithm.SECP256K1)
+        def pk = factory.extractPublicKey(KeyFactory.getInstance("EC"), sk, SignatureConfig.Algorithm.NIST_P256)
         def verifier = Signature.getInstance("SHA256withECDSA")
         verifier.initVerify(pk)
         verifier.update("DSHACKLESIG/10/infura/${Hex.encodeHexString(sha256.digest(result))}".getBytes())
