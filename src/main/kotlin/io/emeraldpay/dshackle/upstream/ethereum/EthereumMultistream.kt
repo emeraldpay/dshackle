@@ -103,7 +103,7 @@ open class EthereumMultistream(
         upstreams.filter {
             matcher.matches(it)
         }.takeIf { ups ->
-            ups.all { it.isGrpc() }
+            ups.isNotEmpty() && ups.all { it.isGrpc() }
         }?.map {
             it as GrpcUpstream
         }?.map {
