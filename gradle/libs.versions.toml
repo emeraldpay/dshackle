@@ -10,7 +10,7 @@ reactive-grpc = "1.2.0"
 spring-boot = "2.5.6"
 spring-security = "5.5.3"
 reactor = "3.4.10"
-netty = "4.1.70.Final"
+netty = "4.1.84.Final"
 netty-tcnative = "2.0.54.Final"
 kotlin = "1.5.31"
 httpcomponents = "4.5.8"
@@ -33,7 +33,7 @@ detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", 
 
 emerald-api = "io.emeraldpay:emerald-api:0.12-alpha.3"
 
-equals-verifier = "nl.jqno.equalsverifier:equalsverifier:3.3"
+equals-verifier = "nl.jqno.equalsverifier:equalsverifier:3.10.1"
 
 etherjar-domain = { module = "io.emeraldpay.etherjar:etherjar-domain", version.ref = "etherjar" }
 etherjar-hex = { module = "io.emeraldpay.etherjar:etherjar-hex", version.ref = "etherjar" }
