@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.RequestPostprocessor
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinEgressSubscription
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -46,6 +47,7 @@ open class BitcoinMultistream(
     }
 
     private var head: Head = EmptyHead()
+    private var egressSubscription = BitcoinEgressSubscription(this)
     private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
     private var reader = BitcoinReader(this, head, esplora)
     private var addressActiveCheck: AddressActiveCheck? = null
@@ -127,6 +129,8 @@ open class BitcoinMultistream(
     override fun getHead(): Head {
         return head
     }
+
+    override fun getEgressSubscription() = egressSubscription
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return sourceUpstreams.flatMap { it.getLabels() }

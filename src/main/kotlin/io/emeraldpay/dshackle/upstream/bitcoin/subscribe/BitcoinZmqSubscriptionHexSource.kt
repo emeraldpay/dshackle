@@ -13,15 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.bitcoin.subscribe
 
-open class NoUpstreamSubscriptions : UpstreamSubscriptions {
+import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
+import org.apache.commons.codec.binary.Hex
+import reactor.core.publisher.Flux
 
-    companion object {
-        val DEFAULT = NoUpstreamSubscriptions()
-    }
+class BitcoinZmqSubscriptionHexSource(
+    topic: BitcoinZmqTopic,
+    private val server: ZMQServer,
+) : BitcoinSubscriptionConnect<String>(topic) {
 
-    override fun <T> get(method: String): SubscriptionConnect<T>? {
-        return null
+    override fun createConnection(): Flux<String> {
+        server.start()
+        return server.getFlux()
+            .map { Hex.encodeHexString(it) }
     }
 }

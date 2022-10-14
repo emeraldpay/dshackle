@@ -13,12 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.upstream.bitcoin.subscribe
 
-import io.emeraldpay.dshackle.upstream.UpstreamSubscriptions
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
+import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
+import reactor.core.publisher.Flux
 
-interface EthereumUpstreamSubscriptions : UpstreamSubscriptions {
+class BitcoinZmqSubscriptionSource(
+    topic: BitcoinZmqTopic,
+    private val server: ZMQServer,
+) : BitcoinSubscriptionConnect<ByteArray>(topic) {
 
-    fun getPendingTxes(): PendingTxesSource?
+    override fun createConnection(): Flux<ByteArray> {
+        server.start()
+        return server.getFlux()
+    }
 }

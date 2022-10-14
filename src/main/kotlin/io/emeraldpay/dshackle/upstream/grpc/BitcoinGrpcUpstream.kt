@@ -26,12 +26,14 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.OptionalHead
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
+import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinDshackleIngressSubscription
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -108,6 +110,7 @@ class BitcoinGrpcUpstream(
     )
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
+    private val ingressSubscription = BitcoinDshackleIngressSubscription(chain, remote)
 
     override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
         return remote
@@ -131,6 +134,10 @@ class BitcoinGrpcUpstream(
 
     override fun isGrpc(): Boolean {
         return true
+    }
+
+    override fun getIngressSubscription(): IngressSubscription {
+        return ingressSubscription
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -158,5 +165,6 @@ class BitcoinGrpcUpstream(
         this.capabilities = RemoteCapabilities.extract(conf)
         grpcHead.setEnabled(this.capabilities.contains(Capability.RPC))
         conf.status?.let { status -> onStatus(status) }
+        ingressSubscription.update(conf)
     }
 }

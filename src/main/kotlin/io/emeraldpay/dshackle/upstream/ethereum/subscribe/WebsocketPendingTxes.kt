@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.etherjar.domain.TransactionId
 import org.slf4j.LoggerFactory
@@ -33,7 +33,7 @@ class WebsocketPendingTxes(
     }
 
     override fun createConnection(): Flux<TransactionId> {
-        return wsSubscriptions.subscribe(EthereumSubscriptionApi.METHOD_PENDING_TXES)
+        return wsSubscriptions.subscribe(EthereumEgressSubscription.METHOD_PENDING_TXES)
             .timeout(Duration.ofSeconds(60), Mono.empty())
             .map {
                 // comes as a JS string, i.e., within quotes

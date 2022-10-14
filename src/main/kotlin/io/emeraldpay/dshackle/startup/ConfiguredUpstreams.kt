@@ -30,6 +30,10 @@ import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinZMQHead
 import io.emeraldpay.dshackle.upstream.bitcoin.EsploraClient
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
+import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinRpcIngressSubscription
+import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqSubscriptionHexSource
+import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqSubscriptionSource
+import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqTopic
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
@@ -171,6 +175,23 @@ open class ConfiguredUpstreams(
             MergedHead(listOf(rpcHead, zeroMqHead))
         } ?: rpcHead
 
+        val subscriptions = conn.zeroMq?.let { zeroMq ->
+            zeroMq.topics.mapNotNull {
+                val topic = BitcoinZmqTopic.findById(it)
+                if (topic == null) {
+                    log.error("ZeroMQ topic is unknown: $it")
+                    return@mapNotNull null
+                }
+                val server = ZMQServer(zeroMq.host, zeroMq.port, topic.id)
+                return@mapNotNull when (topic) {
+                    BitcoinZmqTopic.HASHBLOCK,
+                    BitcoinZmqTopic.HASHTX -> BitcoinZmqSubscriptionHexSource(topic, server)
+                    BitcoinZmqTopic.RAWBLOCK,
+                    BitcoinZmqTopic.RAWTX ->  BitcoinZmqSubscriptionSource(topic, server)
+                }
+            }
+        }
+
         val methods = buildMethods(config, chain)
         val upstream = BitcoinRpcUpstream(
             config.id
@@ -178,7 +199,9 @@ open class ConfiguredUpstreams(
             chain, forkWatchFactory.create(chain), directApi, head,
             options, config.role,
             QuorumForLabels.QuorumItem(1, config.labels),
-            methods, esplora
+            methods,
+            BitcoinRpcIngressSubscription(subscriptions.orEmpty()),
+            esplora,
         )
 
         upstream.start()

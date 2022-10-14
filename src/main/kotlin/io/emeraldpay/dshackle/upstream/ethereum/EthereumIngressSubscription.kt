@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.ethereum
 
-/**
- * Subscriptions available on the current upstream
- */
-interface UpstreamSubscriptions {
+import io.emeraldpay.dshackle.upstream.IngressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 
-    fun <T> get(method: String): SubscriptionConnect<T>?
+interface EthereumIngressSubscription : IngressSubscription {
+
+    fun getPendingTxes(): PendingTxesSource?
 }
