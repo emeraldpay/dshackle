@@ -26,12 +26,10 @@ class BitcoinDshackleSubscriptionSource(
     topic: BitcoinZmqTopic,
 ) : BitcoinSubscriptionConnect<ByteArray>(topic) {
 
-
     private val request = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
         .setChainValue(blockchain.id)
         .setMethod(topic.id)
         .build()
-
 
     override fun createConnection(): Flux<ByteArray> {
         return conn
@@ -44,5 +42,4 @@ class BitcoinDshackleSubscriptionSource(
         return resp.payload.substring(1, resp.payload.size() - 1)
             .toByteArray()
     }
-
 }

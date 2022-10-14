@@ -24,7 +24,7 @@ class BitcoinRpcIngressSubscription(
     subscriptionList: List<BitcoinSubscriptionConnect<out Serializable>>
 ) : IngressSubscription {
 
-    private val subscriptions : EnumMap<BitcoinZmqTopic, BitcoinSubscriptionConnect<out Serializable>> =
+    private val subscriptions: EnumMap<BitcoinZmqTopic, BitcoinSubscriptionConnect<out Serializable>> =
         subscriptionList.associateByTo(EnumMap(BitcoinZmqTopic::class.java)) { it.topic }
 
     override fun getAvailableTopics(): List<String> {
@@ -38,5 +38,4 @@ class BitcoinRpcIngressSubscription(
         val s = subscriptions[zmqTopic] ?: return null
         return s as SubscriptionConnect<T>
     }
-
 }

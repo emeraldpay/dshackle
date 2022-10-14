@@ -187,7 +187,7 @@ open class ConfiguredUpstreams(
                     BitcoinZmqTopic.HASHBLOCK,
                     BitcoinZmqTopic.HASHTX -> BitcoinZmqSubscriptionHexSource(topic, server)
                     BitcoinZmqTopic.RAWBLOCK,
-                    BitcoinZmqTopic.RAWTX ->  BitcoinZmqSubscriptionSource(topic, server)
+                    BitcoinZmqTopic.RAWTX -> BitcoinZmqSubscriptionSource(topic, server)
                 }
             }
         }

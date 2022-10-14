@@ -21,10 +21,10 @@ enum class BitcoinZmqTopic(
     HASHBLOCK("hashblock"),
     HASHTX("hashtx"),
     RAWBLOCK("rawblock"),
-    RAWTX("rawtx"),;
+    RAWTX("rawtx"),
+    ;
 
     companion object {
         fun findById(id: String): BitcoinZmqTopic? = BitcoinZmqTopic.values().firstOrNull { it.id == id }
     }
-
 }

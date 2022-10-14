@@ -41,5 +41,4 @@ class BitcoinEgressSubscription(
         }
         return Flux.merge(subscribes)
     }
-
 }

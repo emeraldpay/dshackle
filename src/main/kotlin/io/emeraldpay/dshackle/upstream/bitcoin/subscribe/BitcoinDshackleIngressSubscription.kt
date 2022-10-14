@@ -27,7 +27,7 @@ class BitcoinDshackleIngressSubscription(
     private val conn: ReactorBlockchainGrpc.ReactorBlockchainStub,
 ) : IngressSubscription {
 
-    private val subscriptions : EnumMap<BitcoinZmqTopic, BitcoinDshackleSubscriptionSource> = EnumMap(BitcoinZmqTopic::class.java)
+    private val subscriptions: EnumMap<BitcoinZmqTopic, BitcoinDshackleSubscriptionSource> = EnumMap(BitcoinZmqTopic::class.java)
 
     override fun getAvailableTopics(): List<String> {
         return subscriptions.keys
