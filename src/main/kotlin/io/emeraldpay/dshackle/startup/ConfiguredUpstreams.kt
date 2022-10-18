@@ -110,7 +110,7 @@ open class ConfiguredUpstreams(
 
     fun hasMatchingUpstream(chain: Chain, matcher: Selector.LabelSelectorMatcher): Boolean =
         config.upstreams.any { up ->
-            up.chain?.equals(chain.chainName, ignoreCase = true) ?: true && matcher.matches(up.labels)
+            (up.chain?.let { Global.chainById(it) == chain } ?: true) && matcher.matches(up.labels)
         }
 
     private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.Options> {
