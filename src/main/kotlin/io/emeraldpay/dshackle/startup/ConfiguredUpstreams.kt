@@ -31,7 +31,6 @@ import io.emeraldpay.dshackle.upstream.bitcoin.EsploraClient
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinRpcIngressSubscription
-import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqSubscriptionHexSource
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqSubscriptionSource
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqTopic
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -183,12 +182,7 @@ open class ConfiguredUpstreams(
                     return@mapNotNull null
                 }
                 val server = ZMQServer(zeroMq.host, zeroMq.port, topic.id)
-                return@mapNotNull when (topic) {
-                    BitcoinZmqTopic.HASHBLOCK,
-                    BitcoinZmqTopic.HASHTX -> BitcoinZmqSubscriptionHexSource(topic, server)
-                    BitcoinZmqTopic.RAWBLOCK,
-                    BitcoinZmqTopic.RAWTX -> BitcoinZmqSubscriptionSource(topic, server)
-                }
+                return@mapNotNull BitcoinZmqSubscriptionSource(topic, server)
             }
         }
 

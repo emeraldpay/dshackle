@@ -12,7 +12,7 @@ import reactor.core.publisher.Flux
 
 open class EthereumEgressSubscription(
     val upstream: EthereumMultistream,
-    val pendingTxesSource: PendingTxesSource,
+    val pendingTxesSource: PendingTxesSource?,
 ) : EgressSubscription {
 
     companion object {
@@ -23,19 +23,25 @@ open class EthereumEgressSubscription(
         const val METHOD_SYNCING = "syncing"
         const val METHOD_PENDING_TXES = "newPendingTransactions"
 
-        private val AVAILABLE_TOPICS = listOf(
-            METHOD_NEW_HEADS,
-            METHOD_LOGS,
-            METHOD_SYNCING,
-            METHOD_PENDING_TXES,
-        )
+    }
+
+    private val availableTopics = listOf(
+        METHOD_NEW_HEADS,
+        METHOD_LOGS,
+        METHOD_SYNCING,
+    ).let {
+        if (pendingTxesSource != null) {
+            it + METHOD_PENDING_TXES
+        } else {
+            it
+        }
     }
 
     private val newHeads = ConnectNewHeads(upstream)
     open val logs = ConnectLogs(upstream)
     private val syncing = ConnectSyncing(upstream)
 
-    override fun getAvailableTopics() = AVAILABLE_TOPICS
+    override fun getAvailableTopics() = availableTopics
 
     @Suppress("UNCHECKED_CAST")
     override fun subscribe(topic: String, params: Any?): Flux<out Any> {
@@ -58,7 +64,7 @@ open class EthereumEgressSubscription(
             return syncing.connect()
         }
         if (topic == METHOD_PENDING_TXES) {
-            return pendingTxesSource.connect()
+            return pendingTxesSource?.connect() ?: Flux.empty()
         }
         return Flux.error(UnsupportedOperationException("Method $topic is not supported"))
     }

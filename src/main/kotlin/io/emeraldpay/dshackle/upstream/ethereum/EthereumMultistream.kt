@@ -72,12 +72,12 @@ open class EthereumMultistream(
     override fun onUpstreamsUpdated() {
         super.onUpstreamsUpdated()
 
-        val pendingTxes: PendingTxesSource = upstreams
+        val pendingTxes: PendingTxesSource? = upstreams
             .mapNotNull {
                 it.getIngressSubscription().getPendingTxes()
             }.let {
                 if (it.isEmpty()) {
-                    NoPendingTxes()
+                    null
                 } else if (it.size == 1) {
                     it.first()
                 } else {

@@ -39,7 +39,6 @@ class BitcoinDshackleSubscriptionSource(
 
     private fun readResponse(resp: BlockchainOuterClass.NativeSubscribeReplyItem): ByteArray {
         // comes as a string, so cut off the quotes
-        return resp.payload.substring(1, resp.payload.size() - 1)
-            .toByteArray()
+        return resp.payload.toByteArray()
     }
 }

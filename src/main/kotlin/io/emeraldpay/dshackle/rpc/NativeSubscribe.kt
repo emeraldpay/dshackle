@@ -85,7 +85,10 @@ open class NativeSubscribe(
     }
 
     fun convertToProto(value: Any): BlockchainOuterClass.NativeSubscribeReplyItem {
-        val result = objectMapper.writeValueAsBytes(value)
+        val result = when (value) {
+            is ByteArray -> value
+            else -> objectMapper.writeValueAsBytes(value)
+        }
         return BlockchainOuterClass.NativeSubscribeReplyItem.newBuilder()
             .setPayload(ByteString.copyFrom(result))
             .build()

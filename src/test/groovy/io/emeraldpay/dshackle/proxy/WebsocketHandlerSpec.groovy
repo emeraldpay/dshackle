@@ -126,6 +126,30 @@ class WebsocketHandlerSpec extends Specification {
         act.size() == 3
     }
 
+    def "Respond bytes to a subscription call"() {
+        setup:
+        def response1 = [ 1, 2, 3, 4, 5, 6, 7 ] as byte[]
+        def response2 = [ 8, 9, 10 ] as byte[]
+
+        def nativeSubscribe = Mock(NativeSubscribe) {
+            1 * it.subscribe(Chain.ETHEREUM, "binary_foo", null) >> Flux.just(response1, response2)
+        }
+        def handler = new WebsocketHandler(
+                new ReadRpcJson(), new WriteRpcJson(), Stub(NativeCall), nativeSubscribe, requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
+        )
+
+        def request = new RequestJson("eth_subscribe", ["binary_foo"], 2)
+        when:
+        def act = handler.respond(Chain.ETHEREUM, new HashMap<String, Sinks.One<Boolean>>(), Flux.just(request), requestHandler)
+                .collectList()
+                .block(Duration.ofSeconds(1))
+        then:
+        act[0] == '{"jsonrpc":"2.0","id":2,"result":"1"}'
+        act[1] == '{"jsonrpc":"2.0","method":"eth_subscription","params":{"result":"AQIDBAUGBw==","subscription":"1"}}'
+        act[2] == '{"jsonrpc":"2.0","method":"eth_subscription","params":{"result":"CAkK","subscription":"1"}}'
+        act.size() == 3
+    }
+
     def "Unsubscribe"() {
         setup:
 
@@ -134,7 +158,7 @@ class WebsocketHandlerSpec extends Specification {
         )
 
         def control = new HashMap<String, Sinks.One<Boolean>>()
-        Sinks.One<Boolean> sink = Sinks.one();
+        Sinks.One<Boolean> sink = Sinks.one()
         control["5"] = sink
         def request = new RequestJson("eth_unsubscribe", ["5"], 0)
         when:

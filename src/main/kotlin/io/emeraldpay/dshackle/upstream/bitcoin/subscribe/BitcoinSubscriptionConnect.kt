@@ -22,7 +22,7 @@ import reactor.core.publisher.Flux
 import java.time.Duration
 
 abstract class BitcoinSubscriptionConnect<T>(
-    val topic: BitcoinZmqTopic,
+    open val topic: BitcoinZmqTopic, // open for tests
 ) : SubscriptionConnect<T> {
 
     private val connectionSource = DurableFlux
