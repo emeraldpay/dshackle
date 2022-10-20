@@ -87,7 +87,7 @@ abstract class YamlConfigReader {
         return keys
             .find { key -> hasAny(mappingNode, key) }
             ?.let { key ->
-                getValue(mappingNode, key, CollectionNode::class.java) as CollectionNode<T>
+                getValue(mappingNode, key, CollectionNode::class.java) as CollectionNode<T>?
             }
     }
 
