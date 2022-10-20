@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ForkWatch
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.grpc.Chain
@@ -46,4 +47,6 @@ abstract class BitcoinUpstream(
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstream::class.java)
     }
+
+    abstract fun getIngressSubscription(): IngressSubscription
 }

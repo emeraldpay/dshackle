@@ -50,7 +50,7 @@ open class EthereumMultistream(
 
     private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
 
-    private var subscribe = EthereumSubscriptionApi(this, NoPendingTxes())
+    private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
     private val supportsEIP1559 = when (chain) {
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY -> true
         else -> false
@@ -72,19 +72,19 @@ open class EthereumMultistream(
     override fun onUpstreamsUpdated() {
         super.onUpstreamsUpdated()
 
-        val pendingTxes: PendingTxesSource = upstreams
+        val pendingTxes: PendingTxesSource? = upstreams
             .mapNotNull {
-                it.getUpstreamSubscriptions().getPendingTxes()
+                it.getIngressSubscription().getPendingTxes()
             }.let {
                 if (it.isEmpty()) {
-                    NoPendingTxes()
+                    null
                 } else if (it.size == 1) {
                     it.first()
                 } else {
                     AggregatedPendingTxes(it)
                 }
             }
-        subscribe = EthereumSubscriptionApi(this, pendingTxes)
+        subscribe = EthereumEgressSubscription(this, pendingTxes)
     }
 
     override fun start() {
@@ -159,7 +159,7 @@ open class EthereumMultistream(
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead()))
     }
 
-    open fun getSubscribtionApi(): EthereumSubscriptionApi {
+    override fun getEgressSubscription(): EthereumEgressSubscription {
         return subscribe
     }
 

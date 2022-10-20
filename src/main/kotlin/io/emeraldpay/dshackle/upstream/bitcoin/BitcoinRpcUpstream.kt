@@ -21,7 +21,9 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinRpcIngressSubscription
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -40,7 +42,8 @@ open class BitcoinRpcUpstream(
     role: UpstreamsConfig.UpstreamRole,
     node: QuorumForLabels.QuorumItem,
     callMethods: CallMethods,
-    esploraClient: EsploraClient? = null
+    private val ingressSubscription: BitcoinRpcIngressSubscription,
+    esploraClient: EsploraClient? = null,
 ) : BitcoinUpstream(id, chain, forkWatch, options, role, callMethods, node, esploraClient), Lifecycle {
 
     companion object {
@@ -68,6 +71,10 @@ open class BitcoinRpcUpstream(
 
     override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
         return directApi
+    }
+
+    override fun getIngressSubscription(): IngressSubscription {
+        return ingressSubscription
     }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {

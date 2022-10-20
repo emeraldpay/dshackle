@@ -29,7 +29,7 @@ class BitcoinZMQHead(
     private var refreshSubscription: Disposable? = null
 
     fun connect(): Flux<BlockContainer> {
-        return Flux.from(server.sink.asFlux())
+        return Flux.from(server.getFlux())
             .onBackpressureLatest()
             .map {
                 Hex.encodeHexString(it)

@@ -19,9 +19,8 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.upstream.HasEgressSubscription
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.grpc.Status
 import io.grpc.StatusException
@@ -50,13 +49,10 @@ open class NativeSubscribe(
             .onErrorMap(this@NativeSubscribe::convertToStatus)
     }
 
-    fun start(it: BlockchainOuterClass.NativeSubscribeRequest): Publisher<out Any> {
-        val chain = Chain.byId(it.chainValue)
-        if (BlockchainType.from(chain) != BlockchainType.ETHEREUM) {
-            return Mono.error(UnsupportedOperationException("Native subscribe is not supported for ${chain.chainCode}"))
-        }
-        val method = it.method
-        val params: Any? = it.payload?.let { payload ->
+    fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<out Any> {
+        val chain = Chain.byId(request.chainValue)
+        val method = request.method
+        val params: Any? = request.payload?.let { payload ->
             if (payload.size() > 0) {
                 objectMapper.readValue(payload.newInput(), Map::class.java)
             } else {
@@ -82,14 +78,17 @@ open class NativeSubscribe(
     }
 
     open fun subscribe(chain: Chain, method: String, params: Any?): Flux<out Any> {
-        val up = multistreamHolder.getUpstream(chain) ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
-        return (up as EthereumMultistream)
-            .getSubscribtionApi()
+        val up = multistreamHolder.getUpstream(chain) as? HasEgressSubscription ?: return Flux.error(SilentException.UnsupportedBlockchain(chain))
+        return up
+            .getEgressSubscription()
             .subscribe(method, params)
     }
 
     fun convertToProto(value: Any): BlockchainOuterClass.NativeSubscribeReplyItem {
-        val result = objectMapper.writeValueAsBytes(value)
+        val result = when (value) {
+            is ByteArray -> value
+            else -> objectMapper.writeValueAsBytes(value)
+        }
         return BlockchainOuterClass.NativeSubscribeReplyItem.newBuilder()
             .setPayload(ByteString.copyFrom(result))
             .build()

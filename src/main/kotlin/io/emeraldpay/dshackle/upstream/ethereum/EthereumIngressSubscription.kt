@@ -15,10 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.upstream.UpstreamSubscriptions
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 
-interface EthereumUpstreamSubscriptions : UpstreamSubscriptions {
+interface EthereumIngressSubscription : IngressSubscription {
 
     fun getPendingTxes(): PendingTxesSource?
 }

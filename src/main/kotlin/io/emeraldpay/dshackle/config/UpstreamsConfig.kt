@@ -171,7 +171,8 @@ open class UpstreamsConfig {
 
     data class BitcoinZeroMq(
         val host: String = "127.0.0.1",
-        val port: Int
+        val port: Int,
+        val topics: List<String>,
     )
 
     class HttpEndpoint(val url: URI) {

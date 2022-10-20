@@ -6,17 +6,17 @@ import io.emeraldpay.dshackle.config.TokensConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
+import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.etherjar.hex.Hex32
-import io.emeraldpay.grpc.Chain
-import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.erc20.ERC20Token
+import io.emeraldpay.etherjar.hex.Hex32
 import io.emeraldpay.etherjar.hex.HexData
+import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
@@ -179,11 +179,11 @@ class TrackERC20AddressSpec extends Specification {
                 logsConnect
             }
         }
-        def sub = Mock(EthereumSubscriptionApi) {
+        def sub = Mock(EthereumEgressSubscription) {
             1 * getLogs() >> logs
         }
         def up = Mock(EthereumMultistream) {
-            1 * getSubscribtionApi() >> sub
+            1 * getEgressSubscription() >> sub
             _ * cast(EthereumMultistream) >> { args ->
                 it
             }

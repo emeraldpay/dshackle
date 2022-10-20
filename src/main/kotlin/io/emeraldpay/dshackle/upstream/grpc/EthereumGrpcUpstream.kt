@@ -32,9 +32,9 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleIngressSubscription
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -114,7 +114,7 @@ open class EthereumGrpcUpstream(
 
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
     var timeout = Defaults.timeout
-    private val ethereumSubscriptions = EthereumDshackleSubscriptions(chain, remote)
+    private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
 
     override fun getBlockchainApi(): ReactorBlockchainStub {
         return remote
@@ -167,7 +167,7 @@ open class EthereumGrpcUpstream(
         return defaultReader
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+    override fun getIngressSubscription(): EthereumIngressSubscription {
         return ethereumSubscriptions
     }
 

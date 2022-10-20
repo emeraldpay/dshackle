@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectNewHeads
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectSyncing
@@ -9,13 +10,13 @@ import io.emeraldpay.etherjar.hex.Hex32
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 
-open class EthereumSubscriptionApi(
+open class EthereumEgressSubscription(
     val upstream: EthereumMultistream,
-    val pendingTxesSource: PendingTxesSource,
-) {
+    val pendingTxesSource: PendingTxesSource?,
+) : EgressSubscription {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumSubscriptionApi::class.java)
+        private val log = LoggerFactory.getLogger(EthereumEgressSubscription::class.java)
 
         const val METHOD_NEW_HEADS = "newHeads"
         const val METHOD_LOGS = "logs"
@@ -23,16 +24,30 @@ open class EthereumSubscriptionApi(
         const val METHOD_PENDING_TXES = "newPendingTransactions"
     }
 
+    private val availableTopics = listOf(
+        METHOD_NEW_HEADS,
+        METHOD_LOGS,
+        METHOD_SYNCING,
+    ).let {
+        if (pendingTxesSource != null) {
+            it + METHOD_PENDING_TXES
+        } else {
+            it
+        }
+    }
+
     private val newHeads = ConnectNewHeads(upstream)
     open val logs = ConnectLogs(upstream)
     private val syncing = ConnectSyncing(upstream)
 
+    override fun getAvailableTopics() = availableTopics
+
     @Suppress("UNCHECKED_CAST")
-    open fun subscribe(method: String, params: Any?): Flux<out Any> {
-        if (method == METHOD_NEW_HEADS) {
+    override fun subscribe(topic: String, params: Any?): Flux<out Any> {
+        if (topic == METHOD_NEW_HEADS) {
             return newHeads.connect()
         }
-        if (method == METHOD_LOGS) {
+        if (topic == METHOD_LOGS) {
             val paramsMap = try {
                 if (params != null && Map::class.java.isAssignableFrom(params.javaClass)) {
                     readLogsRequest(params as Map<String, Any?>)
@@ -40,17 +55,17 @@ open class EthereumSubscriptionApi(
                     LogsRequest(emptyList(), emptyList())
                 }
             } catch (t: Throwable) {
-                return Flux.error(UnsupportedOperationException("Invalid parameter for $method. Error: ${t.message}"))
+                return Flux.error(UnsupportedOperationException("Invalid parameter for $topic. Error: ${t.message}"))
             }
             return logs.create(paramsMap.address, paramsMap.topics).connect()
         }
-        if (method == METHOD_SYNCING) {
+        if (topic == METHOD_SYNCING) {
             return syncing.connect()
         }
-        if (method == METHOD_PENDING_TXES) {
-            return pendingTxesSource.connect()
+        if (topic == METHOD_PENDING_TXES) {
+            return pendingTxesSource?.connect() ?: Flux.empty()
         }
-        return Flux.error(UnsupportedOperationException("Method $method is not supported"))
+        return Flux.error(UnsupportedOperationException("Method $topic is not supported"))
     }
 
     data class LogsRequest(

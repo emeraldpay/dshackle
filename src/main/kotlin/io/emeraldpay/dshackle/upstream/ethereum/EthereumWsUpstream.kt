@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
@@ -52,7 +52,7 @@ class EthereumWsUpstream(
     private val head: EthereumWsHead
     private val connection: WsConnectionImpl
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>
-    private val subscriptions: EthereumUpstreamSubscriptions
+    private val subscriptions: EthereumIngressSubscription
 
     private var validatorSubscription: Disposable? = null
 
@@ -67,7 +67,7 @@ class EthereumWsUpstream(
         )
 
         head = EthereumWsHead(getApi(), wsSubscriptions)
-        subscriptions = EthereumWsSubscriptions(wsSubscriptions)
+        subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 
     override fun getHead(): Head {
@@ -82,7 +82,7 @@ class EthereumWsUpstream(
         return false
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+    override fun getIngressSubscription(): EthereumIngressSubscription {
         return subscriptions
     }
 

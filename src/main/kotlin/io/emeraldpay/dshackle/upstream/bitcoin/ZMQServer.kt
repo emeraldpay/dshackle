@@ -5,6 +5,7 @@ import org.springframework.context.Lifecycle
 import org.zeromq.SocketType
 import org.zeromq.ZContext
 import org.zeromq.ZMQ
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import java.util.concurrent.Executors
 import java.util.concurrent.locks.ReentrantLock
@@ -26,10 +27,11 @@ class ZMQServer(
     private val runningLock = ReentrantLock()
     private var running = false
     private val sinkPublisher = Executors.newSingleThreadExecutor()
-    val sink = Sinks.many()
+    private val sink = Sinks.many()
         .multicast()
         .directBestEffort<ByteArray>()
 
+    fun getFlux(): Flux<ByteArray> = sink.asFlux()
     fun startInternal() = Runnable {
         log.info("Connecting to ZMQ at $host:$port")
         val context = ZContext()

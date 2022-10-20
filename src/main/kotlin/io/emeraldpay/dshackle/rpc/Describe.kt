@@ -43,6 +43,7 @@ class Describe(
                     val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
                         .setChain(Common.ChainRef.forNumber(chain.id))
                         .addAllSupportedMethods(targets)
+                        .addAllSupportedSubscriptions(chainUpstreams.getEgressSubscription().getAvailableTopics())
                         .setStatus(status)
                     chainUpstreams.getAll().let { ups ->
                         ups.forEach { up ->

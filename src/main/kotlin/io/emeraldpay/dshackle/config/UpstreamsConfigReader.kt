@@ -166,7 +166,8 @@ class UpstreamsConfigReader(
                             val conn: Pair<String, Int> = parseHostPort(address, defaultHost = "127.0.0.1") {
                                 "Invalid config for ZeroMQ: $address. Expected to be in format HOST:PORT"
                             }
-                            connection.zeroMq = UpstreamsConfig.BitcoinZeroMq(conn.first, conn.second)
+                            val topics = getListOfString(node, "topics").orEmpty()
+                            connection.zeroMq = UpstreamsConfig.BitcoinZeroMq(conn.first, conn.second, topics)
                         }
                     }
                 } else {

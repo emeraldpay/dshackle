@@ -139,6 +139,7 @@ message DescribeChain {
     repeated string supportedMethods = 4;
     repeated string excludedMethods = 5;
     repeated Capabilities capabilities = 6;
+    repeated string supportedSubscriptions = 7;
 }
 
 message StatusRequest {

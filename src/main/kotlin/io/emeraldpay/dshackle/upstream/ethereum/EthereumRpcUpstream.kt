@@ -59,8 +59,8 @@ open class EthereumRpcUpstream(
         }
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
-        return NoEthereumUpstreamSubscriptions.DEFAULT
+    override fun getIngressSubscription(): EthereumIngressSubscription {
+        return NoEthereumIngressSubscription.DEFAULT
     }
 
     override fun start() {

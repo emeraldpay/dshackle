@@ -33,6 +33,7 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.netty.http.websocket.WebsocketInbound
 import reactor.netty.http.websocket.WebsocketOutbound
+import java.util.Base64
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.BiFunction
 
@@ -138,7 +139,7 @@ class WebsocketHandler(
                     val responses = nativeSubscribe
                         .subscribe(blockchain, methodParams.first, methodParams.second)
                         .map { event ->
-                            WsSubscriptionResponse(params = WsSubscriptionData(event, subscriptionId))
+                            WsSubscriptionResponse(params = WsSubscriptionData.of(event, subscriptionId))
                         }
                         .takeUntilOther(currentControl.asMono())
                     Flux.concat(Mono.just(start), responses)
@@ -216,5 +217,16 @@ class WebsocketHandler(
     data class WsSubscriptionData(
         val result: Any?,
         val subscription: String
-    )
+    ) {
+
+        companion object {
+            fun of(result: Any?, subscription: String) = WsSubscriptionData(
+                when (result) {
+                    is ByteArray -> Base64.getEncoder().encodeToString(result)
+                    else -> result
+                },
+                subscription
+            )
+        }
+    }
 }

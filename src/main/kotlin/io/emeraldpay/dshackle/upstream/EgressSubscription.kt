@@ -15,10 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-/**
- * Subscriptions available on the current upstream
- */
-interface UpstreamSubscriptions {
+import reactor.core.publisher.Flux
 
-    fun <T> get(method: String): SubscriptionConnect<T>?
+interface EgressSubscription {
+    fun getAvailableTopics(): List<String>
+    fun subscribe(topic: String, params: Any?): Flux<out Any>
 }
