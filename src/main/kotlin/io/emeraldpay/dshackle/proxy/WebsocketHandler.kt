@@ -220,7 +220,7 @@ class WebsocketHandler(
     ) {
 
         companion object {
-            fun of(result: Any?, subscription: String) =  WsSubscriptionData(
+            fun of(result: Any?, subscription: String) = WsSubscriptionData(
                 when (result) {
                     is ByteArray -> Base64.getEncoder().encodeToString(result)
                     else -> result
@@ -228,6 +228,5 @@ class WebsocketHandler(
                 subscription
             )
         }
-
     }
 }

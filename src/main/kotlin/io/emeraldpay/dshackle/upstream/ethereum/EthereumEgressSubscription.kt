@@ -22,7 +22,6 @@ open class EthereumEgressSubscription(
         const val METHOD_LOGS = "logs"
         const val METHOD_SYNCING = "syncing"
         const val METHOD_PENDING_TXES = "newPendingTransactions"
-
     }
 
     private val availableTopics = listOf(
