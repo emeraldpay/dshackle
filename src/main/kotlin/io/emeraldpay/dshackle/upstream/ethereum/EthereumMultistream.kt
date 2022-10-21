@@ -48,7 +48,7 @@ open class EthereumMultistream(
 
     private var head: Head? = null
 
-    private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
+    private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
 
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
     private val supportsEIP1559 = when (chain) {
@@ -101,7 +101,7 @@ open class EthereumMultistream(
         return super.isRunning() || reader.isRunning
     }
 
-    open fun getReader(): EthereumReader {
+    open fun getReader(): EthereumCachingReader {
         return reader
     }
 

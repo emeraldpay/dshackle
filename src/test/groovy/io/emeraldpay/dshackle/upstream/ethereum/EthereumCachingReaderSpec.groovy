@@ -43,7 +43,7 @@ import spock.lang.Specification
 
 import java.time.Instant
 
-class EthereumReaderSpec extends Specification {
+class EthereumCachingReaderSpec extends Specification {
 
     def blockId = BlockId.from("f85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2")
     def blockJson = new BlockJson<TransactionRefJson>().tap { blockJson ->
@@ -70,7 +70,7 @@ class EthereumReaderSpec extends Specification {
         def caches = Caches.newBuilder()
                 .setBlockByHash(memCache)
                 .build()
-        def reader = new EthereumReader(Stub(Multistream), caches, calls)
+        def reader = new EthereumCachingReader(Stub(Multistream), caches, calls)
 
         when:
         def act = reader.blocksByIdParsed().read(blockId).block()
@@ -91,7 +91,7 @@ class EthereumReaderSpec extends Specification {
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
 
         def upstream = TestingCommons.multistream(api)
-        def reader = new EthereumReader(upstream, caches, calls)
+        def reader = new EthereumCachingReader(upstream, caches, calls)
 
         when:
         def act = reader.blocksByIdParsed().read(blockId).block()
@@ -112,7 +112,7 @@ class EthereumReaderSpec extends Specification {
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
 
         def upstream = TestingCommons.multistream(api)
-        def reader = new EthereumReader(upstream, caches, calls)
+        def reader = new EthereumCachingReader(upstream, caches, calls)
 
         when:
         def act = reader.blocksByIdParsed().read(blockId).block()
@@ -129,7 +129,7 @@ class EthereumReaderSpec extends Specification {
         def caches = Caches.newBuilder()
                 .setBlockByHash(memCache)
                 .build()
-        def reader = new EthereumReader(Stub(Multistream), caches, calls)
+        def reader = new EthereumCachingReader(Stub(Multistream), caches, calls)
 
         when:
         def act = reader.blocksByHashParsed().read(blockJson.hash).block()
@@ -149,7 +149,7 @@ class EthereumReaderSpec extends Specification {
         def api = TestingCommons.api()
         api.answer("eth_getBlockByHash", ["0xf85b826fdf98ee0f48f7db001be00472e63ceb056846f4ecac5f0c32878b8ab2", false], blockJson)
         def upstream = TestingCommons.multistream(api)
-        def reader = new EthereumReader(upstream, caches, calls)
+        def reader = new EthereumCachingReader(upstream, caches, calls)
 
         when:
         def act = reader.blocksByHashParsed().read(blockJson.hash).block()
@@ -166,7 +166,7 @@ class EthereumReaderSpec extends Specification {
         def caches = Caches.newBuilder()
                 .setTxByHash(memCache)
                 .build()
-        def reader = new EthereumReader(Stub(Multistream), caches, calls)
+        def reader = new EthereumCachingReader(Stub(Multistream), caches, calls)
 
         when:
         def act = reader.txByHash().read(txJson.hash).block()
@@ -187,7 +187,7 @@ class EthereumReaderSpec extends Specification {
         def api = TestingCommons.api()
         api.answer("eth_getTransactionByHash", [txJson.hash.toHex()], txJson)
         def upstream = TestingCommons.multistream(api)
-        def reader = new EthereumReader(upstream, caches, calls)
+        def reader = new EthereumCachingReader(upstream, caches, calls)
 
         when:
         def act = reader.txByHash().read(txJson.hash).block()
@@ -205,7 +205,7 @@ class EthereumReaderSpec extends Specification {
         api.answerOnce("eth_getBalance", ["0x70b91ff87a902b53dc6e2f6bda8bb9b330ccd30c", "0x66"], "0xff")
         EthereumUpstreamMock upstream = new EthereumUpstreamMock(Chain.ETHEREUM, api)
         def upstreams = TestingCommons.multistream(upstream)
-        def reader = new EthereumReader(upstreams, Caches.default(), calls)
+        def reader = new EthereumCachingReader(upstreams, Caches.default(), calls)
         reader.start()
 
         when:
@@ -243,7 +243,7 @@ class EthereumReaderSpec extends Specification {
         ])
         EthereumUpstreamMock upstream = new EthereumUpstreamMock(Chain.ETHEREUM, api)
         def upstreams = TestingCommons.multistream(upstream)
-        def reader = new EthereumReader(upstreams, Caches.default(), calls)
+        def reader = new EthereumCachingReader(upstreams, Caches.default(), calls)
         reader.start()
 
         when:
@@ -266,7 +266,7 @@ class EthereumReaderSpec extends Specification {
         def cashes = Caches.newBuilder()
                 .setReceipts(receiptCache)
                 .build()
-        def reader = new EthereumReader(upstreams, cashes, calls)
+        def reader = new EthereumCachingReader(upstreams, cashes, calls)
         reader.start()
 
         when:

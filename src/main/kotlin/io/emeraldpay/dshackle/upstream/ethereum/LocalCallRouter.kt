@@ -34,10 +34,10 @@ import java.math.BigInteger
  * It provides data only if it's available through the router (cached, head, etc).
  * If data is not available locally then it returns `empty`; at this case the caller should call the remote node for actual data.
  *
- * @see EthereumReader
+ * @see EthereumCachingReader
  */
 class LocalCallRouter(
-    private val reader: EthereumReader,
+    private val reader: EthereumCachingReader,
     private val methods: CallMethods,
     private val head: Head
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {

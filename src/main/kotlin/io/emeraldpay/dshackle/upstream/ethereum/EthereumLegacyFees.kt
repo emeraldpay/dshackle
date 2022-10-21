@@ -23,7 +23,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import java.util.function.Function
 
-class EthereumLegacyFees(upstreams: EthereumMultistream, reader: EthereumReader, heightLimit: Int) :
+class EthereumLegacyFees(upstreams: EthereumMultistream, reader: EthereumCachingReader, heightLimit: Int) :
     EthereumFees(upstreams, reader, heightLimit) {
 
     companion object {

@@ -23,7 +23,7 @@ class LocalCallRouterSpec extends Specification {
         setup:
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
         def router = new LocalCallRouter(
-                new EthereumReader(
+                new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
                         ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
@@ -41,7 +41,7 @@ class LocalCallRouterSpec extends Specification {
         setup:
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
         def router = new LocalCallRouter(
-                new EthereumReader(
+                new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
                         ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
@@ -61,7 +61,7 @@ class LocalCallRouterSpec extends Specification {
         def head = Mock(Head) {
             1 * getCurrentHeight() >> 101L
         }
-        def reader = Mock(EthereumReader) {
+        def reader = Mock(EthereumCachingReader) {
             _ * blocksByIdAsCont() >> new EmptyReader<>()
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
@@ -87,7 +87,7 @@ class LocalCallRouterSpec extends Specification {
     def "getBlockByNumber with earliest uses 0 block"() {
         setup:
         def head = Stub(Head) {}
-        def reader = Mock(EthereumReader) {
+        def reader = Mock(EthereumCachingReader) {
             _ * blocksByIdAsCont() >> new EmptyReader<>()
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
@@ -113,7 +113,7 @@ class LocalCallRouterSpec extends Specification {
     def "getBlockByNumber fetches the block"() {
         setup:
         def head = Stub(Head) {}
-        def reader = Mock(EthereumReader) {
+        def reader = Mock(EthereumCachingReader) {
             _ * blocksByIdAsCont() >> new EmptyReader<>()
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
