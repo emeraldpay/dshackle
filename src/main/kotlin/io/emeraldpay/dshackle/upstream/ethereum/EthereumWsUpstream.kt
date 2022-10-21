@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
@@ -24,8 +24,6 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import io.emeraldpay.grpc.Chain
@@ -37,7 +35,7 @@ class EthereumWsUpstream(
     id: String,
     val chain: Chain,
     forkWatch: ForkWatch,
-    httpConnection: Reader<JsonRpcRequest, JsonRpcResponse>,
+    httpConnection: JsonRpcReader,
     ethereumWsFactory: EthereumWsFactory,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
@@ -51,7 +49,7 @@ class EthereumWsUpstream(
 
     private val head: EthereumWsHead
     private val connection: WsConnectionImpl
-    private val api: Reader<JsonRpcRequest, JsonRpcResponse>
+    private val api: JsonRpcReader
     private val subscriptions: EthereumIngressSubscription
 
     private var validatorSubscription: Disposable? = null
@@ -74,7 +72,7 @@ class EthereumWsUpstream(
         return head
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getApi(): JsonRpcReader {
         return api
     }
 

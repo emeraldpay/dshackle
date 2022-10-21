@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
@@ -112,7 +112,7 @@ open class EthereumGrpcUpstream(
     )
     private var capabilities: Set<Capability> = emptySet()
 
-    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
+    private val defaultReader: JsonRpcReader = client.forSelector(Selector.empty)
     var timeout = Defaults.timeout
     private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
 
@@ -163,7 +163,7 @@ open class EthereumGrpcUpstream(
         return grpcHead
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getApi(): JsonRpcReader {
         return defaultReader
     }
 

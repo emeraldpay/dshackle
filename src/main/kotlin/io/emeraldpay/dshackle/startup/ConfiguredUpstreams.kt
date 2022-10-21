@@ -19,7 +19,7 @@ package io.emeraldpay.dshackle.startup
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.ForkWatchFactory
 import io.emeraldpay.dshackle.upstream.Head
@@ -40,8 +40,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsUpstream
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
@@ -151,7 +149,7 @@ open class ConfiguredUpstreams(
     ) {
 
         val conn = config.connection!!
-        val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
+        val directApi: JsonRpcReader? = buildHttpClient(config)
         if (directApi == null) {
             log.warn("Upstream doesn't have API configuration")
             return
@@ -231,7 +229,7 @@ open class ConfiguredUpstreams(
 
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
 
-        val directApi: Reader<JsonRpcRequest, JsonRpcResponse>? = buildHttpClient(config)
+        val directApi: JsonRpcReader? = buildHttpClient(config)
         if (directApi == null) {
             log.warn("Upstream doesn't have API configuration")
             return

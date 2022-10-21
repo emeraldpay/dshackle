@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.json.BlockJson
@@ -35,7 +35,7 @@ import reactor.retry.Repeat
 import java.time.Duration
 
 class EthereumWsHead(
-    private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val api: JsonRpcReader,
     private val wsSubscriptions: WsSubscriptions,
 ) : DefaultEthereumHead(), Lifecycle {
 

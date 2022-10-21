@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Mono
@@ -15,17 +15,17 @@ interface RequestPostprocessor {
 
     companion object {
         fun wrap(
-            reader: Reader<JsonRpcRequest, JsonRpcResponse>,
+            reader: JsonRpcReader,
             processor: RequestPostprocessor
-        ): Reader<JsonRpcRequest, JsonRpcResponse> {
+        ): JsonRpcReader {
             return Wrapper(reader, processor)
         }
     }
 
     class Wrapper(
-        private val reader: Reader<JsonRpcRequest, JsonRpcResponse>,
+        private val reader: JsonRpcReader,
         private val processor: RequestPostprocessor
-    ) : Reader<JsonRpcRequest, JsonRpcResponse> {
+    ) : JsonRpcReader {
 
         override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
             return reader.read(key)
