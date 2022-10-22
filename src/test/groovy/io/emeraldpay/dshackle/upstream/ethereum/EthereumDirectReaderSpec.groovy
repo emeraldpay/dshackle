@@ -3,6 +3,8 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
+import io.emeraldpay.dshackle.cache.ReceiptMemCache
+import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
@@ -11,6 +13,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -169,6 +172,76 @@ class EthereumDirectReaderSpec extends Specification {
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
+    }
+
+    def "Reads tx receipt"() {
+        setup:
+        def json = new TransactionReceiptJson().tap {
+            transactionHash = TransactionId.from(hash1)
+            blockNumber = 100
+            blockHash = BlockHash.from(hash1)
+        }
+        def up = Mock(Multistream) {
+            1 * getApiSource(_) >> Stub(ApiSource)
+        }
+        def calls = Mock(Factory) {
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+        }
+        EthereumDirectReader reader = new EthereumDirectReader(
+                up, Caches.default(), new CurrentBlockCache(), calls
+        )
+        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(new JsonRpcRequest("eth_getTransactionReceipt", [hash1])) >> Mono.just(
+                        new QuorumRpcReader.Result(
+                                Global.objectMapper.writeValueAsBytes(json), null, 1
+                        )
+                )
+            }
+        }
+        when:
+        def act = reader.receiptReader.read(TransactionId.from(hash1))
+            .block(Duration.ofSeconds(1))
+            .with { new String(it) }
+        then:
+        act == '{"blockHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","blockNumber":"0x64","transactionHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","logs":[]}'
+    }
+
+    def "Puts tx receipt in cache after reading"() {
+        setup:
+        def json = new TransactionReceiptJson().tap {
+            transactionHash = TransactionId.from(hash1)
+            blockNumber = 100
+            blockHash = BlockHash.from(hash1)
+        }
+        def up = Mock(Multistream) {
+            1 * getApiSource(_) >> Stub(ApiSource)
+        }
+        def calls = Mock(Factory) {
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+        }
+        def caches = Mock(Caches) {
+            // note that the Caches needs a Height value, otherwise it's not cached
+            1 * cacheReceipt(Caches.Tag.REQUESTED, { DefaultContainer data -> data.txId.toHex() == hash1.substring(2) && data.height == 100 })
+        }
+        EthereumDirectReader reader = new EthereumDirectReader(
+                up, caches, new CurrentBlockCache(), calls
+        )
+        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(new JsonRpcRequest("eth_getTransactionReceipt", [hash1])) >> Mono.just(
+                        new QuorumRpcReader.Result(
+                                Global.objectMapper.writeValueAsBytes(json), null, 1
+                        )
+                )
+            }
+        }
+        when:
+        def act = reader.receiptReader.read(TransactionId.from(hash1))
+                .block(Duration.ofSeconds(1))
+                .with { new String(it) }
+        then:
+        act == '{"blockHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","blockNumber":"0x64","transactionHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","logs":[]}'
     }
 
     def "Produce empty on non-existing tx"() {

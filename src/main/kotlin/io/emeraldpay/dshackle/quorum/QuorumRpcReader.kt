@@ -125,7 +125,7 @@ class QuorumRpcReader(
     }
 
     fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple3<ByteArray, Optional<ResponseSigner.Signature>, Upstream>> {
-        return api.getApi()
+        return api.getIngressReader()
             .read(key)
             .flatMap { response ->
                 response.requireResult()

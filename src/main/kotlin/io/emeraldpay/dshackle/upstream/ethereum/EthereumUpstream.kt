@@ -46,5 +46,8 @@ abstract class EthereumUpstream(
         return node?.let { listOf(it.labels) } ?: emptyList()
     }
 
+    /**
+     * Access to subscriptions available on the upstream
+     */
     abstract fun getIngressSubscription(): EthereumIngressSubscription
 }

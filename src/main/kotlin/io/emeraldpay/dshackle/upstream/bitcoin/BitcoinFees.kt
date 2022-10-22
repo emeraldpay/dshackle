@@ -26,7 +26,7 @@ import java.util.function.Function
 
 class BitcoinFees(
     upstreams: BitcoinMultistream,
-    private val reader: BitcoinReader,
+    private val reader: BitcoinEgressReader,
     heightLimit: Int,
 ) : AbstractChainFees<BitcoinFees.TxFee, Map<String, Any>, String, Map<String, Any>>(heightLimit, upstreams, extractTx), ChainFees {
 

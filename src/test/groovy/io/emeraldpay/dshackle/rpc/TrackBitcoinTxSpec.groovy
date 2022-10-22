@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinEgressReader
 import io.emeraldpay.dshackle.upstream.bitcoin.CachingMempoolData
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
@@ -44,7 +44,7 @@ class TrackBitcoinTxSpec extends Specification {
             ])
         }
         BitcoinMultistream upstream = Mock(BitcoinMultistream) {
-            _ * getReader() >> Mock(BitcoinReader) {
+            _ * getReader() >> Mock(BitcoinEgressReader) {
                 _ * getMempool() >> mempoolAccess
             }
         }
@@ -70,7 +70,7 @@ class TrackBitcoinTxSpec extends Specification {
             ])
         }
         BitcoinMultistream upstream = Mock(BitcoinMultistream) {
-            _ * getReader() >> Mock(BitcoinReader) {
+            _ * getReader() >> Mock(BitcoinEgressReader) {
                 _ * getMempool() >> mempoolAccess
             }
         }
@@ -91,7 +91,7 @@ class TrackBitcoinTxSpec extends Specification {
         TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         BitcoinMultistream upstream = Mock(BitcoinMultistream) {
-            _ * getReader() >> Mock(BitcoinReader) {
+            _ * getReader() >> Mock(BitcoinEgressReader) {
                 1 * getTx(txid) >> Mono.just([
                         txid: txid
                 ])
@@ -114,7 +114,7 @@ class TrackBitcoinTxSpec extends Specification {
         TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         BitcoinMultistream upstream = Mock(BitcoinMultistream) {
-            _ * getReader() >> Mock(BitcoinReader) {
+            _ * getReader() >> Mock(BitcoinEgressReader) {
                 1 * getTx(txid) >> Mono.just([
                         txid     : txid,
                         blockhash: "0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f",
@@ -178,7 +178,7 @@ class TrackBitcoinTxSpec extends Specification {
         Head head = Mock(Head) {
             1 * getFlux() >> next
         }
-        BitcoinReader api = Mock(BitcoinReader) {
+        BitcoinEgressReader api = Mock(BitcoinEgressReader) {
             3 * getTx(txid) >>> [
                     Mono.just([
                             txid: txid
@@ -226,7 +226,7 @@ class TrackBitcoinTxSpec extends Specification {
                     Mono.just(["4523c7ac0c5c1e5628f025474529c69cd44d7c641db82e6982f5ffe64527efc9", txid]) //second call when started over
             ]
         }
-        BitcoinReader api = Mock(BitcoinReader) {
+        BitcoinEgressReader api = Mock(BitcoinEgressReader) {
             1 * getTx(txid) >> Mono.just([
                     txid: txid
             ])
@@ -255,7 +255,7 @@ class TrackBitcoinTxSpec extends Specification {
         setup:
         TrackBitcoinTx track = new TrackBitcoinTx(Stub(MultistreamHolder))
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
-        BitcoinReader api = Mock(BitcoinReader) {
+        BitcoinEgressReader api = Mock(BitcoinEgressReader) {
             _ * getTx(txid) >> Mono.just([
                     txid     : txid,
                     blockhash: "0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f",

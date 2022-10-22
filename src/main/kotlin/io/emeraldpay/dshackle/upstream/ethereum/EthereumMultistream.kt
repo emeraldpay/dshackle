@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
@@ -28,12 +28,9 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
-import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
@@ -48,7 +45,8 @@ open class EthereumMultistream(
 
     private var head: Head? = null
 
-    private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
+    private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
+    private var localReader: EthereumLocalReader? = null
 
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
     private val supportsEIP1559 = when (chain) {
@@ -101,7 +99,7 @@ open class EthereumMultistream(
         return super.isRunning() || reader.isRunning
     }
 
-    open fun getReader(): EthereumReader {
+    open fun getReader(): EthereumCachingReader {
         return reader
     }
 
@@ -111,6 +109,7 @@ open class EthereumMultistream(
 
     override fun setHead(head: Head) {
         this.head = head
+        localReader = EthereumLocalReader(reader, getMethods(), head)
     }
 
     override fun updateHead(): Head {
@@ -155,8 +154,8 @@ open class EthereumMultistream(
         return this as T
     }
 
-    override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        return Mono.just(LocalCallRouter(reader, getMethods(), getHead()))
+    override fun getLocalReader(matcher: Selector.Matcher): JsonRpcReader {
+        return localReader ?: throw IllegalStateException("Local Reader is not initialized yet")
     }
 
     override fun getEgressSubscription(): EthereumEgressSubscription {

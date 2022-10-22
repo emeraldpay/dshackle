@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -30,20 +30,21 @@ import reactor.core.publisher.Mono
 import java.math.BigInteger
 
 /**
- * Reader for JSON RPC requests. Verifies if the method is allowed, transforms if necessary, and calls EthereumReader for data.
+ * Reader for JSON RPC requests. Verifies if the method is allowed, transforms if necessary, and calls an actual EthereumReader for the data.
  * It provides data only if it's available through the router (cached, head, etc).
- * If data is not available locally then it returns `empty`; at this case the caller should call the remote node for actual data.
  *
- * @see EthereumReader
+ * NOTE: If data is not available locally then it returns `empty`; at this case the caller should call the remote node for actual data.
+ *
+ * @see EthereumCachingReader
  */
-class LocalCallRouter(
-    private val reader: EthereumReader,
+class EthereumLocalReader(
+    private val reader: EthereumCachingReader,
     private val methods: CallMethods,
     private val head: Head
-) : Reader<JsonRpcRequest, JsonRpcResponse> {
+) : JsonRpcReader {
 
     companion object {
-        private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)
+        private val log = LoggerFactory.getLogger(EthereumLocalReader::class.java)
     }
 
     private val fullBlocksReader = EthereumFullBlocksReader(

@@ -30,7 +30,7 @@ class EthereumLegacyFeesSpec extends Specification {
             it.gasPrice = Wei.ofUnits(8, Wei.Unit.GWEI)
         }
 
-        def fees = new EthereumLegacyFees(Stub(EthereumMultistream), Stub(EthereumReader), 10)
+        def fees = new EthereumLegacyFees(Stub(EthereumMultistream), Stub(EthereumCachingReader), 10)
         when:
         def act = fees.extractFee(block, tx)
         then:

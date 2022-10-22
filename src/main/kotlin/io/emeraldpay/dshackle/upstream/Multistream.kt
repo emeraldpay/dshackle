@@ -18,11 +18,9 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
@@ -141,11 +139,11 @@ abstract class Multistream(
     /**
      * Finds an API that executed directly on a remote.
      */
-    open fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+    open fun getDirectApi(matcher: Selector.Matcher): Mono<JsonRpcReader> {
         val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
-            .map(Upstream::getApi)
+            .map(Upstream::getIngressReader)
             .map {
                 RequestPostprocessor.wrap(
                     it,
@@ -159,10 +157,11 @@ abstract class Multistream(
 
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
+     * It responds with data only if it's available, otherwise returns empty.
      */
-    abstract fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>>
+    abstract fun getLocalReader(matcher: Selector.Matcher): JsonRpcReader
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getIngressReader(): JsonRpcReader {
         throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
     }
 

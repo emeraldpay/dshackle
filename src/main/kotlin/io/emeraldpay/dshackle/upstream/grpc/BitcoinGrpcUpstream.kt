@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
@@ -74,7 +74,7 @@ class BitcoinGrpcUpstream(
         this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.PartialOptions.getDefaults().build(), remote, client)
 
     private val extractBlock = ExtractBlock()
-    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
+    private val reader: JsonRpcReader = client.forSelector(Selector.empty)
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val block = BlockContainer(
             value.height,
@@ -90,7 +90,7 @@ class BitcoinGrpcUpstream(
     private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
         // head comes without transaction data
         // need to download transactions for the block
-        defaultReader.read(JsonRpcRequest("getblock", listOf(existingBlock.hash.toHex())))
+        reader.read(JsonRpcRequest("getblock", listOf(existingBlock.hash.toHex())))
             .flatMap(JsonRpcResponse::requireResult)
             .map(extractBlock::extract)
             .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
@@ -120,8 +120,8 @@ class BitcoinGrpcUpstream(
         return grpcHead
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
-        return defaultReader
+    override fun getIngressReader(): JsonRpcReader {
+        return reader
     }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {

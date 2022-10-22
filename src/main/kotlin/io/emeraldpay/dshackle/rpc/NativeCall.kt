@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -215,19 +216,19 @@ open class NativeCall(
     }
 
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
-        return ctx.upstream.getRoutedApi(ctx.matcher)
-            .flatMap { api ->
-                api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
-                    .flatMap(JsonRpcResponse::requireResult)
-                    .map {
-                        CallResult.ok(ctx.id, ctx.nonce, it, null)
-                    }
-            }.switchIfEmpty(
-                Mono.just(ctx).flatMap(this::executeOnRemote)
-            )
-            .onErrorResume {
-                Mono.just(CallResult.fail(ctx.id, ctx.nonce, it))
-            }
+        val local = ctx.upstream.getLocalReader(ctx.matcher)
+        // The Local Reader produces an empty response if an actual upstream must be reached
+        // Or may return an error if request is invalid.
+        return readFromLocal(local, ctx)
+            // if it's empty then make a call to a remote
+            .switchIfEmpty(Mono.just(ctx).flatMap(this::executeOnRemote))
+            .onErrorResume { Mono.just(CallResult.fail(ctx.id, ctx.nonce, it)) }
+    }
+
+    private fun readFromLocal(api: JsonRpcReader, ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
+        return api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
+            .flatMap(JsonRpcResponse::requireResult)
+            .map { CallResult.ok(ctx.id, ctx.nonce, it, null) }
     }
 
     fun executeOnRemote(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {

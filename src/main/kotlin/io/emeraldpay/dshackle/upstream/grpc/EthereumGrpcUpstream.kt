@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
@@ -88,7 +88,7 @@ open class EthereumGrpcUpstream(
     private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
         // head comes without transaction data
         // need to download transactions for the block
-        defaultReader.read(JsonRpcRequest("eth_getBlockByHash", listOf(existingBlock.hash.toHexWithPrefix(), false)))
+        reader.read(JsonRpcRequest("eth_getBlockByHash", listOf(existingBlock.hash.toHexWithPrefix(), false)))
             .flatMap(JsonRpcResponse::requireResult)
             .map {
                 BlockContainer.fromEthereumJson(it)
@@ -112,7 +112,7 @@ open class EthereumGrpcUpstream(
     )
     private var capabilities: Set<Capability> = emptySet()
 
-    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
+    private val reader: JsonRpcReader = client.forSelector(Selector.empty)
     var timeout = Defaults.timeout
     private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
 
@@ -163,8 +163,8 @@ open class EthereumGrpcUpstream(
         return grpcHead
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
-        return defaultReader
+    override fun getIngressReader(): JsonRpcReader {
+        return reader
     }
 
     override fun getIngressSubscription(): EthereumIngressSubscription {

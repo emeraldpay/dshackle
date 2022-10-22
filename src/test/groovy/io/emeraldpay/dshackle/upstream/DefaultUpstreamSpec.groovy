@@ -159,7 +159,7 @@ class DefaultUpstreamSpec extends Specification {
         }
 
         @Override
-        Reader<JsonRpcRequest, JsonRpcResponse> getApi() {
+        Reader<JsonRpcRequest, JsonRpcResponse> getIngressReader() {
             return null
         }
 
