@@ -64,7 +64,7 @@ open class EthereumUpstreamValidator(
             return Mono.just(UpstreamAvailability.OK)
         }
         return upstream
-            .getApi()
+            .getIngressReader()
             .read(JsonRpcRequest("eth_syncing", listOf()))
             .flatMap(JsonRpcResponse::requireResult)
             .map { objectMapper.readValue(it, SyncingJson::class.java) }
@@ -88,7 +88,7 @@ open class EthereumUpstreamValidator(
             return Mono.just(UpstreamAvailability.OK)
         }
         return upstream
-            .getApi()
+            .getIngressReader()
             .read(JsonRpcRequest("net_peerCount", listOf()))
             .flatMap(JsonRpcResponse::requireStringResult)
             .map(Integer::decode)

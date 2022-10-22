@@ -49,7 +49,7 @@ class EthereumWsUpstream(
 
     private val head: EthereumWsHead
     private val connection: WsConnectionImpl
-    private val api: JsonRpcReader
+    private val reader: JsonRpcReader
     private val subscriptions: EthereumIngressSubscription
 
     private var validatorSubscription: Disposable? = null
@@ -60,11 +60,11 @@ class EthereumWsUpstream(
         // Sometimes the server may close the WebSocket connection during the execution of a call, for example if the response
         // is too large for WebSockets Frame (and Geth is unable to split messages into separate frames)
         // In this case the failed request must be rerouted to the HTTP connection, because otherwise it would always fail
-        api = JsonRpcSwitchClient(
+        reader = JsonRpcSwitchClient(
             JsonRpcWsClient(connection), httpConnection
         )
 
-        head = EthereumWsHead(getApi(), wsSubscriptions)
+        head = EthereumWsHead(getIngressReader(), wsSubscriptions)
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 
@@ -72,8 +72,8 @@ class EthereumWsUpstream(
         return head
     }
 
-    override fun getApi(): JsonRpcReader {
-        return api
+    override fun getIngressReader(): JsonRpcReader {
+        return reader
     }
 
     override fun isGrpc(): Boolean {

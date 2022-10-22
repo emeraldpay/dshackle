@@ -58,7 +58,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def act = validator.validateSyncing().block(Duration.ofSeconds(1))
         then:
         act == OK
-        0 * up.getApi()
+        0 * up.getIngressReader()
     }
 
     def "Syncing is OK when false returned from upstream"() {
@@ -128,7 +128,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
         then:
         act == OK
-        0 * up.getApi()
+        0 * up.getIngressReader()
     }
 
     def "Doesnt validate peers when zero peers is expected"() {
@@ -144,7 +144,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
         then:
         act == OK
-        0 * up.getApi()
+        0 * up.getIngressReader()
     }
 
     def "Peers is IMMATURE when state returned too few peers"() {

@@ -67,7 +67,7 @@ open class BitcoinRpcUpstream(
         return head
     }
 
-    override fun getApi(): JsonRpcReader {
+    override fun getIngressReader(): JsonRpcReader {
         return directApi
     }
 

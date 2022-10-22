@@ -16,24 +16,21 @@
 package io.emeraldpay.dshackle.rpc
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinEgressReader
 import io.emeraldpay.dshackle.upstream.bitcoin.XpubAddresses
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.grpc.Chain
 import org.bitcoinj.core.Address
 import org.bitcoinj.params.MainNetParams
-import org.bitcoinj.params.TestNet3Params
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
@@ -105,7 +102,7 @@ class TrackBitcoinAddressSpec extends Specification {
                 Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         def api = Mock(BitcoinMultistream) {
-            1 * getReader() >> Mock(BitcoinReader) {
+            1 * getReader() >> Mock(BitcoinEgressReader) {
                 1 * listUnspent(_) >> Mono.empty()
             }
         }
@@ -278,7 +275,7 @@ class TrackBitcoinAddressSpec extends Specification {
         }
         def upstream = null
         upstream = Mock(BitcoinMultistream) {
-            _ * getReader() >> Mock(BitcoinReader) {
+            _ * getReader() >> Mock(BitcoinEgressReader) {
                 2 * listUnspent(_) >>> [
                         Mono.just([]),
                         Mono.just([

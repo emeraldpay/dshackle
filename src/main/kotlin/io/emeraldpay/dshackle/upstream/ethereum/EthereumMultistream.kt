@@ -31,7 +31,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
-import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
@@ -47,6 +46,7 @@ open class EthereumMultistream(
     private var head: Head? = null
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
+    private var localReader: EthereumLocalReader? = null
 
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
     private val supportsEIP1559 = when (chain) {
@@ -109,6 +109,7 @@ open class EthereumMultistream(
 
     override fun setHead(head: Head) {
         this.head = head
+        localReader = EthereumLocalReader(reader, getMethods(), head)
     }
 
     override fun updateHead(): Head {
@@ -153,8 +154,8 @@ open class EthereumMultistream(
         return this as T
     }
 
-    override fun getRoutedApi(matcher: Selector.Matcher): Mono<JsonRpcReader> {
-        return Mono.just(LocalCallRouter(reader, getMethods(), getHead()))
+    override fun getLocalReader(matcher: Selector.Matcher): JsonRpcReader {
+        return localReader ?: throw IllegalStateException("Local Reader is not initialized yet")
     }
 
     override fun getEgressSubscription(): EthereumEgressSubscription {

@@ -31,7 +31,6 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
-import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
 open class BitcoinMultistream(
@@ -47,11 +46,11 @@ open class BitcoinMultistream(
     private var head: Head = EmptyHead()
     private var egressSubscription = BitcoinEgressSubscription(this)
     private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
-    private var reader = BitcoinReader(this, head, esplora)
+    private var reader = BitcoinEgressReader(this, head, esplora)
     private var addressActiveCheck: AddressActiveCheck? = null
     private var xpubAddresses: XpubAddresses? = null
     private val feeEstimation = BitcoinFees(this, reader, 6)
-    private var callRouter: LocalCallRouter = LocalCallRouter(DefaultBitcoinMethods(), reader)
+    private var localReader: BitcoinLocalReader = BitcoinLocalReader(DefaultBitcoinMethods(), reader)
 
     override fun init() {
         if (sourceUpstreams.size > 0) {
@@ -102,26 +101,26 @@ open class BitcoinMultistream(
         return head
     }
 
-    override fun getRoutedApi(matcher: Selector.Matcher): Mono<JsonRpcReader> {
-        return Mono.just(callRouter)
+    override fun getLocalReader(matcher: Selector.Matcher): JsonRpcReader {
+        return localReader
     }
 
-    open fun getReader(): BitcoinReader {
+    open fun getReader(): BitcoinEgressReader {
         return reader
     }
 
     override fun onUpstreamsUpdated() {
         super.onUpstreamsUpdated()
         esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
-        reader = BitcoinReader(this, this.head, esplora)
+        reader = BitcoinEgressReader(this, this.head, esplora)
         addressActiveCheck = esplora?.let { AddressActiveCheck(it) }
         xpubAddresses = addressActiveCheck?.let { XpubAddresses(it) }
-        callRouter = LocalCallRouter(getMethods(), reader)
+        localReader = BitcoinLocalReader(getMethods(), reader)
     }
 
     override fun setHead(head: Head) {
         this.head = head
-        reader = BitcoinReader(this, head, esplora)
+        reader = BitcoinEgressReader(this, head, esplora)
     }
 
     override fun getHead(): Head {

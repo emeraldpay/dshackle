@@ -22,7 +22,7 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class BitcoinReaderSpec extends Specification {
+class BitcoinEgressReaderSpec extends Specification {
 
     def "gets block by height"() {
         setup:
@@ -37,7 +37,7 @@ class BitcoinReaderSpec extends Specification {
             _ * getDirectApi(_) >> Mono.just(api)
             _ * upstreams >> []
         }
-        def reader = new BitcoinReader(ups, Stub(Head), null)
+        def reader = new BitcoinEgressReader(ups, Stub(Head), null)
 
         when:
         def act = reader.getBlock(100000).block(Duration.ofSeconds(1))

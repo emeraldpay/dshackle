@@ -29,14 +29,14 @@ import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.cast
 
-open class BitcoinReader(
+open class BitcoinEgressReader(
     private val upstreams: BitcoinMultistream,
     head: Head,
     esploraClient: EsploraClient?
 ) : Lifecycle {
 
     companion object {
-        private val log = LoggerFactory.getLogger(BitcoinReader::class.java)
+        private val log = LoggerFactory.getLogger(BitcoinEgressReader::class.java)
     }
 
     private val objectMapper: ObjectMapper = Global.objectMapper
@@ -63,7 +63,7 @@ open class BitcoinReader(
 
     open fun getBlock(height: Long): Mono<Map<String, Any>> {
         return castedRead(JsonRpcRequest("getblockhash", listOf(height)), String::class.java)
-            .flatMap(this@BitcoinReader::getBlock)
+            .flatMap(this@BitcoinEgressReader::getBlock)
     }
 
     open fun getTx(txid: String): Mono<Map<String, Any>> {

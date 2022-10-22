@@ -27,7 +27,12 @@ interface Upstream {
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
     fun getHead(): Head
-    fun getApi(): JsonRpcReader
+
+    /**
+     * Get an actual reader that access the current upstream
+     */
+    fun getIngressReader(): JsonRpcReader
+
     fun getOptions(): UpstreamsConfig.Options
     fun getRole(): UpstreamsConfig.UpstreamRole
     fun setLag(lag: Long)

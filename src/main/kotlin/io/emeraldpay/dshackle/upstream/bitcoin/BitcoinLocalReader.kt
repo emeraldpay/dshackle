@@ -34,15 +34,15 @@ import reactor.core.publisher.Mono
  * It provides data only if it's available through the router (cached, head, etc).
  * If data is not available locally then it returns `empty`; at this case the caller should call the remote node for actual data.
  *
- * @see BitcoinReader
+ * @see BitcoinEgressReader
  */
-class LocalCallRouter(
+class BitcoinLocalReader(
     private val methods: CallMethods,
-    private val reader: BitcoinReader,
+    private val reader: BitcoinEgressReader,
 ) : JsonRpcReader {
 
     companion object {
-        private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)
+        private val log = LoggerFactory.getLogger(BitcoinLocalReader::class.java)
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {

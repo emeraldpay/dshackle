@@ -17,12 +17,12 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class LocalCallRouterSpec extends Specification {
+class EthereumLocalReaderSpec extends Specification {
 
     def "Calls hardcoded"() {
         setup:
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(
+        def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
@@ -40,7 +40,7 @@ class LocalCallRouterSpec extends Specification {
     def "Returns empty if nonce set"() {
         setup:
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(
+        def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
@@ -69,7 +69,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["latest", false])
@@ -95,7 +95,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["earliest", false])
@@ -121,7 +121,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["0x123ef", false])

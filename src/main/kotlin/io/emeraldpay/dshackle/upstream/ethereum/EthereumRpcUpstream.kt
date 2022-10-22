@@ -96,11 +96,11 @@ open class EthereumRpcUpstream(
                 connect()
             }
             val subscriptions = WsSubscriptionsImpl(ws)
-            val wsHead = EthereumWsHead(getApi(), subscriptions).apply {
+            val wsHead = EthereumWsHead(getIngressReader(), subscriptions).apply {
                 start()
             }
             // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(getApi(), Duration.ofSeconds(60)).apply {
+            val rpcHead = EthereumRpcHead(getIngressReader(), Duration.ofSeconds(60)).apply {
                 start()
             }
             MergedHead(listOf(rpcHead, wsHead)).apply {
@@ -108,7 +108,7 @@ open class EthereumRpcUpstream(
             }
         } else {
             log.warn("Setting up upstream ${this.getId()} with RPC-only access, less effective than WS+RPC")
-            EthereumRpcHead(getApi()).apply {
+            EthereumRpcHead(getIngressReader()).apply {
                 start()
             }
         }
@@ -118,7 +118,7 @@ open class EthereumRpcUpstream(
         return head
     }
 
-    override fun getApi(): JsonRpcReader {
+    override fun getIngressReader(): JsonRpcReader {
         return directReader
     }
 

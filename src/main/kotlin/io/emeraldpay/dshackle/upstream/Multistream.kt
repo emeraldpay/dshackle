@@ -143,7 +143,7 @@ abstract class Multistream(
         val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
-            .map(Upstream::getApi)
+            .map(Upstream::getIngressReader)
             .map {
                 RequestPostprocessor.wrap(
                     it,
@@ -157,10 +157,11 @@ abstract class Multistream(
 
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
+     * It responds with data only if it's available, otherwise returns empty.
      */
-    abstract fun getRoutedApi(matcher: Selector.Matcher): Mono<JsonRpcReader>
+    abstract fun getLocalReader(matcher: Selector.Matcher): JsonRpcReader
 
-    override fun getApi(): JsonRpcReader {
+    override fun getIngressReader(): JsonRpcReader {
         throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
     }
 

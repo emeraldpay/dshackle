@@ -105,7 +105,7 @@ class BitcoinFeesSpec extends Specification {
 
     def "fetch tx amount"() {
         setup:
-        def reader = Mock(BitcoinReader) {
+        def reader = Mock(BitcoinEgressReader) {
             1 * it.getTx("4d56b1a0992a3fa3132083ce29e203165ef4768f028d98a738da79dd26ff91e2") >> Mono.just(tx4D5)
         }
         def fees = new BitcoinFees(Stub(BitcoinMultistream), reader, 3)
@@ -119,7 +119,7 @@ class BitcoinFeesSpec extends Specification {
 
     def "extract amounts"() {
         setup:
-        def fees = new BitcoinFees(Stub(BitcoinMultistream), Stub(BitcoinReader), 3)
+        def fees = new BitcoinFees(Stub(BitcoinMultistream), Stub(BitcoinEgressReader), 3)
 
         when:
         def act = fees.extractVOuts(txF29)
@@ -129,7 +129,7 @@ class BitcoinFeesSpec extends Specification {
 
     def "extract vsize when available"() {
         setup:
-        def fees = new BitcoinFees(Stub(BitcoinMultistream), Stub(BitcoinReader), 3)
+        def fees = new BitcoinFees(Stub(BitcoinMultistream), Stub(BitcoinEgressReader), 3)
 
         when:
         def act = fees.extractSize(tx4D5)
@@ -139,7 +139,7 @@ class BitcoinFeesSpec extends Specification {
 
     def "extract size when vsize unavailable"() {
         setup:
-        def fees = new BitcoinFees(Stub(BitcoinMultistream), Stub(BitcoinReader), 3)
+        def fees = new BitcoinFees(Stub(BitcoinMultistream), Stub(BitcoinEgressReader), 3)
 
         when:
         def act = fees.extractSize(tx3BD)
@@ -149,7 +149,7 @@ class BitcoinFeesSpec extends Specification {
 
     def "calculates fee"() {
         setup:
-        def reader = Mock(BitcoinReader) {
+        def reader = Mock(BitcoinEgressReader) {
             1 * it.getTx("3bde80635c62e81ba86d68a1c78ac47b1a02d8ef334fdf6a7b6e8acc0a475f20") >> Mono.just(tx3BD)
         }
         def fees = new BitcoinFees(Stub(BitcoinMultistream), reader, 3)
@@ -161,7 +161,7 @@ class BitcoinFeesSpec extends Specification {
 
     def "calculates fee with multiple inputs"() {
         setup:
-        def reader = Mock(BitcoinReader) {
+        def reader = Mock(BitcoinEgressReader) {
             1 * it.getTx("37e19fad6c3e5fafc431ee731428452dc01f56b0bc4d9fe876dcee58384934ec") >> Mono.just(tx37E)
             1 * it.getTx("3da079b10451ba1cde42d9a0f485e79151e5d4216930561227be5471921af17f") >> Mono.just(tx3DA)
         }
@@ -179,7 +179,7 @@ class BitcoinFeesSpec extends Specification {
                 _ * getCurrentHeight() >> 100
             }
         }
-        def reader = Mock(BitcoinReader) {
+        def reader = Mock(BitcoinEgressReader) {
             1 * it.getBlock(100) >> Mono.just(block3)
             1 * it.getBlock(99) >> Mono.just(block2)
             // last txes on those blocks
