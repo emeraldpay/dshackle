@@ -69,7 +69,7 @@ class EthereumPosRpcUpstreamMock extends EthereumPosRpcUpstream {
     }
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels) {
-        super(id, chain,
+        super(id, (byte)id.hashCode(), chain,
                 UpstreamsConfig.Options.getDefaults(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,

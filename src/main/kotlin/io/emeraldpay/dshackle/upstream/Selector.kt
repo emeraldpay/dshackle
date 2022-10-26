@@ -396,4 +396,16 @@ class Selector {
             return "Matcher: ${describeInternal()}"
         }
     }
+
+    class SameUpstreamMatcher(private val upstreamHash: Byte) : Matcher {
+        override fun matches(up: Upstream): Boolean =
+            up.hash() == upstreamHash
+
+        override fun describeInternal(): String =
+            "upstream hash=$upstreamHash"
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
+    }
 }

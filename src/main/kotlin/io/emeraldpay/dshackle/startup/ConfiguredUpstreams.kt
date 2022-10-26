@@ -53,7 +53,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.function.Function
 import javax.annotation.PostConstruct
+import kotlin.math.abs
 
 @Repository
 open class ConfiguredUpstreams(
@@ -64,6 +66,8 @@ open class ConfiguredUpstreams(
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
     private var seq = AtomicInteger(0)
+
+    private val hashes: MutableMap<Byte, Boolean> = HashMap()
 
     @PostConstruct
     fun start() {
@@ -90,12 +94,19 @@ open class ConfiguredUpstreams(
                     BlockchainType.ETHEREUM -> {
                         buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
                     }
+
                     BlockchainType.BITCOIN -> {
                         buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options)
                     }
+
                     BlockchainType.ETHEREUM_POS -> {
-                        buildEthereumPosUpstream(up.cast(UpstreamsConfig.EthereumPosConnection::class.java), chain, options)
+                        buildEthereumPosUpstream(
+                            up.cast(UpstreamsConfig.EthereumPosConnection::class.java),
+                            chain,
+                            options
+                        )
                     }
+
                     else -> {
                         log.error("Chain is unsupported: ${up.chain}")
                         return@forEach
@@ -167,13 +178,26 @@ open class ConfiguredUpstreams(
             return null
         }
         val urls = ArrayList<URI>()
-        val connectorFactory = buildEthereumConnectorFactory(config.id!!, execution, chain, urls, NoChoiceWithPriorityForkChoice(conn.upstreamRating), BlockValidator.ALWAYS_VALID)
+        val connectorFactory = buildEthereumConnectorFactory(
+            config.id!!,
+            execution,
+            chain,
+            urls,
+            NoChoiceWithPriorityForkChoice(conn.upstreamRating),
+            BlockValidator.ALWAYS_VALID
+        )
         val methods = buildMethods(config, chain)
         if (connectorFactory == null) {
             return null
         }
+
+        val hashUrl = conn.execution!!.let {
+            if (it.preferHttp) it.rpc?.url ?: it.ws?.url else it.ws?.url ?: it.rpc?.url
+        }
+        val hash = getHash(hashUrl!!)
         val upstream = EthereumPosRpcUpstream(
             config.id!!,
+            hash,
             chain,
             options, config.role,
             methods,
@@ -236,12 +260,22 @@ open class ConfiguredUpstreams(
         val urls = ArrayList<URI>()
         val methods = buildMethods(config, chain)
 
-        val connectorFactory = buildEthereumConnectorFactory(config.id!!, conn, chain, urls, MostWorkForkChoice(), EthereumBlockValidator())
+        val connectorFactory = buildEthereumConnectorFactory(
+            config.id!!,
+            conn,
+            chain,
+            urls,
+            MostWorkForkChoice(),
+            EthereumBlockValidator()
+        )
         if (connectorFactory == null) {
             return null
         }
+
+        val hashUrl = if (conn.preferHttp) conn.rpc?.url ?: conn.ws?.url else conn.ws?.url ?: conn.rpc?.url
         val upstream = EthereumRpcUpstream(
             config.id!!,
+            getHash(hashUrl!!),
             chain,
             options, config.role,
             methods,
@@ -257,8 +291,10 @@ open class ConfiguredUpstreams(
         options: UpstreamsConfig.Options
     ) {
         val endpoint = config.connection!!
+        val hash = getHash("${endpoint.host}:${endpoint.port}")
         val ds = GrpcUpstreams(
             config.id!!,
+            hash,
             config.role,
             endpoint.host!!,
             endpoint.port,
@@ -289,7 +325,12 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildWsFactory(id: String, chain: Chain, conn: UpstreamsConfig.EthereumConnection, urls: ArrayList<URI>? = null): EthereumWsFactory? {
+    private fun buildWsFactory(
+        id: String,
+        chain: Chain,
+        conn: UpstreamsConfig.EthereumConnection,
+        urls: ArrayList<URI>? = null
+    ): EthereumWsFactory? {
         return conn.ws?.let { endpoint ->
             val wsApi = EthereumWsFactory(
                 id, chain,
@@ -305,15 +346,43 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildEthereumConnectorFactory(id: String, conn: UpstreamsConfig.EthereumConnection, chain: Chain, urls: ArrayList<URI>, forkChoice: ForkChoice, blockValidator: BlockValidator): EthereumConnectorFactory? {
+    private fun buildEthereumConnectorFactory(
+        id: String,
+        conn: UpstreamsConfig.EthereumConnection,
+        chain: Chain,
+        urls: ArrayList<URI>,
+        forkChoice: ForkChoice,
+        blockValidator: BlockValidator
+    ): EthereumConnectorFactory? {
         val wsFactoryApi = buildWsFactory(id, chain, conn, urls)
         val httpFactory = buildHttpFactory(conn, urls)
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
-        val connectorFactory = EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory, forkChoice, blockValidator)
+        val connectorFactory =
+            EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory, forkChoice, blockValidator)
         if (!connectorFactory.isValid()) {
             log.warn("Upstream configuration is invalid (probably no http endpoint)")
             return null
         }
         return connectorFactory
+    }
+
+    private fun getHash(obj: Any): Byte {
+        val hashCode = (obj.hashCode() % 255)
+        val modifiers: List<Function<Int, Number>> = listOf(
+            Function { i -> i },
+            Function { i -> (-i) },
+            Function { i -> 127 - abs(i) },
+            Function { i -> abs(i) - 128 },
+        )
+        return modifiers.map {
+            it.apply(hashCode).toByte()
+        }.firstOrNull {
+            hashes[it] != true
+        }?.let {
+            hashes[it] = true
+            it
+        } ?: (Byte.MIN_VALUE..Byte.MAX_VALUE).first {
+            hashes[it.toByte()] != true
+        }.toByte()
     }
 }

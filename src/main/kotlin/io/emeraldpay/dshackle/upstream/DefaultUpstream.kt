@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 abstract class DefaultUpstream(
     private val id: String,
+    private val hash: Byte,
     defaultLag: Long,
     defaultAvail: UpstreamAvailability,
     private val options: UpstreamsConfig.Options,
@@ -36,12 +37,14 @@ abstract class DefaultUpstream(
 
     constructor(
         id: String,
+        hash: Byte,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
         targets: CallMethods?
     ) :
         this(
             id,
+            hash,
             Long.MAX_VALUE,
             UpstreamAvailability.UNAVAILABLE,
             options,
@@ -52,12 +55,13 @@ abstract class DefaultUpstream(
 
     constructor(
         id: String,
+        hash: Byte,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
         targets: CallMethods?,
         node: QuorumForLabels.QuorumItem?
     ) :
-        this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node)
+        this(id, hash, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream = Sinks.many()
@@ -138,6 +142,8 @@ abstract class DefaultUpstream(
     override fun getMethods(): CallMethods {
         return targets ?: throw IllegalStateException("Methods are not set")
     }
+
+    override fun hash(): Byte = hash
 
     private val quorumByLabel = node?.let { QuorumForLabels(it) }
         ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())

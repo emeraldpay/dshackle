@@ -282,6 +282,8 @@ abstract class Multistream(
         return false
     }
 
+    override fun hash(): Byte = 0
+
     fun printStatus() {
         var height: Long? = null
         try {

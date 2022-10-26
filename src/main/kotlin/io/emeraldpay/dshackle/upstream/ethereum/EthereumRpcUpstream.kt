@@ -36,13 +36,14 @@ import reactor.core.Disposable
 
 open class EthereumRpcUpstream(
     id: String,
+    hash: Byte,
     val chain: Chain,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?,
     connectorFactory: ConnectorFactory
-) : EthereumUpstream(id, options, role, targets, node), Lifecycle, Upstream, CachesEnabled {
+) : EthereumUpstream(id, hash, options, role, targets, node), Lifecycle, Upstream, CachesEnabled {
     private val log = LoggerFactory.getLogger(EthereumRpcUpstream::class.java)
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions())
     private val connector: EthereumConnector = connectorFactory.create(this, validator, chain)

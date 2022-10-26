@@ -70,7 +70,14 @@ class DefaultEthereumMethods(
         "eth_feeHistory"
     )
 
-    private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods
+    private val filterMethods = listOf(
+        "eth_getFilterChanges",
+        "eth_newFilter",
+        "eth_newBlockFilter",
+        "eth_newPendingTransactionFilter",
+    )
+
+    private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods + filterMethods
 
     private val hardcodedMethods = listOf(
         "net_version",
@@ -88,6 +95,7 @@ class DefaultEthereumMethods(
 
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
+            filterMethods.contains(method) -> AlwaysQuorum()
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(4)

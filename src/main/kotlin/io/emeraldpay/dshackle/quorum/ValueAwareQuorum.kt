@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentLinkedQueue
 
 abstract class ValueAwareQuorum<T>(
     val clazz: Class<T>
@@ -30,6 +31,7 @@ abstract class ValueAwareQuorum<T>(
 
     private val log = LoggerFactory.getLogger(ValueAwareQuorum::class.java)
     private var rpcError: JsonRpcError? = null
+    private val resolvers: MutableCollection<Upstream> = ConcurrentLinkedQueue()
 
     fun extractValue(response: ByteArray, clazz: Class<T>): T? {
         return Global.objectMapper.readValue(response.inputStream(), clazz)
@@ -39,6 +41,7 @@ abstract class ValueAwareQuorum<T>(
         try {
             val value = extractValue(response, clazz)
             recordValue(response, value, signature, upstream)
+            resolvers.add(upstream)
         } catch (e: RpcException) {
             recordError(response, e.rpcMessage, signature, upstream)
         } catch (e: Exception) {
@@ -59,4 +62,7 @@ abstract class ValueAwareQuorum<T>(
     override fun getError(): JsonRpcError? {
         return rpcError
     }
+
+    override fun getResolvedBy(): Collection<Upstream> =
+        resolvers.toList()
 }
