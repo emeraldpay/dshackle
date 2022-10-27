@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.startup
 
+import com.google.common.annotations.VisibleForTesting
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -81,7 +82,7 @@ open class ConfiguredUpstreams(
             log.debug("Start upstream ${up.id}")
             if (up.connection is UpstreamsConfig.GrpcConnection) {
                 val options = up.options ?: UpstreamsConfig.Options()
-                buildGrpcUpstream(up.cast(UpstreamsConfig.GrpcConnection::class.java), options)
+                buildGrpcUpstream(up.nodeId, up.cast(UpstreamsConfig.GrpcConnection::class.java), options)
             } else {
                 val chain = Global.chainById(up.chain)
                 if (chain == Chain.UNSPECIFIED) {
@@ -92,7 +93,7 @@ open class ConfiguredUpstreams(
                     .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
                 val upstream = when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> {
-                        buildEthereumUpstream(up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
+                        buildEthereumUpstream(up.nodeId, up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
                     }
 
                     BlockchainType.BITCOIN -> {
@@ -101,6 +102,7 @@ open class ConfiguredUpstreams(
 
                     BlockchainType.ETHEREUM_POS -> {
                         buildEthereumPosUpstream(
+                            up.nodeId,
                             up.cast(UpstreamsConfig.EthereumPosConnection::class.java),
                             chain,
                             options
@@ -167,6 +169,7 @@ open class ConfiguredUpstreams(
     }
 
     private fun buildEthereumPosUpstream(
+        nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumPosConnection>,
         chain: Chain,
         options: UpstreamsConfig.Options
@@ -194,7 +197,7 @@ open class ConfiguredUpstreams(
         val hashUrl = conn.execution!!.let {
             if (it.preferHttp) it.rpc?.url ?: it.ws?.url else it.ws?.url ?: it.rpc?.url
         }
-        val hash = getHash(hashUrl!!)
+        val hash = getHash(nodeId, hashUrl!!)
         val upstream = EthereumPosRpcUpstream(
             config.id!!,
             hash,
@@ -251,6 +254,7 @@ open class ConfiguredUpstreams(
     }
 
     private fun buildEthereumUpstream(
+        nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
         chain: Chain,
         options: UpstreamsConfig.Options
@@ -275,7 +279,7 @@ open class ConfiguredUpstreams(
         val hashUrl = if (conn.preferHttp) conn.rpc?.url ?: conn.ws?.url else conn.ws?.url ?: conn.rpc?.url
         val upstream = EthereumRpcUpstream(
             config.id!!,
-            getHash(hashUrl!!),
+            getHash(nodeId, hashUrl!!),
             chain,
             options, config.role,
             methods,
@@ -287,11 +291,12 @@ open class ConfiguredUpstreams(
     }
 
     private fun buildGrpcUpstream(
+        nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
         options: UpstreamsConfig.Options
     ) {
         val endpoint = config.connection!!
-        val hash = getHash("${endpoint.host}:${endpoint.port}")
+        val hash = getHash(nodeId, "${endpoint.host}:${endpoint.port}")
         val ds = GrpcUpstreams(
             config.id!!,
             hash,
@@ -366,23 +371,25 @@ open class ConfiguredUpstreams(
         return connectorFactory
     }
 
-    private fun getHash(obj: Any): Byte {
-        val hashCode = (obj.hashCode() % 255)
-        val modifiers: List<Function<Int, Number>> = listOf(
-            Function { i -> i },
-            Function { i -> (-i) },
-            Function { i -> 127 - abs(i) },
-            Function { i -> abs(i) - 128 },
-        )
-        return modifiers.map {
-            it.apply(hashCode).toByte()
-        }.firstOrNull {
-            hashes[it] != true
-        }?.let {
-            hashes[it] = true
-            it
-        } ?: (Byte.MIN_VALUE..Byte.MAX_VALUE).first {
-            hashes[it.toByte()] != true
-        }.toByte()
-    }
+    @VisibleForTesting
+    private fun getHash(nodeId: Int?, obj: Any): Byte =
+        nodeId?.toByte() ?: (obj.hashCode() % 255).let {
+            if (it == 0) 1 else it
+        }.let { nonZeroHash ->
+            listOf<Function<Int, Int>>(
+                Function { i -> i },
+                Function { i -> (-i) },
+                Function { i -> 127 - abs(i) },
+                Function { i -> abs(i) - 128 },
+            ).map {
+                it.apply(nonZeroHash).toByte()
+            }.firstOrNull {
+                hashes[it] != true
+            }?.let {
+                hashes[it] = true
+                it
+            } ?: (Byte.MIN_VALUE..Byte.MAX_VALUE).first {
+                it != 0 && hashes[it.toByte()] != true
+            }.toByte()
+        }
 }

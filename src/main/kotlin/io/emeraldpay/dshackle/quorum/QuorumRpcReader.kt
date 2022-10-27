@@ -119,7 +119,7 @@ class QuorumRpcReader(
                 .filter { it.isResolved() } // return nothing if not resolved
                 .map { quorum ->
                     // TODO find actual quorum number
-                    Result(quorum.getResult()!!, quorum.getSignature(), 1, quorum.getResolvedBy().map { it.hash() })
+                    Result(quorum.getResult()!!, quorum.getSignature(), 1, quorum.getResolvedBy().map { it.nodeId() })
                 }
                 .switchIfEmpty(defaultResult)
         }

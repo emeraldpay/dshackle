@@ -69,14 +69,12 @@ class EthereumCallSelector(
             return Mono.empty()
         }
         val filterId = list[0].toString()
-        val hashHex = filterId.substring(filterId.length - 2)
-        val hash = hashHex.toInt(16)
-
-        if (hash < 0 || hash > 255) {
-            return Mono.empty()
+        if(filterId.length < 4) {
+            return Mono.just(Selector.SameNodeMatcher(0.toByte()))
         }
-
-        return Mono.just(Selector.SameUpstreamMatcher(hash.toByte()))
+        val hashHex = filterId.substring(filterId.length - 2)
+        val nodeId = hashHex.toInt(16)
+        return Mono.just(Selector.SameNodeMatcher(nodeId.toByte()))
     }
 
     private fun blockTagSelector(params: String, pos: Int, head: Head): Mono<Selector.Matcher> {

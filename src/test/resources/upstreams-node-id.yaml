@@ -1,0 +1,34 @@
+version: v1
+upstreams:
+  - id: has_node_id
+    node-id: 1
+    chain: ethereum
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+  - id: has_no_node_id
+    chain: ethereum
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"
+        ws:
+          url: "ws://localhost:8546"
+  - id: conflicted_node_id
+    node-id: 1
+    chain: ethereum
+    connection:
+      prefer-http: true
+      ethereum:
+        rpc:
+          url: "http://localhost:9545"
+        ws:
+          url: "ws://localhost:9546"
+  - id: invalid_node_id
+    node-id: 256
+    chain: ethereum
+    connection:
+      grpc:
+        host: "localhost"
+        port: 2449

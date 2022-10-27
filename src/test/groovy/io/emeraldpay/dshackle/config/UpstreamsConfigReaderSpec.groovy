@@ -401,4 +401,18 @@ class UpstreamsConfigReaderSpec extends Specification {
         act.upstreams.get(0).role == UpstreamsConfig.UpstreamRole.PRIMARY
         act.upstreams.get(1).role == UpstreamsConfig.UpstreamRole.PRIMARY
     }
+
+    def "Parse node id"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-node-id.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 2
+        act.upstreams[0].nodeId == 1
+        act.upstreams[0].id == "has_node_id"
+        act.upstreams[1].nodeId == null
+        act.upstreams[1].id == "has_no_node_id"
+    }
 }

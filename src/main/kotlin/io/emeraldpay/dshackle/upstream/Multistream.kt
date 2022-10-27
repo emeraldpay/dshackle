@@ -282,7 +282,7 @@ abstract class Multistream(
         return false
     }
 
-    override fun hash(): Byte = 0
+    override fun nodeId(): Byte = 0
 
     fun printStatus() {
         var height: Long? = null

@@ -143,7 +143,7 @@ abstract class DefaultUpstream(
         return targets ?: throw IllegalStateException("Methods are not set")
     }
 
-    override fun hash(): Byte = hash
+    override fun nodeId(): Byte = hash
 
     private val quorumByLabel = node?.let { QuorumForLabels(it) }
         ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
