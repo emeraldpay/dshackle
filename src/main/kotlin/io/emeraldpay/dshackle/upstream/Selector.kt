@@ -413,6 +413,5 @@ class Selector {
             if (other !is SameNodeMatcher) return false
             return other.upstreamHash == upstreamHash
         }
-
     }
 }

@@ -69,7 +69,7 @@ class EthereumCallSelector(
             return Mono.empty()
         }
         val filterId = list[0].toString()
-        if(filterId.length < 4) {
+        if (filterId.length < 4) {
             return Mono.just(Selector.SameNodeMatcher(0.toByte()))
         }
         val hashHex = filterId.substring(filterId.length - 2)
