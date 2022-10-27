@@ -51,6 +51,7 @@ cluster:
       min-peers: 2
   upstreams:
     - id: us-nodes
+      node-id: 1
       chain: auto
       connection:
         grpc:
@@ -61,6 +62,7 @@ cluster:
             certificate: client.crt
             key: client.p8.key
     - id: infura-eth
+      node-id: 2
       chain: ethereum
       role: fallback
       labels:
@@ -80,6 +82,7 @@ cluster:
               username: ${INFURA_USER}
               password: ${INFURA_PASSWD}
     - id: ethereum-pos
+      node-id: 3
       chain: ropsten
       connection:
         ethereum-pos:
@@ -109,6 +112,12 @@ In the example above we have:
 ** uses Basic Authentication to authenticate requests on Infura
 ** label `[provider: infura]` is set for that particular upstream, which can be selected during a request.For example for some requests you may want to use nodes with that label only, i.e. _"send that tx to infura nodes only"_, or _"read only from archive node, with label [archive: true]"_
 ** upstream validation (peers, sync status, etc) is disabled for that particular upstream
+
+=== Nodes
+`[node-id: 1]` is numeric node identifier defined in a range [1..255] and used to forward
+`eth_getFilterChanges` request to the node where one of `eth_newFilter`, `eth_newBlockFilter` or `eth_newPendingTransactionFilter` methods was executed (because filter is s stateful method).
+
+*It's kindly recommended* to strictly associate _node-id_ parameter with a physical node and keep it during any configuration changes
 
 === Roles and Fallback upstream
 
@@ -206,6 +215,10 @@ Dshackle currently supports
 - `eth_getUncleByBlockNumberAndIndex`
 - `eth_feeHistory`
 - `eth_getLogs`
+- `eth_getFilterChanges`
+- `eth_newFilter`
+- `eth_newBlockFilter`
+- `eth_newPendingTransactionFilter`
 
 .Plus following methods are answered directly by Dshackle
 - `net_version`
