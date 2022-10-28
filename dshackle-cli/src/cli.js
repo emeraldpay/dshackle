@@ -6,10 +6,10 @@ import util from "util";
 export function cli(args) {
     let opts = parseArgumentsIntoOptions(args);
     if (!opts.url) {
-        console.log("Err: URL not specified!")
+        console.log("Err: URL not specified!!!")
         return
     }
-    describe(opts.url, (error, response) => {
+    describe(opts.url, opts.ca, opts.cert, opts.key, (error, response) => {
         if (error) {
             console.error(clc.red('Connection to ' + opts.url + ' failed! [' + error.message + ']'));
         } else {
@@ -42,6 +42,9 @@ function parseArgumentsIntoOptions(rawArgs) {
     const args = arg(
         {
             '--print': Boolean,
+            '--ca': String,
+            '--cert': String,
+            '--key': String,
             '-p': '--print'
         },
         {
@@ -50,7 +53,10 @@ function parseArgumentsIntoOptions(rawArgs) {
     );
     return {
         print: args['--print'] || false,
-        url: args._[0]
+        url: args._[0],
+        ca: args['--ca'],
+        cert: args['--cert'],
+        key: args['--key']
     };
 }
 
