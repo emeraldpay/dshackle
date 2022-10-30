@@ -18,7 +18,9 @@ class EcdsaSigner(
     }
 
     override fun sign(nonce: Long, message: ByteArray, source: Upstream): ResponseSigner.Signature {
-        val sig = Signature.getInstance(SIGN_SCHEME)
+        // Java 16 has removed SECP256K1, see https://bugs.openjdk.org/browse/JDK-8251547
+        // So use Bounce Castle provider ("BC") as a default provider
+        val sig = Signature.getInstance(SIGN_SCHEME, "BC")
         sig.initSign(privateKey)
         val wrapped = wrapMessage(nonce, message, source)
         sig.update(wrapped.toByteArray())

@@ -159,10 +159,14 @@ class QuorumRpcReader(
                 val cleanErr: JsonRpcException = when (err) {
                     is RpcException -> JsonRpcException.from(err)
                     is JsonRpcException -> err
-                    else -> JsonRpcException(
-                        JsonRpcResponse.NumberId(key.id),
-                        JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}")
-                    )
+                    else -> {
+                        // if that happened something is really wrong, all errors must be caught and be provided as RpcException
+                        log.error("Internal error propagate to the caller", err)
+                        JsonRpcException(
+                            JsonRpcResponse.NumberId(key.id),
+                            JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass} ${err.message}")
+                        )
+                    }
                 }
                 quorum.record(cleanErr, null, api)
                 // if it's failed after that, then we don't need more calls, stop api source
