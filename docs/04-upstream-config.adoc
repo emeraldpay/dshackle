@@ -179,12 +179,13 @@ Dshackle currently supports
 
 === Bitcoin Methods
 
-.By default, an ethereum upstream allows call to the following JSON RPC methods:
+.By default, a bitcoin upstream allows call to the following JSON RPC methods:
 - `getbestblockhash`
 - `getblock`
 - `getblocknumber`
 - `getblockcount`
 - `gettransaction`
+- `getrawmempool`
 - `getrawtransaction`
 - `gettxout`
 - `getreceivedbyaddress`
