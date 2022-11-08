@@ -240,6 +240,7 @@ open class WsConnection(
             .aggregateFrames(msgSizeLimit)
             .receiveFrames()
             .map { ByteBufInputStream(it.content()).readAllBytes() }
+            .filter{ it.isNotEmpty() }
             .flatMap {
                 try {
                     val msg = parser.parse(it)

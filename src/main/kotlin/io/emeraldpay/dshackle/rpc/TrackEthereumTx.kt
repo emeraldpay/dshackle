@@ -62,7 +62,7 @@ class TrackEthereumTx(
     private val log = LoggerFactory.getLogger(TrackEthereumTx::class.java)
 
     override fun isSupported(chain: Chain): Boolean {
-        return (BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && multistreamHolder.isAvailable(chain)
+        return (BlockchainType.from(chain) == BlockchainType.EVM_POS || BlockchainType.from(chain) == BlockchainType.EVM_POW) && multistreamHolder.isAvailable(chain)
     }
 
     override fun subscribe(request: BlockchainOuterClass.TxStatusRequest): Flux<BlockchainOuterClass.TxStatus> {

@@ -43,7 +43,7 @@ class TrackEthereumAddress(
 
     override fun isSupported(chain: Chain, asset: String): Boolean {
         return asset == "ether" &&
-            (BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS || BlockchainType.from(chain) == BlockchainType.ETHEREUM) && multistreamHolder.isAvailable(chain)
+            (BlockchainType.from(chain) == BlockchainType.EVM_POS || BlockchainType.from(chain) == BlockchainType.EVM_POW) && multistreamHolder.isAvailable(chain)
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {

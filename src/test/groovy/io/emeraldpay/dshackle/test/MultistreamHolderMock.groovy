@@ -27,11 +27,9 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
@@ -48,7 +46,7 @@ class MultistreamHolderMock implements MultistreamHolder {
 
     Multistream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            if (BlockchainType.from(chain) == BlockchainType.ETHEREUM_POS) {
+            if (BlockchainType.from(chain) == BlockchainType.EVM_POS) {
                 if (up instanceof EthereumPosMultiStream) {
                     upstreams[chain] = up
                 } else if (up instanceof EthereumPosRpcUpstream) {
