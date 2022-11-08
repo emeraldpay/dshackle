@@ -57,8 +57,24 @@ class EthereumCallSelector(
             return blockTagSelector(params, 1, head)
         } else if (method == "eth_getStorageAt") {
             return blockTagSelector(params, 2, head)
+        } else if (method == "eth_getFilterChanges") {
+            return sameUpstreamMatcher(params)
         }
         return Mono.empty()
+    }
+
+    private fun sameUpstreamMatcher(params: String): Mono<Selector.Matcher> {
+        val list = objectMapper.readerFor(Any::class.java).readValues<Any>(params).readAll()
+        if (list.isEmpty()) {
+            return Mono.empty()
+        }
+        val filterId = list[0].toString()
+        if (filterId.length < 4) {
+            return Mono.just(Selector.SameNodeMatcher(0.toByte()))
+        }
+        val hashHex = filterId.substring(filterId.length - 2)
+        val nodeId = hashHex.toInt(16)
+        return Mono.just(Selector.SameNodeMatcher(nodeId.toByte()))
     }
 
     private fun blockTagSelector(params: String, pos: Int, head: Head): Mono<Selector.Matcher> {

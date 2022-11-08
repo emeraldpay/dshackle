@@ -179,4 +179,33 @@ class EthereumCallSelectorSpec extends Specification {
         then:
         act == new Selector.HeightMatcher(100)
     }
+
+    def "Get same matcher for getFilterChanges method"() {
+        setup:
+        def callSelector = new EthereumCallSelector(Mock(Reader))
+        def head = Mock(Head)
+
+        expect:
+        callSelector.getMatcher("eth_getFilterChanges", param, head).block()
+                == new Selector.SameNodeMatcher((byte)hash)
+
+        where:
+        param | hash
+        '["0xff09"]' | 9
+        '["0xff"]' | 255
+        '[""]' | 0
+        '["0x0"]' | 0
+    }
+
+    def "Get empty matcher for getFilterChanges method without params"() {
+        setup:
+        def callSelector = new EthereumCallSelector(Mock(Reader))
+        def head = Mock(Head)
+
+        when:
+        def act = callSelector.getMatcher("eth_getFilterChanges", "[]", head).block()
+
+        then:
+        act == null
+    }
 }

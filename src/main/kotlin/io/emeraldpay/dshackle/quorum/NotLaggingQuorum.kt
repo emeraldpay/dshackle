@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -34,6 +35,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     private val failed = AtomicReference(false)
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
+    private val resolvers: MutableCollection<Upstream> = ConcurrentLinkedQueue()
 
     override fun init(head: Head) {
     }
@@ -51,6 +53,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         if (!lagging) {
             result.set(response)
             sig = signature
+            resolvers.add(upstream)
             return true
         }
         return false
@@ -75,6 +78,8 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         return rpcError
     }
 
+    override fun getResolvedBy(): Collection<Upstream> =
+        resolvers.toList()
     override fun toString(): String {
         return "Quorum: late <= $maxLag blocks"
     }

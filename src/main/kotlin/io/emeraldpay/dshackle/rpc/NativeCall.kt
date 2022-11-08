@@ -102,7 +102,8 @@ open class NativeCall(
     }
 
     fun parseParams(it: ValidCallContext<RawCallDetails>): ValidCallContext<ParsedCallDetails> {
-        val params = extractParams(it.payload.params)
+        val rawParams = extractParams(it.payload.params)
+        val params = it.requestDecorator.processRequest(rawParams)
         return it.withPayload(ParsedCallDetails(it.payload.method, params))
     }
 
@@ -234,16 +235,27 @@ open class NativeCall(
                 matcher.withMatcher(heightMatcher)
             }
             val nonce = requestItem.nonce.let { if (it == 0L) null else it }
+            val requestDecorator = getRequestDecorator(requestItem.method)
+            val resultDecorator = getResultDecorator(requestItem.method)
+
             ValidCallContext(
                 requestItem.id,
                 nonce,
                 upstream,
                 matcher.build(),
                 callQuorum,
-                RawCallDetails(method, params)
+                RawCallDetails(method, params),
+                requestDecorator,
+                resultDecorator
             )
         }
     }
+
+    private fun getRequestDecorator(method: String): RequestDecorator =
+        if (method == "eth_getFilterChanges") GetFilterUpdatesDecorator() else NoneRequestDecorator()
+
+    private fun getResultDecorator(method: String): ResultDecorator =
+        if (CreateFilterDecorator.createFilterMethods.contains(method)) CreateFilterDecorator() else NoneResultDecorator()
 
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getRoutedApi(ctx.matcher)
@@ -283,7 +295,8 @@ open class NativeCall(
         return reader
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
             .map {
-                CallResult(ctx.id, ctx.nonce, it.value, null, it.signature)
+                val bytes = ctx.resultDecorator.processResult(it)
+                CallResult(ctx.id, ctx.nonce, bytes, null, it.signature)
             }
             .onErrorResume { t ->
                 val failure = when (t) {
@@ -350,14 +363,67 @@ open class NativeCall(
         fun getError(): CallError
     }
 
+    interface ResultDecorator {
+        fun processResult(result: QuorumRpcReader.Result): ByteArray
+    }
+
+    open class NoneResultDecorator : ResultDecorator {
+        override fun processResult(result: QuorumRpcReader.Result): ByteArray = result.value
+    }
+
+    open class CreateFilterDecorator : ResultDecorator {
+
+        companion object {
+            const val quoteCode = '"'.code.toByte()
+            val createFilterMethods = listOf("eth_getFilterChanges", "eth_newFilter", "eth_newBlockFilter")
+        }
+        override fun processResult(result: QuorumRpcReader.Result): ByteArray {
+            val bytes = result.value
+            if (bytes.last() == quoteCode) {
+                val suffix = result.resolvers.first().toUByte().toString(16).padStart(2, padChar = '0').toByteArray()
+                bytes[bytes.lastIndex] = suffix.first()
+                return bytes + suffix.last() + quoteCode
+            }
+            return bytes
+        }
+    }
+
+    interface RequestDecorator {
+        fun processRequest(request: List<Any>): List<Any>
+    }
+
+    open class NoneRequestDecorator : RequestDecorator {
+        override fun processRequest(request: List<Any>): List<Any> = request
+    }
+
+    open class GetFilterUpdatesDecorator : RequestDecorator {
+        override fun processRequest(request: List<Any>): List<Any> {
+            val filterId = request.first().toString()
+            val sanitized = filterId.substring(0, filterId.lastIndex - 1)
+            return listOf(sanitized)
+        }
+    }
+
     open class ValidCallContext<T>(
         val id: Int,
         val nonce: Long?,
         val upstream: Multistream,
         val matcher: Selector.Matcher,
         val callQuorum: CallQuorum,
-        val payload: T
+        val payload: T,
+        val requestDecorator: RequestDecorator,
+        val resultDecorator: ResultDecorator
     ) : CallContext {
+
+        constructor(
+            id: Int,
+            nonce: Long?,
+            upstream: Multistream,
+            matcher: Selector.Matcher,
+            callQuorum: CallQuorum,
+            payload: T
+        ) : this(id, nonce, upstream, matcher, callQuorum, payload, NoneRequestDecorator(), NoneResultDecorator())
+
         override fun isValid(): Boolean {
             return true
         }
@@ -371,7 +437,7 @@ open class NativeCall(
         }
 
         fun <X> withPayload(payload: X): ValidCallContext<X> {
-            return ValidCallContext(id, nonce, upstream, matcher, callQuorum, payload)
+            return ValidCallContext(id, nonce, upstream, matcher, callQuorum, payload, requestDecorator, resultDecorator)
         }
 
         fun getApis(): ApiSource {
