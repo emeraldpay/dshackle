@@ -117,9 +117,9 @@ class QuorumRpcReader(
         return Function { quorumResult ->
             quorumResult
                 .filter { it.isResolved() } // return nothing if not resolved
-                .map {
+                .map { quorum ->
                     // TODO find actual quorum number
-                    QuorumRpcReader.Result(it.getResult()!!, it.getSignature(), 1)
+                    Result(quorum.getResult()!!, quorum.getSignature(), 1, quorum.getResolvedBy().map { it.nodeId() })
                 }
                 .switchIfEmpty(defaultResult)
         }
@@ -197,6 +197,7 @@ class QuorumRpcReader(
     class Result(
         val value: ByteArray,
         val signature: ResponseSigner.Signature?,
-        val quorum: Int
+        val quorum: Int,
+        val resolvers: Collection<Byte>
     )
 }

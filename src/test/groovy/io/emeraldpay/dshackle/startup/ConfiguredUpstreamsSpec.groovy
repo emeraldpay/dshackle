@@ -58,4 +58,37 @@ class ConfiguredUpstreamsSpec extends Specification {
         act instanceof ManagedCallMethods
         new String(act.executeHardcoded("foo_bar")) == "\"static_response\""
     }
+
+    def "Calculate node-id"() {
+        setup:
+        def configurer = new ConfiguredUpstreams(Stub(CurrentMultistreamHolder), Stub(FileResolver), Stub(UpstreamsConfig)
+        )
+        expect:
+        configurer.getHash(node, src) == expected
+
+        where:
+        node | src | expected
+        1 | "" | 1
+        9 | "hohoho" | 9
+        null | "hohoho" | 120
+    }
+
+    def "Calculate node-id conflicting results"() {
+        setup:
+        def configurer = new ConfiguredUpstreams(Stub(CurrentMultistreamHolder), Stub(FileResolver), Stub(UpstreamsConfig)
+        )
+        when:
+        def h1 = configurer.getHash(null, "hohoho")
+        def h2 = configurer.getHash(null, "hohoho")
+        def h3 = configurer.getHash(null, "hohoho")
+        def h4 = configurer.getHash(null, "hohoho")
+        def h5 = configurer.getHash(null, "hohoho")
+
+        then:
+        h1 == (byte)120
+        h2 == (byte)-120
+        h3 == (byte)-9
+        h4 == (byte)8
+        h5 == (byte)-128
+    }
 }

@@ -31,6 +31,7 @@ class UpstreamsConfigReader(
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
     private val authConfigReader = AuthConfigReader()
+    private val knownNodeIds: MutableSet<Int> = HashSet()
 
     fun read(input: InputStream): UpstreamsConfig? {
         val configNode = readNode(input)
@@ -236,11 +237,22 @@ class UpstreamsConfigReader(
             log.warn("Invalid id: $id")
             return false
         }
-        return true
+        return upstream.nodeId?.let {
+            if (it !in 1..255) {
+                log.warn("Invalid node-id: $it. Must be in range [1, 255].")
+                false
+            } else if (!knownNodeIds.add(it)) {
+                log.warn("Duplicated node-id: $it. Must be in unique.")
+                false
+            } else {
+                true
+            }
+        } ?: true
     }
 
     internal fun readUpstreamCommon(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
         upstream.id = getValueAsString(upNode, "id")
+        upstream.nodeId = getValueAsInt(upNode, "node-id")
         upstream.options = tryReadOptions(upNode)
         upstream.methods = tryReadMethods(upNode)
         getValueAsBool(upNode, "enabled")?.let {

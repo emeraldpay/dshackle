@@ -50,6 +50,8 @@ class EthereumGrpcUpstreamSpec extends Specification {
             Counter.builder("test2").register(TestingCommons.meterRegistry)
     )
 
+    def hash = (byte)123
+
     def "Subscribe to head"() {
         setup:
         def callData = [:]
@@ -81,7 +83,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null)
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null)
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
@@ -139,7 +141,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null)
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null)
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
@@ -201,7 +203,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null)
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null)
         upstream.setLag(0)
         upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))

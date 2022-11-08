@@ -24,11 +24,12 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 
 abstract class EthereumPosUpstream(
     id: String,
+    hash: Byte,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?
-) : DefaultUpstream(id, options, role, targets, node) {
+) : DefaultUpstream(id, hash, options, role, targets, node) {
 
     private val capabilities = if (options.providesBalance != false) {
         setOf(Capability.RPC, Capability.BALANCE)

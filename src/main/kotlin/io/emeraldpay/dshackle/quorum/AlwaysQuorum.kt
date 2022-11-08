@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import java.util.concurrent.ConcurrentLinkedQueue
 
 open class AlwaysQuorum : CallQuorum {
 
@@ -28,6 +29,7 @@ open class AlwaysQuorum : CallQuorum {
     private var result: ByteArray? = null
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
+    private val resolvers: MutableCollection<Upstream> = ConcurrentLinkedQueue()
 
     override fun init(head: Head) {
     }
@@ -48,6 +50,7 @@ open class AlwaysQuorum : CallQuorum {
         result = response
         resolved = true
         sig = signature
+        resolvers.add(upstream)
         return true
     }
 
@@ -63,6 +66,9 @@ open class AlwaysQuorum : CallQuorum {
     override fun getError(): JsonRpcError? {
         return rpcError
     }
+
+    override fun getResolvedBy(): List<Upstream> =
+        resolvers.toList()
 
     override fun toString(): String {
         return "Quorum: Accept Any"

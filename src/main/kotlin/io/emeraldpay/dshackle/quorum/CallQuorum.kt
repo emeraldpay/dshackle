@@ -34,4 +34,5 @@ interface CallQuorum {
     fun getSignature(): ResponseSigner.Signature?
     fun getResult(): ByteArray?
     fun getError(): JsonRpcError?
+    fun getResolvedBy(): Collection<Upstream>
 }

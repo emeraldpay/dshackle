@@ -69,6 +69,7 @@ open class UpstreamsConfig {
 
     class Upstream<T : UpstreamConnection> {
         var id: String? = null
+        var nodeId: Int? = null
         var chain: String? = null
         var options: Options? = null
         var isEnabled = true

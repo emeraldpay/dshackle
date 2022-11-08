@@ -52,6 +52,7 @@ import kotlin.concurrent.withLock
 
 class GrpcUpstreams(
     private val id: String,
+    private val hash: Byte,
     private val role: UpstreamsConfig.UpstreamRole,
     private val host: String,
     private val port: Int,
@@ -206,7 +207,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = EthereumGrpcUpstream(id, role, chain, client!!, rpcClient, labels)
+                val created = EthereumGrpcUpstream(id, hash, role, chain, client!!, rpcClient, labels)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
@@ -222,7 +223,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = EthereumPosGrpcUpstream(id, role, chain, client!!, rpcClient, nodeRating, labels)
+                val created = EthereumPosGrpcUpstream(id, hash, role, chain, client!!, rpcClient, nodeRating, labels)
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
