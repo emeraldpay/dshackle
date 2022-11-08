@@ -51,7 +51,7 @@ class Global {
             "optimism" to Chain.OPTIMISM,
             "binance" to Chain.BSC,
             "bsc" to Chain.BSC,
-            "bnb-smart-chan" to Chain.BSC,
+            "bnb-smart-chain" to Chain.BSC,
             "etc" to Chain.ETHEREUM_CLASSIC,
             "etc" to Chain.ETHEREUM_CLASSIC,
             "morden" to Chain.TESTNET_MORDEN,
