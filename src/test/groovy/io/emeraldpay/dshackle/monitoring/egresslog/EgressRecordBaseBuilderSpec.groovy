@@ -13,30 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.accesslog
+package io.emeraldpay.dshackle.monitoring.egresslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.monitoring.Channel
+import io.emeraldpay.dshackle.monitoring.record.EgressRecord
 import io.grpc.Attributes
 import io.grpc.Grpc
 import io.grpc.Metadata
-import org.jetbrains.annotations.NotNull
-import org.junit.validator.TestClassValidator
 import spock.lang.Specification
 
-class EventsBaseBuilderSpec extends Specification {
+class EgressRecordBaseBuilderSpec extends Specification {
 
-    class TestEvent extends Events.Base {
-        Events.StreamRequestDetails request
+    class TestEvent extends EgressRecord.Base {
+        EgressRecord.RequestDetails request
 
-        TestEvent(Events.StreamRequestDetails request) {
-            super(UUID.randomUUID(), "TEST", Events.Channel.GRPC)
+        TestEvent(EgressRecord.RequestDetails request) {
+            super(UUID.randomUUID(), "TEST", Channel.DSHACKLE)
             this.request = request
         }
     }
 
-    class TestEventBuilder extends EventsBuilder.Base<TestEventBuilder>
-            implements EventsBuilder.RequestReply<TestEvent, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
+    class TestEventBuilder extends RecordBuilder.Base<TestEventBuilder>
+            implements RecordBuilder.RequestReply<TestEvent, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
+
+        TestEventBuilder() {
+            super(UUID.randomUUID())
+        }
 
         @Override
         protected TestEventBuilder getT() {

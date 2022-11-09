@@ -34,7 +34,8 @@ class MainConfigReader(
     private val cacheConfigReader = CacheConfigReader()
     private val tokensConfigReader = TokensConfigReader()
     private val monitoringConfigReader = MonitoringConfigReader()
-    private val accessLogReader = AccessLogReader()
+    private val egressLogConfigReader = EgressLogConfigReader()
+    private val ingressLogConfigReader = IngressLogConfigReader()
     private val healthConfigReader = HealthConfigReader()
     private val signatureConfigReader = SignatureConfigReader(fileResolver)
 
@@ -70,8 +71,11 @@ class MainConfigReader(
         monitoringConfigReader.read(input).let {
             config.monitoring = it
         }
-        accessLogReader.read(input).let {
-            config.accessLogConfig = it
+        egressLogConfigReader.read(input).let {
+            config.egressLogConfig = it
+        }
+        ingressLogConfigReader.read(input).let {
+            config.ingressLogConfig = it
         }
         healthConfigReader.read(input).let {
             config.health = it

@@ -150,7 +150,7 @@ class DefaultUpstreamSpec extends Specification {
         DefaultUpstreamTestImpl(@NotNull String id,
                                 @NotNull ForkWatch forkWatch,
                                 @NotNull UpstreamsConfig.Options options) {
-            super(id, forkWatch, options, UpstreamsConfig.UpstreamRole.PRIMARY, new DefaultEthereumMethods(Chain.ETHEREUM))
+            super(id, Chain.ETHEREUM, forkWatch, options, UpstreamsConfig.UpstreamRole.PRIMARY, new DefaultEthereumMethods(Chain.ETHEREUM))
         }
 
         @Override

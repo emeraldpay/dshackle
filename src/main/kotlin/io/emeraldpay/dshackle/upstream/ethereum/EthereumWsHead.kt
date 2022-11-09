@@ -20,11 +20,13 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.monitoring.record.IngressRecord
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -35,9 +37,10 @@ import reactor.retry.Repeat
 import java.time.Duration
 
 class EthereumWsHead(
+    private val blockchain: Chain,
     private val api: JsonRpcReader,
     private val wsSubscriptions: WsSubscriptions,
-) : DefaultEthereumHead(), Lifecycle {
+) : DefaultEthereumHead(blockchain), Lifecycle {
 
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 
@@ -59,6 +62,8 @@ class EthereumWsHead(
 
     fun listenNewHeads(): Flux<BlockContainer> {
         return wsSubscriptions.subscribe("newHeads")
+            .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
+            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
             .map {
                 Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
             }
@@ -76,7 +81,8 @@ class EthereumWsHead(
     fun enhanceRealBlock(block: BlockJson<TransactionRefJson>): Mono<BlockContainer> {
         return Mono.just(block.hash)
             .flatMap { hash ->
-                api.read(JsonRpcRequest("eth_getBlockByHash", listOf(hash.toHex(), false)))
+                val request = JsonRpcRequest("eth_getBlockByHash", listOf(hash.toHex(), false))
+                api.read(request)
                     .flatMap { resp ->
                         if (resp.isNull()) {
                             Mono.error(SilentException("Received null for block $hash"))
@@ -87,6 +93,9 @@ class EthereumWsHead(
                     .flatMap(JsonRpcResponse::requireResult)
                     .map { BlockContainer.fromEthereumJson(it) }
                     .subscribeOn(Schedulers.boundedElastic())
+                    .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
+                    .contextWrite(Global.monitoring.ingress.withRequest(request))
+                    .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
                     .timeout(Defaults.timeoutInternal, Mono.empty())
             }.repeatWhenEmpty { n ->
                 Repeat.times<Any>(5)

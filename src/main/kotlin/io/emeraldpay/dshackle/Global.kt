@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import io.emeraldpay.dshackle.monitoring.MonitoringContext
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspentDeserializer
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
@@ -77,6 +78,8 @@ class Global {
         var version: String = "DEV"
 
         val control: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+
+        val monitoring: MonitoringContext = MonitoringContext()
 
         private fun createObjectMapper(): ObjectMapper {
             val module = SimpleModule("EmeraldDshackle", Version(1, 0, 0, null, null, null))

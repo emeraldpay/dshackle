@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 
 interface Upstream {
@@ -42,6 +43,7 @@ interface Upstream {
     fun getId(): String
     fun getCapabilities(): Set<Capability>
     fun isGrpc(): Boolean
+    fun getBlockchain(): Chain
 
     fun <T : Upstream> cast(selfType: Class<T>): T
 }

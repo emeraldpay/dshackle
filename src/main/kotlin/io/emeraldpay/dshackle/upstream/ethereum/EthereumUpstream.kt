@@ -22,15 +22,17 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.grpc.Chain
 
 abstract class EthereumUpstream(
     id: String,
+    chain: Chain,
     forkWatch: ForkWatch,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?
-) : DefaultUpstream(id, forkWatch, options, role, targets, node) {
+) : DefaultUpstream(id, chain, forkWatch, options, role, targets, node) {
 
     private val capabilities = if (options.providesBalance != false) {
         setOf(Capability.RPC, Capability.BALANCE)

@@ -101,7 +101,7 @@ class WsConnectionImplRealSpec extends Specification {
         def up = Mock(DefaultUpstream) {
             _ * getId() >> "test"
         }
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(up)
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create({ up.setStatus(it)  })
         when:
         conn.connect()
         conn.reconnectIntervalSeconds = 10

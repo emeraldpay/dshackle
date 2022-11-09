@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.monitoring.record.IngressRecord
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -63,9 +64,13 @@ open class EthereumUpstreamValidator(
         if (!options.validateSyncing) {
             return Mono.just(UpstreamAvailability.OK)
         }
+        val request = JsonRpcRequest("eth_syncing", listOf())
         return upstream
             .getIngressReader()
-            .read(JsonRpcRequest("eth_syncing", listOf()))
+            .read(request)
+            .contextWrite(Global.monitoring.ingress.withBlockchain(upstream.getBlockchain()))
+            .contextWrite(Global.monitoring.ingress.withRequest(request))
+            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
             .flatMap(JsonRpcResponse::requireResult)
             .map { objectMapper.readValue(it, SyncingJson::class.java) }
             .timeout(
@@ -87,9 +92,13 @@ open class EthereumUpstreamValidator(
         if (!options.validatePeers || options.minPeers == 0) {
             return Mono.just(UpstreamAvailability.OK)
         }
+        val request = JsonRpcRequest("net_peerCount", listOf())
         return upstream
             .getIngressReader()
-            .read(JsonRpcRequest("net_peerCount", listOf()))
+            .read(request)
+            .contextWrite(Global.monitoring.ingress.withRequest(request))
+            .contextWrite(Global.monitoring.ingress.withBlockchain(upstream.getBlockchain()))
+            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
             .flatMap(JsonRpcResponse::requireStringResult)
             .map(Integer::decode)
             .timeout(

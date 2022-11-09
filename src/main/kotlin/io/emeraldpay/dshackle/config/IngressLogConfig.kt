@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 EmeraldPay, Inc
+ * Copyright (c) 2022 EmeraldPay, Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,23 @@
  */
 package io.emeraldpay.dshackle.config
 
-class MainConfig {
-    var host = "127.0.0.1"
-    var port = 2449
-    var tls: AuthConfig.ServerTlsAuth? = null
-    var cache: CacheConfig? = null
-    var proxy: ProxyConfig? = null
-    var upstreams: UpstreamsConfig? = null
-    var tokens: TokensConfig? = null
-    var monitoring: MonitoringConfig = MonitoringConfig.default()
-    var egressLogConfig: EgressLogConfig = EgressLogConfig.default()
-    var ingressLogConfig: IngressLogConfig = IngressLogConfig.default()
-    var health: HealthConfig = HealthConfig.default()
-    var signature: SignatureConfig? = null
+class IngressLogConfig(
+    val enabled: Boolean = false,
+    val includeParams: Boolean = false
+) {
+
+    var filename: String = "./ingress_log.jsonl"
+
+    companion object {
+
+        fun default(): IngressLogConfig {
+            return disabled()
+        }
+
+        fun disabled(): IngressLogConfig {
+            return IngressLogConfig(
+                enabled = false
+            )
+        }
+    }
 }
