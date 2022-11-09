@@ -16,25 +16,44 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.monitoring.record.IngressRecord
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.hex.HexQuantity
+import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
+import java.util.function.Function
 
-open class DefaultEthereumHead : Head, AbstractHead() {
+open class DefaultEthereumHead(
+    private val blockchain: Chain,
+) : Head, AbstractHead() {
 
     companion object {
         private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)
     }
 
     fun getLatestBlock(api: JsonRpcReader): Mono<BlockContainer> {
-        return api.read(JsonRpcRequest("eth_blockNumber", emptyList()))
+        return getBlockNumber(api)
+            .transform(getBlockDetails(api))
+            .onErrorResume { err ->
+                log.debug("Failed to fetch latest block: ${err.message}")
+                Mono.empty()
+            }
+    }
+
+    private fun getBlockNumber(api: JsonRpcReader): Mono<HexQuantity> {
+        val request = JsonRpcRequest("eth_blockNumber", emptyList())
+        return api.read(request)
             .subscribeOn(EthereumRpcHead.scheduler)
             .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
+            .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
+            .contextWrite(Global.monitoring.ingress.withRequest(request))
+            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
             .flatMap {
                 if (it.error != null) {
                     Mono.error(it.error.asException(null))
@@ -43,19 +62,25 @@ open class DefaultEthereumHead : Head, AbstractHead() {
                     Mono.just(HexQuantity.from(value))
                 }
             }
-            .flatMap {
-                // fetching by Block Height here, critical to use the same upstream as in previous call,
-                // b/c different upstreams may have different blocks on the same height
-                api.read(JsonRpcRequest("eth_getBlockByNumber", listOf(it.toHex(), false)))
-                    .subscribeOn(EthereumRpcHead.scheduler)
-                    .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
-            }
-            .map {
-                BlockContainer.fromEthereumJson(it.getResult())
-            }
-            .onErrorResume { err ->
-                log.debug("Failed to fetch latest block: ${err.message}")
-                Mono.empty()
-            }
+    }
+
+    private fun getBlockDetails(api: JsonRpcReader): Function<Mono<HexQuantity>, Mono<BlockContainer>> {
+        return Function { numberResponse ->
+            numberResponse
+                .flatMap { number ->
+                    // fetching by Block Height here, critical to use the same upstream as in previous call,
+                    // b/c different upstreams may have different blocks on the same height
+                    val request = JsonRpcRequest("eth_getBlockByNumber", listOf(number.toHex(), false))
+                    api.read(request)
+                        .subscribeOn(EthereumRpcHead.scheduler)
+                        .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
+                        .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
+                        .contextWrite(Global.monitoring.ingress.withRequest(request))
+                        .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
+                }
+                .map {
+                    BlockContainer.fromEthereumJson(it.getResult())
+                }
+        }
     }
 }

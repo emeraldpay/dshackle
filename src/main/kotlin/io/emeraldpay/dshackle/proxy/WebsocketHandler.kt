@@ -19,7 +19,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ProxyConfig
-import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
+import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.etherjar.rpc.json.RequestJson
@@ -34,6 +34,7 @@ import reactor.core.publisher.Sinks
 import reactor.netty.http.websocket.WebsocketInbound
 import reactor.netty.http.websocket.WebsocketOutbound
 import java.util.Base64
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.BiFunction
 
@@ -45,7 +46,7 @@ class WebsocketHandler(
     writeRpcJson: WriteRpcJson,
     nativeCall: NativeCall,
     private val nativeSubscribe: NativeSubscribe,
-    private val accessHandler: AccessHandlerHttp.HandlerFactory,
+    private val accessHandler: EgressHandlerHttp.HandlerFactory,
     private val requestMetrics: ProxyServer.RequestMetricsFactory,
 ) : BaseHandler(writeRpcJson, nativeCall, requestMetrics) {
 
@@ -112,14 +113,15 @@ class WebsocketHandler(
         blockchain: Chain,
         control: MutableMap<String, Sinks.One<Boolean>>,
         requests: Flux<RequestJson<Any>>,
-        eventHandlerFactory: AccessHandlerHttp.WsHandlerFactory
+        eventHandlerFactory: EgressHandlerHttp.WsHandlerFactory
     ): Flux<String> {
         return requests.flatMap { call ->
             val method = call.method
+            val requestId = UUID.randomUUID()
             if (method == "eth_subscribe") {
                 val methodParams = splitMethodParams(call.params)
                 if (methodParams != null) {
-                    val eventHandler: AccessHandlerHttp.SubscriptionHandler = eventHandlerFactory.subscribe()
+                    val eventHandler: EgressHandlerHttp.SubscriptionHandler = eventHandlerFactory.subscribe(requestId)
                     val subscriptionId = nextSubscriptionId()
                     eventHandler.onRequest(
                         methodParams.let { mp ->
@@ -156,7 +158,7 @@ class WebsocketHandler(
                 val id = call.params?.getOrNull(0) ?: ""
 
                 // put it to the Access Log with fake id=0 (it doesn't matter, except the later reference)
-                val eventHandler: AccessHandlerHttp.RequestHandler = eventHandlerFactory.call()
+                val eventHandler: EgressHandlerHttp.RequestHandler = eventHandlerFactory.call(requestId)
                 eventHandler.onRequest(
                     BlockchainOuterClass.NativeCallRequest.newBuilder()
                         .setChainValue(blockchain.id)
@@ -181,9 +183,10 @@ class WebsocketHandler(
                     .doOnNext { eventHandler.onResponse(NativeCall.CallResult.ok(0, null, it.toByteArray(), null)) }
                     .doFinally { eventHandler.close() }
             } else {
-                val eventHandler: AccessHandlerHttp.RequestHandler = eventHandlerFactory.call()
+                val eventHandler: EgressHandlerHttp.RequestHandler = eventHandlerFactory.call(requestId)
                 val proxyCall = readRpcJson.convertToNativeCall(ProxyCall.RpcType.SINGLE, listOf(call))
                 Mono.from(execute(blockchain, proxyCall, eventHandler))
+                    .contextWrite(Global.monitoring.egress.start(requestId))
                     // thought the event handler is used in execute
                     // it still needs to be closed at the end, so it can render the logs
                     .doFinally { eventHandler.close() }

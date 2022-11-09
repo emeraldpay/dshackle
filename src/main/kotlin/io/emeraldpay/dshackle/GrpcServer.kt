@@ -17,7 +17,8 @@
 package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.MainConfig
-import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerGrpc
+import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerGrpc
+import io.emeraldpay.dshackle.monitoring.egresslog.GenerateRequestId
 import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
 import org.slf4j.LoggerFactory
@@ -32,7 +33,7 @@ open class GrpcServer(
     @Autowired val rpcs: List<io.grpc.BindableService>,
     @Autowired val mainConfig: MainConfig,
     @Autowired val tlsSetup: TlsSetup,
-    @Autowired val accessHandler: AccessHandlerGrpc
+    @Autowired val accessHandler: EgressHandlerGrpc
 ) {
 
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)
@@ -47,12 +48,13 @@ open class GrpcServer(
         val serverBuilder = NettyServerBuilder
             .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
             .let {
-                if (mainConfig.accessLogConfig.enabled) {
+                if (mainConfig.egressLogConfig.enabled) {
                     it.intercept(accessHandler)
                 } else {
                     it
                 }
             }
+            .intercept(GenerateRequestId())
 
         tlsSetup.setupServer("Native gRPC", mainConfig.tls, true)?.let {
             serverBuilder.sslContext(it)

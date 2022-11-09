@@ -19,13 +19,12 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.config.ProxyConfig
-import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
+import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.step.StepCounter
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
@@ -52,8 +51,8 @@ class HttpHandlerSpec extends Specification {
         NativeCall nativeCall = Mock(NativeCall) {
             1 * nativeCallResult(_) >> Flux.fromIterable([respItem])
         }
-        def accessHandler = Mock(AccessHandlerHttp.RequestHandler)
-        def accessHandlerFactory = Mock(AccessHandlerHttp.HandlerFactory) {
+        def accessHandler = Mock(EgressHandlerHttp.RequestHandler)
+        def accessHandlerFactory = Mock(EgressHandlerHttp.HandlerFactory) {
             _ * it.create(_,) >> accessHandler
         }
         def handler = new HttpHandler(
@@ -88,12 +87,12 @@ class HttpHandlerSpec extends Specification {
         def handler = new HttpHandler(
                 new ProxyConfig(),
                 read, new WriteRpcJson(),
-                Stub(NativeCall), Stub(AccessHandlerHttp.HandlerFactory),
+                Stub(NativeCall), Stub(EgressHandlerHttp.HandlerFactory),
                 metrics
         )
         when:
 
-        def act = handler.processRequest(Chain.ETHEREUM, Mono.just("".bytes), new AccessHandlerHttp.NoOpHandler())
+        def act = handler.processRequest(Chain.ETHEREUM, Mono.just("".bytes), new EgressHandlerHttp.NoOpHandler())
                 .map { new String(it.array()) }
         then:
         StepVerifier.create(act)
@@ -115,7 +114,7 @@ class HttpHandlerSpec extends Specification {
         def handler = new HttpHandler(
                 new ProxyConfig(),
                 new ReadRpcJson(), writeRpcJson,
-                nativeCall, Stub(AccessHandlerHttp.HandlerFactory), Stub(ProxyServer.RequestMetricsFactory)
+                nativeCall, Stub(EgressHandlerHttp.HandlerFactory), Stub(ProxyServer.RequestMetricsFactory)
         )
 
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
@@ -126,7 +125,7 @@ class HttpHandlerSpec extends Specification {
                         .build()
         )
         when:
-        def act = handler.execute(Chain.ETHEREUM, call, new AccessHandlerHttp.NoOpHandler(), false)
+        def act = handler.execute(Chain.ETHEREUM, call, new EgressHandlerHttp.NoOpHandler(), false)
 
         then:
         1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, null, "".bytes, null, null))

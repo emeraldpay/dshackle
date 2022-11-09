@@ -83,9 +83,13 @@ tokens:
     type: ERC-20
     address: 0xdac17f958d2ee523a2206206994597c13d831ec7
 
-access-log:
+egress-log:
   enabled: true
-  filename: /var/log/dshackle/access_log.jsonl
+  filename: /var/log/dshackle/egress_log.jsonl
+
+ingress-log:
+  enabled: true
+  filename: /var/log/dshackle/ingress_log.jsonl
 
 cluster:
   defaults:
@@ -187,11 +191,15 @@ See <<monitoring>> section
 | Setup HTTP proxy that emulates all standard JSON RPC requests.
 See <<proxy>> section
 
-| `accessLog`
+| `egressLog`
 |
-| Configure access logging.
-See <<accessLog>> section
+| Configure egress logging (requests to Dshackle).
+See <<egressLog>> section
 
+| `ingressLog`
+|
+| Configure ingress logging (requests made by Dshackle to upstreams).
+See <<ingressLog>> section
 
 | `tokens`
 |
@@ -440,17 +448,17 @@ For WebSocket it's `wss` / `ws`, accordingly.
 
 |===
 
-[#accessLog]
-== Access Log config
+[#egressLog]
+== Egress Log config
 
 [source,yaml]
 ----
-access-log:
+egress-log:
   enabled: true
-  filename: /var/log/dshackle/access_log.jsonl
+  filename: /var/log/dshackle/egress_log.jsonl
 ----
 
-.Access Log config
+.Egress Log config
 [cols="2a,3a,7"]
 |===
 | Option | Default | Description
@@ -461,13 +469,43 @@ access-log:
 
 | `include-messages`
 | `false`
-| Include request params and response result/error (i.e., a JSON) in access log.
+| Include request params and response result/error (i.e., a JSON) in the log.
 It's an expensive operation, use it for debugging only.
 Note that for errors it provides only error message, not the error response itself.
 
 | `filename`
-| `access_log.jsonl`
-| Path to the access log file
+| `egress_log.jsonl`
+| Path to the log file
+
+|===
+
+[#ingressLog]
+== Ingress Log config
+
+[source,yaml]
+----
+ingress-log:
+  enabled: true
+  filename: /var/log/dshackle/ingress_log.jsonl
+----
+
+.Ingress Log config
+[cols="2a,3a,7"]
+|===
+| Option | Default | Description
+
+| `enabled`
+| `false`
+| Enable/Disable logging
+
+| `include-params`
+| `false`
+| Include request params in the log.
+It's an expensive operation, use it for debugging only.
+
+| `filename`
+| `ingress_log.jsonl`
+| Path to the log file
 
 |===
 

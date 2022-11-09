@@ -24,8 +24,6 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -35,36 +33,26 @@ class EthereumWsUpstream(
     id: String,
     val chain: Chain,
     forkWatch: ForkWatch,
-    httpConnection: JsonRpcReader,
-    ethereumWsFactory: EthereumWsFactory,
+    val directReader: JsonRpcReader,
+    val connection: WsConnectionImpl,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     node: QuorumForLabels.QuorumItem,
     targets: CallMethods
-) : EthereumUpstream(id, forkWatch, options, role, targets, node), Upstream, Lifecycle {
+) : EthereumUpstream(id, chain, forkWatch, options, role, targets, node), Upstream, Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumWsUpstream::class.java)
     }
 
     private val head: EthereumWsHead
-    private val connection: WsConnectionImpl
-    private val reader: JsonRpcReader
     private val subscriptions: EthereumIngressSubscription
 
     private var validatorSubscription: Disposable? = null
 
     init {
-        connection = ethereumWsFactory.create(this)
         val wsSubscriptions = WsSubscriptionsImpl(connection)
-        // Sometimes the server may close the WebSocket connection during the execution of a call, for example if the response
-        // is too large for WebSockets Frame (and Geth is unable to split messages into separate frames)
-        // In this case the failed request must be rerouted to the HTTP connection, because otherwise it would always fail
-        reader = JsonRpcSwitchClient(
-            JsonRpcWsClient(connection), httpConnection
-        )
-
-        head = EthereumWsHead(getIngressReader(), wsSubscriptions)
+        head = EthereumWsHead(chain, getIngressReader(), wsSubscriptions)
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 
@@ -73,7 +61,7 @@ class EthereumWsUpstream(
     }
 
     override fun getIngressReader(): JsonRpcReader {
-        return reader
+        return directReader
     }
 
     override fun isGrpc(): Boolean {
@@ -94,7 +82,6 @@ class EthereumWsUpstream(
 
     override fun start() {
         super.start()
-        connection.connect()
         head.start()
 
         if (getOptions().disableValidation) {

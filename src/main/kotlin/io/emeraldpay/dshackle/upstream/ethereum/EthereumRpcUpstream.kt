@@ -23,12 +23,12 @@ open class EthereumRpcUpstream(
     val chain: Chain,
     forkWatch: ForkWatch,
     private val directReader: JsonRpcReader,
-    private val ethereumWsFactory: EthereumWsFactory? = null,
+    private val wsApi: WsConnectionImpl? = null,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     private val node: QuorumForLabels.QuorumItem,
     targets: CallMethods
-) : EthereumUpstream(id, forkWatch, options, role, targets, node), Upstream, CachesEnabled, Lifecycle {
+) : EthereumUpstream(id, chain, forkWatch, options, role, targets, node), Upstream, CachesEnabled, Lifecycle {
 
     constructor(id: String, chain: Chain, directReader: JsonRpcReader, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, node: QuorumForLabels.QuorumItem, targets: CallMethods) :
         this(
@@ -90,17 +90,13 @@ open class EthereumRpcUpstream(
     }
 
     open fun createHead(): Head {
-        return if (ethereumWsFactory != null) {
-            // do not set upstream to the WS, since it doesn't control the RPC upstream
-            val ws = ethereumWsFactory.create(null).apply {
-                connect()
-            }
-            val subscriptions = WsSubscriptionsImpl(ws)
-            val wsHead = EthereumWsHead(getIngressReader(), subscriptions).apply {
+        return if (wsApi != null) {
+            val subscriptions = WsSubscriptionsImpl(wsApi)
+            val wsHead = EthereumWsHead(chain, getIngressReader(), subscriptions).apply {
                 start()
             }
             // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(getIngressReader(), Duration.ofSeconds(60)).apply {
+            val rpcHead = EthereumRpcHead(chain, getIngressReader(), Duration.ofSeconds(60)).apply {
                 start()
             }
             MergedHead(listOf(rpcHead, wsHead)).apply {
@@ -108,7 +104,7 @@ open class EthereumRpcUpstream(
             }
         } else {
             log.warn("Setting up upstream ${this.getId()} with RPC-only access, less effective than WS+RPC")
-            EthereumRpcHead(getIngressReader()).apply {
+            EthereumRpcHead(chain, getIngressReader()).apply {
                 start()
             }
         }

@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.accesslog
+package io.emeraldpay.dshackle.monitoring.egresslog
 
+import io.emeraldpay.dshackle.monitoring.Channel
 import io.grpc.ForwardingServerCall
 import io.grpc.ForwardingServerCallListener
 import io.grpc.Metadata
@@ -25,14 +26,15 @@ import io.grpc.ServerInterceptor
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 @Service
-class AccessHandlerGrpc(
-    @Autowired private val accessLogWriter: AccessLogWriter
+class EgressHandlerGrpc(
+    @Autowired private val accessLogWriter: CurrentEgressLogWriter
 ) : ServerInterceptor {
 
     companion object {
-        private val log = LoggerFactory.getLogger(AccessHandlerGrpc::class.java)
+        private val log = LoggerFactory.getLogger(EgressHandlerGrpc::class.java)
     }
 
     override fun <ReqT : Any, RespT : Any> interceptCall(
@@ -41,16 +43,18 @@ class AccessHandlerGrpc(
         next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
 
+        val requestId = EgressContext.REQUEST_ID_GRPC_KEY.get().id
+
         return when (val method = call.methodDescriptor.bareMethodName) {
-            "SubscribeHead" -> processSubscribeHead(call, headers, next)
-            "SubscribeBalance" -> processSubscribeBalance(call, headers, next, true)
-            "SubscribeTxStatus" -> processSubscribeTxStatus(call, headers, next)
-            "GetBalance" -> processSubscribeBalance(call, headers, next, false)
-            "NativeCall" -> processNativeCall(call, headers, next)
-            "NativeSubscribe" -> processNativeSubscribe(call, headers, next)
-            "Describe" -> processDescribe(call, headers, next)
-            "SubscribeStatus" -> processStatus(call, headers, next)
-            "EstimateFee" -> processEstimateFee(call, headers, next)
+            "SubscribeHead" -> processSubscribeHead(call, headers, next, requestId)
+            "SubscribeBalance" -> processSubscribeBalance(call, headers, next, true, requestId)
+            "SubscribeTxStatus" -> processSubscribeTxStatus(call, headers, next, requestId)
+            "GetBalance" -> processSubscribeBalance(call, headers, next, false, requestId)
+            "NativeCall" -> processNativeCall(call, headers, next, requestId)
+            "NativeSubscribe" -> processNativeSubscribe(call, headers, next, requestId)
+            "Describe" -> processDescribe(call, headers, next, requestId)
+            "SubscribeStatus" -> processStatus(call, headers, next, requestId)
+            "EstimateFee" -> processEstimateFee(call, headers, next, requestId)
             else -> {
                 log.warn("unsupported method `{}`", method)
                 next.startCall(call, headers)
@@ -62,7 +66,7 @@ class AccessHandlerGrpc(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
-        builder: EventsBuilder.RequestReply<E, ReqT, RespT>
+        builder: RecordBuilder.RequestReply<E, ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
         builder.start(headers, call.attributes)
         val callWrapper: ServerCall<ReqT, RespT> = StdCallResponse(
@@ -78,11 +82,12 @@ class AccessHandlerGrpc(
     private fun <ReqT : Any, RespT : Any> processSubscribeHead(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
+        requestId: UUID,
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.SubscribeHead() as EventsBuilder.RequestReply<*, ReqT, RespT>
+            RecordBuilder.SubscribeHead(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
@@ -91,11 +96,12 @@ class AccessHandlerGrpc(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
         next: ServerCallHandler<ReqT, RespT>,
-        subscribe: Boolean
+        subscribe: Boolean,
+        requestId: UUID,
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.SubscribeBalance(subscribe) as EventsBuilder.RequestReply<*, ReqT, RespT>
+            RecordBuilder.SubscribeBalance(subscribe, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
@@ -103,11 +109,12 @@ class AccessHandlerGrpc(
     private fun <ReqT : Any, RespT : Any> processSubscribeTxStatus(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
+        requestId: UUID,
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.TxStatus() as EventsBuilder.RequestReply<*, ReqT, RespT>
+            RecordBuilder.TxStatus(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
@@ -115,11 +122,12 @@ class AccessHandlerGrpc(
     private fun <ReqT : Any, RespT : Any> processNativeCall(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
+        requestId: UUID,
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.NativeCall() as EventsBuilder.RequestReply<*, ReqT, RespT>
+            RecordBuilder.NativeCall(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
@@ -127,11 +135,12 @@ class AccessHandlerGrpc(
     private fun <ReqT : Any, RespT : Any> processNativeSubscribe(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
+        requestId: UUID,
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.NativeSubscribe(Events.Channel.GRPC) as EventsBuilder.RequestReply<*, ReqT, RespT>
+            RecordBuilder.NativeSubscribe(Channel.DSHACKLE, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
@@ -139,11 +148,12 @@ class AccessHandlerGrpc(
     private fun <ReqT : Any, RespT : Any> processDescribe(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
+        requestId: UUID,
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.Describe() as EventsBuilder.RequestReply<*, ReqT, RespT>
+            RecordBuilder.Describe(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
@@ -151,11 +161,12 @@ class AccessHandlerGrpc(
     private fun <ReqT : Any, RespT : Any> processStatus(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
+        requestId: UUID,
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.Status() as EventsBuilder.RequestReply<*, ReqT, RespT>
+            RecordBuilder.Status(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
@@ -163,15 +174,16 @@ class AccessHandlerGrpc(
     private fun <ReqT : Any, RespT : Any> processEstimateFee(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
+        requestId: UUID,
     ): ServerCall.Listener<ReqT> {
         return process(
             call, headers, next,
-            EventsBuilder.EstimateFee() as EventsBuilder.RequestReply<*, ReqT, RespT>
+            RecordBuilder.EstimateFee(requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
-    open class StdCallListener<Req, EB : EventsBuilder.RequestReply<*, Req, *>>(
+    open class StdCallListener<Req, EB : RecordBuilder.RequestReply<*, Req, *>>(
         val next: ServerCall.Listener<Req>,
         val builder: EB
     ) : ForwardingServerCallListener<Req>() {
@@ -186,10 +198,10 @@ class AccessHandlerGrpc(
         }
     }
 
-    open class StdCallResponse<ReqT : Any, RespT : Any, EB : EventsBuilder.RequestReply<*, ReqT, RespT>>(
+    open class StdCallResponse<ReqT : Any, RespT : Any, EB : RecordBuilder.RequestReply<*, ReqT, RespT>>(
         val next: ServerCall<ReqT, RespT>,
         val builder: EB,
-        val accessLogWriter: AccessLogWriter
+        val accessLogWriter: CurrentEgressLogWriter
     ) : ForwardingServerCall<ReqT, RespT>() {
 
         override fun getMethodDescriptor(): MethodDescriptor<ReqT, RespT> {

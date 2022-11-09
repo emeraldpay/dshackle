@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -27,9 +28,10 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class EthereumRpcHead(
+    private val blockchain: Chain,
     private val api: JsonRpcReader,
     private val interval: Duration = Duration.ofSeconds(10)
-) : DefaultEthereumHead(), Lifecycle {
+) : DefaultEthereumHead(blockchain), Lifecycle {
 
     companion object {
         val scheduler =

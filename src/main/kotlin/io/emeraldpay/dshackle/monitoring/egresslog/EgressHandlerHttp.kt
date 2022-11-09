@@ -1,7 +1,8 @@
-package io.emeraldpay.dshackle.monitoring.accesslog
+package io.emeraldpay.dshackle.monitoring.egresslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.MainConfig
+import io.emeraldpay.dshackle.monitoring.Channel
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
@@ -10,22 +11,23 @@ import org.springframework.stereotype.Service
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.websocket.WebsocketInbound
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Access Log handler for JSON RPC proxy
+ * Egress Log handler for JSON RPC proxy
  *
  * @see io.emeraldpay.dshackle.proxy.ProxyServer
  */
 @Service
-class AccessHandlerHttp(
+class EgressHandlerHttp(
     @Autowired private val mainConfig: MainConfig,
-    @Autowired accessLogWriter: AccessLogWriter
+    @Autowired accessLogWriter: CurrentEgressLogWriter
 ) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(AccessHandlerHttp::class.java)
+        private val log = LoggerFactory.getLogger(EgressHandlerHttp::class.java)
 
         private val NO_SUBSCRIBE = NoOnSubscriptionHandler()
         private val NO_REQUEST = NoOpHandler()
@@ -34,24 +36,24 @@ class AccessHandlerHttp(
     /**
      * Use factory since we need a different behaviour for situation when log is configured and when is not
      */
-    val factory: HandlerFactory = if (mainConfig.accessLogConfig.enabled) {
+    val factory: HandlerFactory = if (mainConfig.egressLogConfig.enabled) {
         StandardFactory(accessLogWriter)
     } else {
         NoOpFactory()
     }
 
     interface HandlerFactory {
-        fun create(req: HttpServerRequest, blockchain: Chain): RequestHandler
+        fun create(req: HttpServerRequest, blockchain: Chain, requestId: UUID): RequestHandler
         fun start(req: WebsocketInbound, blockchain: Chain): WsHandlerFactory
     }
 
     interface WsHandlerFactory {
-        fun call(): RequestHandler
-        fun subscribe(): SubscriptionHandler
+        fun call(requestId: UUID): RequestHandler
+        fun subscribe(requestId: UUID): SubscriptionHandler
     }
 
     class NoOpFactory : HandlerFactory {
-        override fun create(req: HttpServerRequest, blockchain: Chain): RequestHandler {
+        override fun create(req: HttpServerRequest, blockchain: Chain, requestId: UUID): RequestHandler {
             return NO_REQUEST
         }
 
@@ -60,9 +62,9 @@ class AccessHandlerHttp(
         }
     }
 
-    class StandardFactory(val accessLogWriter: AccessLogWriter) : HandlerFactory {
-        override fun create(req: HttpServerRequest, blockchain: Chain): RequestHandler {
-            return StandardHandler(accessLogWriter, req, blockchain)
+    class StandardFactory(val accessLogWriter: CurrentEgressLogWriter) : HandlerFactory {
+        override fun create(req: HttpServerRequest, blockchain: Chain, requestId: UUID): RequestHandler {
+            return StandardHandler(accessLogWriter, req, blockchain, requestId)
         }
 
         override fun start(req: WebsocketInbound, blockchain: Chain): WsHandlerFactory {
@@ -91,11 +93,11 @@ class AccessHandlerHttp(
         override fun onResponse(callResult: NativeCall.CallResult) {
         }
 
-        override fun call(): RequestHandler {
+        override fun call(requestId: UUID): RequestHandler {
             return this
         }
 
-        override fun subscribe(): SubscriptionHandler {
+        override fun subscribe(requestId: UUID): SubscriptionHandler {
             return NO_SUBSCRIBE
         }
     }
@@ -109,23 +111,23 @@ class AccessHandlerHttp(
     }
 
     class StandardWsHandlerFactory(
-        private val accessLogWriter: AccessLogWriter,
+        private val accessLogWriter: CurrentEgressLogWriter,
         private val wsRequest: WebsocketInbound,
         private val blockchain: Chain
     ) : WsHandlerFactory {
 
-        override fun call(): RequestHandler {
-            return WsRequestHandler(accessLogWriter, wsRequest, blockchain)
+        override fun call(requestId: UUID): RequestHandler {
+            return WsRequestHandler(accessLogWriter, wsRequest, blockchain, requestId)
         }
 
-        override fun subscribe(): SubscriptionHandler {
-            return WsSubscriptionHandler(accessLogWriter, wsRequest, blockchain)
+        override fun subscribe(requestId: UUID): SubscriptionHandler {
+            return WsSubscriptionHandler(accessLogWriter, wsRequest, blockchain, requestId)
         }
     }
 
     abstract class AbstractRequestHandler(
-        private val accessLogWriter: AccessLogWriter,
-        private val channel: Events.Channel
+        private val accessLogWriter: CurrentEgressLogWriter,
+        private val channel: Channel
     ) : RequestHandler {
         protected var request: BlockchainOuterClass.NativeCallRequest? = null
         protected val responses = ArrayList<NativeCall.CallResult>()
@@ -141,7 +143,7 @@ class AccessHandlerHttp(
             }
         }
 
-        fun onClose(builder: EventsBuilder.NativeCall) {
+        fun onClose(builder: RecordBuilder.NativeCall) {
             val responseTime = Instant.now()
             responses
                 .map {
@@ -150,21 +152,22 @@ class AccessHandlerHttp(
                         item.ts = responseTime
                     }
                 }
-                .let(accessLogWriter::submit)
+                .let(accessLogWriter::submitAll)
         }
     }
 
     class StandardHandler(
-        accessLogWriter: AccessLogWriter,
+        accessLogWriter: CurrentEgressLogWriter,
         private val httpRequest: HttpServerRequest,
-        private val blockchain: Chain
-    ) : RequestHandler, AbstractRequestHandler(accessLogWriter, Events.Channel.JSONRPC) {
+        private val blockchain: Chain,
+        private val requestId: UUID,
+    ) : RequestHandler, AbstractRequestHandler(accessLogWriter, Channel.JSONRPC) {
 
         override fun close() {
             if (request == null) {
                 return
             }
-            val builder = EventsBuilder.NativeCall()
+            val builder = RecordBuilder.NativeCall(requestId)
             builder.withChain(blockchain.id)
             builder.start(httpRequest)
             builder.onRequest(request!!)
@@ -173,16 +176,17 @@ class AccessHandlerHttp(
     }
 
     class WsRequestHandler(
-        accessLogWriter: AccessLogWriter,
+        accessLogWriter: CurrentEgressLogWriter,
         private val wsRequest: WebsocketInbound,
-        private val blockchain: Chain
-    ) : RequestHandler, AbstractRequestHandler(accessLogWriter, Events.Channel.WSJSONRPC) {
+        private val blockchain: Chain,
+        private val requestId: UUID,
+    ) : RequestHandler, AbstractRequestHandler(accessLogWriter, Channel.WSJSONRPC) {
 
         override fun close() {
             if (request == null) {
                 return
             }
-            val builder = EventsBuilder.NativeCall()
+            val builder = RecordBuilder.NativeCall(requestId)
             builder.withChain(blockchain.id)
             builder.start(wsRequest)
             builder.onRequest(request!!)
@@ -191,15 +195,16 @@ class AccessHandlerHttp(
     }
 
     class WsSubscriptionHandler(
-        private val accessLogWriter: AccessLogWriter,
+        private val accessLogWriter: CurrentEgressLogWriter,
         private val wsRequest: WebsocketInbound,
-        private val blockchain: Chain
+        private val blockchain: Chain,
+        private val requestId: UUID,
     ) : SubscriptionHandler {
 
-        private var builder: EventsBuilder.NativeSubscribeHttp? = null
+        private var builder: RecordBuilder.NativeSubscribeHttp? = null
 
         override fun onRequest(request: Pair<String, ByteArray?>) {
-            val builder = EventsBuilder.NativeSubscribeHttp(Events.Channel.WSJSONRPC, blockchain)
+            val builder = RecordBuilder.NativeSubscribeHttp(Channel.WSJSONRPC, blockchain, requestId)
             builder.start(wsRequest)
             builder.onRequest(request)
             this.builder = builder

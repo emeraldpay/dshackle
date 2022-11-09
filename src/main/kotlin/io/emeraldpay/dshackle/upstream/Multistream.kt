@@ -281,6 +281,10 @@ abstract class Multistream(
         return false
     }
 
+    override fun getBlockchain(): Chain {
+        return chain
+    }
+
     fun printStatus() {
         var height: Long? = null
         try {

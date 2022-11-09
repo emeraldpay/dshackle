@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
@@ -57,13 +56,14 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.function.Consumer
 
 open class WsConnectionImpl(
     private val uri: URI,
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
-    private val upstream: DefaultUpstream?,
+    var statusUpdates: Consumer<UpstreamAvailability>,
 ) : AutoCloseable {
 
     companion object {
@@ -166,7 +166,7 @@ open class WsConnectionImpl(
                 disconnects.tryEmitNext(Instant.now())
                 log.info("Disconnected from $uri")
                 // mark upstream as UNAVAIL
-                upstream?.setStatus(UpstreamAvailability.UNAVAILABLE)
+                statusUpdates.accept(UpstreamAvailability.UNAVAILABLE)
                 if (keepConnection) {
                     tryReconnectLater()
                 }
@@ -297,15 +297,17 @@ open class WsConnectionImpl(
     }
 
     open fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
+        // use an internal id sequence, to avoid id conflicts with user calls
+        val internalId = sendIdSeq.getAndIncrement()
         return Mono.fromCallable {
             val startTime = System.nanoTime()
-            // use an internal id sequence, to avoid id conflicts with user calls
-            val internalId = sendIdSeq.getAndIncrement()
             val originalId = originalRequest.id
             Tuples.of(originalRequest.copy(id = internalId), originalId, startTime)
-        }.flatMap { request ->
-            waitForResponse(request.t1, request.t2, request.t3)
         }
+            .flatMap { request ->
+                waitForResponse(request.t1, request.t2, request.t3)
+            }
+            .contextWrite(Global.monitoring.ingress.setRpcId(internalId))
     }
 
     private fun sendRpc(request: JsonRpcRequest) {

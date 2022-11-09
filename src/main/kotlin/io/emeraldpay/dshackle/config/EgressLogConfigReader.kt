@@ -3,25 +3,25 @@ package io.emeraldpay.dshackle.config
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 
-class AccessLogReader : YamlConfigReader(), ConfigReader<AccessLogConfig> {
+class EgressLogConfigReader : YamlConfigReader(), ConfigReader<EgressLogConfig> {
 
     companion object {
-        private val log = LoggerFactory.getLogger(AccessLogReader::class.java)
+        private val log = LoggerFactory.getLogger(EgressLogConfigReader::class.java)
     }
 
-    override fun read(input: MappingNode?): AccessLogConfig {
-        return getMapping(input, "access-log", "accessLog")?.let { node ->
+    override fun read(input: MappingNode?): EgressLogConfig {
+        return getMapping(input, "egress-log", "egressLog", "access-log", "accessLog")?.let { node ->
             val enabled = getValueAsBool(node, "enabled") ?: false
             if (!enabled) {
-                AccessLogConfig.disabled()
+                EgressLogConfig.disabled()
             } else {
                 val includeMessages = getValueAsBool(node, "include-messages") ?: false
-                val config = AccessLogConfig(true, includeMessages)
+                val config = EgressLogConfig(true, includeMessages)
                 getValueAsString(node, "filename")?.let {
                     config.filename = it
                 }
                 config
             }
-        } ?: AccessLogConfig.default()
+        } ?: EgressLogConfig.default()
     }
 }

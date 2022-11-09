@@ -29,11 +29,13 @@ import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.concurrent.TimeUnit
+import java.util.function.Function
 
 class JsonRpcGrpcClient(
     private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val chain: Chain,
-    private val metrics: RpcMetrics
+    private val metrics: RpcMetrics,
+    private val modifier: Function<JsonRpcReader, JsonRpcReader>?,
 ) {
 
     companion object {
@@ -42,6 +44,7 @@ class JsonRpcGrpcClient(
 
     fun forSelector(matcher: Selector.Matcher): JsonRpcReader {
         return Executor(stub, chain, matcher, metrics)
+            .let { modifier?.apply(it) ?: it }
     }
 
     class Executor(

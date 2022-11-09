@@ -19,6 +19,8 @@ package io.emeraldpay.dshackle.startup
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.monitoring.Channel
+import io.emeraldpay.dshackle.monitoring.ingresslog.CurrentIngressLogWriter
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.ForkWatchFactory
@@ -36,10 +38,13 @@ import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqTopic
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsUpstream
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
@@ -52,6 +57,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.function.Consumer
 import javax.annotation.PostConstruct
 
 @Repository
@@ -59,6 +65,7 @@ open class ConfiguredUpstreams(
     @Autowired private val currentUpstreams: CurrentMultistreamHolder,
     @Autowired private val fileResolver: FileResolver,
     @Autowired private val config: UpstreamsConfig,
+    @Autowired private val currentIngressLogWriter: CurrentIngressLogWriter,
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -147,9 +154,11 @@ open class ConfiguredUpstreams(
         chain: Chain,
         options: UpstreamsConfig.Options
     ) {
-
+        val id = config.id ?: "bitcoin-${seq.getAndIncrement()}"
         val conn = config.connection!!
-        val directApi: JsonRpcReader? = buildHttpClient(config)
+        val directApi: JsonRpcReader? = buildHttpClient(config)?.let {
+            currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
+        }
         if (directApi == null) {
             log.warn("Upstream doesn't have API configuration")
             return
@@ -186,8 +195,7 @@ open class ConfiguredUpstreams(
 
         val methods = buildMethods(config, chain)
         val upstream = BitcoinRpcUpstream(
-            config.id
-                ?: "bitcoin-${seq.getAndIncrement()}",
+            id,
             chain, forkWatchFactory.create(chain), directApi, head,
             options, config.role,
             QuorumForLabels.QuorumItem(1, config.labels),
@@ -205,6 +213,7 @@ open class ConfiguredUpstreams(
         chain: Chain,
         options: UpstreamsConfig.Options
     ) {
+        val id = config.id ?: "ethereum-${seq.getAndIncrement()}"
         val conn = config.connection!!
 
         val urls = ArrayList<URI>()
@@ -215,7 +224,7 @@ open class ConfiguredUpstreams(
 
         val wsFactoryApi: EthereumWsFactory? = conn.ws?.let { endpoint ->
             val wsApi = EthereumWsFactory(
-                config.id!!, chain,
+                id, chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
             )
@@ -229,28 +238,75 @@ open class ConfiguredUpstreams(
 
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
 
-        val directApi: JsonRpcReader? = buildHttpClient(config)
-        if (directApi == null) {
-            log.warn("Upstream doesn't have API configuration")
-            return
-        }
+        val httpApi: JsonRpcReader? = buildHttpClient(config)
+        val wsApi = wsFactoryApi?.create(null)
+        wsApi?.connect()
 
-        val ethereumUpstream = if (wsFactoryApi != null && !conn.preferHttp) {
+        val ethereumUpstream: EthereumUpstream? = if (httpApi != null && wsApi != null) {
+
+            if (conn.preferHttp) {
+                val directReader = httpApi.let {
+                    currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
+                }
+                EthereumRpcUpstream(
+                    id,
+                    chain, forkWatchFactory.create(chain), directReader, wsApi,
+                    options, config.role,
+                    QuorumForLabels.QuorumItem(1, config.labels),
+                    methods
+                )
+            } else {
+                // Sometimes the server may close the WebSocket connection during the execution of a call, for example if the response
+                // is too large for WebSockets Frame (and Geth is unable to split messages into separate frames)
+                // In this case the failed request must be rerouted to the HTTP connection, because otherwise it would always fail
+                val directReader = JsonRpcSwitchClient(
+                    JsonRpcWsClient(wsApi).let {
+                        currentIngressLogWriter.wrap(it, id, Channel.WSJSONRPC)
+                    },
+                    httpApi.let {
+                        currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
+                    }
+                )
+                EthereumWsUpstream(
+                    id,
+                    chain, forkWatchFactory.create(chain), directReader, wsApi,
+                    options, config.role,
+                    QuorumForLabels.QuorumItem(1, config.labels),
+                    methods
+                ).also { upstream ->
+                    // pass WS connection status to the upstream itself
+                    wsApi.statusUpdates = Consumer(upstream::setStatus)
+                }
+            }
+        } else if (httpApi != null) {
+            val directReader = httpApi.let {
+                currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
+            }
+            EthereumRpcUpstream(
+                id,
+                chain, forkWatchFactory.create(chain), directReader, null,
+                options, config.role,
+                QuorumForLabels.QuorumItem(1, config.labels),
+                methods
+            )
+        } else if (wsApi != null) {
+            val directReader = JsonRpcWsClient(wsApi).let {
+                currentIngressLogWriter.wrap(it, id, Channel.WSJSONRPC)
+            }
             EthereumWsUpstream(
-                config.id!!,
-                chain, forkWatchFactory.create(chain), directApi, wsFactoryApi,
+                id,
+                chain, forkWatchFactory.create(chain), directReader, wsApi,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods
             )
         } else {
-            EthereumRpcUpstream(
-                config.id!!,
-                chain, forkWatchFactory.create(chain), directApi, wsFactoryApi,
-                options, config.role,
-                QuorumForLabels.QuorumItem(1, config.labels),
-                methods
-            )
+            null
+        }
+
+        if (ethereumUpstream == null) {
+            log.error("No connection is configured for upstream $id")
+            return
         }
 
         ethereumUpstream.start()
@@ -267,7 +323,8 @@ open class ConfiguredUpstreams(
             forkWatchFactory,
             config.role,
             endpoint,
-            fileResolver
+            fileResolver,
+            currentIngressLogWriter,
         ).apply {
             this.options = options
         }

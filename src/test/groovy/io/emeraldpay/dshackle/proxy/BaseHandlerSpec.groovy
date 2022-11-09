@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
+import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
@@ -28,7 +28,7 @@ import java.time.Duration
 
 class BaseHandlerSpec extends Specification {
 
-    def requestHandler = new AccessHandlerHttp.NoOpHandler()
+    def requestHandler = new EgressHandlerHttp.NoOpHandler()
 
     def "Return empty for empty single call"() {
         setup:

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 EmeraldPay, Inc
+ * Copyright (c) 2022 EmeraldPay, Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.accesslog
+package io.emeraldpay.dshackle.monitoring
 
-import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.config.MainConfig
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.stereotype.Repository
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -28,44 +24,29 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import javax.annotation.PostConstruct
+import java.util.function.Function
 
-@Repository
-class AccessLogWriter(
-    @Autowired mainConfig: MainConfig
-) {
+class FileLogWriter<T>(
+    private val file: File,
+    private val serializer: Function<T, ByteArray?>,
+    private val startSleep: Duration,
+    private val flushSleep: Duration,
+    private val batchLimit: Int = 5000
+) : LogWriter<T> {
 
     companion object {
-        private val log = LoggerFactory.getLogger(AccessLogWriter::class.java)
-        private const val WRITE_BATCH_LIMIT = 5000
-        private const val FLUSH_SLEEP_MS = 500L
-        private const val START_SLEEP_MS = 2000L
+        private val log = LoggerFactory.getLogger(FileLogWriter::class.java)
+
         private val NL = "\n".toByteArray()
     }
 
-    private val config = mainConfig.accessLogConfig
-    private val filename = File(config.filename)
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
-
-    private val queue = ConcurrentLinkedQueue<Any>()
-    private val objectMapper = Global.objectMapper
+    private val queue = ConcurrentLinkedQueue<T>()
     private var lastErrorAt: Instant = Instant.ofEpochMilli(0)
+    private var started: Boolean = false
 
     private val runner = Runnable {
         flushRunner()
-    }
-
-    @PostConstruct
-    fun start() {
-        if (!config.enabled) {
-            log.info("Access Log is disabled")
-            return
-        }
-        log.info("Writing Access Log to ${filename.absolutePath}")
-        scheduler.schedule(runner, START_SLEEP_MS, TimeUnit.MILLISECONDS)
-
-        // propagate current config to the Event Builder, so it knows which details to include
-        EventsBuilder.accessLogConfig = config
     }
 
     private fun flushRunner() {
@@ -76,15 +57,15 @@ class AccessLogWriter(
                 log.error("Failed to write logs. ${t.javaClass}:${t.message}")
             }
         } finally {
-            scheduler.schedule(runner, FLUSH_SLEEP_MS, TimeUnit.MILLISECONDS)
+            scheduler.schedule(runner, flushSleep.toMillis(), TimeUnit.MILLISECONDS)
         }
     }
 
-    fun submit(event: Any) {
+    override fun submit(event: T) {
         queue.add(event)
     }
 
-    fun submit(events: List<Any>) {
+    override fun submitAll(events: List<T>) {
         queue.addAll(events)
     }
 
@@ -96,33 +77,54 @@ class AccessLogWriter(
         }
     }
 
-    protected fun flush() {
-        if (!filename.exists()) {
-            if (!filename.createNewFile()) {
+    protected fun flush(): Boolean {
+        if (!file.exists()) {
+            if (!file.createNewFile()) {
                 logError {
-                    log.error("Cannot create Access Log file at ${filename.absolutePath}")
+                    log.error("Cannot create log file at ${file.absolutePath}")
                 }
-                return
+                return false
             }
         }
-        BufferedOutputStream(FileOutputStream(filename, true)).use { wrt ->
-            var limit = WRITE_BATCH_LIMIT
+        BufferedOutputStream(FileOutputStream(file, true)).use { wrt ->
+            var limit = batchLimit
             while (limit > 0) {
                 limit -= 1
-                val next = queue.poll() ?: return
-                val bytes: ByteArray? = try {
-                    objectMapper.writeValueAsBytes(next)
+                val next = queue.poll() ?: return true
+                val bytes = try {
+                    serializer.apply(next)
                 } catch (t: Throwable) {
                     logError {
-                        log.warn("Failed to write an access log line. ${t.message}")
+                        log.warn("Failed to serialize log line. ${t.message}")
                     }
                     null
                 }
+
                 if (bytes != null && bytes.isNotEmpty()) {
                     wrt.write(bytes)
                     wrt.write(NL, 0, 1)
                 }
             }
         }
+        return true
+    }
+
+    override fun start() {
+        started = true
+        scheduler.schedule(runner, startSleep.toMillis(), TimeUnit.MILLISECONDS)
+    }
+
+    override fun stop() {
+        var tries = 10
+        var failed = false
+        while (tries > 0 && !failed && queue.isNotEmpty()) {
+            tries--
+            failed = flush()
+        }
+        started = false
+    }
+
+    override fun isRunning(): Boolean {
+        return started
     }
 }

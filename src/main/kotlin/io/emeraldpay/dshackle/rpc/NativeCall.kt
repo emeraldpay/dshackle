@@ -21,6 +21,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.monitoring.record.IngressRecord
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
@@ -85,6 +86,7 @@ open class NativeCall(
                 if (it.isValid()) {
                     val parsed = parseParams(it.get())
                     this.fetch(parsed)
+                        .contextWrite(Global.monitoring.ingress.withBlockchain(parsed.upstream.getBlockchain()))
                         .doOnError { e -> log.warn("Error during native call: ${e.message}") }
                 } else {
                     val error = it.getError()
@@ -93,6 +95,7 @@ open class NativeCall(
                     )
                 }
             }
+            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.REQUEST))
     }
 
     fun parseParams(it: ValidCallContext<RawCallDetails>): ValidCallContext<ParsedCallDetails> {
@@ -155,6 +158,7 @@ open class NativeCall(
             ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
         return prepareCall(request, upstream)
+            .contextWrite(Global.monitoring.ingress.withBlockchain(chain))
     }
 
     fun prepareCall(

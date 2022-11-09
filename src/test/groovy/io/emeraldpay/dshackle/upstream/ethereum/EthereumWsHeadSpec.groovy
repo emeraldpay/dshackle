@@ -57,7 +57,7 @@ class EthereumWsHeadSpec extends Specification {
 
         def ws = Mock(WsSubscriptions)
 
-        def head = new EthereumWsHead(apiMock, ws)
+        def head = new EthereumWsHead(Chain.ETHEREUM, apiMock, ws)
 
         when:
         def act = head.listenNewHeads().blockFirst()

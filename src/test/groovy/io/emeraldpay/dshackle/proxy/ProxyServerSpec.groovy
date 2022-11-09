@@ -3,7 +3,7 @@ package io.emeraldpay.dshackle.proxy
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.ProxyConfig
-import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
+import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.grpc.Chain
@@ -22,7 +22,7 @@ class ProxyServerSpec extends Specification {
                 config1,
                 new ReadRpcJson(), new WriteRpcJson(),
                 Stub(NativeCall), Stub(NativeSubscribe),
-                Stub(TlsSetup), new AccessHandlerHttp.NoOpFactory()
+                Stub(TlsSetup), new EgressHandlerHttp.NoOpFactory()
         )
 
         def routes = Mock(HttpServerRoutes)
@@ -46,7 +46,7 @@ class ProxyServerSpec extends Specification {
                 config1,
                 new ReadRpcJson(), new WriteRpcJson(),
                 Stub(NativeCall), Stub(NativeSubscribe),
-                Stub(TlsSetup), new AccessHandlerHttp.NoOpFactory()
+                Stub(TlsSetup), new EgressHandlerHttp.NoOpFactory()
         )
 
         def routes = Mock(HttpServerRoutes)
@@ -66,7 +66,7 @@ class ProxyServerSpec extends Specification {
                 config1,
                 new ReadRpcJson(), new WriteRpcJson(),
                 Stub(NativeCall), Stub(NativeSubscribe),
-                Stub(TlsSetup), new AccessHandlerHttp.NoOpFactory()
+                Stub(TlsSetup), new EgressHandlerHttp.NoOpFactory()
         )
         when:
         def act = proxyServer.connectAddress("http")
@@ -83,7 +83,7 @@ class ProxyServerSpec extends Specification {
                 config1,
                 new ReadRpcJson(), new WriteRpcJson(),
                 Stub(NativeCall), Stub(NativeSubscribe),
-                Stub(TlsSetup), new AccessHandlerHttp.NoOpFactory()
+                Stub(TlsSetup), new EgressHandlerHttp.NoOpFactory()
         )
         when:
         def act = proxyServer.connectAddress("ws")

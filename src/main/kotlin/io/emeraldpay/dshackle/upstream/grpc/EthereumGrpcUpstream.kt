@@ -61,6 +61,7 @@ open class EthereumGrpcUpstream(
     private val client: JsonRpcGrpcClient
 ) : EthereumUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
+    chain,
     forkWatch,
     options,
     role,

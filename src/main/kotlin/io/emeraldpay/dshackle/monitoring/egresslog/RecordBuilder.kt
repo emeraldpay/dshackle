@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.accesslog
+package io.emeraldpay.dshackle.monitoring.egresslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.config.AccessLogConfig
+import io.emeraldpay.dshackle.config.EgressLogConfig
+import io.emeraldpay.dshackle.monitoring.Channel
+import io.emeraldpay.dshackle.monitoring.record.EgressRecord
 import io.emeraldpay.grpc.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc
@@ -34,14 +36,14 @@ import java.time.Instant
 import java.util.Locale
 import java.util.UUID
 
-class EventsBuilder {
+class RecordBuilder {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EventsBuilder::class.java)
+        private val log = LoggerFactory.getLogger(RecordBuilder::class.java)
 
         // A reference to the config for current _running instance_.
         // Initialized by AccessLogWriter
-        var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
+        var egressLogConfig: EgressLogConfig = EgressLogConfig.default()
     }
 
     interface StartingHttp2Request {
@@ -61,7 +63,9 @@ class EventsBuilder {
         fun onReply(msg: Resp): E
     }
 
-    abstract class Base<T> : StartingHttp2Request, StartingHttp1Request, StartingWsRequest {
+    abstract class Base<T>(
+        requestId: UUID,
+    ) : StartingHttp2Request, StartingHttp1Request, StartingWsRequest {
         companion object {
             private val remoteIpHeaders = listOf(
                 "x-real-ip",
@@ -74,10 +78,10 @@ class EventsBuilder {
             private val invalidCharacters = Regex("[\n\t]+")
         }
 
-        var requestDetails = Events.StreamRequestDetails(
-            UUID.randomUUID(),
+        var requestDetails = EgressRecord.RequestDetails(
+            requestId,
             Instant.now(),
-            Events.Remote(emptyList(), "", "")
+            EgressRecord.Remote(emptyList(), "", "")
         )
 
         var chainId: Int = Chain.UNSPECIFIED.id
@@ -138,7 +142,7 @@ class EventsBuilder {
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
                 .copy(
-                    remote = Events.Remote(
+                    remote = EgressRecord.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
                         userAgent = userAgent
@@ -157,7 +161,7 @@ class EventsBuilder {
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
                 .copy(
-                    remote = Events.Remote(
+                    remote = EgressRecord.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
                         userAgent = userAgent
@@ -188,7 +192,7 @@ class EventsBuilder {
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
                 .copy(
-                    remote = Events.Remote(
+                    remote = EgressRecord.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
                         userAgent = userAgent
@@ -219,9 +223,9 @@ class EventsBuilder {
         }
     }
 
-    class SubscribeHead :
-        Base<SubscribeHead>(),
-        RequestReply<Events.SubscribeHead, Common.Chain, BlockchainOuterClass.ChainHead> {
+    class SubscribeHead(requestId: UUID) :
+        Base<SubscribeHead>(requestId),
+        RequestReply<EgressRecord.SubscribeHead, Common.Chain, BlockchainOuterClass.ChainHead> {
 
         private var index = 0
 
@@ -233,58 +237,58 @@ class EventsBuilder {
             withChain(msg.type.number)
         }
 
-        override fun onReply(msg: BlockchainOuterClass.ChainHead): Events.SubscribeHead {
-            return Events.SubscribeHead(
+        override fun onReply(msg: BlockchainOuterClass.ChainHead): EgressRecord.SubscribeHead {
+            return EgressRecord.SubscribeHead(
                 chain, UUID.randomUUID(), requestDetails, index++
             )
         }
     }
 
-    class SubscribeBalance(val subscribe: Boolean) :
-        Base<SubscribeBalance>(),
-        RequestReply<Events.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
+    class SubscribeBalance(val subscribe: Boolean, requestId: UUID) :
+        Base<SubscribeBalance>(requestId),
+        RequestReply<EgressRecord.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
 
         private var index = 0
-        private var balanceRequest: Events.BalanceRequest? = null
+        private var balanceRequest: EgressRecord.BalanceRequest? = null
 
         override fun getT(): SubscribeBalance {
             return this
         }
 
         override fun onRequest(msg: BlockchainOuterClass.BalanceRequest) {
-            balanceRequest = Events.BalanceRequest(
+            balanceRequest = EgressRecord.BalanceRequest(
                 msg.asset.code.uppercase(Locale.getDefault()),
                 msg.address.addrTypeCase.name
             )
         }
 
-        override fun onReply(msg: BlockchainOuterClass.AddressBalance): Events.SubscribeBalance {
+        override fun onReply(msg: BlockchainOuterClass.AddressBalance): EgressRecord.SubscribeBalance {
             if (balanceRequest == null) {
                 throw IllegalStateException("Request is not initialized")
             }
-            val addressBalance = Events.AddressBalance(msg.asset.code, msg.address.address)
+            val addressBalance = EgressRecord.AddressBalance(msg.asset.code, msg.address.address)
             val chain = Chain.byId(msg.asset.chain.number)
-            return Events.SubscribeBalance(
+            return EgressRecord.SubscribeBalance(
                 chain, UUID.randomUUID(), subscribe, requestDetails, balanceRequest!!, addressBalance, index++
             )
         }
     }
 
-    class TxStatus :
-        Base<TxStatus>(),
-        RequestReply<Events.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
+    class TxStatus(requestId: UUID) :
+        Base<TxStatus>(requestId),
+        RequestReply<EgressRecord.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
         private var index = 0
-        private var txStatusRequest: Events.TxStatusRequest? = null
+        private var txStatusRequest: EgressRecord.TxStatusRequest? = null
 
         override fun onRequest(msg: BlockchainOuterClass.TxStatusRequest) {
-            this.txStatusRequest = Events.TxStatusRequest(msg.txId)
+            this.txStatusRequest = EgressRecord.TxStatusRequest(msg.txId)
             withChain(msg.chainValue)
         }
 
-        override fun onReply(msg: BlockchainOuterClass.TxStatus): Events.TxStatus {
-            return Events.TxStatus(
+        override fun onReply(msg: BlockchainOuterClass.TxStatus): EgressRecord.TxStatus {
+            return EgressRecord.TxStatus(
                 chain, UUID.randomUUID(), requestDetails, txStatusRequest!!,
-                Events.TxStatusResponse(msg.confirmations),
+                EgressRecord.TxStatusResponse(msg.confirmations),
                 index++
             )
         }
@@ -294,11 +298,10 @@ class EventsBuilder {
         }
     }
 
-    class NativeCall :
-        Base<NativeCall>(),
-        RequestReply<Events.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
-        val items = ArrayList<Events.NativeCallItemDetails>()
-        val replies = HashMap<Int, Events.NativeCallReplyDetails>()
+    class NativeCall(requestId: UUID) :
+        Base<NativeCall>(requestId),
+        RequestReply<EgressRecord.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
+        val items = ArrayList<EgressRecord.NativeCallItemDetails>()
         private var index = 0
 
         override fun getT(): NativeCall {
@@ -309,12 +312,12 @@ class EventsBuilder {
             withChain(msg.chain.number)
             msg.itemsList.forEach { item ->
                 this.items.add(
-                    Events.NativeCallItemDetails(
+                    EgressRecord.NativeCallItemDetails(
                         item.method,
                         item.id,
                         item.payload.size().toLong(),
                         item.nonce,
-                        if (accessLogConfig.includeMessages) {
+                        if (egressLogConfig.includeMessages) {
                             if (item.payload != null && !item.payload.isEmpty && item.payload.isValidUtf8) item.payload.toStringUtf8() else ""
                         } else null
                     )
@@ -322,9 +325,9 @@ class EventsBuilder {
             }
         }
 
-        override fun onReply(msg: BlockchainOuterClass.NativeCallReplyItem): Events.NativeCall {
+        override fun onReply(msg: BlockchainOuterClass.NativeCallReplyItem): EgressRecord.NativeCall {
             val item = items.find { it.id == msg.id }!!
-            return Events.NativeCall(
+            return EgressRecord.NativeCall(
                 request = requestDetails,
                 total = items.size,
                 index = index++,
@@ -333,11 +336,11 @@ class EventsBuilder {
                 nativeCall = item,
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
-                channel = Events.Channel.GRPC,
-                responseBody = if (accessLogConfig.includeMessages) {
+                channel = Channel.DSHACKLE,
+                responseBody = if (egressLogConfig.includeMessages) {
                     if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
                 } else null,
-                errorMessage = if (accessLogConfig.includeMessages) msg.errorMessage else null,
+                errorMessage = if (egressLogConfig.includeMessages) msg.errorMessage else null,
                 signature = Hex.encodeHexString(msg.signature.signature.toByteArray()),
                 nonce = msg.signature.nonce
             )
@@ -345,10 +348,10 @@ class EventsBuilder {
 
         fun onReply(
             reply: io.emeraldpay.dshackle.rpc.NativeCall.CallResult,
-            channel: Events.Channel
-        ): Events.NativeCall {
+            channel: Channel
+        ): EgressRecord.NativeCall {
             val item = items.find { it.id == reply.id }!!
-            return Events.NativeCall(
+            return EgressRecord.NativeCall(
                 request = requestDetails,
                 total = items.size,
                 index = index++,
@@ -358,8 +361,8 @@ class EventsBuilder {
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
                 channel = channel,
-                responseBody = if (accessLogConfig.includeMessages) (reply.result?.let { String(it) } ?: "") else null,
-                errorMessage = if (accessLogConfig.includeMessages) {
+                responseBody = if (egressLogConfig.includeMessages) (reply.result?.let { String(it) } ?: "") else null,
+                errorMessage = if (egressLogConfig.includeMessages) {
                     reply.error?.let {
                         it.upstreamError?.message ?: it.message
                     } ?: ""
@@ -369,12 +372,13 @@ class EventsBuilder {
     }
 
     class NativeSubscribe(
-        val channel: Events.Channel
+        val channel: Channel,
+        requestId: UUID,
     ) :
-        Base<NativeSubscribe>(),
-        RequestReply<Events.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
-        var item: Events.NativeSubscribeItemDetails? = null
-        val replies = HashMap<Int, Events.NativeSubscribeReplyDetails>()
+        Base<NativeSubscribe>(requestId),
+        RequestReply<EgressRecord.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
+        var item: EgressRecord.NativeSubscribeItemDetails? = null
+        val replies = HashMap<Int, EgressRecord.NativeSubscribeReplyDetails>()
 
         override fun getT(): NativeSubscribe {
             return this
@@ -382,33 +386,34 @@ class EventsBuilder {
 
         override fun onRequest(msg: BlockchainOuterClass.NativeSubscribeRequest) {
             withChain(msg.chain.number)
-            this.item = Events.NativeSubscribeItemDetails(
+            this.item = EgressRecord.NativeSubscribeItemDetails(
                 msg.method,
                 msg.payload.size().toLong()
             )
         }
 
-        override fun onReply(msg: BlockchainOuterClass.NativeSubscribeReplyItem): Events.NativeSubscribe {
-            return Events.NativeSubscribe(
+        override fun onReply(msg: BlockchainOuterClass.NativeSubscribeReplyItem): EgressRecord.NativeSubscribe {
+            return EgressRecord.NativeSubscribe(
                 request = requestDetails,
                 blockchain = chain,
                 nativeSubscribe = item!!,
                 payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
                 id = UUID.randomUUID(),
-                channel = Events.Channel.GRPC,
-                responseBody = if (accessLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null,
+                channel = Channel.DSHACKLE,
+                responseBody = if (egressLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null,
             )
         }
     }
 
     class NativeSubscribeHttp(
-        val channel: Events.Channel,
+        val channel: Channel,
         chain: Chain,
+        requestId: UUID,
     ) :
-        Base<NativeSubscribeHttp>(),
-        RequestReply<Events.NativeSubscribe, Pair<String, ByteArray?>, Long> {
-        var item: Events.NativeSubscribeItemDetails? = null
-        val replies = HashMap<Int, Events.NativeSubscribeReplyDetails>()
+        Base<NativeSubscribeHttp>(requestId),
+        RequestReply<EgressRecord.NativeSubscribe, Pair<String, ByteArray?>, Long> {
+        var item: EgressRecord.NativeSubscribeItemDetails? = null
+        val replies = HashMap<Int, EgressRecord.NativeSubscribeReplyDetails>()
 
         init {
             withChain(chain.id)
@@ -419,14 +424,14 @@ class EventsBuilder {
         }
 
         override fun onRequest(msg: Pair<String, ByteArray?>) {
-            this.item = Events.NativeSubscribeItemDetails(
+            this.item = EgressRecord.NativeSubscribeItemDetails(
                 msg.first,
                 msg.second?.size?.toLong() ?: 0L
             )
         }
 
-        override fun onReply(msg: Long): Events.NativeSubscribe {
-            return Events.NativeSubscribe(
+        override fun onReply(msg: Long): EgressRecord.NativeSubscribe {
+            return EgressRecord.NativeSubscribe(
                 request = requestDetails,
                 blockchain = chain,
                 nativeSubscribe = item!!,
@@ -437,9 +442,9 @@ class EventsBuilder {
         }
     }
 
-    class Describe :
-        Base<Describe>(),
-        RequestReply<Events.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {
+    class Describe(requestId: UUID) :
+        Base<Describe>(requestId),
+        RequestReply<EgressRecord.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {
 
         override fun getT(): Describe {
             return this
@@ -448,17 +453,17 @@ class EventsBuilder {
         override fun onRequest(msg: BlockchainOuterClass.DescribeRequest) {
         }
 
-        override fun onReply(msg: BlockchainOuterClass.DescribeResponse): Events.Describe {
-            return Events.Describe(
+        override fun onReply(msg: BlockchainOuterClass.DescribeResponse): EgressRecord.Describe {
+            return EgressRecord.Describe(
                 id = UUID.randomUUID(),
                 request = requestDetails
             )
         }
     }
 
-    class Status :
-        Base<Status>(),
-        RequestReply<Events.Status, BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus> {
+    class Status(requestId: UUID) :
+        Base<Status>(requestId),
+        RequestReply<EgressRecord.Status, BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus> {
         override fun getT(): Status {
             return this
         }
@@ -466,9 +471,9 @@ class EventsBuilder {
         override fun onRequest(msg: BlockchainOuterClass.StatusRequest) {
         }
 
-        override fun onReply(msg: BlockchainOuterClass.ChainStatus): Events.Status {
+        override fun onReply(msg: BlockchainOuterClass.ChainStatus): EgressRecord.Status {
             val chain = Chain.byId(msg.chainValue)
-            return Events.Status(
+            return EgressRecord.Status(
                 blockchain = chain,
                 request = requestDetails,
                 id = UUID.randomUUID()
@@ -476,9 +481,9 @@ class EventsBuilder {
         }
     }
 
-    class EstimateFee :
-        Base<EstimateFee>(),
-        RequestReply<Events.EstimateFee, BlockchainOuterClass.EstimateFeeRequest, BlockchainOuterClass.EstimateFeeResponse> {
+    class EstimateFee(requestId: UUID) :
+        Base<EstimateFee>(requestId),
+        RequestReply<EgressRecord.EstimateFee, BlockchainOuterClass.EstimateFeeRequest, BlockchainOuterClass.EstimateFeeResponse> {
 
         private var mode: String = "UNKNOWN"
         private var blocks: Int = 0
@@ -493,12 +498,12 @@ class EventsBuilder {
             this.blocks = msg.blocks
         }
 
-        override fun onReply(msg: BlockchainOuterClass.EstimateFeeResponse): Events.EstimateFee {
-            return Events.EstimateFee(
+        override fun onReply(msg: BlockchainOuterClass.EstimateFeeResponse): EgressRecord.EstimateFee {
+            return EgressRecord.EstimateFee(
                 blockchain = chain,
                 request = requestDetails,
                 id = UUID.randomUUID(),
-                estimateFee = Events.EstimateFeeDetails(
+                estimateFee = EgressRecord.EstimateFeeDetails(
                     mode = mode,
                     blocks = blocks
                 )

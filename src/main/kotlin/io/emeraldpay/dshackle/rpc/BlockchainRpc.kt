@@ -20,6 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.ChainValue
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
@@ -49,6 +50,8 @@ class BlockchainRpc(
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
 
+    private val requestContext = Global.monitoring.egress
+
     private val describeMetric = Counter.builder("request.grpc.request")
         .tag("type", "describe")
         .tag("chain", "NA")
@@ -72,14 +75,17 @@ class BlockchainRpc(
                     metrics!!.nativeCallMetric.increment()
                     startTime = System.currentTimeMillis()
                 }
-        ).doOnNext { reply ->
-            metrics?.let { m ->
-                m.nativeCallRespMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
-                if (!reply.succeed) {
-                    m.nativeCallErrRespMetric.increment()
+        )
+            .doOnNext { reply ->
+                metrics?.let { m ->
+                    m.nativeCallRespMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
+                    if (!reply.succeed) {
+                        m.nativeCallErrRespMetric.increment()
+                    }
                 }
             }
-        }.doOnError { failMetric.increment() }
+            .doOnError { failMetric.increment() }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
@@ -90,16 +96,21 @@ class BlockchainRpc(
                     metrics = chainMetrics.get(it.chain)
                     metrics!!.nativeSubscribeMetric.increment()
                 }
-        ).doOnNext {
-            metrics?.nativeSubscribeRespMetric?.increment()
-        }.doOnError { failMetric.increment() }
+        )
+            .doOnNext {
+                metrics?.nativeSubscribeRespMetric?.increment()
+            }
+            .doOnError { failMetric.increment() }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun subscribeHead(request: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
         return streamHead.add(
             request
                 .doOnNext { chainMetrics.get(it.type).subscribeHeadMetric.increment() }
-        ).doOnError { failMetric.increment() }
+        )
+            .doOnError { failMetric.increment() }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun subscribeTxStatus(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
@@ -119,6 +130,7 @@ class BlockchainRpc(
                 Flux.error<BlockchainOuterClass.TxStatus>(IllegalStateException("Internal Error"))
             }
         }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
@@ -142,6 +154,7 @@ class BlockchainRpc(
                 Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
             }
         }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
@@ -170,6 +183,7 @@ class BlockchainRpc(
                 Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
             }
         }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun estimateFee(request: Mono<BlockchainOuterClass.EstimateFeeRequest>): Mono<BlockchainOuterClass.EstimateFeeResponse> {
@@ -190,18 +204,21 @@ class BlockchainRpc(
                 log.error("Internal error during Fee Estimation", t)
                 failMetric.increment()
             }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
         describeMetric.increment()
         return describe.describe(request)
             .doOnError { failMetric.increment() }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun subscribeStatus(request: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
         subscribeStatusMetric.increment()
         return subscribeStatus.subscribeStatus(request)
             .doOnError { failMetric.increment() }
+            .contextWrite(requestContext.updateFromGrpc())
     }
 
     class RequestMetrics(chain: Chain) {

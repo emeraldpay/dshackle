@@ -17,7 +17,8 @@ package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ProxyConfig
-import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
+import io.emeraldpay.dshackle.monitoring.egresslog.EgressContext
+import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
@@ -31,6 +32,8 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.netty.http.server.HttpServerRequest
 import reactor.netty.http.server.HttpServerResponse
+import java.time.Instant
+import java.util.UUID
 import java.util.function.BiFunction
 
 /**
@@ -41,7 +44,7 @@ class HttpHandler(
     private val readRpcJson: ReadRpcJson,
     writeRpcJson: WriteRpcJson,
     nativeCall: NativeCall,
-    private val accessHandler: AccessHandlerHttp.HandlerFactory,
+    private val accessHandler: EgressHandlerHttp.HandlerFactory,
     private val requestMetrics: ProxyServer.RequestMetricsFactory,
 ) : BaseHandler(writeRpcJson, nativeCall, requestMetrics) {
 
@@ -65,11 +68,13 @@ class HttpHandler(
     fun proxy(routeConfig: ProxyConfig.Route): BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
         return BiFunction { req, resp ->
             // handle access events
-            val eventHandler = accessHandler.create(req, routeConfig.blockchain)
+            val requestId = UUID.randomUUID()
+            val eventHandler = accessHandler.create(req, routeConfig.blockchain, requestId)
             val request = req.receive()
                 .aggregate()
                 .asByteArray()
             val results = processRequest(routeConfig.blockchain, request, eventHandler)
+                .contextWrite(Global.monitoring.egress.setRequest(EgressContext.Value(requestId, Instant.now())))
                 // make sure that the access log handler is closed at the end, so it can render the logs
                 .doFinally { eventHandler.close() }
             addCorsHeadersIfSet(resp)
@@ -81,7 +86,7 @@ class HttpHandler(
     fun processRequest(
         chain: Chain,
         request: Mono<ByteArray>,
-        handler: AccessHandlerHttp.RequestHandler
+        handler: EgressHandlerHttp.RequestHandler
     ): Flux<ByteBuf> {
         return request
             .map(readRpcJson)

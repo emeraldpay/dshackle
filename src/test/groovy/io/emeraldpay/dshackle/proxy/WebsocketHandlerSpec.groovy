@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.proxy
 
-import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
+import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.etherjar.rpc.json.RequestJson
@@ -29,8 +29,8 @@ import java.time.Duration
 
 class WebsocketHandlerSpec extends Specification {
 
-    def requestHandlerFactory = new AccessHandlerHttp.NoOpFactory()
-    def requestHandler = new AccessHandlerHttp.NoOpHandler()
+    def requestHandlerFactory = new EgressHandlerHttp.NoOpFactory()
+    def requestHandler = new EgressHandlerHttp.NoOpHandler()
 
     def "Parse standard RPC request"() {
         setup:

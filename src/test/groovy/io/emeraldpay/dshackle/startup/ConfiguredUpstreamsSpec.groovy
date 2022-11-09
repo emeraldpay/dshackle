@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.startup
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.monitoring.ingresslog.CurrentIngressLogWriter
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
@@ -18,7 +19,7 @@ class ConfiguredUpstreamsSpec extends Specification {
             _ * getDefaultMethods(Chain.ETHEREUM) >> new DefaultEthereumMethods(Chain.ETHEREUM)
         }
         def configurer = new ConfiguredUpstreams(
-                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig)
+                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig), Stub(CurrentIngressLogWriter)
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -42,7 +43,7 @@ class ConfiguredUpstreamsSpec extends Specification {
             _ * getDefaultMethods(Chain.ETHEREUM) >> new DefaultEthereumMethods(Chain.ETHEREUM)
         }
         def configurer = new ConfiguredUpstreams(
-                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig)
+                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig), Stub(CurrentIngressLogWriter)
         )
         def methods = new UpstreamsConfig.Methods(
                 [

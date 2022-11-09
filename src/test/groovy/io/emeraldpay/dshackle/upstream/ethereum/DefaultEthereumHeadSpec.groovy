@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -30,7 +31,7 @@ import java.time.Instant
 
 class DefaultEthereumHeadSpec extends Specification {
 
-    DefaultEthereumHead head = new DefaultEthereumHead()
+    DefaultEthereumHead head = new DefaultEthereumHead(Chain.ETHEREUM)
     ObjectMapper objectMapper = Global.objectMapper
 
     def blocks = (10L..20L).collect { i ->

@@ -20,6 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.grpc.Chain
 import org.springframework.context.Lifecycle
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 abstract class DefaultUpstream(
     private val id: String,
+    private val chain: Chain,
     defaultLag: Long,
     defaultAvail: UpstreamAvailability,
     private val forkWatch: ForkWatch,
@@ -41,6 +43,7 @@ abstract class DefaultUpstream(
 
     constructor(
         id: String,
+        chain: Chain,
         forkWatch: ForkWatch,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
@@ -48,6 +51,7 @@ abstract class DefaultUpstream(
     ) :
         this(
             id,
+            chain,
             Long.MAX_VALUE,
             UpstreamAvailability.UNAVAILABLE,
             forkWatch,
@@ -59,13 +63,14 @@ abstract class DefaultUpstream(
 
     constructor(
         id: String,
+        chain: Chain,
         forkWatch: ForkWatch,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
         targets: CallMethods?,
         node: QuorumForLabels.QuorumItem?
     ) :
-        this(id, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, forkWatch, options, role, targets, node)
+        this(id, chain, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, forkWatch, options, role, targets, node)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream = Sinks.many()
@@ -183,6 +188,10 @@ abstract class DefaultUpstream(
 
     override fun getMethods(): CallMethods {
         return targets ?: throw IllegalStateException("Methods are not set")
+    }
+
+    override fun getBlockchain(): Chain {
+        return chain
     }
 
     private val quorumByLabel = node?.let { QuorumForLabels(it) }

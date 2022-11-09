@@ -2,37 +2,45 @@
 
 = Logging & Monitoring
 
-== Access / Request Log
-
 Dshackle can log all requests to a file in JSON format.
 Or https://jsonlines.org/[JSON Lines] to be more precise, i.e., a test file where each line is a JSON.
 
-NOTE: By default, the access log is disabled.
+It includes:
 
-To enable access log add following configuration:
+- _Egress Log_ - requests made to Dshackle from a client
+- _Ingress Log_ - requests made by Dshackle to upstreams
+
+Because some requests may produce multiple responses, or multiple internal requests the log is not related as one-to-one.
+But instead maintains a reference a `request.id` in both logs, that can be used to join multiple egress and ingress logs into a single trace.
+
+== Egress Log
+
+NOTE: By default, the egress log is disabled.
+
+To enable egress log add following configuration:
 
 [source,yaml]
 ----
-access-log:
+egress-log:
   enabled: true
-  filename: /var/log/dshackle/access_log.jsonl
+  filename: /var/log/dshackle/egress_log.jsonl
 ----
 
-`filename` is optional, and the default value is `access_log.jsonl` (i.e., in the current directory).
+`filename` is optional, and the default value is `egress_log.jsonl` (i.e., in the current directory).
 
 Since a single request may contain multiple replies (ex., a batch call, or subscribe to the head blocks) the Dshackle logging is based on replies.
 The access log file contains details per each response send from the server, and each of them refers to original request details.
 
-The access log contains the JSON lines similar to:
+The log contains the JSON lines similar to:
 
 [source,json]
 ----
 {
-  "version":"accesslog/v1beta",
-  "ts":"2021-07-20T01:53:33.174645Z",
+  "version":"egresslog/v1beta2",
   "id":"578d83db-cf53-4ef8-b73e-3f1cc0a67e96",
+  "channel":"DSHACKLE",
+  "ts":"2021-07-20T01:53:33.174645Z",
   "method":"NativeCall",
-  "channel":"GRPC",
   "blockchain":"ETHEREUM",
   "total":2,
   "index":0,
@@ -55,11 +63,12 @@ The access log contains the JSON lines similar to:
 ----
 
 .Where:
-- `ts` timestamp of the reply
+- `version` version of the JSON format (note it may change until `v1`, i.e., a version with `alpha`, `beta`, etc., is not a final format)
 - `id` uniq id of the reply
+- `channel` access channel (`DSHACKLE` for native Dshackle calls, `JSONRPC` for JSON RPC HTTP Proxy)
+- `ts` timestamp of the reply
 - `method` Dshackle method which was called (i.e., not a Blockchain API method, see `nativeCall` details)
 - `blockchain` blockchain code
-- `channel` access channel (`GRPC` for native Dshackle calls, `JSONRPC` for JSON RPC HTTP Proxy)
 - `total` how many requests in the batch (available only for a `NativeCall` call)
 - `index` current index (i.e. count) of the reply to the original request
 - `succeed` if call succeeded, in terms of Blockchain API
@@ -74,6 +83,73 @@ The access log contains the JSON lines similar to:
 ** `method` method name terms of Blockchain API
 ** `id` request id provided in the original request
 ** `payloadSizeBytes` size of the original _individual_ request (for JSON RPC it's size of the `params` value)
+
+== Ingress Log
+
+NOTE: By default, the ingress log is disabled.
+
+To enable ingress log add following configuration:
+
+[source,yaml]
+----
+ingress-log:
+  enabled: true
+  filename: /var/log/dshackle/ingress_log.jsonl
+----
+
+The log contains the JSON lines similar to:
+
+[source,json]
+----
+{
+  "version":"ingresslog/v1alpha",
+  "id":"c23a5391-1b8c-40b0-a32f-fa736b8175a2",
+  "success":true,
+  "upstream":{
+    "id":"goerli",
+    "channel":"WSJSONRPC",
+    "type":"JSONRPC"
+  },
+  "request":{
+    "source":"INTERNAL",
+    "id":"f2ae5096-b7d0-4006-99c5-0108bd295df4",
+    "start":"2022-11-09T01:13:25.652663Z"
+  },
+  "jsonrpc":{
+    "method":"eth_getBlockByHash",
+    "id":218
+  },
+  "blockchain":"TESTNET_GOERLI",
+  "execute":"2022-11-09T01:13:25.540592Z",
+  "complete":"2022-11-09T01:13:25.652683Z",
+  "responseSize":6243,
+  "queueTime":0,
+  "requestTime":112
+}
+----
+
+.Where:
+- `version` version of the JSON format (note it may change until `v1`, i.e., a version with `alpha`, `beta`, etc., is not a final format)
+- `id` uniq id of the request
+- `success` if it returns a result or an error
+- `upstream` upstream reference
+** `id` id as defined in upstreams config
+** `channel` type of the connection (`WSJSONRPC` for a Websocket JSON RPC, `JSONRPC` for HTTP JSON RPC, `DSHACKLE` for Dshackle protocol)
+** `type` type of the request (`DSHACKLE` for Dshackle gRPC request, `JSONRPC` as JSON RPC, and `WSSUBSCRIBE` Websocket subscription request)
+- `request` reference to original request
+** `source` is `REQUEST` when is caused by external call, or `INTERNAL` if it's an internal request such as a health check
+** `id` for a `REQUEST` source it's the same id as in egress log in `request.id` field.
+For an `INTERNAL` source it's just an internal id.
+** `start` time when the request was initiated (note that the execution time may differ, see below)
+- `jsonrpc` details about the JSON RPC request (optional)
+- `blockchain` blockchain associated with the request (optional)
+- `execute` time when the request started to execute.
+Some request may consist of multiple additional requests, or a request may wait until other requests are returned.
+So it may be after the `request.start` time.
+- `complete` time when the response was received from upstream.
+- `responseSize` response payload size in bytes (payload here means it's not the whole json but only the _result_ part).
+- `queueTime` - the time between _start_ and _execute_ moments, in milliseconds
+- `requestTime` - the time between _execute_ and _complete_ moments, in milliseconds
 
 == Prometheus Metrics
 

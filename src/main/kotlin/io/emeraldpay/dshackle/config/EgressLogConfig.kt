@@ -1,20 +1,20 @@
 package io.emeraldpay.dshackle.config
 
-class AccessLogConfig(
+class EgressLogConfig(
     val enabled: Boolean = false,
     val includeMessages: Boolean = false
 ) {
 
-    var filename: String = "./access_log.jsonl"
+    var filename: String = "./egress_log.jsonl"
 
     companion object {
 
-        fun default(): AccessLogConfig {
+        fun default(): EgressLogConfig {
             return disabled()
         }
 
-        fun disabled(): AccessLogConfig {
-            return AccessLogConfig(
+        fun disabled(): EgressLogConfig {
+            return EgressLogConfig(
                 enabled = false
             )
         }

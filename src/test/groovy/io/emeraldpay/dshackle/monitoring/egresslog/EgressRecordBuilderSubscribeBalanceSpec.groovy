@@ -1,11 +1,11 @@
-package io.emeraldpay.dshackle.monitoring.accesslog
+package io.emeraldpay.dshackle.monitoring.egresslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.grpc.Chain
 import spock.lang.Specification
 
-class EventsBuilderSubscribeBalanceSpec extends Specification {
+class EgressRecordBuilderSubscribeBalanceSpec extends Specification {
 
     def "Basic ethereum event"() {
         setup:
@@ -32,7 +32,7 @@ class EventsBuilderSubscribeBalanceSpec extends Specification {
                 .setBalance("1234560000000000000")
                 .build()
         when:
-        def act = new EventsBuilder.SubscribeBalance(true).tap {
+        def act = new RecordBuilder.SubscribeBalance(true, UUID.randomUUID()).tap {
             it.onRequest(request)
         }.onReply(resp)
         then:
@@ -69,7 +69,7 @@ class EventsBuilderSubscribeBalanceSpec extends Specification {
                 .setBalance("12345600000000")
                 .build()
         when:
-        def act = new EventsBuilder.SubscribeBalance(true).tap {
+        def act = new RecordBuilder.SubscribeBalance(true, UUID.randomUUID()).tap {
             it.onRequest(request)
         }.onReply(resp)
         then:
