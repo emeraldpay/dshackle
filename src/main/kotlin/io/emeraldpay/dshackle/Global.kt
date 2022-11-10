@@ -53,7 +53,6 @@ class Global {
             "bsc" to Chain.BSC,
             "bnb-smart-chain" to Chain.BSC,
             "etc" to Chain.ETHEREUM_CLASSIC,
-            "etc" to Chain.ETHEREUM_CLASSIC,
             "morden" to Chain.TESTNET_MORDEN,
             "kovan" to Chain.TESTNET_KOVAN,
             "kovan-testnet" to Chain.TESTNET_KOVAN,
