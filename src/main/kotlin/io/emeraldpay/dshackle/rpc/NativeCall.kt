@@ -384,7 +384,8 @@ open class NativeCall(
             val createFilterMethods = listOf(
                 "eth_getFilterChanges",
                 "eth_newFilter",
-                "eth_newBlockFilter"
+                "eth_newBlockFilter",
+                "eth_newPendingTransactionFilter"
             )
         }
         override fun processResult(result: QuorumRpcReader.Result): ByteArray {
