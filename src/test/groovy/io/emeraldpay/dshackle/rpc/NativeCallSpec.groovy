@@ -457,6 +457,37 @@ class NativeCallSpec extends Specification {
         act.requestDecorator instanceof NativeCall.GetFilterUpdatesDecorator
     }
 
+    def "Prepare call adds decorator for eth_uninstallFilter"() {
+        setup:
+        def methods = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                ["eth_uninstallFilter"] as Set, [] as Set
+        )
+        methods.setQuorum("eth_uninstallFilter", "always")
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        multistream.customMethods = methods
+        multistream.customHead = Mock(Head)
+        def multistreamHolder = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
+        def nativeCall = nativeCall(multistreamHolder)
+
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(
+                        BlockchainOuterClass.NativeCallItem.newBuilder()
+                                .setId(1)
+                                .setMethod("eth_uninstallFilter")
+                )
+                .build()
+        when:
+        def act = nativeCall.prepareCall(req, multistream)
+                .collectList().block(Duration.ofSeconds(1)).first()
+        then:
+        act instanceof NativeCall.ValidCallContext
+        act.requestDecorator instanceof NativeCall.GetFilterUpdatesDecorator
+    }
+
     def "Parse empty params"() {
         setup:
         def nativeCall = nativeCall()
