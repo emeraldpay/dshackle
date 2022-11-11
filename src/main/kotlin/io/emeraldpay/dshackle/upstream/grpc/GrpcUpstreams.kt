@@ -191,11 +191,11 @@ class GrpcUpstreams(
         )
 
         val blockchainType = BlockchainType.from(chain)
-        if (blockchainType == BlockchainType.ETHEREUM) {
+        if (blockchainType == BlockchainType.EVM_POW) {
             return getOrCreateEthereum(chain, metrics)
         } else if (blockchainType == BlockchainType.BITCOIN) {
             return getOrCreateBitcoin(chain, metrics)
-        } else if (blockchainType == BlockchainType.ETHEREUM_POS) {
+        } else if (blockchainType == BlockchainType.EVM_POS) {
             return getOrCreateEthereumPos(chain, metrics)
         } else {
             throw IllegalArgumentException("Unsupported blockchain: $chain")

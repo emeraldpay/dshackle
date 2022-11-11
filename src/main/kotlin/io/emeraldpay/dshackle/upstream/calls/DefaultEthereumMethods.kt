@@ -133,7 +133,7 @@ class DefaultEthereumMethods(
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"1\""
                     }
-                    Chain.MATIC == chain -> {
+                    Chain.POLYGON == chain -> {
                         "\"137\""
                     }
                     Chain.TESTNET_MORDEN == chain -> {
@@ -159,7 +159,7 @@ class DefaultEthereumMethods(
                     Chain.ETHEREUM == chain -> {
                         "\"0x1\""
                     }
-                    Chain.MATIC == chain -> {
+                    Chain.POLYGON == chain -> {
                         "\"0x89\""
                     }
                     Chain.TESTNET_ROPSTEN == chain -> {

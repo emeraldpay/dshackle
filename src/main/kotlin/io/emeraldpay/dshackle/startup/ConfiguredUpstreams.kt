@@ -92,7 +92,7 @@ open class ConfiguredUpstreams(
                 val options = (up.options ?: UpstreamsConfig.Options())
                     .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
                 val upstream = when (BlockchainType.from(chain)) {
-                    BlockchainType.ETHEREUM -> {
+                    BlockchainType.EVM_POW -> {
                         buildEthereumUpstream(up.nodeId, up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
                     }
 
@@ -100,7 +100,7 @@ open class ConfiguredUpstreams(
                         buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options)
                     }
 
-                    BlockchainType.ETHEREUM_POS -> {
+                    BlockchainType.EVM_POS -> {
                         buildEthereumPosUpstream(
                             up.nodeId,
                             up.cast(UpstreamsConfig.EthereumPosConnection::class.java),
