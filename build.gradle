@@ -159,7 +159,7 @@ jib {
             add project.version.toString().replaceAll('(\\d+\\.\\d+).+', '$1')
         }
         auth {
-            username = 'splix'
+            username = 'drpcorg'
             password = System.getenv('DOCKER_KEY')
         }
     }
