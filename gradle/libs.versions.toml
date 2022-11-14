@@ -111,6 +111,14 @@ spring-security-core = { module = "org.springframework.security:spring-security-
 spring-security-web = { module = "org.springframework.security:spring-security-web", version.ref = "spring-security" }
 spring-security-config = { module = "org.springframework.security:spring-security-config", version.ref = "spring-security" }
 
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "spring-boot" }
+
+testcontainers = "org.testcontainers:testcontainers:1.17.5"
+testcontainers-ganache = "io.github.ganchix:testcontainers-java-module-ganache:0.0.4"
+
+junit-jupiter = "org.junit.jupiter:junit-jupiter:5.9.1"
+assertj = "org.assertj:assertj-core:3.23.1"
+
 [bundles]
 apache-commons = ["commons-io", "apache-commons-lang3", "apache-commons-collections4"]
 etherjar = ["etherjar-domain", "etherjar-hex", "etherjar-rpc-api", "etherjar-rpc-http", "etherjar-rpc-ws", "etherjar-tx", "etherjar-contract", "etherjar-erc20"]
@@ -122,6 +130,9 @@ netty = ["netty-common", "netty-transport", "netty-handler-core", "netty-handler
 reactor = ["reactor-core", "reactor-netty", "reactor-extra", "reactor-kotlin"]
 slf4j = ["slf4j-api", "slf4j-jul", "slf4j-jcl", "log4j-slf4j"]
 spring-framework = ["spring-boot-starter", "spring-security-core", "spring-security-web", "spring-security-config"]
+testcontainers = ["testcontainers", "testcontainers-ganache"]
+junit = ["junit-jupiter", "assertj"]
+
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
