@@ -75,6 +75,7 @@ class DefaultEthereumMethods(
         "eth_newFilter",
         "eth_newBlockFilter",
         "eth_newPendingTransactionFilter",
+        "eth_uninstallFilter"
     )
 
     private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods + filterMethods

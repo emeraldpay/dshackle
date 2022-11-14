@@ -255,7 +255,10 @@ open class NativeCall(
     }
 
     private fun getRequestDecorator(method: String): RequestDecorator =
-        if (method == "eth_getFilterChanges") GetFilterUpdatesDecorator() else NoneRequestDecorator()
+        if (method == "eth_getFilterChanges" || method == "eth_uninstallFilter")
+            GetFilterUpdatesDecorator()
+        else
+            NoneRequestDecorator()
 
     private fun getResultDecorator(method: String): ResultDecorator =
         if (CreateFilterDecorator.createFilterMethods.contains(method)) CreateFilterDecorator() else NoneResultDecorator()
@@ -378,7 +381,11 @@ open class NativeCall(
 
         companion object {
             const val quoteCode = '"'.code.toByte()
-            val createFilterMethods = listOf("eth_getFilterChanges", "eth_newFilter", "eth_newBlockFilter")
+            val createFilterMethods = listOf(
+                "eth_newFilter",
+                "eth_newBlockFilter",
+                "eth_newPendingTransactionFilter"
+            )
         }
         override fun processResult(result: QuorumRpcReader.Result): ByteArray {
             val bytes = result.value
