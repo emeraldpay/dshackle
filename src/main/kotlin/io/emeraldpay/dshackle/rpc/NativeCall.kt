@@ -382,7 +382,6 @@ open class NativeCall(
         companion object {
             const val quoteCode = '"'.code.toByte()
             val createFilterMethods = listOf(
-                "eth_getFilterChanges",
                 "eth_newFilter",
                 "eth_newBlockFilter",
                 "eth_newPendingTransactionFilter"
