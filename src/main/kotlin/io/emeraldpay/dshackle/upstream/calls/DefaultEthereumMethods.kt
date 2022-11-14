@@ -70,7 +70,15 @@ class DefaultEthereumMethods(
         "eth_feeHistory"
     )
 
-    private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods
+    private val filterMethods = listOf(
+        "eth_getFilterChanges",
+        "eth_newFilter",
+        "eth_newBlockFilter",
+        "eth_newPendingTransactionFilter",
+        "eth_uninstallFilter"
+    )
+
+    private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods + filterMethods
 
     private val hardcodedMethods = listOf(
         "net_version",
@@ -88,6 +96,7 @@ class DefaultEthereumMethods(
 
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
+            filterMethods.contains(method) -> AlwaysQuorum()
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
@@ -125,7 +134,7 @@ class DefaultEthereumMethods(
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"1\""
                     }
-                    Chain.MATIC == chain -> {
+                    Chain.POLYGON == chain -> {
                         "\"137\""
                     }
                     Chain.TESTNET_MORDEN == chain -> {
@@ -151,7 +160,7 @@ class DefaultEthereumMethods(
                     Chain.ETHEREUM == chain -> {
                         "\"0x1\""
                     }
-                    Chain.MATIC == chain -> {
+                    Chain.POLYGON == chain -> {
                         "\"0x89\""
                     }
                     Chain.TESTNET_ROPSTEN == chain -> {

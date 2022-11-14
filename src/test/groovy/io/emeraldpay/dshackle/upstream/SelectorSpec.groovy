@@ -349,4 +349,27 @@ class SelectorSpec extends Specification {
         !act
     }
 
+    def "Matches same nodeId"() {
+        setup:
+        def up = Mock(Upstream) {
+            nodeId() >> (byte)5
+        }
+        def matcher = new Selector.SameNodeMatcher((byte)5)
+        when:
+        def act = matcher.matches(up)
+        then:
+        act
+    }
+
+    def "Not matches nodeId"() {
+        setup:
+        def up = Mock(Upstream) {
+            nodeId() >> (byte)5
+        }
+        def matcher = new Selector.SameNodeMatcher((byte)1)
+        when:
+        def act = matcher.matches(up)
+        then:
+        !act
+    }
 }

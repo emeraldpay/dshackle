@@ -51,6 +51,7 @@ import java.util.function.Function
 
 open class EthereumGrpcUpstream(
     private val parentId: String,
+    hash: Byte,
     role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
@@ -58,6 +59,7 @@ open class EthereumGrpcUpstream(
     overrideLabels: UpstreamsConfig.Labels?
 ) : EthereumUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
+    hash,
     UpstreamsConfig.Options.getDefaults(),
     role,
     null,

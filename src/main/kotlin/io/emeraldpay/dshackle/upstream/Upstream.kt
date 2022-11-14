@@ -40,4 +40,6 @@ interface Upstream {
     fun isGrpc(): Boolean
 
     fun <T : Upstream> cast(selfType: Class<T>): T
+
+    fun nodeId(): Byte
 }

@@ -111,7 +111,7 @@ class EthereumBlockValidator : BlockValidator {
                     )
                 }
 
-                val timestampValid = it.timestamp > cur.timestamp
+                val timestampValid = it.timestamp >= cur.timestamp
                 if (!timestampValid) {
                     log.warn(
                         "Block timestamp {} not valid for {}. Must be greater than {}",

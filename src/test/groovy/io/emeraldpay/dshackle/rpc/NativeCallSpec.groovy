@@ -118,7 +118,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1))
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1, Collections.singletonList((byte) 1)))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
@@ -395,6 +395,99 @@ class NativeCallSpec extends Specification {
         }
     }
 
+    def "Prepare call adds decorator for eth_newFilter"() {
+        setup:
+        def methods = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                ["eth_newFilter"] as Set, [] as Set
+        )
+        methods.setQuorum("eth_newFilter", "always")
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        multistream.customMethods = methods
+        multistream.customHead = Mock(Head)
+        def multistreamHolder = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
+        def nativeCall = nativeCall(multistreamHolder)
+
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(
+                        BlockchainOuterClass.NativeCallItem.newBuilder()
+                                .setId(1)
+                                .setMethod("eth_newFilter")
+                )
+                .build()
+        when:
+        def act = nativeCall.prepareCall(req, multistream)
+                .collectList().block(Duration.ofSeconds(1)).first()
+        then:
+        act instanceof NativeCall.ValidCallContext
+        act.resultDecorator instanceof NativeCall.CreateFilterDecorator
+    }
+
+    def "Prepare call adds decorator for eth_getFilterChanges"() {
+        setup:
+        def methods = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                ["eth_getFilterChanges"] as Set, [] as Set
+        )
+        methods.setQuorum("eth_getFilterChanges", "always")
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        multistream.customMethods = methods
+        multistream.customHead = Mock(Head)
+        def multistreamHolder = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
+        def nativeCall = nativeCall(multistreamHolder)
+
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(
+                        BlockchainOuterClass.NativeCallItem.newBuilder()
+                                .setId(1)
+                                .setMethod("eth_getFilterChanges")
+                )
+                .build()
+        when:
+        def act = nativeCall.prepareCall(req, multistream)
+                .collectList().block(Duration.ofSeconds(1)).first()
+        then:
+        act instanceof NativeCall.ValidCallContext
+        act.requestDecorator instanceof NativeCall.GetFilterUpdatesDecorator
+    }
+
+    def "Prepare call adds decorator for eth_uninstallFilter"() {
+        setup:
+        def methods = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                ["eth_uninstallFilter"] as Set, [] as Set
+        )
+        methods.setQuorum("eth_uninstallFilter", "always")
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        multistream.customMethods = methods
+        multistream.customHead = Mock(Head)
+        def multistreamHolder = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
+        def nativeCall = nativeCall(multistreamHolder)
+
+        def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .addItems(
+                        BlockchainOuterClass.NativeCallItem.newBuilder()
+                                .setId(1)
+                                .setMethod("eth_uninstallFilter")
+                )
+                .build()
+        when:
+        def act = nativeCall.prepareCall(req, multistream)
+                .collectList().block(Duration.ofSeconds(1)).first()
+        then:
+        act instanceof NativeCall.ValidCallContext
+        act.requestDecorator instanceof NativeCall.GetFilterUpdatesDecorator
+    }
+
     def "Parse empty params"() {
         setup:
         def nativeCall = nativeCall()
@@ -445,6 +538,64 @@ class NativeCallSpec extends Specification {
         act.id == 1
         act.payload.params == [false, 123]
         act.payload.method == "eth_test"
+    }
+
+    def "Decorate eth_getFilterUpdates params"() {
+        setup:
+        def nativeCall = nativeCall()
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+                new NativeCall.RawCallDetails("eth_getFilterUpdates", '["0xabcd"]'),
+                new NativeCall.GetFilterUpdatesDecorator(), new NativeCall.NoneResultDecorator())
+        when:
+        def act = nativeCall.parseParams(ctx)
+        then:
+        act.id == 1
+        act.payload.params == ["0xab"]
+        act.payload.method == "eth_getFilterUpdates"
+    }
+
+    def "Decorate eth_newFilter result"() {
+        setup:
+        def quorum = new AlwaysQuorum()
+
+        def nativeCall = nativeCall()
+        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList((byte)255)))
+            }
+        }
+        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
+                new NativeCall.GetFilterUpdatesDecorator(), new NativeCall.CreateFilterDecorator())
+
+        when:
+        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
+        def act = objectMapper.readValue(resp.result, Object)
+        then:
+        act == "0xabff"
+        resp.nonce == 10
+    }
+
+    def "Decorate eth_newFilter result with short nodeId"() {
+        setup:
+        def quorum = new AlwaysQuorum()
+
+        def nativeCall = nativeCall()
+        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList((byte)1)))
+            }
+        }
+        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
+                new NativeCall.GetFilterUpdatesDecorator(), new NativeCall.CreateFilterDecorator())
+
+        when:
+        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
+        def act = objectMapper.readValue(resp.result, Object)
+        then:
+        act == "0xab01"
+        resp.nonce == 10
     }
 
     @Ignore

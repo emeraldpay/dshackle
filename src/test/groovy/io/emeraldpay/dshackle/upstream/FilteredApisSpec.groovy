@@ -51,6 +51,7 @@ class FilteredApisSpec extends Specification {
             def connectorFactory = new EthereumConnectorFactory(false, null, httpFactory, new MostWorkForkChoice(), BlockValidator.@Companion.ALWAYS_VALID)
             new EthereumRpcUpstream(
                     "test",
+                    (byte)123,
                     Chain.ETHEREUM,
                     new UpstreamsConfig.Options(),
                     UpstreamsConfig.UpstreamRole.PRIMARY,

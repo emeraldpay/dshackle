@@ -396,4 +396,22 @@ class Selector {
             return "Matcher: ${describeInternal()}"
         }
     }
+
+    class SameNodeMatcher(private val upstreamHash: Byte) : Matcher {
+        override fun matches(up: Upstream): Boolean =
+            up.nodeId() == upstreamHash
+
+        override fun describeInternal(): String =
+            "upstream node-id=${upstreamHash.toUByte()}"
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
+
+        override fun equals(other: Any?): Boolean {
+            if (other === this) return true
+            if (other !is SameNodeMatcher) return false
+            return other.upstreamHash == upstreamHash
+        }
+    }
 }

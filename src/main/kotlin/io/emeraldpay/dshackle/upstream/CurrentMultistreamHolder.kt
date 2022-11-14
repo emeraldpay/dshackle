@@ -62,7 +62,7 @@ open class CurrentMultistreamHolder(
             val chain = change.chain
             try {
                 when (BlockchainType.from(chain)) {
-                    BlockchainType.ETHEREUM -> {
+                    BlockchainType.EVM_POW -> {
                         val up = change.upstream.cast(EthereumUpstream::class.java)
                         val current = chainMapping[chain]
                         val factory = Callable<Multistream> {
@@ -70,7 +70,7 @@ open class CurrentMultistreamHolder(
                         }
                         processUpdate(change, up, current, factory)
                     }
-                    BlockchainType.ETHEREUM_POS -> {
+                    BlockchainType.EVM_POS -> {
                         val up = change.upstream.cast(EthereumPosUpstream::class.java)
                         val current = chainMapping[chain]
                         val factory = Callable<Multistream> {
@@ -145,9 +145,9 @@ open class CurrentMultistreamHolder(
 
     fun setupDefaultMethods(chain: Chain): CallMethods {
         val created = when (BlockchainType.from(chain)) {
-            BlockchainType.ETHEREUM -> DefaultEthereumMethods(chain)
+            BlockchainType.EVM_POW -> DefaultEthereumMethods(chain)
             BlockchainType.BITCOIN -> DefaultBitcoinMethods()
-            BlockchainType.ETHEREUM_POS -> DefaultEthereumMethods(chain)
+            BlockchainType.EVM_POS -> DefaultEthereumMethods(chain)
             else -> throw IllegalStateException("Unsupported chain: $chain")
         }
         callTargets[chain] = created
