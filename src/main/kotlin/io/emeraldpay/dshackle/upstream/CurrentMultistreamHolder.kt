@@ -17,39 +17,35 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.CachesEnabled
-import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.stereotype.Repository
+import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
-import java.util.Collections
-import java.util.concurrent.Callable
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import javax.annotation.PreDestroy
 import kotlin.concurrent.withLock
 
-@Repository
+@Component
 open class CurrentMultistreamHolder(
-    @Autowired private val cachesFactory: CachesFactory
+    private val multistreams: List<Multistream>
 ) : MultistreamHolder {
 
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
 
-    private val chainMapping = ConcurrentHashMap<Chain, Multistream>()
+    private val chainMapping = ConcurrentHashMap<Chain, Multistream>().apply {
+        multistreams.forEach { this[it.chain] = it }
+    }
     private val chainsBus = Sinks.many()
         .multicast()
         .directBestEffort<Chain>()
@@ -64,28 +60,22 @@ open class CurrentMultistreamHolder(
                 when (BlockchainType.from(chain)) {
                     BlockchainType.EVM_POW -> {
                         val up = change.upstream.cast(EthereumUpstream::class.java)
-                        val current = chainMapping[chain]
-                        val factory = Callable<Multistream> {
-                            EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
-                        }
-                        processUpdate(change, up, current, factory)
+                        val current = chainMapping.getValue(chain)
+                        processUpdate(change, up, current)
                     }
+
                     BlockchainType.EVM_POS -> {
                         val up = change.upstream.cast(EthereumPosUpstream::class.java)
-                        val current = chainMapping[chain]
-                        val factory = Callable<Multistream> {
-                            EthereumPosMultiStream(chain, ArrayList(), cachesFactory.getCaches(chain))
-                        }
-                        processUpdate(change, up, current, factory)
+                        val current = chainMapping.getValue(chain)
+                        processUpdate(change, up, current)
                     }
+
                     BlockchainType.BITCOIN -> {
                         val up = change.upstream.cast(BitcoinUpstream::class.java)
-                        val current = chainMapping[chain]
-                        val factory = Callable<Multistream> {
-                            BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
-                        }
-                        processUpdate(change, up, current, factory)
+                        val current = chainMapping.getValue(chain)
+                        processUpdate(change, up, current)
                     }
+
                     else -> {
                         log.error("Update for unsupported chain: $chain")
                     }
@@ -96,27 +86,17 @@ open class CurrentMultistreamHolder(
         }
     }
 
-    fun processUpdate(change: UpstreamChange, up: Upstream, current: Multistream?, factory: Callable<Multistream>) {
+    fun processUpdate(change: UpstreamChange, up: Upstream, current: Multistream) {
         val chain = change.chain
         if (change.type == UpstreamChange.ChangeType.REMOVED) {
-            current?.removeUpstream(up.getId())
+            current.removeUpstream(up.getId())
             log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
         } else {
-            if (current == null) {
-                val created = factory.call()
-                if (up is CachesEnabled) {
-                    up.setCaches(created.caches)
-                }
-                created.addUpstream(up)
-                created.start()
-                chainMapping[chain] = created
-                chainsBus.tryEmitNext(chain)
-            } else {
-                if (up is CachesEnabled) {
-                    up.setCaches(current.caches)
-                }
-                current.addUpstream(up)
+            if (up is CachesEnabled) {
+                up.setCaches(current.caches)
             }
+            current.addUpstream(up)
+
             if (!callTargets.containsKey(chain)) {
                 setupDefaultMethods(chain)
             }
@@ -129,7 +109,10 @@ open class CurrentMultistreamHolder(
     }
 
     override fun getAvailable(): List<Chain> {
-        return Collections.unmodifiableList(chainMapping.keys.toList())
+        return multistreams.asSequence()
+            .filter { it.isAvailable() }
+            .map { it.chain }
+            .toList()
     }
 
     override fun observeChains(): Flux<Chain> {

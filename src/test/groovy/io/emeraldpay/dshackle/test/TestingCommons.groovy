@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -88,6 +89,17 @@ class TestingCommons {
 
     static CachesFactory emptyCaches() {
         return new CachesFactory(new CacheConfig())
+    }
+
+    static List<Multistream> defaultMultistreams() {
+        return [
+                multistreamWithoutUpstreams(Chain.ETHEREUM),
+                multistreamWithoutUpstreams(Chain.ETHEREUM_CLASSIC)
+        ]
+    }
+
+    static Multistream multistreamWithoutUpstreams(Chain chain) {
+        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain))
     }
 
     static FileResolver fileResolver() {
