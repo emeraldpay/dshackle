@@ -21,13 +21,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.BlockValidator
-import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.HttpRpcFactory
-import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinZMQHead
@@ -50,19 +44,20 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.stereotype.Repository
+import org.springframework.context.ApplicationEventPublisher
+import org.springframework.stereotype.Component
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Function
 import javax.annotation.PostConstruct
 import kotlin.math.abs
 
-@Repository
+@Component
 open class ConfiguredUpstreams(
-    @Autowired private val currentUpstreams: CurrentMultistreamHolder,
-    @Autowired private val fileResolver: FileResolver,
-    @Autowired private val config: UpstreamsConfig
+    private val fileResolver: FileResolver,
+    private val config: UpstreamsConfig,
+    private val callTargets: CallTargetsHolder,
+    private val eventPublisher: ApplicationEventPublisher
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -115,7 +110,8 @@ open class ConfiguredUpstreams(
                     }
                 }
                 upstream?.let {
-                    currentUpstreams.update(UpstreamChange(chain, upstream, UpstreamChange.ChangeType.ADDED))
+                    val event = UpstreamChangeEvent(chain, upstream, UpstreamChangeEvent.ChangeType.ADDED)
+                    eventPublisher.publishEvent(event)
                 }
             }
         }
@@ -150,7 +146,7 @@ open class ConfiguredUpstreams(
     fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
         return if (config.methods != null) {
             ManagedCallMethods(
-                currentUpstreams.getDefaultMethods(chain),
+                callTargets.getDefaultMethods(chain),
                 config.methods!!.enabled.map { it.name }.toSet(),
                 config.methods!!.disabled.map { it.name }.toSet()
             ).also {
@@ -164,7 +160,7 @@ open class ConfiguredUpstreams(
                 }
             }
         } else {
-            currentUpstreams.getDefaultMethods(chain)
+            callTargets.getDefaultMethods(chain)
         }
     }
 
@@ -315,7 +311,7 @@ open class ConfiguredUpstreams(
             .doOnNext {
                 log.info("Chain ${it.chain} ${it.type} through gRPC at ${endpoint.host}:${endpoint.port}. With caps: ${it.upstream.getCapabilities()}")
             }
-            .subscribe(currentUpstreams::update)
+            .subscribe(eventPublisher::publishEvent)
     }
 
     private fun buildHttpFactory(conn: UpstreamsConfig.RpcConnection, urls: ArrayList<URI>? = null): HttpRpcFactory? {

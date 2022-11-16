@@ -4,21 +4,24 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
+import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.grpc.Chain
+import org.springframework.context.ApplicationEventPublisher
 import spock.lang.Specification
 
 class ConfiguredUpstreamsSpec extends Specification {
 
     def "Applied  quorum to extra methods"() {
         setup:
-        def currentUpstreams = Mock(CurrentMultistreamHolder) {
-            _ * getDefaultMethods(Chain.ETHEREUM) >> new DefaultEthereumMethods(Chain.ETHEREUM)
-        }
+        def callTargetsHolder = new CallTargetsHolder()
         def configurer = new ConfiguredUpstreams(
-                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig)
+                Stub(FileResolver),
+                Stub(UpstreamsConfig),
+                callTargetsHolder,
+                Mock(ApplicationEventPublisher)
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -38,11 +41,12 @@ class ConfiguredUpstreamsSpec extends Specification {
 
     def "Got static response from extra methods"() {
         setup:
-        def currentUpstreams = Mock(CurrentMultistreamHolder) {
-            _ * getDefaultMethods(Chain.ETHEREUM) >> new DefaultEthereumMethods(Chain.ETHEREUM)
-        }
+        def callTargetsHolder = new CallTargetsHolder()
         def configurer = new ConfiguredUpstreams(
-                currentUpstreams, Stub(FileResolver), Stub(UpstreamsConfig)
+                Stub(FileResolver),
+                Stub(UpstreamsConfig),
+                callTargetsHolder,
+                Mock(ApplicationEventPublisher)
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -61,7 +65,12 @@ class ConfiguredUpstreamsSpec extends Specification {
 
     def "Calculate node-id"() {
         setup:
-        def configurer = new ConfiguredUpstreams(Stub(CurrentMultistreamHolder), Stub(FileResolver), Stub(UpstreamsConfig)
+        def callTargetsHolder = new CallTargetsHolder()
+        def configurer = new ConfiguredUpstreams(
+                Stub(FileResolver),
+                Stub(UpstreamsConfig),
+                callTargetsHolder,
+                Mock(ApplicationEventPublisher)
         )
         expect:
         configurer.getHash(node, src) == expected
@@ -75,7 +84,12 @@ class ConfiguredUpstreamsSpec extends Specification {
 
     def "Calculate node-id conflicting results"() {
         setup:
-        def configurer = new ConfiguredUpstreams(Stub(CurrentMultistreamHolder), Stub(FileResolver), Stub(UpstreamsConfig)
+        def callTargetsHolder = new CallTargetsHolder()
+        def configurer = new ConfiguredUpstreams(
+                Stub(FileResolver),
+                Stub(UpstreamsConfig),
+                callTargetsHolder,
+                Mock(ApplicationEventPublisher)
         )
         when:
         def h1 = configurer.getHash(null, "hohoho")

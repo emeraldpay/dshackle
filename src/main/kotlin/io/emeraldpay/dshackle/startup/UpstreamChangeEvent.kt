@@ -24,7 +24,7 @@ import io.emeraldpay.grpc.Chain
 /**
  * An update event to the list of currently available upstreams.
  */
-class UpstreamChange(
+class UpstreamChangeEvent(
     /**
      * Target blockchain
      */

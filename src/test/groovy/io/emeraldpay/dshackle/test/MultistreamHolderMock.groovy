@@ -50,7 +50,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                 if (up instanceof EthereumPosMultiStream) {
                     upstreams[chain] = up
                 } else if (up instanceof EthereumPosRpcUpstream) {
-                    upstreams[chain] = new EthereumPosMultiStream(chain, [up as EthereumPosRpcUpstream], Caches.default())
+                    upstreams[chain] = new EthereumPosMultiStream(chain, [up as EthereumPosRpcUpstream], Caches.default(), TestingCommons.callTargetsHolder)
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -59,7 +59,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                 if (up instanceof BitcoinMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof BitcoinRpcUpstream) {
-                    upstreams[chain] = new BitcoinMultistream(chain, [up as BitcoinRpcUpstream], Caches.default())
+                    upstreams[chain] = new BitcoinMultistream(chain, [up as BitcoinRpcUpstream], Caches.default(), TestingCommons.callTargetsHolder)
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -87,15 +87,6 @@ class MultistreamHolderMock implements MultistreamHolder {
     }
 
     @Override
-    DefaultEthereumMethods getDefaultMethods(@NotNull Chain chain) {
-        if (target[chain] == null) {
-            DefaultEthereumMethods targets = new DefaultEthereumMethods(chain)
-            target[chain] = targets
-        }
-        return target[chain]
-    }
-
-    @Override
     boolean isAvailable(@NotNull Chain chain) {
         return upstreams.containsKey(chain)
     }
@@ -107,7 +98,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         Head customHead = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches)
+            super(chain, upstreams, caches, TestingCommons.callTargetsHolder)
         }
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams) {

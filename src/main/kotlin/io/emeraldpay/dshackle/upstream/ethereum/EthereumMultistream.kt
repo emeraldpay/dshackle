@@ -20,13 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ChainFees
-import io.emeraldpay.dshackle.upstream.EmptyHead
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -42,8 +36,9 @@ import reactor.core.publisher.Mono
 open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
-    caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
+    caches: Caches,
+    callTargetsHolder: CallTargetsHolder
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches), callTargetsHolder), EthereumLikeMultistream {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)

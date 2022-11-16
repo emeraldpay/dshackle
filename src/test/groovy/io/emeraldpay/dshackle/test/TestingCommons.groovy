@@ -24,8 +24,10 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -78,7 +80,7 @@ class TestingCommons {
     }
 
     static Multistream multistream(EthereumPosRpcUpstreamMock up) {
-        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default()).tap {
+        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default(), callTargetsHolder).tap {
             start()
         }
     }
@@ -94,12 +96,16 @@ class TestingCommons {
     static List<Multistream> defaultMultistreams() {
         return [
                 multistreamWithoutUpstreams(Chain.ETHEREUM),
-                multistreamWithoutUpstreams(Chain.ETHEREUM_CLASSIC)
+                multistreamClassicWithoutUpstreams(Chain.ETHEREUM_CLASSIC)
         ]
     }
 
     static Multistream multistreamWithoutUpstreams(Chain chain) {
-        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain))
+        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain), callTargetsHolder)
+    }
+
+    static Multistream multistreamClassicWithoutUpstreams(Chain chain) {
+        return new EthereumMultistream(chain, [], emptyCaches().getCaches(chain), callTargetsHolder)
     }
 
     static FileResolver fileResolver() {
@@ -138,4 +144,6 @@ class TestingCommons {
     }
 
     static MeterRegistry meterRegistry = new LoggingMeterRegistry()
+
+    static CallTargetsHolder callTargetsHolder = new CallTargetsHolder()
 }

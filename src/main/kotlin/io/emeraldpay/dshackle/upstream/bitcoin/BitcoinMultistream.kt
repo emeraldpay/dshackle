@@ -18,14 +18,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ChainFees
-import io.emeraldpay.dshackle.upstream.EmptyHead
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.RequestPostprocessor
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -39,8 +32,9 @@ import reactor.core.publisher.Mono
 open class BitcoinMultistream(
     chain: Chain,
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
-    caches: Caches
-) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
+    caches: Caches,
+    callTargetsHolder: CallTargetsHolder
+) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty(), callTargetsHolder), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)

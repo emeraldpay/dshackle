@@ -16,15 +16,6 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.cache.CachesEnabled
-import io.emeraldpay.dshackle.startup.UpstreamChange
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
-import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
-import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -49,60 +40,7 @@ open class CurrentMultistreamHolder(
     private val chainsBus = Sinks.many()
         .multicast()
         .directBestEffort<Chain>()
-    private val callTargets = HashMap<Chain, CallMethods>()
     private val updateLock = ReentrantLock()
-
-    fun update(change: UpstreamChange) {
-        updateLock.withLock {
-            log.debug("Upstream update: ${change.type} ${change.chain} via ${change.upstream.getId()}")
-            val chain = change.chain
-            try {
-                when (BlockchainType.from(chain)) {
-                    BlockchainType.EVM_POW -> {
-                        val up = change.upstream.cast(EthereumUpstream::class.java)
-                        val current = chainMapping.getValue(chain)
-                        processUpdate(change, up, current)
-                    }
-
-                    BlockchainType.EVM_POS -> {
-                        val up = change.upstream.cast(EthereumPosUpstream::class.java)
-                        val current = chainMapping.getValue(chain)
-                        processUpdate(change, up, current)
-                    }
-
-                    BlockchainType.BITCOIN -> {
-                        val up = change.upstream.cast(BitcoinUpstream::class.java)
-                        val current = chainMapping.getValue(chain)
-                        processUpdate(change, up, current)
-                    }
-
-                    else -> {
-                        log.error("Update for unsupported chain: $chain")
-                    }
-                }
-            } catch (e: Throwable) {
-                log.error("Failed to update upstream", e)
-            }
-        }
-    }
-
-    fun processUpdate(change: UpstreamChange, up: Upstream, current: Multistream) {
-        val chain = change.chain
-        if (change.type == UpstreamChange.ChangeType.REMOVED) {
-            current.removeUpstream(up.getId())
-            log.info("Upstream ${change.upstream.getId()} with chain $chain has been removed")
-        } else {
-            if (up is CachesEnabled) {
-                up.setCaches(current.caches)
-            }
-            current.addUpstream(up)
-
-            if (!callTargets.containsKey(chain)) {
-                setupDefaultMethods(chain)
-            }
-            log.info("Upstream ${change.upstream.getId()} with chain $chain has been added")
-        }
-    }
 
     override fun getUpstream(chain: Chain): Multistream? {
         return chainMapping[chain]
@@ -122,23 +60,8 @@ open class CurrentMultistreamHolder(
         )
     }
 
-    override fun getDefaultMethods(chain: Chain): CallMethods {
-        return callTargets[chain] ?: return setupDefaultMethods(chain)
-    }
-
-    fun setupDefaultMethods(chain: Chain): CallMethods {
-        val created = when (BlockchainType.from(chain)) {
-            BlockchainType.EVM_POW -> DefaultEthereumMethods(chain)
-            BlockchainType.BITCOIN -> DefaultBitcoinMethods()
-            BlockchainType.EVM_POS -> DefaultEthereumMethods(chain)
-            else -> throw IllegalStateException("Unsupported chain: $chain")
-        }
-        callTargets[chain] = created
-        return created
-    }
-
     override fun isAvailable(chain: Chain): Boolean {
-        return chainMapping.containsKey(chain) && callTargets.containsKey(chain)
+        return chainMapping.getValue(chain).isAvailable()
     }
 
     @PreDestroy

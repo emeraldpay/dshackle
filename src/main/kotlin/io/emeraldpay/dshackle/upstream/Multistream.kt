@@ -17,8 +17,10 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -30,6 +32,7 @@ import org.apache.commons.collections4.Factory
 import org.apache.commons.collections4.FunctorException
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import org.springframework.context.event.EventListener
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -48,7 +51,8 @@ abstract class Multistream(
     val chain: Chain,
     private val upstreams: MutableList<Upstream>,
     val caches: Caches,
-    val postprocessor: RequestPostprocessor
+    val postprocessor: RequestPostprocessor,
+    val callTargetsHolder: CallTargetsHolder
 ) : Upstream, Lifecycle {
 
     companion object {
@@ -314,6 +318,23 @@ abstract class Multistream(
             .joinToString(", ") { it.getId() }
 
         log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=[$statuses], lag=[$lag], weak=[$weak]")
+    }
+
+    @EventListener
+    fun onUpstreamChange(event: UpstreamChangeEvent) {
+        val chain = event.chain
+        if (this.chain == chain) {
+            if (event.type == UpstreamChangeEvent.ChangeType.REMOVED) {
+                removeUpstream(event.upstream.getId())
+                log.info("Upstream ${event.upstream.getId()} with chain $chain has been removed")
+            } else {
+                if (event.upstream is CachesEnabled) {
+                    event.upstream.setCaches(caches)
+                }
+                addUpstream(event.upstream)
+                log.info("Upstream ${event.upstream.getId()} with chain $chain has been added")
+            }
+        }
     }
 
     // --------------------------------------------------------------------------------------------------------
