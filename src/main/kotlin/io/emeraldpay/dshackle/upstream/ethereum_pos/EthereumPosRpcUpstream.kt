@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -31,7 +32,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 
 open class EthereumPosRpcUpstream(
@@ -80,7 +80,7 @@ open class EthereumPosRpcUpstream(
     }
 
     override fun isRunning(): Boolean {
-        return connector.isRunning
+        return connector.isRunning()
     }
 
     override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {

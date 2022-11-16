@@ -50,7 +50,7 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
         def up2 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(), new DirectCallMethods(["eth_test2", "eth_test3"]))
-        def aggr = new EthereumPosMultiStream(Chain.ETHEREUM, [up1, up2], Caches.default(), TestingCommons.callTargetsHolder)
+        def aggr = new EthereumPosMultiStream(Chain.ETHEREUM, [up1, up2], Caches.default())
         when:
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()
@@ -206,7 +206,7 @@ class MultistreamSpec extends Specification {
         def up1 = TestingCommons.upstream("test-1", "internal")
         def up2 = TestingCommons.upstream("test-2", "external")
         def up3 = TestingCommons.upstream("test-3", "external")
-        def multistream = new EthereumPosMultiStream(Chain.ETHEREUM, [up1, up2, up3], Caches.default(), TestingCommons.callTargetsHolder)
+        def multistream = new EthereumPosMultiStream(Chain.ETHEREUM, [up1, up2, up3], Caches.default())
 
         expect:
         multistream.getHead(new Selector.LabelMatcher("provider", ["internal"])).is(up1.ethereumHeadMock)
@@ -345,7 +345,7 @@ class MultistreamSpec extends Specification {
     class TestMultistream extends Multistream {
 
         TestMultistream(List<Upstream> upstreams, @NotNull RequestPostprocessor postprocessor) {
-            super(Chain.ETHEREUM, upstreams, Caches.default(), postprocessor, TestingCommons.callTargetsHolder)
+            super(Chain.ETHEREUM, upstreams, Caches.default(), postprocessor)
         }
 
         @Override
@@ -386,7 +386,7 @@ class MultistreamSpec extends Specification {
     class TestEthereumPosMultistream extends EthereumPosMultiStream {
 
         TestEthereumPosMultistream(@NotNull Chain chain, @NotNull List<EthereumPosUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches, TestingCommons.callTargetsHolder)
+            super(chain, upstreams, caches)
         }
 
         @Override

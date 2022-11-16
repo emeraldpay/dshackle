@@ -29,7 +29,6 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -80,7 +79,7 @@ class TestingCommons {
     }
 
     static Multistream multistream(EthereumPosRpcUpstreamMock up) {
-        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default(), callTargetsHolder).tap {
+        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default()).tap {
             start()
         }
     }
@@ -101,11 +100,11 @@ class TestingCommons {
     }
 
     static Multistream multistreamWithoutUpstreams(Chain chain) {
-        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain), callTargetsHolder)
+        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain))
     }
 
     static Multistream multistreamClassicWithoutUpstreams(Chain chain) {
-        return new EthereumMultistream(chain, [], emptyCaches().getCaches(chain), callTargetsHolder)
+        return new EthereumMultistream(chain, [], emptyCaches().getCaches(chain))
     }
 
     static FileResolver fileResolver() {

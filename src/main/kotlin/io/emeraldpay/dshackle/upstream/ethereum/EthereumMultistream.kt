@@ -21,13 +21,13 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -36,9 +36,8 @@ import reactor.core.publisher.Mono
 open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
-    caches: Caches,
-    callTargetsHolder: CallTargetsHolder
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches), callTargetsHolder), EthereumLikeMultistream {
+    caches: Caches
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
@@ -80,7 +79,7 @@ open class EthereumMultistream(
     }
 
     override fun isRunning(): Boolean {
-        return super.isRunning() || reader.isRunning
+        return super.isRunning() || reader.isRunning()
     }
 
     override fun getReader(): EthereumReader {

@@ -20,12 +20,10 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.ResourceBanner
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.context.annotation.Import
 import org.springframework.core.io.ClassPathResource
 import org.springframework.core.io.support.ResourcePropertySource
 
 @SpringBootApplication(scanBasePackages = ["io.emeraldpay.dshackle"])
-@Import(Config::class)
 open class Starter
 
 private val log = LoggerFactory.getLogger(Starter::class.java)

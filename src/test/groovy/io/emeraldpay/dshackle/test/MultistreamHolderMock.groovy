@@ -50,7 +50,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                 if (up instanceof EthereumPosMultiStream) {
                     upstreams[chain] = up
                 } else if (up instanceof EthereumPosRpcUpstream) {
-                    upstreams[chain] = new EthereumPosMultiStream(chain, [up as EthereumPosRpcUpstream], Caches.default(), TestingCommons.callTargetsHolder)
+                    upstreams[chain] = new EthereumPosMultiStream(chain, [up as EthereumPosRpcUpstream], Caches.default())
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -59,7 +59,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                 if (up instanceof BitcoinMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof BitcoinRpcUpstream) {
-                    upstreams[chain] = new BitcoinMultistream(chain, [up as BitcoinRpcUpstream], Caches.default(), TestingCommons.callTargetsHolder)
+                    upstreams[chain] = new BitcoinMultistream(chain, [up as BitcoinRpcUpstream], Caches.default())
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -82,11 +82,6 @@ class MultistreamHolderMock implements MultistreamHolder {
     }
 
     @Override
-    Flux<Chain> observeChains() {
-        return Flux.fromIterable(getAvailable())
-    }
-
-    @Override
     boolean isAvailable(@NotNull Chain chain) {
         return upstreams.containsKey(chain)
     }
@@ -98,7 +93,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         Head customHead = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches, TestingCommons.callTargetsHolder)
+            super(chain, upstreams, caches)
         }
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams) {

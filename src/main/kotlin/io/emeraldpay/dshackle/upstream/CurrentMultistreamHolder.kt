@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -37,9 +36,6 @@ open class CurrentMultistreamHolder(
     private val chainMapping = ConcurrentHashMap<Chain, Multistream>().apply {
         multistreams.forEach { this[it.chain] = it }
     }
-    private val chainsBus = Sinks.many()
-        .multicast()
-        .directBestEffort<Chain>()
     private val updateLock = ReentrantLock()
 
     override fun getUpstream(chain: Chain): Multistream? {
@@ -51,13 +47,6 @@ open class CurrentMultistreamHolder(
             .filter { it.isAvailable() }
             .map { it.chain }
             .toList()
-    }
-
-    override fun observeChains(): Flux<Chain> {
-        return Flux.concat(
-            Flux.fromIterable(getAvailable()),
-            chainsBus.asFlux()
-        )
     }
 
     override fun isAvailable(chain: Chain): Boolean {

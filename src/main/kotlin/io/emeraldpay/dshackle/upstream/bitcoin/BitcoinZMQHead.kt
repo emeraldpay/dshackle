@@ -5,12 +5,12 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.apache.commons.codec.binary.Hex
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -65,6 +65,6 @@ class BitcoinZMQHead(
     }
 
     override fun isRunning(): Boolean {
-        return server.isRunning || refreshSubscription != null
+        return server.isRunning() || refreshSubscription != null
     }
 }

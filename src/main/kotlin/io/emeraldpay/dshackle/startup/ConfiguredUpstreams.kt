@@ -44,12 +44,13 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
+import org.springframework.boot.ApplicationArguments
+import org.springframework.boot.ApplicationRunner
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Function
-import javax.annotation.PostConstruct
 import kotlin.math.abs
 
 @Component
@@ -58,15 +59,14 @@ open class ConfiguredUpstreams(
     private val config: UpstreamsConfig,
     private val callTargets: CallTargetsHolder,
     private val eventPublisher: ApplicationEventPublisher
-) {
+) : ApplicationRunner {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
     private var seq = AtomicInteger(0)
 
     private val hashes: MutableMap<Byte, Boolean> = HashMap()
 
-    @PostConstruct
-    fun start() {
+    override fun run(args: ApplicationArguments) {
         log.debug("Starting upstreams")
         val defaultOptions = buildDefaultOptions(config)
         config.upstreams.forEach { up ->
@@ -111,6 +111,7 @@ open class ConfiguredUpstreams(
                 }
                 upstream?.let {
                     val event = UpstreamChangeEvent(chain, upstream, UpstreamChangeEvent.ChangeType.ADDED)
+                    log.error("first !!!! Upstream ${event.upstream.getId()} with chain $chain has been added")
                     eventPublisher.publishEvent(event)
                 }
             }

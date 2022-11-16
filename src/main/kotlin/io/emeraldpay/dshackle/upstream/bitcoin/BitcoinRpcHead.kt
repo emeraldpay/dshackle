@@ -19,11 +19,11 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux

@@ -19,22 +19,21 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
 open class BitcoinMultistream(
     chain: Chain,
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
-    caches: Caches,
-    callTargetsHolder: CallTargetsHolder
-) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty(), callTargetsHolder), Lifecycle {
+    caches: Caches
+) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
@@ -136,7 +135,7 @@ open class BitcoinMultistream(
     }
 
     override fun isRunning(): Boolean {
-        return super.isRunning() || reader.isRunning
+        return super.isRunning() || reader.isRunning()
     }
 
     override fun start() {

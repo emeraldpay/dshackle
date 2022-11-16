@@ -17,7 +17,6 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.grpc.Chain
-import reactor.core.publisher.Flux
 
 /**
  * Holds Multistreams configured for a chain.
@@ -25,6 +24,5 @@ import reactor.core.publisher.Flux
 interface MultistreamHolder {
     fun getUpstream(chain: Chain): Multistream?
     fun getAvailable(): List<Chain>
-    fun observeChains(): Flux<Chain>
     fun isAvailable(chain: Chain): Boolean
 }

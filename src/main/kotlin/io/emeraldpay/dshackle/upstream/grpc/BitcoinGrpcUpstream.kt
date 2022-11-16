@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -37,7 +38,6 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
