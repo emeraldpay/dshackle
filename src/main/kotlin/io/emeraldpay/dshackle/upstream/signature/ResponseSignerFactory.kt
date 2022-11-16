@@ -37,7 +37,7 @@ open class ResponseSignerFactory(
     private fun readKey(algorithm: SignatureConfig.Algorithm, pem: PemObject): Pair<ECPrivateKey, Long> {
         val keyFactory = KeyFactory.getInstance("EC")
         val key = when (algorithm) {
-            SignatureConfig.Algorithm.SECP256K1, SignatureConfig.Algorithm.NIST_P256 -> {
+            SignatureConfig.Algorithm.NIST_P256 -> {
                 val keySpec = PKCS8EncodedKeySpec(pem.content)
                 keyFactory.generatePrivate(keySpec)
             }
@@ -45,10 +45,6 @@ open class ResponseSignerFactory(
 
         if (key !is ECPrivateKey) {
             throw IllegalStateException("Only EC keys are allowed")
-        }
-
-        if (algorithm == SignatureConfig.Algorithm.SECP256K1 && key.params.toString().indexOf(SignatureConfig.Algorithm.SECP256K1.getCurveName()) < 0) {
-            throw IllegalStateException("Key is not SECP256K1, generate SECP256K1 or use another algorithm")
         }
 
         if (algorithm == SignatureConfig.Algorithm.NIST_P256 && key.params.toString().indexOf(SignatureConfig.Algorithm.NIST_P256.getCurveName()) < 0) {

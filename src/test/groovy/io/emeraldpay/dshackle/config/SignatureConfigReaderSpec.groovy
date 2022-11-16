@@ -16,7 +16,7 @@ class SignatureConfigReaderSpec extends Specification {
         setup:
         def config = "signed-response:\n" +
                 "  enabled: true\n" +
-                "  algorithm: SECP256K1\n" +
+                "  algorithm: NIST_P256\n" +
                 "  private-key: /root/key.pem\n"
 
         when:
@@ -26,7 +26,7 @@ class SignatureConfigReaderSpec extends Specification {
         then:
         act.enabled
         act.privateKey == "/root/key.pem"
-        act.algorithm == SignatureConfig.Algorithm.SECP256K1
+        act.algorithm == SignatureConfig.Algorithm.NIST_P256
     }
 
     def "No path when disabled"() {

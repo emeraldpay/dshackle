@@ -26,6 +26,7 @@ import spock.lang.Specification
 import sun.security.x509.X509CertImpl
 
 import java.security.Security
+import java.security.cert.X509Certificate
 
 class TlsSetupSpec extends Specification {
 
@@ -66,8 +67,8 @@ class TlsSetupSpec extends Specification {
         !act.client
         with((OpenSslServerContext) act) {
             clientAuth == ClientAuth.NONE
-            with((X509CertImpl) keyCertChain[0]) {
-                getIssuerDN().name == "CN=ca.myhost.dev, OU=Blockchain CA, O=My Company"
+            with((X509Certificate) keyCertChain[0]) {
+                getIssuerX500Principal().name == "CN=ca.myhost.dev,OU=Blockchain CA,O=My Company"
             }
         }
     }
@@ -90,8 +91,8 @@ class TlsSetupSpec extends Specification {
 
         with((OpenSslServerContext) act) {
             clientAuth == ClientAuth.REQUIRE
-            with((X509CertImpl) keyCertChain[0]) {
-                getIssuerDN().name == "CN=ca.myhost.dev, OU=Blockchain CA, O=My Company"
+            with((X509Certificate) keyCertChain[0]) {
+                getIssuerX500Principal().name == "CN=ca.myhost.dev,OU=Blockchain CA,O=My Company"
             }
         }
     }
