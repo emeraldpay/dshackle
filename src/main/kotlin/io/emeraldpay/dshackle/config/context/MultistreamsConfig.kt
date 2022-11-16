@@ -12,13 +12,14 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class MultistreamsConfig {
+open class MultistreamsConfig {
     @Bean
-    fun allMultistreams(
+    open fun allMultistreams(
         cachesFactory: CachesFactory,
         callTargetsHolder: CallTargetsHolder
     ): List<Multistream> {
         return Chain.values()
+            .filterNot { it == Chain.UNSPECIFIED }
             .mapNotNull { chain ->
                 when (BlockchainType.from(chain)) {
                     BlockchainType.EVM_POS -> EthereumPosMultiStream(
