@@ -16,23 +16,17 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 class WsConnectionImplSpec extends Specification {
 
@@ -58,7 +52,7 @@ class WsConnectionImplSpec extends Specification {
                     it.id.asNumber() == 15L && Global.objectMapper.readValue(it.result, TransactionJson) == tx
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(5))
+                .verify(Duration.ofSeconds(1))
     }
 
     def "Makes a RPC call - return null"() {
@@ -81,7 +75,7 @@ class WsConnectionImplSpec extends Specification {
                             it.resultAsRawString == 'null'
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(5))
+                .verify(Duration.ofSeconds(1))
     }
 
     def "Makes a RPC call - return error"() {
@@ -106,6 +100,6 @@ class WsConnectionImplSpec extends Specification {
                             it.error.code == RpcResponseError.CODE_METHOD_NOT_EXIST && it.error.message == "test"
                 }
                 .expectComplete()
-                .verify(Duration.ofSeconds(5))
+                .verify(Duration.ofSeconds(1))
     }
 }
