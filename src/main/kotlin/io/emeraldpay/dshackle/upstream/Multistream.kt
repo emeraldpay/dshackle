@@ -324,6 +324,10 @@ abstract class Multistream(
         log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=[$statuses], lag=[$lag], weak=[$weak]")
     }
 
+    fun test(event: UpstreamChangeEvent): Boolean {
+        return event.chain == this.chain
+    }
+
     @EventListener
     @Order(Ordered.HIGHEST_PRECEDENCE)
     fun onUpstreamChange(event: UpstreamChangeEvent) {

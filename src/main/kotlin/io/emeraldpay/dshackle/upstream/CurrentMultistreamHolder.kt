@@ -19,31 +19,23 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import reactor.core.publisher.Sinks
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.locks.ReentrantLock
 import javax.annotation.PreDestroy
-import kotlin.concurrent.withLock
 
 @Component
 open class CurrentMultistreamHolder(
-    private val multistreams: List<Multistream>
+    multistreams: List<Multistream>
 ) : MultistreamHolder {
 
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
 
-    private val chainMapping = ConcurrentHashMap<Chain, Multistream>().apply {
-        multistreams.forEach { this[it.chain] = it }
-    }
-    private val updateLock = ReentrantLock()
+    private val chainMapping = multistreams.associateBy { it.chain }
 
     override fun getUpstream(chain: Chain): Multistream? {
         return chainMapping[chain]
     }
 
     override fun getAvailable(): List<Chain> {
-        return multistreams.asSequence()
+        return chainMapping.values.asSequence()
             .filter { it.isAvailable() }
             .map { it.chain }
             .toList()
@@ -56,11 +48,8 @@ open class CurrentMultistreamHolder(
     @PreDestroy
     fun shutdown() {
         log.info("Closing upstream connections...")
-        updateLock.withLock {
-            chainMapping.values.forEach {
-                it.stop()
-            }
-            chainMapping.clear()
+        chainMapping.values.forEach {
+            it.stop()
         }
     }
 }
