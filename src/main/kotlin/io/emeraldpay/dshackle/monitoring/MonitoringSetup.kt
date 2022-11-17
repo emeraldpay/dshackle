@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import java.io.IOException
+import java.net.BindException
 import java.net.InetSocketAddress
 import javax.annotation.PostConstruct
 
@@ -90,7 +91,11 @@ class MonitoringSetup(
                 }
                 Thread(server::start).start()
             } catch (e: IOException) {
-                log.error("Failed to start Prometheus Server", e)
+                if (e is BindException) {
+                    log.error("Failed to start Prometheus Server: ${e.message}")
+                } else {
+                    log.error("Failed to start Prometheus Server", e)
+                }
             }
         }
     }
