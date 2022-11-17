@@ -86,7 +86,7 @@ class DefaultEthereumMethods(
         "eth_chainId"
     )
 
-    override fun getQuorumFor(method: String): CallQuorum {
+    override fun createQuorumFor(method: String): CallQuorum {
         return when {
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             firstValueMethods.contains(method) -> AlwaysQuorum()

@@ -1,7 +1,6 @@
 package io.emeraldpay.dshackle.startup
 
 import io.emeraldpay.dshackle.FileResolver
-import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.monitoring.ingresslog.CurrentIngressLogWriter
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
@@ -34,7 +33,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def act = configurer.buildMethods(upstream, Chain.ETHEREUM)
         then:
         act instanceof ManagedCallMethods
-        act.getQuorumFor("foo_bar") instanceof NonEmptyQuorum
+        act.createQuorumFor("foo_bar") instanceof NonEmptyQuorum
     }
 
     def "Got static response from extra methods"() {

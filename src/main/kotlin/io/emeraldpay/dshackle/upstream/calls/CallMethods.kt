@@ -24,9 +24,11 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
 interface CallMethods {
 
     /**
+     * For a stateful CallQuorum it _MUST CREATE_ a new instance of each time to avoid using a shared state between different requests
+     *
      * @return CallQuorum configured for the specified method
      */
-    fun getQuorumFor(method: String): CallQuorum
+    fun createQuorumFor(method: String): CallQuorum
 
     /**
      * Check if the method can be called on an upstream. Doesn't include Hardcoded methods
