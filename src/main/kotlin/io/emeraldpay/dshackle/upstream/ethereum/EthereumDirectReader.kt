@@ -170,7 +170,7 @@ class EthereumDirectReader(
         return quorumReaderFactory
             .create(
                 up.getApiSource(selector),
-                callMethodsFactory.create().getQuorumFor(request.method),
+                callMethodsFactory.create().createQuorumFor(request.method),
                 // we do not use Signer for internal requests because it doesn't make much sense
                 null
             )

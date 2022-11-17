@@ -28,7 +28,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
-import reactor.core.publisher.Mono
 import spock.lang.Specification
 
 import java.time.Duration
@@ -48,9 +47,9 @@ class MultistreamSpec extends Specification {
         act.isCallable("eth_test1")
         act.isCallable("eth_test2")
         act.isCallable("eth_test3")
-        act.getQuorumFor("eth_test1") instanceof AlwaysQuorum
-        act.getQuorumFor("eth_test2") instanceof AlwaysQuorum
-        act.getQuorumFor("eth_test3") instanceof AlwaysQuorum
+        act.createQuorumFor("eth_test1") instanceof AlwaysQuorum
+        act.createQuorumFor("eth_test2") instanceof AlwaysQuorum
+        act.createQuorumFor("eth_test3") instanceof AlwaysQuorum
     }
 
     def "Filter Best Status accepts any input when none available "() {

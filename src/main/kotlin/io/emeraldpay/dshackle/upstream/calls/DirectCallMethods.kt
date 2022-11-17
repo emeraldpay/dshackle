@@ -28,7 +28,7 @@ open class DirectCallMethods(private val methods: Set<String>) : CallMethods {
     constructor() : this(emptySet())
     constructor(methods: Collection<String>) : this(methods.toSet())
 
-    override fun getQuorumFor(method: String): CallQuorum {
+    override fun createQuorumFor(method: String): CallQuorum {
         return AlwaysQuorum()
     }
 

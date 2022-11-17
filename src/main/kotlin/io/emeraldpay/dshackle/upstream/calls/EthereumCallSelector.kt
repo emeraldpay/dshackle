@@ -41,7 +41,7 @@ class EthereumCallSelector(
             "eth_getBalance",
             "eth_getCode",
             "eth_getTransactionCount",
-            // no "eth_getStorageAt" because it's has different structure, and therefore separate logic
+            // no "eth_getStorageAt" because it has different structure, and therefore separate logic
             "eth_call"
         ).sorted()
     }
