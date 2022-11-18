@@ -67,8 +67,14 @@ open class GrpcServer(
         val server = serverBuilder.build()
         this.server = server
 
-        Thread { server.start() }.run()
-        log.info("GRPC Server started")
+        Thread {
+            try {
+                server.start()
+                log.info("GRPC Server started")
+            } catch (e: java.io.IOException) {
+                log.error("Unable to start gRPC server at ${mainConfig.host}:${mainConfig.port}: ${e.message}")
+            }
+        }.start()
     }
 
     @PreDestroy
