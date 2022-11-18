@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Import
 import org.springframework.core.io.ClassPathResource
 import org.springframework.core.io.support.ResourcePropertySource
+import reactor.core.publisher.Hooks
 
 @SpringBootApplication(scanBasePackages = ["io.emeraldpay.dshackle"])
 @Import(Config::class)
@@ -34,5 +35,14 @@ fun main(args: Array<String>) {
     val app = SpringApplication(Starter::class.java)
     app.setDefaultProperties(ResourcePropertySource("version.properties").source)
     app.setBanner(ResourceBanner(ClassPathResource("banner.txt")))
+
+    Hooks.onErrorDropped { t ->
+        if (t is SilentException) {
+            log.warn(t.message)
+        } else {
+            log.error("UNHANDLED ERROR. HOOK CALLED", t)
+        }
+    }
+
     app.run(*args)
 }

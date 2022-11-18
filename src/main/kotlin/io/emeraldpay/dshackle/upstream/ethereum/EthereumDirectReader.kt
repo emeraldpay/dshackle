@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -33,7 +34,6 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.time.Duration
-import java.util.concurrent.TimeoutException
 
 /**
  * Common reads from upstream, makes actual calls with applying quorum and retries
@@ -79,7 +79,7 @@ class EthereumDirectReader(
             override fun read(key: TransactionId): Mono<TxContainer> {
                 val request = JsonRpcRequest("eth_getTransactionByHash", listOf(key.toHex()))
                 return readWithQuorum(request)
-                    .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
+                    .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Tx not read $key")))
                     .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
                     .flatMap { txbytes ->
                         val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
@@ -101,7 +101,7 @@ class EthereumDirectReader(
                 val height = up.getHead().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
                 val request = JsonRpcRequest("eth_getBalance", listOf(key.toHex(), height))
                 return readWithQuorum(request)
-                    .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Balance not read $key")))
+                    .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Balance not read $key")))
                     .map {
                         val str = String(it)
                         // it's a json string, i.e. wrapped with quotes, ex. _"0x1234"_
@@ -121,7 +121,7 @@ class EthereumDirectReader(
             override fun read(key: TransactionId): Mono<ByteArray> {
                 val request = JsonRpcRequest("eth_getTransactionReceipt", listOf(key.toHex()))
                 return readWithQuorum(request)
-                    .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Receipt not read $key")))
+                    .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Receipt not read $key")))
                     .doOnNext { json ->
                         try {
                             // Caching needs some additional data (ex. Height) to make a decision on how long and where to cache
@@ -148,7 +148,7 @@ class EthereumDirectReader(
     @Suppress("UNCHECKED_CAST")
     private fun readBlock(request: JsonRpcRequest, id: String): Mono<BlockContainer> {
         return readWithQuorum(request)
-            .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))
+            .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Block not read $id")))
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
             .flatMap { blockbytes ->
                 val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>?

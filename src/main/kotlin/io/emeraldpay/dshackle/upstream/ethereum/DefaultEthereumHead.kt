@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.monitoring.record.IngressRecord
 import io.emeraldpay.dshackle.reader.JsonRpcReader
@@ -50,7 +51,7 @@ open class DefaultEthereumHead(
         val request = JsonRpcRequest("eth_blockNumber", emptyList())
         return api.read(request)
             .subscribeOn(EthereumRpcHead.scheduler)
-            .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
+            .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block number not received")))
             .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
             .contextWrite(Global.monitoring.ingress.withRequest(request))
             .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
@@ -73,7 +74,7 @@ open class DefaultEthereumHead(
                     val request = JsonRpcRequest("eth_getBlockByNumber", listOf(number.toHex(), false))
                     api.read(request)
                         .subscribeOn(EthereumRpcHead.scheduler)
-                        .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
+                        .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block data not received")))
                         .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
                         .contextWrite(Global.monitoring.ingress.withRequest(request))
                         .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
