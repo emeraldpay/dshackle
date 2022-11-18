@@ -30,4 +30,6 @@ open class SilentException(message: String) : Exception(message) {
     }
 
     class DataUnavailable(val code: String) : SilentException("Data is unavailable: $code")
+
+    class Timeout(message: String) : SilentException(message)
 }

@@ -19,6 +19,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc.ReactorBlockchainStub
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
@@ -46,7 +47,6 @@ import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
 import java.util.Locale
-import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
 class BitcoinGrpcUpstream(
@@ -93,11 +93,11 @@ class BitcoinGrpcUpstream(
         reader.read(JsonRpcRequest("getblock", listOf(existingBlock.hash.toHex())))
             .flatMap(JsonRpcResponse::requireResult)
             .map(extractBlock::extract)
-            .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
+            .timeout(timeout, Mono.error(SilentException.Timeout("Timeout from upstream")))
             .doOnError { t ->
                 setStatus(UpstreamAvailability.UNAVAILABLE)
                 val msg = "Failed to download block data for chain $chain on $parentId"
-                if (t is RpcException || t is TimeoutException) {
+                if (t is RpcException || t is SilentException.Timeout) {
                     log.warn("$msg. Message: ${t.message}")
                 } else {
                     log.error(msg, t)

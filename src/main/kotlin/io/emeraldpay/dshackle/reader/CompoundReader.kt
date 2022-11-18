@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.reader
 
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.SilentException
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -41,7 +42,13 @@ class CompoundReader<K, D>(
             .flatMap({ rdr ->
                 rdr.read(key)
                     .timeout(Defaults.timeoutInternal, Mono.empty())
-                    .doOnError { t -> log.warn("Failed to read from $rdr", t) }
+                    .doOnError { t ->
+                        if (t is SilentException) {
+                            log.warn("Failed to read from $rdr: ${t.message}")
+                        } else {
+                            log.warn("Failed to read from $rdr", t)
+                        }
+                    }
                     .onErrorResume { Mono.empty() }
             }, 1)
             .next()

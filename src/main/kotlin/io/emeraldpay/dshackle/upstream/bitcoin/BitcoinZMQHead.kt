@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
@@ -36,12 +37,12 @@ class BitcoinZMQHead(
             }
             .flatMap { hash ->
                 api.read(JsonRpcRequest("getblock", listOf(hash)))
-                    .switchIfEmpty(Mono.error(IllegalStateException("Block $hash is not available on upstream")))
+                    .switchIfEmpty(Mono.error(SilentException.DataUnavailable("block $hash")))
                     .retryWhen(Retry.backoff(5, Duration.ofMillis(100)))
                     .switchIfEmpty(Mono.fromCallable { log.warn("Block $hash is not available on upstream") }.then(Mono.empty()))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map(extractBlock::extract)
-                    .timeout(Defaults.timeout, Mono.error(Exception("Block data is not received")))
+                    .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block data is not received")))
             }
             .onErrorResume { t ->
                 log.warn("Failed to get a block from upstream with error: ${t.message}")

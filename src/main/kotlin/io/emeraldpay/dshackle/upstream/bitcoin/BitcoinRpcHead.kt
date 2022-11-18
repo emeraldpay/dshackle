@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
@@ -59,14 +60,14 @@ class BitcoinRpcHead(
             .flatMap {
                 api.read(JsonRpcRequest("getbestblockhash", emptyList()))
                     .flatMap(JsonRpcResponse::requireStringResult)
-                    .timeout(Defaults.timeout, Mono.error(Exception("Best block hash is not received")))
+                    .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Best block hash is not received")))
             }
             .distinctUntilChanged()
             .flatMap { hash ->
                 api.read(JsonRpcRequest("getblock", listOf(hash)))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map(extractBlock::extract)
-                    .timeout(Defaults.timeout, Mono.error(Exception("Block data is not received")))
+                    .timeout(Defaults.timeout, Mono.error(SilentException.Timeout("Block data is not received")))
             }
             .onErrorContinue { err, _ ->
                 log.debug("RPC error ${err.message}")

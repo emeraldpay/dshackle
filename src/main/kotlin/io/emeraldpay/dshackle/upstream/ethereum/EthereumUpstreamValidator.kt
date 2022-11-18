@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.monitoring.record.IngressRecord
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -32,7 +33,6 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.util.function.Tuple2
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeoutException
 
 open class EthereumUpstreamValidator(
     private val upstream: EthereumUpstream,
@@ -76,7 +76,7 @@ open class EthereumUpstreamValidator(
             .timeout(
                 Defaults.timeoutInternal,
                 Mono.fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for Syncing")))
+                    .then(Mono.error(SilentException.Timeout("Validation timeout for Syncing")))
             )
             .map { value ->
                 if (value.isSyncing) {
@@ -104,7 +104,7 @@ open class EthereumUpstreamValidator(
             .timeout(
                 Defaults.timeoutInternal,
                 Mono.fromCallable { log.warn("No response for net_peerCount from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for Peers")))
+                    .then(Mono.error(SilentException.Timeout("Validation timeout for Peers")))
             )
             .map { count ->
                 val minPeers = options.minPeers ?: 1
