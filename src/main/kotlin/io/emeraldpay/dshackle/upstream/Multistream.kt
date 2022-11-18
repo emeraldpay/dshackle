@@ -349,6 +349,9 @@ abstract class Multistream(
         }
     }
 
+    fun haveUpstreams(): Boolean =
+        upstreams.isNotEmpty()
+
     // --------------------------------------------------------------------------------------------------------
 
     class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())

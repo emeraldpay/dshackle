@@ -36,7 +36,7 @@ open class CurrentMultistreamHolder(
 
     override fun getAvailable(): List<Chain> {
         return chainMapping.values.asSequence()
-            .filter { it.isAvailable() }
+            .filter { it.haveUpstreams() }
             .map { it.chain }
             .toList()
     }
