@@ -111,7 +111,6 @@ open class ConfiguredUpstreams(
                 }
                 upstream?.let {
                     val event = UpstreamChangeEvent(chain, upstream, UpstreamChangeEvent.ChangeType.ADDED)
-                    log.error("first !!!! Upstream ${event.upstream.getId()} with chain $chain has been added")
                     eventPublisher.publishEvent(event)
                 }
             }
