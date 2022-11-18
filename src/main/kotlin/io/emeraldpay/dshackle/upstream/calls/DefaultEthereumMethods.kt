@@ -78,8 +78,6 @@ class DefaultEthereumMethods(
         "eth_uninstallFilter"
     )
 
-    private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods + filterMethods
-
     private val hardcodedMethods = listOf(
         "net_version",
         "net_peerCount",
@@ -94,9 +92,29 @@ class DefaultEthereumMethods(
         "eth_chainId"
     )
 
+    private val bscFilterMethods = listOf(
+        "shh_newFilter",
+        "shh_uninstallFilter",
+        "shh_getFilterChanges",
+        "shh_getMessages",
+    )
+
+    private val allowedMethods: List<String>
+
+    init {
+        allowedMethods = anyResponseMethods +
+                firstValueMethods +
+                specialMethods +
+                headVerifiedMethods +
+                filterMethods -
+                chainUnsupportedMethods(chain) +
+                getChainSpecificMethods(chain)
+    }
+
+
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
-            filterMethods.contains(method) -> AlwaysQuorum()
+            filterMethods.contains(method) -> NotLaggingQuorum(1)
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
@@ -110,8 +128,57 @@ class DefaultEthereumMethods(
                     else -> AlwaysQuorum()
                 }
             }
+
+            getChainSpecificMethods(chain).contains(method) -> {
+                if (bscFilterMethods.contains(method)) {
+                    NotLaggingQuorum(1)
+                } else {
+                    when (method) {
+                        "eth_getBlockRange" -> NotLaggingQuorum(1)
+                        "bor_getAuthor" -> NotLaggingQuorum(0)
+                        "bor_getCurrentValidators" -> NotLaggingQuorum(0)
+                        "bor_getCurrentProposer" -> NotLaggingQuorum(0)
+                        "bor_getRootHash" -> NotLaggingQuorum(1)
+                        "eth_getRootHash" -> NotLaggingQuorum(1)
+                        "shh_hasIdentity" -> NotLaggingQuorum(1)
+                        else -> AlwaysQuorum()
+                    }
+                }
+            }
             else -> AlwaysQuorum()
         }
+    }
+
+    private fun getChainSpecificMethods(chain: Chain): List<String> {
+        return when (chain) {
+            Chain.OPTIMISM -> listOf(
+                "eth_getBlockRange",
+                "rollup_gasPrices"
+            )
+            Chain.POLYGON -> listOf(
+                "bor_getAuthor",
+                "bor_getCurrentValidators",
+                "bor_getCurrentProposer",
+                "bor_getRootHash",
+                "bor_getSignersAtHash",
+                "eth_getRootHash"
+            )
+            Chain.BSC -> bscFilterMethods + listOf(
+                "shh_post",
+                "shh_version",
+                "shh_newIdentity",
+                "shh_hasIdentity",
+                "shh_addToGroup",
+            )
+            else -> emptyList()
+        }
+    }
+
+    private fun chainUnsupportedMethods(chain: Chain): Set<String> {
+        if (chain == Chain.OPTIMISM) {
+            return setOf("eth_getAccounts", "eth_sendTransaction")
+        }
+        return emptySet()
     }
 
     override fun isCallable(method: String): Boolean {

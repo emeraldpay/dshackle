@@ -255,7 +255,14 @@ open class NativeCall(
     }
 
     private fun getRequestDecorator(method: String): RequestDecorator =
-        if (method == "eth_getFilterChanges" || method == "eth_uninstallFilter")
+        if (method in listOf(
+                "eth_getFilterChanges",
+                "eth_uninstallFilter",
+                "shh_getFilterChanges",
+                "shh_uninstallFilter",
+                "shh_getMessages"
+            )
+        )
             GetFilterUpdatesDecorator()
         else
             NoneRequestDecorator()
@@ -384,7 +391,8 @@ open class NativeCall(
             val createFilterMethods = listOf(
                 "eth_newFilter",
                 "eth_newBlockFilter",
-                "eth_newPendingTransactionFilter"
+                "eth_newPendingTransactionFilter",
+                "shh_newFilter",
             )
         }
         override fun processResult(result: QuorumRpcReader.Result): ByteArray {
