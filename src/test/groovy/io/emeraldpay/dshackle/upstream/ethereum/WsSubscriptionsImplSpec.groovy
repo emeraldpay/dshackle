@@ -20,8 +20,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsMessage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.Sinks
-import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
@@ -38,8 +36,11 @@ class WsSubscriptionsImplSpec extends Specification {
                 ]
         )
 
-        def conn = Mock(WsConnectionImpl)
-        def ws = new WsSubscriptionsImpl(conn)
+        def conn = Mock(WsConnection)
+        def pool = Mock(WsConnectionPool) {
+            _ * getConnection() >> conn
+        }
+        def ws = new WsSubscriptionsImpl(pool)
 
         when:
         def act = ws.subscribe("foo_bar")
@@ -70,8 +71,11 @@ class WsSubscriptionsImplSpec extends Specification {
                 ]
         )
 
-        def conn = Mock(WsConnectionImpl)
-        def ws = new WsSubscriptionsImpl(conn)
+        def conn = Mock(WsConnection)
+        def pool = Mock(WsConnectionPool) {
+            _ * getConnection() >> conn
+        }
+        def ws = new WsSubscriptionsImpl(pool)
 
         when:
         def act = ws.subscribe("foo_bar")

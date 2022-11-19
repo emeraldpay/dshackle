@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class WsSubscriptionsImpl(
-    val conn: WsConnectionImpl,
+    private val pool: WsConnectionPool,
 ) : WsSubscriptions {
 
     companion object {
@@ -35,6 +35,7 @@ class WsSubscriptionsImpl(
 
     override fun subscribe(method: String): Flux<ByteArray> {
         val subscriptionId = AtomicReference("")
+        val conn = pool.getConnection()
         val messages = conn.getSubscribeResponses()
             .filter { it.subscriptionId == subscriptionId.get() }
             .filter { it.result != null } // should never happen

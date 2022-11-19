@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
@@ -28,7 +27,7 @@ import io.micrometer.core.instrument.Timer
 import java.net.URI
 import java.util.function.Consumer
 
-class EthereumWsFactory(
+open class EthereumWsFactory(
     private val id: String,
     private val chain: Chain,
     private val uri: URI,
@@ -59,8 +58,9 @@ class EthereumWsFactory(
         )
     }
 
-    fun create(statusUpdates: Consumer<UpstreamAvailability>?): WsConnectionImpl {
-        return WsConnectionImpl(uri, origin, basicAuth, metrics, statusUpdates ?: Consumer {}).also { ws ->
+    open fun create(onConnectionChange: Consumer<WsConnection.ConnectionStatus>?): WsConnection {
+        return WsConnectionImpl(uri, origin, basicAuth, metrics).also { ws ->
+            ws.onConnectionChange(onConnectionChange)
             config?.frameSize?.let {
                 ws.frameSize = it
             }

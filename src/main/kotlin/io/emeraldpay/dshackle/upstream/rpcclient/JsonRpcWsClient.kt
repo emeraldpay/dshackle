@@ -16,25 +16,31 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.reader.JsonRpcReader
-import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionImpl
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import reactor.core.publisher.Mono
 
 class JsonRpcWsClient(
-    private val ws: WsConnectionImpl
+    private val pool: WsConnectionPool,
+    private val emptyOnNoConnection: Boolean = false
 ) : JsonRpcReader {
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
+        val ws = pool.getConnection()
         if (!ws.isConnected) {
-            return Mono.error(
-                JsonRpcException(
-                    JsonRpcResponse.NumberId(key.id),
-                    JsonRpcError(
-                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                        "WebSocket is not connected"
+            return if (emptyOnNoConnection) {
+                Mono.empty()
+            } else {
+                Mono.error(
+                    JsonRpcException(
+                        JsonRpcResponse.NumberId(key.id),
+                        JsonRpcError(
+                            RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                            "WebSocket is not connected"
+                        )
                     )
                 )
-            )
+            }
         }
         return ws.callRpc(key)
     }

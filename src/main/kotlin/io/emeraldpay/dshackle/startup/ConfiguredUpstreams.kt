@@ -41,6 +41,8 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionMultiPool
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionSinglePool
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
@@ -239,10 +241,16 @@ open class ConfiguredUpstreams(
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
 
         val httpApi: JsonRpcReader? = buildHttpClient(config)
-        val wsApi = wsFactoryApi?.create(null)
-        wsApi?.connect()
+        val wsPool = wsFactoryApi?.let { factory ->
+            val connection = config.connection?.ws?.connections ?: 1
+            if (connection > 1) {
+                WsConnectionMultiPool(factory, connection)
+            } else {
+                WsConnectionSinglePool(factory.create(null))
+            }
+        }
 
-        val ethereumUpstream: EthereumUpstream? = if (httpApi != null && wsApi != null) {
+        val ethereumUpstream: EthereumUpstream? = if (httpApi != null && wsPool != null) {
 
             if (conn.preferHttp) {
                 val directReader = httpApi.let {
@@ -250,7 +258,7 @@ open class ConfiguredUpstreams(
                 }
                 EthereumRpcUpstream(
                     id,
-                    chain, forkWatchFactory.create(chain), directReader, wsApi,
+                    chain, forkWatchFactory.create(chain), directReader, wsPool,
                     options, config.role,
                     QuorumForLabels.QuorumItem(1, config.labels),
                     methods
@@ -260,7 +268,7 @@ open class ConfiguredUpstreams(
                 // is too large for WebSockets Frame (and Geth is unable to split messages into separate frames)
                 // In this case the failed request must be rerouted to the HTTP connection, because otherwise it would always fail
                 val directReader = JsonRpcSwitchClient(
-                    JsonRpcWsClient(wsApi).let {
+                    JsonRpcWsClient(wsPool, emptyOnNoConnection = true).let {
                         currentIngressLogWriter.wrap(it, id, Channel.WSJSONRPC)
                     },
                     httpApi.let {
@@ -269,13 +277,13 @@ open class ConfiguredUpstreams(
                 )
                 EthereumWsUpstream(
                     id,
-                    chain, forkWatchFactory.create(chain), directReader, wsApi,
+                    chain, forkWatchFactory.create(chain), directReader, wsPool,
                     options, config.role,
                     QuorumForLabels.QuorumItem(1, config.labels),
                     methods
                 ).also { upstream ->
                     // pass WS connection status to the upstream itself
-                    wsApi.statusUpdates = Consumer(upstream::setStatus)
+                    wsPool.statusUpdates = Consumer(upstream::setStatus)
                 }
             }
         } else if (httpApi != null) {
@@ -289,13 +297,13 @@ open class ConfiguredUpstreams(
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods
             )
-        } else if (wsApi != null) {
-            val directReader = JsonRpcWsClient(wsApi).let {
+        } else if (wsPool != null) {
+            val directReader = JsonRpcWsClient(wsPool, emptyOnNoConnection = false).let {
                 currentIngressLogWriter.wrap(it, id, Channel.WSJSONRPC)
             }
             EthereumWsUpstream(
                 id,
-                chain, forkWatchFactory.create(chain), directReader, wsApi,
+                chain, forkWatchFactory.create(chain), directReader, wsPool,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods
@@ -309,6 +317,7 @@ open class ConfiguredUpstreams(
             return
         }
 
+        wsPool?.connect()
         ethereumUpstream.start()
         currentUpstreams.update(UpstreamChange(chain, ethereumUpstream, UpstreamChange.ChangeType.ADDED))
     }
