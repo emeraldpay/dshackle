@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import java.io.IOException
 
@@ -58,15 +59,18 @@ abstract class ResponseParser<T> {
         } catch (e: JsonParseException) {
             log.warn("Failed to parse JSON from upstream: ${e.message}")
         }
-        if (state.isReady) {
-            return state
-        }
-        return Preparsed(
-            error = JsonRpcError(
-                RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                "Invalid JSON structure: never finalized"
+        return if (state.isReady) {
+            state
+        } else {
+            log.debug("Failed to parse `${StringUtils.abbreviateMiddle(String(json), "...", 200)}` JSON")
+            state.copy(
+                result = null,
+                error = JsonRpcError(
+                    RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                    "Invalid JSON structure: never finalized"
+                )
             )
-        )
+        }
     }
 
     open fun process(parser: JsonParser, json: ByteArray, field: String, state: Preparsed): Preparsed {
