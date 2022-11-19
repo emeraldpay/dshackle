@@ -31,7 +31,8 @@ class WsConnectionImplRealSpec extends Specification {
         server = new MockWSServer(port)
         server.start()
         Thread.sleep(SLEEP)
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null)
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI())
+                .create(null) as WsConnectionImpl
     }
 
     def cleanup() {
@@ -96,12 +97,14 @@ class WsConnectionImplRealSpec extends Specification {
             .verify(Duration.ofSeconds(1))
     }
 
-    def "Gets UNAVAIL status right after disconnect"() {
+    def "Sets DISCONNECTED status right after disconnect"() {
         setup:
         def up = Mock(DefaultUpstream) {
             _ * getId() >> "test"
         }
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create({ up.setStatus(it)  })
+        WsConnection.ConnectionStatus result = null
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI())
+                .create({ result = it  }) as WsConnectionImpl
         when:
         conn.connect()
         conn.reconnectIntervalSeconds = 10
@@ -110,7 +113,7 @@ class WsConnectionImplRealSpec extends Specification {
         Thread.sleep(100)
 
         then:
-        1 * up.setStatus(UpstreamAvailability.UNAVAILABLE)
+        result == WsConnection.ConnectionStatus.DISCONNECTED
     }
 
     def "Try to connects to server until it's available"() {

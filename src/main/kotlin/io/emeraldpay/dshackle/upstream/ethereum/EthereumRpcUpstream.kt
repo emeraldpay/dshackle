@@ -23,7 +23,7 @@ open class EthereumRpcUpstream(
     val chain: Chain,
     forkWatch: ForkWatch,
     private val directReader: JsonRpcReader,
-    private val wsApi: WsConnectionImpl? = null,
+    private val wsPool: WsConnectionPool? = null,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     private val node: QuorumForLabels.QuorumItem,
@@ -90,8 +90,8 @@ open class EthereumRpcUpstream(
     }
 
     open fun createHead(): Head {
-        return if (wsApi != null) {
-            val subscriptions = WsSubscriptionsImpl(wsApi)
+        return if (wsPool != null) {
+            val subscriptions = WsSubscriptionsImpl(wsPool)
             val wsHead = EthereumWsHead(chain, getIngressReader(), subscriptions).apply {
                 start()
             }

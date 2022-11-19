@@ -34,7 +34,7 @@ class EthereumWsUpstream(
     val chain: Chain,
     forkWatch: ForkWatch,
     val directReader: JsonRpcReader,
-    val connection: WsConnectionImpl,
+    val pool: WsConnectionPool,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     node: QuorumForLabels.QuorumItem,
@@ -51,7 +51,7 @@ class EthereumWsUpstream(
     private var validatorSubscription: Disposable? = null
 
     init {
-        val wsSubscriptions = WsSubscriptionsImpl(connection)
+        val wsSubscriptions = WsSubscriptionsImpl(pool)
         head = EthereumWsHead(chain, getIngressReader(), wsSubscriptions)
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
@@ -101,7 +101,7 @@ class EthereumWsUpstream(
         validatorSubscription?.dispose()
         validatorSubscription = null
         head.stop()
-        connection.close()
+        pool.close()
     }
 
     override fun isRunning(): Boolean {

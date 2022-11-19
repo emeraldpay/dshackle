@@ -127,6 +127,12 @@ class UpstreamsConfigReader(
                                 }
                                 ws.msgSize = it
                             }
+                            getValueAsInt(node, "connections")?.let {
+                                if (it < 1 || it > 1024) {
+                                    throw IllegalStateException("connection limit should be in 1..1024")
+                                }
+                                ws.connections = it
+                            }
                         }
                     }
                 } else {

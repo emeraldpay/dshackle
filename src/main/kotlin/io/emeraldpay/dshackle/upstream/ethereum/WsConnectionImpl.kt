@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -63,8 +62,7 @@ open class WsConnectionImpl(
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
-    var statusUpdates: Consumer<UpstreamAvailability>,
-) : AutoCloseable {
+) : AutoCloseable, WsConnection {
 
     companion object {
         private val log = LoggerFactory.getLogger(WsConnectionImpl::class.java)
@@ -113,16 +111,26 @@ open class WsConnectionImpl(
     private var keepConnection = true
     private var connection: Disposable? = null
     private val reconnecting = AtomicBoolean(false)
+    private var onConnectionChange: Consumer<WsConnection.ConnectionStatus>? = null
 
-    open val isConnected: Boolean
-        get() = connection != null && !reconnecting.get()
+    /**
+     * true when the connection is actively receiving messages
+     */
+    private var active: Boolean = false
+
+    override val isConnected: Boolean
+        get() = connection != null && !reconnecting.get() && active
+
+    override fun onConnectionChange(handler: Consumer<WsConnection.ConnectionStatus>?) {
+        this.onConnectionChange = handler
+    }
 
     fun setReconnectIntervalSeconds(value: Long) {
         reconnectBackoff = FixedBackOff(value * 1000, FixedBackOff.UNLIMITED_ATTEMPTS)
         currentBackOff = reconnectBackoff.start()
     }
 
-    fun connect() {
+    override fun connect() {
         keepConnection = true
         connectInternal()
     }
@@ -163,10 +171,10 @@ open class WsConnectionImpl(
         connection = HttpClient.create()
             .resolver(DefaultAddressResolverGroup.INSTANCE)
             .doOnDisconnected {
+                active = false
                 disconnects.tryEmitNext(Instant.now())
+                this.onConnectionChange?.accept(WsConnection.ConnectionStatus.DISCONNECTED)
                 log.info("Disconnected from $uri")
-                // mark upstream as UNAVAIL
-                statusUpdates.accept(UpstreamAvailability.UNAVAILABLE)
                 if (keepConnection) {
                     tryReconnectLater()
                 }
@@ -201,6 +209,9 @@ open class WsConnectionImpl(
             )
             .uri(uri)
             .handle { inbound, outbound ->
+                this.onConnectionChange?.accept(WsConnection.ConnectionStatus.CONNECTED)
+                // mark as active once connected, because the actual message wouldn't come until a request is sent
+                active = true
                 handle(inbound, outbound)
             }
             .onErrorResume { t ->
@@ -218,6 +229,8 @@ open class WsConnectionImpl(
             .map { ByteBufInputStream(it.content()).readAllBytes() }
             .filter { it.isNotEmpty() }
             .flatMap {
+                // just make sure it's in active state
+                active = true
                 try {
                     val msg = parser.parse(it)
                     if (!read) {
@@ -237,6 +250,8 @@ open class WsConnectionImpl(
                 }
             }
             .onErrorResume { t ->
+                // do not expect any new message processed with the current connection until reconnect
+                active = false
                 log.warn("Connection dropped to $uri. Error: ${t.message}", t)
                 // going to try to reconnect later
                 tryReconnectLater()
@@ -284,7 +299,7 @@ open class WsConnectionImpl(
             }
     }
 
-    open fun getSubscribeResponses(): Flux<JsonRpcWsMessage> {
+    override fun getSubscribeResponses(): Flux<JsonRpcWsMessage> {
         return Flux.from(messages.asFlux())
             .publishOn(Schedulers.boundedElastic())
             .filter {
@@ -297,7 +312,7 @@ open class WsConnectionImpl(
             }
     }
 
-    open fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
+    override fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
         // use an internal id sequence, to avoid id conflicts with user calls
         val internalId = sendIdSeq.getAndIncrement()
         return Mono.fromCallable {
