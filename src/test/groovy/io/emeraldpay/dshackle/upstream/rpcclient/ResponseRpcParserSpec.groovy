@@ -223,4 +223,27 @@ class ResponseRpcParserSpec extends Specification {
         !act.hasResult()
     }
 
+    def "Keep provided ID even if JSON is not full"() {
+        setup:
+        def json = '{"jsonrpc": "2.0", "id": 1}'
+        when:
+        def act = parser.parse(json.getBytes())
+        then:
+        act.id.asNumber() == 1
+        act.error != null
+        act.hasError()
+        !act.hasResult()
+    }
+
+    def "Keep provided ID even if JSON is broken"() {
+        setup:
+        def json = '{"jsonrpc": "2.0", "id": 101, "resu'
+        when:
+        def act = parser.parse(json.getBytes())
+        then:
+        act.id.asNumber() == 101
+        act.error != null
+        act.hasError()
+        !act.hasResult()
+    }
 }
