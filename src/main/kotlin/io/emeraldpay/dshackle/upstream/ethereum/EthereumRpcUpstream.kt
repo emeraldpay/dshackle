@@ -80,7 +80,7 @@ open class EthereumRpcUpstream(
     }
 
     override fun isRunning(): Boolean {
-        return connector.isRunning
+        return connector.isRunning()
     }
 
     override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {

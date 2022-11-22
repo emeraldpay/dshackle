@@ -26,11 +26,10 @@ import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
-import io.emeraldpay.dshackle.upstream.ApiSource
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
@@ -45,7 +44,7 @@ import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Metrics
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -55,9 +54,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 open class NativeCall(
-    @Autowired private val multistreamHolder: MultistreamHolder,
-    @Autowired private val configuredUpstreams: ConfiguredUpstreams,
-    @Autowired private val signer: ResponseSigner
+    private val multistreamHolder: MultistreamHolder,
+    private val configuredUpstreams: ConfiguredUpstreams,
+    private val signer: ResponseSigner
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -66,18 +65,19 @@ open class NativeCall(
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
     private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
 
-    init {
-        val casting = mapOf(
+    companion object {
+        val casting: Map<BlockchainType, Class<out EthereumLikeMultistream>> = mapOf(
             BlockchainType.EVM_POS to EthereumPosMultiStream::class.java,
-            BlockchainType.EVM_POW to EthereumMultistream::class.java,
+            BlockchainType.EVM_POW to EthereumMultistream::class.java
         )
+    }
 
-        multistreamHolder.observeChains().subscribe { chain ->
-            casting[BlockchainType.from(chain)]?.let { cast ->
-                multistreamHolder.getUpstream(chain)?.let { up ->
-                    val reader = up.cast(cast).getReader()
-                    ethereumCallSelectors.putIfAbsent(chain, EthereumCallSelector(reader.heightByHash()))
-                }
+    @EventListener
+    fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
+        casting[BlockchainType.from(event.chain)]?.let { cast ->
+            multistreamHolder.getUpstream(event.chain)?.let { up ->
+                val reader = up.cast(cast).getReader()
+                ethereumCallSelectors.putIfAbsent(event.chain, EthereumCallSelector(reader.heightByHash()))
             }
         }
     }

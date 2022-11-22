@@ -246,9 +246,7 @@ class NativeCallSpec extends Specification {
 
     def "Returns error for unsupported chain"() {
         setup:
-        def upstreams = Mock(MultistreamHolder) {
-            _ * it.observeChains() >> Flux.empty()
-        }
+        def upstreams = Mock(MultistreamHolder)
         def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()

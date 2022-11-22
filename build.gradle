@@ -289,3 +289,6 @@ detekt {
 tasks.withType(Detekt).configureEach {
     jvmTarget = "13"
 }
+
+// formats code for each build
+tasks.findByName("ktlintCheck").dependsOn("ktlintFormat")

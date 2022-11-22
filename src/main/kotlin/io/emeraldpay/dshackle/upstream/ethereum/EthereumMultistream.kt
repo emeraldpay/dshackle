@@ -20,20 +20,14 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ChainFees
-import io.emeraldpay.dshackle.upstream.EmptyHead
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -85,7 +79,7 @@ open class EthereumMultistream(
     }
 
     override fun isRunning(): Boolean {
-        return super.isRunning() || reader.isRunning
+        return super.isRunning() || reader.isRunning()
     }
 
     override fun getReader(): EthereumReader {

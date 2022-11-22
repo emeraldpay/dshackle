@@ -1,7 +1,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import org.zeromq.SocketType
 import org.zeromq.ZContext
 import org.zeromq.ZMQ

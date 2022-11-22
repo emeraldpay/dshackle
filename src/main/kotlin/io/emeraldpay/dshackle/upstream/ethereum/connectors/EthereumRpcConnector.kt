@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
@@ -14,7 +15,6 @@ import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import java.time.Duration
 
 class EthereumRpcConnector(
@@ -61,7 +61,7 @@ class EthereumRpcConnector(
 
     override fun isRunning(): Boolean {
         if (head is Lifecycle) {
-            return head.isRunning
+            return head.isRunning()
         }
         return true
     }

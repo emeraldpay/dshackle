@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
@@ -43,7 +42,7 @@ class MergedHead(
     override fun start() {
         super.start()
         sources.forEach { head ->
-            if (head is Lifecycle && !head.isRunning) {
+            if (head is Lifecycle && !head.isRunning()) {
                 head.start()
             }
         }
@@ -56,7 +55,7 @@ class MergedHead(
     override fun stop() {
         super.stop()
         sources.forEach { head ->
-            if (head is Lifecycle && head.isRunning) {
+            if (head is Lifecycle && head.isRunning()) {
                 head.stop()
             }
         }

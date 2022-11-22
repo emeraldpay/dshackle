@@ -22,12 +22,12 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -60,7 +60,7 @@ class GrpcHead(
      * Initiate a new head subscription with connection to the remote
      */
     private fun internalStart(remote: ReactorBlockchainGrpc.ReactorBlockchainStub) {
-        if (this.isRunning) {
+        if (this.isRunning()) {
             stop()
         }
         log.debug("Start Head subscription to ${parent.getId()}")

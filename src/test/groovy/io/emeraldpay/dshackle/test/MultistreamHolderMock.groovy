@@ -82,20 +82,6 @@ class MultistreamHolderMock implements MultistreamHolder {
     }
 
     @Override
-    Flux<Chain> observeChains() {
-        return Flux.fromIterable(getAvailable())
-    }
-
-    @Override
-    DefaultEthereumMethods getDefaultMethods(@NotNull Chain chain) {
-        if (target[chain] == null) {
-            DefaultEthereumMethods targets = new DefaultEthereumMethods(chain)
-            target[chain] = targets
-        }
-        return target[chain]
-    }
-
-    @Override
     boolean isAvailable(@NotNull Chain chain) {
         return upstreams.containsKey(chain)
     }

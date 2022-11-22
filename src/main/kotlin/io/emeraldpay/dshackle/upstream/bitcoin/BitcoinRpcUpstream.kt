@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -27,7 +28,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 
 open class BitcoinRpcUpstream(
@@ -92,7 +92,7 @@ open class BitcoinRpcUpstream(
     override fun isRunning(): Boolean {
         var runningAny = validatorSubscription != null
         if (head is Lifecycle) {
-            runningAny = runningAny || head.isRunning
+            runningAny = runningAny || head.isRunning()
         }
         return runningAny
     }
@@ -100,7 +100,7 @@ open class BitcoinRpcUpstream(
     override fun start() {
         log.info("Configured for ${chain.chainName}")
         if (head is Lifecycle) {
-            if (!head.isRunning) {
+            if (!head.isRunning()) {
                 head.start()
             }
         }
