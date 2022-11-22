@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import javax.annotation.PreDestroy

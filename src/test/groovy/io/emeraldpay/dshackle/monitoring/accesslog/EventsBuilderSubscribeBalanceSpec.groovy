@@ -2,7 +2,7 @@ package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import spock.lang.Specification
 
 class EventsBuilderSubscribeBalanceSpec extends Specification {

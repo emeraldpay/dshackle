@@ -8,7 +8,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 
 class ConnectorFactoryMock implements ConnectorFactory {
     Reader<JsonRpcRequest, JsonRpcResponse> api

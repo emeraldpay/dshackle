@@ -18,6 +18,8 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeReplyItem
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -25,8 +27,6 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.HasUpstream
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import io.grpc.Status
 import io.grpc.StatusException
 import org.reactivestreams.Publisher

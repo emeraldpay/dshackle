@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification

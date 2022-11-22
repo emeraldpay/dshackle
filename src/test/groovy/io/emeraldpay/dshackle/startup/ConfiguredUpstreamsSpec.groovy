@@ -8,7 +8,7 @@ import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import org.springframework.context.ApplicationEventPublisher
 import spock.lang.Specification
 

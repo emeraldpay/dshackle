@@ -1,9 +1,9 @@
 package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.grpc.Chain
 import io.grpc.Status
 import io.grpc.StatusException
 import org.slf4j.LoggerFactory

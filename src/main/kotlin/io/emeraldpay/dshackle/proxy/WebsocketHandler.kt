@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.proxy
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.BlockchainOuterClass.Selector
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
@@ -25,7 +26,6 @@ import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.etherjar.rpc.json.RequestJson
 import io.emeraldpay.etherjar.rpc.json.ResponseJson
-import io.emeraldpay.grpc.Chain
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.Unpooled
 import org.reactivestreams.Publisher

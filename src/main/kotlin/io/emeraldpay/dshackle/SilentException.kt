@@ -16,7 +16,6 @@
 package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.grpc.Chain
 
 /**
  * Exception that should be handled/logged without a stacktrace in production

@@ -1,9 +1,9 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.rpc.NativeCall
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

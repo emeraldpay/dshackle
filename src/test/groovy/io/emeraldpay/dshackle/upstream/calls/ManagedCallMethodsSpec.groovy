@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.quorum.NonceQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import spock.lang.Specification
 
 class ManagedCallMethodsSpec extends Specification {

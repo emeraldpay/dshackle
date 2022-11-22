@@ -3,7 +3,7 @@ const path = require('path')
 const protoLoader = require("@grpc/proto-loader");
 const fs = require('fs');
 
-const PROTO_PATH = path.join(__dirname, "../grpc/proto/blockchain.proto");
+const PROTO_PATH = path.join(__dirname, "../../emerald-grpc/proto/blockchain.proto");
 
 const options = {
     keepCase: true,

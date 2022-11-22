@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 
 /**
  * Holds Multistreams configured for a chain.

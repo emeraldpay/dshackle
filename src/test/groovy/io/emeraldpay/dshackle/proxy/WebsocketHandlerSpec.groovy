@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.rpc.json.RequestJson
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import io.micrometer.core.instrument.Counter
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
