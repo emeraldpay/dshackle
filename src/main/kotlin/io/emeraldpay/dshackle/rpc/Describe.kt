@@ -44,6 +44,7 @@ class Describe(
                         .setChain(Common.ChainRef.forNumber(chain.id))
                         .addAllSupportedMethods(targets)
                         .setStatus(status)
+                        .setCurrentHeight(chainUpstreams.getHead().getCurrentHeight() ?: 0)
                     chainUpstreams.getAll().let { ups ->
                         ups.forEach { up ->
                             val nodes = QuorumForLabels()
