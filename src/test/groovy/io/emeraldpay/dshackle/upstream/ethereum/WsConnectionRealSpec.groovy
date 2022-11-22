@@ -4,7 +4,7 @@ import io.emeraldpay.dshackle.test.MockWSServer
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import reactor.test.StepVerifier
 import spock.lang.Shared
 import spock.lang.Specification

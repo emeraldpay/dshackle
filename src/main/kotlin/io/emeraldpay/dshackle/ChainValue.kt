@@ -16,7 +16,6 @@
 package io.emeraldpay.dshackle
 
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.grpc.Chain
 import java.util.EnumMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock

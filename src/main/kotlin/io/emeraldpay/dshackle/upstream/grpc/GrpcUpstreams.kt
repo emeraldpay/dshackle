@@ -18,6 +18,8 @@ package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
@@ -27,8 +29,6 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
 import io.micrometer.core.instrument.Counter

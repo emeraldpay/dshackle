@@ -14,7 +14,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.hex.Hex32
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.erc20.ERC20Token
 import io.emeraldpay.etherjar.hex.HexData

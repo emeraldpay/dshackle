@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -35,7 +36,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux

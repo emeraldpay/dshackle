@@ -33,7 +33,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono

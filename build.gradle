@@ -5,6 +5,15 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
+buildscript {
+    repositories {
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.9.1'
+    }
+}
+
 plugins {
     id 'java'
     id 'groovy'
@@ -69,10 +78,6 @@ dependencies {
     implementation libs.lettuce.core
 
     implementation libs.bundles.etherjar
-
-    implementation(libs.emerald.api) {
-        exclude group: 'com.salesforce.servicelibs', module: 'reactor-grpc'
-    }
 
     implementation libs.bitcoinj
 
@@ -188,14 +193,26 @@ protobuf {
         artifact = System.getenv("PROTOC_PATH") == null ? "com.google.protobuf:protoc:${libs.versions.protoc.get()}" : null
     }
     plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+        reactor {  artifact = "com.salesforce.servicelibs:reactor-grpc:${reactiveGrpcVersion}" }
     }
     generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+            reactor {}
+        }
     }
 }
 
 sourceSets {
     main {
-        resources.srcDirs += project.buildDir.absolutePath + "/generated/version"
+        //resources.srcDirs += project.buildDir.absolutePath + "/generated/version"
+
+        proto {
+            srcDir 'emerald-grpc/proto'
+        }
     }
 }
 

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AccessLogConfig
 import io.emeraldpay.dshackle.config.MainConfig
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import spock.lang.Specification
 
 import java.time.Instant

@@ -19,13 +19,13 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeCallReplySignature
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.concurrent.TimeUnit

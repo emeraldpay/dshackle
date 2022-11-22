@@ -31,8 +31,6 @@ cglib-nodep = "cglib:cglib-nodep:3.3.0"
 
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 
-emerald-api = "io.emeraldpay:emerald-api:0.12-alpha.3"
-
 equals-verifier = "nl.jqno.equalsverifier:equalsverifier:3.10.1"
 
 etherjar-domain = { module = "io.emeraldpay.etherjar:etherjar-domain", version.ref = "etherjar" }
@@ -130,6 +128,6 @@ kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 jib = { id = "com.google.cloud.tools.jib", version = "2.5.0" }
 spring = { id = "org.springframework.boot", version = "2.3.5.RELEASE" }
 git = { id = "com.palantir.git-version", version = "0.12.3" }
-protobuf = { id = "com.google.protobuf", version = "0.8.17" }
+protobuf = { id = "com.google.protobuf", version = "0.9.1" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "10.2.0" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

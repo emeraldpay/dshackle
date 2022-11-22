@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
@@ -26,7 +27,6 @@ import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux

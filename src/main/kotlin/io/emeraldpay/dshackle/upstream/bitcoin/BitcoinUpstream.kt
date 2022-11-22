@@ -15,12 +15,12 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 
 abstract class BitcoinUpstream(

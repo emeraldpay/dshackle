@@ -17,6 +17,8 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.TokensConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -26,8 +28,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.EventId
 import io.emeraldpay.etherjar.erc20.ERC20Token
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

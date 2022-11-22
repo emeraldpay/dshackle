@@ -30,10 +30,9 @@ import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import org.jetbrains.annotations.NotNull
-import reactor.core.publisher.Flux
 
 class MultistreamHolderMock implements MultistreamHolder {
 

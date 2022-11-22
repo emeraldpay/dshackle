@@ -19,7 +19,7 @@ import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
 import io.emeraldpay.dshackle.test.EthereumRpcUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import spock.lang.Specification
 
 class CurrentMultistreamHolderSpec extends Specification {

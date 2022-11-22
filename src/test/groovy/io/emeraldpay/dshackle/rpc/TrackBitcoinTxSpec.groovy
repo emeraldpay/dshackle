@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
 import io.emeraldpay.dshackle.upstream.bitcoin.CachingMempoolData
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier

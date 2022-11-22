@@ -26,7 +26,7 @@ import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson

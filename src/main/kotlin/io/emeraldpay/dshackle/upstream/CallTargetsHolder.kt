@@ -1,10 +1,10 @@
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import org.springframework.stereotype.Component
 import java.util.HashMap
 
