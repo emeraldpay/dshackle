@@ -44,4 +44,29 @@ class DefaultEthereumMethodsSpec extends Specification {
         Chain.TESTNET_RINKEBY  | '"0x4"'
         Chain.TESTNET_ROPSTEN  | '"0x3"'
     }
+
+    def "Optimism chain unsupported methods"() {
+        setup:
+        def methods = new DefaultEthereumMethods(Chain.OPTIMISM)
+        when:
+        def acc = methods.isAvailable("eth_getAccounts")
+        def trans = methods.isAvailable("eth_sendTransaction")
+        then:
+        !acc
+        !trans
+    }
+
+    def "Has supported specific methods"() {
+        expect:
+        new DefaultEthereumMethods(chain).getSupportedMethods().containsAll(methods)
+        where:
+        chain          | methods
+        Chain.POLYGON  | ["bor_getAuthor",
+                          "bor_getCurrentValidators",
+                          "bor_getCurrentProposer",
+                          "bor_getRootHash",
+                          "bor_getSignersAtHash",
+                          "eth_getRootHash"]
+        Chain.OPTIMISM | ["eth_getBlockRange", "rollup_gasPrices"]
+    }
 }

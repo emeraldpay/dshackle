@@ -92,13 +92,6 @@ class DefaultEthereumMethods(
         "eth_chainId"
     )
 
-    private val bscFilterMethods = listOf(
-        "shh_newFilter",
-        "shh_uninstallFilter",
-        "shh_getFilterChanges",
-        "shh_getMessages",
-    )
-
     private val allowedMethods: List<String>
 
     init {
@@ -130,19 +123,14 @@ class DefaultEthereumMethods(
             }
 
             getChainSpecificMethods(chain).contains(method) -> {
-                if (bscFilterMethods.contains(method)) {
-                    NotLaggingQuorum(1)
-                } else {
-                    when (method) {
-                        "eth_getBlockRange" -> NotLaggingQuorum(1)
-                        "bor_getAuthor" -> NotLaggingQuorum(0)
-                        "bor_getCurrentValidators" -> NotLaggingQuorum(0)
-                        "bor_getCurrentProposer" -> NotLaggingQuorum(0)
-                        "bor_getRootHash" -> NotLaggingQuorum(1)
-                        "eth_getRootHash" -> NotLaggingQuorum(1)
-                        "shh_hasIdentity" -> NotLaggingQuorum(1)
-                        else -> AlwaysQuorum()
-                    }
+                when (method) {
+                    "eth_getBlockRange" -> NotLaggingQuorum(1)
+                    "bor_getAuthor" -> NotLaggingQuorum(0)
+                    "bor_getCurrentValidators" -> NotLaggingQuorum(0)
+                    "bor_getCurrentProposer" -> NotLaggingQuorum(0)
+                    "bor_getRootHash" -> NotLaggingQuorum(1)
+                    "eth_getRootHash" -> NotLaggingQuorum(1)
+                    else -> AlwaysQuorum()
                 }
             }
             else -> AlwaysQuorum()
@@ -163,20 +151,13 @@ class DefaultEthereumMethods(
                 "bor_getSignersAtHash",
                 "eth_getRootHash"
             )
-            Chain.BSC -> bscFilterMethods + listOf(
-                "shh_post",
-                "shh_version",
-                "shh_newIdentity",
-                "shh_hasIdentity",
-                "shh_addToGroup",
-            )
             else -> emptyList()
         }
     }
 
     private fun chainUnsupportedMethods(chain: Chain): Set<String> {
         if (chain == Chain.OPTIMISM) {
-            return setOf("eth_getAccounts", "eth_sendTransaction")
+            return setOf("eth_getAccounts")
         }
         return emptySet()
     }

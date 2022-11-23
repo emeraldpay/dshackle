@@ -258,9 +258,6 @@ open class NativeCall(
         if (method in listOf(
                 "eth_getFilterChanges",
                 "eth_uninstallFilter",
-                "shh_getFilterChanges",
-                "shh_uninstallFilter",
-                "shh_getMessages"
             )
         )
             GetFilterUpdatesDecorator()
@@ -392,7 +389,6 @@ open class NativeCall(
                 "eth_newFilter",
                 "eth_newBlockFilter",
                 "eth_newPendingTransactionFilter",
-                "shh_newFilter",
             )
         }
         override fun processResult(result: QuorumRpcReader.Result): ByteArray {
