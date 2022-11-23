@@ -96,14 +96,13 @@ class DefaultEthereumMethods(
 
     init {
         allowedMethods = anyResponseMethods +
-                firstValueMethods +
-                specialMethods +
-                headVerifiedMethods +
-                filterMethods -
-                chainUnsupportedMethods(chain) +
-                getChainSpecificMethods(chain)
+            firstValueMethods +
+            specialMethods +
+            headVerifiedMethods +
+            filterMethods -
+            chainUnsupportedMethods(chain) +
+            getChainSpecificMethods(chain)
     }
-
 
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
@@ -179,86 +178,113 @@ class DefaultEthereumMethods(
                     Chain.ETHEREUM == chain -> {
                         "\"1\""
                     }
+
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"1\""
                     }
+
                     Chain.POLYGON == chain -> {
                         "\"137\""
                     }
+
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"2\""
                     }
+
                     Chain.TESTNET_ROPSTEN == chain -> {
                         "\"3\""
                     }
+
                     Chain.TESTNET_RINKEBY == chain -> {
                         "\"4\""
                     }
+
                     Chain.TESTNET_KOVAN == chain -> {
                         "\"42\""
                     }
+
                     Chain.TESTNET_GOERLI == chain -> {
                         "\"5\""
                     }
+
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
+
             "eth_chainId" -> {
                 when {
                     Chain.ETHEREUM == chain -> {
                         "\"0x1\""
                     }
+
                     Chain.POLYGON == chain -> {
                         "\"0x89\""
                     }
+
                     Chain.TESTNET_ROPSTEN == chain -> {
                         "\"0x3\""
                     }
+
                     Chain.TESTNET_RINKEBY == chain -> {
                         "\"0x4\""
                     }
+
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"0x3d\""
                     }
+
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"0x3c\""
                     }
+
                     Chain.TESTNET_KOVAN == chain -> {
                         "\"0x2a\""
                     }
+
                     Chain.TESTNET_GOERLI == chain -> {
                         "\"0x5\""
                     }
+
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
+
             "net_peerCount" -> {
                 "\"0x2a\""
             }
+
             "net_listening" -> {
                 "true"
             }
+
             "web3_clientVersion" -> {
                 version
             }
+
             "eth_protocolVersion" -> {
                 "\"0x3f\""
             }
+
             "eth_syncing" -> {
                 "false"
             }
+
             "eth_coinbase" -> {
                 "\"0x0000000000000000000000000000000000000000\""
             }
+
             "eth_mining" -> {
                 "false"
             }
+
             "eth_hashrate" -> {
                 "\"0x0\""
             }
+
             "eth_accounts" -> {
                 "[]"
             }
+
             else -> throw RpcException(-32601, "Method not found")
         }
         return json.toByteArray()
