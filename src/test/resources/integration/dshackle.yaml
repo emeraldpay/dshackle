@@ -1,0 +1,21 @@
+version: v1
+host: 0.0.0.0
+port: 2450
+tls:
+  enabled: false
+proxy:
+  host: 0.0.0.0
+  port: 8550
+  routes:
+    - id: eth
+      blockchain: ethereum
+
+monitoring:
+  enabled: false
+  extended: true
+
+signed-response:
+  enabled: false
+
+cluster:
+  upstreams:

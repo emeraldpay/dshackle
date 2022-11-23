@@ -58,6 +58,7 @@ configurations {
     compile.exclude group: "org.slf4j", module: "log4j-over-slf4j"
     // should be used only for generation of the stubs, the lib contains grpc classes
     compile.exclude group: "com.salesforce.servicelibs", module: "reactor-grpc"
+
 }
 
 dependencies {
@@ -101,6 +102,13 @@ dependencies {
     testImplementation libs.java.websocket
     testImplementation libs.equals.verifier
     testImplementation libs.groovy
+    testImplementation libs.bundles.testcontainers
+    testImplementation libs.bundles.junit
+
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude module: 'spring-boot-starter-logging'
+    }
+    testImplementation libs.grpc.testing
 
     detektPlugins libs.detekt.formatting
 }
