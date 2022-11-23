@@ -59,11 +59,6 @@ configurations {
     // should be used only for generation of the stubs, the lib contains grpc classes
     compile.exclude group: "com.salesforce.servicelibs", module: "reactor-grpc"
 
-
-    all {
-        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
-    }
-
 }
 
 dependencies {
@@ -110,7 +105,9 @@ dependencies {
     testImplementation libs.bundles.testcontainers
     testImplementation libs.bundles.junit
 
-    testImplementation libs.spring.boot.starter.test
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude module: 'spring-boot-starter-logging'
+    }
     testImplementation libs.grpc.testing
 
     detektPlugins libs.detekt.formatting
