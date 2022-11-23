@@ -36,7 +36,8 @@ class DefaultBitcoinMethods : CallMethods {
     private val freshMethods = listOf(
         "getblock",
         "gettransaction", "gettxout",
-        "getmemorypool"
+        "getmemorypool",
+        "getrawmempool"
     ).sorted()
 
     private val anyResponseMethods = listOf(
