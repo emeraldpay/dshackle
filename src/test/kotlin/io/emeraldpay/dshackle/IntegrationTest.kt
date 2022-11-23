@@ -27,7 +27,7 @@ import java.net.URI
 
 @SpringBootTest(properties = ["spring.main.allow-bean-definition-overriding=true"])
 @Import(Config::class)
-@ActiveProfiles("test")
+@ActiveProfiles("integration-test")
 class IntegrationTest {
 
     @Autowired
@@ -78,7 +78,7 @@ class IntegrationTest {
     @TestConfiguration
     open class Config {
         @Bean
-        @Profile("test")
+        @Profile("integration-test")
         open fun mainConfig(@Autowired fileResolver: FileResolver): MainConfig {
             val reader = MainConfigReader(fileResolver)
             val config = reader.read(

@@ -63,20 +63,21 @@ open class Config(
     private var configFilePath: File? = null
 
     init {
-        if (!env.activeProfiles.contains("test")) {
-            configFilePath = getConfigPath()
-            Global.version = env.getProperty("version.app", Global.version).let {
-                if (it.contains("SNAPSHOT")) {
-                    listOfNotNull(it, env.getProperty("version.commit")).joinToString("-")
-                } else {
-                    it
-                }
-            }
-
-            Security.addProvider(BouncyCastleProvider())
+        configFilePath = if (env.activeProfiles.contains("integration-test")) {
+            ResourceUtils.getFile("classpath:integration/dshackle.yaml")
         } else {
-            configFilePath = ResourceUtils.getFile("classpath:integration/dshackle.yaml")
+            getConfigPath()
         }
+
+        Global.version = env.getProperty("version.app", Global.version).let {
+            if (it.contains("SNAPSHOT")) {
+                listOfNotNull(it, env.getProperty("version.commit")).joinToString("-")
+            } else {
+                it
+            }
+        }
+
+        Security.addProvider(BouncyCastleProvider())
     }
 
     fun getConfigPath(): File {
@@ -101,7 +102,7 @@ open class Config(
     }
 
     @Bean
-    @Profile("!test")
+    @Profile("!integration-test")
     open fun mainConfig(@Autowired fileResolver: FileResolver): MainConfig {
         val f = configFilePath ?: throw IllegalStateException("Config path is not set")
         log.info("Using config: ${f.absolutePath}")
