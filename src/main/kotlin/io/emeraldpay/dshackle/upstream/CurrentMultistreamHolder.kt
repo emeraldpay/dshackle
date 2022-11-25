@@ -30,8 +30,8 @@ open class CurrentMultistreamHolder(
 
     private val chainMapping = multistreams.associateBy { it.chain }
 
-    override fun getUpstream(chain: Chain): Multistream? {
-        return chainMapping[chain]
+    override fun getUpstream(chain: Chain): Multistream {
+        return chainMapping.getValue(chain)
     }
 
     override fun getAvailable(): List<Chain> {
