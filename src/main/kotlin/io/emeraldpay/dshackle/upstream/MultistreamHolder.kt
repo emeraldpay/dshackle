@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.Chain
  * Holds Multistreams configured for a chain.
  */
 interface MultistreamHolder {
-    fun getUpstream(chain: Chain): Multistream?
+    fun getUpstream(chain: Chain): Multistream
     fun getAvailable(): List<Chain>
     fun isAvailable(chain: Chain): Boolean
 }

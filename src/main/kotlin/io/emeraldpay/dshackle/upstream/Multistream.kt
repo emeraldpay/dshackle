@@ -352,6 +352,10 @@ abstract class Multistream(
     fun haveUpstreams(): Boolean =
         upstreams.isNotEmpty()
 
+    fun hasMatchingUpstream(matcher: Selector.LabelSelectorMatcher): Boolean {
+        return upstreams.any { matcher.matches(it) }
+    }
+
     // --------------------------------------------------------------------------------------------------------
 
     class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())

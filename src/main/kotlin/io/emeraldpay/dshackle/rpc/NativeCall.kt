@@ -166,7 +166,8 @@ open class NativeCall(
         }
 
         val matcher = Selector.convertToMatcher(request.selector)
-        if (!configuredUpstreams.hasMatchingUpstream(chain, matcher)) {
+
+        if (!multistreamHolder.getUpstream(chain).hasMatchingUpstream(matcher)) {
             if (Global.metricsExtended) {
                 Metrics.globalRegistry
                     .counter("no_matching_upstream", "chain", chain.chainCode, "matcher", matcher.describeInternal())
@@ -176,7 +177,6 @@ open class NativeCall(
         }
 
         val upstream = multistreamHolder.getUpstream(chain)
-            ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
         return prepareCall(request, upstream)
     }

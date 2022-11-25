@@ -117,11 +117,6 @@ open class ConfiguredUpstreams(
         }
     }
 
-    fun hasMatchingUpstream(chain: Chain, matcher: Selector.LabelSelectorMatcher): Boolean =
-        config.upstreams.any { up ->
-            (up.chain?.let { Global.chainById(it) == chain } ?: true) && matcher.matches(up.labels)
-        }
-
     private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.Options> {
         val defaultOptions = HashMap<Chain, UpstreamsConfig.Options>()
         config.defaultOptions.forEach { defaultsConfig ->
