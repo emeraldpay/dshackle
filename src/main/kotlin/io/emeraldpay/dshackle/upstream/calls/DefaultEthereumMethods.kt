@@ -35,6 +35,20 @@ class DefaultEthereumMethods(
 
     private val version = "\"EmeraldDshackle/${Global.version}\""
 
+    companion object {
+        val withFilterIdMethods = listOf(
+            "eth_getFilterChanges",
+            "eth_getFilterLogs",
+            "eth_uninstallFilter"
+        )
+
+        val newFilterMethods = listOf(
+            "eth_newFilter",
+            "eth_newBlockFilter",
+            "eth_newPendingTransactionFilter",
+        )
+    }
+
     private val anyResponseMethods = listOf(
         "eth_gasPrice",
         "eth_call",
@@ -70,13 +84,7 @@ class DefaultEthereumMethods(
         "eth_feeHistory"
     )
 
-    private val filterMethods = listOf(
-        "eth_getFilterChanges",
-        "eth_newFilter",
-        "eth_newBlockFilter",
-        "eth_newPendingTransactionFilter",
-        "eth_uninstallFilter"
-    )
+    private val filterMethods = withFilterIdMethods + newFilterMethods
 
     private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods + filterMethods
 

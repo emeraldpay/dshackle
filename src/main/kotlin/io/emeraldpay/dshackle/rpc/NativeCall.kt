@@ -30,6 +30,7 @@ import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
@@ -255,13 +256,13 @@ open class NativeCall(
     }
 
     private fun getRequestDecorator(method: String): RequestDecorator =
-        if (method == "eth_getFilterChanges" || method == "eth_uninstallFilter")
-            GetFilterUpdatesDecorator()
+        if (method in DefaultEthereumMethods.withFilterIdMethods)
+            WithFilterIdDecorator()
         else
             NoneRequestDecorator()
 
     private fun getResultDecorator(method: String): ResultDecorator =
-        if (CreateFilterDecorator.createFilterMethods.contains(method)) CreateFilterDecorator() else NoneResultDecorator()
+        if (method in DefaultEthereumMethods.newFilterMethods) CreateFilterDecorator() else NoneResultDecorator()
 
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getRoutedApi(ctx.matcher)
@@ -381,11 +382,6 @@ open class NativeCall(
 
         companion object {
             const val quoteCode = '"'.code.toByte()
-            val createFilterMethods = listOf(
-                "eth_newFilter",
-                "eth_newBlockFilter",
-                "eth_newPendingTransactionFilter"
-            )
         }
         override fun processResult(result: QuorumRpcReader.Result): ByteArray {
             val bytes = result.value
@@ -406,7 +402,7 @@ open class NativeCall(
         override fun processRequest(request: List<Any>): List<Any> = request
     }
 
-    open class GetFilterUpdatesDecorator : RequestDecorator {
+    open class WithFilterIdDecorator : RequestDecorator {
         override fun processRequest(request: List<Any>): List<Any> {
             val filterId = request.first().toString()
             val sanitized = filterId.substring(0, filterId.lastIndex - 1)
