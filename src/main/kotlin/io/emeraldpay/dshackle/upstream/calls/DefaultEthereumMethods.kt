@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
@@ -23,7 +24,6 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NonceQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.grpc.Chain
 
 /**
  * Default configuration for Ethereum based RPC. Defines optimal Quorum strategies for different methods, and provides
@@ -34,6 +34,20 @@ class DefaultEthereumMethods(
 ) : CallMethods {
 
     private val version = "\"EmeraldDshackle/${Global.version}\""
+
+    companion object {
+        val withFilterIdMethods = listOf(
+            "eth_getFilterChanges",
+            "eth_getFilterLogs",
+            "eth_uninstallFilter"
+        )
+
+        val newFilterMethods = listOf(
+            "eth_newFilter",
+            "eth_newBlockFilter",
+            "eth_newPendingTransactionFilter",
+        )
+    }
 
     private val anyResponseMethods = listOf(
         "eth_gasPrice",
@@ -70,13 +84,7 @@ class DefaultEthereumMethods(
         "eth_feeHistory"
     )
 
-    private val filterMethods = listOf(
-        "eth_getFilterChanges",
-        "eth_newFilter",
-        "eth_newBlockFilter",
-        "eth_newPendingTransactionFilter",
-        "eth_uninstallFilter"
-    )
+    private val filterMethods = withFilterIdMethods + newFilterMethods
 
     private val hardcodedMethods = listOf(
         "net_version",

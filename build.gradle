@@ -5,6 +5,15 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
+buildscript {
+    repositories {
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.9.1'
+    }
+}
+
 plugins {
     id 'java'
     id 'groovy'
@@ -49,6 +58,7 @@ configurations {
     compile.exclude group: "org.slf4j", module: "log4j-over-slf4j"
     // should be used only for generation of the stubs, the lib contains grpc classes
     compile.exclude group: "com.salesforce.servicelibs", module: "reactor-grpc"
+
 }
 
 dependencies {
@@ -69,10 +79,6 @@ dependencies {
     implementation libs.lettuce.core
 
     implementation libs.bundles.etherjar
-
-    implementation(libs.emerald.api) {
-        exclude group: 'com.salesforce.servicelibs', module: 'reactor-grpc'
-    }
 
     implementation libs.bitcoinj
 
@@ -96,6 +102,13 @@ dependencies {
     testImplementation libs.java.websocket
     testImplementation libs.equals.verifier
     testImplementation libs.groovy
+    testImplementation libs.bundles.testcontainers
+    testImplementation libs.bundles.junit
+
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude module: 'spring-boot-starter-logging'
+    }
+    testImplementation libs.grpc.testing
 
     detektPlugins libs.detekt.formatting
 }
@@ -188,14 +201,26 @@ protobuf {
         artifact = System.getenv("PROTOC_PATH") == null ? "com.google.protobuf:protoc:${libs.versions.protoc.get()}" : null
     }
     plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+        reactor {  artifact = "com.salesforce.servicelibs:reactor-grpc:${reactiveGrpcVersion}" }
     }
     generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+            reactor {}
+        }
     }
 }
 
 sourceSets {
     main {
         resources.srcDirs += project.buildDir.absolutePath + "/generated/version"
+
+        proto {
+            srcDir 'emerald-grpc/proto'
+        }
     }
 }
 
@@ -289,3 +314,6 @@ detekt {
 tasks.withType(Detekt).configureEach {
     jvmTarget = "13"
 }
+
+// formats code for each build
+tasks.findByName("ktlintCheck").dependsOn("ktlintFormat")

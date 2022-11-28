@@ -16,12 +16,12 @@
 package io.emeraldpay.dshackle.cache
 
 import com.google.protobuf.ByteString
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.proto.CachesProto
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.grpc.Chain
 import io.lettuce.core.api.reactive.RedisReactiveCommands
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono

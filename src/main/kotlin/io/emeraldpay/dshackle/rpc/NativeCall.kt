@@ -19,6 +19,8 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.quorum.CallQuorum
@@ -26,11 +28,11 @@ import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
-import io.emeraldpay.dshackle.upstream.ApiSource
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
+import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
@@ -40,12 +42,10 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Metrics
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -55,9 +55,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 open class NativeCall(
-    @Autowired private val multistreamHolder: MultistreamHolder,
-    @Autowired private val configuredUpstreams: ConfiguredUpstreams,
-    @Autowired private val signer: ResponseSigner
+    private val multistreamHolder: MultistreamHolder,
+    private val configuredUpstreams: ConfiguredUpstreams,
+    private val signer: ResponseSigner
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -66,18 +66,19 @@ open class NativeCall(
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
     private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
 
-    init {
-        val casting = mapOf(
+    companion object {
+        val casting: Map<BlockchainType, Class<out EthereumLikeMultistream>> = mapOf(
             BlockchainType.EVM_POS to EthereumPosMultiStream::class.java,
-            BlockchainType.EVM_POW to EthereumMultistream::class.java,
+            BlockchainType.EVM_POW to EthereumMultistream::class.java
         )
+    }
 
-        multistreamHolder.observeChains().subscribe { chain ->
-            casting[BlockchainType.from(chain)]?.let { cast ->
-                multistreamHolder.getUpstream(chain)?.let { up ->
-                    val reader = up.cast(cast).getReader()
-                    ethereumCallSelectors.putIfAbsent(chain, EthereumCallSelector(reader.heightByHash()))
-                }
+    @EventListener
+    fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
+        casting[BlockchainType.from(event.chain)]?.let { cast ->
+            multistreamHolder.getUpstream(event.chain)?.let { up ->
+                val reader = up.cast(cast).getReader()
+                ethereumCallSelectors.putIfAbsent(event.chain, EthereumCallSelector(reader.heightByHash()))
             }
         }
     }
@@ -166,7 +167,8 @@ open class NativeCall(
         }
 
         val matcher = Selector.convertToMatcher(request.selector)
-        if (!configuredUpstreams.hasMatchingUpstream(chain, matcher)) {
+
+        if (!multistreamHolder.getUpstream(chain).hasMatchingUpstream(matcher)) {
             if (Global.metricsExtended) {
                 Metrics.globalRegistry
                     .counter("no_matching_upstream", "chain", chain.chainCode, "matcher", matcher.describeInternal())
@@ -176,7 +178,6 @@ open class NativeCall(
         }
 
         val upstream = multistreamHolder.getUpstream(chain)
-            ?: return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(chain)))
 
         return prepareCall(request, upstream)
     }
@@ -255,17 +256,13 @@ open class NativeCall(
     }
 
     private fun getRequestDecorator(method: String): RequestDecorator =
-        if (method in listOf(
-                "eth_getFilterChanges",
-                "eth_uninstallFilter",
-            )
-        )
-            GetFilterUpdatesDecorator()
+        if (method in DefaultEthereumMethods.withFilterIdMethods)
+            WithFilterIdDecorator()
         else
             NoneRequestDecorator()
 
     private fun getResultDecorator(method: String): ResultDecorator =
-        if (CreateFilterDecorator.createFilterMethods.contains(method)) CreateFilterDecorator() else NoneResultDecorator()
+        if (method in DefaultEthereumMethods.newFilterMethods) CreateFilterDecorator() else NoneResultDecorator()
 
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getRoutedApi(ctx.matcher)
@@ -385,11 +382,6 @@ open class NativeCall(
 
         companion object {
             const val quoteCode = '"'.code.toByte()
-            val createFilterMethods = listOf(
-                "eth_newFilter",
-                "eth_newBlockFilter",
-                "eth_newPendingTransactionFilter",
-            )
         }
         override fun processResult(result: QuorumRpcReader.Result): ByteArray {
             val bytes = result.value
@@ -410,7 +402,7 @@ open class NativeCall(
         override fun processRequest(request: List<Any>): List<Any> = request
     }
 
-    open class GetFilterUpdatesDecorator : RequestDecorator {
+    open class WithFilterIdDecorator : RequestDecorator {
         override fun processRequest(request: List<Any>): List<Any> {
             val filterId = request.first().toString()
             val sanitized = filterId.substring(0, filterId.lastIndex - 1)

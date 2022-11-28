@@ -37,7 +37,7 @@ import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import reactor.core.publisher.Flux
@@ -246,9 +246,7 @@ class NativeCallSpec extends Specification {
 
     def "Returns error for unsupported chain"() {
         setup:
-        def upstreams = Mock(MultistreamHolder) {
-            _ * it.observeChains() >> Flux.empty()
-        }
+        def upstreams = Mock(MultistreamHolder)
         def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
@@ -454,7 +452,7 @@ class NativeCallSpec extends Specification {
                 .collectList().block(Duration.ofSeconds(1)).first()
         then:
         act instanceof NativeCall.ValidCallContext
-        act.requestDecorator instanceof NativeCall.GetFilterUpdatesDecorator
+        act.requestDecorator instanceof NativeCall.WithFilterIdDecorator
     }
 
     def "Prepare call adds decorator for eth_uninstallFilter"() {
@@ -485,7 +483,7 @@ class NativeCallSpec extends Specification {
                 .collectList().block(Duration.ofSeconds(1)).first()
         then:
         act instanceof NativeCall.ValidCallContext
-        act.requestDecorator instanceof NativeCall.GetFilterUpdatesDecorator
+        act.requestDecorator instanceof NativeCall.WithFilterIdDecorator
     }
 
     def "Parse empty params"() {
@@ -545,7 +543,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_getFilterUpdates", '["0xabcd"]'),
-                new NativeCall.GetFilterUpdatesDecorator(), new NativeCall.NoneResultDecorator())
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator())
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -566,7 +564,7 @@ class NativeCallSpec extends Specification {
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
-                new NativeCall.GetFilterUpdatesDecorator(), new NativeCall.CreateFilterDecorator())
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator())
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -588,7 +586,7 @@ class NativeCallSpec extends Specification {
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
-                new NativeCall.GetFilterUpdatesDecorator(), new NativeCall.CreateFilterDecorator())
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator())
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))

@@ -31,8 +31,6 @@ cglib-nodep = "cglib:cglib-nodep:3.3.0"
 
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 
-emerald-api = "io.emeraldpay:emerald-api:0.12-alpha.3"
-
 equals-verifier = "nl.jqno.equalsverifier:equalsverifier:3.10.1"
 
 etherjar-domain = { module = "io.emeraldpay.etherjar:etherjar-domain", version.ref = "etherjar" }
@@ -113,6 +111,14 @@ spring-security-core = { module = "org.springframework.security:spring-security-
 spring-security-web = { module = "org.springframework.security:spring-security-web", version.ref = "spring-security" }
 spring-security-config = { module = "org.springframework.security:spring-security-config", version.ref = "spring-security" }
 
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "spring-boot" }
+
+testcontainers = "org.testcontainers:testcontainers:1.17.5"
+testcontainers-ganache = "io.github.ganchix:testcontainers-java-module-ganache:0.0.4"
+
+junit-jupiter = "org.junit.jupiter:junit-jupiter:5.9.1"
+assertj = "org.assertj:assertj-core:3.23.1"
+
 [bundles]
 apache-commons = ["commons-io", "apache-commons-lang3", "apache-commons-collections4"]
 etherjar = ["etherjar-domain", "etherjar-hex", "etherjar-rpc-api", "etherjar-rpc-http", "etherjar-rpc-ws", "etherjar-tx", "etherjar-contract", "etherjar-erc20"]
@@ -124,12 +130,15 @@ netty = ["netty-common", "netty-transport", "netty-handler-core", "netty-handler
 reactor = ["reactor-core", "reactor-netty", "reactor-extra", "reactor-kotlin"]
 slf4j = ["slf4j-api", "slf4j-jul", "slf4j-jcl", "log4j-slf4j"]
 spring-framework = ["spring-boot-starter", "spring-security-core", "spring-security-web", "spring-security-config"]
+testcontainers = ["testcontainers", "testcontainers-ganache"]
+junit = ["junit-jupiter", "assertj"]
+
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 jib = { id = "com.google.cloud.tools.jib", version = "2.5.0" }
 spring = { id = "org.springframework.boot", version = "2.3.5.RELEASE" }
 git = { id = "com.palantir.git-version", version = "0.12.3" }
-protobuf = { id = "com.google.protobuf", version = "0.8.17" }
+protobuf = { id = "com.google.protobuf", version = "0.9.1" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "10.2.0" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

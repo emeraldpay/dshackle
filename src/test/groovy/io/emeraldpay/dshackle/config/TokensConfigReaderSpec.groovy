@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import spock.lang.Specification
 
 class TokensConfigReaderSpec extends Specification {

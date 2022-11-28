@@ -57,7 +57,7 @@ class EthereumCallSelector(
             return blockTagSelector(params, 1, head)
         } else if (method == "eth_getStorageAt") {
             return blockTagSelector(params, 2, head)
-        } else if (method == "eth_getFilterChanges" || method == "eth_uninstallFilter") {
+        } else if (method in DefaultEthereumMethods.withFilterIdMethods) {
             return sameUpstreamMatcher(params)
         }
         return Mono.empty()

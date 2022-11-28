@@ -16,15 +16,15 @@
  */
 package io.emeraldpay.dshackle.startup
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.grpc.Chain
 
 /**
  * An update event to the list of currently available upstreams.
  */
-class UpstreamChange(
+class UpstreamChangeEvent(
     /**
      * Target blockchain
      */

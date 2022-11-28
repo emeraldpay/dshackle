@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
 import com.fasterxml.jackson.annotation.JsonInclude
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.UUID

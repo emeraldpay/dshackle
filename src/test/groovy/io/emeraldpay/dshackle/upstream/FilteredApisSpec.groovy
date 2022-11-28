@@ -24,7 +24,7 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import reactor.test.StepVerifier
 import spock.lang.Retry
 import spock.lang.Specification

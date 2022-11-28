@@ -6,7 +6,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification

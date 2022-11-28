@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import reactor.core.publisher.Flux
 
 interface TrackTx {

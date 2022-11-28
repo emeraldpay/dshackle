@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.step.StepCounter
 import reactor.core.publisher.Flux

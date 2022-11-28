@@ -30,7 +30,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinReader
 import io.emeraldpay.dshackle.upstream.bitcoin.XpubAddresses
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import org.bitcoinj.core.Address
 import org.bitcoinj.params.MainNetParams
 import org.bitcoinj.params.TestNet3Params

@@ -18,17 +18,17 @@ package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.startup.UpstreamChange
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
 import io.micrometer.core.instrument.Counter
@@ -69,7 +69,7 @@ class GrpcUpstreams(
     private val known = HashMap<Chain, DefaultUpstream>()
     private val lock = ReentrantLock()
 
-    fun start(): Flux<UpstreamChange> {
+    fun start(): Flux<UpstreamChangeEvent> {
         val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             NettyChannelBuilder.forAddress(host, port)
                 // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
@@ -122,7 +122,7 @@ class GrpcUpstreams(
         return updates
     }
 
-    fun processDescription(value: BlockchainOuterClass.DescribeResponse): Flux<UpstreamChange> {
+    fun processDescription(value: BlockchainOuterClass.DescribeResponse): Flux<UpstreamChangeEvent> {
         val current = value.chainsList.filter {
             Chain.byId(it.chain.number) != Chain.UNSPECIFIED
         }.mapNotNull { chainDetails ->
@@ -138,14 +138,14 @@ class GrpcUpstreams(
         }
 
         val added = current.filter {
-            it.type == UpstreamChange.ChangeType.ADDED
+            it.type == UpstreamChangeEvent.ChangeType.ADDED
         }
 
         val removed = known.filterNot { kv ->
             val stillCurrent = current.any { c -> c.chain == kv.key }
             stillCurrent
         }.map {
-            UpstreamChange(it.key, known.remove(it.key)!!, UpstreamChange.ChangeType.REMOVED)
+            UpstreamChangeEvent(it.key, known.remove(it.key)!!, UpstreamChangeEvent.ChangeType.REMOVED)
         }
         return Flux.fromIterable(removed + added)
     }
@@ -172,7 +172,7 @@ class GrpcUpstreams(
         return sslContext.build()
     }
 
-    fun getOrCreate(chain: Chain): UpstreamChange {
+    fun getOrCreate(chain: Chain): UpstreamChangeEvent {
         val metricsTags = listOf(
             Tag.of("upstream", id),
             Tag.of("chain", chain.chainCode)
@@ -202,7 +202,7 @@ class GrpcUpstreams(
         }
     }
 
-    fun getOrCreateEthereum(chain: Chain, metrics: RpcMetrics): UpstreamChange {
+    fun getOrCreateEthereum(chain: Chain, metrics: RpcMetrics): UpstreamChangeEvent {
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
@@ -211,14 +211,14 @@ class GrpcUpstreams(
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
-                UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)
+                UpstreamChangeEvent(chain, created, UpstreamChangeEvent.ChangeType.ADDED)
             } else {
-                UpstreamChange(chain, current, UpstreamChange.ChangeType.REVALIDATED)
+                UpstreamChangeEvent(chain, current, UpstreamChangeEvent.ChangeType.REVALIDATED)
             }
         }
     }
 
-    fun getOrCreateEthereumPos(chain: Chain, metrics: RpcMetrics): UpstreamChange {
+    fun getOrCreateEthereumPos(chain: Chain, metrics: RpcMetrics): UpstreamChangeEvent {
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
@@ -227,14 +227,14 @@ class GrpcUpstreams(
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
-                UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)
+                UpstreamChangeEvent(chain, created, UpstreamChangeEvent.ChangeType.ADDED)
             } else {
-                UpstreamChange(chain, current, UpstreamChange.ChangeType.REVALIDATED)
+                UpstreamChangeEvent(chain, current, UpstreamChangeEvent.ChangeType.REVALIDATED)
             }
         }
     }
 
-    fun getOrCreateBitcoin(chain: Chain, metrics: RpcMetrics): UpstreamChange {
+    fun getOrCreateBitcoin(chain: Chain, metrics: RpcMetrics): UpstreamChangeEvent {
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
@@ -243,9 +243,9 @@ class GrpcUpstreams(
                 created.timeout = this.timeout
                 known[chain] = created
                 created.start()
-                UpstreamChange(chain, created, UpstreamChange.ChangeType.ADDED)
+                UpstreamChangeEvent(chain, created, UpstreamChangeEvent.ChangeType.ADDED)
             } else {
-                UpstreamChange(chain, current, UpstreamChange.ChangeType.REVALIDATED)
+                UpstreamChangeEvent(chain, current, UpstreamChangeEvent.ChangeType.REVALIDATED)
             }
         }
     }

@@ -16,26 +16,30 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import org.apache.commons.collections4.Factory
 import org.apache.commons.collections4.FunctorException
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
+import org.springframework.context.event.EventListener
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Duration
 import java.time.Instant
-import java.util.Locale
+import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
@@ -55,6 +59,8 @@ abstract class Multistream(
         private val log = LoggerFactory.getLogger(Multistream::class.java)
         private const val metrics = "upstreams"
     }
+
+    private var started = false
 
     private var cacheSubscription: Disposable? = null
     private val reconfigLock = ReentrantLock()
@@ -231,6 +237,7 @@ abstract class Multistream(
             // print status _change_ every 15 seconds, at most; otherwise prints it on interval of 30 seconds
             .sample(Duration.ofSeconds(15))
             .subscribe { printStatus() }
+        started = true
     }
 
     override fun stop() {
@@ -244,6 +251,7 @@ abstract class Multistream(
             }
         }
         lagObserver?.stop()
+        started = false
     }
 
     fun onHeadUpdated(head: Head) {
@@ -314,6 +322,38 @@ abstract class Multistream(
             .joinToString(", ") { it.getId() }
 
         log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=[$statuses], lag=[$lag], weak=[$weak]")
+    }
+
+    fun test(event: UpstreamChangeEvent): Boolean {
+        return event.chain == this.chain
+    }
+
+    @EventListener
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    fun onUpstreamChange(event: UpstreamChangeEvent) {
+        val chain = event.chain
+        if (this.chain == chain) {
+            if (event.type == UpstreamChangeEvent.ChangeType.REMOVED) {
+                removeUpstream(event.upstream.getId())
+                log.error("Upstream ${event.upstream.getId()} with chain $chain has been removed")
+            } else {
+                if (event.upstream is CachesEnabled) {
+                    event.upstream.setCaches(caches)
+                }
+                addUpstream(event.upstream)
+                if (!started) {
+                    start()
+                }
+                log.error("Upstream ${event.upstream.getId()} with chain $chain has been added")
+            }
+        }
+    }
+
+    fun haveUpstreams(): Boolean =
+        upstreams.isNotEmpty()
+
+    fun hasMatchingUpstream(matcher: Selector.LabelSelectorMatcher): Boolean {
+        return upstreams.any { matcher.matches(it) }
     }
 
     // --------------------------------------------------------------------------------------------------------

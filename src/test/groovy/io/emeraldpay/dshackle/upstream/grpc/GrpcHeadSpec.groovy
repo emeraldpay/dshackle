@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 import io.grpc.stub.StreamObserver
 import reactor.test.StepVerifier
 import spock.lang.Specification

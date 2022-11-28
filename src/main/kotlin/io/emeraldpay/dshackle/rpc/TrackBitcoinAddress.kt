@@ -18,27 +18,28 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.grpc.BitcoinGrpcUpstream
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
 import org.bitcoinj.params.MainNetParams
 import org.bitcoinj.params.TestNet3Params
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
-import javax.annotation.PostConstruct
 
 @Service
 class TrackBitcoinAddress(
@@ -67,15 +68,13 @@ class TrackBitcoinAddress(
         Selector.CapabilityMatcher(Capability.BALANCE)
     )
 
-    @PostConstruct
-    fun listenChains() {
-        multistreamHolder.observeChains().subscribe { chain ->
-            multistreamHolder.getUpstream(chain)?.let { mup ->
-                val available = mup.getAll().any { up ->
-                    !up.isGrpc() && up.getCapabilities().contains(Capability.BALANCE)
-                }
-                setBalanceAvailability(chain, available)
+    @EventListener
+    fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
+        multistreamHolder.getUpstream(event.chain)?.let { mup ->
+            val available = mup.getAll().any { up ->
+                !up.isGrpc() && up.getCapabilities().contains(Capability.BALANCE)
             }
+            setBalanceAvailability(event.chain, available)
         }
     }
 

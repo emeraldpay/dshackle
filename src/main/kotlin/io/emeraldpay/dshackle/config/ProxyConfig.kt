@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.dshackle.Chain
 
 /**
  * Configure HTTP Proxy to Upstreams

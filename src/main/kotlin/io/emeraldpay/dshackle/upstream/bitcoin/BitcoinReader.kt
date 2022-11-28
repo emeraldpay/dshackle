@@ -19,13 +19,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.cast
 
@@ -72,7 +72,7 @@ open class BitcoinReader(
     }
 
     override fun isRunning(): Boolean {
-        return mempool.isRunning
+        return mempool.isRunning()
     }
 
     override fun start() {

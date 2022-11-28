@@ -33,9 +33,11 @@ import org.springframework.boot.SpringApplication
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.util.ResourceUtils
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.io.File
@@ -47,8 +49,8 @@ import kotlin.system.exitProcess
 @EnableScheduling
 @EnableAsync
 open class Config(
-    @Autowired private val env: Environment,
-    @Autowired private val ctx: ApplicationContext
+    private val env: Environment,
+    private val ctx: ApplicationContext
 ) {
 
     companion object {
@@ -61,7 +63,12 @@ open class Config(
     private var configFilePath: File? = null
 
     init {
-        configFilePath = getConfigPath()
+        configFilePath = if (env.activeProfiles.contains("integration-test")) {
+            ResourceUtils.getFile("classpath:integration/dshackle.yaml")
+        } else {
+            getConfigPath()
+        }
+
         Global.version = env.getProperty("version.app", Global.version).let {
             if (it.contains("SNAPSHOT")) {
                 listOfNotNull(it, env.getProperty("version.commit")).joinToString("-")
@@ -95,6 +102,7 @@ open class Config(
     }
 
     @Bean
+    @Profile("!integration-test")
     open fun mainConfig(@Autowired fileResolver: FileResolver): MainConfig {
         val f = configFilePath ?: throw IllegalStateException("Config path is not set")
         log.info("Using config: ${f.absolutePath}")

@@ -7,6 +7,7 @@ tls:
 cluster:
   upstreams:
     - id: test-1
+      node-id: 1
       chain: ethereum
       methods:
         enabled:
@@ -15,17 +16,21 @@ cluster:
       options:
         disable-validation: true
       connection:
-        ethereum:
-          rpc:
-            url: "http://localhost:18545"
+        ethereum-pos:
+          execution:
+            rpc:
+              url: "http://localhost:18545"
+
     - id: test-2
+      node-id: 2
       chain: ethereum
       options:
         disable-validation: true
       connection:
-        ethereum:
-          rpc:
-            url: "http://localhost:18546"
+        execution:
+          ethereum-pos:
+            rpc:
+              url: "http://localhost:18546"
 
 cache:
   redis:

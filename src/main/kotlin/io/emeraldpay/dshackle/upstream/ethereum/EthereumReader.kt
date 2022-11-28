@@ -30,6 +30,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.reader.RekeyingReader
 import io.emeraldpay.dshackle.reader.RpcReader
 import io.emeraldpay.dshackle.reader.TransformingReader
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.etherjar.domain.Address
@@ -41,7 +42,6 @@ import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
 import org.slf4j.LoggerFactory
-import org.springframework.context.Lifecycle
 import java.util.function.Function
 
 /**
@@ -174,7 +174,7 @@ open class EthereumReader(
 
     override fun isRunning(): Boolean {
         // TODO should be always running?
-        return up.isRunning
+        return true // up.isRunning
     }
 
     override fun start() {
