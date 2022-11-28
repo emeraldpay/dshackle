@@ -86,8 +86,6 @@ class DefaultEthereumMethods(
 
     private val filterMethods = withFilterIdMethods + newFilterMethods
 
-    private val allowedMethods = anyResponseMethods + firstValueMethods + specialMethods + headVerifiedMethods + filterMethods
-
     private val hardcodedMethods = listOf(
         "net_version",
         "net_peerCount",
@@ -102,9 +100,21 @@ class DefaultEthereumMethods(
         "eth_chainId"
     )
 
+    private val allowedMethods: List<String>
+
+    init {
+        allowedMethods = anyResponseMethods +
+            firstValueMethods +
+            specialMethods +
+            headVerifiedMethods +
+            filterMethods -
+            chainUnsupportedMethods(chain) +
+            getChainSpecificMethods(chain)
+    }
+
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
-            filterMethods.contains(method) -> AlwaysQuorum()
+            filterMethods.contains(method) -> NotLaggingQuorum(1)
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
@@ -118,8 +128,45 @@ class DefaultEthereumMethods(
                     else -> AlwaysQuorum()
                 }
             }
+
+            getChainSpecificMethods(chain).contains(method) -> {
+                when (method) {
+                    "eth_getBlockRange" -> NotLaggingQuorum(1)
+                    "bor_getAuthor" -> NotLaggingQuorum(0)
+                    "bor_getCurrentValidators" -> NotLaggingQuorum(0)
+                    "bor_getCurrentProposer" -> NotLaggingQuorum(0)
+                    "bor_getRootHash" -> NotLaggingQuorum(1)
+                    "eth_getRootHash" -> NotLaggingQuorum(1)
+                    else -> AlwaysQuorum()
+                }
+            }
             else -> AlwaysQuorum()
         }
+    }
+
+    private fun getChainSpecificMethods(chain: Chain): List<String> {
+        return when (chain) {
+            Chain.OPTIMISM -> listOf(
+                "eth_getBlockRange",
+                "rollup_gasPrices"
+            )
+            Chain.POLYGON -> listOf(
+                "bor_getAuthor",
+                "bor_getCurrentValidators",
+                "bor_getCurrentProposer",
+                "bor_getRootHash",
+                "bor_getSignersAtHash",
+                "eth_getRootHash"
+            )
+            else -> emptyList()
+        }
+    }
+
+    private fun chainUnsupportedMethods(chain: Chain): Set<String> {
+        if (chain == Chain.OPTIMISM) {
+            return setOf("eth_getAccounts")
+        }
+        return emptySet()
     }
 
     override fun isCallable(method: String): Boolean {
@@ -139,86 +186,113 @@ class DefaultEthereumMethods(
                     Chain.ETHEREUM == chain -> {
                         "\"1\""
                     }
+
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"1\""
                     }
+
                     Chain.POLYGON == chain -> {
                         "\"137\""
                     }
+
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"2\""
                     }
+
                     Chain.TESTNET_ROPSTEN == chain -> {
                         "\"3\""
                     }
+
                     Chain.TESTNET_RINKEBY == chain -> {
                         "\"4\""
                     }
+
                     Chain.TESTNET_KOVAN == chain -> {
                         "\"42\""
                     }
+
                     Chain.TESTNET_GOERLI == chain -> {
                         "\"5\""
                     }
+
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
+
             "eth_chainId" -> {
                 when {
                     Chain.ETHEREUM == chain -> {
                         "\"0x1\""
                     }
+
                     Chain.POLYGON == chain -> {
                         "\"0x89\""
                     }
+
                     Chain.TESTNET_ROPSTEN == chain -> {
                         "\"0x3\""
                     }
+
                     Chain.TESTNET_RINKEBY == chain -> {
                         "\"0x4\""
                     }
+
                     Chain.ETHEREUM_CLASSIC == chain -> {
                         "\"0x3d\""
                     }
+
                     Chain.TESTNET_MORDEN == chain -> {
                         "\"0x3c\""
                     }
+
                     Chain.TESTNET_KOVAN == chain -> {
                         "\"0x2a\""
                     }
+
                     Chain.TESTNET_GOERLI == chain -> {
                         "\"0x5\""
                     }
+
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
+
             "net_peerCount" -> {
                 "\"0x2a\""
             }
+
             "net_listening" -> {
                 "true"
             }
+
             "web3_clientVersion" -> {
                 version
             }
+
             "eth_protocolVersion" -> {
                 "\"0x3f\""
             }
+
             "eth_syncing" -> {
                 "false"
             }
+
             "eth_coinbase" -> {
                 "\"0x0000000000000000000000000000000000000000\""
             }
+
             "eth_mining" -> {
                 "false"
             }
+
             "eth_hashrate" -> {
                 "\"0x0\""
             }
+
             "eth_accounts" -> {
                 "[]"
             }
+
             else -> throw RpcException(-32601, "Method not found")
         }
         return json.toByteArray()
