@@ -19,16 +19,23 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonNode
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 
 data class JsonRpcRequest(
     val method: String,
     val params: List<Any?>,
     val id: Int,
-    val nonce: Long?
+    val nonce: Long?,
+    val selector: BlockchainOuterClass.Selector?
 ) {
 
-    @JvmOverloads constructor(method: String, params: List<Any?>, nonce: Long? = null) : this(method, params, 1, nonce)
+    @JvmOverloads constructor(
+        method: String,
+        params: List<Any?>,
+        nonce: Long? = null,
+        selectors: BlockchainOuterClass.Selector? = null
+    ) : this(method, params, 1, nonce, selectors)
 
     fun toJson(): ByteArray {
         val json = mapOf(
@@ -63,7 +70,7 @@ data class JsonRpcRequest(
                     throw IllegalStateException("Unsupported param type: ${it.asToken()}")
                 }
             }
-            return JsonRpcRequest(method, params, id, null)
+            return JsonRpcRequest(method, params, id, null, null)
         }
     }
 }

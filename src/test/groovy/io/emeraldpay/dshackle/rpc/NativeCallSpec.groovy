@@ -543,7 +543,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_getFilterUpdates", '["0xabcd"]'),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator())
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator(), null)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -564,7 +564,7 @@ class NativeCallSpec extends Specification {
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator())
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -586,7 +586,7 @@ class NativeCallSpec extends Specification {
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator())
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))

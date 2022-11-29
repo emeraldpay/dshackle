@@ -28,7 +28,6 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -106,7 +105,7 @@ open class EthereumPosGrpcUpstream(
     private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, NoChoiceWithPriorityForkChoice(nodeRating))
     private var capabilities: Set<Capability> = emptySet()
 
-    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
+    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.getReader()
     var timeout = Defaults.timeout
 
     override fun start() {
