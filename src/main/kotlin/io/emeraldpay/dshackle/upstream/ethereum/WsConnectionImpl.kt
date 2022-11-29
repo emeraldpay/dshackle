@@ -346,13 +346,21 @@ open class WsConnectionImpl(
             )
         )
 
-        val response = Flux.from(getRpcResponses())
-            // send the request _after_ WS subscribes to the responses, otherwise the response may come before the actual subscription and be lost
-            .doOnRequest { sendRpc(request) }
+        // Flux needs to make sure it's subscribed to the response before making the call, otherwise the response may come before the actual subscription and be lost
+        // doOnSubscribe and doOnRequest make fire too early
+        // So to ensure this it makes two subscriptions, one for actual `responses` and another just to an empty `makeCall`
+
+        val makeCall = Mono.fromCallable {
+            sendRpc(request)
+        }.then(Mono.empty<JsonRpcResponse>())
+        val responses = Flux.from(getRpcResponses())
+        val response = Flux.merge(responses.subscribeOn(Schedulers.boundedElastic()), makeCall.subscribeOn(Schedulers.boundedElastic()))
             .filter { resp -> resp.id.asNumber() == expectedId }
             .take(Defaults.timeout)
             .take(1)
             .singleOrEmpty()
+
+        // Immediate stop if WS got disconnected
 
         val failOnDisconnect = Mono.from(disconnects.asFlux())
             .flatMap {
