@@ -346,7 +346,6 @@ open class WsConnectionImpl(
             )
         )
 
-
         // Flux needs to make sure it's subscribed to the response before making the call, otherwise the response may come before the actual subscription and be lost
         // doOnSubscribe and doOnRequest make fire too early
         // So to ensure this it makes two subscriptions, one for actual `responses` and another just to an empty `makeCall`
