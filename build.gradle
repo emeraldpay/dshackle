@@ -36,7 +36,7 @@ group = 'io.emeraldpay.dshackle'
 // Version schema:
 //    x.x.x for production, following SemVer model
 //    x.x.x-SNAPSHOT for development
-version = '0.14.0-SNAPSHOT'
+version = '0.15.0-SNAPSHOT'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_13
@@ -177,7 +177,7 @@ jib {
         }
     }
     container {
-        jvmFlags = ['-Xms1024m', '-XX:MaxRAMPercentage=60']
+        jvmFlags = ['-Xms1024m', '-Xmx4g']
         mainClass = 'io.emeraldpay.dshackle.StarterKt'
         args = []
         ports = ['2448', '2449', '8545']

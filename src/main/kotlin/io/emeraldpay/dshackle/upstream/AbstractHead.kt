@@ -53,11 +53,12 @@ abstract class AbstractHead(
                 val delay = System.currentTimeMillis() - lastHeadUpdated
                 if (delay > awaitHeadTimeoutMs) {
                     log.warn("No head updates for $delay ms @ ${this.javaClass} - restart")
-                    try {
-                        lock.tryLock()
-                        start()
-                    } finally {
-                        lock.unlock()
+                    if (lock.tryLock()) {
+                        try {
+                            start()
+                        } finally {
+                            lock.unlock()
+                        }
                     }
                 }
             }, 300, 30, TimeUnit.SECONDS
