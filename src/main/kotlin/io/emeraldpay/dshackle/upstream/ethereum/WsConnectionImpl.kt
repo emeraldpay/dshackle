@@ -355,7 +355,6 @@ open class WsConnectionImpl(
         }.then(Mono.empty<JsonRpcResponse>())
         val responses = Flux.from(getRpcResponses())
         val response = Flux.merge(responses.subscribeOn(Schedulers.boundedElastic()), makeCall.subscribeOn(Schedulers.boundedElastic()))
-            .doOnRequest { sendRpc(request) }
             .filter { resp -> resp.id.asNumber() == expectedId }
             .take(Defaults.timeout)
             .take(1)
