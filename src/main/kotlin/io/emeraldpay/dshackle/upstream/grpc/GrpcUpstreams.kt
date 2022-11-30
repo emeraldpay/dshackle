@@ -29,7 +29,6 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
-import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
@@ -70,21 +69,21 @@ class GrpcUpstreams(
     private val lock = ReentrantLock()
 
     fun start(): Flux<UpstreamChangeEvent> {
-        val channel: ManagedChannelBuilder<*> = if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
-            NettyChannelBuilder.forAddress(host, port)
-                // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
-                .maxInboundMessageSize(Int.MAX_VALUE)
+        val chanelBuilder = NettyChannelBuilder.forAddress(host, port)
+            // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
+            .maxInboundMessageSize(Int.MAX_VALUE)
+            .enableRetry()
+            .maxRetryAttempts(3)
+        if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
+            chanelBuilder
                 .useTransportSecurity()
-                .enableRetry()
-                .maxRetryAttempts(3)
                 .sslContext(withTls(auth))
         } else {
             log.warn("Using insecure connection to $host:$port")
-            ManagedChannelBuilder.forAddress(host, port)
-                .usePlaintext()
+            chanelBuilder.usePlaintext()
         }
 
-        val client = ReactorBlockchainGrpc.newReactorStub(channel.build())
+        val client = ReactorBlockchainGrpc.newReactorStub(chanelBuilder.build())
         this.client = client
 
         val statusSubscription = AtomicReference<Disposable>()
