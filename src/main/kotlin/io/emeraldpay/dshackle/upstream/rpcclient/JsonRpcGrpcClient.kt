@@ -22,7 +22,6 @@ import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
@@ -40,14 +39,13 @@ class JsonRpcGrpcClient(
         private val log = LoggerFactory.getLogger(JsonRpcGrpcClient::class.java)
     }
 
-    fun forSelector(matcher: Selector.Matcher): Reader<JsonRpcRequest, JsonRpcResponse> {
-        return Executor(stub, chain, matcher, metrics)
+    fun getReader(): Reader<JsonRpcRequest, JsonRpcResponse> {
+        return Executor(stub, chain, metrics)
     }
 
     class Executor(
         private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val chain: Chain,
-        private val matcher: Selector.Matcher,
         private val metrics: RpcMetrics
     ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
@@ -56,11 +54,7 @@ class JsonRpcGrpcClient(
             val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChainValue(chain.id)
 
-            if (matcher != Selector.empty) {
-                Selector.extractLabels(matcher)?.asProto().let {
-                    req.setSelector(it)
-                }
-            }
+            key.selector?.let { req.selector = it }
 
             val reqItem = BlockchainOuterClass.NativeCallItem.newBuilder()
                 .setId(1)

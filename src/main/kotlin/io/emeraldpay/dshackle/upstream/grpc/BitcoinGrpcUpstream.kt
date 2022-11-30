@@ -26,7 +26,6 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
@@ -67,7 +66,7 @@ class BitcoinGrpcUpstream(
     }
 
     private val extractBlock = ExtractBlock()
-    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.forSelector(Selector.empty)
+    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.getReader()
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val block = BlockContainer(
             value.height,

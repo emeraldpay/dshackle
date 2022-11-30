@@ -242,6 +242,8 @@ open class NativeCall(
             val requestDecorator = getRequestDecorator(requestItem.method)
             val resultDecorator = getResultDecorator(requestItem.method)
 
+            val selector = request.takeIf { it.hasSelector() }?.let { Selectors.keepForwarded(it.selector) }
+
             ValidCallContext(
                 requestItem.id,
                 nonce,
@@ -250,7 +252,8 @@ open class NativeCall(
                 callQuorum,
                 RawCallDetails(method, params),
                 requestDecorator,
-                resultDecorator
+                resultDecorator,
+                selector
             )
         }
     }
@@ -267,7 +270,7 @@ open class NativeCall(
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getRoutedApi(ctx.matcher)
             .flatMap { api ->
-                api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
+                api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
                         if (ctx.nonce != null) {
@@ -300,7 +303,7 @@ open class NativeCall(
             AtomicInteger(-1)
         }
         return reader
-            .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
+            .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
                 CallResult(ctx.id, ctx.nonce, bytes, null, it.signature)
@@ -418,7 +421,8 @@ open class NativeCall(
         val callQuorum: CallQuorum,
         val payload: T,
         val requestDecorator: RequestDecorator,
-        val resultDecorator: ResultDecorator
+        val resultDecorator: ResultDecorator,
+        val forwardedSelector: BlockchainOuterClass.Selector?
     ) : CallContext {
 
         constructor(
@@ -428,7 +432,7 @@ open class NativeCall(
             matcher: Selector.Matcher,
             callQuorum: CallQuorum,
             payload: T
-        ) : this(id, nonce, upstream, matcher, callQuorum, payload, NoneRequestDecorator(), NoneResultDecorator())
+        ) : this(id, nonce, upstream, matcher, callQuorum, payload, NoneRequestDecorator(), NoneResultDecorator(), null)
 
         override fun isValid(): Boolean {
             return true
@@ -443,7 +447,7 @@ open class NativeCall(
         }
 
         fun <X> withPayload(payload: X): ValidCallContext<X> {
-            return ValidCallContext(id, nonce, upstream, matcher, callQuorum, payload, requestDecorator, resultDecorator)
+            return ValidCallContext(id, nonce, upstream, matcher, callQuorum, payload, requestDecorator, resultDecorator, forwardedSelector)
         }
 
         fun getApis(): ApiSource {
