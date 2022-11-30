@@ -21,6 +21,7 @@ import java.time.Duration
 class Defaults {
 
     companion object {
+        const val maxMessageSize: Int = 32 * 1024 * 1024
         val timeout: Duration = Duration.ofSeconds(60)
         val timeoutInternal: Duration = timeout.dividedBy(4)
         val retryConnection: Duration = Duration.ofSeconds(10)
