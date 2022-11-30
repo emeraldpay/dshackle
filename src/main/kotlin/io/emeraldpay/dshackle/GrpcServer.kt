@@ -46,7 +46,7 @@ open class GrpcServer(
         log.info("Listening Native gRPC on ${mainConfig.host}:${mainConfig.port}")
         val serverBuilder = NettyServerBuilder
             .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
-            .maxInboundMessageSize(Int.MAX_VALUE)
+            .maxInboundMessageSize(Defaults.maxMessageSize)
             .let {
                 if (mainConfig.accessLogConfig.enabled) {
                     it.intercept(accessHandler)
