@@ -22,6 +22,7 @@ import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.core.io.ClassPathResource
 import org.springframework.core.io.support.ResourcePropertySource
+import reactor.core.scheduler.Schedulers
 
 @SpringBootApplication(scanBasePackages = ["io.emeraldpay.dshackle"])
 open class Starter
@@ -29,6 +30,7 @@ open class Starter
 private val log = LoggerFactory.getLogger(Starter::class.java)
 
 fun main(args: Array<String>) {
+    Schedulers.enableMetrics()
     val app = SpringApplication(Starter::class.java)
     app.setDefaultProperties(ResourcePropertySource("version.properties").source)
     app.setBanner(ResourceBanner(ClassPathResource("banner.txt")))
