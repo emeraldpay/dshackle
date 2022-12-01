@@ -24,6 +24,7 @@ import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.Collections
+import java.util.Objects
 
 /**
  * Get a matcher based on a criteria provided with a RPC request. I.e. when the client requests data for "latest", or "0x19f816" block.
@@ -84,7 +85,7 @@ class EthereumCallSelector(
             return Mono.empty()
         }
         // integer block number, a string "latest", "earliest" or "pending", or an object with block reference
-        val minHeight: Long? = when (val tag = list[pos].toString()) {
+        val minHeight: Long? = when (val tag = Objects.toString(list[pos])) {
             "latest" -> head.getCurrentHeight()
             // for earliest it doesn't nothing, we expect to have 0 block
             "earliest" -> 0L
