@@ -19,7 +19,6 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -30,7 +29,6 @@ import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.time.Duration
 import java.util.function.Function
@@ -65,29 +63,23 @@ class GrpcHead(
         }
         log.debug("Start Head subscription to ${parent.getId()}")
 
-        val source = Flux.concat(
-            // first connect immediately
-            Flux.just(remote),
-            // following requests do with delay, give it a time to recover
-            Flux.just(remote).repeat().delayElements(Defaults.retryConnection)
-        ).flatMap(this::subscribeHead)
-
+        val source = Flux.just(remote).flatMap(this::subscribeHead)
         internalStart(source)
     }
 
     fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub): Publisher<BlockchainOuterClass.ChainHead> {
+        log.error("HERE we strart NEW subscription", Exception())
         val chainRef = Common.Chain.newBuilder()
             .setTypeValue(chain.id)
             .build()
         return client.subscribeHead(chainRef)
-            .doOnError { log.error("subscribeHead err: ${it.message}", it) }
-            // simple retry on failure, if eventually failed then it supposed to resubscribe later from outer method
-            .retryWhen(Retry.backoff(4, Duration.ofSeconds(1)))
-            .onErrorContinue { err, _ ->
-                log.warn("Disconnected $chain from ${parent.getId()}: ${err.message}")
+            .doOnError {
+                log.error("subscribeHead err: ${it.message}", it)
                 parent.setStatus(UpstreamAvailability.UNAVAILABLE)
-                Mono.empty<BlockchainOuterClass.ChainHead>()
-            }.doFinally { log.warn("Head subscription finished: $it") }
+            }
+            // now we are making retries only here
+            .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)))
+            .doFinally { log.warn("Head subscription finished: $it") }
     }
 
     /**
