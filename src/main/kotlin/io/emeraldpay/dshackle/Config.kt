@@ -27,7 +27,6 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.ExitCodeGenerator
 import org.springframework.boot.SpringApplication
 import org.springframework.context.ApplicationContext
@@ -38,11 +37,8 @@ import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.util.ResourceUtils
-import reactor.core.scheduler.Scheduler
-import reactor.core.scheduler.Schedulers
 import java.io.File
 import java.security.Security
-import java.util.concurrent.Executors
 import kotlin.system.exitProcess
 
 @Configuration
@@ -93,12 +89,6 @@ open class Config(
         }
         target = target.normalize()
         return target
-    }
-
-    @Bean
-    @Qualifier("upstreamScheduler")
-    open fun upstreamScheduler(): Scheduler {
-        return Schedulers.fromExecutorService(Executors.newFixedThreadPool(16))
     }
 
     @Bean
