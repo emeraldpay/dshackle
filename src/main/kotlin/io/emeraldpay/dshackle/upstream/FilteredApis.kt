@@ -171,7 +171,7 @@ class FilteredApis(
                 .delaySubscription(waitDuration(r + 1))
         }.let { Flux.concat(it) }
 
-        var result = Flux.concat(first, second, retries)
+        var result = Flux.concat(first, second, retries).take(Duration.ofSeconds(3))
 
         if (Global.metricsExtended) {
             var count = 0
