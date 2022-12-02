@@ -68,7 +68,6 @@ class GrpcHead(
     }
 
     fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub): Publisher<BlockchainOuterClass.ChainHead> {
-        log.error("HERE we strart NEW subscription", Exception())
         val chainRef = Common.Chain.newBuilder()
             .setTypeValue(chain.id)
             .build()
