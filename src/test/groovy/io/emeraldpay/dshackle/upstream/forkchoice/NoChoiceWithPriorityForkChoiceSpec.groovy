@@ -16,7 +16,7 @@ class NoChoiceWithPriorityForkChoiceSpec extends Specification {
     def "filters blocks"() {
         def blockR0 = blocks[0].copyWithRating(10)
         def blockR1 = blocks[1].copyWithRating(10)
-        def choice = new NoChoiceWithPriorityForkChoice(10)
+        def choice = new NoChoiceWithPriorityForkChoice(10, "test")
         when:
         choice.choose(blocks[0])
         then:
@@ -34,7 +34,7 @@ class NoChoiceWithPriorityForkChoiceSpec extends Specification {
     def "chooses blocks and adds rating"() {
         def blockR0 = blocks[0].copyWithRating(10)
         def blockR1 = blocks[1].copyWithRating(10)
-        def choice = new NoChoiceWithPriorityForkChoice(10)
+        def choice = new NoChoiceWithPriorityForkChoice(10, "test")
         when:
         choice.choose(blocks[0])
         then:

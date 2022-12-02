@@ -102,7 +102,7 @@ open class EthereumPosGrpcUpstream(
 
     private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
-    private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, NoChoiceWithPriorityForkChoice(nodeRating))
+    private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, NoChoiceWithPriorityForkChoice(nodeRating, parentId))
     private var capabilities: Set<Capability> = emptySet()
 
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.getReader()

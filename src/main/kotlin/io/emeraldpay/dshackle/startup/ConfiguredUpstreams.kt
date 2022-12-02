@@ -177,7 +177,7 @@ open class ConfiguredUpstreams(
             execution,
             chain,
             urls,
-            NoChoiceWithPriorityForkChoice(conn.upstreamRating),
+            NoChoiceWithPriorityForkChoice(conn.upstreamRating, config.id!!),
             BlockValidator.ALWAYS_VALID
         )
         val methods = buildMethods(config, chain)
