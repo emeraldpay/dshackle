@@ -65,12 +65,12 @@ open class GrpcServer(
             serverBuilder.addService(it)
         }
 
-//        serverBuilder.executor(
-//            Executors.newFixedThreadPool(
-//                20,
-//                ThreadFactoryBuilder().setNameFormat("custom-grpc-%d").build()
-//            )
-//         )
+        serverBuilder.executor(
+            Executors.newFixedThreadPool(
+                20,
+                ThreadFactoryBuilder().setNameFormat("custom-grpc-%d").build()
+            )
+        )
 
         val server = serverBuilder.build()
         this.server = server
