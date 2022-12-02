@@ -32,7 +32,7 @@ open class DefaultEthereumHead(
     private val upstreamId: String,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
-) : Head, AbstractHead(forkChoice, blockValidator) {
+) : Head, AbstractHead(forkChoice, blockValidator,60_000, upstreamId) {
 
     companion object {
         private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)

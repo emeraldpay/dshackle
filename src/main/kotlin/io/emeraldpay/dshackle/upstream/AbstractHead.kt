@@ -30,10 +30,11 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 
-abstract class AbstractHead(
+abstract class AbstractHead @JvmOverloads constructor(
     private val forkChoice: ForkChoice,
     private val blockValidator: BlockValidator = BlockValidator.ALWAYS_VALID,
-    awaitHeadTimeoutMs: Long = 60_000
+    awaitHeadTimeoutMs: Long = 60_000,
+    private val upstreamId: String = ""
 ) : Head {
 
     companion object {
@@ -103,9 +104,9 @@ abstract class AbstractHead(
                             val newHead = choiceResult.nwhead
                             lastHeadUpdated = System.currentTimeMillis()
                             when (val result = stream.tryEmitNext(newHead)) {
-                                OK -> log.debug("New block ${newHead.height} ${newHead.hash} @ ${this.javaClass}")
-                                FAIL_ZERO_SUBSCRIBER -> log.debug("No subscribers for ${this.javaClass}")
-                                else -> log.warn("Failed to dispatch block: $result as ${this.javaClass}")
+                                OK -> log.debug("New block $upstreamId ${newHead.height} ${newHead.hash} @ ${this.javaClass}")
+                                FAIL_ZERO_SUBSCRIBER -> log.debug("No subscribers $upstreamId ${this.javaClass}")
+                                else -> log.warn("Failed to dispatch block $upstreamId: $result as ${this.javaClass}")
                             }
                         }
 
