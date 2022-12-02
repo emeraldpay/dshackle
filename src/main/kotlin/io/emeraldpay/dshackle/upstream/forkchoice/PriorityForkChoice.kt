@@ -25,7 +25,7 @@ class PriorityForkChoice : ForkChoice {
 
     override fun choose(block: BlockContainer): ForkChoice.ChoiceResult {
         head.get()?.let {
-            log.debug("Candidate for priority forkchoice (${block.height}, ${block.nodeRating}), current is (${it.height},${it.nodeRating}")
+            log.debug("Candidate for priority forkchoice (${block.height}, ${block.nodeRating}), current is (${it.height},${it.nodeRating})")
         }
         val nwhead = head.updateAndGet { curr ->
             if (!filter(block)) {
