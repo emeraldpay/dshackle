@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinRpcIngressSubscription
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.grpc.Chain
@@ -112,10 +113,16 @@ open class BitcoinRpcUpstream(
                 head.start()
             }
         }
-        validatorSubscription?.dispose()
-        val validator = BitcoinUpstreamValidator(directApi, getOptions())
-        validatorSubscription = validator.start()
-            .subscribe(this::setStatus)
+        if (getOptions().disableValidation) {
+            log.warn("Disable validation for upstream ${this.getId()}")
+            this.setLag(0)
+            this.setStatus(UpstreamAvailability.OK)
+        } else {
+            validatorSubscription?.dispose()
+            val validator = BitcoinUpstreamValidator(directApi, getOptions())
+            validatorSubscription = validator.start()
+                .subscribe(this::setStatus)
+        }
     }
 
     override fun stop() {
