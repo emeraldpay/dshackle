@@ -73,10 +73,10 @@ abstract class AbstractHead @JvmOverloads constructor(
             completed = false
         }
         return source
-            .distinctUntilChanged {
-                it.hash
+            .filter {
+                log.debug("Filtering block $upstreamId block $it")
+                forkChoice.filter(it)
             }
-            .filter { forkChoice.filter(it) }
             .doFinally {
                 // close internal stream if upstream is finished, otherwise it gets stuck,
                 // but technically it should never happen during normal work, only when the Head
