@@ -38,7 +38,7 @@ class EthereumRpcConnector(
             val wsHead = EthereumWsHead(conn, id, forkChoice, blockValidator)
             // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
             val rpcHead = EthereumRpcHead(directReader, forkChoice, id, blockValidator, Duration.ofSeconds(60))
-            head = MergedHead(listOf(rpcHead, wsHead), forkChoice)
+            head = MergedHead(listOf(rpcHead, wsHead), forkChoice, "Merged for $id")
         } else {
             conn = null
             log.warn("Setting up connector for $id upstream with RPC-only access, less effective than WS+RPC")

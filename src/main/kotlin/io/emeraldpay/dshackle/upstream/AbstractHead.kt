@@ -53,7 +53,7 @@ abstract class AbstractHead @JvmOverloads constructor(
             {
                 val delay = System.currentTimeMillis() - lastHeadUpdated
                 if (delay > awaitHeadTimeoutMs) {
-                    log.warn("No head updates for $delay ms @ ${this.javaClass} - restart")
+                    log.warn("No head updates $upstreamId for $delay ms @ ${this.javaClass} - restart")
                     if (lock.tryLock()) {
                         try {
                             start()
@@ -82,10 +82,10 @@ abstract class AbstractHead @JvmOverloads constructor(
                 // but technically it should never happen during normal work, only when the Head
                 // is stopping
                 if (it == SignalType.ON_ERROR && !stopping) {
-                    log.warn("Received signal $it unexpectedly - restart head")
+                    log.warn("Received signal $upstreamId $it unexpectedly - restart head")
                     lastHeadUpdated = 0L
                 } else {
-                    log.warn("Received signal $it - stop emit new head!!!")
+                    log.warn("Received signal $upstreamId $it - stop emit new head!!!")
                     completed = true
                     stream.tryEmitComplete()
                 }
@@ -95,7 +95,7 @@ abstract class AbstractHead @JvmOverloads constructor(
                 val valid = runCatching {
                     blockValidator.isValid(forkChoice.getHead(), block)
                 }.onFailure {
-                    log.error("Block ${block.hash} validation failed with '${it.message}'", it)
+                    log.error("Block $upstreamId ${block.hash} validation failed with '${it.message}'", it)
                 }.getOrElse { false }
                 if (valid) {
                     notifyBeforeBlock()
@@ -113,7 +113,7 @@ abstract class AbstractHead @JvmOverloads constructor(
                         is ForkChoice.ChoiceResult.Same -> {}
                     }
                 } else {
-                    log.warn("Invalid block $block}")
+                    log.warn("Invalid block $upstreamId $block}")
                 }
             }
     }
