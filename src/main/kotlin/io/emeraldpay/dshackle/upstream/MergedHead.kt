@@ -24,10 +24,11 @@ import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
-class MergedHead(
+class MergedHead @JvmOverloads constructor(
     private val sources: Iterable<Head>,
-    forkChoice: ForkChoice
-) : AbstractHead(forkChoice), Lifecycle, CachesEnabled {
+    forkChoice: ForkChoice,
+    private val label: String = ""
+) : AbstractHead(forkChoice, upstreamId = label), Lifecycle, CachesEnabled {
 
     companion object {
         private val log = LoggerFactory.getLogger(MergedHead::class.java)
@@ -48,7 +49,9 @@ class MergedHead(
         }
         subscription?.dispose()
         subscription = super.follow(
-            Flux.merge(sources.map { it.getFlux() }).doOnNext { log.debug("New MERGED head $it") }
+            Flux.merge(sources.map { it.getFlux() }).doOnNext {
+                log.debug("New MERGED $label head $it")
+            }
         )
     }
 

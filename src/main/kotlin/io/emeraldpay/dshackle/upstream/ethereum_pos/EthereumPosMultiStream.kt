@@ -123,7 +123,7 @@ open class EthereumPosMultiStream(
             }
         } else {
             val heads = upstreams.map { it.getHead() }
-            val newHead = MergedHead(heads, PriorityForkChoice()).apply {
+            val newHead = MergedHead(heads, PriorityForkChoice(), "ETH Pos Multistream").apply {
                 this.start()
             }
             val lagObserver = EthereumPosHeadLagObserver(newHead, upstreams as Collection<Upstream>)
@@ -161,12 +161,12 @@ open class EthereumPosMultiStream(
                 .apply {
                     log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
                 }
-                .map { it.getHead() }
                 .let {
+                    val selected = it.map { it.getHead() }
                     when (it.size) {
                         0 -> EmptyHead()
-                        1 -> it.first()
-                        else -> MergedHead(it, PriorityForkChoice()).apply {
+                        1 -> selected.first()
+                        else -> MergedHead(selected, PriorityForkChoice(), "ETH head for ${it.map { it.getId() }}").apply {
                             start()
                         }
                     }
