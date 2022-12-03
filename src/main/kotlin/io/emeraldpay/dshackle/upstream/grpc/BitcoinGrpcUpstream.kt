@@ -35,6 +35,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinDshackleIngressSubscription
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -126,6 +127,10 @@ class BitcoinGrpcUpstream(
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return upstreamStatus.getLabels()
+    }
+
+    override fun getMethods(): CallMethods {
+        return upstreamStatus.getCallMethods()
     }
 
     override fun getCapabilities(): Set<Capability> {
