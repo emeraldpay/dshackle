@@ -21,6 +21,8 @@ import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerGrpc
 import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
+import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -66,10 +68,12 @@ open class GrpcServer(
         }
 
         serverBuilder.executor(
-            Executors.newFixedThreadPool(
-                20,
-                ThreadFactoryBuilder().setNameFormat("custom-grpc-%d").build()
+            ExecutorServiceMetrics.monitor(
+                Metrics.globalRegistry,
+                Executors.newFixedThreadPool(20, ThreadFactoryBuilder().setNameFormat("fixed-grpc-%d").build()),
+                "fixed-grpc-executor"
             )
+
         )
 
         val server = serverBuilder.build()
