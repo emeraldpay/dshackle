@@ -183,6 +183,8 @@ open class NativeCall(
         val availableMethods = upstream.getMethods()
 
         if (!availableMethods.isAvailable(method)) {
+            log.info("The method $method does not exist/is not available on $chain")
+            log.debug("Available methods: ${availableMethods.getSupportedMethods()} for ${chain.chainCode}. Requested $method")
             val errorMessage = "The method $method does not exist/is not available"
             return Mono.just(
                 InvalidCallContext(
