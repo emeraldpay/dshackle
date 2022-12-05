@@ -26,11 +26,11 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.DependsOn
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -38,14 +38,14 @@ import java.util.concurrent.TimeUnit
 @Service
 @DependsOn("monitoringSetup")
 class BlockchainRpc(
-    @Autowired private val nativeCall: NativeCall,
-    @Autowired private val nativeSubscribe: NativeSubscribe,
-    @Autowired private val streamHead: StreamHead,
-    @Autowired private val trackTx: List<TrackTx>,
-    @Autowired private val trackAddress: List<TrackAddress>,
-    @Autowired private val describe: Describe,
-    @Autowired private val subscribeStatus: SubscribeStatus,
-    @Autowired private val estimateFee: EstimateFee,
+    private val nativeCall: NativeCall,
+    private val nativeSubscribe: NativeSubscribe,
+    private val streamHead: StreamHead,
+    private val trackTx: List<TrackTx>,
+    private val trackAddress: List<TrackAddress>,
+    private val describe: Describe,
+    private val subscribeStatus: SubscribeStatus,
+    private val estimateFee: EstimateFee,
 ) : ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
@@ -69,6 +69,7 @@ class BlockchainRpc(
         val idsMap = mutableMapOf<Int, String>()
         return nativeCall.nativeCall(
             request
+                .subscribeOn(Schedulers.boundedElastic())
                 .doOnNext { req ->
                     metrics = chainMetrics.get(req.chain)
                     metrics?.let { m ->
@@ -114,7 +115,7 @@ class BlockchainRpc(
     }
 
     override fun subscribeTxStatus(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
-        return requestMono.flatMapMany { request ->
+        return requestMono.subscribeOn(Schedulers.boundedElastic()).flatMapMany { request ->
             val chain = Chain.byId(request.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.subscribeTxMetric.increment()
@@ -133,7 +134,7 @@ class BlockchainRpc(
     }
 
     override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return requestMono.flatMapMany { request ->
+        return requestMono.subscribeOn(Schedulers.boundedElastic()).flatMapMany { request ->
             val chain = Chain.byId(request.asset.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.subscribeBalanceMetric.increment()
@@ -156,7 +157,7 @@ class BlockchainRpc(
     }
 
     override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return requestMono.flatMapMany { request ->
+        return requestMono.subscribeOn(Schedulers.boundedElastic()).flatMapMany { request ->
             val chain = Chain.byId(request.asset.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.getBalanceMetric.increment()
@@ -185,6 +186,7 @@ class BlockchainRpc(
 
     override fun estimateFee(request: Mono<BlockchainOuterClass.EstimateFeeRequest>): Mono<BlockchainOuterClass.EstimateFeeResponse> {
         return request
+            .subscribeOn(Schedulers.boundedElastic())
             .flatMap {
                 val chain = Chain.byId(it.chainValue)
                 val metrics = chainMetrics.get(chain)
