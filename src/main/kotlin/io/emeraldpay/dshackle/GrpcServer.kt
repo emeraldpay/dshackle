@@ -67,14 +67,18 @@ open class GrpcServer(
             serverBuilder.addService(it)
         }
 
-        serverBuilder.executor(
-            ExecutorServiceMetrics.monitor(
-                Metrics.globalRegistry,
-                Executors.newFixedThreadPool(20, ThreadFactoryBuilder().setNameFormat("fixed-grpc-%d").build()),
-                "fixed-grpc-executor",
-                "grpc_"
-            )
+        val pool = Executors.newFixedThreadPool(20, ThreadFactoryBuilder().setNameFormat("fixed-grpc-%d").build())
 
+        serverBuilder.executor(
+            if (mainConfig.monitoring.enableExtended)
+                ExecutorServiceMetrics.monitor(
+                    Metrics.globalRegistry,
+                    pool,
+                    "fixed-grpc-executor",
+                    "grpc_"
+                )
+            else
+                pool
         )
 
         val server = serverBuilder.build()
