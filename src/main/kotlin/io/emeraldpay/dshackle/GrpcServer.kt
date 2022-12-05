@@ -71,7 +71,8 @@ open class GrpcServer(
             ExecutorServiceMetrics.monitor(
                 Metrics.globalRegistry,
                 Executors.newFixedThreadPool(20, ThreadFactoryBuilder().setNameFormat("fixed-grpc-%d").build()),
-                "fixed-grpc-executor"
+                "fixed-grpc-executor",
+                "grpc_"
             )
 
         )
