@@ -32,12 +32,11 @@ import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
-import reactor.core.scheduler.Schedulers
 import reactor.util.retry.Retry
 import java.math.BigInteger
 import java.time.Duration
@@ -47,7 +46,9 @@ import kotlin.math.min
 
 @Service
 class TrackEthereumTx(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    private val multistreamHolder: MultistreamHolder,
+    @Qualifier("trackTxScheduler")
+    private val scheduler: Scheduler
 ) : TrackTx {
 
     companion object {
@@ -56,8 +57,6 @@ class TrackEthereumTx(
         private val NOT_FOUND_TRACK_TTL = Duration.ofMinutes(1)
         private val NOT_MINED_TRACK_TTL = NOT_FOUND_TRACK_TTL.multipliedBy(2)
     }
-
-    var scheduler: Scheduler = Schedulers.boundedElastic()
 
     private val log = LoggerFactory.getLogger(TrackEthereumTx::class.java)
 

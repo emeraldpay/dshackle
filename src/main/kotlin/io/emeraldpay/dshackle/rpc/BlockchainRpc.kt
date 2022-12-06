@@ -26,11 +26,12 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.DependsOn
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -46,6 +47,8 @@ class BlockchainRpc(
     private val describe: Describe,
     private val subscribeStatus: SubscribeStatus,
     private val estimateFee: EstimateFee,
+    @Qualifier("rpcScheduler")
+    private val scheduler: Scheduler
 ) : ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
@@ -69,7 +72,7 @@ class BlockchainRpc(
         val idsMap = mutableMapOf<Int, String>()
         return nativeCall.nativeCall(
             request
-                .subscribeOn(Schedulers.boundedElastic())
+                .subscribeOn(scheduler)
                 .doOnNext { req ->
                     metrics = chainMetrics.get(req.chain)
                     metrics?.let { m ->
@@ -115,7 +118,7 @@ class BlockchainRpc(
     }
 
     override fun subscribeTxStatus(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
-        return requestMono.subscribeOn(Schedulers.boundedElastic()).flatMapMany { request ->
+        return requestMono.subscribeOn(scheduler).flatMapMany { request ->
             val chain = Chain.byId(request.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.subscribeTxMetric.increment()
@@ -128,13 +131,13 @@ class BlockchainRpc(
             } catch (t: Throwable) {
                 log.error("Internal error during Tx Subscription", t)
                 failMetric.increment()
-                Flux.error<BlockchainOuterClass.TxStatus>(IllegalStateException("Internal Error"))
+                Flux.error(IllegalStateException("Internal Error"))
             }
         }
     }
 
     override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return requestMono.subscribeOn(Schedulers.boundedElastic()).flatMapMany { request ->
+        return requestMono.subscribeOn(scheduler).flatMapMany { request ->
             val chain = Chain.byId(request.asset.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.subscribeBalanceMetric.increment()
@@ -151,13 +154,13 @@ class BlockchainRpc(
             } catch (t: Throwable) {
                 log.error("Internal error during Balance Subscription", t)
                 failMetric.increment()
-                Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
+                Flux.error(IllegalStateException("Internal Error"))
             }
         }
     }
 
     override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return requestMono.subscribeOn(Schedulers.boundedElastic()).flatMapMany { request ->
+        return requestMono.subscribeOn(scheduler).flatMapMany { request ->
             val chain = Chain.byId(request.asset.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.getBalanceMetric.increment()
@@ -186,7 +189,7 @@ class BlockchainRpc(
 
     override fun estimateFee(request: Mono<BlockchainOuterClass.EstimateFeeRequest>): Mono<BlockchainOuterClass.EstimateFeeResponse> {
         return request
-            .subscribeOn(Schedulers.boundedElastic())
+            .subscribeOn(scheduler)
             .flatMap {
                 val chain = Chain.byId(it.chainValue)
                 val metrics = chainMetrics.get(chain)
