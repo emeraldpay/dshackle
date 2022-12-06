@@ -38,34 +38,37 @@ class ManagedCallMethods(
 
     companion object {
         private val log = LoggerFactory.getLogger(ManagedCallMethods::class.java)
-        private val defaultQuorum = AlwaysQuorum()
     }
 
     private val delegated = delegate.getSupportedMethods().sorted()
     private val allAllowed: Set<String> = Collections.unmodifiableSet(
         enabled + delegated - disabled
     )
-    private val quorum: MutableMap<String, CallQuorum> = HashMap()
+    private val quorum: MutableMap<String, String> = HashMap()
     private val staticResponse: MutableMap<String, String> = HashMap()
     private val redefined = delegated.filter(enabled::contains).sorted()
 
     init {
         enabled.forEach { m ->
-            quorum[m] = defaultQuorum
+            quorum[m] = "always"
         }
     }
 
-    fun setQuorum(method: String, quorumId: String) {
-        val quorum = when (quorumId) {
+    fun createQuorum(method: String): CallQuorum {
+        return when (val quorumId = quorum[method] ?: "always") {
             "always" -> AlwaysQuorum()
             "no-lag", "not-lagging", "no_lag", "not_lagging" -> NotLaggingQuorum(0)
             "not-empty", "not_empty", "non-empty", "non_empty" -> NonEmptyQuorum()
             else -> {
                 log.warn("Unknown quorum: $quorumId for custom method $method")
-                return
+                return AlwaysQuorum()
             }
         }
-        this.quorum[method] = quorum
+
+    }
+
+    fun setQuorum(method: String, quorumId: String) {
+        this.quorum[method] = quorumId
     }
 
     fun setStaticResponse(method: String, response: String) {
@@ -75,10 +78,10 @@ class ManagedCallMethods(
     override fun getQuorumFor(method: String): CallQuorum {
         return when {
             isDelegated(method) && !isRedefined(method) -> delegate.getQuorumFor(method)
-            enabled.contains(method) -> quorum[method] ?: defaultQuorum
+            enabled.contains(method) -> createQuorum(method)
             else -> {
                 log.warn("Getting quorum for unknown method")
-                defaultQuorum
+                AlwaysQuorum()
             }
         }
     }
