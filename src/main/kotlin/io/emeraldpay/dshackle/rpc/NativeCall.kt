@@ -99,7 +99,7 @@ open class NativeCall(
                 } else {
                     val error = it.getError()
                     Mono.just(
-                        CallResult(error.id, 0, null, error, null)
+                        CallResult(error.id, 0, null, error, null, null)
                     )
                 }
             }
@@ -125,6 +125,7 @@ open class NativeCall(
         if (it.nonce != null && it.signature != null) {
             result.signature = buildSignature(it.nonce, it.signature)
         }
+        it.upstreamId ?.let { result.upstreamId = it }
         return result.build()
     }
 
@@ -274,9 +275,9 @@ open class NativeCall(
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
                         if (ctx.nonce != null) {
-                            CallResult.ok(ctx.id, ctx.nonce, it, signer.sign(ctx.nonce, it, ctx.upstream.getId()))
+                            CallResult.ok(ctx.id, ctx.nonce, it, signer.sign(ctx.nonce, it, ctx.upstream.getId()), ctx.upstream.getId())
                         } else {
-                            CallResult.ok(ctx.id, null, it, null)
+                            CallResult.ok(ctx.id, null, it, null, ctx.upstream.getId())
                         }
                     }
             }.switchIfEmpty(
@@ -306,7 +307,7 @@ open class NativeCall(
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
-                CallResult(ctx.id, ctx.nonce, bytes, null, it.signature)
+                CallResult(ctx.id, ctx.nonce, bytes, null, it.signature, ctx.upstream.getId())
             }
             .onErrorResume { t ->
                 val failure = when (t) {
@@ -494,19 +495,20 @@ open class NativeCall(
         val nonce: Long?,
         val result: ByteArray?,
         val error: CallError?,
-        val signature: ResponseSigner.Signature?
+        val signature: ResponseSigner.Signature?,
+        val upstreamId: String?
     ) {
         companion object {
-            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?): CallResult {
-                return CallResult(id, nonce, result, null, signature)
+            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamId: String?): CallResult {
+                return CallResult(id, nonce, result, null, signature, upstreamId)
             }
 
             fun fail(id: Int, nonce: Long?, errorCore: Int, errorMessage: String): CallResult {
-                return CallResult(id, nonce, null, CallError(errorCore, errorMessage, null), null)
+                return CallResult(id, nonce, null, CallError(errorCore, errorMessage, null), null, null)
             }
 
             fun fail(id: Int, nonce: Long?, error: Throwable): CallResult {
-                return CallResult(id, nonce, null, CallError.from(error), null)
+                return CallResult(id, nonce, null, CallError.from(error), null, null)
             }
         }
 

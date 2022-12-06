@@ -196,7 +196,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null)
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null, null)
         )
         then:
         resp.id == 1561
@@ -211,7 +211,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100))
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100), "test")
         )
         then:
         resp.id == 1561
@@ -220,6 +220,7 @@ class NativeCallSpec extends Specification {
         resp.signature.signature.toByteArray() == "sig1".bytes
         resp.signature.keyId == 100
         resp.signature.upstreamId == "test"
+        resp.upstreamId == "test"
         objectMapper.readValue(resp.payload.toByteArray(), Map.class) == [jsonrpc:"2.0", id:1, result: "foo"]
     }
 
