@@ -122,6 +122,8 @@ open class NativeSubscribe(
             }
         }
 
+        holder.getSource()?.let { builder.setUpstreamId(it) }
+
         return builder.build()
     }
 

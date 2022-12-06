@@ -62,7 +62,7 @@ class BaseHandlerSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
         call.items.add(request)
         call.ids[0] = 5
-        def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null)
+        def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, null)
         when:
         def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, false))
                 .collectList()
@@ -85,7 +85,7 @@ class BaseHandlerSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.BATCH)
         call.items.add(request)
         call.ids[0] = 5
-        def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null)
+        def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, null)
         when:
         def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, false))
                 .collectList()
@@ -116,8 +116,8 @@ class BaseHandlerSpec extends Specification {
         call.items.add(request2)
         call.ids[1] = 6
         def response = [
-                new NativeCall.CallResult(1, null, '{"foo": 2}'.bytes, null, null),
-                new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null)
+                new NativeCall.CallResult(1, null, '{"foo": 2}'.bytes, null, null, null),
+                new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, null)
         ]
         when:
         def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
@@ -149,8 +149,8 @@ class BaseHandlerSpec extends Specification {
         call.items.add(request2)
         call.ids[1] = 6
         def response = [
-                new NativeCall.CallResult(1, null, '{"foo": 2}'.bytes, null, null),
-                new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null)
+                new NativeCall.CallResult(1, null, '{"foo": 2}'.bytes, null, null, null),
+                new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, null)
         ]
         when:
         def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
@@ -189,8 +189,8 @@ class BaseHandlerSpec extends Specification {
 
         // note there is only 2 responses
         def response = [
-                new NativeCall.CallResult(1, null, '{"foo": 2}'.bytes, null, null),
-                new NativeCall.CallResult(2, null, '{"foo": 3}'.bytes, null, null)
+                new NativeCall.CallResult(1, null, '{"foo": 2}'.bytes, null, null, null),
+                new NativeCall.CallResult(2, null, '{"foo": 3}'.bytes, null, null, null)
         ]
         when:
         def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
