@@ -112,7 +112,7 @@ class DefaultEthereumMethods(
             getChainSpecificMethods(chain)
     }
 
-    override fun getQuorumFor(method: String): CallQuorum {
+    override fun createQuorumFor(method: String): CallQuorum {
         return when {
             filterMethods.contains(method) -> NotLaggingQuorum(1)
             hardcodedMethods.contains(method) -> AlwaysQuorum()

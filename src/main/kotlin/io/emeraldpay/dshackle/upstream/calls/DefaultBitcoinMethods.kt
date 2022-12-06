@@ -59,7 +59,7 @@ class DefaultBitcoinMethods : CallMethods {
     private val allowedMethods =
         (freshMethods + anyResponseMethods + headVerifiedMethods + broadcastMethods).sorted()
 
-    override fun getQuorumFor(method: String): CallQuorum {
+    override fun createQuorumFor(method: String): CallQuorum {
         return when {
             Collections.binarySearch(hardcodedMethods, method) >= 0 -> AlwaysQuorum()
             Collections.binarySearch(anyResponseMethods, method) >= 0 -> NonEmptyQuorum()
