@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerGrpc
 import io.grpc.Server
@@ -24,7 +23,7 @@ import io.grpc.netty.NettyServerBuilder
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
@@ -33,10 +32,10 @@ import javax.annotation.PreDestroy
 
 @Service
 open class GrpcServer(
-    @Autowired val rpcs: List<io.grpc.BindableService>,
-    @Autowired val mainConfig: MainConfig,
-    @Autowired val tlsSetup: TlsSetup,
-    @Autowired val accessHandler: AccessHandlerGrpc
+    private val rpcs: List<io.grpc.BindableService>,
+    private val mainConfig: MainConfig,
+    private val tlsSetup: TlsSetup,
+    private val accessHandler: AccessHandlerGrpc
 ) {
 
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)
@@ -67,7 +66,7 @@ open class GrpcServer(
             serverBuilder.addService(it)
         }
 
-        val pool = Executors.newFixedThreadPool(20, ThreadFactoryBuilder().setNameFormat("fixed-grpc-%d").build())
+        val pool = Executors.newFixedThreadPool(20, CustomizableThreadFactory("fixed-grpc-%d"))
 
         serverBuilder.executor(
             if (mainConfig.monitoring.enableExtended)
