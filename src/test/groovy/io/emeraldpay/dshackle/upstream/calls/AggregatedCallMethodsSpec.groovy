@@ -31,11 +31,11 @@ class AggregatedCallMethodsSpec extends Specification {
         def delegate2 = Mock(CallMethods) {
             _ * getSupportedMethods() >> ["eth_test", "foo_bar"]
             1 * isCallable("eth_test") >> true
-            1 * getQuorumFor("eth_test") >> quorum
+            1 * createQuorumFor("eth_test") >> quorum
         }
         def aggregate = new AggregatedCallMethods([delegate1, delegate2])
         when:
-        def act = aggregate.getQuorumFor("eth_test")
+        def act = aggregate.createQuorumFor("eth_test")
         then:
         act == quorum
     }

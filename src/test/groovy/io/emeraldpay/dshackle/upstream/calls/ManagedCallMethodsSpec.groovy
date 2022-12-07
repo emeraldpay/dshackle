@@ -18,13 +18,14 @@ package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
+import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
-import io.emeraldpay.dshackle.quorum.NonceQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
-import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.Chain
 import spock.lang.Specification
+
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class ManagedCallMethodsSpec extends Specification {
 
@@ -36,7 +37,7 @@ class ManagedCallMethodsSpec extends Specification {
                 [] as Set
         )
         when:
-        def act = managed.getQuorumFor("eth_test")
+        def act = managed.createQuorumFor("eth_test")
         then:
         act instanceof AlwaysQuorum
     }
@@ -72,7 +73,7 @@ class ManagedCallMethodsSpec extends Specification {
         def delegated = ["eth_test", "eth_test2"] as Set
         def delegate = Mock(CallMethods) {
             _ * it.getSupportedMethods() >> delegated
-            0 * it.getQuorumFor("eth_test") >> new BroadcastQuorum()
+            0 * it.createQuorumFor("eth_test") >> new BroadcastQuorum()
         }
         def managed = new ManagedCallMethods(
                 delegate,
@@ -80,7 +81,7 @@ class ManagedCallMethodsSpec extends Specification {
                 ["foo_bar"] as Set
         )
         when:
-        def act = managed.getQuorumFor("eth_test")
+        def act = managed.createQuorumFor("eth_test")
         then:
         act != null
         act instanceof AlwaysQuorum
@@ -96,18 +97,40 @@ class ManagedCallMethodsSpec extends Specification {
         managed.setQuorum("eth_test", "not_empty")
         managed.setQuorum("eth_foo", "not_lagging")
         when:
-        def act = managed.getQuorumFor("eth_test")
+        def act = managed.createQuorumFor("eth_test")
         then:
         act instanceof NonEmptyQuorum
 
         when:
-        act = managed.getQuorumFor("eth_foo")
+        act = managed.createQuorumFor("eth_foo")
         then:
         act instanceof NotLaggingQuorum
 
         when:
-        act = managed.getQuorumFor("eth_bar")
+        act = managed.createQuorumFor("eth_bar")
         then:
         act instanceof AlwaysQuorum
+    }
+
+    def "Doesn't reuse same instance"() {
+        def managed = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                ["eth_test"] as Set,
+                [] as Set
+        )
+        def parallel = Executors.newFixedThreadPool(16)
+        when:
+        List<CallQuorum> instances = []
+        50.times {
+            instances << managed.createQuorumFor("eth_test")
+        }
+        parallel.shutdown()
+        parallel.awaitTermination(5, TimeUnit.SECONDS)
+
+        def ids = instances.collect { System.identityHashCode(it) }
+
+        then:
+        instances.size() == 50
+        ids.toSet().size() == 50
     }
 }

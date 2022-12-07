@@ -132,8 +132,12 @@ class EthereumDirectReader(
      */
     private fun readWithQuorum(request: JsonRpcRequest): Mono<ByteArray> {
         return quorumReaderFactory
-            // we do not use Signer for internal requests because it doesn't make much sense
-            .create(up.getApiSource(Selector.empty), callMethodsFactory.create().getQuorumFor(request.method), null)
+            .create(
+                up.getApiSource(Selector.empty),
+                callMethodsFactory.create().createQuorumFor(request.method),
+                // we do not use Signer for internal requests because it doesn't make much sense
+                null
+            )
             .read(request)
             .map { it.value }
     }
