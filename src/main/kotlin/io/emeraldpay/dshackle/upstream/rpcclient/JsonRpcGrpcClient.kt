@@ -25,6 +25,8 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.grpc.StatusRuntimeException
+import org.apache.commons.lang3.time.StopWatch
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.concurrent.TimeUnit
@@ -32,7 +34,7 @@ import java.util.concurrent.TimeUnit
 class JsonRpcGrpcClient(
     private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val chain: Chain,
-    private val metrics: RpcMetrics
+    private val metrics: RpcMetrics?,
 ) {
 
     companion object {
@@ -46,11 +48,11 @@ class JsonRpcGrpcClient(
     class Executor(
         private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val chain: Chain,
-        private val metrics: RpcMetrics
+        private val metrics: RpcMetrics?
     ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
         override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
-            var startTime: Long = 0
+            val timer = StopWatch()
             val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChainValue(chain.id)
 
@@ -66,37 +68,56 @@ class JsonRpcGrpcClient(
             req.addItems(reqItem.build())
 
             return Mono.just(key)
-                .doOnNext {
-                    startTime = System.nanoTime()
-                }.flatMap {
+                .doOnNext { timer.start() }
+                .flatMap {
                     stub.nativeCall(req.build())
                         .single()
-                        .flatMap { resp ->
-                            if (resp.succeed) {
-                                val bytes = resp.payload.toByteArray()
-                                val signature = if (resp.hasSignature()) {
-                                    extractSignature(resp.signature)
-                                } else {
-                                    null
-                                }
-                                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), signature))
-                            } else {
-                                metrics.fails.increment()
-                                Mono.error(
-                                    RpcException(
-                                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                                        resp.errorMessage
-                                    )
-                                )
-                            }
-                        }
+                        .onErrorResume(::handleError)
+                        .flatMap(::handleResponse)
                 }
                 .doOnNext {
-                    if (startTime > 0) {
-                        val now = System.nanoTime()
-                        metrics.timer.record(now - startTime, TimeUnit.NANOSECONDS)
+                    if (timer.isStarted) {
+                        metrics?.timer?.record(timer.getTime(TimeUnit.NANOSECONDS), TimeUnit.NANOSECONDS)
                     }
                 }
+        }
+
+        fun handleResponse(resp: BlockchainOuterClass.NativeCallReplyItem): Mono<JsonRpcResponse> =
+            if (resp.succeed) {
+                val bytes = resp.payload.toByteArray()
+                val signature = if (resp.hasSignature()) {
+                    extractSignature(resp.signature)
+                } else {
+                    null
+                }
+                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), signature))
+            } else {
+                metrics?.fails?.increment()
+                Mono.error(
+                    RpcException(
+                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                        resp.errorMessage
+                    )
+                )
+            }
+
+        fun handleError(t: Throwable): Mono<BlockchainOuterClass.NativeCallReplyItem> {
+            metrics?.fails?.increment()
+            return when (t) {
+                is StatusRuntimeException -> Mono.error(
+                    RpcException(
+                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                        "Remote status code: ${t.status.code.name}"
+                    )
+                )
+
+                else -> Mono.error(
+                    RpcException(
+                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
+                        "Other connection error"
+                    )
+                )
+            }
         }
 
         fun extractSignature(resp: NativeCallReplySignature?): ResponseSigner.Signature? {
