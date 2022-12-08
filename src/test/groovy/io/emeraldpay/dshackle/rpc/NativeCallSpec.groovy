@@ -34,6 +34,8 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
@@ -154,6 +156,35 @@ class NativeCallSpec extends Specification {
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
+    }
+
+    def "Returns error details from remote"() {
+        setup:
+        def quorum = new AlwaysQuorum()
+
+        def nativeCall = nativeCall()
+        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.error(
+                        new JsonRpcException(JsonRpcResponse.Id.from(12), new JsonRpcError(-32123, "Foo Bar", "Foo Bar Baz"))
+                )
+            }
+        }
+        def call = new NativeCall.ValidCallContext(12, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+                new NativeCall.ParsedCallDetails("eth_test", []))
+
+        when:
+        def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
+        then:
+        resp.isError()
+        with(resp.getError()) {
+            message == "Foo Bar"
+            upstreamError != null
+            with (upstreamError) {
+                code == -32123
+                details == "Foo Bar Baz"
+            }
+        }
     }
 
     def "Packs call exception into response with id"() {
