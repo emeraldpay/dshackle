@@ -67,6 +67,6 @@ class DefaultEthereumMethodsSpec extends Specification {
                           "bor_getRootHash",
                           "bor_getSignersAtHash",
                           "eth_getRootHash"]
-        Chain.OPTIMISM | ["eth_getBlockRange", "rollup_gasPrices"]
+        Chain.OPTIMISM | ["rollup_gasPrices"]
     }
 }

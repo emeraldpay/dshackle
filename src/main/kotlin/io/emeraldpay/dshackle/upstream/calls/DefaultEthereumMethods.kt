@@ -114,7 +114,8 @@ class DefaultEthereumMethods(
 
     override fun createQuorumFor(method: String): CallQuorum {
         return when {
-            filterMethods.contains(method) -> NotLaggingQuorum(1)
+            newFilterMethods.contains(method) -> NotLaggingQuorum(4)
+            withFilterIdMethods.contains(method) -> AlwaysQuorum()
             hardcodedMethods.contains(method) -> AlwaysQuorum()
             firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
@@ -131,12 +132,11 @@ class DefaultEthereumMethods(
 
             getChainSpecificMethods(chain).contains(method) -> {
                 when (method) {
-                    "eth_getBlockRange" -> NotLaggingQuorum(1)
-                    "bor_getAuthor" -> NotLaggingQuorum(0)
+                    "bor_getAuthor" -> NotLaggingQuorum(4)
                     "bor_getCurrentValidators" -> NotLaggingQuorum(0)
                     "bor_getCurrentProposer" -> NotLaggingQuorum(0)
-                    "bor_getRootHash" -> NotLaggingQuorum(1)
-                    "eth_getRootHash" -> NotLaggingQuorum(1)
+                    "bor_getRootHash" -> NotLaggingQuorum(4)
+                    "eth_getRootHash" -> NotLaggingQuorum(4)
                     else -> AlwaysQuorum()
                 }
             }
@@ -147,7 +147,6 @@ class DefaultEthereumMethods(
     private fun getChainSpecificMethods(chain: Chain): List<String> {
         return when (chain) {
             Chain.OPTIMISM -> listOf(
-                "eth_getBlockRange",
                 "rollup_gasPrices"
             )
             Chain.POLYGON -> listOf(
