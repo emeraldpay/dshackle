@@ -27,7 +27,6 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
-import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
@@ -56,7 +55,6 @@ import java.util.concurrent.atomic.AtomicInteger
 @Service
 open class NativeCall(
     private val multistreamHolder: MultistreamHolder,
-    private val configuredUpstreams: ConfiguredUpstreams,
     private val signer: ResponseSigner
 ) {
 
@@ -76,7 +74,7 @@ open class NativeCall(
     @EventListener
     fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
         casting[BlockchainType.from(event.chain)]?.let { cast ->
-            multistreamHolder.getUpstream(event.chain)?.let { up ->
+            multistreamHolder.getUpstream(event.chain).let { up ->
                 val reader = up.cast(cast).getReader()
                 ethereumCallSelectors.putIfAbsent(event.chain, EthereumCallSelector(reader.heightByHash()))
             }
@@ -98,6 +96,7 @@ open class NativeCall(
                         .doOnError { e -> log.warn("Error during native call: ${e.message}") }
                 } else {
                     val error = it.getError()
+
                     Mono.just(
                         CallResult(error.id, 0, null, error, null, null)
                     )
@@ -274,6 +273,7 @@ open class NativeCall(
                 api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
+                        validateResult(it, "local", ctx)
                         if (ctx.nonce != null) {
                             CallResult.ok(ctx.id, ctx.nonce, it, signer.sign(ctx.nonce, it, ctx.upstream.getId()), ctx.upstream.getId())
                         } else {
@@ -299,11 +299,13 @@ open class NativeCall(
         } else {
             AtomicInteger(-1)
         }
+
         return reader
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
-                CallResult(ctx.id, ctx.nonce, bytes, null, it.signature, ctx.upstream.getId())
+                validateResult(bytes, "remote", ctx)
+                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, ctx.upstream.getId())
             }
             .onErrorResume { t ->
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, t))
@@ -320,6 +322,11 @@ open class NativeCall(
                     }
                 }
             )
+    }
+
+    private fun validateResult(bytes: ByteArray, origin: String, ctx: ValidCallContext<ParsedCallDetails>) {
+        if (bytes.isEmpty())
+            log.warn("Empty result from origin $origin, method ${ctx.payload.method}, params ${ctx.payload.params}")
     }
 
     private fun errorMessage(attempts: Int, method: String): String =
