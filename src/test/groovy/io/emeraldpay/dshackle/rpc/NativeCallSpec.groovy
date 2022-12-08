@@ -54,17 +54,14 @@ class NativeCallSpec extends Specification {
 
     ObjectMapper objectMapper = Global.objectMapper
 
-    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null, ConfiguredUpstreams configuredUpstreams = null) {
+    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null) {
         if (upstreams == null) {
             upstreams = Stub(MultistreamHolder)
         }
         if (signer == null) {
             signer = Stub(ResponseSigner)
         }
-        if (configuredUpstreams == null) {
-            configuredUpstreams = Stub(ConfiguredUpstreams)
-        }
-        new NativeCall(upstreams, configuredUpstreams, signer)
+        new NativeCall(upstreams, signer)
     }
 
     def "Tries router first"() {
