@@ -193,7 +193,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null, null)
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null, null, null)
         )
         then:
         resp.id == 1561
@@ -208,7 +208,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100), "test")
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100), "test", null)
         )
         then:
         resp.id == 1561

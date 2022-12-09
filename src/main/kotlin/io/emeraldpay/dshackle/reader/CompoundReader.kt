@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono
  * Composition of multiple readers.
  * Reader returns first value returned by any of the source readers by checking one by one until one of them returns a non-empty result.
  */
-class CompoundReader<K, D>(
+class CompoundReader<K, D> (
     private vararg val readers: Reader<K, D>
 ) : Reader<K, D> {
 

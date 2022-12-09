@@ -98,7 +98,7 @@ open class NativeCall(
                     val error = it.getError()
 
                     Mono.just(
-                        CallResult(error.id, 0, null, error, null, null)
+                        CallResult(error.id, 0, null, error, null, null, null)
                     )
                 }
             }
@@ -119,6 +119,9 @@ open class NativeCall(
                 result.setErrorMessage(error.message).setErrorCode(error.id)
             }
         } else {
+            if (it.result == null || it.result.isEmpty()) {
+                log.warn("Empty result on building response, method ${it.ctx?.payload?.method}, params ${it.ctx?.payload?.params}")
+            }
             result.payload = ByteString.copyFrom(it.result)
         }
         if (it.nonce != null && it.signature != null) {
@@ -275,9 +278,9 @@ open class NativeCall(
                     .map {
                         validateResult(it, "local", ctx)
                         if (ctx.nonce != null) {
-                            CallResult.ok(ctx.id, ctx.nonce, it, signer.sign(ctx.nonce, it, ctx.upstream.getId()), ctx.upstream.getId())
+                            CallResult.ok(ctx.id, ctx.nonce, it, signer.sign(ctx.nonce, it, ctx.upstream.getId()), ctx.upstream.getId(), ctx)
                         } else {
-                            CallResult.ok(ctx.id, null, it, null, ctx.upstream.getId())
+                            CallResult.ok(ctx.id, null, it, null, ctx.upstream.getId(), ctx)
                         }
                     }
             }.switchIfEmpty(
@@ -285,9 +288,9 @@ open class NativeCall(
             )
             .onErrorResume {
                 if (it is CallFailure) {
-                    Mono.just(CallResult.fail(it.id, ctx.nonce, it.reason))
+                    Mono.just(CallResult.fail(it.id, ctx.nonce, it.reason, ctx))
                 } else {
-                    Mono.just(CallResult.fail(ctx.id, ctx.nonce, it))
+                    Mono.just(CallResult.fail(ctx.id, ctx.nonce, it, ctx))
                 }
             }
     }
@@ -309,13 +312,13 @@ open class NativeCall(
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
                 validateResult(bytes, "remote", ctx)
-                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, ctx.upstream.getId())
+                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, ctx.upstream.getId(), ctx)
             }
             .onErrorResume { t ->
                 val failure = when (t) {
-                    is CallFailure -> CallResult.fail(t.id, ctx.nonce, t.reason)
-                    is JsonRpcException -> CallResult.fail(ctx.id, ctx.nonce, t.error.code, t.error.message)
-                    else -> CallResult.fail(ctx.id, ctx.nonce, t)
+                    is CallFailure -> CallResult.fail(t.id, ctx.nonce, t.reason, ctx)
+                    is JsonRpcException -> CallResult.fail(ctx.id, ctx.nonce, t.error.code, t.error.message, ctx)
+                    else -> CallResult.fail(ctx.id, ctx.nonce, t, ctx)
                 }
                 Mono.just(failure)
             }
@@ -326,7 +329,8 @@ open class NativeCall(
                             ctx.id,
                             ctx.nonce,
                             1,
-                            errorMessage(attempts, ctx.payload.method)
+                            errorMessage(attempts, ctx.payload.method),
+                            ctx
                         ).also {
                             countFailure(attempts, ctx)
                         }
@@ -503,19 +507,20 @@ open class NativeCall(
         val result: ByteArray?,
         val error: CallError?,
         val signature: ResponseSigner.Signature?,
-        val upstreamId: String?
+        val upstreamId: String?,
+        val ctx: ValidCallContext<ParsedCallDetails>?
     ) {
         companion object {
-            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamId: String?): CallResult {
-                return CallResult(id, nonce, result, null, signature, upstreamId)
+            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamId: String?, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
+                return CallResult(id, nonce, result, null, signature, upstreamId, ctx)
             }
 
-            fun fail(id: Int, nonce: Long?, errorCore: Int, errorMessage: String): CallResult {
-                return CallResult(id, nonce, null, CallError(errorCore, errorMessage, null), null, null)
+            fun fail(id: Int, nonce: Long?, errorCore: Int, errorMessage: String, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
+                return CallResult(id, nonce, null, CallError(errorCore, errorMessage, null), null, null, ctx)
             }
 
-            fun fail(id: Int, nonce: Long?, error: Throwable): CallResult {
-                return CallResult(id, nonce, null, CallError.from(error), null, null)
+            fun fail(id: Int, nonce: Long?, error: Throwable, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
+                return CallResult(id, nonce, null, CallError.from(error), null, null, ctx)
             }
         }
 
