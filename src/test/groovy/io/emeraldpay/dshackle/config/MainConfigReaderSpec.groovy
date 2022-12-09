@@ -22,12 +22,11 @@ import spock.lang.Specification
 
 class MainConfigReaderSpec extends Specification {
 
-    def "Read full config with inclusion"() {
+    MainConfigReader reader = new MainConfigReader(TestingCommons.fileResolver())
+
+    def "Read full config"() {
         setup:
-        // the File Resolver should be able to resolve/include files
-        MainConfigReader reader = new MainConfigReader(TestingCommons.fileResolver())
-        // note that it references another config to be included
-        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-full.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("dshackle-full.yaml")
         when:
         def act = reader.read(config)
 

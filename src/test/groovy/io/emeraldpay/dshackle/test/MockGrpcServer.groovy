@@ -26,6 +26,14 @@ class MockGrpcServer {
 
     GrpcCleanupRule grpcCleanup = new GrpcCleanupRule()
 
+    ReactorBlockchainGrpc.ReactorBlockchainStub clientForServer(ReactorBlockchainGrpc.BlockchainImplBase impl) {
+        String serverName = InProcessServerBuilder.generateName()
+        grpcCleanup.register(InProcessServerBuilder
+                .forName(serverName).directExecutor().addService(impl).build().start());
+        def channel = grpcCleanup.register(InProcessChannelBuilder.forName(serverName).directExecutor().build())
+        return ReactorBlockchainGrpc.newReactorStub(channel)
+    }
+
     ReactorBlockchainGrpc.ReactorBlockchainStub clientForServer(BlockchainGrpc.BlockchainImplBase impl){
         String serverName = InProcessServerBuilder.generateName()
         grpcCleanup.register(InProcessServerBuilder

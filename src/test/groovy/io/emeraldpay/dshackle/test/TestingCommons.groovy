@@ -108,7 +108,7 @@ class TestingCommons {
     }
 
     static FileResolver fileResolver() {
-        return new FileResolver(new File("src/test/resources/configs"))
+        return new FileResolver(new File("src/test/resources"))
     }
 
     static BlockContainer blockForEthereum(Long height) {

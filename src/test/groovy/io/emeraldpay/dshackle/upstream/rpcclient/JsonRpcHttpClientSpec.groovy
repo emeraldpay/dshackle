@@ -26,7 +26,6 @@ import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
 import org.mockserver.model.MediaType
 import org.springframework.util.SocketUtils
-import reactor.core.Exceptions
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -85,7 +84,7 @@ class JsonRpcHttpClientSpec extends Specification {
                         .withBody("pong")
         )
         when:
-        def act = client.execute("ping".bytes).map { new String(it.t2) }
+        def act = client.execute("ping".bytes).map { new String(it) }
         then:
         StepVerifier.create(act)
                 .expectNext("pong")
@@ -112,44 +111,13 @@ class JsonRpcHttpClientSpec extends Specification {
                         .withBody("pong")
         )
         when:
-        def act = client.read(
-                new JsonRpcRequest("ping", [])
-        ).block(Duration.ofSeconds(1))
+        def act = client.execute("ping".bytes).map { new String(it) }
         then:
-        def t = thrown(RuntimeException) // reactor.core.Exceptions$ReactiveException
-        t.cause instanceof JsonRpcException
-        with(((JsonRpcException)t.cause).error) {
-            code == RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
-            message == "HTTP Code: 500"
-        }
-    }
-
-    def "Tries to extract message if HTTP error if it still contains a JSON RPC message"() {
-        setup:
-        def client = new JsonRpcHttpClient("localhost:${port}", metrics, null, null)
-
-        mockServer.when(
-                HttpRequest.request()
-        ).respond(
-                HttpResponse.response()
-                        .withStatusCode(500)
-                        .withBody('{' +
-                                '"jsonrpc": "2.0", ' +
-                                '"id": 1, ' +
-                                '"error": {"code": -32603, "message": "Something happened"}' +
-                                '}')
-        )
-        when:
-        def act = client.read(
-                new JsonRpcRequest("ping", [])
-        ).block(Duration.ofSeconds(1))
-        then:
-        def t = thrown(RuntimeException) // reactor.core.Exceptions$ReactiveException
-        t.cause instanceof JsonRpcException
-        with(((JsonRpcException)t.cause).error) {
-            code == -32603
-            message == "Something happened"
-        }
+        StepVerifier.create(act)
+                .expectErrorMatches { t ->
+                    t instanceof JsonRpcException && t.error.code == RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
+                }
+                .verify(Duration.ofSeconds(1))
     }
 
 }
