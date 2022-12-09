@@ -44,16 +44,6 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
                 state.error
             )
         }
-        if (state.error != null) {
-            return WsResponse(
-                // we don't have any real option because it's just an invalid value and can be anything,
-                // so let's suppose its Type as RPC as a most likely scenario
-                Type.RPC,
-                state.id ?: JsonRpcResponse.Id.from(0),
-                null,
-                state.error
-            )
-        }
         throw IllegalStateException("State is not ready")
     }
 

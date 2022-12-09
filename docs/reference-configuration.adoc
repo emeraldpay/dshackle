@@ -678,8 +678,7 @@ configuration, and may be omitted for most of the situations.
 
 | `role`
 | no
-| `primary` (default), `secondary` or `fallback`.
-First it makes the requests to the upstreams with role `primary`, then if none are available to upstreams with role `secondary`.
+| `standard` (default) or `fallback`.
 Fallback role mean that the upstream is used only after other upstreams failed or didn't return quorum
 
 | `chain`

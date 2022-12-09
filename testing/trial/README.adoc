@@ -1,0 +1,8 @@
+= Actual Tests
+
+Expects running _Simple Upstream_ and _Testing Dshackle_.
+
+.Run from current directory
+----
+./gradlew check
+----

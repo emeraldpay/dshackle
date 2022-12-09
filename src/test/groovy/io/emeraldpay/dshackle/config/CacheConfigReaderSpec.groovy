@@ -23,7 +23,7 @@ class CacheConfigReaderSpec extends Specification {
 
     def "Read full"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("configs/cache-redis-full.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("cache-redis-full.yaml")
         when:
         def act = reader.read(config)
 
@@ -39,7 +39,7 @@ class CacheConfigReaderSpec extends Specification {
 
     def "Read disabled"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("configs/cache-redis-disabled.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("cache-redis-disabled.yaml")
         when:
         def act = reader.read(config)
 

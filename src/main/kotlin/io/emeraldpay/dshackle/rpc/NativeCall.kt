@@ -284,7 +284,11 @@ open class NativeCall(
                 Mono.just(ctx).flatMap(this::executeOnRemote)
             )
             .onErrorResume {
-                Mono.just(CallResult.fail(ctx.id, ctx.nonce, it))
+                if (it is CallFailure) {
+                    Mono.just(CallResult.fail(it.id, ctx.nonce, it.reason))
+                } else {
+                    Mono.just(CallResult.fail(ctx.id, ctx.nonce, it))
+                }
             }
     }
 
@@ -308,14 +312,21 @@ open class NativeCall(
                 CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, ctx.upstream.getId())
             }
             .onErrorResume { t ->
-                Mono.just(CallResult.fail(ctx.id, ctx.nonce, t))
+                val failure = when (t) {
+                    is CallFailure -> CallResult.fail(t.id, ctx.nonce, t.reason)
+                    is JsonRpcException -> CallResult.fail(ctx.id, ctx.nonce, t.error.code, t.error.message)
+                    else -> CallResult.fail(ctx.id, ctx.nonce, t)
+                }
+                Mono.just(failure)
             }
             .switchIfEmpty(
                 Mono.fromSupplier {
                     counter.get().let { attempts ->
                         CallResult.fail(
-                            ctx.id, ctx.nonce,
-                            CallError(1, "No response or no available upstream for ${ctx.payload.method}", null)
+                            ctx.id,
+                            ctx.nonce,
+                            1,
+                            errorMessage(attempts, ctx.payload.method)
                         ).also {
                             countFailure(attempts, ctx)
                         }
@@ -480,15 +491,7 @@ open class NativeCall(
                     is JsonRpcException -> CallError(t.id.asNumber().toInt(), t.error.message, t.error)
                     is RpcException -> CallError(t.code, t.rpcMessage, null)
                     is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null)
-                    else -> {
-                        // May only happen if it's an unhandled exception.
-                        // In this case try to find a meaningless details in the stack. Most important reason for doing that is to find an ID of the request
-                        if (t.cause != null) {
-                            from(t.cause!!)
-                        } else {
-                            CallError(1, t.message ?: "Upstream Error", null)
-                        }
-                    }
+                    else -> CallError(1, t.message ?: "Upstream Error", null)
                 }
             }
         }
@@ -507,8 +510,8 @@ open class NativeCall(
                 return CallResult(id, nonce, result, null, signature, upstreamId)
             }
 
-            fun fail(id: Int, nonce: Long?, error: CallError): CallResult {
-                return CallResult(id, nonce, null, error, null, null)
+            fun fail(id: Int, nonce: Long?, errorCore: Int, errorMessage: String): CallResult {
+                return CallResult(id, nonce, null, CallError(errorCore, errorMessage, null), null, null)
             }
 
             fun fail(id: Int, nonce: Long?, error: Throwable): CallResult {

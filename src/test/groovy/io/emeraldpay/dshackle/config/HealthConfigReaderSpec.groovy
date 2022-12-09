@@ -24,7 +24,7 @@ class HealthConfigReaderSpec extends Specification {
 
     def "Read empty"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-health-empty.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("dshackle-health-empty.yaml")
         when:
         def act = reader.read(config)
 
@@ -38,7 +38,7 @@ class HealthConfigReaderSpec extends Specification {
 
     def "Read single"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-health-1.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("dshackle-health-1.yaml")
         when:
         def act = reader.read(config)
 
@@ -58,7 +58,7 @@ class HealthConfigReaderSpec extends Specification {
 
     def "Read multiple"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("configs/dshackle-health-2.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("dshackle-health-2.yaml")
         when:
         def act = reader.read(config)
 
