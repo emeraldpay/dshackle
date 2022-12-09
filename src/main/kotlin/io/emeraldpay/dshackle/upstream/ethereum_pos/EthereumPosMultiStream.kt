@@ -37,7 +37,7 @@ open class EthereumPosMultiStream(
     chain: Chain,
     val upstreams: MutableList<EthereumPosUpstream>,
     caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumPosMultiStream::class.java)

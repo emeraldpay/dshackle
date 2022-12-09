@@ -180,26 +180,6 @@ class MultistreamSpec extends Specification {
         !act
     }
 
-    def "Call postprocess after api use"() {
-        setup:
-        def request = new JsonRpcRequest("test_foo", [1], 1, null)
-
-        def api = TestingCommons.api()
-        api.answer("test_foo", [1], "test")
-        def postprocessor = Mock(RequestPostprocessor)
-        def up = TestingCommons.upstream(api)
-        def multistream = new TestMultistream([up], postprocessor)
-
-        when:
-        def rdr = multistream.getDirectApi(Selector.empty).block(Duration.ofSeconds(1))
-        def act = rdr.read(request).block(Duration.ofSeconds(1))
-
-        then:
-        act != null
-        act.hasResult()
-        act.resultAsProcessedString == "test"
-        1 * postprocessor.onReceive("test_foo", [1], "\"test\"".bytes)
-    }
 
     def "Filter upstream matching selector single"() {
         setup:
@@ -341,48 +321,6 @@ class MultistreamSpec extends Specification {
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
-
-    class TestMultistream extends Multistream {
-
-        TestMultistream(List<Upstream> upstreams, @NotNull RequestPostprocessor postprocessor) {
-            super(Chain.ETHEREUM, upstreams, Caches.default(), postprocessor)
-        }
-
-        @Override
-        Mono<Reader<JsonRpcRequest, JsonRpcResponse>> getRoutedApi(@NotNull Selector.Matcher matcher) {
-            return null
-        }
-
-        @Override
-        Head updateHead() {
-            return null
-        }
-
-        @Override
-        void setHead(@NotNull Head head) {
-
-        }
-
-        @Override
-        Head getHead() {
-            return null
-        }
-
-        @Override
-        Collection<UpstreamsConfig.Labels> getLabels() {
-            return null
-        }
-
-        public <T extends Upstream> T cast(Class<T> selfType) {
-            return this
-        }
-
-        @Override
-        ChainFees getFeeEstimation() {
-            return null
-        }
-    }
-
     class TestEthereumPosMultistream extends EthereumPosMultiStream {
 
         TestEthereumPosMultistream(@NotNull Chain chain, @NotNull List<EthereumPosUpstream> upstreams, @NotNull Caches caches) {
