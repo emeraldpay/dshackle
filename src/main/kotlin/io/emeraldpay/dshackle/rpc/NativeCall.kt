@@ -61,6 +61,8 @@ open class NativeCall(
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
     private val objectMapper: ObjectMapper = Global.objectMapper
 
+    private val nullValue: ByteArray = "null".toByteArray()
+
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
     private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
 
@@ -119,7 +121,7 @@ open class NativeCall(
                 result.setErrorMessage(error.message).setErrorCode(error.id)
             }
         } else {
-            if (it.result == null || it.result.isEmpty()) {
+            if (it.result == null || it.result.isEmpty() || nullValue.contentEquals(it.result)) {
                 log.warn("Empty result [${it.result}] on building response, method ${it.ctx?.payload?.method}, params ${it.ctx?.payload?.params}")
             }
             result.payload = ByteString.copyFrom(it.result)
@@ -340,7 +342,7 @@ open class NativeCall(
     }
 
     private fun validateResult(bytes: ByteArray, origin: String, ctx: ValidCallContext<ParsedCallDetails>) {
-        if (bytes.isEmpty())
+        if (bytes.isEmpty() || nullValue.contentEquals(bytes))
             log.warn("Empty result from origin $origin, method ${ctx.payload.method}, params ${ctx.payload.params}")
     }
 
