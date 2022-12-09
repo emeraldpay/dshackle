@@ -120,7 +120,7 @@ open class NativeCall(
             }
         } else {
             if (it.result == null || it.result.isEmpty()) {
-                log.warn("Empty result on building response, method ${it.ctx?.payload?.method}, params ${it.ctx?.payload?.params}")
+                log.warn("Empty result [${it.result}] on building response, method ${it.ctx?.payload?.method}, params ${it.ctx?.payload?.params}")
             }
             result.payload = ByteString.copyFrom(it.result)
         }
