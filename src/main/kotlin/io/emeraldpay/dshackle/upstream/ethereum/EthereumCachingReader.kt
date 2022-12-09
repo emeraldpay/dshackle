@@ -28,7 +28,6 @@ import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.reader.RekeyingReader
-import io.emeraldpay.dshackle.reader.RpcReader
 import io.emeraldpay.dshackle.reader.TransformingReader
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -45,16 +44,16 @@ import org.slf4j.LoggerFactory
 import java.util.function.Function
 
 /**
- * Reader for the common operations, that wraps caches + native call with quorum verification
+ * Reader for the common operations, that use the cache when data is available or a native call with quorum verification
  */
-open class EthereumReader(
+open class EthereumCachingReader(
     private val up: Multistream,
     private val caches: Caches,
     private val callMethodsFactory: Factory<CallMethods>
 ) : Lifecycle {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumReader::class.java)
+        private val log = LoggerFactory.getLogger(EthereumCachingReader::class.java)
     }
 
     private val objectMapper: ObjectMapper = Global.objectMapper
@@ -157,10 +156,9 @@ open class EthereumReader(
     }
 
     fun receipts(): Reader<TxId, ByteArray> {
-        // TODO put into cache
         val requested = RekeyingReader(
-            { txid: TxId -> txid.toHexWithPrefix() },
-            RpcReader.basicRequest(up, "eth_getTransactionReceipt")
+            { txid: TxId -> TransactionId.from(txid.value) },
+            directReader.receiptReader
         )
         return CompoundReader(
             caches.getReceipts(),

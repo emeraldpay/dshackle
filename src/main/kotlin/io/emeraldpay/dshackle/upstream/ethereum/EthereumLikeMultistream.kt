@@ -7,7 +7,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import reactor.core.publisher.Flux
 
 interface EthereumLikeMultistream : Upstream {
-    fun getReader(): EthereumReader
+    fun getReader(): EthereumCachingReader
     fun getSubscribe(): EthereumSubscribe
 
     fun getHead(mather: Selector.Matcher): Head

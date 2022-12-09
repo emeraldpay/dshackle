@@ -18,11 +18,11 @@ package io.emeraldpay.dshackle.data
 import org.slf4j.LoggerFactory
 
 class DefaultContainer<T>(
-    val txId: TxId?,
-    val blockId: BlockId?,
-    val height: Long?,
+    val txId: TxId? = null,
+    val blockId: BlockId? = null,
+    val height: Long? = null,
     json: ByteArray,
-    parsed: T
+    parsed: T? = null
 ) : SourceContainer(json, parsed) {
 
     companion object {

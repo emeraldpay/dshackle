@@ -30,7 +30,7 @@ import java.util.function.Function
 
 abstract class EthereumFees(
     upstreams: Multistream,
-    private val reader: EthereumReader,
+    private val reader: EthereumCachingReader,
     heightLimit: Int,
 ) : AbstractChainFees<EthereumFees.EthereumFee, BlockJson<TransactionRefJson>, TransactionRefJson, TransactionJson>(heightLimit, upstreams, extractTx), ChainFees {
 

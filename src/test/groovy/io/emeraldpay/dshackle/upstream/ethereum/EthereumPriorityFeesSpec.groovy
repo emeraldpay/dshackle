@@ -44,7 +44,7 @@ class EthereumPriorityFeesSpec extends Specification {
             it.maxPriorityFeePerGas = Wei.ofUnits(5.0001, Wei.Unit.GWEI)
         }
 
-        def fees = new EthereumPriorityFees(Stub(EthereumMultistream), Stub(EthereumReader), 10)
+        def fees = new EthereumPriorityFees(Stub(EthereumMultistream), Stub(EthereumCachingReader), 10)
         when:
         def act = fees.extractFee(block, tx)
         then:
@@ -66,7 +66,7 @@ class EthereumPriorityFeesSpec extends Specification {
             it.gasPrice = Wei.from("0x198286458f")
         }
 
-        def fees = new EthereumPriorityFees(Stub(EthereumMultistream), Stub(EthereumReader), 10)
+        def fees = new EthereumPriorityFees(Stub(EthereumMultistream), Stub(EthereumCachingReader), 10)
         when:
         def act = fees.extractFee(block, tx)
         then:
@@ -83,7 +83,7 @@ class EthereumPriorityFeesSpec extends Specification {
                 new EthereumFees.EthereumFee(Wei.ofEthers(0.75), Wei.ofEthers(0.5), Wei.ofEthers(0.75), Wei.ofEthers(0.5)),
                 new EthereumFees.EthereumFee(Wei.ofEthers(0.6), Wei.ofEthers(0.2), Wei.ofEthers(0.6), Wei.ofEthers(0.5)),
         ]
-        def fees = new EthereumPriorityFees(Stub(EthereumMultistream), Stub(EthereumReader), 10)
+        def fees = new EthereumPriorityFees(Stub(EthereumMultistream), Stub(EthereumCachingReader), 10)
         when:
         def act = Flux.fromIterable(inputs)
                 .transform(fees.feeAggregation(ChainFees.Mode.AVG_LAST))
@@ -127,7 +127,7 @@ class EthereumPriorityFeesSpec extends Specification {
                 1 * getCurrentHeight() >> 13756007
             }
         }
-        def reader = Mock(EthereumReader) {
+        def reader = Mock(EthereumCachingReader) {
             _ * it.blocksByHeightParsed() >> Mock(Reader) {
                 1 * it.read(13756006) >> Mono.just(block1)
                 1 * it.read(13756007) >> Mono.just(block2)

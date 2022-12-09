@@ -6,7 +6,10 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxContainer
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -22,6 +25,7 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
 import org.slf4j.LoggerFactory
@@ -51,6 +55,7 @@ class EthereumDirectReader(
     val blockByHeightReader: Reader<Long, BlockContainer>
     val txReader: Reader<TransactionId, TxContainer>
     val balanceReader: Reader<Address, Wei>
+    val receiptReader: Reader<TransactionId, ByteArray>
 
     init {
         blockReader = object : Reader<BlockHash, BlockContainer> {
@@ -104,6 +109,32 @@ class EthereumDirectReader(
                     .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
                     .doOnNext { value ->
                         balanceCache.put(key, value)
+                    }
+            }
+        }
+        receiptReader = object : Reader<TransactionId, ByteArray> {
+            override fun read(key: TransactionId): Mono<ByteArray> {
+                val request = JsonRpcRequest("eth_getTransactionReceipt", listOf(key.toHex()))
+                return readWithQuorum(request)
+                    .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Receipt not read $key")))
+                    .doOnNext { json ->
+                        try {
+                            // Caching needs some additional data (ex. Height) to make a decision on how long and where to cache
+                            // So we have to parse the JSON here and extract reference data
+                            val receipt = objectMapper.readValue(json, TransactionReceiptJson::class.java)
+                            caches.cacheReceipt(
+                                Caches.Tag.REQUESTED,
+                                DefaultContainer(
+                                    txId = TxId.from(key),
+                                    blockId = BlockId.from(receipt.blockHash),
+                                    height = receipt.blockNumber,
+                                    json = json,
+                                    parsed = receipt
+                                )
+                            )
+                        } catch (t: Throwable) {
+                            log.warn("Failed to cache Tx Receipt", t)
+                        }
                     }
             }
         }
