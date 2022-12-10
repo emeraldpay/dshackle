@@ -92,7 +92,7 @@ open class Caches(
     open fun cacheReceipt(tag: Tag, data: DefaultContainer<TransactionReceiptJson>) {
         val currentHeight = head?.getCurrentHeight()
         if (currentHeight != null && data.height != null && memReceipts.acceptsRecentBlocks(currentHeight - data.height)) {
-            memReceipts.add(data)
+            memReceipts.add(data).subscribe()
         }
         // TODO move subscription to the caller
         redisReceipts?.add(data)?.subscribe()

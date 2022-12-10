@@ -29,9 +29,10 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumReader
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumCachingReader
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
+
 import org.jetbrains.annotations.NotNull
 
 class MultistreamHolderMock implements MultistreamHolder {
@@ -87,7 +88,7 @@ class MultistreamHolderMock implements MultistreamHolder {
 
     static class EthereumMultistreamMock extends EthereumPosMultiStream {
 
-        EthereumReader customReader = null
+        EthereumCachingReader customReader = null
         CallMethods customMethods = null
         Head customHead = null
 
@@ -104,7 +105,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         }
 
         @Override
-        EthereumReader getReader() {
+        EthereumCachingReader getReader() {
             if (customReader != null) {
                 return customReader
             }

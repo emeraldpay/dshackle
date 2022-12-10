@@ -32,8 +32,8 @@ import reactor.core.publisher.Mono
 open class BitcoinMultistream(
     chain: Chain,
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
-    caches: Caches
-) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
+    caches: Caches,
+) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
@@ -94,6 +94,16 @@ open class BitcoinMultistream(
         }
         onHeadUpdated(head)
         return head
+    }
+    /**
+     * Finds an API that executed directly on a remote.
+     */
+    open fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+        val apis = getApiSource(matcher)
+        apis.request(1)
+        return Mono.from(apis)
+            .map(Upstream::getApi)
+            .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
     override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {

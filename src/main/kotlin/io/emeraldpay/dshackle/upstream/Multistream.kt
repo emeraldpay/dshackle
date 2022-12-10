@@ -52,7 +52,6 @@ abstract class Multistream(
     val chain: Chain,
     private val upstreams: MutableList<Upstream>,
     val caches: Caches,
-    val postprocessor: RequestPostprocessor
 ) : Upstream, Lifecycle {
 
     companion object {
@@ -142,23 +141,6 @@ abstract class Multistream(
             seq = 0
         }
         return FilteredApis(chain, upstreams, matcher, i)
-    }
-
-    /**
-     * Finds an API that executed directly on a remote.
-     */
-    open fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        val apis = getApiSource(matcher)
-        apis.request(1)
-        return Mono.from(apis)
-            .map(Upstream::getApi)
-            .map {
-                RequestPostprocessor.wrap(
-                    it,
-                    postprocessor
-                )
-            } // TODO do it on upstream init, not each time it's called
-            .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
     abstract fun getFeeEstimation(): ChainFees

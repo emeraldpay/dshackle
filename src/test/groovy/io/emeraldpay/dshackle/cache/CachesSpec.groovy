@@ -262,6 +262,6 @@ class CachesSpec extends Specification {
         then:
         1 * head.getCurrentHeight() >> 0xccf6e2
         1 * receiptMemCache.acceptsRecentBlocks(0) >> true
-        1 * receiptMemCache.add(receiptContainer)
+        1 * receiptMemCache.add(receiptContainer) >> Mono.empty().then()
     }
 }

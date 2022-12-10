@@ -24,7 +24,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import java.util.function.Function
 
-class EthereumPriorityFees(upstreams: Multistream, reader: EthereumReader, heightLimit: Int) :
+class EthereumPriorityFees(upstreams: Multistream, reader: EthereumCachingReader, heightLimit: Int) :
     EthereumFees(upstreams, reader, heightLimit) {
 
     companion object {

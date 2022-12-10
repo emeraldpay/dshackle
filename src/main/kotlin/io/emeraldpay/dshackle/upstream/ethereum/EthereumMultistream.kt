@@ -37,7 +37,7 @@ open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
     caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
@@ -47,8 +47,9 @@ open class EthereumMultistream(
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
-    private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
+    private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
     private val subscribe = EthereumSubscribe(this)
+
     private val supportsEIP1559 = when (chain) {
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY -> true
         else -> false
@@ -82,7 +83,7 @@ open class EthereumMultistream(
         return super.isRunning() || reader.isRunning()
     }
 
-    override fun getReader(): EthereumReader {
+    override fun getReader(): EthereumCachingReader {
         return reader
     }
 

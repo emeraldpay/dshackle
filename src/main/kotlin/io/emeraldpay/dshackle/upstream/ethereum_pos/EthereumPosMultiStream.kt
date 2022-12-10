@@ -37,7 +37,7 @@ open class EthereumPosMultiStream(
     chain: Chain,
     val upstreams: MutableList<EthereumPosUpstream>,
     caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)), EthereumLikeMultistream {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumPosMultiStream::class.java)
@@ -45,7 +45,7 @@ open class EthereumPosMultiStream(
 
     private var head: Head? = null
 
-    private val reader: EthereumReader = EthereumReader(this, this.caches, getMethodsFactory())
+    private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
     private val feeEstimation = EthereumPriorityFees(this, reader, 256)
     private val subscribe = EthereumSubscribe(this)
     private val filteredHeads: MutableMap<String, Head> =
@@ -77,7 +77,7 @@ open class EthereumPosMultiStream(
         return super.isRunning() || reader.isRunning()
     }
 
-    override fun getReader(): EthereumReader {
+    override fun getReader(): EthereumCachingReader {
         return reader
     }
 
