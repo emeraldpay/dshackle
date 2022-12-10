@@ -117,7 +117,7 @@ class EthereumDirectReader(
                 val request = JsonRpcRequest("eth_getTransactionReceipt", listOf(key.toHex()))
                 return readWithQuorum(request)
                     .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Receipt not read $key")))
-                    .doOnNext { json ->
+                    .flatMap { json ->
                         try {
                             // Caching needs some additional data (ex. Height) to make a decision on how long and where to cache
                             // So we have to parse the JSON here and extract reference data
@@ -134,7 +134,9 @@ class EthereumDirectReader(
                             )
                         } catch (t: Throwable) {
                             log.warn("Failed to cache Tx Receipt", t)
+                            return@flatMap Mono.empty()
                         }
+                        Mono.just(json)
                     }
             }
         }
