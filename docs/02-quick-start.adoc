@@ -35,6 +35,9 @@ cluster:
   upstreams: # <4>
     - id: infura-eth
       chain: ethereum # <5>
+      method-groups:
+       enabled:
+         - trace
       connection:
         ethereum:
           rpc: # <6>
