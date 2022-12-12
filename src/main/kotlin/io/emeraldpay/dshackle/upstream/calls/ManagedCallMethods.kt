@@ -34,7 +34,9 @@ import java.util.Collections
 class ManagedCallMethods(
     private val delegate: CallMethods,
     private val enabled: Set<String>,
-    private val disabled: Set<String>
+    disabled: Set<String>,
+    groupsEnabled: Set<String>,
+    groupsDisabled: Set<String>
 ) : CallMethods {
 
     companion object {
@@ -44,13 +46,15 @@ class ManagedCallMethods(
         }
     }
 
-    private val delegated = delegate.getSupportedMethods().sorted()
+    private val delegated = delegate.getSupportedMethods().associateWith { true }
+    private val allGroupEnabled = groupsEnabled.flatMap { delegate.getGroupMethods(it) }
+    private val allGroupDisabled = groupsDisabled.flatMap { delegate.getGroupMethods(it) }
     private val allAllowed: Set<String> = Collections.unmodifiableSet(
-        enabled + delegated - disabled
+        delegated.keys + allGroupEnabled - allGroupDisabled.toSet() + enabled - disabled
     )
     private val quorum: MutableMap<String, Factory<CallQuorum>> = HashMap()
     private val staticResponse: MutableMap<String, String> = HashMap()
-    private val redefined = delegated.filter(enabled::contains).sorted()
+    private val redefined = delegated.keys.filter(enabled::contains).associateWith { true }
 
     init {
         enabled.forEach { m ->
@@ -87,11 +91,11 @@ class ManagedCallMethods(
     }
 
     private fun isDelegated(method: String): Boolean {
-        return Collections.binarySearch(delegated, method) >= 0
+        return delegated[method] ?: false
     }
 
     private fun isRedefined(method: String): Boolean {
-        return Collections.binarySearch(redefined, method) >= 0
+        return redefined[method] ?: false
     }
 
     override fun isCallable(method: String): Boolean {
@@ -121,4 +125,7 @@ class ManagedCallMethods(
         }
         return delegate.executeHardcoded(method)
     }
+
+    override fun getGroupMethods(groupName: String): Set<String> =
+        delegate.getGroupMethods(groupName)
 }

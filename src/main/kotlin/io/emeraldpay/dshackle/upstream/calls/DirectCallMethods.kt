@@ -47,4 +47,6 @@ open class DirectCallMethods(private val methods: Set<String>) : CallMethods {
     override fun executeHardcoded(method: String): ByteArray {
         return "unsupported".toByteArray()
     }
+
+    override fun getGroupMethods(groupName: String): Set<String> = emptySet()
 }

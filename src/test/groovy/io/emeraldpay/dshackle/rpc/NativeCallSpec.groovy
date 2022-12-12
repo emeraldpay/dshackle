@@ -359,7 +359,7 @@ class NativeCallSpec extends Specification {
         setup:
         def methods = new ManagedCallMethods(
                 new DefaultEthereumMethods(Chain.ETHEREUM),
-                ["foo_bar"] as Set, [] as Set
+                ["foo_bar"] as Set, [] as Set, [] as Set, [] as Set
         )
         methods.setQuorum("foo_bar", "not_lagging")
         def head = Mock(Head) {
@@ -400,7 +400,7 @@ class NativeCallSpec extends Specification {
         setup:
         def methods = new ManagedCallMethods(
                 new DefaultEthereumMethods(Chain.ETHEREUM),
-                ["eth_newFilter"] as Set, [] as Set
+                ["eth_newFilter"] as Set, [] as Set, [] as Set, [] as Set
         )
         methods.setQuorum("eth_newFilter", "always")
         def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
@@ -431,9 +431,8 @@ class NativeCallSpec extends Specification {
         setup:
         def methods = new ManagedCallMethods(
                 new DefaultEthereumMethods(Chain.ETHEREUM),
-                ["eth_getFilterChanges"] as Set, [] as Set
+                ["eth_getFilterChanges"] as Set, [] as Set, [] as Set, [] as Set
         )
-        methods.setQuorum("eth_getFilterChanges", "always")
         def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
         multistream.customMethods = methods
         multistream.customHead = Mock(Head)
@@ -462,9 +461,8 @@ class NativeCallSpec extends Specification {
         setup:
         def methods = new ManagedCallMethods(
                 new DefaultEthereumMethods(Chain.ETHEREUM),
-                ["eth_uninstallFilter"] as Set, [] as Set
+                ["eth_uninstallFilter"] as Set, [] as Set, [] as Set, [] as Set
         )
-        methods.setQuorum("eth_uninstallFilter", "always")
         def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
         multistream.customMethods = methods
         multistream.customHead = Mock(Head)
@@ -558,14 +556,24 @@ class NativeCallSpec extends Specification {
     def "Decorate eth_newFilter result"() {
         setup:
         def quorum = new AlwaysQuorum()
-
-        def nativeCall = nativeCall()
+        def methods = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                [] as Set, [] as Set, ["filter"] as Set, [] as Set
+        )
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream(
+                TestingCommons.api(), methods
+        ))
+        multistream.customHead = Mock(Head)
+        def multistreamHolder = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
+        def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList((byte)255)))
             }
         }
-        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null)
 
@@ -580,14 +588,24 @@ class NativeCallSpec extends Specification {
     def "Decorate eth_newFilter result with short nodeId"() {
         setup:
         def quorum = new AlwaysQuorum()
-
-        def nativeCall = nativeCall()
+        def methods = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                [] as Set, [] as Set, ["filter"] as Set, [] as Set
+        )
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream(
+                TestingCommons.api(), methods
+        ))
+        multistream.customHead = Mock(Head)
+        def multistreamHolder = Mock(MultistreamHolder) {
+            _ * it.observeChains() >> Flux.empty()
+        }
+        def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList((byte)1)))
             }
         }
-        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null)
 

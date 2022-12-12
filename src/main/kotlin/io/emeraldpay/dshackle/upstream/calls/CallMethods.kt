@@ -60,4 +60,9 @@ interface CallMethods {
     fun isAvailable(method: String): Boolean {
         return isCallable(method) || isHardcoded(method)
     }
+
+    /**
+     * Returns list of methods conforming the methods group
+     */
+    fun getGroupMethods(groupName: String): Set<String>
 }

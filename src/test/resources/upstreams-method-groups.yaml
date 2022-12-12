@@ -1,0 +1,13 @@
+version: v1
+upstreams:
+  - id: enable_filter_methods
+    chain: ethereum
+    method-groups:
+      enabled:
+        - filter
+      disabled:
+        - trace
+    connection:
+      ethereum:
+        rpc:
+          url: "http://localhost:8545"

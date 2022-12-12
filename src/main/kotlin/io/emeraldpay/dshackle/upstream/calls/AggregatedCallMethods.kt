@@ -72,4 +72,7 @@ class AggregatedCallMethods(
             it.isHardcoded(method)
         }?.executeHardcoded(method) ?: throw IllegalStateException("No hardcoded for $method")
     }
+
+    override fun getGroupMethods(groupName: String): Set<String> =
+        delegates.map { it.getGroupMethods(groupName) }.firstOrNull() ?: emptySet()
 }

@@ -89,4 +89,6 @@ class DefaultBitcoinMethods : CallMethods {
             else -> throw RpcException(-32601, "Method not found")
         }
     }
+
+    override fun getGroupMethods(groupName: String): Set<String> = emptySet()
 }

@@ -34,6 +34,8 @@ class ManagedCallMethodsSpec extends Specification {
         def managed = new ManagedCallMethods(
                 new DirectCallMethods(["eth_test2", "foo_bar"] as Set),
                 ["eth_test"] as Set,
+                [] as Set,
+                [] as Set,
                 [] as Set
         )
         when:
@@ -47,6 +49,8 @@ class ManagedCallMethodsSpec extends Specification {
         def managed = new ManagedCallMethods(
                 new DirectCallMethods(["eth_test2"] as Set),
                 ["eth_test"] as Set,
+                [] as Set,
+                [] as Set,
                 [] as Set
         )
         when:
@@ -60,7 +64,9 @@ class ManagedCallMethodsSpec extends Specification {
         def managed = new ManagedCallMethods(
                 new DirectCallMethods(["eth_test2", "foo_bar"] as Set),
                 ["eth_test"] as Set,
-                ["foo_bar"] as Set
+                ["foo_bar"] as Set,
+                [] as Set,
+                [] as Set
         )
         when:
         def act = managed.getSupportedMethods()
@@ -78,7 +84,9 @@ class ManagedCallMethodsSpec extends Specification {
         def managed = new ManagedCallMethods(
                 delegate,
                 ["eth_test"] as Set,
-                ["foo_bar"] as Set
+                ["foo_bar"] as Set,
+                [] as Set,
+                [] as Set
         )
         when:
         def act = managed.createQuorumFor("eth_test")
@@ -92,6 +100,8 @@ class ManagedCallMethodsSpec extends Specification {
         def managed = new ManagedCallMethods(
                 new DefaultEthereumMethods(Chain.ETHEREUM),
                 ["eth_test", "eth_foo", "eth_bar"] as Set,
+                [] as Set,
+                [] as Set,
                 [] as Set
         )
         managed.setQuorum("eth_test", "not_empty")
@@ -116,6 +126,8 @@ class ManagedCallMethodsSpec extends Specification {
         def managed = new ManagedCallMethods(
                 new DefaultEthereumMethods(Chain.ETHEREUM),
                 ["eth_test"] as Set,
+                [] as Set,
+                [] as Set,
                 [] as Set
         )
         def parallel = Executors.newFixedThreadPool(16)
@@ -132,5 +144,80 @@ class ManagedCallMethodsSpec extends Specification {
         then:
         instances.size() == 50
         ids.toSet().size() == 50
+    }
+
+    def "Test enable method group"() {
+        setup:
+        def managed = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                [] as Set,
+                [] as Set,
+                ["filter"] as Set,
+                [] as Set
+        )
+
+        when:
+        def act = managed.getSupportedMethods()
+
+        then:
+        act.containsAll([
+                "eth_getFilterChanges",
+                "eth_getFilterLogs",
+                "eth_uninstallFilter",
+                "eth_newFilter",
+                "eth_newBlockFilter",
+                "eth_newPendingTransactionFilter"
+        ])
+    }
+
+    def "Test enable method group minus one"() {
+        setup:
+        def managed = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                [] as Set,
+                ["eth_newPendingTransactionFilter"] as Set,
+                ["filter"] as Set,
+                [] as Set
+        )
+
+        when:
+        def act = managed.getSupportedMethods()
+
+        then:
+        act.containsAll([
+                "eth_getFilterChanges",
+                "eth_getFilterLogs",
+                "eth_uninstallFilter",
+                "eth_newFilter",
+                "eth_newBlockFilter",
+        ])
+        !act.contains("eth_newPendingTransactionFilter")
+    }
+
+    def "Test disabled group not disable enabled method"() {
+        setup:
+        def managed = new ManagedCallMethods(
+                new DefaultEthereumMethods(Chain.ETHEREUM),
+                ["eth_newPendingTransactionFilter"] as Set,
+                [] as Set,
+                [] as Set,
+                ["filter"] as Set
+        )
+
+        when:
+        def act = managed.getSupportedMethods()
+
+        then:
+        with(act.findAll {it in [
+                "eth_getFilterChanges",
+                "eth_getFilterLogs",
+                "eth_uninstallFilter",
+                "eth_newFilter",
+                "eth_newBlockFilter",
+                "eth_newPendingTransactionFilter"
+        ]}) {
+            size() == 1
+            first() == "eth_newPendingTransactionFilter"
+        }
     }
 }

@@ -53,6 +53,9 @@ cluster:
     - id: us-nodes
       node-id: 1
       chain: auto
+      method-groups:
+       enabled:
+         - trace
       connection:
         grpc:
           host: 35.226.252.117

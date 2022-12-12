@@ -255,6 +255,7 @@ class UpstreamsConfigReader(
         upstream.nodeId = getValueAsInt(upNode, "node-id")
         upstream.options = tryReadOptions(upNode)
         upstream.methods = tryReadMethods(upNode)
+        upstream.methodGroups = tryReadMethodGroups(upNode)
         getValueAsBool(upNode, "enabled")?.let {
             upstream.isEnabled = it
         }
@@ -326,6 +327,15 @@ class UpstreamsConfigReader(
             UpstreamsConfig.Methods(
                 enabled,
                 disabled
+            )
+        }
+    }
+
+    internal fun tryReadMethodGroups(upNode: MappingNode): UpstreamsConfig.MethodGroups? {
+        return getMapping(upNode, "method-groups")?.let {
+            UpstreamsConfig.MethodGroups(
+                enabled = getListOfString(it, "enabled")?.toSet() ?: emptySet(),
+                disabled = getListOfString(it, "disabled")?.toSet() ?: emptySet()
             )
         }
     }
