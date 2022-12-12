@@ -17,6 +17,8 @@ package io.emeraldpay.dshackle.config
 
 class CacheConfig {
 
+    var requestsCacheEnabled = true
+
     var redis: Redis? = null
 
     class Redis(

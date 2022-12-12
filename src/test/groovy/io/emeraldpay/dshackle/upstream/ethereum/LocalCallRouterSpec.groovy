@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.EmptyHead
@@ -29,7 +30,8 @@ class LocalCallRouterSpec extends Specification {
                         ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
                 ),
                 methods,
-                new EmptyHead()
+                new EmptyHead(),
+                true
         )
         when:
         def act = router.read(new JsonRpcRequest("eth_coinbase", [])).block(Duration.ofSeconds(1))
@@ -47,7 +49,8 @@ class LocalCallRouterSpec extends Specification {
                         ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
                 ),
                 methods,
-                new EmptyHead()
+                new EmptyHead(),
+                true
         )
         when:
         def act = router.read(new JsonRpcRequest("eth_getTransactionByHash", ["test"], 10))
@@ -69,7 +72,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head)
+        def router = new LocalCallRouter(reader, methods, head, true)
 
         when:
         def act = router.getBlockByNumber(["latest", false])
@@ -95,7 +98,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head)
+        def router = new LocalCallRouter(reader, methods, head, true)
 
         when:
         def act = router.getBlockByNumber(["earliest", false])
@@ -121,7 +124,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head)
+        def router = new LocalCallRouter(reader, methods, head, true)
 
         when:
         def act = router.getBlockByNumber(["0x123ef", false])

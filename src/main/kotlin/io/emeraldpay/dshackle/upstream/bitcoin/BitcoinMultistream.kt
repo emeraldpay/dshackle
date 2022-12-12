@@ -106,7 +106,7 @@ open class BitcoinMultistream(
             .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
-    override fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+    override fun getRoutedApi(localEnabled: Boolean): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
         return Mono.just(callRouter)
     }
 

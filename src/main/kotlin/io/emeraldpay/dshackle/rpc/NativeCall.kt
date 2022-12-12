@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
@@ -55,13 +56,16 @@ import java.util.concurrent.atomic.AtomicInteger
 @Service
 open class NativeCall(
     private val multistreamHolder: MultistreamHolder,
-    private val signer: ResponseSigner
+    private val signer: ResponseSigner,
+    cacheConfig: CacheConfig
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
     private val objectMapper: ObjectMapper = Global.objectMapper
 
     private val nullValue: ByteArray = "null".toByteArray()
+
+    private val localRouterEnabled = cacheConfig.requestsCacheEnabled
 
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
     private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
@@ -121,9 +125,6 @@ open class NativeCall(
                 result.setErrorMessage(error.message).setErrorCode(error.id)
             }
         } else {
-            if (it.result == null || it.result.isEmpty() || nullValue.contentEquals(it.result)) {
-                log.warn("Empty result [${it.result}] on building response, method ${it.ctx?.payload?.method}, params ${it.ctx?.payload?.params}")
-            }
             result.payload = ByteString.copyFrom(it.result)
         }
         if (it.nonce != null && it.signature != null) {
@@ -273,7 +274,7 @@ open class NativeCall(
         if (method in DefaultEthereumMethods.newFilterMethods) CreateFilterDecorator() else NoneResultDecorator()
 
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
-        return ctx.upstream.getRoutedApi(ctx.matcher)
+        return ctx.upstream.getRoutedApi(localRouterEnabled)
             .flatMap { api ->
                 api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
                     .flatMap(JsonRpcResponse::requireResult)

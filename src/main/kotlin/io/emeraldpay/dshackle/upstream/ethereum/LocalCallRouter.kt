@@ -39,7 +39,8 @@ import java.math.BigInteger
 class LocalCallRouter(
     private val reader: EthereumCachingReader,
     private val methods: CallMethods,
-    private val head: Head
+    private val head: Head,
+    private val localEnabled: Boolean
 ) : Reader<JsonRpcRequest, JsonRpcResponse> {
 
     companion object {
@@ -56,7 +57,9 @@ class LocalCallRouter(
             return Mono.just(methods.executeHardcoded(key.method))
                 .map { JsonRpcResponse(it, null) }
         }
-
+        if (!localEnabled) {
+            return Mono.empty()
+        }
         if (!methods.isCallable(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
