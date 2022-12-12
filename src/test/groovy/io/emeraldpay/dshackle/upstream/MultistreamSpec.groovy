@@ -327,8 +327,9 @@ class MultistreamSpec extends Specification {
             super(chain, upstreams, caches)
         }
 
+        @NotNull
         @Override
-        Mono<Reader<JsonRpcRequest, JsonRpcResponse>> getRoutedApi(@NotNull Selector.Matcher matcher) {
+        Mono<Reader<JsonRpcRequest, JsonRpcResponse>> getRoutedApi(boolean localEnabled) {
             return null
         }
 

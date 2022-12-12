@@ -148,7 +148,7 @@ abstract class Multistream(
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
      */
-    abstract fun getRoutedApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>>
+    abstract fun getRoutedApi(localEnabled: Boolean): Mono<Reader<JsonRpcRequest, JsonRpcResponse>>
 
     override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
         throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
