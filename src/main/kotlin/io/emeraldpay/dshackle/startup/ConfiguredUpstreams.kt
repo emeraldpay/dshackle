@@ -48,6 +48,9 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Function
@@ -110,8 +113,20 @@ open class ConfiguredUpstreams(
                     }
                 }
                 upstream?.let {
-                    val event = UpstreamChangeEvent(chain, upstream, UpstreamChangeEvent.ChangeType.ADDED)
-                    eventPublisher.publishEvent(event)
+                    Flux.concat(Mono.just(UpstreamChangeEvent.ChangeType.ADDED), upstream.observeStatus())
+                        .distinctUntilChanged()
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe { status ->
+                            when (status) {
+                                UpstreamAvailability.UNAVAILABLE -> UpstreamChangeEvent.ChangeType.REMOVED
+                                else -> UpstreamChangeEvent.ChangeType.REVALIDATED
+                            }.let { eventType ->
+                                if (eventType == UpstreamChangeEvent.ChangeType.REMOVED) {
+                                    log.warn("Remove upstream ${upstream.getId()} due to $it")
+                                }
+                                eventPublisher.publishEvent(UpstreamChangeEvent(chain, upstream, eventType))
+                            }
+                        }
                 }
             }
         }

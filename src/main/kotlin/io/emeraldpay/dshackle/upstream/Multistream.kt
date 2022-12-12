@@ -43,6 +43,9 @@ import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
+import kotlin.collections.HashSet
 import kotlin.concurrent.withLock
 
 /**
@@ -64,6 +67,7 @@ abstract class Multistream(
 
     private var cacheSubscription: Disposable? = null
     private val reconfigLock = ReentrantLock()
+    private val eventLock = ReentrantLock()
     private var callMethods: CallMethods? = null
     private var callMethodsFactory: Factory<CallMethods> = Factory {
         return@Factory callMethods ?: throw FunctorException("Not initialized yet")
@@ -72,6 +76,7 @@ abstract class Multistream(
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
     private var capabilities: Set<Capability> = emptySet()
+    private val removed: MutableMap<String, Upstream> = HashMap()
 
     init {
         UpstreamAvailability.values().forEach { status ->
@@ -119,19 +124,32 @@ abstract class Multistream(
     /**
      * Add an upstream
      */
-    fun addUpstream(upstream: Upstream) {
-        upstreams.add(upstream)
-        onUpstreamsUpdated()
-        setHead(updateHead())
-        monitorUpstream(upstream)
-    }
-
-    fun removeUpstream(id: String) {
-        if (upstreams.removeIf { it.getId() == id }) {
-            onUpstreamsUpdated()
-            setHead(updateHead())
+    fun addUpstream(upstream: Upstream): Boolean =
+        upstreams.none {
+            it.getId() == upstream.getId()
+        }.also {
+            if (it) {
+                upstreams.add(upstream)
+                removed.remove(upstream.getId())
+                onUpstreamsUpdated()
+                setHead(updateHead())
+                monitorUpstream(upstream)
+            }
         }
-    }
+
+    fun removeUpstream(id: String): Boolean =
+        upstreams.removeIf { up ->
+            up.takeIf { up.getId() == id }
+                ?.also { removed[id] = up }
+                ?.let { true }
+                ?: false
+        }.also {
+            if (it) {
+                onUpstreamsUpdated()
+                setHead(updateHead())
+            }
+        }
+
 
     /**
      * Get a source for direct APIs
@@ -301,23 +319,21 @@ abstract class Multistream(
         } catch (e: Exception) {
             log.warn("Head processing error: ${e.javaClass} ${e.message}")
         }
-        val statuses = upstreams.map { it.getStatus() }
+        val statuses = upstreams.asSequence().plus(removed.values).map { it.getStatus() }
             .groupBy { it }
             .map { "${it.key.name}/${it.value.size}" }
             .joinToString(",")
-        val lag = upstreams
-            .map {
-                // by default, when no lag is available it uses Long.MAX_VALUE, and it doesn't make sense to print
-                // status with such value. use NA (as Not Available) instead
-                val value = it.getLag()
-                if (value == Long.MAX_VALUE) {
-                    "NA"
-                } else {
-                    value.toString()
-                }
+        val lag = upstreams.plus(removed.values).joinToString(", ") {
+            // by default, when no lag is available it uses Long.MAX_VALUE, and it doesn't make sense to print
+            // status with such value. use NA (as Not Available) instead
+            val value = it.getLag()
+            if (value == Long.MAX_VALUE) {
+                "NA"
+            } else {
+                value.toString()
             }
-            .joinToString(", ")
-        val weak = upstreams
+        }
+        val weak = upstreams.plus(removed.values)
             .filter { it.getStatus() != UpstreamAvailability.OK }
             .joinToString(", ") { it.getId() }
 
@@ -333,18 +349,22 @@ abstract class Multistream(
     fun onUpstreamChange(event: UpstreamChangeEvent) {
         val chain = event.chain
         if (this.chain == chain) {
-            if (event.type == UpstreamChangeEvent.ChangeType.REMOVED) {
-                removeUpstream(event.upstream.getId())
-                log.error("Upstream ${event.upstream.getId()} with chain $chain has been removed")
-            } else {
-                if (event.upstream is CachesEnabled) {
-                    event.upstream.setCaches(caches)
+            eventLock.withLock {
+                if (event.type == UpstreamChangeEvent.ChangeType.REMOVED) {
+                    removeUpstream(event.upstream.getId()).takeIf { it }?.let {
+                        log.error("Upstream ${event.upstream.getId()} with chain $chain has been removed")
+                    }
+                } else {
+                    if (event.upstream is CachesEnabled) {
+                        event.upstream.setCaches(caches)
+                    }
+                    addUpstream(event.upstream).takeIf { it }?.let {
+                        if (!started) {
+                            start()
+                        }
+                        log.error("Upstream ${event.upstream.getId()} with chain $chain has been added")
+                    }
                 }
-                addUpstream(event.upstream)
-                if (!started) {
-                    start()
-                }
-                log.error("Upstream ${event.upstream.getId()} with chain $chain has been added")
             }
         }
     }
