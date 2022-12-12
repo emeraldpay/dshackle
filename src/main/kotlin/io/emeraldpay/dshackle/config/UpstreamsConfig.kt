@@ -76,6 +76,7 @@ open class UpstreamsConfig {
         var connection: T? = null
         val labels = Labels()
         var methods: Methods? = null
+        var methodGroups: MethodGroups? = null
         var role: UpstreamRole = UpstreamRole.PRIMARY
 
         @Suppress("UNCHECKED_CAST")
@@ -182,7 +183,12 @@ open class UpstreamsConfig {
 
     class Methods(
         val enabled: Set<Method>,
-        val disabled: Set<Method>
+        val disabled: Set<Method>,
+    )
+
+    class MethodGroups(
+        val enabled: Set<String>,
+        val disabled: Set<String>,
     )
 
     class Method(

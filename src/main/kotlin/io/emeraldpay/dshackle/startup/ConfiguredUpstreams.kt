@@ -139,13 +139,15 @@ open class ConfiguredUpstreams(
     }
 
     fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
-        return if (config.methods != null) {
+        return if (config.methods != null || config.methodGroups != null) {
             ManagedCallMethods(
-                callTargets.getDefaultMethods(chain),
-                config.methods!!.enabled.map { it.name }.toSet(),
-                config.methods!!.disabled.map { it.name }.toSet()
+                delegate = callTargets.getDefaultMethods(chain),
+                enabled = config.methods?.enabled?.map { it.name }?.toSet() ?: emptySet(),
+                disabled = config.methods?.disabled?.map { it.name }?.toSet() ?: emptySet(),
+                groupsEnabled = config.methodGroups?.enabled ?: emptySet(),
+                groupsDisabled = config.methodGroups?.disabled ?: emptySet()
             ).also {
-                config.methods!!.enabled.forEach { m ->
+                config.methods?.enabled?.forEach { m ->
                     if (m.quorum != null) {
                         it.setQuorum(m.name, m.quorum)
                     }

@@ -104,4 +104,26 @@ class ConfiguredUpstreamsSpec extends Specification {
         h4 == (byte)8
         h5 == (byte)-128
     }
+
+    def "Supporting method groups"() {
+        setup:
+        def callTargetsHolder = new CallTargetsHolder()
+        def configurer = new ConfiguredUpstreams(
+                Stub(FileResolver),
+                Stub(UpstreamsConfig),
+                callTargetsHolder,
+                Mock(ApplicationEventPublisher)
+        )
+        def methodsGroup = new UpstreamsConfig.MethodGroups(
+                ["filter"] as Set,
+                [] as Set
+        )
+        def upstream = new UpstreamsConfig.Upstream()
+        upstream.methodGroups = methodsGroup
+        when:
+        def act = configurer.buildMethods(upstream, Chain.ETHEREUM)
+        then:
+        act instanceof ManagedCallMethods
+        act.supportedMethods.findAll {it.containsIgnoreCase("filter")}.size() == 6
+    }
 }

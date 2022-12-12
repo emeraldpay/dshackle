@@ -410,9 +410,28 @@ class UpstreamsConfigReaderSpec extends Specification {
         then:
         act != null
         act.upstreams.size() == 2
-        act.upstreams[0].nodeId == 1
-        act.upstreams[0].id == "has_node_id"
-        act.upstreams[1].nodeId == null
-        act.upstreams[1].id == "has_no_node_id"
+        with(act.upstreams.get(0)) {
+            nodeId == 1
+            id == "has_node_id"
+        }
+        with(act.upstreams.get(1)) {
+            nodeId == null
+            id == "has_no_node_id"
+        }
+    }
+
+    def "Parse method groups"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("upstreams-method-groups.yaml")
+        when:
+        def act = reader.read(config)
+        then:
+        act != null
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "enable_filter_methods"
+            methodGroups.enabled.first() == "filter"
+            methodGroups.disabled.first() == "trace"
+        }
     }
 }

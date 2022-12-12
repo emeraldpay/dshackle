@@ -47,6 +47,18 @@ class DefaultEthereumMethods(
             "eth_newBlockFilter",
             "eth_newPendingTransactionFilter",
         )
+
+        val traceMethods = listOf(
+            "trace_call",
+            "trace_callMany",
+            "trace_rawTransaction",
+            "trace_replayBlockTransactions",
+            "trace_replayTransaction",
+            "trace_block",
+            "trace_filter",
+            "trace_get",
+            "trace_transaction",
+        )
     }
 
     private val anyResponseMethods = listOf(
@@ -106,8 +118,7 @@ class DefaultEthereumMethods(
         allowedMethods = anyResponseMethods +
             firstValueMethods +
             specialMethods +
-            headVerifiedMethods +
-            filterMethods -
+            headVerifiedMethods -
             chainUnsupportedMethods(chain) +
             getChainSpecificMethods(chain)
     }
@@ -296,6 +307,13 @@ class DefaultEthereumMethods(
         }
         return json.toByteArray()
     }
+
+    override fun getGroupMethods(groupName: String): Set<String> =
+        when (groupName) {
+            "filter" -> filterMethods
+            "trace" -> traceMethods
+            else -> emptyList()
+        }.toSet()
 
     override fun getSupportedMethods(): Set<String> {
         return allowedMethods.plus(hardcodedMethods).toSortedSet()

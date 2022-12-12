@@ -69,4 +69,22 @@ class DefaultEthereumMethodsSpec extends Specification {
                           "eth_getRootHash"]
         Chain.OPTIMISM | ["rollup_gasPrices"]
     }
+
+    def "Has no filter methods by default"() {
+        setup:
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        when:
+        def act = methods.getSupportedMethods().findAll { it.containsIgnoreCase("filter") }
+        then:
+        act.isEmpty()
+    }
+
+    def "Has no trace methods by default"() {
+        setup:
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        when:
+        def act = methods.getSupportedMethods().findAll { it.containsIgnoreCase("trace") }
+        then:
+        act.isEmpty()
+    }
 }

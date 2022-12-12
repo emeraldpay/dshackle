@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
@@ -72,6 +73,10 @@ class TestingCommons {
 
     static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, List<String> methods) {
         return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api, new DirectCallMethods(methods))
+    }
+
+    static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods callMethods) {
+        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api, callMethods)
     }
 
     static Multistream multistream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
