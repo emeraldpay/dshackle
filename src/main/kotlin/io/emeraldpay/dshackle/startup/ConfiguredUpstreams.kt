@@ -72,6 +72,7 @@ open class ConfiguredUpstreams(
     override fun run(args: ApplicationArguments) {
         log.debug("Starting upstreams")
         val defaultOptions = buildDefaultOptions(config)
+        val observerScheduler = Schedulers.newParallel("status-observer", 3)
         config.upstreams.forEach { up ->
             if (!up.isEnabled) {
                 log.debug("Upstream ${up.id} is disabled")
@@ -106,23 +107,18 @@ open class ConfiguredUpstreams(
                             options
                         )
                     }
-
-                    else -> {
-                        log.error("Chain is unsupported: ${up.chain}")
-                        return@forEach
-                    }
                 }
                 upstream?.let {
                     Flux.concat(Mono.just(UpstreamChangeEvent.ChangeType.ADDED), upstream.observeStatus())
                         .distinctUntilChanged()
-                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribeOn(observerScheduler)
                         .subscribe { status ->
                             when (status) {
                                 UpstreamAvailability.UNAVAILABLE -> UpstreamChangeEvent.ChangeType.REMOVED
                                 else -> UpstreamChangeEvent.ChangeType.REVALIDATED
                             }.let { eventType ->
                                 if (eventType == UpstreamChangeEvent.ChangeType.REMOVED) {
-                                    log.warn("Remove upstream ${upstream.getId()} due to $it")
+                                    log.warn("Remove upstream ${it::class.java.simpleName}:${upstream.getId()} due to $status")
                                 }
                                 eventPublisher.publishEvent(UpstreamChangeEvent(chain, upstream, eventType))
                             }

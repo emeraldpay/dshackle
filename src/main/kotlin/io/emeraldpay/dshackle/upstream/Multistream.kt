@@ -136,10 +136,11 @@ abstract class Multistream(
 
     fun removeUpstream(id: String): Boolean =
         upstreams.removeIf { up ->
-            up.takeIf { up.getId() == id }
-                ?.also { removed[id] = up }
-                ?.let { true }
-                ?: false
+            (up.getId() == id).also {
+                if (it) {
+                    removed[id] = up
+                }
+            }
         }.also {
             if (it) {
                 onUpstreamsUpdated()
