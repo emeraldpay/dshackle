@@ -138,4 +138,22 @@ class LocalCallRouterSpec extends Specification {
             }
         }
     }
+
+    def "getBlockByNumber skips requests with tx bodies"() {
+        setup:
+        def head = Mock(Head)
+        def reader = Mock(EthereumCachingReader) {
+            _ * blocksByIdAsCont() >> new EmptyReader<>()
+            _ * txByHashAsCont() >> new EmptyReader<>()
+            _ * blocksByHeightAsCont() >> new EmptyReader<>()
+        }
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        def router = new LocalCallRouter(reader, methods, head, true)
+
+        when:
+        def act = router.getBlockByNumber(["0x0", true])
+
+        then:
+        act == null
+    }
 }

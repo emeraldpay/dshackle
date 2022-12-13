@@ -47,11 +47,6 @@ class LocalCallRouter(
         private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)
     }
 
-    private val fullBlocksReader = EthereumFullBlocksReader(
-        reader.blocksByIdAsCont(),
-        reader.txByHashAsCont()
-    )
-
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         if (methods.isHardcoded(key.method)) {
             return Mono.just(methods.executeHardcoded(key.method))
@@ -107,7 +102,7 @@ class LocalCallRouter(
                 }
                 val withTx = params[1].toString().toBoolean()
                 if (withTx) {
-                    fullBlocksReader.read(hash).map { it.json!! }
+                    null
                 } else {
                     reader.blocksByIdAsCont().read(hash).map { it.json!! }
                 }
@@ -136,6 +131,11 @@ class LocalCallRouter(
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
         }
         val number: Long
+        val withTx = params[1].toString().toBoolean()
+        if (withTx) {
+            // with Tx request much more efficient in remote call
+            return null
+        }
         try {
             val blockRef = params[0].toString()
             when {
@@ -165,16 +165,8 @@ class LocalCallRouter(
         } catch (e: IllegalArgumentException) {
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be a block number")
         }
-        val withTx = params[1].toString().toBoolean()
-        var block = reader.blocksByHeightAsCont()
-            .read(number)
-        block = if (withTx) {
-            block.flatMap {
-                fullBlocksReader.read(it.hash)
-            }
-        } else {
-            block
-        }
-        return block.map { it.json!! }
+
+        return reader.blocksByHeightAsCont()
+            .read(number).map { it.json!! }
     }
 }
