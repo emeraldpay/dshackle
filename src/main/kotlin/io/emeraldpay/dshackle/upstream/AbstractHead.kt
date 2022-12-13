@@ -15,14 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Gauge
-import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Metrics
-import io.micrometer.core.instrument.Tag
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -55,16 +51,14 @@ abstract class AbstractHead @JvmOverloads constructor(
     private var lastHeadUpdated = 0L
     private val lock = ReentrantLock()
 
-
     init {
         val state = AtomicBoolean(false)
         Gauge.builder("stuck_head", state) {
             if (it.get()) 1.0 else 0.0
-        }
-            .tag("upstream", upstreamId)
-            .tag("class", this.javaClass.simpleName)
-            .register(Metrics.globalRegistry)
-
+        }.tag("upstream", upstreamId).tag("class", this.javaClass.simpleName).register(Metrics.globalRegistry)
+        Gauge.builder("current_head", forkChoice) {
+            it.getHead()?.height?.toDouble() ?: 0.0
+        }.tag("upstream", upstreamId).tag("class", this.javaClass.simpleName).register(Metrics.globalRegistry)
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(
             {
                 val delay = System.currentTimeMillis() - lastHeadUpdated

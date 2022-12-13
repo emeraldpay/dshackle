@@ -39,13 +39,10 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Duration
 import java.time.Instant
-import java.util.*
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
-import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
-import kotlin.collections.HashSet
 import kotlin.concurrent.withLock
 
 /**
@@ -149,7 +146,6 @@ abstract class Multistream(
                 setHead(updateHead())
             }
         }
-
 
     /**
      * Get a source for direct APIs
