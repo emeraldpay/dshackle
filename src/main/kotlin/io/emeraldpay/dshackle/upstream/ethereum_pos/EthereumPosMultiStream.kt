@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.Collections
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumPosMultiStream(
@@ -126,7 +127,7 @@ open class EthereumPosMultiStream(
             val newHead = MergedHead(heads, PriorityForkChoice(), "ETH Pos Multistream").apply {
                 this.start()
             }
-            val lagObserver = EthereumPosHeadLagObserver(newHead, upstreams as Collection<Upstream>)
+            val lagObserver = EthereumPosHeadLagObserver(newHead, Collections.unmodifiableCollection(upstreams))
             this.lagObserver = lagObserver
             lagObserver.start()
             newHead
