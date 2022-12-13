@@ -47,11 +47,6 @@ class LocalCallRouter(
         private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)
     }
 
-    private val fullBlocksReader = EthereumFullBlocksReader(
-        reader.blocksByIdAsCont(),
-        reader.txByHashAsCont()
-    )
-
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         if (methods.isHardcoded(key.method)) {
             return Mono.just(methods.executeHardcoded(key.method))
@@ -107,7 +102,7 @@ class LocalCallRouter(
                 }
                 val withTx = params[1].toString().toBoolean()
                 if (withTx) {
-                    fullBlocksReader.read(hash).map { it.json!! }
+                    null
                 } else {
                     reader.blocksByIdAsCont().read(hash).map { it.json!! }
                 }

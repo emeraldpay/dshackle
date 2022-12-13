@@ -24,7 +24,6 @@ import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumFullBlocksReader
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
@@ -193,14 +192,6 @@ open class Caches(
 
     fun getTxByHash(): Reader<TxId, TxContainer> {
         return txsByHash
-    }
-
-    fun getFullBlocks(): Reader<BlockId, BlockContainer> {
-        return EthereumFullBlocksReader(blocksByHash, txsByHash)
-    }
-
-    fun getFullBlocksByHeight(): Reader<Long, BlockContainer> {
-        return BlockByHeight(blocksByHeight, EthereumFullBlocksReader(blocksByHash, txsByHash))
     }
 
     fun getReceipts(): Reader<TxId, ByteArray> {
