@@ -17,6 +17,8 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.Metrics
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -28,6 +30,7 @@ import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.toMono
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 
 abstract class AbstractHead @JvmOverloads constructor(
@@ -49,18 +52,20 @@ abstract class AbstractHead @JvmOverloads constructor(
     private val lock = ReentrantLock()
 
     init {
+        val state = AtomicBoolean(false)
+        Gauge.builder("stuck_head", state) {
+            if (it.get()) 1.0 else 0.0
+        }.tag("upstream", upstreamId).tag("class", this.javaClass.simpleName).register(Metrics.globalRegistry)
+        Gauge.builder("current_head", forkChoice) {
+            it.getHead()?.height?.toDouble() ?: 0.0
+        }.tag("upstream", upstreamId).tag("class", this.javaClass.simpleName).register(Metrics.globalRegistry)
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(
             {
                 val delay = System.currentTimeMillis() - lastHeadUpdated
-                if (delay > awaitHeadTimeoutMs) {
-                    log.warn("No head updates $upstreamId for $delay ms @ ${this.javaClass} - restart")
-                    if (lock.tryLock()) {
-                        try {
-                            start()
-                        } finally {
-                            lock.unlock()
-                        }
-                    }
+                val delayed = delay > awaitHeadTimeoutMs
+                state.set(delayed)
+                if (delayed) {
+                    log.warn("No head updates $upstreamId for $delay ms @ ${this.javaClass}")
                 }
             }, 300, 30, TimeUnit.SECONDS
         )

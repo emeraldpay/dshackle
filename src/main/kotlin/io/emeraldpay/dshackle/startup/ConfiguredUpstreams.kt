@@ -48,6 +48,9 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Function
@@ -69,6 +72,7 @@ open class ConfiguredUpstreams(
     override fun run(args: ApplicationArguments) {
         log.debug("Starting upstreams")
         val defaultOptions = buildDefaultOptions(config)
+        val observerScheduler = Schedulers.newParallel("status-observer", 3)
         config.upstreams.forEach { up ->
             if (!up.isEnabled) {
                 log.debug("Upstream ${up.id} is disabled")
@@ -103,15 +107,22 @@ open class ConfiguredUpstreams(
                             options
                         )
                     }
-
-                    else -> {
-                        log.error("Chain is unsupported: ${up.chain}")
-                        return@forEach
-                    }
                 }
                 upstream?.let {
-                    val event = UpstreamChangeEvent(chain, upstream, UpstreamChangeEvent.ChangeType.ADDED)
-                    eventPublisher.publishEvent(event)
+                    Flux.concat(Mono.just(UpstreamChangeEvent.ChangeType.ADDED), upstream.observeStatus())
+                        .distinctUntilChanged()
+                        .subscribeOn(observerScheduler)
+                        .subscribe { status ->
+                            when (status) {
+                                UpstreamAvailability.UNAVAILABLE -> UpstreamChangeEvent.ChangeType.REMOVED
+                                else -> UpstreamChangeEvent.ChangeType.REVALIDATED
+                            }.let { eventType ->
+                                if (eventType == UpstreamChangeEvent.ChangeType.REMOVED) {
+                                    log.warn("Remove upstream ${it::class.java.simpleName}:${upstream.getId()} due to $status")
+                                }
+                                eventPublisher.publishEvent(UpstreamChangeEvent(chain, upstream, eventType))
+                            }
+                        }
                 }
             }
         }
