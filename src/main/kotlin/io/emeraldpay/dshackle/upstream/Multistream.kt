@@ -349,7 +349,7 @@ abstract class Multistream(
             eventLock.withLock {
                 if (event.type == UpstreamChangeEvent.ChangeType.REMOVED) {
                     removeUpstream(event.upstream.getId()).takeIf { it }?.let {
-                        log.error("Upstream ${event.upstream.getId()} with chain $chain has been removed")
+                        log.warn("Upstream ${event.upstream.getId()} with chain $chain has been removed")
                     }
                 } else {
                     if (event.upstream is CachesEnabled) {
@@ -359,7 +359,7 @@ abstract class Multistream(
                         if (!started) {
                             start()
                         }
-                        log.error("Upstream ${event.upstream.getId()} with chain $chain has been added")
+                        log.info("Upstream ${event.upstream.getId()} with chain $chain has been added")
                     }
                 }
             }
