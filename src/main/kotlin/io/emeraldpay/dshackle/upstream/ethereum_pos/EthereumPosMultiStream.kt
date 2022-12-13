@@ -21,8 +21,14 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.ChainFees
+import io.emeraldpay.dshackle.upstream.EmptyHead
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -31,7 +37,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.Collections
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumPosMultiStream(
@@ -127,7 +132,7 @@ open class EthereumPosMultiStream(
             val newHead = MergedHead(heads, PriorityForkChoice(), "ETH Pos Multistream").apply {
                 this.start()
             }
-            val lagObserver = EthereumPosHeadLagObserver(newHead, Collections.unmodifiableCollection(upstreams))
+            val lagObserver = EthereumPosHeadLagObserver(newHead, ArrayList(upstreams))
             this.lagObserver = lagObserver
             lagObserver.start()
             newHead
