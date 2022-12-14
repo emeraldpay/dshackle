@@ -168,7 +168,7 @@ class NativeCallSpec extends Specification {
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.error(
-                        new JsonRpcException(JsonRpcResponse.Id.from(12), new JsonRpcError(-32123, "Foo Bar", "Foo Bar Baz"))
+                        new JsonRpcException(JsonRpcResponse.Id.from(12), new JsonRpcError(-32123, "Foo Bar", "Foo Bar Baz"), true)
                 )
             }
         }
