@@ -182,7 +182,6 @@ abstract class AbstractHead @JvmOverloads constructor(
                     if (delayed.get()) {
                         log.warn("No head updates $upstreamId for $delay ms @ ${this.javaClass.simpleName}")
                     }
-                    System.gc()
                 }, 180, 30, TimeUnit.SECONDS
             )
 
