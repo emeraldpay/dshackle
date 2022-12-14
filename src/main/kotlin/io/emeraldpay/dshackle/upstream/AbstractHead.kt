@@ -77,7 +77,6 @@ abstract class AbstractHead @JvmOverloads constructor(
 
     protected fun finalize() {
         instances[this.javaClass.simpleName]?.decrementAndGet()
-        println("Finish")
     }
 
     fun follow(source: Flux<BlockContainer>): Disposable {
