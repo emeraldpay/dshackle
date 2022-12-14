@@ -112,33 +112,33 @@ open class EthereumPosMultiStream(
     }
 
     override fun updateHead(): Head {
-        head?.let {
-            if (it is Lifecycle) {
-                it.stop()
-            }
-        }
+        this.head?.takeIf { it is Lifecycle }?.apply { stop() }
         lagObserver?.stop()
         lagObserver = null
-        val head = if (upstreams.size == 1) {
-            val upstream = upstreams.first()
-            upstream.setLag(0)
-            upstream.getHead().apply {
-                if (this is Lifecycle) {
-                    this.start()
+
+        return when (upstreams.size) {
+            0 -> EmptyHead()
+            1 -> upstreams.first().let {
+                it.setLag(0)
+                it.getHead().apply {
+                    if (this is Lifecycle) {
+                        start()
+                    }
                 }
             }
-        } else {
-            val heads = upstreams.map { it.getHead() }
-            val newHead = MergedHead(heads, PriorityForkChoice(), "ETH Pos Multistream").apply {
-                this.start()
+
+            else -> upstreams.map { it.getHead() }.let { heads ->
+                MergedHead(heads, PriorityForkChoice(), "ETH Pos Multistream").apply {
+                    start()
+                }.also {
+                    this.lagObserver = EthereumPosHeadLagObserver(it, ArrayList(upstreams)).apply {
+                        start()
+                    }
+                }
             }
-            val lagObserver = EthereumPosHeadLagObserver(newHead, ArrayList(upstreams))
-            this.lagObserver = lagObserver
-            lagObserver.start()
-            newHead
+        }.apply {
+            onHeadUpdated(this)
         }
-        onHeadUpdated(head)
-        return head
     }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
