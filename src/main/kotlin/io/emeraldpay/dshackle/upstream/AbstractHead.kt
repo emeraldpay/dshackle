@@ -28,20 +28,26 @@ import reactor.core.publisher.Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER
 import reactor.core.publisher.Sinks.EmitResult.OK
 import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.toMono
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 
 abstract class AbstractHead @JvmOverloads constructor(
     private val forkChoice: ForkChoice,
     private val blockValidator: BlockValidator = BlockValidator.ALWAYS_VALID,
-    awaitHeadTimeoutMs: Long = 60_000,
+    private val awaitHeadTimeoutMs: Long = 60_000,
     private val upstreamId: String = ""
 ) : Head {
 
     companion object {
         private val log = LoggerFactory.getLogger(AbstractHead::class.java)
+        private val instances: MutableMap<String, AtomicInteger> = ConcurrentHashMap()
+        private val running: MutableMap<String, AtomicInteger> = ConcurrentHashMap()
+        private val executor = Executors.newSingleThreadScheduledExecutor()
     }
 
     private var stream = Sinks.many().multicast().directBestEffort<BlockContainer>()
@@ -50,25 +56,27 @@ abstract class AbstractHead @JvmOverloads constructor(
     private var stopping = false
     private var lastHeadUpdated = 0L
     private val lock = ReentrantLock()
+    private var future: Future<*>? = null
+    private val delayed = AtomicBoolean(false)
 
     init {
-        val state = AtomicBoolean(false)
-        Gauge.builder("stuck_head", state) {
+
+        val className = this.javaClass.simpleName
+
+        Gauge.builder("stuck_head", delayed) {
             if (it.get()) 1.0 else 0.0
-        }.tag("upstream", upstreamId).tag("class", this.javaClass.simpleName).register(Metrics.globalRegistry)
+        }.tag("upstream", upstreamId).tag("class", className).register(Metrics.globalRegistry)
         Gauge.builder("current_head", forkChoice) {
             it.getHead()?.height?.toDouble() ?: 0.0
-        }.tag("upstream", upstreamId).tag("class", this.javaClass.simpleName).register(Metrics.globalRegistry)
-        Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(
-            {
-                val delay = System.currentTimeMillis() - lastHeadUpdated
-                val delayed = delay > awaitHeadTimeoutMs
-                state.set(delayed)
-                if (delayed) {
-                    log.warn("No head updates $upstreamId for $delay ms @ ${this.javaClass}")
-                }
-            }, 300, 30, TimeUnit.SECONDS
-        )
+        }.tag("upstream", upstreamId).tag("class", className).register(Metrics.globalRegistry)
+
+        instances.computeIfAbsent(className) {
+            AtomicInteger(0).also { toHeadCountMetric(it, "allocated") }
+        }.incrementAndGet()
+    }
+
+    protected fun finalize() {
+        instances[this.javaClass.simpleName]?.decrementAndGet()
     }
 
     fun follow(source: Flux<BlockContainer>): Disposable {
@@ -154,9 +162,37 @@ abstract class AbstractHead @JvmOverloads constructor(
 
     override fun stop() {
         stopping = true
+        log.debug("Stop ${this.javaClass.simpleName} $upstreamId")
+        future?.let {
+            running[this.javaClass.simpleName]?.decrementAndGet()
+            it.cancel(true)
+        }
+        future = null
     }
 
     override fun start() {
         stopping = false
+        log.debug("Start ${this.javaClass.simpleName} $upstreamId")
+        if (future == null) {
+            future = executor.scheduleAtFixedRate(
+                {
+                    val delay = System.currentTimeMillis() - lastHeadUpdated
+                    delayed.set(delay > awaitHeadTimeoutMs)
+                    if (delayed.get()) {
+                        log.warn("No head updates $upstreamId for $delay ms @ ${this.javaClass.simpleName}")
+                    }
+                }, 180, 30, TimeUnit.SECONDS
+            )
+
+            running.computeIfAbsent(this.javaClass.simpleName) {
+                AtomicInteger(0).also { toHeadCountMetric(it, "running") }
+            }.incrementAndGet()
+        }
+    }
+
+    private fun toHeadCountMetric(counter: AtomicInteger, status: String) {
+        Gauge.builder("head_count", counter) {
+            it.get().toDouble()
+        }.tag("class", this.javaClass.simpleName).tag("status", status).register(Metrics.globalRegistry)
     }
 }
