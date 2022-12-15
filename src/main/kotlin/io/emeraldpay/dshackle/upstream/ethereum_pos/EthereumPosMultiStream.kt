@@ -136,8 +136,8 @@ open class EthereumPosMultiStream(
                     }
                 }
             }
-        }.apply {
-            onHeadUpdated(this)
+        }.also {
+            onHeadUpdated(it)
         }
     }
 

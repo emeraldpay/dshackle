@@ -93,8 +93,9 @@ abstract class DefaultUpstream(
     open fun setStatus(avail: UpstreamAvailability) {
         status.updateAndGet { curr ->
             Status(curr.lag, avail, statusByLag(curr.lag, avail))
+        }.also {
+            statusStream.tryEmitNext(it.status)
         }
-        statusStream.tryEmitNext(status.get().status)
     }
 
     fun statusByLag(lag: Long, proposed: UpstreamAvailability): UpstreamAvailability {
@@ -118,13 +119,12 @@ abstract class DefaultUpstream(
     }
 
     override fun setLag(lag: Long) {
-        if (lag < 0) {
-            setLag(0)
-        } else {
+        lag.coerceAtLeast(0).let { nLag ->
             status.updateAndGet { curr ->
-                Status(lag, curr.avail, statusByLag(lag, curr.avail))
+                Status(nLag, curr.avail, statusByLag(nLag, curr.avail))
+            }.also {
+                statusStream.tryEmitNext(it.status)
             }
-            statusStream.tryEmitNext(status.get().status)
         }
     }
 

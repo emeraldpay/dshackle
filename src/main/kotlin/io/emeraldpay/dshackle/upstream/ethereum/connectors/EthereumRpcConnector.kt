@@ -11,6 +11,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnection
+import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -35,9 +36,9 @@ class EthereumRpcConnector(
         if (wsFactory != null) {
             // do not set upstream to the WS, since it doesn't control the RPC upstream
             conn = wsFactory.create(null, null)
-            val wsHead = EthereumWsHead(conn, id, forkChoice, blockValidator)
+            val wsHead = EthereumWsHead(conn, id, AlwaysForkChoice(), blockValidator)
             // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(directReader, forkChoice, id, blockValidator, Duration.ofSeconds(60))
+            val rpcHead = EthereumRpcHead(directReader, AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
             head = MergedHead(listOf(rpcHead, wsHead), forkChoice, "Merged for $id")
         } else {
             conn = null
@@ -53,10 +54,10 @@ class EthereumRpcConnector(
     }
 
     override fun start() {
+        conn?.connect()
         if (head is Lifecycle) {
             head.start()
         }
-        conn?.connect()
     }
 
     override fun isRunning(): Boolean {
