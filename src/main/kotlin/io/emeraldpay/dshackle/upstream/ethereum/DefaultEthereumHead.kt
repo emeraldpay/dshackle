@@ -61,7 +61,7 @@ open class DefaultEthereumHead(
                 BlockContainer.fromEthereumJson(it.getResult(), upstreamId)
             }
             .onErrorResume { err ->
-                log.error("Failed to fetch latest block: ${err.message}")
+                log.error("Failed to fetch latest block: ${err.message} $upstreamId", err)
                 Mono.empty()
             }
     }
