@@ -29,7 +29,7 @@ import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.util.retry.Retry
+import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.function.Function
 
@@ -62,22 +62,19 @@ class GrpcHead(
             stop()
         }
         log.debug("Start Head subscription to ${parent.getId()}")
-
-        val source = Flux.just(remote).flatMap(this::subscribeHead)
-        internalStart(source)
+        internalStart(subscribeHead(remote))
     }
 
-    fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub): Publisher<BlockchainOuterClass.ChainHead> {
+    fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub): Flux<BlockchainOuterClass.ChainHead> {
         val chainRef = Common.Chain.newBuilder()
             .setTypeValue(chain.id)
             .build()
-        return client.subscribeHead(chainRef)
-            .doOnError {
-                log.error("subscribeHead err: ${it.message}", it)
-                parent.setStatus(UpstreamAvailability.UNAVAILABLE)
-            }
-            // now we are making retries only here
-            .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)))
+
+        return Flux.concat(
+            Mono.just(remote),
+            Mono.just(remote).repeat().delayElements(Duration.ofSeconds(1))
+        )
+            .flatMap { it.subscribeHead(chainRef) }
             .doFinally { log.warn("Head subscription finished: $it") }
     }
 
@@ -89,12 +86,14 @@ class GrpcHead(
             .distinctUntilChanged {
                 it.hash
             }.filter { forkChoice.filter(it) }
+
         if (enhancer != null) {
             blocks = blocks.flatMap(enhancer)
         }
 
         blocks = blocks.onErrorContinue { err, _ ->
             log.error("Head subscription error. ${err.javaClass.name}:${err.message}", err)
+            parent.setStatus(UpstreamAvailability.UNAVAILABLE)
         }.doOnNext {
             log.info("Received block ${it.height}")
         }
