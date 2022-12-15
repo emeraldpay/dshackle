@@ -88,7 +88,7 @@ class GrpcUpstreams(
 
         val statusSubscription = AtomicReference<Disposable>()
 
-        val updates = Flux.interval(Duration.ZERO, Duration.ofMinutes(1))
+        val updates = Flux.interval(Duration.ZERO, Duration.ofSeconds(20))
             .flatMap {
                 client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
             }.onErrorContinue { t, _ ->
