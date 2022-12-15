@@ -26,6 +26,8 @@ import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import org.apache.commons.collections4.Factory
@@ -73,6 +75,7 @@ abstract class Multistream(
     private var subscription: Disposable? = null
     private var capabilities: Set<Capability> = emptySet()
     private val removed: MutableMap<String, Upstream> = HashMap()
+    private val meters: MutableMap<String, Meter.Id> = HashMap()
 
     init {
         UpstreamAvailability.values().forEach { status ->
@@ -98,12 +101,17 @@ abstract class Multistream(
     }
 
     private fun monitorUpstream(upstream: Upstream) {
-        Metrics.gauge(
-            "$metrics.lag",
-            listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())), upstream
-        ) {
-            it.getLag().toDouble()
+        val id = upstream.getId()
+        //remove gouge for given upstream if exists - otherwise metric will stuck with prev upstream instance
+        meters[id]?.let {
+            Metrics.globalRegistry.remove(it)
         }
+
+        meters[id] = Gauge.builder("$metrics.lag", upstream) { it.getLag().toDouble() }
+            .tag("chain", chain.chainCode)
+            .tag("upstream", id)
+            .register(Metrics.globalRegistry)
+            .id
     }
 
     open fun init() {
