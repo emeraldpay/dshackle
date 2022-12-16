@@ -102,7 +102,7 @@ abstract class Multistream(
 
     private fun monitorUpstream(upstream: Upstream) {
         val id = upstream.getId()
-        //remove gouge for given upstream if exists - otherwise metric will stuck with prev upstream instance
+        // remove gouge for given upstream if exists - otherwise metric will stuck with prev upstream instance
         meters[id]?.let {
             Metrics.globalRegistry.remove(it)
         }
