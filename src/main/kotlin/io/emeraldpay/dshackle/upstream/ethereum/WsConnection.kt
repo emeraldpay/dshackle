@@ -405,7 +405,8 @@ open class WsConnection(
         )
 
         val response = Flux.from(rpcReceive.asFlux())
-            .doOnSubscribe { sendRpc(request) }
+            // send the request _after_ WS subscribes to the responses, otherwise the response may come before the actual subscription and be lost
+            .doOnRequest { sendRpc(request) }
             .filter { resp -> resp.id.asNumber() == expectedId }
             .take(Defaults.timeout)
             .take(1)
