@@ -401,7 +401,8 @@ open class WsConnection(
             JsonRpcError(
                 RpcResponseError.CODE_INTERNAL_ERROR,
                 "Response not received from WebSocket"
-            )
+            ),
+            false
         )
 
         val response = Flux.from(rpcReceive.asFlux())
