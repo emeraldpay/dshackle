@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service
 import java.io.IOException
 import java.net.InetSocketAddress
 import javax.annotation.PostConstruct
+import javax.annotation.PreDestroy
 
 @Service
 class HealthCheckSetup(
@@ -37,6 +38,8 @@ class HealthCheckSetup(
         private val log = LoggerFactory.getLogger(HealthCheckSetup::class.java)
     }
 
+    lateinit var server: HttpServer
+
     @PostConstruct
     fun start() {
         if (!healthConfig.isEnabled()) {
@@ -46,7 +49,7 @@ class HealthCheckSetup(
         // health check is a rare operation, no reason to set up anything complex
         try {
             log.info("Run Health Server on ${healthConfig.host}:${healthConfig.port}${healthConfig.path}")
-            val server = HttpServer.create(
+            server = HttpServer.create(
                 InetSocketAddress(
                     healthConfig.host,
                     healthConfig.port
@@ -76,7 +79,7 @@ class HealthCheckSetup(
     fun getHealth(): Detailed {
         val errors = healthConfig.configs().mapNotNull {
             val up = multistreamHolder.getUpstream(it.blockchain)
-            if (up == null || !up.isAvailable()) {
+            if (!up.isAvailable()) {
                 return@mapNotNull "${it.blockchain} UNAVAILABLE"
             }
             val avail = up.getAll().count { it.getStatus() == UpstreamAvailability.OK }
@@ -100,7 +103,7 @@ class HealthCheckSetup(
             var chainUnavailable = false
             val up = multistreamHolder.getUpstream(chain)
             val required = healthConfig.chains[chain]
-            if (up == null || !up.isAvailable()) {
+            if (!up.isAvailable()) {
                 if (required != null) {
                     anyUnavailable = true
                 }
@@ -133,6 +136,14 @@ class HealthCheckSetup(
             allEnabled && !anyUnavailable,
             detailsUnavailable + details
         )
+    }
+
+    @PreDestroy
+    fun shutdown() {
+        if (::server.isInitialized) {
+            log.info("Shutting down health Server...")
+            server.stop(0)
+        }
     }
 
     data class Detailed(
