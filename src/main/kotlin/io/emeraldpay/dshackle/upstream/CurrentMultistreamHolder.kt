@@ -49,7 +49,11 @@ open class CurrentMultistreamHolder(
     fun shutdown() {
         log.info("Closing upstream connections...")
         chainMapping.values.forEach {
-            it.stop()
+            try {
+                it.stop()
+            } catch (e: Exception) {
+                log.trace("Error during multistream shutdown", e)
+            }
         }
     }
 }
