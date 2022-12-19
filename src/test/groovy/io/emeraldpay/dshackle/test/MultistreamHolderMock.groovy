@@ -86,6 +86,11 @@ class MultistreamHolderMock implements MultistreamHolder {
         return upstreams.containsKey(chain)
     }
 
+    @Override
+    List<Multistream> all() {
+        return upstreams.values().toList()
+    }
+
     static class EthereumMultistreamMock extends EthereumPosMultiStream {
 
         EthereumCachingReader customReader = null

@@ -27,43 +27,53 @@ class SubscribeNodeStatus(
         req.flatMapMany {
             val knownUpstreams = ConcurrentHashMap<String, Boolean>()
             // send known upstreams details immediately
-            val descriptions = Flux.fromIterable(multistreams.all().flatMap { multiStream ->
-                multiStream.getAll().map { up ->
-                    NodeStatusResponse.newBuilder()
-                        .setNodeId(up.getId())
-                        .setDescription(buildDescription(multiStream.chain, up))
-                        .setStatus(buildStatus(up.getStatus(), up.getHead().getCurrentHeight()))
-                        .build()
-                }
-            })
-
-            //subscribe on head/status updates for known upstreams
-            val upstreamUpdates = Flux.merge(multistreams.all().flatMap { ms ->
-                ms.getAll().map { up ->
-                    knownUpstreams[up.getId()] = true
-                    subscribeUpstreamUpdates(ms.chain, up)
-                }
-            })
-
-            //subscribe on head/status updates for just added upstreams
-            val muliStreamUpdates = Flux.merge(multistreams.all().map { ms ->
-                ms.subscribeAddedUpstreams()
-                    .distinctUntilChanged {
-                        it.getId()
+            val descriptions = Flux.fromIterable(
+                multistreams.all()
+                    .flatMap { multiStream ->
+                        multiStream.getAll().map { up ->
+                            NodeStatusResponse.newBuilder()
+                                .setNodeId(up.getId())
+                                .setDescription(buildDescription(multiStream.chain, up))
+                                .setStatus(buildStatus(up.getStatus(), up.getHead().getCurrentHeight()))
+                                .build()
+                        }
                     }
-                    .filter { knownUpstreams[it.getId()] != true }.flatMap {
-                        knownUpstreams[it.getId()] = true
-                        Flux.concat(
-                            Mono.just(
-                                NodeStatusResponse.newBuilder()
-                                    .setNodeId(it.getId())
-                                    .setDescription(buildDescription(ms.chain, it))
-                                    .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
-                                    .build()
-                            ), subscribeUpstreamUpdates(ms.chain, it)
-                        )
+            )
+
+            // subscribe on head/status updates for known upstreams
+            val upstreamUpdates = Flux.merge(
+                multistreams.all()
+                    .flatMap { ms ->
+                        ms.getAll().map { up ->
+                            knownUpstreams[up.getId()] = true
+                            subscribeUpstreamUpdates(ms.chain, up)
+                        }
                     }
-            })
+            )
+
+            // subscribe on head/status updates for just added upstreams
+            val muliStreamUpdates = Flux.merge(
+                multistreams.all()
+                    .map { ms ->
+                        ms.subscribeAddedUpstreams()
+                            .distinctUntilChanged {
+                                it.getId()
+                            }
+                            .filter { knownUpstreams[it.getId()] != true }.flatMap {
+                                knownUpstreams[it.getId()] = true
+                                Flux.concat(
+                                    Mono.just(
+                                        NodeStatusResponse.newBuilder()
+                                            .setNodeId(it.getId())
+                                            .setDescription(buildDescription(ms.chain, it))
+                                            .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
+                                            .build()
+                                    ),
+                                    subscribeUpstreamUpdates(ms.chain, it)
+                                )
+                            }
+                    }
+            )
 
             Flux.concat(descriptions, Flux.merge(upstreamUpdates, muliStreamUpdates))
         }
@@ -96,14 +106,16 @@ class SubscribeNodeStatus(
     private fun buildDescription(chain: Chain, up: Upstream): NodeDescription.Builder =
         NodeDescription.newBuilder()
             .setChain(Common.ChainRef.forNumber(chain.id))
-            .addAllLabels(up.getLabels().flatMap { labels ->
-                labels.map {
-                    BlockchainOuterClass.Label.newBuilder()
-                        .setName(it.key)
-                        .setValue(it.value)
-                        .build()
+            .addAllLabels(
+                up.getLabels().flatMap { labels ->
+                    labels.map {
+                        BlockchainOuterClass.Label.newBuilder()
+                            .setName(it.key)
+                            .setValue(it.value)
+                            .build()
+                    }
                 }
-            })
+            )
             .addAllSupportedMethods(up.getMethods().getSupportedMethods())
 
     private fun buildStatus(status: UpstreamAvailability, height: Long?): NodeStatus.Builder =
