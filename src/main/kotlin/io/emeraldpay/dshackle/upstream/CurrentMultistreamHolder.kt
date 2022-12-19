@@ -45,6 +45,9 @@ open class CurrentMultistreamHolder(
         return chainMapping.getValue(chain).isAvailable()
     }
 
+    override fun all(): List<Multistream> =
+        chainMapping.values.toList()
+
     @PreDestroy
     fun shutdown() {
         log.info("Closing upstream connections...")

@@ -25,4 +25,6 @@ interface MultistreamHolder {
     fun getUpstream(chain: Chain): Multistream
     fun getAvailable(): List<Chain>
     fun isAvailable(chain: Chain): Boolean
+
+    fun all(): List<Multistream>
 }

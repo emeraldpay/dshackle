@@ -47,6 +47,7 @@ class BlockchainRpc(
     private val describe: Describe,
     private val subscribeStatus: SubscribeStatus,
     private val estimateFee: EstimateFee,
+    private val subscribeNodeStatus: SubscribeNodeStatus,
     @Qualifier("rpcScheduler")
     private val scheduler: Scheduler
 ) : ReactorBlockchainGrpc.BlockchainImplBase() {
@@ -218,6 +219,10 @@ class BlockchainRpc(
         subscribeStatusMetric.increment()
         return subscribeStatus.subscribeStatus(request)
             .doOnError { failMetric.increment() }
+    }
+
+    override fun subscribeNodeStatus(request: Mono<BlockchainOuterClass.SubscribeNodeStatusRequest>): Flux<BlockchainOuterClass.NodeStatusResponse> {
+        return subscribeNodeStatus.subscribe(request).subscribeOn(scheduler).doOnError { failMetric.increment() }
     }
 
     class RequestMetrics(val chain: Chain) {

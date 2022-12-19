@@ -39,6 +39,7 @@ import org.springframework.core.annotation.Order
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
@@ -76,6 +77,9 @@ abstract class Multistream(
     private var capabilities: Set<Capability> = emptySet()
     private val removed: MutableMap<String, Upstream> = HashMap()
     private val meters: MutableMap<String, Meter.Id> = HashMap()
+    private val addedUpstreams = Sinks.many()
+        .multicast()
+        .directBestEffort<Upstream>()
 
     init {
         UpstreamAvailability.values().forEach { status ->
@@ -350,6 +354,7 @@ abstract class Multistream(
                         if (!started) {
                             start()
                         }
+                        addedUpstreams.tryEmitNext(event.upstream)
                         log.info("Upstream ${event.upstream.getId()} with chain $chain has been added")
                     }
                 }
@@ -363,6 +368,9 @@ abstract class Multistream(
     fun hasMatchingUpstream(matcher: Selector.LabelSelectorMatcher): Boolean {
         return upstreams.any { matcher.matches(it) }
     }
+
+    fun subscribeAddedUpstreams(): Flux<Upstream> =
+        addedUpstreams.asFlux()
 
     // --------------------------------------------------------------------------------------------------------
 
