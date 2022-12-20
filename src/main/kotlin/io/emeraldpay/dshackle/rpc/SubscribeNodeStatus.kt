@@ -17,6 +17,7 @@ import reactor.core.publisher.SignalType
 import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
+import java.util.function.Consumer
 
 @Service
 class SubscribeNodeStatus(
@@ -51,7 +52,7 @@ class SubscribeNodeStatus(
                     .flatMap { ms ->
                         ms.getAll().map { up ->
                             knownUpstreams[up.getId()] = true
-                            subscribeUpstreamUpdates(ms.chain, up, duration)
+                            subscribeUpstreamUpdates(ms.chain, up, duration) { r -> knownUpstreams.remove(r) }
                         }
                     }
             )
@@ -64,7 +65,10 @@ class SubscribeNodeStatus(
                             .distinctUntilChanged {
                                 it.getId()
                             }
-                            .filter { knownUpstreams.getOrDefault(it.getId(), false) }.flatMap {
+                            .filter {
+                                !knownUpstreams.getOrDefault(it.getId(), false)
+                            }
+                            .flatMap {
                                 knownUpstreams[it.getId()] = true
                                 Flux.concat(
                                     Mono.just(
@@ -74,7 +78,7 @@ class SubscribeNodeStatus(
                                             .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
                                             .build()
                                     ),
-                                    subscribeUpstreamUpdates(ms.chain, it, duration)
+                                    subscribeUpstreamUpdates(ms.chain, it, duration) { r -> knownUpstreams.remove(r) }
                                 )
                             }
                     }
@@ -86,30 +90,48 @@ class SubscribeNodeStatus(
     private fun subscribeUpstreamUpdates(
         chain: Chain,
         upstream: Upstream,
-        timespan: Duration
+        timespan: Duration,
+        onUnavailable: Consumer<String>
     ): Flux<NodeStatusResponse> {
         val retry = Sinks.many().multicast().directBestEffort<Boolean>()
-        val heads = Mono.just(upstream).repeatWhen { retry.asFlux() }.sample(RETRY_TIMEOUT).flatMap { up ->
-            up.getHead().getFlux().map { block ->
-                NodeStatusResponse.newBuilder()
-                    .setNodeId(up.getId())
-                    .setStatus(buildStatus(up.getStatus(), block.height))
-                    .build()
-            }.doFinally {
-                // retry when subscribed head stopped
-                if (it == SignalType.ON_COMPLETE) {
-                    retry.tryEmitNext(true)
-                }
-            }
-        }.sample(timespan)
+        val cancel = Sinks.many().multicast().directBestEffort<Boolean>()
 
-        val statuses = upstream.observeStatus().distinctUntilChanged().map {
-            NodeStatusResponse.newBuilder()
-                .setNodeId(upstream.getId())
-                .setStatus(buildStatus(it, upstream.getHead().getCurrentHeight()))
-                .setDescription(buildDescription(chain, upstream))
-                .build()
-        }.sample(timespan)
+        val heads = Mono.just(upstream)
+            .repeatWhen {
+                retry.asFlux()
+            }
+            .sample(RETRY_TIMEOUT)
+            .takeUntilOther(cancel.asFlux()).flatMap { up ->
+                up.getHead().getFlux()
+                    .takeUntilOther(cancel.asFlux())
+                    .map { block ->
+                        NodeStatusResponse.newBuilder()
+                            .setNodeId(up.getId())
+                            .setStatus(buildStatus(up.getStatus(), block.height))
+                            .build()
+                    }.doFinally {
+                        // retry when subscribed head stopped
+                        if (it == SignalType.ON_COMPLETE) {
+                            retry.tryEmitNext(true)
+                        }
+                    }
+            }.sample(timespan)
+
+        val statuses = upstream.observeStatus()
+            .distinctUntilChanged()
+            .takeUntil{it == UpstreamAvailability.UNAVAILABLE}
+            .map {
+                if (it == UpstreamAvailability.UNAVAILABLE) {
+                    onUnavailable.accept(upstream.getId())
+                    cancel.tryEmitNext(true)
+                }
+                NodeStatusResponse.newBuilder()
+                    .setNodeId(upstream.getId())
+                    .setStatus(buildStatus(it, upstream.getHead().getCurrentHeight()))
+                    .setDescription(buildDescription(chain, upstream))
+                    .build()
+            }.sample(timespan)
+
         return Flux.merge(heads, statuses)
     }
 
