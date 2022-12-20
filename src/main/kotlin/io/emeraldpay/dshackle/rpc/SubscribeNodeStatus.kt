@@ -23,9 +23,14 @@ class SubscribeNodeStatus(
     private val multistreams: CurrentMultistreamHolder
 ) {
 
+    companion object {
+        private val RETRY_TIMEOUT = Duration.ofSeconds(10)
+    }
+
     fun subscribe(req: Mono<SubscribeNodeStatusRequest>): Flux<NodeStatusResponse> =
-        req.flatMapMany {
+        req.flatMapMany { request ->
             val knownUpstreams = ConcurrentHashMap<String, Boolean>()
+            val duration = Duration.ofMillis(request.timespan)
             // send known upstreams details immediately
             val descriptions = Flux.fromIterable(
                 multistreams.all()
@@ -46,7 +51,7 @@ class SubscribeNodeStatus(
                     .flatMap { ms ->
                         ms.getAll().map { up ->
                             knownUpstreams[up.getId()] = true
-                            subscribeUpstreamUpdates(ms.chain, up)
+                            subscribeUpstreamUpdates(ms.chain, up, duration)
                         }
                     }
             )
@@ -69,7 +74,7 @@ class SubscribeNodeStatus(
                                             .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
                                             .build()
                                     ),
-                                    subscribeUpstreamUpdates(ms.chain, it)
+                                    subscribeUpstreamUpdates(ms.chain, it, duration)
                                 )
                             }
                     }
@@ -78,29 +83,34 @@ class SubscribeNodeStatus(
             Flux.concat(descriptions, Flux.merge(upstreamUpdates, muliStreamUpdates))
         }
 
-    private fun subscribeUpstreamUpdates(chain: Chain, upstream: Upstream): Flux<NodeStatusResponse> {
-        val r = Sinks.many().multicast().directBestEffort<Boolean>()
-        val heads = Mono.just(upstream).repeatWhen { r.asFlux() }.sample(Duration.ofSeconds(10)).flatMap { up ->
+    private fun subscribeUpstreamUpdates(
+        chain: Chain,
+        upstream: Upstream,
+        timespan: Duration
+    ): Flux<NodeStatusResponse> {
+        val retry = Sinks.many().multicast().directBestEffort<Boolean>()
+        val heads = Mono.just(upstream).repeatWhen { retry.asFlux() }.sample(RETRY_TIMEOUT).flatMap { up ->
             up.getHead().getFlux().map { block ->
                 NodeStatusResponse.newBuilder()
                     .setNodeId(up.getId())
                     .setStatus(buildStatus(up.getStatus(), block.height))
                     .build()
             }.doFinally {
+                // retry when subscribed head stopped
                 if (it == SignalType.ON_COMPLETE) {
-                    r.tryEmitNext(true)
+                    retry.tryEmitNext(true)
                 }
             }
-        }
+        }.sample(timespan)
 
-        val statuses = upstream.observeStatus().map {
+        val statuses = upstream.observeStatus().distinctUntilChanged().map {
             NodeStatusResponse.newBuilder()
                 .setNodeId(upstream.getId())
                 .setStatus(buildStatus(it, upstream.getHead().getCurrentHeight()))
                 .setDescription(buildDescription(chain, upstream))
                 .build()
-        }
-        return Flux.merge(heads.distinctUntilChanged(), statuses.distinctUntilChanged())
+        }.sample(timespan)
+        return Flux.merge(heads, statuses)
     }
 
     private fun buildDescription(chain: Chain, up: Upstream): NodeDescription.Builder =
