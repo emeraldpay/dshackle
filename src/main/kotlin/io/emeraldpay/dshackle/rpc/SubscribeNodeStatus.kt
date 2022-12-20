@@ -116,14 +116,18 @@ class SubscribeNodeStatus(
     private fun buildDescription(chain: Chain, up: Upstream): NodeDescription.Builder =
         NodeDescription.newBuilder()
             .setChain(Common.ChainRef.forNumber(chain.id))
-            .addAllLabels(
-                up.getLabels().flatMap { labels ->
-                    labels.map {
-                        BlockchainOuterClass.Label.newBuilder()
-                            .setName(it.key)
-                            .setValue(it.value)
-                            .build()
-                    }
+            .addAllNodeLabels(
+                up.getLabels().map { nodeLabels ->
+                    BlockchainOuterClass.NodeLabels.newBuilder()
+                        .addAllLabels(
+                            nodeLabels.map {
+                                BlockchainOuterClass.Label.newBuilder()
+                                    .setName(it.key)
+                                    .setValue(it.value)
+                                    .build()
+                            }
+                        )
+                        .build()
                 }
             )
             .addAllSupportedMethods(up.getMethods().getSupportedMethods())
