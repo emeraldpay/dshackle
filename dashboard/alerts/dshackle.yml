@@ -58,4 +58,3 @@ groups:
       severity: critical
     annotations:
       summary: "ETH Node is not syncing on host (instance {{ $labels.instance }})"
-
