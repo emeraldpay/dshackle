@@ -57,14 +57,14 @@ class SubscribeNodeStatus(
             )
 
             // subscribe on head/status updates for just added upstreams
-            val muliStreamUpdates = Flux.merge(
+            val multiStreamUpdates = Flux.merge(
                 multistreams.all()
                     .map { ms ->
                         ms.subscribeAddedUpstreams()
                             .distinctUntilChanged {
                                 it.getId()
                             }
-                            .filter { knownUpstreams[it.getId()] != true }.flatMap {
+                            .filter { knownUpstreams.getOrDefault(it.getId(), false) }.flatMap {
                                 knownUpstreams[it.getId()] = true
                                 Flux.concat(
                                     Mono.just(
@@ -80,7 +80,7 @@ class SubscribeNodeStatus(
                     }
             )
 
-            Flux.concat(descriptions, Flux.merge(upstreamUpdates, muliStreamUpdates))
+            Flux.concat(descriptions, Flux.merge(upstreamUpdates, multiStreamUpdates))
         }
 
     private fun subscribeUpstreamUpdates(
