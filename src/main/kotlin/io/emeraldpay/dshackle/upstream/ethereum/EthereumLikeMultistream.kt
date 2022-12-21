@@ -8,7 +8,7 @@ import reactor.core.publisher.Flux
 
 interface EthereumLikeMultistream : Upstream {
     fun getReader(): EthereumCachingReader
-    fun getSubscribe(): EthereumSubscribe
+    fun getSubscriptionApi(): EthereumSubscriptionApi
 
     fun getHead(mather: Selector.Matcher): Head
 

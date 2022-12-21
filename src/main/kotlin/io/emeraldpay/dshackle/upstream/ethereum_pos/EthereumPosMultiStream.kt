@@ -29,6 +29,9 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -52,8 +55,8 @@ open class EthereumPosMultiStream(
     private var head: Head? = null
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
+    private var subscribe = EthereumSubscriptionApi(this, NoPendingTxes())
     private val feeEstimation = EthereumPriorityFees(this, reader, 256)
-    private val subscribe = EthereumSubscribe(this)
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
@@ -157,7 +160,7 @@ open class EthereumPosMultiStream(
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead(), localEnabled))
     }
 
-    override fun getSubscribe(): EthereumSubscribe {
+    override fun getSubscriptionApi(): EthereumSubscriptionApi {
         return subscribe
     }
 
@@ -181,5 +184,23 @@ open class EthereumPosMultiStream(
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation
+    }
+
+    override fun onUpstreamsUpdated() {
+        super.onUpstreamsUpdated()
+
+        val pendingTxes: PendingTxesSource = upstreams
+            .mapNotNull {
+                it.getUpstreamSubscriptions().getPendingTxes()
+            }.let {
+                if (it.isEmpty()) {
+                    NoPendingTxes()
+                } else if (it.size == 1) {
+                    it.first()
+                } else {
+                    AggregatedPendingTxes(it)
+                }
+            }
+        subscribe = EthereumSubscriptionApi(this, pendingTxes)
     }
 }

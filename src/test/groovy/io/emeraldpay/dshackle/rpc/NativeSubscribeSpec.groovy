@@ -20,7 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.dshackle.Chain
 import reactor.core.publisher.Flux
@@ -39,12 +39,12 @@ class NativeSubscribeSpec extends Specification {
                 .setMethod("newHeads")
                 .build()
 
-        def subscribe = Mock(EthereumSubscribe) {
+        def subscribe = Mock(EthereumSubscriptionApi) {
             1 * it.subscribe("newHeads", null, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
         def up = Mock(EthereumPosMultiStream) {
             1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> null
-            1 * it.getSubscribe() >> subscribe
+            1 * it.getSubscriptionApi() >> subscribe
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
@@ -70,7 +70,7 @@ class NativeSubscribeSpec extends Specification {
                 ))
                 .build()
 
-        def subscribe = Mock(EthereumSubscribe) {
+        def subscribe = Mock(EthereumSubscriptionApi) {
             1 * it.subscribe("logs", { params ->
                 println("params: $params")
                 def ok = params instanceof Map &&
@@ -83,7 +83,7 @@ class NativeSubscribeSpec extends Specification {
         }
         def up = Mock(EthereumPosMultiStream) {
             1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> null
-            1 * it.getSubscribe() >> subscribe
+            1 * it.getSubscriptionApi() >> subscribe
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
@@ -106,7 +106,7 @@ class NativeSubscribeSpec extends Specification {
                 .build()
         def up = Mock(EthereumPosMultiStream) {
             1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> Flux.just("{}")
-            0 * it.getSubscribe()
+            0 * it.getSubscriptionApi()
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)

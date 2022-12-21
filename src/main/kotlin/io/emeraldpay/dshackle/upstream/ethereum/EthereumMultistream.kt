@@ -23,6 +23,9 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -48,7 +51,7 @@ open class EthereumMultistream(
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
-    private val subscribe = EthereumSubscribe(this)
+    private var subscribe = EthereumSubscriptionApi(this, NoPendingTxes())
 
     private val supportsEIP1559 = when (chain) {
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY -> true
@@ -66,6 +69,24 @@ open class EthereumMultistream(
             head = updateHead()
         }
         super.init()
+    }
+
+    override fun onUpstreamsUpdated() {
+        super.onUpstreamsUpdated()
+
+        val pendingTxes: PendingTxesSource = upstreams
+            .mapNotNull {
+                it.getUpstreamSubscriptions().getPendingTxes()
+            }.let {
+                if (it.isEmpty()) {
+                    NoPendingTxes()
+                } else if (it.size == 1) {
+                    it.first()
+                } else {
+                    AggregatedPendingTxes(it)
+                }
+            }
+        subscribe = EthereumSubscriptionApi(this, pendingTxes)
     }
 
     override fun start() {
@@ -158,7 +179,7 @@ open class EthereumMultistream(
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead(), localEnabled))
     }
 
-    override fun getSubscribe(): EthereumSubscribe {
+    override fun getSubscriptionApi(): EthereumSubscriptionApi {
         return subscribe
     }
 

@@ -32,6 +32,8 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleSubscriptions
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -107,6 +109,7 @@ open class EthereumPosGrpcUpstream(
 
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.getReader()
     var timeout = Defaults.timeout
+    private val ethereumSubscriptions = EthereumDshackleSubscriptions(chain, remote)
 
     override fun start() {
     }
@@ -173,5 +176,9 @@ open class EthereumPosGrpcUpstream(
 
     override fun isGrpc(): Boolean {
         return true
+    }
+
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return ethereumSubscriptions
     }
 }

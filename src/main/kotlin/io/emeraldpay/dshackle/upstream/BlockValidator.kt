@@ -11,6 +11,7 @@ interface BlockValidator {
     }
 
     companion object {
+        @JvmField
         val ALWAYS_VALID = AlwaysValid()
     }
 }

@@ -88,12 +88,11 @@ class TrackERC20Address(
         val asset = request.asset.code.lowercase(Locale.getDefault())
         val tokenDefinition = tokens[TokenId(chain, asset)] ?: return Flux.empty()
         val logs = getUpstream(chain)
-            .getSubscribe().logs
-            .start(
+            .getSubscriptionApi().logs
+            .create(
                 listOf(tokenDefinition.token.contract),
                 listOf(EventId.fromSignature("Transfer", "address", "address", "uint256")),
-                Selector.empty
-            )
+            ).connect(Selector.empty)
 
         return ethereumAddresses.extract(request.address)
             .map { TrackedAddress(chain, it, tokenDefinition.token, tokenDefinition.name) }

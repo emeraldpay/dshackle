@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import org.slf4j.LoggerFactory
@@ -29,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class ConnectNewHeads(
     private val upstream: EthereumLikeMultistream
-) {
+) : SubscriptionConnect<NewHeadMessage> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ConnectNewHeads::class.java)
@@ -37,7 +38,7 @@ class ConnectNewHeads(
 
     private val connected: MutableMap<String, Flux<NewHeadMessage>> = ConcurrentHashMap()
 
-    fun connect(matcher: Selector.Matcher): Flux<NewHeadMessage> =
+    override fun connect(matcher: Selector.Matcher): Flux<NewHeadMessage> =
         connected.computeIfAbsent(matcher.describeInternal()) { key ->
             ProduceNewHeads(upstream.getHead(matcher))
                 .start()

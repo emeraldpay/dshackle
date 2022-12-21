@@ -4,10 +4,8 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
-import io.emeraldpay.dshackle.upstream.ethereum.WsConnection
+import io.emeraldpay.dshackle.upstream.ethereum.*
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsSubscriptions
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -16,18 +14,20 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 class EthereumWsConnector(
     wsFactory: EthereumWsFactory,
     upstream: DefaultUpstream,
-    validator: EthereumUpstreamValidator,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
 ) : EthereumConnector {
-    private val conn: WsConnection
+    private val conn: WsConnectionImpl
     private val api: Reader<JsonRpcRequest, JsonRpcResponse>
     private val head: EthereumWsHead
+    private val subscriptions: EthereumUpstreamSubscriptions
 
     init {
-        conn = wsFactory.create(upstream, validator)
-        head = EthereumWsHead(conn, upstream.getId(), forkChoice, blockValidator)
+        conn = wsFactory.create(upstream)
         api = JsonRpcWsClient(conn)
+        val wsSubscriptions = WsSubscriptionsImpl(conn)
+        head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, api, wsSubscriptions)
+        subscriptions = EthereumWsSubscriptions(wsSubscriptions)
     }
 
     override fun start() {
@@ -46,6 +46,10 @@ class EthereumWsConnector(
 
     override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
         return api
+    }
+
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return subscriptions
     }
 
     override fun getHead(): Head {

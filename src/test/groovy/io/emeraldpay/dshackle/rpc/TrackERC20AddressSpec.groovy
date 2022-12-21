@@ -5,10 +5,10 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.config.TokensConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscribe
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -169,21 +169,26 @@ class TrackERC20AddressSpec extends Specification {
                         "unknown"
                 )
         ]
-        def logs = Mock(ConnectLogs) {
-            1 * start(
-                    [Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")],
-                    [Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")],
-                    Selector.empty
-            ) >> { args ->
-                println("ConnectLogs.start $args")
+
+        def connect = Mock(SubscriptionConnect) {
+            1 * connect(Selector.empty) >> {
                 Flux.fromIterable(events)
             }
         }
-        def sub = Mock(EthereumSubscribe) {
+        def logs = Mock(ConnectLogs) {
+            1 * create(
+                    [Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")],
+                    [Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")],
+            ) >> { args ->
+                println("ConnectLogs.start $args")
+                connect
+            }
+        }
+        def sub = Mock(EthereumSubscriptionApi) {
             1 * getLogs() >> logs
         }
         def up = Mock(EthereumPosMultiStream) {
-            1 * getSubscribe() >> sub
+            1 * getSubscriptionApi() >> sub
             _ * cast(EthereumPosMultiStream) >> { args ->
                 it
             }

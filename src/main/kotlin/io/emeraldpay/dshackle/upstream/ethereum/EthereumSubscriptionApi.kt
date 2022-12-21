@@ -4,17 +4,24 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectNewHeads
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectSyncing
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 
-open class EthereumSubscribe(
-    val upstream: EthereumLikeMultistream
+open class EthereumSubscriptionApi(
+    val upstream: EthereumLikeMultistream,
+    val pendingTxesSource: PendingTxesSource
 ) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumSubscribe::class.java)
+        private val log = LoggerFactory.getLogger(EthereumSubscriptionApi::class.java)
+
+        const val METHOD_NEW_HEADS = "newHeads"
+        const val METHOD_LOGS = "logs"
+        const val METHOD_SYNCING = "syncing"
+        const val METHOD_PENDING_TXES = "newPendingTransactions"
     }
 
     private val newHeads = ConnectNewHeads(upstream)
@@ -23,10 +30,10 @@ open class EthereumSubscribe(
 
     @Suppress("UNCHECKED_CAST")
     open fun subscribe(method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> {
-        if (method == "newHeads") {
+        if (method == METHOD_NEW_HEADS) {
             return newHeads.connect(matcher)
         }
-        if (method == "logs") {
+        if (method == METHOD_LOGS) {
             val paramsMap = try {
                 if (params != null && Map::class.java.isAssignableFrom(params.javaClass)) {
                     readLogsRequest(params as Map<String, Any?>)
@@ -36,10 +43,13 @@ open class EthereumSubscribe(
             } catch (t: Throwable) {
                 return Flux.error(UnsupportedOperationException("Invalid parameter for $method. Error: ${t.message}"))
             }
-            return logs.start(paramsMap.address, paramsMap.topics, matcher)
+            return logs.create(paramsMap.address, paramsMap.topics).connect(matcher)
         }
-        if (method == "syncing") {
-            return syncing.connect()
+        if (method == METHOD_SYNCING) {
+            return syncing.connect(matcher)
+        }
+        if (method == METHOD_PENDING_TXES) {
+            return pendingTxesSource.connect(matcher)
         }
         return Flux.error(UnsupportedOperationException("Method $method is not supported"))
     }

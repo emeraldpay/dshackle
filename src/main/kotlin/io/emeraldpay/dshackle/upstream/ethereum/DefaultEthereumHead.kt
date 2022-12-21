@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 open class DefaultEthereumHead(
-    private val upstreamId: String,
+    protected val upstreamId: String,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
 ) : Head, AbstractHead(forkChoice, blockValidator, 60_000, upstreamId) {

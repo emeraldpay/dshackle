@@ -7,10 +7,7 @@ import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcHead
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
-import io.emeraldpay.dshackle.upstream.ethereum.WsConnection
+import io.emeraldpay.dshackle.upstream.ethereum.*
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -25,7 +22,7 @@ class EthereumRpcConnector(
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
 ) : EthereumConnector, CachesEnabled {
-    private val conn: WsConnection?
+    private val conn: WsConnectionImpl?
     private val head: Head
 
     companion object {
@@ -35,15 +32,16 @@ class EthereumRpcConnector(
     init {
         if (wsFactory != null) {
             // do not set upstream to the WS, since it doesn't control the RPC upstream
-            conn = wsFactory.create(null, null)
-            val wsHead = EthereumWsHead(conn, id, AlwaysForkChoice(), blockValidator)
-            // receive bew blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(directReader, AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
+            conn = wsFactory.create(null)
+            val subscriptions = WsSubscriptionsImpl(conn)
+            val wsHead = EthereumWsHead(id, AlwaysForkChoice(), blockValidator, getApi(), subscriptions)
+            // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
+            val rpcHead = EthereumRpcHead(getApi(), AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
             head = MergedHead(listOf(rpcHead, wsHead), forkChoice, "Merged for $id")
         } else {
             conn = null
             log.warn("Setting up connector for $id upstream with RPC-only access, less effective than WS+RPC")
-            head = EthereumRpcHead(directReader, forkChoice, id, blockValidator)
+            head = EthereumRpcHead(getApi(), forkChoice, id, blockValidator)
         }
     }
 
@@ -76,6 +74,10 @@ class EthereumRpcConnector(
 
     override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
         return directReader
+    }
+
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return NoEthereumUpstreamSubscriptions.DEFAULT
     }
 
     override fun getHead(): Head {

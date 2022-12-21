@@ -11,7 +11,7 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class WsConnectionRealSpec extends Specification {
+class WsConnectionImplRealSpec extends Specification {
 
     static SLEEP = 500
 
@@ -19,7 +19,7 @@ class WsConnectionRealSpec extends Specification {
     @Shared
     MockWSServer server
     @Shared
-    WsConnection conn
+    WsConnectionImpl conn
 
     def setup() {
         if (System.getenv("CI") == "true") {
@@ -31,7 +31,7 @@ class WsConnectionRealSpec extends Specification {
         server = new MockWSServer(port)
         server.start()
         Thread.sleep(SLEEP)
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null, null)
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null)
     }
 
     def cleanup() {
@@ -39,22 +39,10 @@ class WsConnectionRealSpec extends Specification {
         server.stop()
     }
 
-    def "Connects to server"() {
+    def "Can make a RPC request"() {
         when:
         conn.connect()
-        Thread.sleep(SLEEP)
-        println("verify....")
-        def act = server.received
-        then:
-        act.size() > 0
-        act[0].value.contains("\"method\":\"eth_subscribe\"")
-        act[0].value.contains("\"params\":[\"newHeads\"]")
-    }
-
-    def "Makes RPC request"() {
-        when:
-        conn.connect()
-        def resp = conn.call(new JsonRpcRequest("foo_bar", []))
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", []))
         then:
         StepVerifier.create(resp)
                 .then {
@@ -70,8 +58,8 @@ class WsConnectionRealSpec extends Specification {
         Thread.sleep(SLEEP)
         def act = server.received
         then:
-        act.size() == 2
-        act[1].value.contains("\"method\":\"foo_bar\"")
+        act.size() == 1
+        act[0].value.contains("\"method\":\"foo_bar\"")
     }
 
     def "Reconnects after server disconnect"() {
@@ -83,15 +71,15 @@ class WsConnectionRealSpec extends Specification {
         Thread.sleep(SLEEP)
         server = new MockWSServer(port)
         server.start()
-        def resp = conn.call(new JsonRpcRequest("foo_bar", []))
+        server.onNextReply('{"jsonrpc":"2.0","id":100,"result":1}')
         // reconnects in 2 seconds, give 1 extra
         Thread.sleep(3_000)
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", [])).block(Duration.ofSeconds(1))
         def act = server.received
 
         then:
-        act.size() > 0
-        act[0].value.contains("\"method\":\"eth_subscribe\"")
-        act[0].value.contains("\"params\":[\"newHeads\"]")
+        act.size() == 1
+        act[0].value.contains("\"method\":\"foo_bar\"")
     }
 
     def "Error on request when server disconnects"() {
@@ -99,7 +87,7 @@ class WsConnectionRealSpec extends Specification {
         conn.connect()
         conn.reconnectIntervalSeconds = 2
 
-        def resp = conn.call(new JsonRpcRequest("foo_bar", []))
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", []))
 
         then:
         StepVerifier.create(resp)
@@ -113,7 +101,7 @@ class WsConnectionRealSpec extends Specification {
         def up = Mock(DefaultUpstream) {
             _ * getId() >> "test"
         }
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(up, null)
+        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(up)
         when:
         conn.connect()
         conn.reconnectIntervalSeconds = 10
@@ -125,18 +113,6 @@ class WsConnectionRealSpec extends Specification {
         1 * up.setStatus(UpstreamAvailability.UNAVAILABLE)
     }
 
-    def "Validates after connect"() {
-        setup:
-        def validator = Mock(EthereumUpstreamValidator)
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null, validator)
-        when:
-        conn.connect()
-        Thread.sleep(100)
-
-        then:
-        1 * validator.validate()
-    }
-
     def "Try to connects to server until it's available"() {
         when:
         server.stop()
@@ -146,12 +122,14 @@ class WsConnectionRealSpec extends Specification {
         Thread.sleep(3_000)
         server = new MockWSServer(port)
         server.start()
-        Thread.sleep(2_000)
+        server.onNextReply('{"jsonrpc":"2.0","id":100,"result":1}')
+        Thread.sleep(3_000)
+
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", [])).block(Duration.ofSeconds(1))
         def act = server.received
         then:
-        act.size() > 0
-        act[0].value.contains("\"method\":\"eth_subscribe\"")
-        act[0].value.contains("\"params\":[\"newHeads\"]")
+        act.size() == 1
+        act[0].value.contains("\"method\":\"foo_bar\"")
     }
 
     def "Call after reconnect"() {
@@ -166,7 +144,7 @@ class WsConnectionRealSpec extends Specification {
         // reconnects in 2 seconds, give 1 extra
         Thread.sleep(3_000)
 
-        def resp = conn.call(new JsonRpcRequest("foo_bar", []))
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", []))
         then:
         StepVerifier.create(resp)
                 .then {
