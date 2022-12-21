@@ -237,17 +237,12 @@ class MultistreamSpec extends Specification {
                 .setMethod("newHeads")
                 .build()
 
-        def up1 = Mock(EthereumPosGrpcUpstream) {
-            1 * isGrpc() >> true
-            1 * getId() >> "1"
-            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "internal"))]
-        }
         def up2 = Mock(EthereumPosGrpcUpstream) {
             1 * isGrpc() >> false
             1 * getId() >> "2"
             1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "internal"))]
         }
-        def multiStream = new TestEthereumPosMultistream(Chain.ETHEREUM, [up1, up2], Caches.default())
+        def multiStream = new TestEthereumPosMultistream(Chain.ETHEREUM, [up2], Caches.default())
 
         when:
         def act = multiStream.tryProxy(new Selector.LabelMatcher("provider", ["internal"]), call)
@@ -256,71 +251,6 @@ class MultistreamSpec extends Specification {
         !act
     }
 
-    def "Proxy gRPC request - select many"() {
-        setup:
-
-        def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
-                .setChainValue(Chain.ETHEREUM.id)
-                .setMethod("newHeads")
-                .build()
-
-        def up1 = Mock(EthereumPosGrpcUpstream) {
-            1 * isGrpc() >> true
-            1 * getId() >> "1"
-            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "internal"))]
-            1 * proxySubscribe(call) >> Flux.just("{1}")
-        }
-        def up2 = Mock(EthereumPosGrpcUpstream) {
-            1 * isGrpc() >> true
-            1 * getId() >> "2"
-            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "internal"))]
-            1 * proxySubscribe(call) >> Flux.just("{2}")
-        }
-        def multiStream = new TestEthereumPosMultistream(Chain.ETHEREUM, [up1, up2], Caches.default())
-
-        when:
-        def act = multiStream.tryProxy(new Selector.LabelMatcher("provider", ["internal"]), call)
-
-        then:
-        StepVerifier.create(act)
-                .expectNextMatches { it as String in ["{1}", "{2}"] }
-                .expectNextMatches { it as String in ["{1}", "{2}"] }
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
-    }
-
-    def "Proxy gRPC request - select many"() {
-        setup:
-
-        def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
-                .setChainValue(Chain.ETHEREUM.id)
-                .setMethod("newHeads")
-                .build()
-
-        def up1 = Mock(EthereumPosGrpcUpstream) {
-            1 * isGrpc() >> true
-            1 * getId() >> "1"
-            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "internal"))]
-            1 * proxySubscribe(call) >> Flux.just("{1}")
-        }
-        def up2 = Mock(EthereumPosGrpcUpstream) {
-            1 * isGrpc() >> true
-            1 * getId() >> "2"
-            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "internal"))]
-            1 * proxySubscribe(call) >> Flux.just("{2}")
-        }
-        def multiStream = new TestEthereumPosMultistream(Chain.ETHEREUM, [up1, up2], Caches.default())
-
-        when:
-        def act = multiStream.tryProxy(new Selector.LabelMatcher("provider", ["internal"]), call)
-
-        then:
-        StepVerifier.create(act)
-                .expectNextMatches { it as String in ["{1}", "{2}"] }
-                .expectNextMatches { it as String in ["{1}", "{2}"] }
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
-    }
     class TestEthereumPosMultistream extends EthereumPosMultiStream {
 
         TestEthereumPosMultistream(@NotNull Chain chain, @NotNull List<EthereumPosUpstream> upstreams, @NotNull Caches caches) {
