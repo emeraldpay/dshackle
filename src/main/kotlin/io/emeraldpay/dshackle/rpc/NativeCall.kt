@@ -311,7 +311,7 @@ open class NativeCall(
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
                 validateResult(bytes, "remote", ctx)
-                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, ctx.upstream.getId(), ctx)
+                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, it.resolvers.first().getId(), ctx)
             }
             .onErrorResume { t ->
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, t, ctx))
@@ -393,7 +393,11 @@ open class NativeCall(
         override fun processResult(result: QuorumRpcReader.Result): ByteArray {
             val bytes = result.value
             if (bytes.last() == quoteCode) {
-                val suffix = result.resolvers.first().toUByte().toString(16).padStart(2, padChar = '0').toByteArray()
+                val suffix = result.resolvers
+                    .map { it.nodeId() }
+                    .first()
+                    .toUByte()
+                    .toString(16).padStart(2, padChar = '0').toByteArray()
                 bytes[bytes.lastIndex] = suffix.first()
                 return bytes + suffix.last() + quoteCode
             }

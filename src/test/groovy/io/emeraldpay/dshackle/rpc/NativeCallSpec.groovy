@@ -32,6 +32,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
@@ -119,10 +120,14 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = new AlwaysQuorum()
 
+        def ups = Mock(Upstream) {
+            _ * nodeId() >> (byte) 1
+        }
+
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1, Collections.singletonList((byte) 1)))
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1, Collections.singletonList(ups)))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
@@ -586,6 +591,9 @@ class NativeCallSpec extends Specification {
 
     def "Decorate eth_newFilter result"() {
         setup:
+        def ups = Mock(Upstream) {
+            _ * nodeId() >> (byte)255
+        }
         def quorum = new AlwaysQuorum()
         def methods = new ManagedCallMethods(
                 new DefaultEthereumMethods(Chain.ETHEREUM),
@@ -601,7 +609,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList((byte)255)))
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups)))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
@@ -618,6 +626,9 @@ class NativeCallSpec extends Specification {
 
     def "Decorate eth_newFilter result with short nodeId"() {
         setup:
+        def ups = Mock(Upstream) {
+            _ * nodeId() >> (byte)1
+        }
         def quorum = new AlwaysQuorum()
         def methods = new ManagedCallMethods(
                 new DefaultEthereumMethods(Chain.ETHEREUM),
@@ -633,7 +644,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList((byte)1)))
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups)))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
