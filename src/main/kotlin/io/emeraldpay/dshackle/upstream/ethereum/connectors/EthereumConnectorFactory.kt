@@ -29,7 +29,7 @@ open class EthereumConnectorFactory(
 
     override fun create(upstream: DefaultUpstream, validator: EthereumUpstreamValidator, chain: Chain): EthereumConnector {
         if (wsFactory != null && !preferHttp) {
-            return EthereumWsConnector(wsFactory, upstream, validator, forkChoice, blockValidator)
+            return EthereumWsConnector(wsFactory, upstream, forkChoice, blockValidator)
         }
         if (httpFactory == null) {
             throw java.lang.IllegalArgumentException("Can't create rpc connector if no http factory set")

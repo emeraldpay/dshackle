@@ -98,4 +98,8 @@ open class EthereumPosRpcUpstream(
         }
         return this as T
     }
+
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return connector.getUpstreamSubscriptions()
+    }
 }

@@ -69,6 +69,11 @@ open class EthereumRpcUpstream(
                 .subscribe(this::setStatus)
         }
     }
+
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return connector.getUpstreamSubscriptions()
+    }
+
     override fun getHead(): Head {
         return connector.getHead()
     }

@@ -257,6 +257,9 @@ If a client requests to execute method `trace_transaction` then it will be sched
 
 NOTE: It's especially useful when used together with upstream labels.If an archive upstream has label `archive: true` it's possible to specify that the client wants to execute method `trace_transaction` only on an archive node(s), which has complete historical data for tracing.
 
+==== eth_subscribe ethereum methods
+It is possible to control ethereum subscription types like regular methods. For now there are only one option - newPendingTransactions - you need to allow this method if you want to activate this type of subscription for Dshackle upstreams (disabled by default)
+
 === Static Methods
 
 You can overwrite existing methods or add new ones using a static response:

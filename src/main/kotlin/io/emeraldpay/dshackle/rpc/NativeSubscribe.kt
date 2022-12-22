@@ -69,7 +69,7 @@ open class NativeSubscribe(
          * If not possible - performs subscription logic on the current instance
          * @see EthereumLikeMultistream.tryProxy
          */
-        val publisher = getUpstream(chain)?.tryProxy(matcher, request) ?: run {
+        val publisher = getUpstream(chain).tryProxy(matcher, request) ?: run {
             val method = request.method
             val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
                 objectMapper.readValue(it.newInput(), Map::class.java)
@@ -97,12 +97,10 @@ open class NativeSubscribe(
     }
 
     open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> =
-        getUpstream(chain)?.getSubscribe()?.subscribe(method, params, matcher)
-            ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
+        getUpstream(chain).getSubscriptionApi().subscribe(method, params, matcher)
 
-    private fun getUpstream(chain: Chain): EthereumLikeMultistream? =
-        multistreamHolder.getUpstream(chain)
-            ?.let { it as EthereumLikeMultistream }
+    private fun getUpstream(chain: Chain): EthereumLikeMultistream =
+        multistreamHolder.getUpstream(chain).let { it as EthereumLikeMultistream }
 
     fun convertToProto(holder: ResponseHolder): NativeSubscribeReplyItem {
         if (holder.response is NativeSubscribeReplyItem) {

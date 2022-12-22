@@ -25,8 +25,10 @@ import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspentDeserializer
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspentDeserializer
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.TransactionIdSerializer
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.etherjar.domain.TransactionId
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -84,6 +86,7 @@ class Global {
         private fun createObjectMapper(): ObjectMapper {
             val module = SimpleModule("EmeraldDshackle", Version(1, 0, 0, null, null, null))
             module.addSerializer(JsonRpcResponse::class.java, JsonRpcResponse.ResponseJsonSerializer())
+            module.addSerializer(TransactionId::class.java, TransactionIdSerializer())
 
             module.addDeserializer(EsploraUnspent::class.java, EsploraUnspentDeserializer())
             module.addDeserializer(RpcUnspent::class.java, RpcUnspentDeserializer())

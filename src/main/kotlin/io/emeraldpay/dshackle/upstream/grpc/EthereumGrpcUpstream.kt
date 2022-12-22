@@ -17,7 +17,7 @@
 package io.emeraldpay.dshackle.upstream.grpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.api.proto.ReactorBlockchainGrpc
+import io.emeraldpay.api.proto.ReactorBlockchainGrpc.ReactorBlockchainStub
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -32,6 +32,8 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleSubscriptions
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -53,7 +55,7 @@ open class EthereumGrpcUpstream(
     hash: Byte,
     role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,
-    private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
+    private val remote: ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient,
     overrideLabels: UpstreamsConfig.Labels?
 ) : EthereumUpstream(
@@ -107,8 +109,9 @@ open class EthereumGrpcUpstream(
 
     private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.getReader()
     var timeout = Defaults.timeout
+    private val ethereumSubscriptions = EthereumDshackleSubscriptions(chain, remote)
 
-    override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
+    override fun getBlockchainApi(): ReactorBlockchainStub {
         return remote
     }
 
@@ -139,6 +142,10 @@ open class EthereumGrpcUpstream(
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return upstreamStatus.getLabels()
+    }
+
+    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+        return ethereumSubscriptions
     }
 
     override fun getMethods(): CallMethods {

@@ -15,6 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import org.slf4j.LoggerFactory
@@ -25,7 +27,7 @@ import kotlin.concurrent.withLock
 
 class ConnectSyncing(
     private val upstream: EthereumLikeMultistream
-) {
+) : SubscriptionConnect<Boolean> {
 
     companion object {
         private val log = LoggerFactory.getLogger(ConnectSyncing::class.java)
@@ -34,7 +36,7 @@ class ConnectSyncing(
     private var connected: Flux<Boolean>? = null
     private val connectLock = ReentrantLock()
 
-    fun connect(): Flux<Boolean> {
+    override fun connect(matcher: Selector.Matcher): Flux<Boolean> {
         val current = connected
         if (current != null) {
             return current
