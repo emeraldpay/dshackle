@@ -1,14 +1,16 @@
 package io.emeraldpay.dshackle.upstream.forkchoice
 
+import com.google.common.cache.CacheBuilder
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.data.RingSet
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicReference
 
 class PriorityForkChoice : ForkChoice {
     private val head = AtomicReference<BlockContainer>(null)
-    private val seenBlocks = RingSet<BlockId>(10)
+    private val seenBlocks = CacheBuilder.newBuilder()
+        .maximumSize(10)
+        .build<BlockId, Boolean>()
 
     companion object {
         private val log = LoggerFactory.getLogger(PriorityForkChoice::class.java)
@@ -20,7 +22,7 @@ class PriorityForkChoice : ForkChoice {
 
     override fun filter(block: BlockContainer): Boolean {
         val curr = head.get()
-        return (curr == null || curr.nodeRating <= block.nodeRating) && !seenBlocks.contains(block.hash)
+        return (curr == null || curr.nodeRating <= block.nodeRating) && seenBlocks.getIfPresent(block.hash) == null
     }
 
     override fun choose(block: BlockContainer): ForkChoice.ChoiceResult {
@@ -33,7 +35,7 @@ class PriorityForkChoice : ForkChoice {
                 curr
             } else {
                 log.debug("Preparing to accept block ${block.height}")
-                seenBlocks.add(block.hash)
+                seenBlocks.put(block.hash, true)
                 block
             }
         }
