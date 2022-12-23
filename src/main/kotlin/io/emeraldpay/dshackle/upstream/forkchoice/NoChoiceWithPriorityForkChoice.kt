@@ -1,8 +1,8 @@
 package io.emeraldpay.dshackle.upstream.forkchoice
 
+import com.google.common.cache.CacheBuilder
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.data.RingSet
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicReference
 
@@ -11,7 +11,9 @@ class NoChoiceWithPriorityForkChoice(
     private val upstreamId: String
 ) : ForkChoice {
     private val head = AtomicReference<BlockContainer>(null)
-    private val seenBlocks = RingSet<BlockId>(100)
+    private val seenBlocks = CacheBuilder.newBuilder()
+        .maximumSize(100)
+        .build<BlockId, Boolean>()
 
     companion object {
         private val log = LoggerFactory.getLogger(NoChoiceWithPriorityForkChoice::class.java)
@@ -21,7 +23,7 @@ class NoChoiceWithPriorityForkChoice(
     }
 
     override fun filter(block: BlockContainer): Boolean {
-        return !seenBlocks.contains(block.hash)
+        return seenBlocks.getIfPresent(block.hash) == null
     }
 
     override fun choose(block: BlockContainer): ForkChoice.ChoiceResult {
@@ -31,7 +33,7 @@ class NoChoiceWithPriorityForkChoice(
                 log.debug("Already seen block ${block.height} from $upstreamId")
                 curr
             } else {
-                seenBlocks.add(block.hash)
+                seenBlocks.put(block.hash, true)
                 block.copyWithRating(nodeRating)
             }
         }

@@ -15,10 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
-import io.emeraldpay.dshackle.commons.ExpiringSet
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.etherjar.hex.HexDataComparator
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import java.time.Duration
@@ -31,15 +30,21 @@ class AggregatedPendingTxes(
         private val log = LoggerFactory.getLogger(AggregatedPendingTxes::class.java)
     }
 
-    private val track = ExpiringSet<TransactionId>(
-        Duration.ofSeconds(30),
-        HexDataComparator() as Comparator<TransactionId>,
-        10_000
-    )
+    private val track = Caffeine.newBuilder()
+        .expireAfterWrite(Duration.ofSeconds(30))
+        .maximumSize(10_000)
+        .build<TransactionId, Boolean>()
 
     override fun connect(matcher: Selector.Matcher): Flux<TransactionId> {
         return Flux.merge(
-            sources.map { it.connect(matcher) } // todo check
-        ).filter(track::add)
+            sources.map { it.connect(matcher) }
+        ).filter {
+            val res = track.getIfPresent(it)
+            if (res == null) {
+                track.put(it, true)
+                return@filter true
+            }
+            return@filter false
+        }
     }
 }
