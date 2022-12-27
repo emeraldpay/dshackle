@@ -20,15 +20,13 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
@@ -149,7 +147,7 @@ open class EthereumPosMultiStream(
         return this as T
     }
 
-    override fun getRoutedApi(localEnabled: Boolean): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+    override fun getRoutedApi(localEnabled: Boolean): Mono<JsonRpcReader> {
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead(), localEnabled))
     }
 

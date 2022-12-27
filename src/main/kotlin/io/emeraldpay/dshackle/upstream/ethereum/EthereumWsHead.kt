@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
@@ -40,7 +40,7 @@ class EthereumWsHead(
     upstreamId: String,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
-    private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val api: JsonRpcReader,
     private val wsSubscriptions: WsSubscriptions,
 ) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
 

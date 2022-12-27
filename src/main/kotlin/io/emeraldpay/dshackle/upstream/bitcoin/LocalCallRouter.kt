@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -39,7 +39,7 @@ import reactor.core.publisher.Mono
 class LocalCallRouter(
     private val methods: CallMethods,
     private val reader: BitcoinReader,
-) : Reader<JsonRpcRequest, JsonRpcResponse> {
+) : JsonRpcReader {
 
     companion object {
         private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)

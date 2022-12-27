@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
@@ -29,8 +29,6 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 
@@ -83,7 +81,7 @@ open class EthereumPosRpcUpstream(
         return connector.isRunning()
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getApi(): JsonRpcReader {
         return connector.getApi()
     }
 

@@ -1,14 +1,12 @@
 package io.emeraldpay.dshackle.upstream.ethereum.connectors
 
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.*
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 
 class EthereumWsConnector(
@@ -18,7 +16,7 @@ class EthereumWsConnector(
     blockValidator: BlockValidator
 ) : EthereumConnector {
     private val conn: WsConnectionImpl
-    private val api: Reader<JsonRpcRequest, JsonRpcResponse>
+    private val api: JsonRpcReader
     private val head: EthereumWsHead
     private val subscriptions: EthereumIngressSubscription
 
@@ -44,7 +42,7 @@ class EthereumWsConnector(
         head.stop()
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getApi(): JsonRpcReader {
         return api
     }
 

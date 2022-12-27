@@ -2,7 +2,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.connectors
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
@@ -10,13 +10,11 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.ethereum.*
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import java.time.Duration
 
 class EthereumRpcConnector(
-    private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val directReader: JsonRpcReader,
     wsFactory: EthereumWsFactory?,
     id: String,
     forkChoice: ForkChoice,
@@ -72,7 +70,7 @@ class EthereumRpcConnector(
         conn?.close()
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getApi(): JsonRpcReader {
         return directReader
     }
 

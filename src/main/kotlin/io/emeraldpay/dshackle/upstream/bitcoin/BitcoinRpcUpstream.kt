@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
@@ -25,15 +25,13 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 
 open class BitcoinRpcUpstream(
     id: String,
     chain: Chain,
-    private val directApi: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val directApi: JsonRpcReader,
     private val head: Head,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
@@ -65,7 +63,7 @@ open class BitcoinRpcUpstream(
         return head
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getApi(): JsonRpcReader {
         return directApi
     }
 

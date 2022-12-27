@@ -18,13 +18,11 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
@@ -98,7 +96,7 @@ open class BitcoinMultistream(
     /**
      * Finds an API that executed directly on a remote.
      */
-    open fun getDirectApi(matcher: Selector.Matcher): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+    open fun getDirectApi(matcher: Selector.Matcher): Mono<JsonRpcReader> {
         val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
@@ -106,7 +104,7 @@ open class BitcoinMultistream(
             .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
-    override fun getRoutedApi(localEnabled: Boolean): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+    override fun getRoutedApi(localEnabled: Boolean): Mono<JsonRpcReader> {
         return Mono.just(callRouter)
     }
 

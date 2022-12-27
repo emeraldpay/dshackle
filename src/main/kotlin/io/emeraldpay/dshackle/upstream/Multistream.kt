@@ -20,12 +20,10 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Metrics
@@ -175,9 +173,9 @@ abstract class Multistream(
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
      */
-    abstract fun getRoutedApi(localEnabled: Boolean): Mono<Reader<JsonRpcRequest, JsonRpcResponse>>
+    abstract fun getRoutedApi(localEnabled: Boolean): Mono<JsonRpcReader>
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getApi(): JsonRpcReader {
         throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
     }
 

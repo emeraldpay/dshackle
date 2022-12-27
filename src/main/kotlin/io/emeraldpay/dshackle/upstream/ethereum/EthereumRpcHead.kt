@@ -16,12 +16,10 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
@@ -31,7 +29,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class EthereumRpcHead(
-    private val api: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val api: JsonRpcReader,
     forkChoice: ForkChoice,
     upstreamId: String,
     blockValidator: BlockValidator,
