@@ -55,7 +55,7 @@ abstract class Multistream(
     val chain: Chain,
     private val upstreams: MutableList<Upstream>,
     val caches: Caches,
-) : Upstream, Lifecycle {
+) : Upstream, Lifecycle, HasEgressSubscription {
 
     companion object {
         private val log = LoggerFactory.getLogger(Multistream::class.java)

@@ -76,8 +76,8 @@ class EthereumRpcConnector(
         return directReader
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
-        return NoEthereumUpstreamSubscriptions.DEFAULT
+    override fun getIngressSubscription(): EthereumIngressSubscription {
+        return NoEthereumIngressSubscription.DEFAULT
     }
 
     override fun getHead(): Head {

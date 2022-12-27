@@ -45,5 +45,5 @@ abstract class EthereumPosUpstream(
         return node?.let { listOf(it.labels) } ?: emptyList()
     }
 
-    abstract fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions
+    abstract fun getIngressSubscription(): EthereumIngressSubscription
 }

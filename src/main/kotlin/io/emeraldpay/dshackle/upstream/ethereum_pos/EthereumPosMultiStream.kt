@@ -21,14 +21,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ChainFees
-import io.emeraldpay.dshackle.upstream.EmptyHead
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
@@ -55,7 +48,7 @@ open class EthereumPosMultiStream(
     private var head: Head? = null
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
-    private var subscribe = EthereumSubscriptionApi(this, NoPendingTxes())
+    private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
     private val feeEstimation = EthereumPriorityFees(this, reader, 256)
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
@@ -160,7 +153,7 @@ open class EthereumPosMultiStream(
         return Mono.just(LocalCallRouter(reader, getMethods(), getHead(), localEnabled))
     }
 
-    override fun getSubscriptionApi(): EthereumSubscriptionApi {
+    override fun getEgressSubscription(): EthereumEgressSubscription {
         return subscribe
     }
 
@@ -191,7 +184,7 @@ open class EthereumPosMultiStream(
 
         val pendingTxes: PendingTxesSource = upstreams
             .mapNotNull {
-                it.getUpstreamSubscriptions().getPendingTxes()
+                it.getIngressSubscription().getPendingTxes()
             }.let {
                 if (it.isEmpty()) {
                     NoPendingTxes()
@@ -201,6 +194,6 @@ open class EthereumPosMultiStream(
                     AggregatedPendingTxes(it)
                 }
             }
-        subscribe = EthereumSubscriptionApi(this, pendingTxes)
+        subscribe = EthereumEgressSubscription(this, pendingTxes)
     }
 }

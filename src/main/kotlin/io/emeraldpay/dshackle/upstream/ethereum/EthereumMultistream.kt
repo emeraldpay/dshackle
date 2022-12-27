@@ -51,7 +51,7 @@ open class EthereumMultistream(
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
-    private var subscribe = EthereumSubscriptionApi(this, NoPendingTxes())
+    private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
 
     private val supportsEIP1559 = when (chain) {
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY -> true
@@ -76,7 +76,7 @@ open class EthereumMultistream(
 
         val pendingTxes: PendingTxesSource = upstreams
             .mapNotNull {
-                it.getUpstreamSubscriptions().getPendingTxes()
+                it.getIngressSubscription().getPendingTxes()
             }.let {
                 if (it.isEmpty()) {
                     NoPendingTxes()
@@ -86,7 +86,7 @@ open class EthereumMultistream(
                     AggregatedPendingTxes(it)
                 }
             }
-        subscribe = EthereumSubscriptionApi(this, pendingTxes)
+        subscribe = EthereumEgressSubscription(this, pendingTxes)
     }
 
     override fun start() {
@@ -175,12 +175,12 @@ open class EthereumMultistream(
         return this as T
     }
 
-    override fun getRoutedApi(localEnabled: Boolean): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
-        return Mono.just(LocalCallRouter(reader, getMethods(), getHead(), localEnabled))
+    override fun getEgressSubscription(): EgressSubscription {
+        return subscribe
     }
 
-    override fun getSubscriptionApi(): EthereumSubscriptionApi {
-        return subscribe
+    override fun getRoutedApi(localEnabled: Boolean): Mono<Reader<JsonRpcRequest, JsonRpcResponse>> {
+        return Mono.just(LocalCallRouter(reader, getMethods(), getHead(), localEnabled))
     }
 
     override fun getHead(mather: Selector.Matcher): Head =

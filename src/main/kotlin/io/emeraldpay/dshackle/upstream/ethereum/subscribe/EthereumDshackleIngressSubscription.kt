@@ -18,20 +18,29 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.dshackle.upstream.UpstreamSubscriptions
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
+import org.slf4j.LoggerFactory
 
-class EthereumDshackleSubscriptions(
-    blockchain: Chain,
-    conn: ReactorBlockchainGrpc.ReactorBlockchainStub,
-) : UpstreamSubscriptions, EthereumUpstreamSubscriptions {
+class EthereumDshackleIngressSubscription(
+    private val blockchain: Chain,
+    private val conn: ReactorBlockchainGrpc.ReactorBlockchainStub,
+) : IngressSubscription, EthereumIngressSubscription {
+
+    companion object {
+        private val log = LoggerFactory.getLogger(EthereumDshackleIngressSubscription::class.java)
+    }
 
     private val pendingTxes = DshacklePendingTxesSource(blockchain, conn)
 
-    override fun <T> get(method: String): SubscriptionConnect<T>? {
-        if (method == EthereumSubscriptionApi.METHOD_PENDING_TXES) {
+    override fun getAvailableTopics(): List<String> {
+        return listOf(EthereumEgressSubscription.METHOD_PENDING_TXES)
+    }
+
+    override fun <T> get(topic: String): SubscriptionConnect<T>? {
+        if (topic == EthereumEgressSubscription.METHOD_PENDING_TXES) {
             return pendingTxes as SubscriptionConnect<T>
         }
         return null

@@ -144,6 +144,10 @@ open class BitcoinMultistream(
         return this as T
     }
 
+    override fun getEgressSubscription(): EgressSubscription {
+        return EmptyEgressSubscription()
+    }
+
     override fun isRunning(): Boolean {
         return super.isRunning() || reader.isRunning()
     }

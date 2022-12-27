@@ -8,7 +8,7 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.ERC20Balance
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -184,11 +184,11 @@ class TrackERC20AddressSpec extends Specification {
                 connect
             }
         }
-        def sub = Mock(EthereumSubscriptionApi) {
+        def sub = Mock(EthereumEgressSubscription) {
             1 * getLogs() >> logs
         }
         def up = Mock(EthereumPosMultiStream) {
-            1 * getSubscriptionApi() >> sub
+            1 * getEgressSubscription() >> sub
             _ * cast(EthereumPosMultiStream) >> { args ->
                 it
             }

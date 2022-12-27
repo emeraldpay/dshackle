@@ -70,8 +70,8 @@ open class EthereumRpcUpstream(
         }
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
-        return connector.getUpstreamSubscriptions()
+    override fun getIngressSubscription(): EthereumIngressSubscription {
+        return connector.getIngressSubscription()
     }
 
     override fun getHead(): Head {

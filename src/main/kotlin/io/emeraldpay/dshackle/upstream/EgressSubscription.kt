@@ -13,19 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.dshackle.upstream.NoUpstreamSubscriptions
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
+import reactor.core.publisher.Flux
 
-class NoEthereumUpstreamSubscriptions : NoUpstreamSubscriptions(), EthereumUpstreamSubscriptions {
+interface EgressSubscription {
+    fun getAvailableTopics(): List<String>
+    fun subscribe(topic: String, params: Any?, matcher: Selector.Matcher): Flux<out Any>
+}
 
-    companion object {
-        @JvmStatic
-        val DEFAULT = NoEthereumUpstreamSubscriptions()
+class EmptyEgressSubscription : EgressSubscription {
+    override fun getAvailableTopics(): List<String> {
+        return emptyList()
     }
 
-    override fun getPendingTxes(): PendingTxesSource? {
-        return null
+    override fun subscribe(topic: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> {
+        return Flux.empty()
     }
 }

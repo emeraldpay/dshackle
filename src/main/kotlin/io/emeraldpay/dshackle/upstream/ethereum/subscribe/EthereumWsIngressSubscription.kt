@@ -15,25 +15,30 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.dshackle.upstream.UpstreamSubscriptions
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import org.slf4j.LoggerFactory
 
-class EthereumWsSubscriptions(
+class EthereumWsIngressSubscription(
     private val conn: WsSubscriptions
-) : UpstreamSubscriptions, EthereumUpstreamSubscriptions {
+) : IngressSubscription, EthereumIngressSubscription {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumWsSubscriptions::class.java)
+        private val log = LoggerFactory.getLogger(EthereumWsIngressSubscription::class.java)
     }
 
     private val pendingTxes = WebsocketPendingTxes(conn)
 
-    override fun <T> get(method: String): SubscriptionConnect<T>? {
-        if (method == EthereumSubscriptionApi.METHOD_PENDING_TXES) {
+    override fun getAvailableTopics(): List<String> {
+        return listOf(EthereumEgressSubscription.METHOD_PENDING_TXES)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <T> get(topic: String): SubscriptionConnect<T>? {
+        if (topic == EthereumEgressSubscription.METHOD_PENDING_TXES) {
             return pendingTxes as SubscriptionConnect<T>
         }
         return null

@@ -20,7 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeReplyItem
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeRequest
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumSubscriptionApi
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.etherjar.domain.TransactionId
 import reactor.core.publisher.Flux
 
@@ -31,7 +31,7 @@ class DshacklePendingTxesSource(
 
     private val request = NativeSubscribeRequest.newBuilder()
         .setChainValue(blockchain.id)
-        .setMethod(EthereumSubscriptionApi.METHOD_PENDING_TXES)
+        .setMethod(EthereumEgressSubscription.METHOD_PENDING_TXES)
         .build()
 
     var available = false
@@ -53,7 +53,7 @@ class DshacklePendingTxesSource(
 
     fun update(conf: BlockchainOuterClass.DescribeChain) {
         available = conf.supportedMethodsList.any {
-            it == EthereumSubscriptionApi.METHOD_PENDING_TXES
+            it == EthereumEgressSubscription.METHOD_PENDING_TXES
         }
     }
 }
