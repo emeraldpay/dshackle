@@ -81,8 +81,8 @@ open class EthereumPosRpcUpstream(
         return connector.isRunning()
     }
 
-    override fun getApi(): JsonRpcReader {
-        return connector.getApi()
+    override fun getIngressReader(): JsonRpcReader {
+        return connector.getIngressReader()
     }
 
     override fun isGrpc(): Boolean {

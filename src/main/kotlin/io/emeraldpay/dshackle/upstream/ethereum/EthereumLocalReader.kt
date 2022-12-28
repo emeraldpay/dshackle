@@ -36,7 +36,7 @@ import java.math.BigInteger
  *
  * @see EthereumCachingReader
  */
-class LocalCallRouter(
+class EthereumLocalReader(
     private val reader: EthereumCachingReader,
     private val methods: CallMethods,
     private val head: Head,
@@ -44,7 +44,7 @@ class LocalCallRouter(
 ) : JsonRpcReader {
 
     companion object {
-        private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)
+        private val log = LoggerFactory.getLogger(EthereumLocalReader::class.java)
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {

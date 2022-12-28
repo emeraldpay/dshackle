@@ -162,7 +162,7 @@ open class EthereumPosGrpcUpstream(
         return grpcHead
     }
 
-    override fun getApi(): JsonRpcReader {
+    override fun getIngressReader(): JsonRpcReader {
         return defaultReader
     }
 

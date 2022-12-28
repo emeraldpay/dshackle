@@ -177,8 +177,8 @@ open class EthereumMultistream(
         return subscribe
     }
 
-    override fun getRoutedApi(localEnabled: Boolean): Mono<JsonRpcReader> {
-        return Mono.just(LocalCallRouter(reader, getMethods(), getHead(), localEnabled))
+    override fun getLocalReader(localEnabled: Boolean): Mono<JsonRpcReader> {
+        return Mono.just(EthereumLocalReader(reader, getMethods(), getHead(), localEnabled))
     }
 
     override fun getHead(mather: Selector.Matcher): Head =

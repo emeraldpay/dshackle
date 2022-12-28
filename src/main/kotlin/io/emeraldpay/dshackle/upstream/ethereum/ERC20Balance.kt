@@ -59,7 +59,7 @@ open class ERC20Balance {
 
     open fun getBalance(upstream: EthereumPosRpcUpstream, token: ERC20Token, address: Address): Mono<BigInteger> {
         return upstream
-            .getApi()
+            .getIngressReader()
             .read(prepareEthCall(token, address, upstream.getHead()))
             .flatMap(JsonRpcResponse::requireStringResult)
             .map { Hex32.from(it).asQuantity().value }

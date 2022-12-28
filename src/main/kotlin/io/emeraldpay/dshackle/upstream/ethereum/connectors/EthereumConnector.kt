@@ -8,7 +8,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 interface EthereumConnector : Lifecycle {
     fun getHead(): Head
 
-    fun getApi(): JsonRpcReader
+    fun getIngressReader(): JsonRpcReader
 
     fun getIngressSubscription(): EthereumIngressSubscription
 }

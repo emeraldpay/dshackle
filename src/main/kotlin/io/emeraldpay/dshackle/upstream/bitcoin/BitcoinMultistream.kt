@@ -100,11 +100,11 @@ open class BitcoinMultistream(
         val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
-            .map(Upstream::getApi)
+            .map(Upstream::getIngressReader)
             .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
-    override fun getRoutedApi(localEnabled: Boolean): Mono<JsonRpcReader> {
+    override fun getLocalReader(localEnabled: Boolean): Mono<JsonRpcReader> {
         return Mono.just(callRouter)
     }
 

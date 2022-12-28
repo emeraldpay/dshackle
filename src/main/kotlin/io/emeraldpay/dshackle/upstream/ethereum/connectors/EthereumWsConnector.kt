@@ -16,15 +16,15 @@ class EthereumWsConnector(
     blockValidator: BlockValidator
 ) : EthereumConnector {
     private val conn: WsConnectionImpl
-    private val api: JsonRpcReader
+    private val reader: JsonRpcReader
     private val head: EthereumWsHead
     private val subscriptions: EthereumIngressSubscription
 
     init {
         conn = wsFactory.create(upstream)
-        api = JsonRpcWsClient(conn)
+        reader = JsonRpcWsClient(conn)
         val wsSubscriptions = WsSubscriptionsImpl(conn)
-        head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, api, wsSubscriptions)
+        head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, reader, wsSubscriptions)
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 
@@ -42,8 +42,8 @@ class EthereumWsConnector(
         head.stop()
     }
 
-    override fun getApi(): JsonRpcReader {
-        return api
+    override fun getIngressReader(): JsonRpcReader {
+        return reader
     }
 
     override fun getIngressSubscription(): EthereumIngressSubscription {

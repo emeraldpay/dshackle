@@ -274,7 +274,7 @@ open class NativeCall(
         if (method in DefaultEthereumMethods.newFilterMethods) CreateFilterDecorator() else NoneResultDecorator()
 
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
-        return ctx.upstream.getRoutedApi(localRouterEnabled)
+        return ctx.upstream.getLocalReader(localRouterEnabled)
             .flatMap { api ->
                 api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
                     .flatMap(JsonRpcResponse::requireResult)

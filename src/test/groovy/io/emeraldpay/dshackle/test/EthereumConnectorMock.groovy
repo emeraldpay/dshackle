@@ -18,7 +18,7 @@ class EthereumConnectorMock implements EthereumConnector {
     }
 
     @Override
-    Reader<JsonRpcRequest, JsonRpcResponse> getApi() {
+    Reader<JsonRpcRequest, JsonRpcResponse> getIngressReader() {
         return this.api
     }
 
