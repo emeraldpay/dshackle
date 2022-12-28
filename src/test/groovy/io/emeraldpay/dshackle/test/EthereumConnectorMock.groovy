@@ -2,8 +2,9 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
-import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumUpstreamSubscriptions
+import io.emeraldpay.dshackle.upstream.NoIngressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -17,7 +18,7 @@ class EthereumConnectorMock implements EthereumConnector {
     }
 
     @Override
-    Reader<JsonRpcRequest, JsonRpcResponse> getApi() {
+    Reader<JsonRpcRequest, JsonRpcResponse> getIngressReader() {
         return this.api
     }
 
@@ -38,7 +39,7 @@ class EthereumConnectorMock implements EthereumConnector {
     }
 
     @Override
-    EthereumUpstreamSubscriptions getUpstreamSubscriptions() {
-        return NoEthereumUpstreamSubscriptions.DEFAULT
+    EthereumIngressSubscription getIngressSubscription() {
+        return NoEthereumIngressSubscription.DEFAULT
     }
 }

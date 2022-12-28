@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
@@ -41,8 +41,6 @@ import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -226,7 +224,7 @@ open class ConfiguredUpstreams(
             log.warn("Upstream doesn't have API configuration")
             return null
         }
-        val directApi: Reader<JsonRpcRequest, JsonRpcResponse> = httpFactory.create(config.id, chain)
+        val directApi: JsonRpcReader = httpFactory.create(config.id, chain)
         val esplora = conn.esplora?.let { endpoint ->
             val tls = endpoint.tls?.let { tls ->
                 tls.ca?.let { ca ->

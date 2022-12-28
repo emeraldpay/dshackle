@@ -1,14 +1,14 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.upstream.HasEgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import reactor.core.publisher.Flux
 
-interface EthereumLikeMultistream : Upstream {
+interface EthereumLikeMultistream : Upstream, HasEgressSubscription {
     fun getReader(): EthereumCachingReader
-    fun getSubscriptionApi(): EthereumSubscriptionApi
 
     fun getHead(mather: Selector.Matcher): Head
 

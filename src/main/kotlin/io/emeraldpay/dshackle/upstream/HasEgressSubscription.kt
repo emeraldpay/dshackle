@@ -15,10 +15,6 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-/**
- * Subscriptions available on the current upstream
- */
-interface UpstreamSubscriptions {
-
-    fun <T> get(method: String): SubscriptionConnect<T>?
+interface HasEgressSubscription {
+    fun getEgressSubscription(): EgressSubscription
 }

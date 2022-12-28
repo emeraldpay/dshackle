@@ -17,10 +17,8 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Flux
 
 interface Upstream {
@@ -28,7 +26,12 @@ interface Upstream {
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
     fun getHead(): Head
-    fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse>
+
+    /**
+     * Get an actual reader that access the current upstream
+     */
+    fun getIngressReader(): JsonRpcReader
+
     fun getOptions(): UpstreamsConfig.Options
     fun getRole(): UpstreamsConfig.UpstreamRole
     fun setLag(lag: Long)

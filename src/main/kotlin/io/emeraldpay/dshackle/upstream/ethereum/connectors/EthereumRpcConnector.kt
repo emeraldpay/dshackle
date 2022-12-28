@@ -2,7 +2,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.connectors
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
@@ -10,13 +10,11 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.ethereum.*
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import java.time.Duration
 
 class EthereumRpcConnector(
-    private val directReader: Reader<JsonRpcRequest, JsonRpcResponse>,
+    private val directReader: JsonRpcReader,
     wsFactory: EthereumWsFactory?,
     id: String,
     forkChoice: ForkChoice,
@@ -34,14 +32,14 @@ class EthereumRpcConnector(
             // do not set upstream to the WS, since it doesn't control the RPC upstream
             conn = wsFactory.create(null)
             val subscriptions = WsSubscriptionsImpl(conn)
-            val wsHead = EthereumWsHead(id, AlwaysForkChoice(), blockValidator, getApi(), subscriptions)
+            val wsHead = EthereumWsHead(id, AlwaysForkChoice(), blockValidator, getIngressReader(), subscriptions)
             // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(getApi(), AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
+            val rpcHead = EthereumRpcHead(getIngressReader(), AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
             head = MergedHead(listOf(rpcHead, wsHead), forkChoice, "Merged for $id")
         } else {
             conn = null
             log.warn("Setting up connector for $id upstream with RPC-only access, less effective than WS+RPC")
-            head = EthereumRpcHead(getApi(), forkChoice, id, blockValidator)
+            head = EthereumRpcHead(getIngressReader(), forkChoice, id, blockValidator)
         }
     }
 
@@ -72,12 +70,12 @@ class EthereumRpcConnector(
         conn?.close()
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getIngressReader(): JsonRpcReader {
         return directReader
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
-        return NoEthereumUpstreamSubscriptions.DEFAULT
+    override fun getIngressSubscription(): EthereumIngressSubscription {
+        return NoEthereumIngressSubscription.DEFAULT
     }
 
     override fun getHead(): Head {

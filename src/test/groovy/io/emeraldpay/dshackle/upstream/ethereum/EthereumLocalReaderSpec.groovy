@@ -2,7 +2,6 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.EmptyHead
@@ -18,12 +17,12 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class LocalCallRouterSpec extends Specification {
+class EthereumLocalReaderSpec extends Specification {
 
     def "Calls hardcoded"() {
         setup:
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(
+        def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
@@ -42,7 +41,7 @@ class LocalCallRouterSpec extends Specification {
     def "Returns empty if nonce set"() {
         setup:
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(
+        def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
@@ -72,7 +71,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head, true)
+        def router = new EthereumLocalReader(reader, methods, head, true)
 
         when:
         def act = router.getBlockByNumber(["latest", false])
@@ -98,7 +97,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head, true)
+        def router = new EthereumLocalReader(reader, methods, head, true)
 
         when:
         def act = router.getBlockByNumber(["earliest", false])
@@ -124,7 +123,7 @@ class LocalCallRouterSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head, true)
+        def router = new EthereumLocalReader(reader, methods, head, true)
 
         when:
         def act = router.getBlockByNumber(["0x123ef", false])
@@ -148,7 +147,7 @@ class LocalCallRouterSpec extends Specification {
             _ * blocksByHeightAsCont() >> new EmptyReader<>()
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
-        def router = new LocalCallRouter(reader, methods, head, true)
+        def router = new EthereumLocalReader(reader, methods, head, true)
 
         when:
         def act = router.getBlockByNumber(["0x0", true])

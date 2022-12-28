@@ -1,14 +1,12 @@
 package io.emeraldpay.dshackle.upstream.ethereum.connectors
 
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.*
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 
 class EthereumWsConnector(
@@ -18,16 +16,16 @@ class EthereumWsConnector(
     blockValidator: BlockValidator
 ) : EthereumConnector {
     private val conn: WsConnectionImpl
-    private val api: Reader<JsonRpcRequest, JsonRpcResponse>
+    private val reader: JsonRpcReader
     private val head: EthereumWsHead
-    private val subscriptions: EthereumUpstreamSubscriptions
+    private val subscriptions: EthereumIngressSubscription
 
     init {
         conn = wsFactory.create(upstream)
-        api = JsonRpcWsClient(conn)
+        reader = JsonRpcWsClient(conn)
         val wsSubscriptions = WsSubscriptionsImpl(conn)
-        head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, api, wsSubscriptions)
-        subscriptions = EthereumWsSubscriptions(wsSubscriptions)
+        head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, reader, wsSubscriptions)
+        subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 
     override fun start() {
@@ -44,11 +42,11 @@ class EthereumWsConnector(
         head.stop()
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
-        return api
+    override fun getIngressReader(): JsonRpcReader {
+        return reader
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+    override fun getIngressSubscription(): EthereumIngressSubscription {
         return subscriptions
     }
 

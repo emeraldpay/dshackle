@@ -17,13 +17,12 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -38,7 +37,7 @@ open class DefaultEthereumHead(
         private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)
     }
 
-    fun getLatestBlock(api: Reader<JsonRpcRequest, JsonRpcResponse>): Mono<BlockContainer> {
+    fun getLatestBlock(api: JsonRpcReader): Mono<BlockContainer> {
         return api.read(JsonRpcRequest("eth_blockNumber", emptyList()))
             .subscribeOn(EthereumRpcHead.scheduler)
             .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))

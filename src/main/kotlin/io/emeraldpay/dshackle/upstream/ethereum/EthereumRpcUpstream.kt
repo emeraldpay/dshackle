@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -28,8 +28,6 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -70,8 +68,8 @@ open class EthereumRpcUpstream(
         }
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
-        return connector.getUpstreamSubscriptions()
+    override fun getIngressSubscription(): EthereumIngressSubscription {
+        return connector.getIngressSubscription()
     }
 
     override fun getHead(): Head {
@@ -88,8 +86,8 @@ open class EthereumRpcUpstream(
         return connector.isRunning()
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
-        return connector.getApi()
+    override fun getIngressReader(): JsonRpcReader {
+        return connector.getIngressReader()
     }
 
     override fun isGrpc(): Boolean {

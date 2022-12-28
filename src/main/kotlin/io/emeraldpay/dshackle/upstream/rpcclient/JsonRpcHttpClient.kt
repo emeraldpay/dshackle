@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.netty.buffer.Unpooled
@@ -48,7 +48,7 @@ class JsonRpcHttpClient(
     private val metrics: RpcMetrics,
     basicAuth: AuthConfig.ClientBasicAuth? = null,
     tlsCAAuth: ByteArray? = null
-) : Reader<JsonRpcRequest, JsonRpcResponse> {
+) : JsonRpcReader {
 
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcHttpClient::class.java)

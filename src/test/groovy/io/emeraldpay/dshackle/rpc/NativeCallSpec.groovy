@@ -75,7 +75,7 @@ class NativeCallSpec extends Specification {
             1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.just(new JsonRpcResponse("1".bytes, null))
         }
         def upstream = Mock(Multistream) {
-            1 * getRoutedApi(_) >> Mono.just(routedApi)
+            1 * getLocalReader(_) >> Mono.just(routedApi)
         }
 
         def nativeCall = nativeCall()
@@ -96,7 +96,7 @@ class NativeCallSpec extends Specification {
             1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.error(new RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Test message"))
         }
         def upstream = Mock(Multistream) {
-            1 * getRoutedApi(_) >> Mono.just(routedApi)
+            1 * getLocalReader(_) >> Mono.just(routedApi)
         }
 
         def nativeCall = nativeCall()

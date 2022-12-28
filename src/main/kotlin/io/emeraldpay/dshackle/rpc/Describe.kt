@@ -36,13 +36,14 @@ class Describe(
         return requestMono.map { _ ->
             val resp = BlockchainOuterClass.DescribeResponse.newBuilder()
             multistreamHolder.getAvailable().forEach { chain ->
-                multistreamHolder.getUpstream(chain)?.let { chainUpstreams ->
+                multistreamHolder.getUpstream(chain).let { chainUpstreams ->
                     val status = subscribeStatus.chainStatus(chain, chainUpstreams.getStatus(), chainUpstreams)
                     val targets = chainUpstreams.getMethods().getSupportedMethods()
                     val capabilities: MutableSet<Capability> = mutableSetOf()
                     val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
                         .setChain(Common.ChainRef.forNumber(chain.id))
                         .addAllSupportedMethods(targets)
+                        .addAllSupportedSubscriptions(chainUpstreams.getEgressSubscription().getAvailableTopics())
                         .setStatus(status)
                         .setCurrentHeight(chainUpstreams.getHead().getCurrentHeight() ?: 0)
                     chainUpstreams.getAll().let { ups ->

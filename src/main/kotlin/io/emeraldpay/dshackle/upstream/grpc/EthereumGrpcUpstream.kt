@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
@@ -31,9 +31,9 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -107,9 +107,9 @@ open class EthereumGrpcUpstream(
     private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, MostWorkForkChoice())
     private var capabilities: Set<Capability> = emptySet()
 
-    private val defaultReader: Reader<JsonRpcRequest, JsonRpcResponse> = client.getReader()
+    private val defaultReader: JsonRpcReader = client.getReader()
     var timeout = Defaults.timeout
-    private val ethereumSubscriptions = EthereumDshackleSubscriptions(chain, remote)
+    private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
 
     override fun getBlockchainApi(): ReactorBlockchainStub {
         return remote
@@ -144,7 +144,7 @@ open class EthereumGrpcUpstream(
         return upstreamStatus.getLabels()
     }
 
-    override fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions {
+    override fun getIngressSubscription(): EthereumIngressSubscription {
         return ethereumSubscriptions
     }
 
@@ -162,7 +162,7 @@ open class EthereumGrpcUpstream(
         return grpcHead
     }
 
-    override fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun getIngressReader(): JsonRpcReader {
         return defaultReader
     }
 

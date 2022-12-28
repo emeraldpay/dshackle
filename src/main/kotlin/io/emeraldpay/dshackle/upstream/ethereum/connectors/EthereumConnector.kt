@@ -1,16 +1,14 @@
 package io.emeraldpay.dshackle.upstream.ethereum.connectors
 
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamSubscriptions
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 
 interface EthereumConnector : Lifecycle {
     fun getHead(): Head
 
-    fun getApi(): Reader<JsonRpcRequest, JsonRpcResponse>
+    fun getIngressReader(): JsonRpcReader
 
-    fun getUpstreamSubscriptions(): EthereumUpstreamSubscriptions
+    fun getIngressSubscription(): EthereumIngressSubscription
 }

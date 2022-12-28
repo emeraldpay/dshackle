@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -36,15 +36,15 @@ import java.math.BigInteger
  *
  * @see EthereumCachingReader
  */
-class LocalCallRouter(
+class EthereumLocalReader(
     private val reader: EthereumCachingReader,
     private val methods: CallMethods,
     private val head: Head,
     private val localEnabled: Boolean
-) : Reader<JsonRpcRequest, JsonRpcResponse> {
+) : JsonRpcReader {
 
     companion object {
-        private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)
+        private val log = LoggerFactory.getLogger(EthereumLocalReader::class.java)
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {

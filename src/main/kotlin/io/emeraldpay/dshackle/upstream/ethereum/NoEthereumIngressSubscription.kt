@@ -13,15 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.ethereum
 
-open class NoUpstreamSubscriptions : UpstreamSubscriptions {
+import io.emeraldpay.dshackle.upstream.NoIngressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
+
+class NoEthereumIngressSubscription : NoIngressSubscription(), EthereumIngressSubscription {
 
     companion object {
-        val DEFAULT = NoUpstreamSubscriptions()
+        @JvmStatic
+        val DEFAULT = NoEthereumIngressSubscription()
     }
 
-    override fun <T> get(method: String): SubscriptionConnect<T>? {
+    override fun getPendingTxes(): PendingTxesSource? {
         return null
     }
 }

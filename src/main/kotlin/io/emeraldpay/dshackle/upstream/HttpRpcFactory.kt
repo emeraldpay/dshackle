@@ -2,10 +2,8 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
@@ -17,7 +15,7 @@ open class HttpRpcFactory(
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val tls: ByteArray?
 ) : HttpFactory {
-    override fun create(id: String?, chain: Chain): Reader<JsonRpcRequest, JsonRpcResponse> {
+    override fun create(id: String?, chain: Chain): JsonRpcReader {
         val metricsTags = listOf(
             // "unknown" is not supposed to happen
             Tag.of("upstream", id ?: "unknown"),
