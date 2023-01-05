@@ -119,9 +119,11 @@ class SubscribeNodeStatus(
 
         val statuses = upstream.observeStatus()
             .distinctUntilChanged()
-            .takeUntil { it == UpstreamAvailability.UNAVAILABLE }
+            .takeUntil {
+                it == UpstreamAvailability.UNAVAILABLE && !upstream.isGrpc()
+            }
             .map {
-                if (it == UpstreamAvailability.UNAVAILABLE) {
+                if (it == UpstreamAvailability.UNAVAILABLE && !upstream.isGrpc()) {
                     onUnavailable.accept(upstream.getId())
                     // cancel head subscription & reconnections when upstream becomes unavailable
                     cancel.tryEmitNext(true)
