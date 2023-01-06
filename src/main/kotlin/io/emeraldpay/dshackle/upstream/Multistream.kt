@@ -78,6 +78,9 @@ abstract class Multistream(
     private val addedUpstreams = Sinks.many()
         .multicast()
         .directBestEffort<Upstream>()
+    private val removedUpstreams = Sinks.many()
+        .multicast()
+        .directBestEffort<Upstream>()
 
     init {
         UpstreamAvailability.values().forEach { status ->
@@ -342,6 +345,7 @@ abstract class Multistream(
             eventLock.withLock {
                 if (event.type == UpstreamChangeEvent.ChangeType.REMOVED) {
                     removeUpstream(event.upstream.getId()).takeIf { it }?.let {
+                        removedUpstreams.tryEmitNext(event.upstream)
                         log.warn("Upstream ${event.upstream.getId()} with chain $chain has been removed")
                     }
                 } else {
@@ -369,6 +373,9 @@ abstract class Multistream(
 
     fun subscribeAddedUpstreams(): Flux<Upstream> =
         addedUpstreams.asFlux()
+
+    fun subscribeRemovedUpstreams(): Flux<Upstream> =
+        removedUpstreams.asFlux()
 
     // --------------------------------------------------------------------------------------------------------
 
