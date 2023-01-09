@@ -18,7 +18,6 @@ import reactor.core.publisher.SignalType
 import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
-import java.util.function.Consumer
 
 @Service
 class SubscribeNodeStatus(
@@ -60,22 +59,25 @@ class SubscribeNodeStatus(
             )
 
             // stop removed upstreams update fluxes
-            val removals = Flux.merge(multistreams.all().map { ms ->
-                ms.subscribeRemovedUpstreams().mapNotNull { up ->
-                    knownUpstreams[up.getId()]?.let {
-                        val result = it.tryEmitNext(true)
-                        if (result.isFailure) {
-                            log.warn("Unable to emit event about removal of an upstream - ${result.toString()}")
+            val removals = Flux.merge(
+                multistreams.all()
+                    .map { ms ->
+                        ms.subscribeRemovedUpstreams().mapNotNull { up ->
+                            knownUpstreams[up.getId()]?.let {
+                                val result = it.tryEmitNext(true)
+                                if (result.isFailure) {
+                                    log.warn("Unable to emit event about removal of an upstream - $result")
+                                }
+                                knownUpstreams.remove(up.getId())
+                                NodeStatusResponse.newBuilder()
+                                    .setNodeId(up.getId())
+                                    .setDescription(buildDescription(ms.chain, up))
+                                    .setStatus(buildStatus(UpstreamAvailability.UNAVAILABLE, up.getHead().getCurrentHeight()))
+                                    .build()
+                            }
                         }
-                        knownUpstreams.remove(up.getId())
-                        NodeStatusResponse.newBuilder()
-                            .setNodeId(up.getId())
-                            .setDescription(buildDescription(ms.chain, up))
-                            .setStatus(buildStatus(UpstreamAvailability.UNAVAILABLE, up.getHead().getCurrentHeight()))
-                            .build()
                     }
-                }
-            })
+            )
 
             // subscribe on head/status updates for just added upstreams
             val multiStreamUpdates = Flux.merge(
