@@ -10,6 +10,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -26,6 +27,7 @@ class SubscribeNodeStatus(
 
     companion object {
         private val RETRY_TIMEOUT = Duration.ofSeconds(10)
+        private val log = LoggerFactory.getLogger(SubscribeNodeStatus::class.java)
     }
 
     fun subscribe(req: Mono<SubscribeNodeStatusRequest>): Flux<NodeStatusResponse> =
@@ -61,7 +63,10 @@ class SubscribeNodeStatus(
             val removals = Flux.merge(multistreams.all().map { ms ->
                 ms.subscribeRemovedUpstreams().mapNotNull { up ->
                     knownUpstreams[up.getId()]?.let {
-                        it.tryEmitNext(true)
+                        val result = it.tryEmitNext(true)
+                        if (result.isFailure) {
+                            log.warn("Unable to emit event about removal of an upstream - ${result.toString()}")
+                        }
                         knownUpstreams.remove(up.getId())
                         NodeStatusResponse.newBuilder()
                             .setNodeId(up.getId())
