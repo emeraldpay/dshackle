@@ -22,6 +22,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
@@ -55,7 +56,7 @@ class NativeCallSpec extends Specification {
 
     ObjectMapper objectMapper = Global.objectMapper
 
-    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null, Boolean enableCache = true) {
+    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null, Boolean enableCache = true, Boolean passthrough = false) {
 
         if (upstreams == null) {
             upstreams = Stub(MultistreamHolder)
@@ -64,8 +65,11 @@ class NativeCallSpec extends Specification {
             signer = Stub(ResponseSigner)
         }
 
-        def config = new CacheConfig()
-        config.requestsCacheEnabled = enableCache
+        def config = new MainConfig()
+        def cacheConfig = new CacheConfig()
+        cacheConfig.requestsCacheEnabled = enableCache
+        config.cache = cacheConfig
+        config.passthrough = passthrough
 
         new NativeCall(upstreams, signer, config)
     }

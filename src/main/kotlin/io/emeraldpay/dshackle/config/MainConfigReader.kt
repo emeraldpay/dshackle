@@ -52,6 +52,10 @@ class MainConfigReader(
             config.port = it
         }
 
+        getValueAsBool(input, "passthrough")?.let {
+            config.passthrough = it
+        }
+
         authConfigReader.readServerTls(input)?.let {
             config.tls = it
         }
