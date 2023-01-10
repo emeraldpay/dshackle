@@ -14,9 +14,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.publisher.SignalType
 import reactor.core.publisher.Sinks
-import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
 @Service
@@ -25,7 +23,6 @@ class SubscribeNodeStatus(
 ) {
 
     companion object {
-        private val RETRY_TIMEOUT = Duration.ofSeconds(10)
         private val log = LoggerFactory.getLogger(SubscribeNodeStatus::class.java)
     }
 
