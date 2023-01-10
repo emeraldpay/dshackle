@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
@@ -57,7 +57,7 @@ import java.util.concurrent.atomic.AtomicInteger
 open class NativeCall(
     private val multistreamHolder: MultistreamHolder,
     private val signer: ResponseSigner,
-    cacheConfig: CacheConfig
+    config: MainConfig
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -65,7 +65,8 @@ open class NativeCall(
 
     private val nullValue: ByteArray = "null".toByteArray()
 
-    private val localRouterEnabled = cacheConfig.requestsCacheEnabled
+    private val localRouterEnabled = config.cache?.requestsCacheEnabled ?: true
+    private val passthrough = config.passthrough
 
     var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
     private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
@@ -79,10 +80,12 @@ open class NativeCall(
 
     @EventListener
     fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
-        casting[BlockchainType.from(event.chain)]?.let { cast ->
-            multistreamHolder.getUpstream(event.chain).let { up ->
-                val reader = up.cast(cast).getReader()
-                ethereumCallSelectors.putIfAbsent(event.chain, EthereumCallSelector(reader.heightByHash()))
+        if (!passthrough) {
+            casting[BlockchainType.from(event.chain)]?.let { cast ->
+                multistreamHolder.getUpstream(event.chain).let { up ->
+                    val reader = up.cast(cast).getReader()
+                    ethereumCallSelectors.putIfAbsent(event.chain, EthereumCallSelector(reader.heightByHash()))
+                }
             }
         }
     }
