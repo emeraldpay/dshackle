@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumPosMultiStream(
@@ -43,7 +44,11 @@ open class EthereumPosMultiStream(
         private val log = LoggerFactory.getLogger(EthereumPosMultiStream::class.java)
     }
 
-    private var head: Head? = null
+    private var head: DynamicMergedHead = DynamicMergedHead(
+        PriorityForkChoice(),
+        "ETH Pos Multistream",
+        Schedulers.boundedElastic()
+    )
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
@@ -57,13 +62,15 @@ open class EthereumPosMultiStream(
 
     override fun init() {
         if (upstreams.size > 0) {
-            head = updateHead()
+            upstreams.forEach { addHead(it) }
         }
         super.init()
     }
 
     override fun start() {
         super.start()
+        head.start()
+        onHeadUpdated(head)
         reader.start()
     }
 
@@ -73,16 +80,33 @@ open class EthereumPosMultiStream(
         filteredHeads.clear()
     }
 
+    override fun addHead(upstream: Upstream) {
+        val newHead = upstream.getHead()
+        if (newHead is Lifecycle && !newHead.isRunning()) {
+            newHead.start()
+        }
+        head.addHead(upstream)
+    }
+
+    override fun removeHead(upstreamId: String) {
+        head.removeHead(upstreamId)
+    }
+
     override fun isRunning(): Boolean {
         return super.isRunning() || reader.isRunning()
     }
+
+    override fun makeLagObserver(): HeadLagObserver =
+        EthereumPosHeadLagObserver(head, ArrayList(upstreams)).apply {
+            start()
+        }
 
     override fun getReader(): EthereumCachingReader {
         return reader
     }
 
     override fun getHead(): Head {
-        return head!!
+        return head
     }
 
     override fun tryProxy(
@@ -100,40 +124,6 @@ open class EthereumPosMultiStream(
         }?.let {
             Flux.merge(it)
         }
-
-    override fun setHead(head: Head) {
-        this.head = head
-    }
-
-    override fun updateHead(): Head {
-        this.head?.takeIf { it is Lifecycle }?.apply { stop() }
-        lagObserver?.stop()
-        lagObserver = null
-
-        return when (upstreams.size) {
-            0 -> EmptyHead()
-            1 -> upstreams.first().let {
-                it.setLag(0)
-                it.getHead().apply {
-                    if (this is Lifecycle) {
-                        start()
-                    }
-                }
-            }
-
-            else -> upstreams.map { it.getHead() }.let { heads ->
-                MergedHead(heads, PriorityForkChoice(), "ETH Pos Multistream").apply {
-                    start()
-                }.also {
-                    this.lagObserver = EthereumPosHeadLagObserver(it, ArrayList(upstreams)).apply {
-                        start()
-                    }
-                }
-            }
-        }.also {
-            onHeadUpdated(it)
-        }
-    }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return upstreams.flatMap { it.getLabels() }

@@ -264,16 +264,6 @@ class MultistreamSpec extends Specification {
         }
 
         @Override
-        Head updateHead() {
-            return null
-        }
-
-        @Override
-        void setHead(@NotNull Head head) {
-
-        }
-
-        @Override
         Head getHead() {
             return null
         }

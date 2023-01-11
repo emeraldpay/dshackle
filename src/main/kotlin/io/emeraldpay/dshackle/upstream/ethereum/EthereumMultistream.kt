@@ -22,16 +22,17 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.*
-import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
+import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import org.slf4j.LoggerFactory
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
@@ -44,7 +45,12 @@ open class EthereumMultistream(
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
     }
 
-    private var head: Head? = null
+    private var head: DynamicMergedHead = DynamicMergedHead(
+        PriorityForkChoice(),
+        "ETH Multistream",
+        Schedulers.boundedElastic()
+    )
+
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
@@ -64,7 +70,7 @@ open class EthereumMultistream(
 
     override fun init() {
         if (upstreams.size > 0) {
-            head = updateHead()
+            upstreams.forEach { addHead(it) }
         }
         super.init()
     }
@@ -89,6 +95,8 @@ open class EthereumMultistream(
 
     override fun start() {
         super.start()
+        head.start()
+        onHeadUpdated(head)
         reader.start()
     }
 
@@ -96,6 +104,22 @@ open class EthereumMultistream(
         super.stop()
         reader.stop()
         filteredHeads.clear()
+    }
+
+    override fun addHead(upstream: Upstream) {
+        val newHead = upstream.getHead()
+        if (newHead is Lifecycle && !newHead.isRunning()) {
+            newHead.start()
+        }
+        head.addHead(upstream)
+    }
+
+    override fun removeHead(upstreamId: String) {
+        head.removeHead(upstreamId)
+    }
+
+    override fun makeLagObserver(): HeadLagObserver {
+        return EthereumHeadLagObserver(head, upstreams as Collection<Upstream>)
     }
 
     override fun isRunning(): Boolean {
@@ -107,7 +131,7 @@ open class EthereumMultistream(
     }
 
     override fun getHead(): Head {
-        return head!!
+        return head
     }
 
     override fun tryProxy(
@@ -125,41 +149,6 @@ open class EthereumMultistream(
         }?.let {
             Flux.merge(it)
         }
-
-    override fun setHead(head: Head) {
-        this.head = head
-    }
-
-    override fun updateHead(): Head {
-        head?.let {
-            if (it is Lifecycle) {
-                it.stop()
-            }
-        }
-        lagObserver?.stop()
-        lagObserver = null
-        val head = if (upstreams.size == 1) {
-            val upstream = upstreams.first()
-            upstream.setLag(0)
-            upstream.getHead().apply {
-                if (this is Lifecycle) {
-                    this.start()
-                }
-            }
-        } else {
-            val heads = upstreams.map { it.getHead() }
-            val newHead = MergedHead(heads, MostWorkForkChoice(), "ETH Multistream").apply {
-                this.start()
-            }
-            val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>)
-            this.lagObserver = lagObserver
-            lagObserver.start()
-            newHead
-        }
-        filteredHeads[Selector.AnyLabelMatcher().describeInternal()] = head
-        onHeadUpdated(head)
-        return head
-    }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return upstreams.flatMap { it.getLabels() }
