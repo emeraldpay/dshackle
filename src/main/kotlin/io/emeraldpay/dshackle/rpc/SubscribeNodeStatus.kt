@@ -127,6 +127,7 @@ class SubscribeNodeStatus(
     private fun buildDescription(chain: Chain, up: Upstream): NodeDescription.Builder =
         NodeDescription.newBuilder()
             .setChain(Common.ChainRef.forNumber(chain.id))
+            .setNodeId(up.nodeId().toInt())
             .addAllNodeLabels(
                 up.getLabels().map { nodeLabels ->
                     BlockchainOuterClass.NodeLabels.newBuilder()
