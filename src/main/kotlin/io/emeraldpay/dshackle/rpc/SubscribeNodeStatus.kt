@@ -29,20 +29,6 @@ class SubscribeNodeStatus(
     fun subscribe(req: Mono<SubscribeNodeStatusRequest>): Flux<NodeStatusResponse> =
         req.flatMapMany {
             val knownUpstreams = ConcurrentHashMap<String, Sinks.Many<Boolean>>()
-            // send known upstreams details immediately
-            val descriptions = Flux.fromIterable(
-                multistreams.all()
-                    .flatMap { multiStream ->
-                        multiStream.getAll().map { up ->
-                            NodeStatusResponse.newBuilder()
-                                .setNodeId(up.getId())
-                                .setDescription(buildDescription(multiStream.chain, up))
-                                .setStatus(buildStatus(up.getStatus(), up.getHead().getCurrentHeight()))
-                                .build()
-                        }
-                    }
-            )
-
             // subscribe on head/status updates for known upstreams
             val upstreamUpdates = Flux.merge(
                 multistreams.all()
@@ -102,7 +88,7 @@ class SubscribeNodeStatus(
                     }
             )
 
-            Flux.concat(descriptions, Flux.merge(upstreamUpdates, multiStreamUpdates, removals))
+            Flux.merge(upstreamUpdates, multiStreamUpdates, removals)
         }
 
     private fun subscribeUpstreamUpdates(
@@ -120,8 +106,14 @@ class SubscribeNodeStatus(
                     .setDescription(buildDescription(chain, upstream))
                     .build()
             }
-
-        return statuses
+        val currentState = Mono.just(
+            NodeStatusResponse.newBuilder()
+                .setNodeId(upstream.getId())
+                .setDescription(buildDescription(chain, upstream))
+                .setStatus(buildStatus(upstream.getStatus(), upstream.getHead().getCurrentHeight()))
+                .build()
+        )
+        return Flux.concat(currentState, statuses)
     }
 
     private fun buildDescription(chain: Chain, up: Upstream): NodeDescription.Builder =
