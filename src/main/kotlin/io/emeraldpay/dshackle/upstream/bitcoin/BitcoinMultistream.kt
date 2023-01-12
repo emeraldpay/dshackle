@@ -23,7 +23,6 @@ import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 @Suppress("UNCHECKED_CAST")
@@ -32,10 +31,6 @@ open class BitcoinMultistream(
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
     caches: Caches,
 ) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches), Lifecycle {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
-    }
 
     private var head: Head = EmptyHead()
     private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
@@ -65,7 +60,7 @@ open class BitcoinMultistream(
         return xpubAddresses
     }
 
-    override fun updateHead(): Head {
+    fun updateHead(): Head {
         head.let {
             if (it is Lifecycle) {
                 it.stop()
@@ -85,9 +80,6 @@ open class BitcoinMultistream(
             val newHead = MergedHead(sourceUpstreams.map { it.getHead() }, MostWorkForkChoice()).apply {
             this.start()
         }
-            val lagObserver = BitcoinHeadLagObserver(newHead, sourceUpstreams)
-            this.lagObserver = lagObserver
-            lagObserver.start()
             newHead
         }
         onHeadUpdated(head)
@@ -121,7 +113,7 @@ open class BitcoinMultistream(
         callRouter = LocalCallRouter(getMethods(), reader)
     }
 
-    override fun setHead(head: Head) {
+    fun setHead(head: Head) {
         this.head = head
         reader = BitcoinReader(this, head, esplora)
     }
@@ -150,6 +142,10 @@ open class BitcoinMultistream(
         return super.isRunning() || reader.isRunning()
     }
 
+    override fun makeLagObserver(): HeadLagObserver {
+        return BitcoinHeadLagObserver(head, sourceUpstreams)
+    }
+
     override fun start() {
         super.start()
         reader.start()
@@ -158,5 +154,13 @@ open class BitcoinMultistream(
     override fun stop() {
         super.stop()
         reader.stop()
+    }
+
+    override fun addHead(upstream: Upstream) {
+        setHead(updateHead())
+    }
+
+    override fun removeHead(upstreamId: String) {
+        setHead(updateHead())
     }
 }

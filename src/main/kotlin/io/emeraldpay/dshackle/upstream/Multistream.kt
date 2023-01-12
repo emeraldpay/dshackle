@@ -140,8 +140,8 @@ abstract class Multistream(
             if (it) {
                 upstreams.add(upstream)
                 removed.remove(upstream.getId())
+                addHead(upstream)
                 onUpstreamsUpdated()
-                setHead(updateHead())
                 monitorUpstream(upstream)
             }
         }
@@ -155,8 +155,8 @@ abstract class Multistream(
             }
         }.also {
             if (it) {
+                removeHead(id)
                 onUpstreamsUpdated()
-                setHead(updateHead())
             }
         }
 
@@ -195,6 +195,11 @@ abstract class Multistream(
                 upstreams.map { up ->
                     up.getCapabilities()
                 }.reduce { acc, curr -> acc + curr }
+            }
+            lagObserver?.stop()
+            lagObserver = null
+            if (upstreams.isNotEmpty()) {
+                lagObserver = makeLagObserver()
             }
         }
     }
@@ -274,8 +279,8 @@ abstract class Multistream(
         caches.setHead(head)
     }
 
-    abstract fun updateHead(): Head
-    abstract fun setHead(head: Head)
+    abstract fun addHead(upstream: Upstream)
+    abstract fun removeHead(upstreamId: String)
 
     override fun getId(): String {
         return "!all:${chain.chainCode}"
@@ -376,6 +381,8 @@ abstract class Multistream(
 
     fun subscribeRemovedUpstreams(): Flux<Upstream> =
         removedUpstreams.asFlux()
+
+    abstract fun makeLagObserver(): HeadLagObserver
 
     // --------------------------------------------------------------------------------------------------------
 

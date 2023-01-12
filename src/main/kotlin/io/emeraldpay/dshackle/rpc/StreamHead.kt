@@ -39,9 +39,7 @@ class StreamHead(
         return requestMono.map { request ->
             Chain.byId(request.type.number)
         }.flatMapMany { chain ->
-            val up = multistreamHolder.getUpstream(chain)
-                ?: return@flatMapMany Flux.error<BlockchainOuterClass.ChainHead>(Exception("Unavailable chain: $chain"))
-            up.getHead()
+            multistreamHolder.getUpstream(chain).getHead()
                 .getFlux()
                 .map { asProto(chain, it!!) }
                 .onErrorContinue { t, _ ->
