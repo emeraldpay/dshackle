@@ -80,12 +80,10 @@ open class NativeCall(
 
     @EventListener
     fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
-        if (!passthrough) {
-            casting[BlockchainType.from(event.chain)]?.let { cast ->
-                multistreamHolder.getUpstream(event.chain).let { up ->
-                    val reader = up.cast(cast).getReader()
-                    ethereumCallSelectors.putIfAbsent(event.chain, EthereumCallSelector(reader.heightByHash()))
-                }
+        casting[BlockchainType.from(event.chain)]?.let { cast ->
+            multistreamHolder.getUpstream(event.chain).let { up ->
+                val reader = up.cast(cast).getReader()
+                ethereumCallSelectors.putIfAbsent(event.chain, EthereumCallSelector(reader.heightByHash()))
             }
         }
     }
@@ -227,7 +225,7 @@ open class NativeCall(
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
             if (BlockchainType.from(upstream.chain) == BlockchainType.EVM_POS || BlockchainType.from(upstream.chain) == BlockchainType.EVM_POW) {
-                ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead())
+                ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead(), passthrough)
             } else {
                 null
             } ?: Mono.empty()

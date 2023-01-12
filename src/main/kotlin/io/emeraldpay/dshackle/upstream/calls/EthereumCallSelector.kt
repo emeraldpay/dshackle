@@ -53,10 +53,10 @@ class EthereumCallSelector(
      * @param method JSON RPC name
      * @param params JSON-encoded list of parameters for the method
      */
-    fun getMatcher(method: String, params: String, head: Head): Mono<Selector.Matcher> {
-        if (Collections.binarySearch(TAG_METHODS, method) >= 0) {
+    fun getMatcher(method: String, params: String, head: Head, passthrough: Boolean): Mono<Selector.Matcher> {
+        if (!passthrough && Collections.binarySearch(TAG_METHODS, method) >= 0) {
             return blockTagSelector(params, 1, head)
-        } else if (method == "eth_getStorageAt") {
+        } else if (!passthrough && method == "eth_getStorageAt") {
             return blockTagSelector(params, 2, head)
         } else if (method in DefaultEthereumMethods.withFilterIdMethods) {
             return sameUpstreamMatcher(params)

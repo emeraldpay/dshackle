@@ -32,7 +32,7 @@ class EthereumCallSelectorSpec extends Specification {
             1 * getCurrentHeight() >> 100
         }
         when:
-        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "latest"]', head).block()
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "latest"]', head, false).block()
         then:
         act == new Selector.HeightMatcher(100)
     }
@@ -44,7 +44,7 @@ class EthereumCallSelectorSpec extends Specification {
             1 * getCurrentHeight() >> 100
         }
         when:
-        def act = callSelector.getMatcher("eth_call", '["0x0000", "latest"]', head).block()
+        def act = callSelector.getMatcher("eth_call", '["0x0000", "latest"]', head, false).block()
         then:
         act == new Selector.HeightMatcher(100)
     }
@@ -56,7 +56,7 @@ class EthereumCallSelectorSpec extends Specification {
             1 * getCurrentHeight() >> 100
         }
         when:
-        def act = callSelector.getMatcher("eth_getStorageAt", '["0x295a70b2de5e3953354a6a8344e616ed314d7251", "0x0", "latest"]', head).block()
+        def act = callSelector.getMatcher("eth_getStorageAt", '["0x295a70b2de5e3953354a6a8344e616ed314d7251", "0x0", "latest"]', head, false).block()
         then:
         act == new Selector.HeightMatcher(100)
     }
@@ -68,7 +68,7 @@ class EthereumCallSelectorSpec extends Specification {
             _ * getCurrentHeight() >> 100
         }
         when:
-        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0x40"]', head).block()
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0x40"]', head, false).block()
         then:
         act == new Selector.HeightMatcher(0x40)
     }
@@ -83,7 +83,7 @@ class EthereumCallSelectorSpec extends Specification {
             _ * getCurrentHeight() >> 9128116
         }
         when:
-        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0xc90f1c8c125a4d5b90742f16947bdb1d10516f173fd7fc51223d10499de2a812"]', head).block()
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0xc90f1c8c125a4d5b90742f16947bdb1d10516f173fd7fc51223d10499de2a812"]', head, false).block()
         then:
         act == new Selector.HeightMatcher(8606722)
     }
@@ -96,7 +96,7 @@ class EthereumCallSelectorSpec extends Specification {
         }
         when:
         // 0x10000000000000000 is too large to be a block
-        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0x10000000000000000"]', head).block()
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0x10000000000000000"]', head, false).block()
         then:
         act == null
     }
@@ -108,7 +108,7 @@ class EthereumCallSelectorSpec extends Specification {
             _ * getCurrentHeight() >> 100
         }
         when:
-        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "-0x100"]', head).block()
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "-0x100"]', head, false).block()
         then:
         act == null
     }
@@ -121,7 +121,7 @@ class EthereumCallSelectorSpec extends Specification {
         }
         when:
         // 0x8000000000000000 becomes -9223372036854775808 in converted to long as is, i.e. high bit is set
-        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0x8000000000000000"]', head).block()
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "0x8000000000000000"]', head, false).block()
         then:
         act == null
     }
@@ -133,7 +133,7 @@ class EthereumCallSelectorSpec extends Specification {
             _ * getCurrentHeight() >> 100
         }
         when:
-        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "pending"]', head).block()
+        def act = callSelector.getMatcher("eth_getBalance", '["0x0000", "pending"]', head, false).block()
         then:
         act == null
     }
@@ -143,7 +143,7 @@ class EthereumCallSelectorSpec extends Specification {
         EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
         def head = Stub(Head)
         when:
-        def act = callSelector.getMatcher("eth_call", '["0x0000", {"blockNumber": "0x100"}]', head).block()
+        def act = callSelector.getMatcher("eth_call", '["0x0000", {"blockNumber": "0x100"}]', head, false).block()
         then:
         act == new Selector.HeightMatcher(0x100)
     }
@@ -157,10 +157,25 @@ class EthereumCallSelectorSpec extends Specification {
         def head = Stub(Head)
         when:
         def act = callSelector.getMatcher("eth_call",
-                '["0x0000", {"blockHash": "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"}]', head)
+                '["0x0000", {"blockHash": "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"}]', head, false)
                 .block()
         then:
         act == new Selector.HeightMatcher(12079192)
+    }
+
+    def "Get empty matcher for block tag with passthrough arg"() {
+        setup:
+        def heights = Mock(Reader) {
+            0 * it.read(BlockId.from("0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32")) >> Mono.just(12079192L)
+        }
+        EthereumCallSelector callSelector = new EthereumCallSelector(heights)
+        def head = Stub(Head)
+        when:
+        def act = callSelector.getMatcher("eth_call",
+                '["0x0000", {"blockHash": "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"}]', head, true)
+                .block()
+        then:
+        act == null
     }
 
     def "Match head if hash matcher for unknown hash"() {
@@ -174,7 +189,7 @@ class EthereumCallSelectorSpec extends Specification {
         }
         when:
         def act = callSelector.getMatcher("eth_call",
-                '["0x0000", {"blockHash": "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"}]', head)
+                '["0x0000", {"blockHash": "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"}]', head, false)
                 .block()
         then:
         act == new Selector.HeightMatcher(100)
@@ -186,7 +201,7 @@ class EthereumCallSelectorSpec extends Specification {
         def head = Mock(Head)
 
         expect:
-        callSelector.getMatcher("eth_getFilterChanges", param, head).block()
+        callSelector.getMatcher("eth_getFilterChanges", param, head, true).block()
                 == new Selector.SameNodeMatcher((byte)hash)
 
         where:
@@ -203,7 +218,7 @@ class EthereumCallSelectorSpec extends Specification {
         def head = Mock(Head)
 
         when:
-        def act = callSelector.getMatcher("eth_getFilterChanges", "[]", head).block()
+        def act = callSelector.getMatcher("eth_getFilterChanges", "[]", head, false).block()
 
         then:
         act == null
