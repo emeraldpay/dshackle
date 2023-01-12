@@ -106,11 +106,13 @@ class SubscribeNodeStatus(
                     .setDescription(buildDescription(chain, upstream))
                     .build()
             }
-        val currentState = Mono.just(NodeStatusResponse.newBuilder()
-            .setNodeId(upstream.getId())
-            .setDescription(buildDescription(chain, upstream))
-            .setStatus(buildStatus(upstream.getStatus(), upstream.getHead().getCurrentHeight()))
-            .build())
+        val currentState = Mono.just(
+            NodeStatusResponse.newBuilder()
+                .setNodeId(upstream.getId())
+                .setDescription(buildDescription(chain, upstream))
+                .setStatus(buildStatus(upstream.getStatus(), upstream.getHead().getCurrentHeight()))
+                .build()
+        )
         return Flux.concat(currentState, statuses)
     }
 
