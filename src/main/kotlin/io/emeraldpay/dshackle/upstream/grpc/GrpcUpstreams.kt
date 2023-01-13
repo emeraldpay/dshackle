@@ -16,7 +16,8 @@
  */
 package io.emeraldpay.dshackle.upstream.grpc
 
-import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.BlockchainOuterClass.*
+import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
@@ -26,6 +27,7 @@ import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
@@ -43,6 +45,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Scheduler
 import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.Executor
@@ -60,13 +63,14 @@ class GrpcUpstreams(
     private val fileResolver: FileResolver,
     private val nodeRating: Int,
     private val labels: UpstreamsConfig.Labels,
-    private val executor: Executor
+    private val chainStatusScheduler: Scheduler,
+    private val grpcExecutor: Executor
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
     var timeout = Defaults.timeout
 
-    private var client: ReactorBlockchainGrpc.ReactorBlockchainStub? = null
+    lateinit var client: ReactorBlockchainGrpc.ReactorBlockchainStub
     private val known = HashMap<Chain, DefaultUpstream>()
     private val lock = ReentrantLock()
 
@@ -75,7 +79,7 @@ class GrpcUpstreams(
             // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
             .maxInboundMessageSize(Defaults.maxMessageSize)
             .enableRetry()
-            .executor(executor)
+            .executor(grpcExecutor)
             .maxRetryAttempts(3)
         if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             chanelBuilder
@@ -91,9 +95,9 @@ class GrpcUpstreams(
 
         val statusSubscription = AtomicReference<Disposable>()
 
-        val updates = Flux.interval(Duration.ZERO, Duration.ofSeconds(20))
+        return Flux.interval(Duration.ZERO, Duration.ofSeconds(20))
             .flatMap {
-                client.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
+                client.describe(DescribeRequest.newBuilder().build())
             }.onErrorContinue { t, _ ->
                 if (ExceptionUtils.indexOfType(t, IOException::class.java) >= 0) {
                     log.warn("gRPC upstream $host:$port is unavailable. (${t.javaClass}: ${t.message})")
@@ -106,7 +110,10 @@ class GrpcUpstreams(
             }.flatMap { value ->
                 processDescription(value)
             }.doOnNext {
-                val subscription = client.subscribeStatus(BlockchainOuterClass.StatusRequest.newBuilder().build())
+                val subscription = client.subscribeStatus(
+                    StatusRequest.newBuilder()
+                        .addChains(Common.ChainRef.forNumber(it.chain.id)).build()
+                ).subscribeOn(chainStatusScheduler)
                     .subscribe { value ->
                         val chain = Chain.byId(value.chain.number)
                         if (chain != Chain.UNSPECIFIED) {
@@ -120,11 +127,9 @@ class GrpcUpstreams(
             }.doOnError { t ->
                 log.error("Failed to process update from gRPC upstream $id", t)
             }
-
-        return updates
     }
 
-    fun processDescription(value: BlockchainOuterClass.DescribeResponse): Flux<UpstreamChangeEvent> {
+    private fun processDescription(value: DescribeResponse): Flux<UpstreamChangeEvent> {
         log.info("Start processing grpc upstream description for $id with chains ${value.chainsList.map { it.chain.name }}")
         val current = value.chainsList.filter {
             Chain.byId(it.chain.number) != Chain.UNSPECIFIED
@@ -154,7 +159,7 @@ class GrpcUpstreams(
         return Flux.fromIterable(removed + added)
     }
 
-    internal fun withTls(auth: AuthConfig.ClientTlsAuth): SslContext {
+    private fun withTls(auth: AuthConfig.ClientTlsAuth): SslContext {
         val sslContext = SslContextBuilder.forClient()
             .clientAuth(ClientAuth.REQUIRE)
         sslContext.trustManager(fileResolver.resolve(auth.ca!!).inputStream())
@@ -176,13 +181,31 @@ class GrpcUpstreams(
         return sslContext.build()
     }
 
-    fun getOrCreate(chain: Chain): UpstreamChangeEvent {
+    private val creators: Map<BlockchainType, (chain: Chain, client: JsonRpcGrpcClient) -> DefaultUpstream> = mapOf(
+        BlockchainType.EVM_POW to { chain, rpcClient ->
+            EthereumGrpcUpstream(id, hash, role, chain, client, rpcClient, labels)
+        },
+        BlockchainType.EVM_POS to { chain, rpcClient ->
+            EthereumPosGrpcUpstream(id, hash, role, chain, client, rpcClient, nodeRating, labels)
+        },
+        BlockchainType.BITCOIN to { chain, rpcClient ->
+            BitcoinGrpcUpstream(id, role, chain, client, rpcClient, labels)
+        }
+    )
+
+    private fun getOrCreate(chain: Chain): UpstreamChangeEvent {
+        val metrics = makeMetrics(chain)
+        val creator = creators.getValue(BlockchainType.from(chain))
+        return getOrCreate(chain, metrics, creator)
+    }
+
+    private fun makeMetrics(chain: Chain): RpcMetrics {
         val metricsTags = listOf(
             Tag.of("upstream", id),
             Tag.of("chain", chain.chainCode)
         )
 
-        val metrics = RpcMetrics(
+        return RpcMetrics(
             Timer.builder("upstream.grpc.conn")
                 .description("Request time through a Dshackle/gRPC connection")
                 .tags(metricsTags)
@@ -193,68 +216,24 @@ class GrpcUpstreams(
                 .tags(metricsTags)
                 .register(Metrics.globalRegistry)
         )
-
-        val blockchainType = BlockchainType.from(chain)
-        if (blockchainType == BlockchainType.EVM_POW) {
-            return getOrCreateEthereum(chain, metrics)
-        } else if (blockchainType == BlockchainType.BITCOIN) {
-            return getOrCreateBitcoin(chain, metrics)
-        } else if (blockchainType == BlockchainType.EVM_POS) {
-            return getOrCreateEthereumPos(chain, metrics)
-        } else {
-            throw IllegalArgumentException("Unsupported blockchain: $chain")
-        }
     }
 
-    fun getOrCreateEthereum(chain: Chain, metrics: RpcMetrics): UpstreamChangeEvent {
+    private fun getOrCreate(
+        chain: Chain,
+        metrics: RpcMetrics,
+        creator: (chain: Chain, client: JsonRpcGrpcClient) -> DefaultUpstream
+    ): UpstreamChangeEvent {
         lock.withLock {
             val current = known[chain]
             return if (current == null) {
-                val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = EthereumGrpcUpstream(id, hash, role, chain, client!!, rpcClient, labels)
-                created.timeout = this.timeout
+                val rpcClient = JsonRpcGrpcClient(client, chain, metrics)
+                val created = creator(chain, rpcClient)
                 known[chain] = created
-                created.start()
+                if (created is Lifecycle) created.start()
                 UpstreamChangeEvent(chain, created, UpstreamChangeEvent.ChangeType.ADDED)
             } else {
                 UpstreamChangeEvent(chain, current, UpstreamChangeEvent.ChangeType.REVALIDATED)
             }
         }
-    }
-
-    fun getOrCreateEthereumPos(chain: Chain, metrics: RpcMetrics): UpstreamChangeEvent {
-        lock.withLock {
-            val current = known[chain]
-            return if (current == null) {
-                val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = EthereumPosGrpcUpstream(id, hash, role, chain, client!!, rpcClient, nodeRating, labels)
-                created.timeout = this.timeout
-                known[chain] = created
-                created.start()
-                UpstreamChangeEvent(chain, created, UpstreamChangeEvent.ChangeType.ADDED)
-            } else {
-                UpstreamChangeEvent(chain, current, UpstreamChangeEvent.ChangeType.REVALIDATED)
-            }
-        }
-    }
-
-    fun getOrCreateBitcoin(chain: Chain, metrics: RpcMetrics): UpstreamChangeEvent {
-        lock.withLock {
-            val current = known[chain]
-            return if (current == null) {
-                val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics)
-                val created = BitcoinGrpcUpstream(id, role, chain, client!!, rpcClient, labels)
-                created.timeout = this.timeout
-                known[chain] = created
-                created.start()
-                UpstreamChangeEvent(chain, created, UpstreamChangeEvent.ChangeType.ADDED)
-            } else {
-                UpstreamChangeEvent(chain, current, UpstreamChangeEvent.ChangeType.REVALIDATED)
-            }
-        }
-    }
-
-    fun get(chain: Chain): DefaultUpstream {
-        return known[chain]!!
     }
 }

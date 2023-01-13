@@ -47,11 +47,11 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.net.URI
 import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Function
 import kotlin.math.abs
@@ -68,13 +68,13 @@ open class ConfiguredUpstreams(
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
     private var seq = AtomicInteger(0)
-
     private val hashes: MutableMap<Byte, Boolean> = HashMap()
+
+    lateinit var grpcUpstreamsScheduler: Scheduler
 
     override fun run(args: ApplicationArguments) {
         log.debug("Starting upstreams")
         val defaultOptions = buildDefaultOptions(config)
-        val observerScheduler = Schedulers.newParallel("status-observer", 3)
         config.upstreams.forEach { up ->
             if (!up.isEnabled) {
                 log.debug("Upstream ${up.id} is disabled")
@@ -111,20 +111,8 @@ open class ConfiguredUpstreams(
                     }
                 }
                 upstream?.let {
-                    Flux.concat(Mono.just(UpstreamChangeEvent.ChangeType.ADDED), upstream.observeStatus())
-                        .distinctUntilChanged()
-                        .subscribeOn(observerScheduler)
-                        .subscribe { status ->
-                            when (status) {
-                                UpstreamAvailability.UNAVAILABLE -> UpstreamChangeEvent.ChangeType.REMOVED
-                                else -> UpstreamChangeEvent.ChangeType.REVALIDATED
-                            }.let { eventType ->
-                                if (eventType == UpstreamChangeEvent.ChangeType.REMOVED) {
-                                    log.warn("Remove upstream ${it::class.java.simpleName}:${upstream.getId()} due to $status")
-                                }
-                                eventPublisher.publishEvent(UpstreamChangeEvent(chain, upstream, eventType))
-                            }
-                        }
+                    val event = UpstreamChangeEvent(chain, upstream, UpstreamChangeEvent.ChangeType.ADDED)
+                    eventPublisher.publishEvent(event)
                 }
             }
         }
@@ -301,6 +289,12 @@ open class ConfiguredUpstreams(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
         options: UpstreamsConfig.Options
     ) {
+        if (!this::grpcUpstreamsScheduler.isInitialized) {
+            grpcUpstreamsScheduler = Schedulers.fromExecutorService(
+                Executors.newFixedThreadPool(2),
+                "GrpcUpstreamsStatuses"
+            )
+        }
         val endpoint = config.connection!!
         val hash = getHash(nodeId, "${endpoint.host}:${endpoint.port}")
         val ds = GrpcUpstreams(
@@ -313,6 +307,7 @@ open class ConfiguredUpstreams(
             fileResolver,
             endpoint.upstreamRating,
             config.labels,
+            grpcUpstreamsScheduler,
             channelExecutor
         ).apply {
             timeout = options.timeout

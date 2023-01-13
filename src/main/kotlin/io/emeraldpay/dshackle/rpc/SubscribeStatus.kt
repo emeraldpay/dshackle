@@ -22,33 +22,30 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @Service
 class SubscribeStatus(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    private val multistreamHolder: MultistreamHolder
 ) {
 
     fun subscribeStatus(requestMono: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {
         return requestMono.flatMapMany { req ->
-            // check status for all requested chains
-            val all = req.chainsList.map {
-                val chain = Chain.byId(it.number)
-                val up = multistreamHolder.getUpstream(chain)
-                if (up == null) {
-                    // when the chain is not configured return just UNAVAILABLE
-                    Mono.just(chainUnavailable(chain)).flux()
-                } else {
-                    // when configured subscribe to its updates
+            if (req.chainsCount == 0) {
+                Flux.error(RuntimeException("empty chains list"))
+            } else {
+                // check status for all requested chains
+                val all = req.chainsList.map {
+                    val chain = Chain.byId(it.number)
+                    val up = multistreamHolder.getUpstream(chain)
                     up.observeStatus().map { availability ->
                         chainStatus(chain, availability, up)
                     }
                 }
+                Flux.merge(all)
             }
-            Flux.merge(all)
         }
     }
 
@@ -74,6 +71,4 @@ class SubscribeStatus(
             .setQuorum(quorum)
             .build()
     }
-
-    class ChainSubscription(val chain: Chain, val up: Multistream, val avail: UpstreamAvailability)
 }
