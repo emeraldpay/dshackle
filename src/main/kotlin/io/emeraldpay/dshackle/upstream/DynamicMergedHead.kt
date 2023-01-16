@@ -40,10 +40,12 @@ open class DynamicMergedHead(
     }
 
     fun addHead(upstream: Upstream) {
+        log.debug("adding upstream head of [${upstream.getId()}] to dynamic head of [$label]. Current heads ${dynamicFlux.getKeys()}")
         dynamicFlux.add(upstream.getHead().getFlux(), upstream.getId())
     }
 
     fun removeHead(id: String) {
+        log.debug("removing upstream head of [$id] from dynamic head $label. Current heads ${dynamicFlux.getKeys()}")
         dynamicFlux.remove(id)
     }
 }

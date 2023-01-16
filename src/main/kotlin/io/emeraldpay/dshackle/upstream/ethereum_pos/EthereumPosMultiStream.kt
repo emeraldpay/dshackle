@@ -31,13 +31,14 @@ import org.slf4j.LoggerFactory
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumPosMultiStream(
     chain: Chain,
     val upstreams: MutableList<EthereumPosUpstream>,
-    caches: Caches
+    caches: Caches,
+    headScheduler: Scheduler
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
     companion object {
@@ -47,7 +48,7 @@ open class EthereumPosMultiStream(
     private var head: DynamicMergedHead = DynamicMergedHead(
         PriorityForkChoice(),
         "ETH Pos Multistream",
-        Schedulers.boundedElastic()
+        headScheduler
     )
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())

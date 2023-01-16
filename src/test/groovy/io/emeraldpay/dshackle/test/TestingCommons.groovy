@@ -38,6 +38,7 @@ import io.emeraldpay.dshackle.Chain
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry
 import org.apache.commons.lang3.StringUtils
+import reactor.core.scheduler.Schedulers
 
 import java.time.Instant
 
@@ -84,7 +85,7 @@ class TestingCommons {
     }
 
     static Multistream multistream(EthereumPosRpcUpstreamMock up) {
-        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default()).tap {
+        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default(), Schedulers.boundedElastic()).tap {
             start()
         }
     }
@@ -105,11 +106,11 @@ class TestingCommons {
     }
 
     static Multistream multistreamWithoutUpstreams(Chain chain) {
-        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain))
+        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic())
     }
 
     static Multistream multistreamClassicWithoutUpstreams(Chain chain) {
-        return new EthereumMultistream(chain, [], emptyCaches().getCaches(chain))
+        return new EthereumMultistream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic())
     }
 
     static FileResolver fileResolver() {
@@ -148,6 +149,4 @@ class TestingCommons {
     }
 
     static MeterRegistry meterRegistry = new LoggingMeterRegistry()
-
-    static CallTargetsHolder callTargetsHolder = new CallTargetsHolder()
 }

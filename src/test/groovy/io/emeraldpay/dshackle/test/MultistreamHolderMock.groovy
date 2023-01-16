@@ -34,6 +34,7 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 
 import org.jetbrains.annotations.NotNull
+import reactor.core.scheduler.Schedulers
 
 class MultistreamHolderMock implements MultistreamHolder {
 
@@ -50,7 +51,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                 if (up instanceof EthereumPosMultiStream) {
                     upstreams[chain] = up
                 } else if (up instanceof EthereumPosRpcUpstream) {
-                    upstreams[chain] = new EthereumPosMultiStream(chain, [up as EthereumPosRpcUpstream], Caches.default())
+                    upstreams[chain] = new EthereumPosMultiStream(chain, [up as EthereumPosRpcUpstream], Caches.default(), Schedulers.boundedElastic())
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -98,7 +99,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         Head customHead = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches)
+            super(chain, upstreams, caches, Schedulers.boundedElastic())
         }
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams) {
