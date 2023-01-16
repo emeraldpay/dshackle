@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class DynamicMergeFlux<K : Any, T>(private val scheduler: Scheduler) {
 
-    private val merge = Sinks.many().multicast().onBackpressureBuffer<T>()
+    private val merge = Sinks.many().multicast().directBestEffort<T>()
     private val sources = ConcurrentHashMap<K, Disposable>()
 
     fun add(flux: Flux<T>, id: K) {
@@ -30,4 +30,6 @@ class DynamicMergeFlux<K : Any, T>(private val scheduler: Scheduler) {
         sources.forEach { (_, d) -> d.dispose() }
         merge.emitComplete { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
     }
+
+    fun getKeys(): List<K> = sources.keys().toList()
 }

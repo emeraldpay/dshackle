@@ -8,23 +8,27 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import reactor.core.scheduler.Scheduler
 
 @Configuration
 open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) {
     @Bean
     open fun allMultistreams(
         cachesFactory: CachesFactory,
-        callTargetsHolder: CallTargetsHolder
+        callTargetsHolder: CallTargetsHolder,
+        @Qualifier("headMergedScheduler")
+        headScheduler: Scheduler
     ): List<Multistream> {
         return Chain.values()
             .filterNot { it == Chain.UNSPECIFIED }
             .mapNotNull { chain ->
                 when (BlockchainType.from(chain)) {
-                    BlockchainType.EVM_POS -> ethereumPosMultistream(chain, cachesFactory)
-                    BlockchainType.EVM_POW -> ethereumMultistream(chain, cachesFactory)
+                    BlockchainType.EVM_POS -> ethereumPosMultistream(chain, cachesFactory, headScheduler)
+                    BlockchainType.EVM_POW -> ethereumMultistream(chain, cachesFactory, headScheduler)
                     BlockchainType.BITCOIN -> bitcoinMultistream(chain, cachesFactory)
                     else -> null
                 }
@@ -33,27 +37,31 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
 
     private fun ethereumMultistream(
         chain: Chain,
-        cachesFactory: CachesFactory
+        cachesFactory: CachesFactory,
+        headScheduler: Scheduler
     ): EthereumMultistream {
         val name = "multi-ethereum-$chain"
 
         return EthereumMultistream(
             chain,
             ArrayList(),
-            cachesFactory.getCaches(chain)
+            cachesFactory.getCaches(chain),
+            headScheduler
         ).also { register(it, name) }
     }
 
     open fun ethereumPosMultistream(
         chain: Chain,
-        cachesFactory: CachesFactory
+        cachesFactory: CachesFactory,
+        headScheduler: Scheduler
     ): EthereumPosMultiStream {
         val name = "multi-ethereum-pos-$chain"
 
         return EthereumPosMultiStream(
             chain,
             ArrayList(),
-            cachesFactory.getCaches(chain)
+            cachesFactory.getCaches(chain),
+            headScheduler
         ).also { register(it, name) }
     }
 

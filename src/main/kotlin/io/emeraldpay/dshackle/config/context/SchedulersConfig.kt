@@ -22,6 +22,11 @@ open class SchedulersConfig {
         return makeScheduler("tracktx-scheduler", "tracktx", 5, monitoringConfig)
     }
 
+    @Bean
+    open fun headMergedScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("head-scheduler", "head_merge", 5, monitoringConfig)
+    }
+
     private fun makeScheduler(name: String, prefix: String, size: Int, monitoringConfig: MonitoringConfig): Scheduler {
         val pool = Executors.newFixedThreadPool(size, CustomizableThreadFactory("$name-%d"))
 
