@@ -11,6 +11,8 @@ import io.emeraldpay.dshackle.Chain
 import org.springframework.context.ApplicationEventPublisher
 import spock.lang.Specification
 
+import java.util.concurrent.Executors
+
 class ConfiguredUpstreamsSpec extends Specification {
 
     def "Applied  quorum to extra methods"() {
@@ -20,7 +22,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
                 callTargetsHolder,
-                Mock(ApplicationEventPublisher)
+                Mock(ApplicationEventPublisher),
+                Executors.newFixedThreadPool(1)
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -45,7 +48,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
                 callTargetsHolder,
-                Mock(ApplicationEventPublisher)
+                Mock(ApplicationEventPublisher),
+                Executors.newFixedThreadPool(1)
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -69,7 +73,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
                 callTargetsHolder,
-                Mock(ApplicationEventPublisher)
+                Mock(ApplicationEventPublisher),
+                Executors.newFixedThreadPool(1)
         )
         expect:
         configurer.getHash(node, src) == expected
@@ -88,7 +93,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
                 callTargetsHolder,
-                Mock(ApplicationEventPublisher)
+                Mock(ApplicationEventPublisher),
+                Executors.newFixedThreadPool(1)
         )
         when:
         def h1 = configurer.getHash(null, "hohoho")
@@ -112,7 +118,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
                 callTargetsHolder,
-                Mock(ApplicationEventPublisher)
+                Mock(ApplicationEventPublisher),
+                Executors.newFixedThreadPool(1)
         )
         def methodsGroup = new UpstreamsConfig.MethodGroups(
                 ["filter"] as Set,
