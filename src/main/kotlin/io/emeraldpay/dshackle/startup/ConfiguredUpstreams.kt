@@ -42,6 +42,7 @@ import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.ApplicationEventPublisher
@@ -50,6 +51,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import java.net.URI
+import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Function
 import kotlin.math.abs
@@ -59,7 +61,9 @@ open class ConfiguredUpstreams(
     private val fileResolver: FileResolver,
     private val config: UpstreamsConfig,
     private val callTargets: CallTargetsHolder,
-    private val eventPublisher: ApplicationEventPublisher
+    private val eventPublisher: ApplicationEventPublisher,
+    @Qualifier("grpcChannelExecutor")
+    private val channelExecutor: Executor
 ) : ApplicationRunner {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -308,7 +312,8 @@ open class ConfiguredUpstreams(
             endpoint.auth,
             fileResolver,
             endpoint.upstreamRating,
-            config.labels
+            config.labels,
+            channelExecutor
         ).apply {
             timeout = options.timeout
         }

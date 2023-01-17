@@ -40,7 +40,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.grpc.ManagedChannel
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -120,7 +119,6 @@ open class EthereumPosGrpcUpstream(
     }
 
     override fun stop() {
-
     }
 
     override fun update(conf: BlockchainOuterClass.DescribeChain) {

@@ -45,6 +45,7 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import java.io.IOException
 import java.time.Duration
+import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -58,7 +59,8 @@ class GrpcUpstreams(
     private val auth: AuthConfig.ClientTlsAuth? = null,
     private val fileResolver: FileResolver,
     private val nodeRating: Int,
-    private val labels: UpstreamsConfig.Labels
+    private val labels: UpstreamsConfig.Labels,
+    private val executor: Executor
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -73,6 +75,7 @@ class GrpcUpstreams(
             // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
             .maxInboundMessageSize(Defaults.maxMessageSize)
             .enableRetry()
+            .executor(executor)
             .maxRetryAttempts(3)
         if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             chanelBuilder
