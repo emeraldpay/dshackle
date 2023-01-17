@@ -198,7 +198,7 @@ abstract class Multistream(
             }
             lagObserver?.stop()
             lagObserver = null
-            if (upstreams.isNotEmpty()) {
+            if (upstreams.size > 1) {
                 lagObserver = makeLagObserver()
             }
         }

@@ -66,7 +66,7 @@ open class GrpcServer(
             serverBuilder.addService(it)
         }
 
-        val pool = Executors.newFixedThreadPool(20, CustomizableThreadFactory("fixed-grpc-%d"))
+        val pool = Executors.newFixedThreadPool(20, CustomizableThreadFactory("fixed-grpc-"))
 
         serverBuilder.executor(
             if (mainConfig.monitoring.enableExtended)

@@ -28,7 +28,7 @@ open class SchedulersConfig {
     }
 
     private fun makeScheduler(name: String, prefix: String, size: Int, monitoringConfig: MonitoringConfig): Scheduler {
-        val pool = Executors.newFixedThreadPool(size, CustomizableThreadFactory("$name-%d"))
+        val pool = Executors.newFixedThreadPool(size, CustomizableThreadFactory("$name-"))
 
         return Schedulers.fromExecutorService(
             if (monitoringConfig.enableExtended)
