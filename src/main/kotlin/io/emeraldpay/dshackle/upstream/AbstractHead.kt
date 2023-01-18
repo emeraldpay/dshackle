@@ -28,7 +28,6 @@ import reactor.core.publisher.Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER
 import reactor.core.publisher.Sinks.EmitResult.OK
 import reactor.core.scheduler.Schedulers
 import reactor.kotlin.core.publisher.toMono
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
@@ -45,8 +44,6 @@ abstract class AbstractHead @JvmOverloads constructor(
 
     companion object {
         private val log = LoggerFactory.getLogger(AbstractHead::class.java)
-        private val instances: MutableMap<String, AtomicInteger> = ConcurrentHashMap()
-        private val running: MutableMap<String, AtomicInteger> = ConcurrentHashMap()
         private val executor = Executors.newSingleThreadScheduledExecutor()
     }
 
@@ -60,23 +57,13 @@ abstract class AbstractHead @JvmOverloads constructor(
     private val delayed = AtomicBoolean(false)
 
     init {
-
         val className = this.javaClass.simpleName
-
         Gauge.builder("stuck_head", delayed) {
             if (it.get()) 1.0 else 0.0
         }.tag("upstream", upstreamId).tag("class", className).register(Metrics.globalRegistry)
         Gauge.builder("current_head", forkChoice) {
             it.getHead()?.height?.toDouble() ?: 0.0
         }.tag("upstream", upstreamId).tag("class", className).register(Metrics.globalRegistry)
-
-        instances.computeIfAbsent(className) {
-            AtomicInteger(0).also { toHeadCountMetric(it, "allocated") }
-        }.incrementAndGet()
-    }
-
-    protected fun finalize() {
-        instances[this.javaClass.simpleName]?.decrementAndGet()
     }
 
     fun follow(source: Flux<BlockContainer>): Disposable {
@@ -164,7 +151,6 @@ abstract class AbstractHead @JvmOverloads constructor(
         stopping = true
         log.debug("Stop ${this.javaClass.simpleName} $upstreamId")
         future?.let {
-            running[this.javaClass.simpleName]?.decrementAndGet()
             it.cancel(true)
         }
         future = null
@@ -183,10 +169,6 @@ abstract class AbstractHead @JvmOverloads constructor(
                     }
                 }, 180, 30, TimeUnit.SECONDS
             )
-
-            running.computeIfAbsent(this.javaClass.simpleName) {
-                AtomicInteger(0).also { toHeadCountMetric(it, "running") }
-            }.incrementAndGet()
         }
     }
 
