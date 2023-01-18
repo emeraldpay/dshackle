@@ -172,8 +172,8 @@ jib {
             add project.version.toString().replaceAll('(\\d+\\.\\d+).+', '$1')
         }
         auth {
-            username = System.getenv('DOCKERHUB_USERNAME')
-            password = System.getenv('DOCKERHUB_TOKEN')
+            username = System.getenv('DOCKERHUB_USERNAME') ?: ''
+            password = System.getenv('DOCKERHUB_TOKEN') ?: ''
         }
     }
     container {
