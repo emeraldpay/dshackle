@@ -39,8 +39,8 @@ group = 'io.emeraldpay.dshackle'
 version = '0.21.0-SNAPSHOT'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_13
-    targetCompatibility = JavaVersion.VERSION_13
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 repositories {
@@ -115,12 +115,12 @@ dependencies {
 
 compileKotlin {
     kotlinOptions {
-        jvmTarget = "13"
+        jvmTarget = "17"
     }
 }
 compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "13"
+        jvmTarget = "17"
     }
 }
 
@@ -153,7 +153,7 @@ application {
 
 jib {
     from {
-        image = 'openjdk:13'
+        image = 'openjdk:17'
     }
     to {
         // by default publish as:
@@ -293,26 +293,19 @@ jacoco {
 }
 
 detekt {
-    toolVersion = "1.18.1"
+    toolVersion = "1.22.0"
     parallel = false
     basePath = projectDir
     debug = false
     ignoreFailures = true
-
-    reports {
-        xml {
-            enabled = true
-            destination = file("build/reports/detekt/detekt.xml")
-        }
-        html {
-            enabled = true
-            destination = file("build/reports/detekt/detekt.html")
-        }
-    }
 }
 
 tasks.withType(Detekt).configureEach {
-    jvmTarget = "13"
+    reports {
+        xml.outputLocation.set(file("build/reports/detekt/detekt.xml"))
+        html.outputLocation.set(file("build/reports/detekt/detekt.html"))
+    }
+    jvmTarget = "17"
 }
 
 // formats code for each build
