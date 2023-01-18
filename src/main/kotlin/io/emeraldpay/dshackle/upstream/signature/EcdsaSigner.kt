@@ -17,7 +17,7 @@ class EcdsaSigner(
     }
 
     override fun sign(nonce: Long, message: ByteArray, source: String): ResponseSigner.Signature {
-        val sig = Signature.getInstance(SIGN_SCHEME)
+        val sig = Signature.getInstance(SIGN_SCHEME, "BC")
         sig.initSign(privateKey)
         val wrapped = wrapMessage(nonce, message, source)
         sig.update(wrapped.toByteArray())
