@@ -34,6 +34,7 @@ open class DynamicMergedHead(
 
     override fun stop() {
         super.stop()
+        log.info("Stop dynamic merged head for [$label]")
         dynamicFlux.stop()
         subscription?.dispose()
         subscription = null
