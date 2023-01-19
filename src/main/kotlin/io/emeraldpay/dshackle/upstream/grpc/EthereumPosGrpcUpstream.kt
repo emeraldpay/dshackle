@@ -108,7 +108,7 @@ open class EthereumPosGrpcUpstream(
     private var capabilities: Set<Capability> = emptySet()
 
     private val defaultReader: JsonRpcReader = client.getReader()
-    var timeout = Defaults.timeout
+    private val timeout = Defaults.timeout
     private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
 
     override fun start() {

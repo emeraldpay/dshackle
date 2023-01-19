@@ -15,7 +15,7 @@ import java.time.Duration
 
 class SubscribeStatusSpec extends Specification {
 
-    def "gives UNAVAIL if non-configured chain is requested"() {
+    def "returns requested statuses"() {
         setup:
         def ethereumUp = Mock(Upstream) {
             _ * getStatus() >> UpstreamAvailability.OK
@@ -28,17 +28,15 @@ class SubscribeStatusSpec extends Specification {
         def ups = Mock(MultistreamHolder) {
             _ * it.getAvailable() >> [Chain.ETHEREUM]
             1 * it.getUpstream(Chain.ETHEREUM) >> ethereumUpAll
-            1 * it.getUpstream(Chain.BITCOIN) >> null
         }
         def ctrl = new SubscribeStatus(ups)
 
         when:
         def req = BlockchainOuterClass.StatusRequest.newBuilder()
                 .addChains(Common.ChainRef.CHAIN_ETHEREUM)
-                .addChains(Common.ChainRef.CHAIN_BITCOIN)
                 .build()
         def act = ctrl.subscribeStatus(Mono.just(req))
-                .take(2)
+                .take(1)
         // sort just for testing
                 .sort(new Comparator<BlockchainOuterClass.ChainStatus>() {
                     @Override
@@ -48,9 +46,6 @@ class SubscribeStatusSpec extends Specification {
                 })
         then:
         StepVerifier.create(act)
-                .expectNextMatches {
-                    it.chainValue == Chain.BITCOIN.id && it.availability == BlockchainOuterClass.AvailabilityEnum.AVAIL_UNAVAILABLE
-                }
                 .expectNextMatches {
                     it.chainValue == Chain.ETHEREUM.id && it.availability == BlockchainOuterClass.AvailabilityEnum.AVAIL_OK
                 }

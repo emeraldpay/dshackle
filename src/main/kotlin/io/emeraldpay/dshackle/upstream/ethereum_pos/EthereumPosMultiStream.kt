@@ -47,7 +47,7 @@ open class EthereumPosMultiStream(
 
     private var head: DynamicMergedHead = DynamicMergedHead(
         PriorityForkChoice(),
-        "ETH Pos Multistream",
+        "ETH Pos Multistream of ${chain.chainCode}",
         headScheduler
     )
 

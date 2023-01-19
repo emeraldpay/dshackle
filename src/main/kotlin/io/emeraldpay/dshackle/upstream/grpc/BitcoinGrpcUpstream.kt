@@ -98,7 +98,7 @@ class BitcoinGrpcUpstream(
     }
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
     private val grpcHead = GrpcHead(chain, this, remote, blockConverter, reloadBlock, MostWorkForkChoice())
-    var timeout = Defaults.timeout
+    private val timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
 
     override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {

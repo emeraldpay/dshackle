@@ -80,7 +80,6 @@ abstract class DefaultUpstream(
 
     fun onStatus(value: BlockchainOuterClass.ChainStatus) {
         val available = value.availability
-        val quorum = value.quorum
         setStatus(
             if (available != null) UpstreamAvailability.fromGrpc(available.number) else UpstreamAvailability.UNAVAILABLE
         )
@@ -98,7 +97,7 @@ abstract class DefaultUpstream(
         }
     }
 
-    fun statusByLag(lag: Long, proposed: UpstreamAvailability): UpstreamAvailability {
+    private fun statusByLag(lag: Long, proposed: UpstreamAvailability): UpstreamAvailability {
         if (options.disableValidation == true) {
             // if we specifically told that this upstream should be _always valid_ then skip
             // the status calculation and trust the proposed value as is
