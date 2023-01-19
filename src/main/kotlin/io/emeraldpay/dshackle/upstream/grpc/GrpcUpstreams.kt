@@ -125,6 +125,7 @@ class GrpcUpstreams(
     }
 
     fun processDescription(value: BlockchainOuterClass.DescribeResponse): Flux<UpstreamChangeEvent> {
+        log.info("Start processing grpc upstream description for $id with chains ${value.chainsList.map { it.chain.name }}")
         val current = value.chainsList.filter {
             Chain.byId(it.chain.number) != Chain.UNSPECIFIED
         }.mapNotNull { chainDetails ->
@@ -149,6 +150,7 @@ class GrpcUpstreams(
         }.map {
             UpstreamChangeEvent(it.key, known.remove(it.key)!!, UpstreamChangeEvent.ChangeType.REMOVED)
         }
+        log.info("Finished processing of grpc upstream description for $id with content delta added [${added.map { it.chain }}] and removed [${removed.map { it.chain }}]")
         return Flux.fromIterable(removed + added)
     }
 
