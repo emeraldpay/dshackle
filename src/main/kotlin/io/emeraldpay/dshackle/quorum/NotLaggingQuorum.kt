@@ -36,6 +36,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
     private val resolvers: MutableCollection<Upstream> = ConcurrentLinkedQueue()
+    private var providedUpstreamId: String? = null
 
     override fun init(head: Head) {
     }
@@ -48,18 +49,28 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         return failed.get()
     }
 
-    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
+    override fun record(
+        response: ByteArray,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+        providedUpstreamId: String?
+    ): Boolean {
         val lagging = upstream.getLag() > maxLag
         if (!lagging) {
             result.set(response)
             sig = signature
+            this.providedUpstreamId = providedUpstreamId
             resolvers.add(upstream)
             return true
         }
         return false
     }
 
-    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun record(
+        error: JsonRpcException,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream
+    ) {
         this.rpcError = error.error
         val lagging = upstream.getLag() > maxLag
         if (!lagging && result.get() == null) {
@@ -70,6 +81,11 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     override fun getSignature(): ResponseSigner.Signature? {
         return sig
     }
+
+    override fun getProvidedUpstreamId(): String? {
+        return providedUpstreamId
+    }
+
     override fun getResult(): ByteArray {
         return result.get()
     }

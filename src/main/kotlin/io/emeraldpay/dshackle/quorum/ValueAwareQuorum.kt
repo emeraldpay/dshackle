@@ -37,27 +37,48 @@ abstract class ValueAwareQuorum<T>(
         return Global.objectMapper.readValue(response.inputStream(), clazz)
     }
 
-    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
+    override fun record(
+        response: ByteArray,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+        providedUpstreamId: String?
+    ): Boolean {
         try {
             val value = extractValue(response, clazz)
-            recordValue(response, value, signature, upstream)
+            recordValue(response, value, signature, upstream, providedUpstreamId)
             resolvers.add(upstream)
         } catch (e: RpcException) {
-            recordError(response, e.rpcMessage, signature, upstream)
+            recordError(response, e.rpcMessage, signature, upstream, providedUpstreamId)
         } catch (e: Exception) {
-            recordError(response, e.message, signature, upstream)
+            recordError(response, e.message, signature, upstream, providedUpstreamId)
         }
         return isResolved()
     }
 
-    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun record(
+        error: JsonRpcException,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream
+    ) {
         this.rpcError = error.error
-        recordError(null, error.error.message, signature, upstream)
+        recordError(null, error.error.message, signature, upstream, null)
     }
 
-    abstract fun recordValue(response: ByteArray, responseValue: T?, signature: ResponseSigner.Signature?, upstream: Upstream)
+    abstract fun recordValue(
+        response: ByteArray,
+        responseValue: T?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+        providedUpstreamId: String?
+    )
 
-    abstract fun recordError(response: ByteArray?, errorMessage: String?, signature: ResponseSigner.Signature?, upstream: Upstream)
+    abstract fun recordError(
+        response: ByteArray?,
+        errorMessage: String?,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+        providedUpstreamId: String?
+    )
 
     override fun getError(): JsonRpcError? {
         return rpcError

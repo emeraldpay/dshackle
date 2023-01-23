@@ -61,8 +61,6 @@ class NonEmptyQuorumSpec extends Specification {
         setup:
         def q = Spy(new NonEmptyQuorum(3))
         def upstream1 = Stub(Upstream)
-        def upstream2 = Stub(Upstream)
-        def upstream3 = Stub(Upstream)
 
         when:
         q.init(Stub(Head))
@@ -71,7 +69,7 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record('"0x11"'.bytes, null, upstream1)
+        q.record('"0x11"'.bytes, null, upstream1, null)
         then:
         q.isResolved()
         !q.isFailed()
@@ -82,7 +80,6 @@ class NonEmptyQuorumSpec extends Specification {
         def q = Spy(new NonEmptyQuorum(3))
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
-        def upstream3 = Stub(Upstream)
 
         when:
         q.init(Stub(Head))
@@ -98,7 +95,7 @@ class NonEmptyQuorumSpec extends Specification {
         q.signature == null
 
         when:
-        q.record('"0x11"'.bytes, null, upstream2)
+        q.record('"0x11"'.bytes, null, upstream2, null)
         then:
         q.isResolved()
         !q.isFailed()
@@ -108,8 +105,6 @@ class NonEmptyQuorumSpec extends Specification {
         setup:
         def q = Spy(new NonEmptyQuorum(3))
         def upstream1 = Stub(Upstream)
-        def upstream2 = Stub(Upstream)
-        def upstream3 = Stub(Upstream)
 
         when:
         q.init(Stub(Head))
@@ -118,14 +113,14 @@ class NonEmptyQuorumSpec extends Specification {
         !q.isFailed()
 
         when:
-        q.record('null'.bytes, null, upstream2)
+        q.record('null'.bytes, null, upstream1, null)
         then:
         !q.isFailed()
         !q.isResolved()
 
 
         when:
-        q.record('"0x11"'.bytes, null, upstream2)
+        q.record('"0x11"'.bytes, null, upstream1, null)
         then:
         q.isResolved()
         !q.isFailed()

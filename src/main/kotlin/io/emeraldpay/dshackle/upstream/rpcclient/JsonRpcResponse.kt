@@ -29,7 +29,8 @@ class JsonRpcResponse(
     /**
      * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
      */
-    val providedSignature: ResponseSigner.Signature? = null
+    val providedSignature: ResponseSigner.Signature? = null,
+    val providedUpstreamId: String? = null
 ) {
 
     constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
@@ -113,11 +114,7 @@ class JsonRpcResponse(
     }
 
     fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, providedSignature)
-    }
-
-    fun copyWithSignature(signature: ResponseSigner.Signature): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, signature)
+        return JsonRpcResponse(result, error, id, providedSignature, providedUpstreamId)
     }
 
     override fun equals(other: Any?): Boolean {

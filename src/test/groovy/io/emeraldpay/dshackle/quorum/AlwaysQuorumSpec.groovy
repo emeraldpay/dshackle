@@ -42,7 +42,7 @@ class AlwaysQuorumSpec extends Specification {
         def quorum = new AlwaysQuorum()
         def up = Stub(Upstream)
         when:
-        quorum.record("123".bytes, new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
+        quorum.record("123".bytes, new ResponseSigner.Signature("sig1".bytes, "test", 100), up, null)
         then:
         quorum.isResolved()
         quorum.getResult() == "123".bytes

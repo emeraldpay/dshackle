@@ -29,6 +29,7 @@ open class AlwaysQuorum : CallQuorum {
     private var result: ByteArray? = null
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
+    private var providedUpstreamId: String? = null
     private val resolvers: MutableCollection<Upstream> = ConcurrentLinkedQueue()
 
     override fun init(head: Head) {
@@ -46,15 +47,29 @@ open class AlwaysQuorum : CallQuorum {
         return sig
     }
 
-    override fun record(response: ByteArray, signature: ResponseSigner.Signature?, upstream: Upstream): Boolean {
+    override fun getProvidedUpstreamId(): String? {
+        return providedUpstreamId
+    }
+
+    override fun record(
+        response: ByteArray,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream,
+        providedUpstreamId: String?
+    ): Boolean {
         result = response
         resolved = true
         sig = signature
         resolvers.add(upstream)
+        this.providedUpstreamId = providedUpstreamId
         return true
     }
 
-    override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
+    override fun record(
+        error: JsonRpcException,
+        signature: ResponseSigner.Signature?,
+        upstream: Upstream
+    ) {
         this.rpcError = error.error
         sig = signature
     }

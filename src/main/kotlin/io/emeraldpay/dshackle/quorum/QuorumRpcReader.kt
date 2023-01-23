@@ -27,8 +27,8 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.util.function.Tuple2
 import reactor.util.function.Tuple3
+import reactor.util.function.Tuple4
 import reactor.util.function.Tuples
 import java.util.Optional
 import java.util.concurrent.atomic.AtomicInteger
@@ -90,8 +90,8 @@ class QuorumRpcReader(
     }
 
     fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
-        val quorumReduce = BiFunction<CallQuorum, Tuple3<ByteArray, Optional<ResponseSigner.Signature>, Upstream>, CallQuorum> { res, a ->
-            if (res.record(a.t1, a.t2.orElse(null), a.t3)) {
+        val quorumReduce = BiFunction<CallQuorum, Tuple4<ByteArray, Optional<ResponseSigner.Signature>, Upstream, Optional<String>>, CallQuorum> { res, a ->
+            if (res.record(a.t1, a.t2.orElse(null), a.t3, a.t4.orElse(null))) {
                 apiControl.resolve()
             } else {
                 // quorum needs more responses, so ask api controller to make another
@@ -119,25 +119,25 @@ class QuorumRpcReader(
                 .filter { it.isResolved() } // return nothing if not resolved
                 .map { quorum ->
                     // TODO find actual quorum number
-                    Result(quorum.getResult()!!, quorum.getSignature(), 1, quorum.getResolvedBy())
+                    Result(quorum.getResult()!!, quorum.getSignature(), 1, quorum.getResolvedBy(), quorum.getProvidedUpstreamId())
                 }
                 .switchIfEmpty(defaultResult)
         }
     }
 
-    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple3<ByteArray, Optional<ResponseSigner.Signature>, Upstream>> {
+    fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple4<ByteArray, Optional<ResponseSigner.Signature>, Upstream, Optional<String>>> {
         return api.getIngressReader()
             .read(key)
             .flatMap { response ->
                 response.requireResult()
-                    .transform(withSignature(api, key, response))
+                    .transform(withSignatureAndUpstream(api, key, response))
             }
             // must catch not only the processing of a response but also errors thrown from the .read() call
             .transform(withErrorResume(api, key))
-            .map { Tuples.of(it.t1, it.t2, api) }
+            .map { Tuples.of(it.t1, it.t2, api, it.t3) }
     }
 
-    fun withSignature(api: Upstream, key: JsonRpcRequest, response: JsonRpcResponse): Function<Mono<ByteArray>, Mono<Tuple2<ByteArray, Optional<ResponseSigner.Signature>>>> {
+    fun withSignatureAndUpstream(api: Upstream, key: JsonRpcRequest, response: JsonRpcResponse): Function<Mono<ByteArray>, Mono<Tuple3<ByteArray, Optional<ResponseSigner.Signature>, Optional<String>>>> {
         return Function { src ->
             src.map {
                 val signature = response.providedSignature
@@ -146,7 +146,7 @@ class QuorumRpcReader(
                     } else {
                         null
                     }
-                Tuples.of(it, Optional.ofNullable(signature))
+                Tuples.of(it, Optional.ofNullable(signature), Optional.ofNullable(response.providedUpstreamId))
             }
         }
     }
@@ -165,7 +165,7 @@ class QuorumRpcReader(
                         JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}: ${err.message}")
                     )
                 }
-                quorum.record(cleanErr, null, api)
+                quorum.record(cleanErr, null, api,)
                 // if it's failed after that, then we don't need more calls, stop api source
                 if (quorum.isFailed()) {
                     apiControl.resolve()
@@ -198,6 +198,7 @@ class QuorumRpcReader(
         val value: ByteArray,
         val signature: ResponseSigner.Signature?,
         val quorum: Int,
-        val resolvers: Collection<Upstream>
+        val resolvers: Collection<Upstream>,
+        val providedUpstreamId: String?
     )
 }
