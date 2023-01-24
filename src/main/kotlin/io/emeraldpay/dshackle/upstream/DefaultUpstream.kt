@@ -20,6 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import java.util.concurrent.atomic.AtomicReference
@@ -63,6 +64,10 @@ abstract class DefaultUpstream(
     ) :
         this(id, hash, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node)
 
+    companion object {
+        private val log = LoggerFactory.getLogger(DefaultUpstream::class.java)
+    }
+
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream = Sinks.many()
         .multicast()
@@ -93,7 +98,8 @@ abstract class DefaultUpstream(
         status.updateAndGet { curr ->
             Status(curr.lag, avail, statusByLag(curr.lag, avail))
         }.also {
-            statusStream.tryEmitNext(it.status)
+            statusStream.emitNext(it.status) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+            log.debug("Status of upstream [$id] changed to [$it], requested change status to [$avail]")
         }
     }
 
@@ -122,7 +128,8 @@ abstract class DefaultUpstream(
             status.updateAndGet { curr ->
                 Status(nLag, curr.avail, statusByLag(nLag, curr.avail))
             }.also {
-                statusStream.tryEmitNext(it.status)
+                statusStream.emitNext(it.status) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                log.debug("Status of upstream [$id] changed to [$it], requested change lag to [$lag]")
             }
         }
     }
