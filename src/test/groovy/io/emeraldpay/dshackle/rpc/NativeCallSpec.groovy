@@ -131,7 +131,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1, Collections.singletonList(ups)))
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
@@ -613,7 +613,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups)))
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
@@ -648,7 +648,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
             1 * create(_, _, _) >> Mock(Reader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups)))
+                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,

@@ -66,14 +66,14 @@ class ValueAwareQuorumSpec extends Specification {
         }
 
         @Override
-        void recordValue(@NotNull byte[] response, @Nullable Object responseValue, @Nullable ResponseSigner.Signature signature, @NotNull Upstream upstream) {
+        void recordValue(@NotNull byte[] response, @Nullable Object responseValue, @Nullable ResponseSigner.Signature signature, @NotNull Upstream upstream, @Nullable String providedUpstreamId) {
 
         }
 
 
 
         @Override
-        void recordError(@Nullable byte[] response, @Nullable String errorMessage, @Nullable ResponseSigner.Signature signature, @NotNull Upstream upstream) {
+        void recordError(@Nullable byte[] response, @Nullable String errorMessage, @Nullable ResponseSigner.Signature signature, @NotNull Upstream upstream, @Nullable String providedUpstreamId) {
 
         }
 
@@ -100,6 +100,11 @@ class ValueAwareQuorumSpec extends Specification {
         @Override
         boolean isFailed() {
             return false
+        }
+
+        @Override
+        String getProvidedUpstreamId() {
+            return null
         }
     }
 }

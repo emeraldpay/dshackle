@@ -18,12 +18,9 @@ package io.emeraldpay.dshackle.quorum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.quorum.NonceQuorum
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.etherjar.rpc.RpcException
 import spock.lang.Specification
 
 class NonceQuorumSpec extends Specification {
@@ -43,21 +40,21 @@ class NonceQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record('"0x10"'.bytes, null, upstream1)
+        q.record('"0x10"'.bytes, null, upstream1, null)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0x10", _, _)
+        1 * q.recordValue(_, "0x10", _, _, _)
 
         when:
-        q.record('"0x11"'.bytes, null, upstream2)
+        q.record('"0x11"'.bytes, null, upstream2, null)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0x11", _, _)
+        1 * q.recordValue(_, "0x11", _, _, _)
 
         when:
-        q.record('"0x10"'.bytes, null, upstream3)
+        q.record('"0x10"'.bytes, null, upstream3, null)
         then:
-        1 * q.recordValue(_, "0x10", _, _)
+        1 * q.recordValue(_, "0x10", _, _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0x11"
     }
@@ -78,24 +75,24 @@ class NonceQuorumSpec extends Specification {
         q.record(new JsonRpcException(1, "Internal"), null, upstream1)
         then:
         !q.isResolved()
-        1 * q.recordError(_, _, _, _)
+        1 * q.recordError(_, _, _, _, _)
 
         when:
-        q.record('"0x11"'.bytes, null, upstream2)
+        q.record('"0x11"'.bytes, null, upstream2, null)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0x11", _, _)
+        1 * q.recordValue(_, "0x11", _, _, _)
 
         when:
-        q.record('"0x10"'.bytes, null, upstream3)
+        q.record('"0x10"'.bytes, null, upstream3, null)
         then:
-        1 * q.recordValue(_, "0x10", _, _)
+        1 * q.recordValue(_, "0x10", _, _, _)
         !q.isResolved()
 
         when:
-        q.record('"0x11"'.bytes, null, upstream1)
+        q.record('"0x11"'.bytes, null, upstream1, null)
         then:
-        1 * q.recordValue(_, "0x11", _, _)
+        1 * q.recordValue(_, "0x11", _, _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0x11"
     }

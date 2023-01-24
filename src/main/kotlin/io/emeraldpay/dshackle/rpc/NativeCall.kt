@@ -312,7 +312,7 @@ open class NativeCall(
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
                 validateResult(bytes, "remote", ctx)
-                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, it.resolvers.first().getId(), ctx)
+                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, it.providedUpstreamId ?: it.resolvers.first().getId(), ctx)
             }
             .onErrorResume { t ->
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, t, ctx))
