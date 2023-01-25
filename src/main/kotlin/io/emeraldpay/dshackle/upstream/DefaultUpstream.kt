@@ -163,5 +163,5 @@ abstract class DefaultUpstream(
         return quorumByLabel
     }
 
-    class Status(val lag: Long, val avail: UpstreamAvailability, val status: UpstreamAvailability)
+    data class Status(val lag: Long, val avail: UpstreamAvailability, val status: UpstreamAvailability)
 }
