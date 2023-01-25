@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Timer
+import org.apache.commons.lang3.RandomStringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.DependsOn
@@ -222,7 +223,11 @@ class BlockchainRpc(
     }
 
     override fun subscribeNodeStatus(request: Mono<BlockchainOuterClass.SubscribeNodeStatusRequest>): Flux<BlockchainOuterClass.NodeStatusResponse> {
-        return subscribeNodeStatus.subscribe(request).subscribeOn(scheduler).doOnError { failMetric.increment() }
+        val subId = RandomStringUtils.randomAlphanumeric(8)
+        log.debug("Subscription for node status with id [$subId] created")
+        return subscribeNodeStatus.subscribe(request).subscribeOn(scheduler)
+            .doOnError { failMetric.increment() }
+            .doOnNext { log.debug("Emitted next node status to [$subId] with data [$it] ") }
     }
 
     class RequestMetrics(val chain: Chain) {
