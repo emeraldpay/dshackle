@@ -5,13 +5,13 @@ import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.HttpFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.slf4j.LoggerFactory
 
 open class EthereumConnectorFactory(
     private val preferHttp: Boolean,
-    private val wsFactory: EthereumWsFactory?,
+    private val wsFactory: EthereumWsConnectionPoolFactory?,
     private val httpFactory: HttpFactory?,
     private val forkChoice: ForkChoice,
     private val blockValidator: BlockValidator

@@ -19,7 +19,7 @@ class WsConnectionImplRealSpec extends Specification {
     @Shared
     MockWSServer server
     @Shared
-    WsConnectionImpl conn
+    WsConnection conn
 
     def setup() {
         if (System.getenv("CI") == "true") {
@@ -31,7 +31,16 @@ class WsConnectionImplRealSpec extends Specification {
         server = new MockWSServer(port)
         server.start()
         Thread.sleep(SLEEP)
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(null)
+        conn = new EthereumWsConnectionPoolFactory(
+                "test",
+                1,
+                new EthereumWsConnectionFactory(
+                        "test",
+                        Chain.ETHEREUM,
+                        "ws://localhost:${port}".toURI(),
+                        "http://localhost:${port}".toURI()
+                )
+        ).create(null).getConnection()
     }
 
     def cleanup() {
@@ -101,7 +110,16 @@ class WsConnectionImplRealSpec extends Specification {
         def up = Mock(DefaultUpstream) {
             _ * getId() >> "test"
         }
-        conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI()).create(up)
+        conn = new EthereumWsConnectionPoolFactory(
+                "test",
+                1,
+                new EthereumWsConnectionFactory(
+                        "test",
+                        Chain.ETHEREUM,
+                        "ws://localhost:${port}".toURI(),
+                        "http://localhost:${port}".toURI()
+                )
+        ).create(up).getConnection()
         when:
         conn.connect()
         conn.reconnectIntervalSeconds = 10

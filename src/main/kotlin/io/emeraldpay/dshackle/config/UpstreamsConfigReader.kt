@@ -126,14 +126,8 @@ class UpstreamsConfigReader(
 
     private fun readBitcoinConnection(connConfigNode: MappingNode): UpstreamsConfig.BitcoinConnection {
         val connection = UpstreamsConfig.BitcoinConnection()
-        getMapping(connConfigNode, "rpc")?.let { node ->
-            getValueAsString(node, "url")?.let { url ->
-                val http = UpstreamsConfig.HttpEndpoint(URI(url))
-                connection.rpc = http
-                http.basicAuth = authConfigReader.readClientBasicAuth(node)
-                http.tls = authConfigReader.readClientTls(node)
-            }
-        }
+            .apply { rpc = readRpcConfig(connConfigNode) }
+
         getMapping(connConfigNode, "esplora")?.let { node ->
             getValueAsString(node, "url")?.let { url ->
                 val http = UpstreamsConfig.HttpEndpoint(URI(url))
@@ -164,6 +158,17 @@ class UpstreamsConfigReader(
         return connection
     }
 
+    private fun readRpcConfig(connConfigNode: MappingNode): UpstreamsConfig.HttpEndpoint? {
+        return getMapping(connConfigNode, "rpc")?.let { node ->
+            getValueAsString(node, "url")?.let { url ->
+                val http = UpstreamsConfig.HttpEndpoint(URI(url))
+                http.basicAuth = authConfigReader.readClientBasicAuth(node)
+                http.tls = authConfigReader.readClientTls(node)
+                http
+            }
+        }
+    }
+
     private fun readEthereumPosConnection(connConfigNode: MappingNode): UpstreamsConfig.EthereumPosConnection {
         val connection = UpstreamsConfig.EthereumPosConnection()
         getMapping(connConfigNode, "execution")?.let {
@@ -174,16 +179,11 @@ class UpstreamsConfigReader(
         }
         return connection
     }
+
     private fun readEthereumConnection(connConfigNode: MappingNode): UpstreamsConfig.EthereumConnection {
         val connection = UpstreamsConfig.EthereumConnection()
-        getMapping(connConfigNode, "rpc")?.let { node ->
-            getValueAsString(node, "url")?.let { url ->
-                val http = UpstreamsConfig.HttpEndpoint(URI(url))
-                connection.rpc = http
-                http.basicAuth = authConfigReader.readClientBasicAuth(node)
-                http.tls = authConfigReader.readClientTls(node)
-            }
-        }
+            .apply { rpc = readRpcConfig(connConfigNode) }
+
         getValueAsBool(connConfigNode, "prefer-http")?.let {
             connection.preferHttp = it
         }
@@ -207,6 +207,12 @@ class UpstreamsConfigReader(
                         throw IllegalStateException("msgSize cannot be less than 64Kb")
                     }
                     ws.msgSize = it
+                }
+                getValueAsInt(node, "connections")?.let {
+                    if (it < 1 || it > 1024) {
+                        throw IllegalStateException("connection limit should be in 1..1024")
+                    }
+                    ws.connections = it
                 }
             }
         }

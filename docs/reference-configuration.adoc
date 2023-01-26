@@ -768,6 +768,9 @@ Default is 5Mb
 Ex `1kb`, `1024` (same as `1kb), `2mb`, etc.
 Default is 15Mb
 
+| `ws.connections`
+| How many concurrent connection to make. If more than one, each used in a robin-round fashion.
+Defaults is `1`
 |===
 
 ==== PoS Ethereum Connection Options

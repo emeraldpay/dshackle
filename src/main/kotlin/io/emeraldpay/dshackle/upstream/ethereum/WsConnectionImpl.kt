@@ -18,8 +18,6 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.upstream.DefaultUpstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -28,6 +26,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsMessage
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.micrometer.core.instrument.Metrics
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.Unpooled
@@ -61,13 +60,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 open class WsConnectionImpl(
-    private val id: String,
     private val uri: URI,
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
-    private val upstream: DefaultUpstream?,
-) : AutoCloseable {
+    private val onDisconnect: () -> Unit
+) : AutoCloseable, WsConnection, Cloneable {
 
     companion object {
         private val log = LoggerFactory.getLogger(WsConnectionImpl::class.java)
@@ -124,7 +122,7 @@ open class WsConnectionImpl(
     private var connection: Disposable? = null
     private val reconnecting = AtomicBoolean(false)
 
-    open val isConnected: Boolean
+    override val isConnected: Boolean
         get() = connection != null && !reconnecting.get()
 
     fun setReconnectIntervalSeconds(value: Long) {
@@ -132,7 +130,7 @@ open class WsConnectionImpl(
         currentBackOff = reconnectBackoff.start()
     }
 
-    fun connect() {
+    override fun connect() {
         keepConnection = true
         connectInternal()
     }
@@ -179,10 +177,9 @@ open class WsConnectionImpl(
         connection = HttpClient.create()
             .resolver(DefaultAddressResolverGroup.INSTANCE)
             .doOnDisconnected {
+                onDisconnect()
                 disconnects.tryEmitNext(Instant.now())
                 log.info("Disconnected from $uri")
-                // mark upstream as UNAVAIL
-                upstream?.setStatus(UpstreamAvailability.UNAVAILABLE)
                 if (keepConnection) {
                     tryReconnectLater()
                 }
@@ -274,7 +271,7 @@ open class WsConnectionImpl(
         )
     }
 
-    fun onMessage(msg: ResponseWSParser.WsResponse): Mono<Void> {
+    private fun onMessage(msg: ResponseWSParser.WsResponse): Mono<Void> {
         return Mono.fromCallable {
             when (msg.type) {
                 ResponseWSParser.Type.RPC -> onMessageRpc(msg)
@@ -283,7 +280,7 @@ open class WsConnectionImpl(
         }.then()
     }
 
-    fun onMessageRpc(msg: ResponseWSParser.WsResponse) {
+    private fun onMessageRpc(msg: ResponseWSParser.WsResponse) {
         val rpcResponse = JsonRpcResponse(
             msg.value, msg.error, msg.id, null
         )
@@ -302,7 +299,7 @@ open class WsConnectionImpl(
         }
     }
 
-    fun onMessageSubscription(msg: ResponseWSParser.WsResponse) {
+    private fun onMessageSubscription(msg: ResponseWSParser.WsResponse) {
         val subscription = JsonRpcWsMessage(
             msg.value, msg.error, msg.id.asString(),
         )
@@ -316,11 +313,11 @@ open class WsConnectionImpl(
         }
     }
 
-    open fun getSubscribeResponses(): Flux<JsonRpcWsMessage> {
+    override fun getSubscribeResponses(): Flux<JsonRpcWsMessage> {
         return Flux.from(subscriptionResponses.asFlux())
     }
 
-    open fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
+    override fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
         return Mono.fromCallable {
             val startTime = System.nanoTime()
             // use an internal id sequence, to avoid id conflicts with user calls
@@ -342,7 +339,7 @@ open class WsConnectionImpl(
         }
     }
 
-    fun waitForResponse(request: JsonRpcRequest, originalId: Int, startTime: Long): Mono<JsonRpcResponse> {
+    private fun waitForResponse(request: JsonRpcRequest, originalId: Int, startTime: Long): Mono<JsonRpcResponse> {
         val internalId = request.id.toLong()
         val onResponse = Sinks.one<JsonRpcResponse>()
         currentRequests[internalId.toInt()] = onResponse
@@ -386,5 +383,14 @@ open class WsConnectionImpl(
         connection?.dispose()
         connection = null
         currentRequests.clear()
+        rpcMetrics?.fails?.let {
+            it.close()
+            Metrics.globalRegistry.remove(it)
+        }
+        rpcMetrics?.timer?.let {
+            it.close()
+            Metrics.globalRegistry.remove(it)
+        }
+        resetBackoffExecutor.shutdown()
     }
 }
