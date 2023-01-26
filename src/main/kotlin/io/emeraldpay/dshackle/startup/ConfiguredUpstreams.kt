@@ -35,7 +35,8 @@ import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumBlockValidator
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionFactory
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
@@ -337,17 +338,21 @@ open class ConfiguredUpstreams(
         chain: Chain,
         conn: UpstreamsConfig.EthereumConnection,
         urls: ArrayList<URI>? = null
-    ): EthereumWsFactory? {
+    ): EthereumWsConnectionPoolFactory? {
         return conn.ws?.let { endpoint ->
-            val wsApi = EthereumWsFactory(
+            val wsConnectionFactory = EthereumWsConnectionFactory(
                 id, chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
-            )
-            wsApi.config = endpoint
-            endpoint.basicAuth?.let { auth ->
-                wsApi.basicAuth = auth
+            ).apply {
+                config = endpoint
+                basicAuth = endpoint.basicAuth
             }
+            val wsApi = EthereumWsConnectionPoolFactory(
+                id,
+                endpoint.connections,
+                wsConnectionFactory
+            )
             urls?.add(endpoint.url)
             wsApi
         }

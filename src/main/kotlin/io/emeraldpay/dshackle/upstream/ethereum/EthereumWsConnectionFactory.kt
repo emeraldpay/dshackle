@@ -1,25 +1,8 @@
-/**
- * Copyright (c) 2020 EmeraldPay, Inc
- * Copyright (c) 2019 ETCDEV GmbH
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *        http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
@@ -27,7 +10,7 @@ import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
 import java.net.URI
 
-class EthereumWsFactory(
+open class EthereumWsConnectionFactory(
     private val id: String,
     private val chain: Chain,
     private val uri: URI,
@@ -37,15 +20,15 @@ class EthereumWsFactory(
     var basicAuth: AuthConfig.ClientBasicAuth? = null
     var config: UpstreamsConfig.WsEndpoint? = null
 
-    // metrics are shared between all connections to the same WS
-    private val metrics: RpcMetrics = run {
+    private fun metrics(connIndex: Int): RpcMetrics {
         val metricsTags = listOf(
+            Tag.of("index", connIndex.toString()),
             Tag.of("upstream", id),
             // UNSPECIFIED shouldn't happen too
             Tag.of("chain", chain.chainCode)
         )
 
-        RpcMetrics(
+        return RpcMetrics(
             Timer.builder("upstream.ws.conn")
                 .description("Request time through a WebSocket JSON RPC connection")
                 .tags(metricsTags)
@@ -58,11 +41,8 @@ class EthereumWsFactory(
         )
     }
 
-    fun create(upstream: DefaultUpstream?): WsConnectionImpl {
-        require(upstream == null || upstream.getId() == id) {
-            "Creating instance for different upstream. ${upstream?.getId()} != id"
-        }
-        return WsConnectionImpl(id, uri, origin, basicAuth, metrics, upstream).also { ws ->
+    open fun createWsConnection(connIndex: Int = 0, onDisconnect: () -> Unit): WsConnection =
+        WsConnectionImpl(uri, origin, basicAuth, metrics(connIndex), onDisconnect).also { ws ->
             config?.frameSize?.let {
                 ws.frameSize = it
             }
@@ -70,5 +50,4 @@ class EthereumWsFactory(
                 ws.msgSizeLimit = it
             }
         }
-    }
 }

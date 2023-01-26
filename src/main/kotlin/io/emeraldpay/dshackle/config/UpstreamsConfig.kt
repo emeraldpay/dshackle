@@ -137,6 +137,7 @@ open class UpstreamsConfig {
         var basicAuth: AuthConfig.ClientBasicAuth? = null
         var frameSize: Int? = null
         var msgSize: Int? = null
+        var connections: Int = 1
     }
 
     // TODO make it unmodifiable after initial load

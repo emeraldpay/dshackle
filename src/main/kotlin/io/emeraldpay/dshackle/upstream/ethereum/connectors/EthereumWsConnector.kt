@@ -4,32 +4,36 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.*
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
+import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 
 class EthereumWsConnector(
-    wsFactory: EthereumWsFactory,
+    wsFactory: EthereumWsConnectionPoolFactory,
     upstream: DefaultUpstream,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
 ) : EthereumConnector {
-    private val conn: WsConnectionImpl
+    private val pool: WsConnectionPool
     private val reader: JsonRpcReader
     private val head: EthereumWsHead
     private val subscriptions: EthereumIngressSubscription
 
     init {
-        conn = wsFactory.create(upstream)
-        reader = JsonRpcWsClient(conn)
-        val wsSubscriptions = WsSubscriptionsImpl(conn)
+        pool = wsFactory.create(upstream)
+        reader = JsonRpcWsClient(pool)
+        val wsSubscriptions = WsSubscriptionsImpl(pool)
         head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, reader, wsSubscriptions)
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 
     override fun start() {
-        conn.connect()
+        pool.connect()
         head.start()
     }
 
@@ -38,7 +42,7 @@ class EthereumWsConnector(
     }
 
     override fun stop() {
-        conn.close()
+        pool.close()
         head.stop()
     }
 
