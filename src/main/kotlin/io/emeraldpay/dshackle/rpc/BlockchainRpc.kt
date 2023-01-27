@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.rpc
 
+import com.google.protobuf.util.JsonFormat
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
@@ -223,11 +224,18 @@ class BlockchainRpc(
     }
 
     override fun subscribeNodeStatus(request: Mono<BlockchainOuterClass.SubscribeNodeStatusRequest>): Flux<BlockchainOuterClass.NodeStatusResponse> {
-        val subId = RandomStringUtils.randomAlphanumeric(8)
-        log.debug("Subscription for node status with id [$subId] created")
-        return subscribeNodeStatus.subscribe(request).subscribeOn(scheduler)
-            .doOnError { failMetric.increment() }
-            .doOnNext { log.debug("Emitted next node status to [$subId] with data [$it] ") }
+        return request.flatMapMany {
+            val subId = it.traceId.takeIf { it.isNotBlank() } ?: RandomStringUtils.randomAlphanumeric(8)
+            subscribeNodeStatus.subscribe(it).subscribeOn(scheduler)
+                .doOnError { failMetric.increment() }
+                .doOnNext {
+                    log.debug(
+                        "Emitted next node status to [$subId] with data [${
+                        JsonFormat.printer().omittingInsignificantWhitespace().print(it)
+                        }]"
+                    )
+                }
+        }
     }
 
     class RequestMetrics(val chain: Chain) {

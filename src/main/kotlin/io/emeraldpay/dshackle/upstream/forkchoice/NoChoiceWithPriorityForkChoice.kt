@@ -27,10 +27,10 @@ class NoChoiceWithPriorityForkChoice(
     }
 
     override fun choose(block: BlockContainer): ForkChoice.ChoiceResult {
-        log.debug("Adding priority to $upstreamId block ${block.height}")
+        log.trace("Adding priority to $upstreamId block ${block.height}")
         val nwhead = head.updateAndGet { curr ->
             if (!filter(block)) {
-                log.debug("Already seen block ${block.height} from $upstreamId")
+                log.trace("Already seen block ${block.height} from $upstreamId")
                 curr
             } else {
                 seenBlocks.put(block.hash, true)
@@ -38,7 +38,7 @@ class NoChoiceWithPriorityForkChoice(
             }
         }
         if (nwhead.hash == block.hash) {
-            log.debug("Accepted block ${block.height} from $upstreamId with $nodeRating")
+            log.trace("Accepted block ${block.height} from $upstreamId with $nodeRating")
             return ForkChoice.ChoiceResult.Updated(nwhead)
         }
         log.debug("Declined block ${block.height} from $upstreamId with $nodeRating")

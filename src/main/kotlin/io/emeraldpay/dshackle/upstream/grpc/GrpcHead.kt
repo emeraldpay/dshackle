@@ -95,7 +95,7 @@ class GrpcHead(
             log.error("Head subscription error. ${err.javaClass.name}:${err.message}", err)
             parent.setStatus(UpstreamAvailability.UNAVAILABLE)
         }.doOnNext {
-            log.info("Received block ${it.height}")
+            log.trace("Received block ${it.height}")
         }
 
         headSubscription = super.follow(blocks)
