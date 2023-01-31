@@ -44,6 +44,7 @@ etherjar-erc20 = { module = "io.emeraldpay.etherjar:etherjar-erc20", version.ref
 
 groovy = { module = "org.codehaus.groovy:groovy", version.ref = "groovy" }
 
+grpc-proto-util = { module = "com.google.protobuf:protobuf-java-util", version.ref = "protoc" }
 grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
 grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
 grpc-netty = { module = "io.grpc:grpc-netty", version.ref = "grpc" }
@@ -122,7 +123,7 @@ assertj = "org.assertj:assertj-core:3.23.1"
 [bundles]
 apache-commons = ["commons-io", "apache-commons-lang3", "apache-commons-collections4"]
 etherjar = ["etherjar-domain", "etherjar-hex", "etherjar-rpc-api", "etherjar-rpc-http", "etherjar-rpc-ws", "etherjar-tx", "etherjar-contract", "etherjar-erc20"]
-grpc = ["grpc-protobuf", "grpc-stub", "grpc-netty"]
+grpc = ["grpc-protobuf", "grpc-stub", "grpc-netty", "grpc-proto-util"]
 httpcomponents = ["httpcomponents-httpmime", "httpcomponents-httpclient"]
 jackson = ["jackson-core", "jackson-databind", "jackson-datatype-jdk8", "jackson-datatype-jsr310", "jackson-module-kotlin"]
 kotlin = ["kotlin-stdlib-jdk8", "kotlin-reflect"]

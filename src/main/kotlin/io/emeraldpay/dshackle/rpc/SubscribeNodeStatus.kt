@@ -26,70 +26,73 @@ class SubscribeNodeStatus(
         private val log = LoggerFactory.getLogger(SubscribeNodeStatus::class.java)
     }
 
-    fun subscribe(req: Mono<SubscribeNodeStatusRequest>): Flux<NodeStatusResponse> =
-        req.flatMapMany {
-            val knownUpstreams = ConcurrentHashMap<String, Sinks.Many<Boolean>>()
-            // subscribe on head/status updates for known upstreams
-            val upstreamUpdates = Flux.merge(
-                multistreams.all()
-                    .flatMap { ms ->
-                        ms.getAll().map { up ->
-                            knownUpstreams[up.getId()] = Sinks.many().multicast().directBestEffort<Boolean>()
-                            subscribeUpstreamUpdates(ms, up, knownUpstreams[up.getId()]!!)
-                        }
+    fun subscribe(req: SubscribeNodeStatusRequest): Flux<NodeStatusResponse> {
+        val knownUpstreams = ConcurrentHashMap<String, Sinks.Many<Boolean>>()
+        // subscribe on head/status updates for known upstreams
+        val upstreamUpdates = Flux.merge(
+            multistreams.all()
+                .flatMap { ms ->
+                    ms.getAll().map { up ->
+                        knownUpstreams[up.getId()] = Sinks.many().multicast().directBestEffort<Boolean>()
+                        subscribeUpstreamUpdates(ms, up, knownUpstreams[up.getId()]!!)
                     }
-            )
-
-            // stop removed upstreams update fluxes
-            val removals = Flux.merge(
-                multistreams.all()
-                    .map { ms ->
-                        ms.subscribeRemovedUpstreams().mapNotNull { up ->
-                            knownUpstreams[up.getId()]?.let {
-                                val result = it.tryEmitNext(true)
-                                if (result.isFailure) {
-                                    log.warn("Unable to emit event about removal of an upstream - $result")
-                                }
-                                knownUpstreams.remove(up.getId())
-                                NodeStatusResponse.newBuilder()
-                                    .setNodeId(up.getId())
-                                    .setDescription(buildDescription(ms, up))
-                                    .setStatus(buildStatus(UpstreamAvailability.UNAVAILABLE, up.getHead().getCurrentHeight()))
-                                    .build()
+                }
+        )
+        // stop removed upstreams update fluxes
+        val removals = Flux.merge(
+            multistreams.all()
+                .map { ms ->
+                    ms.subscribeRemovedUpstreams().mapNotNull { up ->
+                        knownUpstreams[up.getId()]?.let {
+                            val result = it.tryEmitNext(true)
+                            if (result.isFailure) {
+                                log.warn("Unable to emit event about removal of an upstream - $result")
                             }
-                        }
-                    }
-            )
-
-            // subscribe on head/status updates for just added upstreams
-            val multiStreamUpdates = Flux.merge(
-                multistreams.all()
-                    .map { ms ->
-                        ms.subscribeAddedUpstreams()
-                            .distinctUntilChanged {
-                                it.getId()
-                            }
-                            .filter {
-                                !knownUpstreams.contains(it.getId())
-                            }
-                            .flatMap {
-                                knownUpstreams[it.getId()] = Sinks.many().multicast().directBestEffort<Boolean>()
-                                Flux.concat(
-                                    Mono.just(
-                                        NodeStatusResponse.newBuilder()
-                                            .setNodeId(it.getId())
-                                            .setDescription(buildDescription(ms, it))
-                                            .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
-                                            .build()
-                                    ),
-                                    subscribeUpstreamUpdates(ms, it, knownUpstreams[it.getId()]!!)
+                            knownUpstreams.remove(up.getId())
+                            NodeStatusResponse.newBuilder()
+                                .setNodeId(up.getId())
+                                .setDescription(buildDescription(ms, up))
+                                .setStatus(
+                                    buildStatus(
+                                        UpstreamAvailability.UNAVAILABLE,
+                                        up.getHead().getCurrentHeight()
+                                    )
                                 )
-                            }
+                                .build()
+                        }
                     }
-            )
+                }
+        )
 
-            Flux.merge(upstreamUpdates, multiStreamUpdates, removals)
-        }
+        // subscribe on head/status updates for just added upstreams
+        val multiStreamUpdates = Flux.merge(
+            multistreams.all()
+                .map { ms ->
+                    ms.subscribeAddedUpstreams()
+                        .distinctUntilChanged {
+                            it.getId()
+                        }
+                        .filter {
+                            !knownUpstreams.contains(it.getId())
+                        }
+                        .flatMap {
+                            knownUpstreams[it.getId()] = Sinks.many().multicast().directBestEffort<Boolean>()
+                            Flux.concat(
+                                Mono.just(
+                                    NodeStatusResponse.newBuilder()
+                                        .setNodeId(it.getId())
+                                        .setDescription(buildDescription(ms, it))
+                                        .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
+                                        .build()
+                                ),
+                                subscribeUpstreamUpdates(ms, it, knownUpstreams[it.getId()]!!)
+                            )
+                        }
+                }
+        )
+
+        return Flux.merge(upstreamUpdates, multiStreamUpdates, removals)
+    }
 
     private fun subscribeUpstreamUpdates(
         ms: Multistream,

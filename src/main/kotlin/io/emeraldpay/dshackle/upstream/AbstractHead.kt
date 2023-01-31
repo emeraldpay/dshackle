@@ -104,8 +104,8 @@ abstract class AbstractHead @JvmOverloads constructor(
                             val newHead = choiceResult.nwhead
                             lastHeadUpdated = System.currentTimeMillis()
                             when (val result = stream.tryEmitNext(newHead)) {
-                                OK -> log.debug("New block $upstreamId ${newHead.height} ${newHead.hash} @ ${this.javaClass}")
-                                FAIL_ZERO_SUBSCRIBER -> log.debug("No subscribers $upstreamId ${this.javaClass}")
+                                OK -> log.trace("New block $upstreamId ${newHead.height} ${newHead.hash} @ ${this.javaClass}")
+                                FAIL_ZERO_SUBSCRIBER -> log.trace("No subscribers $upstreamId ${this.javaClass}")
                                 else -> log.warn("Failed to dispatch block $upstreamId: $result as ${this.javaClass}")
                             }
                         }

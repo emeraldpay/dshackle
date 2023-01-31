@@ -74,6 +74,7 @@ dependencies {
     implementation libs.bundles.reactor
 
     implementation(libs.reactor.grpc.stub)
+    implementation(libs.grpc.proto.util)
 
     implementation libs.micrometer.registry.prometheus
     implementation libs.lettuce.core

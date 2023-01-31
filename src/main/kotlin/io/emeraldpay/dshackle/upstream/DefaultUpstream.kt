@@ -129,7 +129,7 @@ abstract class DefaultUpstream(
                 Status(nLag, curr.avail, statusByLag(nLag, curr.avail))
             }.also {
                 statusStream.emitNext(it.status) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-                log.debug("Status of upstream [$id] changed to [$it], requested change lag to [$lag]")
+                log.trace("Status of upstream [$id] changed to [$it], requested change lag to [$lag]")
             }
         }
     }
