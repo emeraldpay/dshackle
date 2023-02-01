@@ -122,6 +122,23 @@ In the example above we have:
 
 *It's kindly recommended* to strictly associate _node-id_ parameter with a physical node and keep it during any configuration changes
 
+=== Supported chains
+
+Currently, dshackle supports next chains (should be used as chain names in config):
+
+- ethereum (eth)
+- ethereum-classic (etc)
+- polygon (matic)
+- arbitrum (arb)
+- optimism
+- binance (bsc, bnb-smart-chain)
+- morden
+- kovan (kovan-testnet)
+- goerli (goerli-testnet)
+- rinkeby (rinkeby-testnet)
+- ropsten (ropsten-testnet)
+- bitcoin (bitcoin-testnet)
+
 === Roles and Fallback upstream
 
 By default, the Dshackle connects to each upstream in a Round-Robin basis, i.e. sequentially one by one.
