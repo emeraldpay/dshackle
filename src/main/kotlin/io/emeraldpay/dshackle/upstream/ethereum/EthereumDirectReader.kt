@@ -146,7 +146,7 @@ class EthereumDirectReader(
     private fun readBlock(request: JsonRpcRequest, id: String): Mono<BlockContainer> {
         return readWithQuorum(request)
             .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))
-            .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+            .retryWhen(Retry.fixedDelay(3, Duration.ofMillis(200)))
             .flatMap { blockbytes ->
                 val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>?
                 if (block == null) {
@@ -164,14 +164,18 @@ class EthereumDirectReader(
      * Read from an Upstream applying a Quorum specific for that request
      */
     private fun readWithQuorum(request: JsonRpcRequest): Mono<ByteArray> {
-        return quorumReaderFactory
-            .create(
-                up.getApiSource(Selector.empty),
-                callMethodsFactory.create().createQuorumFor(request.method),
-                // we do not use Signer for internal requests because it doesn't make much sense
-                null
-            )
-            .read(request)
-            .map { it.value }
+        return Mono.just(quorumReaderFactory)
+            .map {
+                it.create(
+                    up.getApiSource(Selector.empty),
+                    callMethodsFactory.create().createQuorumFor(request.method),
+                    // we do not use Signer for internal requests because it doesn't make much sense
+                    null
+                )
+            }.flatMap {
+                it.read(request)
+            }.map {
+                it.value
+            }
     }
 }

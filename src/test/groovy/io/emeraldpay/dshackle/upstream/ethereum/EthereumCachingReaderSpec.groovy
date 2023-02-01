@@ -334,4 +334,88 @@ class EthereumDirectReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
+    def "Reads block by hash with retries"() {
+        setup:
+        def json = new BlockJson().tap {
+            number = 100
+            hash = BlockHash.from(hash1)
+            timestamp = Instant.now()
+            totalDifficulty = BigInteger.ONE
+            transactions = []
+        }
+        def up = Mock(Multistream) {
+            3 * getApiSource(_) >> Stub(ApiSource)
+        }
+        def calls = Mock(Factory) {
+            3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+        }
+        def result = Mono.just(
+                new QuorumRpcReader.Result(
+                        Global.objectMapper.writeValueAsBytes(json), null, 1, resolvers, null)
+        )
+        EthereumDirectReader ethereumDirectReader = new EthereumDirectReader(
+                up, Caches.default(), new CurrentBlockCache(), calls
+        )
+        ethereumDirectReader.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            2 * create(_, _, _) >> Mock(Reader) {
+                2 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >>>
+                        [Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
+            }
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> result
+            }
+        }
+        when:
+        def act = ethereumDirectReader.blockReader.read(BlockHash.from(hash1))
+        then:
+        StepVerifier.create(act)
+                .expectNextMatches { block ->
+                    block.hash.toHexWithPrefix() == hash1
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Reads block by number with retries"() {
+        setup:
+        def json = new BlockJson().tap {
+            number = 100
+            hash = BlockHash.from(hash1)
+            timestamp = Instant.now()
+            totalDifficulty = BigInteger.ONE
+            transactions = []
+        }
+        def up = Mock(Multistream) {
+            3 * getApiSource(_) >> Stub(ApiSource)
+        }
+        def calls = Mock(Factory) {
+            3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+        }
+        def result = Mono.just(
+                new QuorumRpcReader.Result(
+                        Global.objectMapper.writeValueAsBytes(json), null, 1, resolvers, null)
+        )
+        EthereumDirectReader ethereumDirectReader = new EthereumDirectReader(
+                up, Caches.default(), new CurrentBlockCache(), calls
+        )
+        ethereumDirectReader.quorumReaderFactory = Mock(QuorumReaderFactory) {
+            2 * create(_, _, _) >> Mock(Reader) {
+                2 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >>>
+                        [Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
+            }
+            1 * create(_, _, _) >> Mock(Reader) {
+                1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >> result
+            }
+        }
+        when:
+        def act = ethereumDirectReader.blockByHeightReader.read(100)
+        then:
+        StepVerifier.create(act)
+                .expectNextMatches { block ->
+                    block.hash.toHexWithPrefix() == hash1
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
 }
