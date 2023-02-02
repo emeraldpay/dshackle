@@ -15,11 +15,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v1
         with:
-          java-version: 13
-      # - name: Check
-      #   uses: eskatos/gradle-command-action@v1
-      #   with:
-      #     arguments: check
+          java-version: 17
+
       - name: Upload to Docker
         uses: eskatos/gradle-command-action@v1
         with:
@@ -38,11 +35,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v1
         with:
-          java-version: 13
-      # - name: Check
-      #   uses: eskatos/gradle-command-action@v1
-      #   with:
-      #     arguments: check
+          java-version: 17
       - name: Build zip
         uses: eskatos/gradle-command-action@v1
         with:
