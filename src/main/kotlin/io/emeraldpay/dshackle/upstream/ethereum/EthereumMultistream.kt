@@ -59,7 +59,7 @@ open class EthereumMultistream(
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
 
     private val supportsEIP1559 = when (chain) {
-        Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY -> true
+        Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY, Chain.TESTNET_SEPOLIA -> true
         else -> false
     }
     private val feeEstimation = if (supportsEIP1559) EthereumPriorityFees(this, reader, 256)

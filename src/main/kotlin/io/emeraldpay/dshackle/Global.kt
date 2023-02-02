@@ -64,7 +64,9 @@ class Global {
             "ropsten" to Chain.TESTNET_ROPSTEN,
             "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
             "bitcoin" to Chain.BITCOIN,
-            "bitcoin-testnet" to Chain.TESTNET_BITCOIN
+            "bitcoin-testnet" to Chain.TESTNET_BITCOIN,
+            "sepolia" to Chain.TESTNET_SEPOLIA,
+            "sepolia-testnet" to Chain.TESTNET_SEPOLIA,
         )
 
         fun chainById(id: String?): Chain {

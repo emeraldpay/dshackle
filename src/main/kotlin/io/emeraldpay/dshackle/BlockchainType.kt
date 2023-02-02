@@ -11,7 +11,8 @@ enum class BlockchainType {
                 chain == Chain.OPTIMISM ||
                 chain == Chain.BSC ||
                 chain == Chain.TESTNET_GOERLI ||
-                chain == Chain.ETHEREUM
+                chain == Chain.ETHEREUM ||
+                chain == Chain.TESTNET_SEPOLIA
             ) {
                 return EVM_POS
             }
