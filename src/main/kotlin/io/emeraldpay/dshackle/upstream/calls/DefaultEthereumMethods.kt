@@ -71,8 +71,11 @@ class DefaultEthereumMethods(
         "eth_getBlockTransactionCountByHash",
         "eth_getUncleCountByBlockHash",
         "eth_getBlockByHash",
+        "eth_getBlockByNumber",
         "eth_getTransactionByHash",
         "eth_getTransactionByBlockHashAndIndex",
+        "eth_getTransactionByBlockNumberAndIndex",
+        "eth_getTransactionReceipt",
         "eth_getStorageAt",
         "eth_getCode",
         "eth_getUncleByBlockHashAndIndex",
@@ -89,9 +92,6 @@ class DefaultEthereumMethods(
     private val headVerifiedMethods = listOf(
         "eth_getBlockTransactionCountByNumber",
         "eth_getUncleCountByBlockNumber",
-        "eth_getBlockByNumber",
-        "eth_getTransactionByBlockNumberAndIndex",
-        "eth_getTransactionReceipt",
         "eth_getUncleByBlockNumberAndIndex",
         "eth_feeHistory"
     )

@@ -66,8 +66,9 @@ class EthereumDirectReader(
         }
         blockByHeightReader = object : Reader<Long, BlockContainer> {
             override fun read(key: Long): Mono<BlockContainer> {
+                val heightMatcher = Selector.HeightMatcher(key)
                 val request = JsonRpcRequest("eth_getBlockByNumber", listOf(HexQuantity.from(key).toHex(), false))
-                return readBlock(request, key.toString())
+                return readBlock(request, key.toString(), heightMatcher)
             }
         }
         txReader = object : Reader<TransactionId, TxContainer> {
@@ -143,8 +144,12 @@ class EthereumDirectReader(
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun readBlock(request: JsonRpcRequest, id: String): Mono<BlockContainer> {
-        return readWithQuorum(request)
+    private fun readBlock(
+        request: JsonRpcRequest,
+        id: String,
+        matcher: Selector.Matcher = Selector.empty
+    ): Mono<BlockContainer> {
+        return readWithQuorum(request, matcher)
             .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))
             .retryWhen(Retry.fixedDelay(3, Duration.ofMillis(200)))
             .flatMap { blockbytes ->
@@ -163,11 +168,11 @@ class EthereumDirectReader(
     /**
      * Read from an Upstream applying a Quorum specific for that request
      */
-    private fun readWithQuorum(request: JsonRpcRequest): Mono<ByteArray> {
+    private fun readWithQuorum(request: JsonRpcRequest, matcher: Selector.Matcher = Selector.empty): Mono<ByteArray> {
         return Mono.just(quorumReaderFactory)
             .map {
                 it.create(
-                    up.getApiSource(Selector.empty),
+                    up.getApiSource(matcher),
                     callMethodsFactory.create().createQuorumFor(request.method),
                     // we do not use Signer for internal requests because it doesn't make much sense
                     null

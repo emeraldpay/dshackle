@@ -10,6 +10,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.Chain
@@ -108,7 +109,7 @@ class EthereumDirectReaderSpec extends Specification {
             transactions = []
         }
         def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
+            1 * getApiSource(new Selector.HeightMatcher(100)) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
