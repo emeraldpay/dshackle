@@ -15,19 +15,25 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
+import io.emeraldpay.dshackle.cache.BlocksMemCache
+import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import reactor.core.publisher.Mono
+import reactor.test.StepVerifier
 import spock.lang.Specification
 
+import java.time.Duration
+import java.time.Instant
 
 class EthereumCallSelectorSpec extends Specification {
 
     def "Get height matcher for latest balance"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Mock(Head) {
             1 * getCurrentHeight() >> 100
         }
@@ -39,7 +45,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "Get height matcher for latest call"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Mock(Head) {
             1 * getCurrentHeight() >> 100
         }
@@ -51,7 +57,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "Get height matcher for latest storageAt"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Mock(Head) {
             1 * getCurrentHeight() >> 100
         }
@@ -63,7 +69,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "Get height matcher for balance on block"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Mock(Head) {
             _ * getCurrentHeight() >> 100
         }
@@ -78,7 +84,7 @@ class EthereumCallSelectorSpec extends Specification {
         def heights = Mock(Reader) {
             1 * it.read(BlockId.from("0xc90f1c8c125a4d5b90742f16947bdb1d10516f173fd7fc51223d10499de2a812")) >> Mono.just(8606722L)
         }
-        EthereumCallSelector callSelector = new EthereumCallSelector(heights)
+        EthereumCallSelector callSelector = new EthereumCallSelector(heights, Stub(Caches))
         def head = Mock(Head) {
             _ * getCurrentHeight() >> 9128116
         }
@@ -90,7 +96,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "No matcher for invalid height"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Mock(Head) {
             _ * getCurrentHeight() >> 100
         }
@@ -103,7 +109,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "No matcher for negative height"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Mock(Head) {
             _ * getCurrentHeight() >> 100
         }
@@ -115,7 +121,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "No matcher for negative long"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Mock(Head) {
             _ * getCurrentHeight() >> 100
         }
@@ -128,7 +134,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "No matcher for pending balance"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Mock(Head) {
             _ * getCurrentHeight() >> 100
         }
@@ -140,7 +146,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "Get height matcher with EIP-1898"() {
         setup:
-        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader))
+        EthereumCallSelector callSelector = new EthereumCallSelector(Stub(Reader), Stub(Caches))
         def head = Stub(Head)
         when:
         def act = callSelector.getMatcher("eth_call", '["0x0000", {"blockNumber": "0x100"}]', head, false).block()
@@ -153,7 +159,7 @@ class EthereumCallSelectorSpec extends Specification {
         def heights = Mock(Reader) {
             1 * it.read(BlockId.from("0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32")) >> Mono.just(12079192L)
         }
-        EthereumCallSelector callSelector = new EthereumCallSelector(heights)
+        EthereumCallSelector callSelector = new EthereumCallSelector(heights, Stub(Caches))
         def head = Stub(Head)
         when:
         def act = callSelector.getMatcher("eth_call",
@@ -168,7 +174,7 @@ class EthereumCallSelectorSpec extends Specification {
         def heights = Mock(Reader) {
             0 * it.read(BlockId.from("0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32")) >> Mono.just(12079192L)
         }
-        EthereumCallSelector callSelector = new EthereumCallSelector(heights)
+        EthereumCallSelector callSelector = new EthereumCallSelector(heights, Stub(Caches))
         def head = Stub(Head)
         when:
         def act = callSelector.getMatcher("eth_call",
@@ -183,7 +189,7 @@ class EthereumCallSelectorSpec extends Specification {
         def heights = Mock(Reader) {
             1 * it.read(BlockId.from("0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32")) >> Mono.empty()
         }
-        EthereumCallSelector callSelector = new EthereumCallSelector(heights)
+        EthereumCallSelector callSelector = new EthereumCallSelector(heights, Stub(Caches))
         def head = Mock(Head) {
             1 * it.getCurrentHeight() >> 100
         }
@@ -197,7 +203,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "Get same matcher for getFilterChanges method"() {
         setup:
-        def callSelector = new EthereumCallSelector(Mock(Reader))
+        def callSelector = new EthereumCallSelector(Mock(Reader), Stub(Caches))
         def head = Mock(Head)
 
         expect:
@@ -214,7 +220,7 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "Get empty matcher for getFilterChanges method without params"() {
         setup:
-        def callSelector = new EthereumCallSelector(Mock(Reader))
+        def callSelector = new EthereumCallSelector(Mock(Reader), Stub(Caches))
         def head = Mock(Head)
 
         when:
@@ -222,5 +228,83 @@ class EthereumCallSelectorSpec extends Specification {
 
         then:
         act == null
+    }
+
+    def "Get height matcher for getByHash and getTransactionByBlockHash methods"() {
+        setup:
+        def hash = "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"
+        def block = new BlockContainer(
+                12079192L, BlockId.from(hash),
+                BigInteger.ONE, Instant.now(), false, "".bytes, null, [], 0, "upstream"
+        )
+        def blockByHashCache = Mock(BlocksMemCache) {
+            1 * read(BlockId.from(hash)) >> Mono.just(block)
+        }
+        def cache = Caches.newBuilder().setBlockByHash(blockByHashCache).build()
+        def callSelector = new EthereumCallSelector(Stub(Reader), cache)
+        def head = Stub(Head)
+
+        when:
+        def act = callSelector.getMatcher(
+                method, '["0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32", false]',
+                head, false
+        )
+
+        then:
+        StepVerifier.create(act)
+                .expectNext(new Selector.HeightMatcher(12079192L))
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+
+        where:
+        method << ["eth_getTransactionByBlockHashAndIndex", "eth_getBlockByHash"]
+    }
+
+    def "Get height matcher for getByNumber and getTransactionByBlockNumber methods"() {
+        setup:
+        def cache = Stub(Caches)
+        def callSelector = new EthereumCallSelector(Stub(Reader), cache)
+        def head = Stub(Head)
+
+        when:
+        def act = callSelector.getMatcher(
+                method, '["0xfbfe3b", false]',
+                head, false
+        )
+
+        then:
+        StepVerifier.create(act)
+                .expectNext(new Selector.HeightMatcher(16514619L))
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+
+        where:
+        method << ["eth_getTransactionByBlockNumberAndIndex", "eth_getBlockByNumber"]
+    }
+
+    def "No height matcher for getByHash method"() {
+        setup:
+        def hash = "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"
+        def blockByHashCache = Mock(BlocksMemCache) {
+            1 * read(BlockId.from(hash)) >> resultFromCache
+        }
+        def cache = Caches.newBuilder().setBlockByHash(blockByHashCache).build()
+        def callSelector = new EthereumCallSelector(Stub(Reader), cache)
+        def head = Stub(Head)
+
+        when:
+        def act = callSelector.getMatcher(
+                "eth_getBlockByHash", '["0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32", false]',
+                head, false
+        )
+
+        then:
+        StepVerifier.create(act)
+                .expectNext()
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+
+        where:
+        resultFromCache << [Mono.empty(), Mono.error(new RuntimeException())]
     }
 }

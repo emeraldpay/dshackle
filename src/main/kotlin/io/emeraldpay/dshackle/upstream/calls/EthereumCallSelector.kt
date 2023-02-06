@@ -16,11 +16,13 @@
 package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.hex.HexQuantity
+import org.bouncycastle.util.encoders.DecoderException
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.Collections
@@ -31,7 +33,8 @@ import java.util.Objects
  * The implementation is specific for Ethereum.
  */
 class EthereumCallSelector(
-    private val heightReader: Reader<BlockId, Long>
+    private val heightReader: Reader<BlockId, Long>,
+    private val caches: Caches
 ) {
 
     companion object {
@@ -45,6 +48,11 @@ class EthereumCallSelector(
             // no "eth_getStorageAt" because it has different structure, and therefore separate logic
             "eth_call"
         ).sorted()
+
+        private val GET_BY_HASH_OR_NUMBER_METHODS = setOf(
+            "eth_getBlockByHash", "eth_getBlockByNumber",
+            "eth_getTransactionByBlockHashAndIndex", "eth_getTransactionByBlockNumberAndIndex"
+        )
     }
 
     private val objectMapper = Global.objectMapper
@@ -60,6 +68,8 @@ class EthereumCallSelector(
             return blockTagSelector(params, 2, head)
         } else if (method in DefaultEthereumMethods.withFilterIdMethods) {
             return sameUpstreamMatcher(params)
+        } else if (method in GET_BY_HASH_OR_NUMBER_METHODS) {
+            return blockMethodSelector(method, params)
         }
         return Mono.empty()
     }
@@ -115,6 +125,32 @@ class EthereumCallSelector(
         return if (minHeight != null && minHeight >= 0) {
             Mono.just(Selector.HeightMatcher(minHeight))
         } else {
+            Mono.empty()
+        }
+    }
+
+    private fun blockMethodSelector(method: String, params: String): Mono<Selector.Matcher> {
+        val list = objectMapper.readerFor(Any::class.java).readValues<Any>(params).readAll()
+        if (list.isEmpty()) {
+            return Mono.empty()
+        }
+        val hashOrNumber = Objects.toString(list[0])
+
+        return when (method) {
+            "eth_getTransactionByBlockHashAndIndex", "eth_getBlockByHash" -> blockByHashFromCache(hashOrNumber)
+            "eth_getTransactionByBlockNumberAndIndex", "eth_getBlockByNumber" -> blockByHeight(hashOrNumber)
+            else -> Mono.empty()
+        }
+    }
+
+    private fun blockByHashFromCache(blockHash: String): Mono<Selector.Matcher> {
+        return try {
+            caches.getBlocksByHash()
+                .read(BlockId.from(blockHash))
+                .onErrorResume { Mono.empty() }
+                .map { Selector.HeightMatcher(it.height) }
+        } catch (e: DecoderException) {
+            log.warn("Invalid blockHash: $blockHash")
             Mono.empty()
         }
     }
