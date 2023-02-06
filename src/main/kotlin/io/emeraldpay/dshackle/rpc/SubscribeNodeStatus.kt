@@ -33,7 +33,7 @@ class SubscribeNodeStatus(
             multistreams.all()
                 .flatMap { ms ->
                     ms.getAll().map { up ->
-                        knownUpstreams[up.getId()] = Sinks.many().multicast().directBestEffort<Boolean>()
+                        knownUpstreams[up.getId()] = Sinks.many().multicast().directBestEffort()
                         subscribeUpstreamUpdates(ms, up, knownUpstreams[up.getId()]!!)
                     }
                 }
@@ -76,7 +76,7 @@ class SubscribeNodeStatus(
                             !knownUpstreams.contains(it.getId())
                         }
                         .flatMap {
-                            knownUpstreams[it.getId()] = Sinks.many().multicast().directBestEffort<Boolean>()
+                            knownUpstreams[it.getId()] = Sinks.many().multicast().directBestEffort()
                             Flux.concat(
                                 Mono.just(
                                     NodeStatusResponse.newBuilder()
@@ -100,7 +100,6 @@ class SubscribeNodeStatus(
         cancel: Sinks.Many<Boolean>
     ): Flux<NodeStatusResponse> {
         val statuses = upstream.observeStatus()
-            .distinctUntilChanged()
             .takeUntilOther(cancel.asFlux())
             .map {
                 NodeStatusResponse.newBuilder()

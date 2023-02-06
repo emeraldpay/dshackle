@@ -351,8 +351,12 @@ abstract class Multistream(
             eventLock.withLock {
                 if (event.type == UpstreamChangeEvent.ChangeType.REMOVED) {
                     removeUpstream(event.upstream.getId()).takeIf { it }?.let {
-                        removedUpstreams.tryEmitNext(event.upstream)
-                        log.warn("Upstream ${event.upstream.getId()} with chain $chain has been removed")
+                        try {
+                            removedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                            log.info("Upstream ${event.upstream.getId()} with chain $chain has been removed")
+                        } catch (e: Sinks.EmissionException) {
+                            log.error("error during event processing $event", e)
+                        }
                     }
                 } else {
                     if (event.upstream is CachesEnabled) {
@@ -362,8 +366,12 @@ abstract class Multistream(
                         if (!started) {
                             start()
                         }
-                        addedUpstreams.tryEmitNext(event.upstream)
-                        log.info("Upstream ${event.upstream.getId()} with chain $chain has been added")
+                        try {
+                            addedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                            log.info("Upstream ${event.upstream.getId()} with chain $chain has been added")
+                        } catch (e: Sinks.EmissionException) {
+                            log.error("error during event processing $event", e)
+                        }
                     }
                 }
             }
