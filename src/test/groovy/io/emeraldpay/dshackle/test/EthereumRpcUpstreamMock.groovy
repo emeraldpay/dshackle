@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.test
 
-
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
@@ -65,7 +65,8 @@ class EthereumRpcUpstreamMock extends EthereumRpcUpstream {
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,
                 new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
-                new ConnectorFactoryMock(api, new EthereumHeadMock()))
+                new ConnectorFactoryMock(api, new EthereumHeadMock()),
+                ChainsConfig.ChainConfig.default())
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock
         setLag(0)
         setStatus(UpstreamAvailability.OK)

@@ -32,6 +32,8 @@ If you request balance for an address that is not indexed then it returns 0 bala
 - To track all transactions you need to setup index for transactions, which is disabled by default.
 Run it with `-reindex` option, or set `txindex=1` in the config.
 
+===
+
 === Example Configuration
 
 .upstreams.yaml

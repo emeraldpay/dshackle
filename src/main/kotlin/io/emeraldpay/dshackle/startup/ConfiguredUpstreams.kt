@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.*
@@ -64,7 +65,8 @@ open class ConfiguredUpstreams(
     private val callTargets: CallTargetsHolder,
     private val eventPublisher: ApplicationEventPublisher,
     @Qualifier("grpcChannelExecutor")
-    private val channelExecutor: Executor
+    private val channelExecutor: Executor,
+    private val chainsConfig: ChainsConfig
 ) : ApplicationRunner {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -95,11 +97,22 @@ open class ConfiguredUpstreams(
                     .merge(defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
                 val upstream = when (BlockchainType.from(chain)) {
                     BlockchainType.EVM_POW -> {
-                        buildEthereumUpstream(up.nodeId, up.cast(UpstreamsConfig.EthereumConnection::class.java), chain, options)
+                        buildEthereumUpstream(
+                            up.nodeId,
+                            up.cast(UpstreamsConfig.EthereumConnection::class.java),
+                            chain,
+                            options,
+                            chainsConfig.resolve(chain)
+                        )
                     }
 
                     BlockchainType.BITCOIN -> {
-                        buildBitcoinUpstream(up.cast(UpstreamsConfig.BitcoinConnection::class.java), chain, options)
+                        buildBitcoinUpstream(
+                            up.cast(UpstreamsConfig.BitcoinConnection::class.java),
+                            chain,
+                            options,
+                            chainsConfig.resolve(chain)
+                        )
                     }
 
                     BlockchainType.EVM_POS -> {
@@ -107,7 +120,8 @@ open class ConfiguredUpstreams(
                             up.nodeId,
                             up.cast(UpstreamsConfig.EthereumPosConnection::class.java),
                             chain,
-                            options
+                            options,
+                            chainsConfig.resolve(chain)
                         )
                     }
                 }
@@ -167,7 +181,8 @@ open class ConfiguredUpstreams(
         nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumPosConnection>,
         chain: Chain,
-        options: UpstreamsConfig.Options
+        options: UpstreamsConfig.Options,
+        chainConf: ChainsConfig.ChainConfig
     ): Upstream? {
         val conn = config.connection!!
         val execution = conn.execution
@@ -200,7 +215,8 @@ open class ConfiguredUpstreams(
             options, config.role,
             methods,
             QuorumForLabels.QuorumItem(1, config.labels),
-            connectorFactory
+            connectorFactory,
+            chainConf
         )
         upstream.start()
         return upstream
@@ -209,7 +225,8 @@ open class ConfiguredUpstreams(
     private fun buildBitcoinUpstream(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>,
         chain: Chain,
-        options: UpstreamsConfig.Options
+        options: UpstreamsConfig.Options,
+        chainConf: ChainsConfig.ChainConfig
     ): Upstream? {
         val conn = config.connection!!
         val httpFactory = buildHttpFactory(conn)
@@ -242,7 +259,7 @@ open class ConfiguredUpstreams(
             chain, directApi, head,
             options, config.role,
             QuorumForLabels.QuorumItem(1, config.labels),
-            methods, esplora
+            methods, esplora, chainConf
         )
         upstream.start()
         return upstream
@@ -252,7 +269,8 @@ open class ConfiguredUpstreams(
         nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
         chain: Chain,
-        options: UpstreamsConfig.Options
+        options: UpstreamsConfig.Options,
+        chainConf: ChainsConfig.ChainConfig
     ): EthereumRpcUpstream? {
         val conn = config.connection!!
 
@@ -279,7 +297,8 @@ open class ConfiguredUpstreams(
             options, config.role,
             methods,
             QuorumForLabels.QuorumItem(1, config.labels),
-            connectorFactory
+            connectorFactory,
+            chainConf
         )
         upstream.start()
         return upstream
@@ -309,7 +328,8 @@ open class ConfiguredUpstreams(
             endpoint.upstreamRating,
             config.labels,
             grpcUpstreamsScheduler,
-            channelExecutor
+            channelExecutor,
+            chainsConfig
         ).apply {
             timeout = options.timeout
         }

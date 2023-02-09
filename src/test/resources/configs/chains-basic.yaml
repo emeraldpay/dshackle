@@ -1,0 +1,7 @@
+version: v1
+
+chains:
+  - name: eth
+    syncing-size: 10
+    lagging-size: 5
+

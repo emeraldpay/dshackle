@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -30,15 +31,17 @@ abstract class BitcoinUpstream(
     role: UpstreamsConfig.UpstreamRole,
     callMethods: CallMethods,
     node: QuorumForLabels.QuorumItem,
-    val esploraClient: EsploraClient? = null
-) : DefaultUpstream(id, 0.toByte(), options, role, callMethods, node) {
+    val esploraClient: EsploraClient? = null,
+    private val chainConfig: ChainsConfig.ChainConfig
+) : DefaultUpstream(id, 0.toByte(), options, role, callMethods, node, chainConfig) {
 
     constructor(
         id: String,
         chain: Chain,
         options: UpstreamsConfig.Options,
-        role: UpstreamsConfig.UpstreamRole
-    ) : this(id, chain, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty())
+        role: UpstreamsConfig.UpstreamRole,
+        chainConfig: ChainsConfig.ChainConfig
+    ) : this(id, chain, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty(), null, chainConfig)
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinUpstream::class.java)

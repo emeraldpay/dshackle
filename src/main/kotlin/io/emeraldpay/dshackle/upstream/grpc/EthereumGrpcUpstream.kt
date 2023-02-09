@@ -20,6 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc.ReactorBlockchainStub
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
@@ -57,14 +58,16 @@ open class EthereumGrpcUpstream(
     private val chain: Chain,
     private val remote: ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient,
-    overrideLabels: UpstreamsConfig.Labels?
+    overrideLabels: UpstreamsConfig.Labels?,
+    chainConfig: ChainsConfig.ChainConfig
 ) : EthereumUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     hash,
     UpstreamsConfig.Options.getDefaults(),
     role,
     null,
-    null
+    null,
+    chainConfig
 ),
     GrpcUpstream,
     Lifecycle {

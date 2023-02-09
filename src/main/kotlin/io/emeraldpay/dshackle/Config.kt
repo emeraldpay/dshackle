@@ -16,14 +16,7 @@
  */
 package io.emeraldpay.dshackle
 
-import io.emeraldpay.dshackle.config.CacheConfig
-import io.emeraldpay.dshackle.config.HealthConfig
-import io.emeraldpay.dshackle.config.MainConfig
-import io.emeraldpay.dshackle.config.MainConfigReader
-import io.emeraldpay.dshackle.config.MonitoringConfig
-import io.emeraldpay.dshackle.config.SignatureConfig
-import io.emeraldpay.dshackle.config.TokensConfig
-import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.config.*
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -140,5 +133,10 @@ open class Config(
     @Bean
     open fun healthConfig(@Autowired mainConfig: MainConfig): HealthConfig {
         return mainConfig.health
+    }
+
+    @Bean
+    open fun chainsConfig(mainConfig: MainConfig): ChainsConfig {
+        return mainConfig.chains
     }
 }

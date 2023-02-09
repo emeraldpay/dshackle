@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
@@ -37,8 +38,9 @@ open class BitcoinRpcUpstream(
     role: UpstreamsConfig.UpstreamRole,
     node: QuorumForLabels.QuorumItem,
     callMethods: CallMethods,
-    esploraClient: EsploraClient? = null
-) : BitcoinUpstream(id, chain, options, role, callMethods, node, esploraClient), Lifecycle {
+    esploraClient: EsploraClient? = null,
+    chainConfig: ChainsConfig.ChainConfig
+) : BitcoinUpstream(id, chain, options, role, callMethods, node, esploraClient, chainConfig), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinRpcUpstream::class.java)

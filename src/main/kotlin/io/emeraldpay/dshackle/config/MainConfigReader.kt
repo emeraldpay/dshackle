@@ -38,6 +38,7 @@ class MainConfigReader(
     private val healthConfigReader = HealthConfigReader()
     private val signatureConfigReader = SignatureConfigReader(fileResolver)
     private val compressionConfigReader = CompressionConfigReader()
+    private val chainsConfigReader = ChainsConfigReader()
 
     fun read(input: InputStream): MainConfig? {
         val configNode = readNode(input)
@@ -86,6 +87,9 @@ class MainConfigReader(
         }
         compressionConfigReader.read(input).let {
             config.compression = it
+        }
+        chainsConfigReader.read(input).let {
+            config.chains = it
         }
         return config
     }
