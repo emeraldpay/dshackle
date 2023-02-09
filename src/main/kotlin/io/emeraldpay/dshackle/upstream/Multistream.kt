@@ -40,7 +40,6 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.time.Instant
-import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
@@ -74,7 +73,7 @@ abstract class Multistream(
     private var subscription: Disposable? = null
     private var capabilities: Set<Capability> = emptySet()
     private val removed: MutableMap<String, Upstream> = HashMap()
-    private val meters: MutableMap<String, Meter.Id> = HashMap()
+    private val meters: MutableMap<String, List<Meter.Id>> = HashMap()
     private val addedUpstreams = Sinks.many()
         .multicast()
         .directBestEffort<Upstream>()
@@ -86,7 +85,7 @@ abstract class Multistream(
         UpstreamAvailability.values().forEach { status ->
             Metrics.gauge(
                 "$metrics.availability",
-                listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase(Locale.getDefault()))),
+                listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase())),
                 this
             ) {
                 upstreams.count { it.getStatus() == status }.toDouble()
@@ -105,18 +104,30 @@ abstract class Multistream(
         }
     }
 
-    private fun monitorUpstream(upstream: Upstream) {
-        val id = upstream.getId()
-        // remove gouge for given upstream if exists - otherwise metric will stuck with prev upstream instance
-        meters[id]?.let {
+    private fun removeUpstreamMeters(upstreamId: String) {
+        meters[upstreamId]?.forEach {
             Metrics.globalRegistry.remove(it)
         }
+    }
 
-        meters[id] = Gauge.builder("$metrics.lag", upstream) { it.getLag().toDouble() }
-            .tag("chain", chain.chainCode)
-            .tag("upstream", id)
-            .register(Metrics.globalRegistry)
-            .id
+    private fun monitorUpstream(upstream: Upstream) {
+        val upstreamId = upstream.getId()
+
+        // otherwise metric will stuck with prev upstream instance
+        removeUpstreamMeters(upstreamId)
+
+        meters[upstreamId] = listOf(
+            Gauge.builder("$metrics.lag", upstream) { it.getLag().toDouble() }
+                .tag("chain", chain.chainCode)
+                .tag("upstream", upstreamId)
+                .register(Metrics.globalRegistry)
+                .id,
+            Gauge.builder("$metrics.availability.status", upstream) { it.getStatus().grpcId.toDouble() }
+                .tag("chain", chain.chainCode)
+                .tag("upstream", upstreamId)
+                .register(Metrics.globalRegistry)
+                .id,
+        )
     }
 
     open fun init() {
@@ -157,6 +168,7 @@ abstract class Multistream(
             if (it) {
                 removeHead(id)
                 onUpstreamsUpdated()
+                removeUpstreamMeters(id)
             }
         }
 
