@@ -27,7 +27,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-basic.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         with(act.defaultOptions) {
@@ -75,7 +75,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-ws-only.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 1
@@ -100,7 +100,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-ws-full.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 1
@@ -127,7 +127,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-bitcoin.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         with(act.defaultOptions) {
@@ -155,7 +155,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("upstreams-ethereum-pos.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 1
@@ -175,7 +175,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-bitcoin-esplora.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         with(act.defaultOptions) {
@@ -204,7 +204,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-ds.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 1
@@ -227,7 +227,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-labels.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 2
@@ -248,7 +248,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-options.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 2
@@ -264,7 +264,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-no-defaults.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         with(act.defaultOptions) {
@@ -287,7 +287,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-methods.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         with(act.upstreams.get(0)) {
@@ -307,7 +307,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-methods-quorum.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         with(act.upstreams.get(0)) {
@@ -330,7 +330,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-no-id.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 1
@@ -357,7 +357,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-basic.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 2
@@ -369,7 +369,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-roles.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 2
@@ -381,7 +381,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-roles-2.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 3
@@ -394,7 +394,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-roles-invalid.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 2
@@ -406,7 +406,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("upstreams-node-id.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 2
@@ -424,7 +424,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         setup:
         def config = this.class.getClassLoader().getResourceAsStream("upstreams-method-groups.yaml")
         when:
-        def act = reader.read(config)
+        def act = reader.readInternal(config)
         then:
         act != null
         act.upstreams.size() == 1

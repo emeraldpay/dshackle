@@ -3,7 +3,7 @@ package io.emeraldpay.dshackle.config
 import io.emeraldpay.dshackle.Chain
 import java.lang.IllegalStateException
 
-class ChainsConfig(private val chains: Map<Chain, RawChainConfig>?, val currentDefault: RawChainConfig?) {
+data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val currentDefault: RawChainConfig?) {
     companion object {
         @JvmStatic
         fun default(): ChainsConfig = ChainsConfig(emptyMap(), RawChainConfig.default())
@@ -25,12 +25,38 @@ class ChainsConfig(private val chains: Map<Chain, RawChainConfig>?, val currentD
 
     fun resolve(chain: Chain): ChainConfig {
         val default = currentDefault ?: panic()
-        val raw = chains?.get(chain) ?: default
+        val raw = chains[chain] ?: default
 
         return ChainConfig(
             laggingLagSize = raw.laggingLagSize ?: default.laggingLagSize ?: panic(),
             syncingLagSize = raw.syncingLagSize ?: default.syncingLagSize ?: panic(),
         )
+    }
+
+    fun patch(patch: ChainsConfig) = ChainsConfig(
+        merge(this.chains, patch.chains),
+        merge(this.currentDefault!!, patch.currentDefault)
+    )
+
+    private fun merge(
+        current: RawChainConfig,
+        patch: RawChainConfig?
+    ) = RawChainConfig(
+        syncingLagSize = patch?.syncingLagSize ?: current.syncingLagSize,
+        laggingLagSize = patch?.laggingLagSize ?: current.laggingLagSize
+    )
+
+    private fun merge(
+        current: Map<Chain, RawChainConfig>,
+        patch: Map<Chain, RawChainConfig>
+    ): Map<Chain, RawChainConfig> {
+        val currentMut = current.toMutableMap()
+
+        for (k in patch) {
+            currentMut.merge(k.key, k.value) { v1, v2 -> merge(v1, v2) }
+        }
+
+        return currentMut.toMap()
     }
 
     fun panic(): Nothing = throw IllegalStateException("Chains settings state is illegal - default config is null")

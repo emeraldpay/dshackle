@@ -32,8 +32,6 @@ If you request balance for an address that is not indexed then it returns 0 bala
 - To track all transactions you need to setup index for transactions, which is disabled by default.
 Run it with `-reindex` option, or set `txindex=1` in the config.
 
-===
-
 === Example Configuration
 
 .upstreams.yaml
@@ -317,3 +315,33 @@ For JSON RPC and Websockets a Basic Authentication can be used:
 
 - `username` - username
 - `password` - password
+
+=== Chains specific configuration
+We can use chain settings to specify chain specific behavior, for example rules for dshackle to work with upstream statuses
+
+.chains.yaml
+[source,yaml]
+----
+chain-settings:
+  default:
+    lags:
+      syncing: 6
+      lagging: 1
+  chains:
+    - id: eth
+      lags:
+        syncing: 6
+        lagging: 1
+    - id: polygon
+      lags:
+        syncing: 20
+        lagging: 10
+----
+Options
+[cols="2,5a"]
+|===
+| Option | Description
+
+| `lags.syncing` | the size of the lag after which the upstream is determined to be syncing
+| `lags.lagging` | the size of the lag after which the upstream is determined to be lagging
+|===

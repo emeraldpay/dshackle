@@ -28,13 +28,24 @@ class ChainsConfigReaderSpec extends Specification {
         def stream = this.class.getClassLoader().getResourceAsStream("configs/chains-basic.yaml")
         when:
         def config = reader.read(stream)
-        def act = config.resolve(Chain.ETHEREUM)
-        def act2 = config.resolve(Chain.POLYGON)
+        def eth = config.resolve(Chain.ETHEREUM)
+        def pol = config.resolve(Chain.POLYGON)
+        def opt = config.resolve(Chain.OPTIMISM)
+        def sep = config.resolve(Chain.TESTNET_SEPOLIA)
         then:
-        act.laggingLagSize == 5
-        act.syncingLagSize == 10
+        eth.laggingLagSize == 1
+        eth.syncingLagSize == 6
 
-        act2.laggingLagSize == 1
-        act2.syncingLagSize == 6
+        pol.laggingLagSize == 10
+        pol.syncingLagSize == 20
+
+        opt.laggingLagSize == 3
+        opt.syncingLagSize == 6
+
+        sep.laggingLagSize == 1
+        sep.syncingLagSize == 10
+
+        eth.laggingLagSize == 1
+        eth.syncingLagSize == 6
     }
 }

@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.FileResolver
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
+import java.io.InputStream
 import java.net.URI
 import java.time.Duration
 import java.util.Locale
@@ -38,6 +39,10 @@ class UpstreamsConfigReader(
         }
     }
 
+    fun readInternal(input: InputStream): UpstreamsConfig? {
+        val configNode = readNode(input)
+        return readInternal(configNode)
+    }
     fun readInternal(input: MappingNode?): UpstreamsConfig {
         val config = UpstreamsConfig()
 
@@ -55,7 +60,7 @@ class UpstreamsConfigReader(
         getValueAsString(input, "include")?.let { path ->
             fileResolver.resolve(path).let { file ->
                 if (file.exists() && file.isFile && file.canRead()) {
-                    read(file.inputStream())?.let {
+                    readInternal(file.inputStream())?.let {
                         it.upstreams.forEach { upstream -> config.upstreams.add(upstream) }
                     }
                 } else {
@@ -67,7 +72,7 @@ class UpstreamsConfigReader(
         getListOfString(input, "include")?.forEach { path ->
             fileResolver.resolve(path).let { file ->
                 if (file.exists() && file.isFile && file.canRead()) {
-                    read(file.inputStream())?.let {
+                    readInternal(file.inputStream())?.let {
                         it.upstreams.forEach { upstream -> config.upstreams.add(upstream) }
                     }
                 } else {
