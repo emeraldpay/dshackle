@@ -59,6 +59,11 @@ port: 2449
 tls:
   enabled: false
 
+compression:
+  grpc:
+    server:
+      enabled: false
+
 proxy:
   host: 0.0.0.0
   port: 8545
@@ -103,6 +108,7 @@ Which sets the following:
 
 - gRPC access through 0.0.0.0:2449
 ** TLS security is disabled (_please don't use in production!_)
+** compression is disabled for gRPC server (enabled by default)
 - JSON RPC access through 0.0.0.0:8545 (both HTTP and WebsScket)
 ** proxy requests to Ethereum and Kovan upstreams
 ** request path for Ethereum Mainnet is `/eth`, `/kovan` for Kovan Testnet, and `/btc` for bitcoin

@@ -28,4 +28,5 @@ class MainConfig {
     var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
     var health: HealthConfig = HealthConfig.default()
     var signature: SignatureConfig? = null
+    var compression: CompressionConfig = CompressionConfig.default()
 }

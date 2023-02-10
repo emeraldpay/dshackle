@@ -18,7 +18,11 @@ package io.emeraldpay.dshackle
 
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerGrpc
+import io.grpc.Codec
 import io.grpc.Server
+import io.grpc.ServerCall
+import io.grpc.ServerCallHandler
+import io.grpc.ServerInterceptor
 import io.grpc.netty.NettyServerBuilder
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
@@ -42,6 +46,17 @@ open class GrpcServer(
 
     private var server: Server? = null
 
+    class CompressionInterceptor : ServerInterceptor {
+        override fun <ReqT : Any, RespT : Any> interceptCall(
+            call: ServerCall<ReqT, RespT>,
+            headers: io.grpc.Metadata,
+            next: ServerCallHandler<ReqT, RespT>
+        ): ServerCall.Listener<ReqT> {
+            call.setCompression(Codec.Gzip().messageEncoding)
+            return next.startCall(call, headers)
+        }
+    }
+
     @PostConstruct
     fun start() {
         log.info("Starting gRPC Server...")
@@ -53,9 +68,12 @@ open class GrpcServer(
             .let {
                 if (mainConfig.accessLogConfig.enabled) {
                     it.intercept(accessHandler)
-                } else {
-                    it
                 }
+                if (mainConfig.compression.grpc.serverEnabled) {
+                    it.intercept(CompressionInterceptor())
+                    log.info("Compression enabled for gRPC server")
+                }
+                it
             }
 
         tlsSetup.setupServer("Native gRPC", mainConfig.tls, true)?.let {
