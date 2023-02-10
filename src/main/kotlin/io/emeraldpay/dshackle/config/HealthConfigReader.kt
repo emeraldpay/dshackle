@@ -20,17 +20,11 @@ import io.emeraldpay.dshackle.Global
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 
-class HealthConfigReader : YamlConfigReader(), ConfigReader<HealthConfig> {
+class HealthConfigReader : YamlConfigReader<HealthConfig>() {
 
     companion object {
         private val log = LoggerFactory.getLogger(HealthConfigReader::class.java)
-    }
-
-    fun read(input: InputStream): HealthConfig {
-        val configNode = readNode(input)
-        return read(configNode)
     }
 
     override fun read(input: MappingNode?): HealthConfig {

@@ -20,23 +20,17 @@ import io.emeraldpay.dshackle.FileResolver
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 import java.net.URI
 import java.time.Duration
 import java.util.Locale
 
 class UpstreamsConfigReader(
     private val fileResolver: FileResolver
-) : YamlConfigReader(), ConfigReader<UpstreamsConfig> {
+) : YamlConfigReader<UpstreamsConfig>() {
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
     private val authConfigReader = AuthConfigReader()
     private val knownNodeIds: MutableSet<Int> = HashSet()
-
-    fun read(input: InputStream): UpstreamsConfig? {
-        val configNode = readNode(input)
-        return readInternal(configNode)
-    }
 
     override fun read(input: MappingNode?): UpstreamsConfig? {
         return getMapping(input, "cluster")?.let {
@@ -44,7 +38,7 @@ class UpstreamsConfigReader(
         }
     }
 
-    fun readInternal(input: MappingNode?): UpstreamsConfig? {
+    fun readInternal(input: MappingNode?): UpstreamsConfig {
         val config = UpstreamsConfig()
 
         getList<MappingNode>(input, "defaults")?.value?.forEach { opts ->

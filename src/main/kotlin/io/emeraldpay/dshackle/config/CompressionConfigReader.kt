@@ -1,14 +1,8 @@
 package io.emeraldpay.dshackle.config
 
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 
-class CompressionConfigReader : YamlConfigReader(), ConfigReader<CompressionConfig> {
-    fun read(input: InputStream): CompressionConfig? {
-        val configNode = readNode(input)
-        return read(configNode)
-    }
-
+class CompressionConfigReader : YamlConfigReader<CompressionConfig>() {
     override fun read(input: MappingNode?): CompressionConfig {
         val config = CompressionConfig()
         getMapping(input, "compression")?.let { node ->

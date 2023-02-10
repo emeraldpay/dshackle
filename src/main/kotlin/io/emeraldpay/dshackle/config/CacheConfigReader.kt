@@ -17,17 +17,11 @@ package io.emeraldpay.dshackle.config
 
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 
-class CacheConfigReader : YamlConfigReader(), ConfigReader<CacheConfig> {
+class CacheConfigReader : YamlConfigReader<CacheConfig>() {
 
     companion object {
         private val log = LoggerFactory.getLogger(CacheConfigReader::class.java)
-    }
-
-    fun read(input: InputStream): CacheConfig? {
-        val configNode = readNode(input)
-        return read(configNode)
     }
 
     override fun read(input: MappingNode?): CacheConfig? {

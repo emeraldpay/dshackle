@@ -25,9 +25,15 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.Locale
 
-abstract class YamlConfigReader {
+abstract class YamlConfigReader<T> : ConfigReader<T> {
     private val envVariables = EnvVariables()
 
+    val filename = "dshackle.yaml"
+
+    fun read(input: InputStream): T? {
+        val configNode = readNode(input)
+        return read(configNode)
+    }
     fun readNode(input: String): MappingNode {
         return readNode(input.byteInputStream())
     }

@@ -1,21 +1,9 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.FileResolver
-import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 
-class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader(), ConfigReader<SignatureConfig> {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(SignatureConfig::class.java)
-    }
-
-    fun read(input: InputStream): SignatureConfig? {
-        val configNode = readNode(input)
-        return read(configNode)
-    }
-
+class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader<SignatureConfig>() {
     override fun read(input: MappingNode?): SignatureConfig? {
         return getMapping(input, "signed-response")?.let { node ->
             val config = SignatureConfig()

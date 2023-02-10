@@ -10,3 +10,7 @@ chain-settings:
       lags:
         syncing: 6
         lagging: 1
+    - name: polygon
+      lags:
+        syncing: 20
+        lagging: 10

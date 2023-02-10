@@ -3,43 +3,48 @@ package io.emeraldpay.dshackle.config
 import io.emeraldpay.dshackle.Global
 import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 
-class ChainsConfigReader : YamlConfigReader(), ConfigReader<ChainsConfig> {
-
-    fun read(input: InputStream): ChainsConfig {
-        val configNode = readNode(input)
-        return read(configNode)
-    }
+class ChainsConfigReader : YamlConfigReader<ChainsConfig>() {
 
     override fun read(input: MappingNode?): ChainsConfig {
-        val chains = getList<MappingNode>(input, "chains")?.let {
-            readChains(it)
-        }
+        return getMapping(input, "chain-settings")?.let {
 
-        if (chains == null) {
-            return ChainsConfig.default()
-        } else {
+            val chains = getList<MappingNode>(it, "chains")?.let {
+                readChains(it)
+            }
 
-            val default = chains.firstOrNull { it.first == "default" }?.second ?: ChainsConfig.ChainConfig.default()
+            val default = getMapping(it, "default")?.let {
+                readChain(it)
+            }
 
             return ChainsConfig(
-                chains.filter { it.first != "default" }
-                    .map { Global.chainById(it.first) to it.second }
-                    .associateBy({ it.first }, { it.second }),
+                chains
+                    ?.map { Global.chainById(it.first) to it.second }
+                    ?.associateBy({ it.first }, { it.second }) ?: emptyMap(),
                 default
+            )
+        } ?: ChainsConfig.default()
+    }
+
+    private fun readChain(node: MappingNode): ChainsConfig.RawChainConfig? {
+        return getMapping(node, "lags")?.let {
+            return ChainsConfig.RawChainConfig(
+                getValueAsInt(it, "syncing"),
+                getValueAsInt(it, "lagging")
             )
         }
     }
 
-    private fun readChains(node: CollectionNode<MappingNode>): List<Pair<String, ChainsConfig.ChainConfig>> {
-        return node.value.map {
-            val key = getValueAsString(it, "name") ?: throw IllegalArgumentException()
-            val value = ChainsConfig.ChainConfig(
-                getValueAsInt(it, "syncing-size") ?: throw IllegalArgumentException(),
-                getValueAsInt(it, "lagging-size") ?: throw IllegalArgumentException()
-            )
-            key to value
+    private fun readChains(node: CollectionNode<MappingNode>): List<Pair<String, ChainsConfig.RawChainConfig>> {
+        return node.value.mapNotNull {
+            val key = getValueAsString(it, "name")
+                ?: throw InvalidConfigYamlException(filename, it.startMark, "chain name required")
+            val value = readChain(it)
+            if (value != null) {
+                return@mapNotNull key to value
+            } else {
+                return@mapNotNull null
+            }
         }
     }
 }

@@ -19,7 +19,7 @@ package io.emeraldpay.dshackle.config
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 
-class AuthConfigReader : YamlConfigReader() {
+class AuthConfigReader : YamlConfigReader<AuthConfig>() {
 
     companion object {
         private val log = LoggerFactory.getLogger(AuthConfigReader::class.java)
@@ -81,5 +81,9 @@ class AuthConfigReader : YamlConfigReader() {
             }
             auth
         }
+    }
+
+    override fun read(input: MappingNode?): AuthConfig? {
+        return null
     }
 }
