@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.startup
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.ChainsConfig
+import io.emeraldpay.dshackle.config.CompressionConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
@@ -20,6 +21,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
+                Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
@@ -47,6 +49,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
+                Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
@@ -73,6 +76,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
+                Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
@@ -94,6 +98,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
+                Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
@@ -120,6 +125,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
                 Stub(UpstreamsConfig),
+                Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),

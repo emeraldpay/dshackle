@@ -34,6 +34,7 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
+import io.grpc.Codec
 import io.grpc.netty.NettyChannelBuilder
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
@@ -63,6 +64,7 @@ class GrpcUpstreams(
     private val host: String,
     private val port: Int,
     private val auth: AuthConfig.ClientTlsAuth? = null,
+    private val compression: Boolean,
     private val fileResolver: FileResolver,
     private val nodeRating: Int,
     private val labels: UpstreamsConfig.Labels,
@@ -94,7 +96,10 @@ class GrpcUpstreams(
             chanelBuilder.usePlaintext()
         }
 
-        val client = ReactorBlockchainGrpc.newReactorStub(chanelBuilder.build())
+        var client = ReactorBlockchainGrpc.newReactorStub(chanelBuilder.build())
+        if (compression) {
+            client = client.withCompression(Codec.Gzip().messageEncoding)
+        }
         this.client = client
 
         val statusSubscription = AtomicReference<Disposable>()

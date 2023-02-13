@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.config
 
-class CompressionConfig(
+open class CompressionConfig(
     var grpc: GRPC = GRPC()
 ) {
     /**

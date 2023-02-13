@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ChainsConfig
+import io.emeraldpay.dshackle.config.CompressionConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.*
@@ -62,6 +63,7 @@ import kotlin.math.abs
 open class ConfiguredUpstreams(
     private val fileResolver: FileResolver,
     private val config: UpstreamsConfig,
+    private val compressionConfig: CompressionConfig,
     private val callTargets: CallTargetsHolder,
     private val eventPublisher: ApplicationEventPublisher,
     @Qualifier("grpcChannelExecutor")
@@ -86,7 +88,7 @@ open class ConfiguredUpstreams(
             log.debug("Start upstream ${up.id}")
             if (up.connection is UpstreamsConfig.GrpcConnection) {
                 val options = up.options ?: UpstreamsConfig.Options()
-                buildGrpcUpstream(up.nodeId, up.cast(UpstreamsConfig.GrpcConnection::class.java), options)
+                buildGrpcUpstream(up.nodeId, up.cast(UpstreamsConfig.GrpcConnection::class.java), options, compressionConfig.grpc.clientEnabled)
             } else {
                 val chain = Global.chainById(up.chain)
                 if (chain == Chain.UNSPECIFIED) {
@@ -307,7 +309,8 @@ open class ConfiguredUpstreams(
     private fun buildGrpcUpstream(
         nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
-        options: UpstreamsConfig.Options
+        options: UpstreamsConfig.Options,
+        compression: Boolean
     ) {
         if (!this::grpcUpstreamsScheduler.isInitialized) {
             grpcUpstreamsScheduler = Schedulers.fromExecutorService(
@@ -324,6 +327,7 @@ open class ConfiguredUpstreams(
             endpoint.host!!,
             endpoint.port,
             endpoint.auth,
+            compression,
             fileResolver,
             endpoint.upstreamRating,
             config.labels,

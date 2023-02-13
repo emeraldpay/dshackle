@@ -26,6 +26,8 @@ compression:
   grpc:
     server:
       enabled: false
+    client:
+      enabled: false
 
 cluster:
   include: "upstreams.yaml"
@@ -35,7 +37,8 @@ It configures following:
 
 - server is listening with gRCP API on `0.0.0.0:2449`
 - TLS is enabled
-- compression is disabled for gRPC server (enabled by default)
+- compression is disabled for gRPC-server (enabled by default)
+- compression is disabled for upstream gRPC-client (enabled by default)
 - server certificate is located at `server.crt` with the key for it at `server.p8.key`
 - the server requires a client authentication by TLS client certificate signed by `ca.crt` certificate
 - no JSON RPC is configured
@@ -72,12 +75,23 @@ a| `upstreams`
 |===
 
 === Compression
-Compression is enabled by default on the gRPC server
-(the server accepts compressed requests and can send compressed responses).
-Responses will be compressed if a client supports compression (sends relevant headers),
-otherwise, communication will be uncompressed.
-But if for some reason you need to disable compression forcibly,
-add the lines below to the config:
+Compression is enabled by default on the gRPC-server.
+Responses will be compressed if a client supports compression
+(sends relevant headers), otherwise, communication will be uncompressed.
+But if for some reason you need to disable responses compression
+forcibly (the server will still be able to accept compressed requests),
+add following lines to the config:
+[source,yaml]
+----
+compression:
+  grpc:
+    server:
+      enabled: false
+----
+Compression is enabled by default for gRPC-requests to upstreams.
+If you want to disable it,
+(gRPC-client will still be able to accept compressed responses),
+add following lines to the config:
 [source,yaml]
 ----
 compression:
@@ -85,6 +99,31 @@ compression:
     client:
       enabled: false
 ----
+Thus, all possible combinations of compression configuration for
+interacting dshackle grpc-client and grpc-server look like this:
+|===
+| Client | Server | Requests | Responses
+
+| enabled
+| enabled
+| compressed
+| compressed
+
+| enabled
+| disabled
+| compressed
+| plain
+
+| disabled
+| enabled
+| plain
+| compressed
+
+| disabled
+| disabled
+| plain
+| plain
+|===
 
 === Enabling JSON RPC proxy
 
