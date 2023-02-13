@@ -227,6 +227,7 @@ class FilteredApisSpec extends Specification {
                 Mock(Upstream) {
                     _ * getRole() >> UpstreamsConfig.UpstreamRole.FALLBACK
                     _ * isAvailable() >> true
+                    _ * getStatus() >> UpstreamAvailability.OK
                 }
         ]
         when:
@@ -259,12 +260,14 @@ class FilteredApisSpec extends Specification {
                 Mock([name: "fallback"], Upstream) {
                     _ * getRole() >> UpstreamsConfig.UpstreamRole.FALLBACK
                     _ * isAvailable() >> true
+                    _ * getStatus() >> UpstreamAvailability.OK
                 }
         ]
         List<Upstream> secondary = [
                 Mock([name: "secondary"], Upstream) {
                     _ * getRole() >> UpstreamsConfig.UpstreamRole.SECONDARY
                     _ * isAvailable() >> true
+                    _ * getStatus() >> UpstreamAvailability.OK
                 }
         ]
         when:
@@ -284,6 +287,37 @@ class FilteredApisSpec extends Specification {
                 .expectNext(standard[0], standard[1]).as("Second retry with primary")
                 .expectNext(secondary[0]).as("Second retry with secondary")
                 .expectNext(fallback[0]).as("Second retry with fallback")
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Use LAGGING after OK"() {
+        setup:
+        List<Upstream> lagging = [
+                Mock([name: "lagging"], Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> true
+                    _ * getStatus() >> UpstreamAvailability.LAGGING
+                }
+        ]
+        List<Upstream> ok = [
+                Mock([name: "ok"], Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> true
+                    _ * getStatus() >> UpstreamAvailability.OK
+                }
+        ]
+        when:
+        def act = new FilteredApis(Chain.ETHEREUM,
+                [] + lagging + ok,
+                Selector.empty, 0, 2, 0)
+        act.request(4)
+        then:
+        StepVerifier.create(act)
+                .expectNext(ok[0]).as("Initial requests with ok")
+                .expectNext(lagging[0]).as("Initial requests with lagging")
+                .expectNext(ok[0]).as("retry requests with ok")
+                .expectNext(lagging[0]).as("retry requests with lagging")
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }

@@ -65,7 +65,7 @@ abstract class DefaultUpstream(
     }
 
     override fun isAvailable(): Boolean {
-        return getStatus() == UpstreamAvailability.OK
+        return getStatus() == UpstreamAvailability.OK || getStatus() == UpstreamAvailability.LAGGING
     }
 
     fun onStatus(value: BlockchainOuterClass.ChainStatus) {
