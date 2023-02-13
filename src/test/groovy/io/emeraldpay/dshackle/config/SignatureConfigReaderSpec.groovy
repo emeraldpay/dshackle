@@ -1,14 +1,7 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.test.TestingCommons
-import org.bouncycastle.util.io.pem.PemObject
-import org.bouncycastle.util.io.pem.PemWriter
 import spock.lang.Specification
-
-import java.security.KeyPairGenerator
-import java.security.SecureRandom
-import java.security.spec.ECGenParameterSpec
-import java.security.spec.PKCS8EncodedKeySpec
 
 class SignatureConfigReaderSpec extends Specification {
 

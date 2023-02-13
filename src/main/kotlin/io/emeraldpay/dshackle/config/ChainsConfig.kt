@@ -1,7 +1,6 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Chain
-import java.lang.IllegalStateException
 
 data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val currentDefault: RawChainConfig?) {
     companion object {

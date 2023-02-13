@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.test
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
@@ -8,7 +9,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.dshackle.Chain
 
 class ConnectorFactoryMock implements ConnectorFactory {
     Reader<JsonRpcRequest, JsonRpcResponse> api

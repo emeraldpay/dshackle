@@ -17,7 +17,6 @@ package io.emeraldpay.dshackle.proxy
 
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.api.proto.BlockchainOuterClass.Selector
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ProxyConfig

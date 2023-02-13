@@ -2,7 +2,6 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.etherjar.rpc.RpcException
 import nl.jqno.equalsverifier.EqualsVerifier
-import nl.jqno.equalsverifier.Warning
 import spock.lang.Specification
 
 class JsonRpcErrorSpec extends Specification {

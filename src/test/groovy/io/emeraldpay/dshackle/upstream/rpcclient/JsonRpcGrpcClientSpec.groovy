@@ -4,11 +4,10 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.test.MockGrpcServer
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.dshackle.Chain
 import io.grpc.stub.StreamObserver
 import spock.lang.Specification
 

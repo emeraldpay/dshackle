@@ -15,12 +15,12 @@
  */
 package io.emeraldpay.dshackle.monitoring
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.HealthConfig
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.Chain
 import spock.lang.Specification
 
 class HealthCheckSetupSpec extends Specification {

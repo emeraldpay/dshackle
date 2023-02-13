@@ -17,7 +17,6 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
@@ -26,7 +25,6 @@ import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
 import org.mockserver.model.MediaType
 import org.springframework.util.SocketUtils
-import reactor.core.Exceptions
 import reactor.test.StepVerifier
 import spock.lang.Specification
 

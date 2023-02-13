@@ -16,12 +16,9 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc
 import io.grpc.Metadata
-import org.jetbrains.annotations.NotNull
-import org.junit.validator.TestClassValidator
 import spock.lang.Specification
 
 class EventsBaseBuilderSpec extends Specification {

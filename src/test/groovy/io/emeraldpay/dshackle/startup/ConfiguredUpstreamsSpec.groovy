@@ -1,14 +1,12 @@
 package io.emeraldpay.dshackle.startup
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
-import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
-import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
-import io.emeraldpay.dshackle.Chain
 import org.springframework.context.ApplicationEventPublisher
 import spock.lang.Specification
 
