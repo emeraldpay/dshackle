@@ -160,11 +160,11 @@ class FilteredApis(
 
     override fun subscribe(subscriber: Subscriber<in Upstream>) {
         // initially try only standard upstreams
-        val first = Flux.fromIterable(primaryUpstreams)
-        val second = Flux.fromIterable(secondaryUpstreams)
+        val first = Flux.fromIterable(primaryUpstreams.sortedBy { it.getStatus().grpcId })
+        val second = Flux.fromIterable(secondaryUpstreams.sortedBy { it.getStatus().grpcId })
         // if all failed, try both standard and fallback upstreams, repeating in cycle
         val retries = (0 until (retryLimit - 1)).map { r ->
-            Flux.fromIterable(standardWithFallback)
+            Flux.fromIterable(standardWithFallback.sortedBy { it.getStatus().grpcId })
                 // add a delay to let upstream to restore if it's a temp failure
                 // but delay only start of the check, not between upstreams
                 // i.e. if all upstreams failed -> wait -> check all without waiting in between
