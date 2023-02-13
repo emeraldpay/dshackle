@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
@@ -57,7 +58,8 @@ class FilteredApisSpec extends Specification {
                     UpstreamsConfig.UpstreamRole.PRIMARY,
                     ethereumTargets,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
-                    connectorFactory
+                    connectorFactory,
+                    ChainsConfig.ChainConfig.default()
             )
         }
         def matcher = new Selector.LabelMatcher("test", ["foo"])

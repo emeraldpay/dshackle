@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -33,7 +34,8 @@ abstract class DefaultUpstream(
     private val options: UpstreamsConfig.Options,
     private val role: UpstreamsConfig.UpstreamRole,
     private val targets: CallMethods?,
-    private val node: QuorumForLabels.QuorumItem?
+    node: QuorumForLabels.QuorumItem?,
+    private val chainConfig: ChainsConfig.ChainConfig
 ) : Upstream {
 
     constructor(
@@ -41,28 +43,11 @@ abstract class DefaultUpstream(
         hash: Byte,
         options: UpstreamsConfig.Options,
         role: UpstreamsConfig.UpstreamRole,
-        targets: CallMethods?
-    ) :
-        this(
-            id,
-            hash,
-            Long.MAX_VALUE,
-            UpstreamAvailability.UNAVAILABLE,
-            options,
-            role,
-            targets,
-            QuorumForLabels.QuorumItem.empty()
-        )
-
-    constructor(
-        id: String,
-        hash: Byte,
-        options: UpstreamsConfig.Options,
-        role: UpstreamsConfig.UpstreamRole,
         targets: CallMethods?,
-        node: QuorumForLabels.QuorumItem?
+        node: QuorumForLabels.QuorumItem?,
+        chainConfig: ChainsConfig.ChainConfig
     ) :
-        this(id, hash, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node)
+        this(id, hash, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node, chainConfig)
 
     companion object {
         private val log = LoggerFactory.getLogger(DefaultUpstream::class.java)
@@ -111,8 +96,8 @@ abstract class DefaultUpstream(
         }
         return if (proposed == UpstreamAvailability.OK) {
             when {
-                lag > 6 -> UpstreamAvailability.SYNCING
-                lag > 1 -> UpstreamAvailability.LAGGING
+                lag > chainConfig.syncingLagSize -> UpstreamAvailability.SYNCING
+                lag > chainConfig.laggingLagSize -> UpstreamAvailability.LAGGING
                 else -> proposed
             }
         } else proposed

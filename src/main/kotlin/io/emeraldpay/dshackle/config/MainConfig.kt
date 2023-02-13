@@ -29,4 +29,5 @@ class MainConfig {
     var health: HealthConfig = HealthConfig.default()
     var signature: SignatureConfig? = null
     var compression: CompressionConfig = CompressionConfig.default()
+    var chains: ChainsConfig = ChainsConfig.default()
 }

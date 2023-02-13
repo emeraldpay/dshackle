@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
@@ -39,9 +40,10 @@ open class EthereumPosRpcUpstream(
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
-    private val node: QuorumForLabels.QuorumItem?,
-    connectorFactory: ConnectorFactory
-) : EthereumPosUpstream(id, hash, options, role, targets, node), Lifecycle, Upstream, CachesEnabled {
+    node: QuorumForLabels.QuorumItem?,
+    connectorFactory: ConnectorFactory,
+    chainConfig: ChainsConfig.ChainConfig
+) : EthereumPosUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
     private val log = LoggerFactory.getLogger(EthereumPosRpcUpstream::class.java)
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions())
     private val connector: EthereumConnector = connectorFactory.create(this, validator, chain)

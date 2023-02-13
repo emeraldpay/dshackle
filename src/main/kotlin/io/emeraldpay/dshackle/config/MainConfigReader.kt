@@ -16,17 +16,11 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.FileResolver
-import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 
 class MainConfigReader(
     fileResolver: FileResolver
-) : YamlConfigReader(), ConfigReader<MainConfig> {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(MainConfigReader::class.java)
-    }
+) : YamlConfigReader<MainConfig>() {
 
     private val authConfigReader = AuthConfigReader()
     private val proxyConfigReader = ProxyConfigReader()
@@ -38,13 +32,9 @@ class MainConfigReader(
     private val healthConfigReader = HealthConfigReader()
     private val signatureConfigReader = SignatureConfigReader(fileResolver)
     private val compressionConfigReader = CompressionConfigReader()
+    private val chainsConfigReader = ChainsConfigReader()
 
-    fun read(input: InputStream): MainConfig? {
-        val configNode = readNode(input)
-        return read(configNode)
-    }
-
-    override fun read(input: MappingNode?): MainConfig? {
+    override fun read(input: MappingNode?): MainConfig {
         val config = MainConfig()
         getValueAsString(input, "host")?.let {
             config.host = it
@@ -86,6 +76,9 @@ class MainConfigReader(
         }
         compressionConfigReader.read(input).let {
             config.compression = it
+        }
+        chainsConfigReader.read(input).let {
+            config.chains = it
         }
         return config
     }

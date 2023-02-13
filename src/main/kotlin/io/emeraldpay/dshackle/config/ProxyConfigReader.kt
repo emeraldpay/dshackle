@@ -21,24 +21,17 @@ import io.emeraldpay.dshackle.Global
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 
 /**
  * Read YAML config, part related to Proxy configuration
  */
-class ProxyConfigReader : YamlConfigReader(), ConfigReader<ProxyConfig> {
+class ProxyConfigReader : YamlConfigReader<ProxyConfig>() {
 
     companion object {
         private val log = LoggerFactory.getLogger(ProxyConfigReader::class.java)
     }
 
-    private var filename = "dshackle.yaml"
     private val authConfigReader = AuthConfigReader()
-
-    fun read(input: InputStream): ProxyConfig? {
-        val configNode = readNode(input)
-        return read(configNode)
-    }
 
     override fun read(input: MappingNode?): ProxyConfig? {
         return readInternal(getMapping(input, "proxy"))

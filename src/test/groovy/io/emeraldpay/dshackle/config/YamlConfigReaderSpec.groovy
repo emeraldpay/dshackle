@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.config
 
+import org.jetbrains.annotations.Nullable
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.nodes.MappingNode
 import spock.lang.Specification
@@ -41,5 +42,10 @@ class YamlConfigReaderSpec extends Specification {
         return new Yaml().compose(new StringReader("$key: $value")) as MappingNode
     }
 
-    class Impl extends YamlConfigReader {}
+    class Impl extends YamlConfigReader {
+        @Override
+        Object read(@Nullable MappingNode input) {
+            return null
+        }
+    }
 }

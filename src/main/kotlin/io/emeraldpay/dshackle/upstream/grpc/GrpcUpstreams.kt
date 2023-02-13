@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -64,7 +65,8 @@ class GrpcUpstreams(
     private val nodeRating: Int,
     private val labels: UpstreamsConfig.Labels,
     private val chainStatusScheduler: Scheduler,
-    private val grpcExecutor: Executor
+    private val grpcExecutor: Executor,
+    private val chainsConfig: ChainsConfig
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -185,13 +187,13 @@ class GrpcUpstreams(
 
     private val creators: Map<BlockchainType, (chain: Chain, client: JsonRpcGrpcClient) -> DefaultUpstream> = mapOf(
         BlockchainType.EVM_POW to { chain, rpcClient ->
-            EthereumGrpcUpstream(id, hash, role, chain, client, rpcClient, labels)
+            EthereumGrpcUpstream(id, hash, role, chain, client, rpcClient, labels, chainsConfig.resolve(chain))
         },
         BlockchainType.EVM_POS to { chain, rpcClient ->
-            EthereumPosGrpcUpstream(id, hash, role, chain, client, rpcClient, nodeRating, labels)
+            EthereumPosGrpcUpstream(id, hash, role, chain, client, rpcClient, nodeRating, labels, chainsConfig.resolve(chain))
         },
         BlockchainType.BITCOIN to { chain, rpcClient ->
-            BitcoinGrpcUpstream(id, role, chain, client, rpcClient, labels)
+            BitcoinGrpcUpstream(id, role, chain, client, rpcClient, labels, chainsConfig.resolve(chain))
         }
     )
 

@@ -1,0 +1,16 @@
+version: v1
+
+chain-settings:
+  default:
+    lags:
+      syncing: 6
+      lagging: 1
+  chains:
+    - id: eth
+      lags:
+        syncing: 6
+        lagging: 1
+    - id: polygon
+      lags:
+        syncing: 20
+        lagging: 10

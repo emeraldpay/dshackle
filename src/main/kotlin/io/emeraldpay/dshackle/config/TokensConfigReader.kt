@@ -18,17 +18,11 @@ package io.emeraldpay.dshackle.config
 import io.emeraldpay.dshackle.Global
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 import java.util.Locale
 
-class TokensConfigReader : YamlConfigReader(), ConfigReader<TokensConfig> {
+class TokensConfigReader : YamlConfigReader<TokensConfig>() {
 
     private val log = LoggerFactory.getLogger(TokensConfigReader::class.java)
-
-    fun read(input: InputStream): TokensConfig? {
-        val configNode = readNode(input)
-        return read(configNode)
-    }
 
     override fun read(input: MappingNode?): TokensConfig? {
         val tokens = getList<MappingNode>(input, "tokens")?.value?.map { node ->

@@ -1,0 +1,18 @@
+version: v1
+
+chain-settings:
+  default:
+    lags:
+      syncing: 6
+      lagging: 1
+  chains:
+    - id: eth
+      lags:
+        syncing: 6
+        lagging: 1
+    - id: optimism
+      lags:
+        lagging: 3
+    - id: sepolia
+      lags:
+        syncing: 10

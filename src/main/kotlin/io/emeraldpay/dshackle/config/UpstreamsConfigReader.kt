@@ -27,16 +27,11 @@ import java.util.Locale
 
 class UpstreamsConfigReader(
     private val fileResolver: FileResolver
-) : YamlConfigReader(), ConfigReader<UpstreamsConfig> {
+) : YamlConfigReader<UpstreamsConfig>() {
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
     private val authConfigReader = AuthConfigReader()
     private val knownNodeIds: MutableSet<Int> = HashSet()
-
-    fun read(input: InputStream): UpstreamsConfig? {
-        val configNode = readNode(input)
-        return readInternal(configNode)
-    }
 
     override fun read(input: MappingNode?): UpstreamsConfig? {
         return getMapping(input, "cluster")?.let {
@@ -44,7 +39,11 @@ class UpstreamsConfigReader(
         }
     }
 
-    fun readInternal(input: MappingNode?): UpstreamsConfig? {
+    fun readInternal(input: InputStream): UpstreamsConfig? {
+        val configNode = readNode(input)
+        return readInternal(configNode)
+    }
+    fun readInternal(input: MappingNode?): UpstreamsConfig {
         val config = UpstreamsConfig()
 
         getList<MappingNode>(input, "defaults")?.value?.forEach { opts ->
@@ -61,7 +60,7 @@ class UpstreamsConfigReader(
         getValueAsString(input, "include")?.let { path ->
             fileResolver.resolve(path).let { file ->
                 if (file.exists() && file.isFile && file.canRead()) {
-                    read(file.inputStream())?.let {
+                    readInternal(file.inputStream())?.let {
                         it.upstreams.forEach { upstream -> config.upstreams.add(upstream) }
                     }
                 } else {
@@ -73,7 +72,7 @@ class UpstreamsConfigReader(
         getListOfString(input, "include")?.forEach { path ->
             fileResolver.resolve(path).let { file ->
                 if (file.exists() && file.isFile && file.canRead()) {
-                    read(file.inputStream())?.let {
+                    readInternal(file.inputStream())?.let {
                         it.upstreams.forEach { upstream -> config.upstreams.add(upstream) }
                     }
                 } else {

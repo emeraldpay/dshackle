@@ -15,21 +15,9 @@
  */
 package io.emeraldpay.dshackle.config
 
-import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
-import java.io.InputStream
 
-class MonitoringConfigReader : YamlConfigReader(), ConfigReader<MonitoringConfig> {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(MonitoringConfigReader::class.java)
-    }
-
-    fun read(input: InputStream): MonitoringConfig {
-        val configNode = readNode(input)
-        return read(configNode)
-    }
-
+class MonitoringConfigReader : YamlConfigReader<MonitoringConfig>() {
     override fun read(input: MappingNode?): MonitoringConfig {
         return readInternal(getMapping(input, "monitoring"))
     }

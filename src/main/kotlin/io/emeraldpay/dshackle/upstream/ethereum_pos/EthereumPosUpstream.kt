@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
@@ -28,8 +29,9 @@ abstract class EthereumPosUpstream(
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
-    private val node: QuorumForLabels.QuorumItem?
-) : DefaultUpstream(id, hash, options, role, targets, node) {
+    private val node: QuorumForLabels.QuorumItem?,
+    chainConfig: ChainsConfig.ChainConfig
+) : DefaultUpstream(id, hash, options, role, targets, node, chainConfig) {
 
     private val capabilities = if (options.providesBalance != false) {
         setOf(Capability.RPC, Capability.BALANCE)
