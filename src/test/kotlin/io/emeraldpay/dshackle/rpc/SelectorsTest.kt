@@ -1,7 +1,11 @@
 package io.emeraldpay.dshackle.rpc
 
-import io.emeraldpay.api.proto.BlockchainOuterClass.*
-import org.junit.jupiter.api.Assertions.*
+import io.emeraldpay.api.proto.BlockchainOuterClass.AndSelector
+import io.emeraldpay.api.proto.BlockchainOuterClass.LabelSelector
+import io.emeraldpay.api.proto.BlockchainOuterClass.NotSelector
+import io.emeraldpay.api.proto.BlockchainOuterClass.OrSelector
+import io.emeraldpay.api.proto.BlockchainOuterClass.Selector
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
