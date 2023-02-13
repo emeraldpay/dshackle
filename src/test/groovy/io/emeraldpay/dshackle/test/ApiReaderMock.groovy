@@ -24,8 +24,8 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.grpc.stub.StreamObserver
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.grpc.stub.StreamObserver
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufAllocator
 import io.netty.buffer.ByteBufInputStream

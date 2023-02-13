@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.FilteredApis
@@ -23,9 +24,8 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification

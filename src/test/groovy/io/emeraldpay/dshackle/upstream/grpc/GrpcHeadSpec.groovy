@@ -18,11 +18,11 @@ package io.emeraldpay.dshackle.upstream.grpc
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import io.emeraldpay.dshackle.Chain
 import io.grpc.stub.StreamObserver
 import reactor.test.StepVerifier
 import spock.lang.Specification

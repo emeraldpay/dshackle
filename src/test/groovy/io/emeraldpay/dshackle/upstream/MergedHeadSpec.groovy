@@ -16,7 +16,6 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import io.emeraldpay.dshackle.upstream.Lifecycle
 import reactor.core.publisher.Flux
 import spock.lang.Specification
 

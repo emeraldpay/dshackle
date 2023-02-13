@@ -6,7 +6,6 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import org.springframework.stereotype.Component
-import java.util.HashMap
 
 @Component
 class CallTargetsHolder {

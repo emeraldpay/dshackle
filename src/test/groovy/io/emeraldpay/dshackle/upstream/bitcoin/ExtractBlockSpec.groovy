@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
-import io.emeraldpay.dshackle.test.TestingCommons
+
 import spock.lang.Specification
 
 class ExtractBlockSpec extends Specification {

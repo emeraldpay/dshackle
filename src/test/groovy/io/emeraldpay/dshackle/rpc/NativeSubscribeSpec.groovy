@@ -17,12 +17,12 @@ package io.emeraldpay.dshackle.rpc
 
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
-import io.emeraldpay.dshackle.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification

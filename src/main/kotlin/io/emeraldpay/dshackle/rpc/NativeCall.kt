@@ -29,7 +29,10 @@ import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
-import io.emeraldpay.dshackle.upstream.*
+import io.emeraldpay.dshackle.upstream.ApiSource
+import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream

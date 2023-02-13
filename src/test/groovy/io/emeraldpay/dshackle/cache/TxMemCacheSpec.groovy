@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.json.BlockJson

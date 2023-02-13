@@ -16,22 +16,18 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-import com.google.protobuf.ByteString
+
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
+import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumCachingReader
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
-import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.json.BlockJson

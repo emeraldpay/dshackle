@@ -18,14 +18,13 @@ package io.emeraldpay.dshackle.proxy
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.dshackle.Chain
 import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.step.StepCounter
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier

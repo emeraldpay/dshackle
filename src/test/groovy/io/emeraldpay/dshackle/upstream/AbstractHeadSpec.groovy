@@ -18,16 +18,13 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import org.jetbrains.annotations.NotNull
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.Executors
 
 class AbstractHeadSpec extends Specification {
 

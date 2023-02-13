@@ -1,12 +1,12 @@
 package io.emeraldpay.dshackle.proxy
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
-import io.emeraldpay.dshackle.Chain
 import reactor.netty.http.server.HttpServerRoutes
 import spock.lang.Specification
 

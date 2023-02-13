@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.etherjar.domain.BlockHash

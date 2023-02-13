@@ -15,8 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
-import io.emeraldpay.dshackle.test.EthereumRpcUpstreamMock
 import io.emeraldpay.dshackle.test.ReaderMock
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.FilteredApis
@@ -27,7 +27,6 @@ import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.erc20.ERC20Token
 import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.json.TransactionCallJson
-import io.emeraldpay.dshackle.Chain
 import spock.lang.Specification
 
 import java.time.Duration

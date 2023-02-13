@@ -16,23 +16,21 @@
  */
 package io.emeraldpay.dshackle.test
 
-
+import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumCachingReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumCachingReader
-import io.emeraldpay.dshackle.BlockchainType
-import io.emeraldpay.dshackle.Chain
-
 import org.jetbrains.annotations.NotNull
 import reactor.core.scheduler.Schedulers
 

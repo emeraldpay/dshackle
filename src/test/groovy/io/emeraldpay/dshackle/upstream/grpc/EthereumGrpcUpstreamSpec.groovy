@@ -21,6 +21,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -30,10 +31,9 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
-import io.emeraldpay.dshackle.Chain
-import io.grpc.stub.StreamObserver
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.grpc.stub.StreamObserver
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import spock.lang.Specification

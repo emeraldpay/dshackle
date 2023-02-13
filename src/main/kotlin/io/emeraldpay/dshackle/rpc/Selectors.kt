@@ -1,6 +1,9 @@
 package io.emeraldpay.dshackle.rpc
 
-import io.emeraldpay.api.proto.BlockchainOuterClass.*
+import io.emeraldpay.api.proto.BlockchainOuterClass.AndSelector
+import io.emeraldpay.api.proto.BlockchainOuterClass.NotSelector
+import io.emeraldpay.api.proto.BlockchainOuterClass.OrSelector
+import io.emeraldpay.api.proto.BlockchainOuterClass.Selector
 
 object Selectors {
 

@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import io.emeraldpay.dshackle.test.TestingCommons
+
 import spock.lang.Specification
 
 class JsonRpcRequestSpec extends Specification {

@@ -16,12 +16,12 @@
 package io.emeraldpay.dshackle.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
-import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson

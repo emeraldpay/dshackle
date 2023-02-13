@@ -17,10 +17,8 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import io.emeraldpay.etherjar.rpc.RpcException
 import spock.lang.Specification
 
 class NotLaggingQuorumSpec extends Specification {

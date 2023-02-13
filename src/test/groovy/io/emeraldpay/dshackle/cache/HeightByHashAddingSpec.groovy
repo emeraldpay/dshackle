@@ -17,9 +17,9 @@ package io.emeraldpay.dshackle.cache
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.Reader
 import reactor.core.publisher.Mono
 import spock.lang.Specification
-import io.emeraldpay.dshackle.reader.Reader
 
 import java.time.Instant
 

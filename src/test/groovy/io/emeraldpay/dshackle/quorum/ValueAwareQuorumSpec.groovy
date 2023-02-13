@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
 import spock.lang.Specification

@@ -16,7 +16,9 @@
  */
 package io.emeraldpay.dshackle.upstream.grpc
 
-import io.emeraldpay.api.proto.BlockchainOuterClass.*
+import io.emeraldpay.api.proto.BlockchainOuterClass.DescribeRequest
+import io.emeraldpay.api.proto.BlockchainOuterClass.DescribeResponse
+import io.emeraldpay.api.proto.BlockchainOuterClass.StatusRequest
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.BlockchainType
