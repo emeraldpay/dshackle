@@ -81,6 +81,9 @@ open class EthereumUpstreamValidator(
                         }
                 }
             }
+            .doOnError {
+                log.warn("Error validating ${upstream.getId()}", it)
+            }
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
