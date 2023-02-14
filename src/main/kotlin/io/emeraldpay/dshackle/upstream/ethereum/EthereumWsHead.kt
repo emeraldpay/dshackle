@@ -71,8 +71,11 @@ class EthereumWsHead(
             .flatMap { block ->
                 // newHeads returns incomplete blocks, i.e. without some fields and without transaction hashes,
                 // so we need to fetch the full block data
-                if (block.difficulty == null || block.transactions == null) {
-                    // TODO do we really need this ?
+                if (block.difficulty == null ||
+                    block.transactions == null ||
+                    block.transactions.isEmpty() ||
+                    block.totalDifficulty == null
+                ) {
                     enhanceRealBlock(block)
                 } else {
                     Mono.just(BlockContainer.from(block))
