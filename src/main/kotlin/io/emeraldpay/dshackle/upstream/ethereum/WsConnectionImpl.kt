@@ -90,7 +90,7 @@ open class WsConnectionImpl(
 
     private var reconnectBackoff: BackOff = ExponentialBackOff().also {
         it.initialInterval = Duration.ofMillis(100).toMillis()
-        it.maxInterval = Duration.ofMinutes(5).toMillis()
+        it.maxInterval = Duration.ofMinutes(1).toMillis()
     }
     private var currentBackOff = reconnectBackoff.start()
 
