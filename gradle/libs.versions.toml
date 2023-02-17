@@ -3,7 +3,6 @@ detekt = "1.22.0"
 etherjar = "0.11.1"
 groovy = "3.0.9"
 protoc = "3.21.7"
-slf4j = "1.7.32"
 jackson = "2.11.0"
 grpc = "1.49.2"
 reactive-grpc = "1.2.0"
@@ -20,6 +19,10 @@ apache-commons-lang3 = "org.apache.commons:commons-lang3:3.9"
 apache-commons-collections4 = "org.apache.commons:commons-collections4:4.3"
 
 bitcoinj = "org.bitcoinj:bitcoinj-core:0.15.8"
+
+logstash-encoder = "net.logstash.logback:logstash-logback-encoder:7.2"
+
+janino = "org.codehaus.janino:janino:3.1.9"
 
 bouncycastle = "org.bouncycastle:bcprov-jdk15on:1.61"
 
@@ -98,11 +101,6 @@ reactor-test = { module = "io.projectreactor:reactor-test", version.ref = "react
 
 reactor-grpc-stub = "com.salesforce.servicelibs:reactor-grpc-stub:1.2.0"
 
-slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
-slf4j-jul = { module = "org.slf4j:jul-to-slf4j", version.ref = "slf4j" }
-slf4j-jcl = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4j" }
-log4j-slf4j = "org.apache.logging.log4j:log4j-slf4j-impl:2.17.0"
-
 snake-yaml = "org.yaml:snakeyaml:1.24"
 
 spockframework-core = "org.spockframework:spock-core:2.0-groovy-3.0"
@@ -120,6 +118,10 @@ testcontainers-ganache = "io.github.ganchix:testcontainers-java-module-ganache:0
 junit-jupiter = "org.junit.jupiter:junit-jupiter:5.9.1"
 assertj = "org.assertj:assertj-core:3.23.1"
 
+spring-cloud-starter-sleuth = "org.springframework.cloud:spring-cloud-starter-sleuth:3.1.6"
+spring-cloud-sleuth-zipkin = "org.springframework.cloud:spring-cloud-sleuth-zipkin:3.1.6"
+brave-instrumentation-grpc = "io.zipkin.brave:brave-instrumentation-grpc:5.15.0"
+
 [bundles]
 apache-commons = ["commons-io", "apache-commons-lang3", "apache-commons-collections4"]
 etherjar = ["etherjar-domain", "etherjar-hex", "etherjar-rpc-api", "etherjar-rpc-http", "etherjar-rpc-ws", "etherjar-tx", "etherjar-contract", "etherjar-erc20"]
@@ -129,7 +131,6 @@ jackson = ["jackson-core", "jackson-databind", "jackson-datatype-jdk8", "jackson
 kotlin = ["kotlin-stdlib-jdk8", "kotlin-reflect"]
 netty = ["netty-common", "netty-transport", "netty-handler-core", "netty-handler-proxy", "netty-resolver-core", "netty-resolver-dns", "netty-codec-core", "netty-codec-http", "netty-codec-http2", "netty-buffer", "netty-tcnative-core", "netty-tcnative-boringssl"]
 reactor = ["reactor-core", "reactor-netty", "reactor-extra", "reactor-kotlin"]
-slf4j = ["slf4j-api", "slf4j-jul", "slf4j-jcl", "log4j-slf4j"]
 spring-framework = ["spring-boot-starter", "spring-security-core", "spring-security-web", "spring-security-config"]
 testcontainers = ["testcontainers", "testcontainers-ganache"]
 junit = ["junit-jupiter", "assertj"]

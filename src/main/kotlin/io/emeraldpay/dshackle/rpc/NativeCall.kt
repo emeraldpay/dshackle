@@ -48,11 +48,15 @@ import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.micrometer.core.instrument.Metrics
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.Span
+import org.springframework.cloud.sleuth.Tracer
+import org.springframework.cloud.sleuth.instrument.reactor.ReactorSleuth
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
+import reactor.util.context.Context
 import java.util.EnumMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -60,7 +64,8 @@ import java.util.concurrent.atomic.AtomicInteger
 open class NativeCall(
     private val multistreamHolder: MultistreamHolder,
     private val signer: ResponseSigner,
-    config: MainConfig
+    config: MainConfig,
+    private val tracer: Tracer
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -101,20 +106,77 @@ open class NativeCall(
     }
 
     open fun nativeCallResult(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<CallResult> {
+        val requestSpan = tracer.currentSpan()
         return requestMono.flatMapMany(this::prepareCall)
             .flatMap {
-                if (it.isValid()) {
-                    val parsed = parseParams(it.get())
-                    this.fetch(parsed)
-                        .doOnError { e -> log.warn("Error during native call: ${e.message}") }
-                } else {
-                    val error = it.getError()
+                val requestId = it.requestId
+                val requestCount = it.requestCount
+                val id = it.getContextId()
+                val result = processCallContext(it, requestSpan)
 
-                    Mono.just(
-                        CallResult(error.id, 0, null, error, null, null, null)
-                    )
-                }
+                return@flatMap result
+                    .onErrorResume { err ->
+                        Mono.just(
+                            CallResult.fail(id, 0, err, null)
+                        )
+                    }
+                    .doOnNext { callRes -> completeSpan(callRes, requestCount) }
+                    .contextWrite { ctx -> createTracingReactorContext(ctx, requestCount, requestId, requestSpan) }
             }
+    }
+
+    private fun completeSpan(callResult: CallResult, requestCount: Int) {
+        if (requestCount > 1) {
+            val span = tracer.currentSpan()
+            if (callResult.isError()) {
+                span?.error(
+                    RuntimeException(callResult.error?.message ?: "Internal error")
+                )
+            }
+            span?.end()
+        }
+    }
+
+    private fun createTracingReactorContext(
+        ctx: Context,
+        requestCount: Int,
+        requestId: String,
+        requestSpan: Span?
+    ): Context {
+        if (requestCount > 1) {
+            val span = tracer.nextSpan(requestSpan)
+                .name(requestId)
+                .tag("request.id", requestId)
+                .start()
+            return ReactorSleuth.putSpanInScope(tracer, ctx, span)
+        }
+        return ctx
+    }
+
+    private fun processCallContext(
+        callContext: CallContext,
+        requestSpan: Span?
+    ): Mono<CallResult> {
+        return if (callContext.isValid()) {
+            run {
+                val parsed = try {
+                    parseParams(callContext.get())
+                } catch (e: Exception) {
+                    return@run Mono.error(e)
+                }
+                if (callContext.requestCount == 1 && callContext.requestId.isNotBlank()) {
+                    requestSpan?.tag("request.id", callContext.requestId)
+                }
+                this.fetch(parsed)
+                    .doOnError { e -> log.warn("Error during native call: ${e.message}") }
+            }
+        } else {
+            val error = callContext.getError()
+
+            Mono.just(
+                CallResult(error.id, 0, null, error, null, null, null)
+            )
+        }
     }
 
     fun parseParams(it: ValidCallContext<RawCallDetails>): ValidCallContext<ParsedCallDetails> {
@@ -160,6 +222,7 @@ open class NativeCall(
             log.error("Lost context for a native call", it)
             0
         }
+        tracer.currentSpan()?.error(it)
         return BlockchainOuterClass.NativeCallReplyItem.newBuilder()
             .setSucceed(false)
             .setErrorMessage(it?.message ?: "Internal error")
@@ -212,6 +275,8 @@ open class NativeCall(
         requestItem: BlockchainOuterClass.NativeCallItem,
         upstream: Multistream
     ): Mono<CallContext> {
+        val requestId = requestItem.requestId
+        val requestCount = request.itemsCount
         val method = requestItem.method
         val params = requestItem.payload.toStringUtf8()
         val availableMethods = upstream.getMethods()
@@ -224,7 +289,9 @@ open class NativeCall(
                         requestItem.id,
                         errorMessage,
                         JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage)
-                    )
+                    ),
+                    requestId,
+                    requestCount
                 )
             )
         }
@@ -266,7 +333,9 @@ open class NativeCall(
                 RawCallDetails(method, params),
                 requestDecorator,
                 resultDecorator,
-                selector
+                selector,
+                requestId,
+                requestCount
             )
         }
     }
@@ -378,10 +447,14 @@ open class NativeCall(
         return req as List<Any>
     }
 
-    interface CallContext {
-        fun isValid(): Boolean
-        fun <T> get(): ValidCallContext<T>
-        fun getError(): CallError
+    abstract class CallContext(
+        val requestId: String,
+        val requestCount: Int
+    ) {
+        abstract fun isValid(): Boolean
+        abstract fun <T> get(): ValidCallContext<T>
+        abstract fun getError(): CallError
+        abstract fun getContextId(): Int
     }
 
     interface ResultDecorator {
@@ -437,8 +510,10 @@ open class NativeCall(
         val payload: T,
         val requestDecorator: RequestDecorator,
         val resultDecorator: ResultDecorator,
-        val forwardedSelector: BlockchainOuterClass.Selector?
-    ) : CallContext {
+        val forwardedSelector: BlockchainOuterClass.Selector?,
+        requestId: String,
+        requestCount: Int
+    ) : CallContext(requestId, requestCount) {
 
         constructor(
             id: Int,
@@ -446,8 +521,13 @@ open class NativeCall(
             upstream: Multistream,
             matcher: Selector.Matcher,
             callQuorum: CallQuorum,
-            payload: T
-        ) : this(id, nonce, upstream, matcher, callQuorum, payload, NoneRequestDecorator(), NoneResultDecorator(), null)
+            payload: T,
+            requestId: String,
+            requestCount: Int
+        ) : this(
+            id, nonce, upstream, matcher, callQuorum, payload,
+            NoneRequestDecorator(), NoneResultDecorator(), null, requestId, requestCount
+        )
 
         override fun isValid(): Boolean {
             return true
@@ -461,8 +541,13 @@ open class NativeCall(
             throw IllegalStateException("Invalid context $id")
         }
 
+        override fun getContextId(): Int = id
+
         fun <X> withPayload(payload: X): ValidCallContext<X> {
-            return ValidCallContext(id, nonce, upstream, matcher, callQuorum, payload, requestDecorator, resultDecorator, forwardedSelector)
+            return ValidCallContext(
+                id, nonce, upstream, matcher, callQuorum, payload,
+                requestDecorator, resultDecorator, forwardedSelector, requestId, requestCount
+            )
         }
 
         fun getApis(): ApiSource {
@@ -474,8 +559,10 @@ open class NativeCall(
      * Call context when it's known in advance that the call is invalid and should return an error
      */
     open class InvalidCallContext(
-        private val error: CallError
-    ) : CallContext {
+        private val error: CallError,
+        requestId: String,
+        requestCount: Int
+    ) : CallContext(requestId, requestCount) {
         override fun isValid(): Boolean {
             return false
         }
@@ -487,6 +574,8 @@ open class NativeCall(
         override fun getError(): CallError {
             return error
         }
+
+        override fun getContextId(): Int = error.id
     }
 
     open class CallFailure(val id: Int, val reason: Throwable) : Exception("Failed to call $id: ${reason.message}")

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- You can override this to have a custom pattern -->
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
+
+    <!-- Appender to log to console -->
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <!-- Minimum logging level to be presented in the console logs-->
+            <level>TRACE</level>
+        </filter>
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+    </appender>
+    <appender name="logstash" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+    </appender>
+
+    <springProfile name="docker">
+        <root level="WARN" additivity="false">
+            <appender-ref ref="logstash"/>
+        </root>
+        <logger name="io.emeraldpay" level="${DSHACKLE_LOG_LEVEL:-info}" additivity="false">
+            <appender-ref ref="logstash"/>
+        </logger>
+        <logger name="io.grpc.netty" level="ERROR" additivity="false">
+            <appender-ref ref="logstash"/>
+        </logger>
+        <logger name="reactor.netty.http.client" level="ERROR" additivity="false">
+            <appender-ref ref="logstash"/>
+        </logger>
+    </springProfile>
+    <springProfile name="!docker">
+        <root level="WARN" additivity="false">
+            <appender-ref ref="console"/>
+        </root>
+        <logger name="io.emeraldpay" level="${DSHACKLE_LOG_LEVEL:-info}" additivity="false">
+            <appender-ref ref="console"/>
+        </logger>
+        <logger name="io.grpc.netty" level="ERROR" additivity="false">
+            <appender-ref ref="console"/>
+        </logger>
+        <logger name="reactor.netty.http.client" level="ERROR" additivity="false">
+            <appender-ref ref="console"/>
+        </logger>
+    </springProfile>
+</configuration>

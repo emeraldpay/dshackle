@@ -44,6 +44,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
@@ -71,7 +72,7 @@ class NativeCallSpec extends Specification {
         config.cache = cacheConfig
         config.passthrough = passthrough
 
-        new NativeCall(upstreams, signer, config)
+        new NativeCall(upstreams, signer, config, Stub(Tracer))
     }
 
     def "Tries router first"() {
@@ -85,7 +86,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
                 1, null, upstream, Selector.empty, new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_test", [])
+                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1
         )
 
         when:
@@ -106,7 +107,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
                 15, null, upstream, Selector.empty, new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_test", [])
+                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1
         )
 
         when:
@@ -135,7 +136,7 @@ class NativeCallSpec extends Specification {
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []))
+                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -156,7 +157,7 @@ class NativeCallSpec extends Specification {
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []))
+                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call)
@@ -182,7 +183,7 @@ class NativeCallSpec extends Specification {
             }
         }
         def call = new NativeCall.ValidCallContext(12, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []))
+                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -531,7 +532,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_test", "[]"))
+                new NativeCall.RawCallDetails("eth_test", "[]"), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -544,7 +545,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_test", ""))
+                new NativeCall.RawCallDetails("eth_test", ""), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -557,7 +558,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_test", "[false]"))
+                new NativeCall.RawCallDetails("eth_test", "[false]"), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -570,7 +571,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_test", "[false, 123]"))
+                new NativeCall.RawCallDetails("eth_test", "[false, 123]"), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -584,7 +585,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_getFilterUpdates", '["0xabcd"]'),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator(), null)
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator(), null, "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -618,7 +619,7 @@ class NativeCallSpec extends Specification {
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null)
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -653,7 +654,7 @@ class NativeCallSpec extends Specification {
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null)
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -674,7 +675,7 @@ class NativeCallSpec extends Specification {
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_test", []))
+                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
         when:
         nativeCall.fetch(ctx)
         then:
@@ -691,7 +692,7 @@ class NativeCallSpec extends Specification {
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_test", []))
+                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
         when:
         def act = nativeCall.fetch(ctx)
         then:

@@ -1,6 +1,9 @@
 package io.emeraldpay.dshackle.startup
 
 import io.emeraldpay.dshackle.Chain
+import brave.Tracing
+import brave.grpc.GrpcTracing
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.CompressionConfig
@@ -25,7 +28,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
-                ChainsConfig.default()
+                ChainsConfig.default(),
+                GrpcTracing.create(Tracing.newBuilder().build())
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -53,7 +57,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
-                ChainsConfig.default()
+                ChainsConfig.default(),
+                GrpcTracing.create(Tracing.newBuilder().build())
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -80,7 +85,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
-                ChainsConfig.default()
+                ChainsConfig.default(),
+                GrpcTracing.create(Tracing.newBuilder().build())
         )
         expect:
         configurer.getHash(node, src) == expected
@@ -102,7 +108,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
-                ChainsConfig.default()
+                ChainsConfig.default(),
+                GrpcTracing.create(Tracing.newBuilder().build())
         )
         when:
         def h1 = configurer.getHash(null, "hohoho")
@@ -129,7 +136,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
-                ChainsConfig.default()
+                ChainsConfig.default(),
+                GrpcTracing.create(Tracing.newBuilder().build())
         )
         def methodsGroup = new UpstreamsConfig.MethodGroups(
                 ["filter"] as Set,

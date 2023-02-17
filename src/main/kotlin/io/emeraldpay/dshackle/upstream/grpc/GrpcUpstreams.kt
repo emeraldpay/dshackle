@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.grpc
 
+import brave.grpc.GrpcTracing
 import io.emeraldpay.api.proto.BlockchainOuterClass.DescribeRequest
 import io.emeraldpay.api.proto.BlockchainOuterClass.DescribeResponse
 import io.emeraldpay.api.proto.BlockchainOuterClass.StatusRequest
@@ -70,7 +71,8 @@ class GrpcUpstreams(
     private val labels: UpstreamsConfig.Labels,
     private val chainStatusScheduler: Scheduler,
     private val grpcExecutor: Executor,
-    private val chainsConfig: ChainsConfig
+    private val chainsConfig: ChainsConfig,
+    private val grpcTracing: GrpcTracing
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -85,6 +87,7 @@ class GrpcUpstreams(
             // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
             .maxInboundMessageSize(Defaults.maxMessageSize)
             .enableRetry()
+            .intercept(grpcTracing.newClientInterceptor())
             .executor(grpcExecutor)
             .maxRetryAttempts(3)
         if (auth != null && StringUtils.isNotEmpty(auth.ca)) {

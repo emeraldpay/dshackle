@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: ${DRPC_APP_NAME:dshackle}
+  zipkin:
+    enabled: ${ZIPKIN_ENABLE:false}
+    base-url: ${ZIPKIN_URL:http://localhost:9411/}
+  sleuth:
+    span-filter:
+      additional-span-name-patterns-to-ignore:
+        - "^grpcChannelExecutor$"
+        - ".+NativeSubscribe"
+        - ".+SubscribeHead"
+        - ".+SubscribeBalance"
+        - ".+SubscribeTxStatus"
+        - ".+SubscribeStatus"
+        - ".+SubscribeNodeStatus"
+        - ".+Describe"

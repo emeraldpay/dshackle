@@ -92,8 +92,10 @@ class QuorumRpcReader(
     fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
         val quorumReduce = BiFunction<CallQuorum, Tuple4<ByteArray, Optional<ResponseSigner.Signature>, Upstream, Optional<String>>, CallQuorum> { res, a ->
             if (res.record(a.t1, a.t2.orElse(null), a.t3, a.t4.orElse(null))) {
+                log.debug("Quorum is resolved for method ${key.method}")
                 apiControl.resolve()
             } else {
+                log.debug("Quorum needs more responses for method ${key.method}")
                 // quorum needs more responses, so ask api controller to make another
                 apiControl.request(1)
             }
@@ -105,6 +107,7 @@ class QuorumRpcReader(
                     quorum.isFailed() || quorum.isResolved()
                 }
                 .flatMap { api ->
+                    log.debug("Calling upstream ${api.getId()} with method ${key.method}")
                     callApi(api, key)
                 }
                 .retryWhen(retrySpec)
@@ -129,6 +132,7 @@ class QuorumRpcReader(
         return api.getIngressReader()
             .read(key)
             .flatMap { response ->
+                log.debug("Received response from upstream ${api.getId()} for method ${key.method}")
                 response.requireResult()
                     .transform(withSignatureAndUpstream(api, key, response))
             }
@@ -154,6 +158,7 @@ class QuorumRpcReader(
     fun <T> withErrorResume(api: Upstream, key: JsonRpcRequest): Function<Mono<T>, Mono<T>> {
         return Function { src ->
             src.onErrorResume { err ->
+                log.error("Error during call upstream ${api.getId()} with method $${key.method}", err)
                 // when the call failed with an error we want to notify the quorum because
                 // it may use the error message or other details
                 //
@@ -168,8 +173,10 @@ class QuorumRpcReader(
                 quorum.record(cleanErr, null, api,)
                 // if it's failed after that, then we don't need more calls, stop api source
                 if (quorum.isFailed()) {
+                    log.debug("Quorum is failed, stop api source. Upstream ${api.getId()}, method ${key.method}")
                     apiControl.resolve()
                 } else {
+                    log.debug("Received an error, trying to request next upstream")
                     apiControl.request(1)
                 }
                 Mono.empty()
@@ -180,10 +187,10 @@ class QuorumRpcReader(
     fun setupDefaultResult(key: JsonRpcRequest): Mono<Result> {
         return Mono.just(quorum).flatMap { q ->
             if (q.isFailed()) {
-                Mono.error<Result>(
-                    q.getError()?.asException(JsonRpcResponse.NumberId(key.id))
-                        ?: JsonRpcException(JsonRpcResponse.NumberId(key.id), JsonRpcError(-32603, "Unhandled Upstream error"))
-                )
+                val err = q.getError()?.asException(JsonRpcResponse.NumberId(key.id))
+                    ?: JsonRpcException(JsonRpcResponse.NumberId(key.id), JsonRpcError(-32603, "Unhandled Upstream error"))
+                log.warn("Quorum is failed. Method ${key.method}, message ${err.message}")
+                Mono.error<Result>(err)
             } else {
                 log.warn("Did not get any result from upstream. Method [${key.method}] using [$q]")
                 Mono.empty<Result>()

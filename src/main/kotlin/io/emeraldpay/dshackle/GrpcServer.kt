@@ -39,7 +39,8 @@ open class GrpcServer(
     private val rpcs: List<io.grpc.BindableService>,
     private val mainConfig: MainConfig,
     private val tlsSetup: TlsSetup,
-    private val accessHandler: AccessHandlerGrpc
+    private val accessHandler: AccessHandlerGrpc,
+    private val grpcServerBraveInterceptor: ServerInterceptor
 ) {
 
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)
@@ -75,6 +76,8 @@ open class GrpcServer(
                 }
                 it
             }
+
+        serverBuilder.intercept(grpcServerBraveInterceptor)
 
         tlsSetup.setupServer("Native gRPC", mainConfig.tls, true)?.let {
             serverBuilder.sslContext(it)

@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.startup
 
+import brave.grpc.GrpcTracing
 import com.google.common.annotations.VisibleForTesting
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
@@ -73,7 +74,8 @@ open class ConfiguredUpstreams(
     private val eventPublisher: ApplicationEventPublisher,
     @Qualifier("grpcChannelExecutor")
     private val channelExecutor: Executor,
-    private val chainsConfig: ChainsConfig
+    private val chainsConfig: ChainsConfig,
+    private val grpcTracing: GrpcTracing
 ) : ApplicationRunner {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -335,7 +337,8 @@ open class ConfiguredUpstreams(
             config.labels,
             grpcUpstreamsScheduler,
             channelExecutor,
-            chainsConfig
+            chainsConfig,
+            grpcTracing
         ).apply {
             timeout = options.timeout
         }
