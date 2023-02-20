@@ -186,7 +186,7 @@ jib {
         }
     }
     container {
-        jvmFlags = ['-Xms1024m', '-Xmx1024m', '-XX:+UseG1GC']
+        jvmFlags = ['-Xms1024m', '-Xmx1024m', '-XX:+UseG1GC', '-XX:+ExitOnOutOfMemoryError']
         mainClass = 'io.emeraldpay.dshackle.StarterKt'
         args = []
         ports = ['2448', '2449', '8545']
