@@ -27,23 +27,23 @@ class PriorityForkChoice : ForkChoice {
 
     override fun choose(block: BlockContainer): ForkChoice.ChoiceResult {
         head.get()?.let {
-            log.debug("Candidate for priority forkchoice (${block.height}, ${block.nodeRating}), current is (${it.height},${it.nodeRating})")
+            log.trace("Candidate for priority forkchoice (${block.height}, ${block.nodeRating}), current is (${it.height},${it.nodeRating})")
         }
         val nwhead = head.updateAndGet { curr ->
             if (!filter(block)) {
-                log.debug("Preparing to deny block ${block.height}")
+                log.trace("Preparing to deny block ${block.height}")
                 curr
             } else {
-                log.debug("Preparing to accept block ${block.height}")
+                log.trace("Preparing to accept block ${block.height}")
                 seenBlocks.put(block.hash, true)
                 block
             }
         }
         if (nwhead.hash == block.hash) {
-            log.debug("Accepted block ${block.height}")
+            log.trace("Accepted block ${block.height}")
             return ForkChoice.ChoiceResult.Updated(nwhead)
         }
-        log.debug("Denied block ${block.height}")
+        log.trace("Denied block ${block.height}")
         return ForkChoice.ChoiceResult.Same(nwhead)
     }
 }

@@ -74,7 +74,7 @@ abstract class AbstractHead @JvmOverloads constructor(
         }
         return source
             .filter {
-                log.debug("Filtering block $upstreamId block $it")
+                log.trace("Filtering block $upstreamId block $it")
                 forkChoice.filter(it)
             }
             .doFinally {
@@ -85,7 +85,7 @@ abstract class AbstractHead @JvmOverloads constructor(
                     log.warn("Received signal $upstreamId $it unexpectedly - restart head")
                     lastHeadUpdated = 0L
                 } else {
-                    log.warn("Received signal $upstreamId $it - stop emit new head!!!")
+                    log.warn("Received signal $upstreamId $it - stop emit new head")
                     completed = true
                     stream.tryEmitComplete()
                 }
