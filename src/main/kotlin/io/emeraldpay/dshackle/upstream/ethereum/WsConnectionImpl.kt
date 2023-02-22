@@ -267,7 +267,7 @@ open class WsConnectionImpl(
         val calls = rpcSend
             .asFlux()
             .map {
-                Unpooled.wrappedBuffer(Global.objectMapper.writeValueAsBytes(it))
+                Unpooled.wrappedBuffer(it.toJson())
             }
 
         return outbound.send(
