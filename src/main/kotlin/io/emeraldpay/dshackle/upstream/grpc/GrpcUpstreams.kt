@@ -149,8 +149,10 @@ class GrpcUpstreams(
             try {
                 val chain = Chain.byId(chainDetails.chain.number)
                 val up = getOrCreate(chain)
-                (up.upstream as GrpcUpstream).update(chainDetails)
-                up
+                val changed = (up.upstream as GrpcUpstream).update(chainDetails)
+                up.takeUnless {
+                    changed && it.type == UpstreamChangeEvent.ChangeType.REVALIDATED
+                } ?: UpstreamChangeEvent(up.chain, up.upstream, UpstreamChangeEvent.ChangeType.UPDATED)
             } catch (e: Throwable) {
                 log.warn("Skip unsupported upstream ${chainDetails.chain} on $id: ${e.message}")
                 null
@@ -161,16 +163,20 @@ class GrpcUpstreams(
             it.type == UpstreamChangeEvent.ChangeType.ADDED
         }
 
+        val updated = current.filter {
+            it.type == UpstreamChangeEvent.ChangeType.UPDATED
+        }
+
         val removed = known.filterNot { kv ->
             val stillCurrent = current.any { c -> c.chain == kv.key }
             stillCurrent
         }.map {
             UpstreamChangeEvent(it.key, known.remove(it.key)!!, UpstreamChangeEvent.ChangeType.REMOVED)
         }
-        if (removed.isNotEmpty() || added.isNotEmpty()) {
-            log.info("Finished processing of grpc upstream description for $id with content delta added ${added.map { it.chain }} and removed ${removed.map { it.chain }}")
+        if (removed.isNotEmpty() || added.isNotEmpty() || updated.isNotEmpty()) {
+            log.info("Finished processing of grpc upstream description for $id with content delta added ${added.map { it.chain }}, updated ${updated.map { it.chain }} and removed ${removed.map { it.chain }}")
         }
-        return Flux.fromIterable(removed + added)
+        return Flux.fromIterable(removed + added + updated)
     }
 
     private fun withTls(auth: AuthConfig.ClientTlsAuth): SslContext {

@@ -65,7 +65,7 @@ class GrpcUpstreamStatusSpec extends Specification {
 
         // more values
         when:
-        status.update(
+        def result = status.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
                         .addNodes(
                                 BlockchainOuterClass.NodeDetails.newBuilder()
@@ -81,6 +81,7 @@ class GrpcUpstreamStatusSpec extends Specification {
         )
         act = status.getLabels()
         then:
+        !result
         act.toList() == [
                 UpstreamsConfig.Labels.fromMap([test1: "bar", test2: "baz"])
         ]
@@ -109,7 +110,7 @@ class GrpcUpstreamStatusSpec extends Specification {
 
         // replace with new value
         when:
-        status.update(
+        def result = status.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
                         .addNodes(
                                 BlockchainOuterClass.NodeDetails.newBuilder()
@@ -124,6 +125,7 @@ class GrpcUpstreamStatusSpec extends Specification {
         )
         act = status.getLabels()
         then:
+        !result
         act.toList() == [
                 UpstreamsConfig.Labels.fromMap([test: "bar", fix: "value"])
         ]
@@ -202,7 +204,7 @@ class GrpcUpstreamStatusSpec extends Specification {
         setup:
         def status = new GrpcUpstreamStatus(null)
         when:
-        status.update(
+        def result = status.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
                         .addAllSupportedMethods([
                                 "test_1",
@@ -212,7 +214,35 @@ class GrpcUpstreamStatusSpec extends Specification {
         )
         def act = status.getCallMethods()
         then:
+        result
         act.supportedMethods == ["test_1", "test_2"].toSet()
+        act instanceof DirectCallMethods
+    }
+
+    def "Updates with new methods"() {
+        setup:
+        def status = new GrpcUpstreamStatus(null)
+        status.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .addAllSupportedMethods([
+                                "test_1",
+                                "test_2"
+                        ])
+                        .build()
+        )
+        when:
+        def result = status.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .addAllSupportedMethods([
+                                "test_1",
+                                "test_2",
+                                "test_3"
+                        ])
+                        .build())
+        def act = status.getCallMethods()
+        then:
+        result
+        act.supportedMethods == ["test_1", "test_2", "test_3"].toSet()
         act instanceof DirectCallMethods
     }
 }

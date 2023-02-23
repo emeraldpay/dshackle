@@ -361,28 +361,35 @@ abstract class Multistream(
         val chain = event.chain
         if (this.chain == chain) {
             eventLock.withLock {
-                if (event.type == UpstreamChangeEvent.ChangeType.REMOVED) {
-                    removeUpstream(event.upstream.getId()).takeIf { it }?.let {
-                        try {
-                            removedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-                            log.info("Upstream ${event.upstream.getId()} with chain $chain has been removed")
-                        } catch (e: Sinks.EmissionException) {
-                            log.error("error during event processing $event", e)
-                        }
+                when (event.type) {
+                    UpstreamChangeEvent.ChangeType.REVALIDATED -> {}
+                    UpstreamChangeEvent.ChangeType.UPDATED -> {
+                        onUpstreamsUpdated()
                     }
-                } else {
-                    if (event.upstream is CachesEnabled) {
-                        event.upstream.setCaches(caches)
-                    }
-                    addUpstream(event.upstream).takeIf { it }?.let {
+                    UpstreamChangeEvent.ChangeType.ADDED -> {
                         if (!started) {
                             start()
                         }
-                        try {
-                            addedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-                            log.info("Upstream ${event.upstream.getId()} with chain $chain has been added")
-                        } catch (e: Sinks.EmissionException) {
-                            log.error("error during event processing $event", e)
+                        if (event.upstream is CachesEnabled) {
+                            event.upstream.setCaches(caches)
+                        }
+                        addUpstream(event.upstream).takeIf { it }?.let {
+                            try {
+                                addedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                                log.info("Upstream ${event.upstream.getId()} with chain $chain has been added")
+                            } catch (e: Sinks.EmissionException) {
+                                log.error("error during event processing $event", e)
+                            }
+                        }
+                    }
+                    UpstreamChangeEvent.ChangeType.REMOVED -> {
+                        removeUpstream(event.upstream.getId()).takeIf { it }?.let {
+                            try {
+                                removedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                                log.info("Upstream ${event.upstream.getId()} with chain $chain has been removed")
+                            } catch (e: Sinks.EmissionException) {
+                                log.error("error during event processing $event", e)
+                            }
                         }
                     }
                 }

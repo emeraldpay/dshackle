@@ -131,10 +131,12 @@ open class EthereumGrpcUpstream(
     override fun stop() {
     }
 
-    override fun update(conf: BlockchainOuterClass.DescribeChain) {
-        upstreamStatus.update(conf)
-        capabilities = RemoteCapabilities.extract(conf)
+    override fun update(conf: BlockchainOuterClass.DescribeChain): Boolean {
+        val newCapabilities = RemoteCapabilities.extract(conf)
         conf.status?.let { status -> onStatus(status) }
+        return (upstreamStatus.update(conf) || (newCapabilities != capabilities)).also {
+            capabilities = newCapabilities
+        }
     }
 
     override fun getQuorumByLabel(): QuorumForLabels {

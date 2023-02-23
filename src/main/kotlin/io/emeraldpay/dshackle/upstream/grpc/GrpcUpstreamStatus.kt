@@ -35,7 +35,7 @@ class GrpcUpstreamStatus(
     private val nodes = AtomicReference(QuorumForLabels())
     private var targets: CallMethods? = null
 
-    fun update(conf: BlockchainOuterClass.DescribeChain) {
+    fun update(conf: BlockchainOuterClass.DescribeChain): Boolean {
         val updateLabels = ArrayList<UpstreamsConfig.Labels>()
         val updateNodes = QuorumForLabels()
 
@@ -55,7 +55,9 @@ class GrpcUpstreamStatus(
 
         this.nodes.set(updateNodes)
         this.allLabels.set(Collections.unmodifiableCollection(updateLabels))
+        val changed = conf.supportedMethodsList.toSet() != this.targets?.getSupportedMethods()
         this.targets = DirectCallMethods(conf.supportedMethodsList.toSet())
+        return changed
     }
 
     fun getLabels(): Collection<UpstreamsConfig.Labels> {

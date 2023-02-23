@@ -46,6 +46,11 @@ class UpstreamChangeEvent(
         ADDED,
 
         /**
+         * Some upstream details changed
+         */
+        UPDATED,
+
+        /**
          * Upstream become available after being temporally off
          */
         REVALIDATED,
