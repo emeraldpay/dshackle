@@ -42,7 +42,7 @@ class BlockContainer(
             return BlockContainer(
                 height = block.number,
                 hash = BlockId.from(block),
-                difficulty = block.totalDifficulty,
+                difficulty = block.totalDifficulty ?: BigInteger.ZERO,
                 timestamp = block.timestamp,
                 full = hasTransactions,
                 json = raw,

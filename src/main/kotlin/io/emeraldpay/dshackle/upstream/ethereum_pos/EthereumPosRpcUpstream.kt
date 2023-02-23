@@ -46,7 +46,7 @@ open class EthereumPosRpcUpstream(
 ) : EthereumPosUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
     private val log = LoggerFactory.getLogger(EthereumPosRpcUpstream::class.java)
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions())
-    private val connector: EthereumConnector = connectorFactory.create(this, validator, chain)
+    private val connector: EthereumConnector = connectorFactory.create(this, validator, chain, false)
 
     private var validatorSubscription: Disposable? = null
 

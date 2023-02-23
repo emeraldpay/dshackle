@@ -24,7 +24,8 @@ class EthereumRpcConnector(
     wsFactory: EthereumWsConnectionPoolFactory?,
     id: String,
     forkChoice: ForkChoice,
-    blockValidator: BlockValidator
+    blockValidator: BlockValidator,
+    skipEnhance: Boolean
 ) : EthereumConnector, CachesEnabled {
     private val pool: WsConnectionPool?
     private val head: Head
@@ -38,9 +39,11 @@ class EthereumRpcConnector(
             // do not set upstream to the WS, since it doesn't control the RPC upstream
             pool = wsFactory.create(null)
             val subscriptions = WsSubscriptionsImpl(pool)
-            val wsHead = EthereumWsHead(id, AlwaysForkChoice(), blockValidator, getIngressReader(), subscriptions)
+            val wsHead =
+                EthereumWsHead(id, AlwaysForkChoice(), blockValidator, getIngressReader(), subscriptions, skipEnhance)
             // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
-            val rpcHead = EthereumRpcHead(getIngressReader(), AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
+            val rpcHead =
+                EthereumRpcHead(getIngressReader(), AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
             head = MergedHead(listOf(rpcHead, wsHead), forkChoice, "Merged for $id")
         } else {
             pool = null

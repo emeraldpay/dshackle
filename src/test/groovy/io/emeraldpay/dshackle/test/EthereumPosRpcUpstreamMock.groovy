@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.test
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig.Options
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
@@ -33,6 +34,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
+
 
 class EthereumPosRpcUpstreamMock extends EthereumPosRpcUpstream {
     EthereumHeadMock ethereumHeadMock
@@ -68,7 +70,7 @@ class EthereumPosRpcUpstreamMock extends EthereumPosRpcUpstream {
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels) {
         super(id, (byte)id.hashCode(), chain,
-                UpstreamsConfig.Options.getDefaults(),
+                getOpts(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,
                 new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(labels)),
@@ -78,6 +80,12 @@ class EthereumPosRpcUpstreamMock extends EthereumPosRpcUpstream {
         setLag(0)
         setStatus(UpstreamAvailability.OK)
         start()
+    }
+
+    static Options getOpts() {
+        def opt = UpstreamsConfig.Options.getDefaults()
+        opt.setDisableValidation(true)
+        return opt
     }
 
     void nextBlock(BlockContainer block) {

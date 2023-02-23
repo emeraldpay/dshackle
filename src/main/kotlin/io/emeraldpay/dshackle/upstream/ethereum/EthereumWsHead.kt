@@ -28,7 +28,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
-import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -42,9 +41,8 @@ class EthereumWsHead(
     blockValidator: BlockValidator,
     private val api: JsonRpcReader,
     private val wsSubscriptions: WsSubscriptions,
+    private val skipEnhance: Boolean
 ) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
-
-    private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 
     private var subscription: Disposable? = null
 
@@ -71,10 +69,12 @@ class EthereumWsHead(
             .flatMap { block ->
                 // newHeads returns incomplete blocks, i.e. without some fields and without transaction hashes,
                 // so we need to fetch the full block data
-                if (block.difficulty == null ||
-                    block.transactions == null ||
-                    block.transactions.isEmpty() ||
-                    block.totalDifficulty == null
+                if (!skipEnhance && (
+                    block.difficulty == null ||
+                        block.transactions == null ||
+                        block.transactions.isEmpty() ||
+                        block.totalDifficulty == null
+                    )
                 ) {
                     enhanceRealBlock(block)
                 } else {

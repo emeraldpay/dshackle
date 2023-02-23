@@ -56,7 +56,7 @@ class EthereumWsHeadSpec extends Specification {
 
         def ws = Mock(WsSubscriptions)
 
-        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws)
+        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, false)
 
         when:
         def act = head.listenNewHeads().blockFirst()

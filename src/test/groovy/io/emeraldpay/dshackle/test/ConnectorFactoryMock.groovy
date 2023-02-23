@@ -23,7 +23,7 @@ class ConnectorFactoryMock implements ConnectorFactory {
         return true
     }
 
-    EthereumConnector create(DefaultUpstream upstream, EthereumUpstreamValidator validator, Chain chain)  {
+    EthereumConnector create(DefaultUpstream upstream, EthereumUpstreamValidator validator, Chain chain, boolean skipEnhance)  {
         return new EthereumConnectorMock(api, head)
     }
 }

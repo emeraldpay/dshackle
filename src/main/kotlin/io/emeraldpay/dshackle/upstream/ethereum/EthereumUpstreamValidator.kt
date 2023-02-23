@@ -84,6 +84,7 @@ open class EthereumUpstreamValidator(
             }
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
+
     fun validatePeers(): Mono<UpstreamAvailability> {
         if (!options.validatePeers || options.minPeers == 0) {
             return Mono.just(UpstreamAvailability.OK)
@@ -110,8 +111,10 @@ open class EthereumUpstreamValidator(
     }
 
     fun start(): Flux<UpstreamAvailability> {
-        return Flux.interval(Duration.ofSeconds(options.validationInterval.toLong()))
-            .subscribeOn(scheduler)
+        return Flux.interval(
+            Duration.ZERO,
+            Duration.ofSeconds(options.validationInterval.toLong()),
+        ).subscribeOn(scheduler)
             .flatMap {
                 validate()
             }

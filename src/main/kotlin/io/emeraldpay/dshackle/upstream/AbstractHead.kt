@@ -149,7 +149,6 @@ abstract class AbstractHead @JvmOverloads constructor(
 
     override fun stop() {
         stopping = true
-        log.debug("Stop ${this.javaClass.simpleName} $upstreamId")
         future?.let {
             it.cancel(true)
         }

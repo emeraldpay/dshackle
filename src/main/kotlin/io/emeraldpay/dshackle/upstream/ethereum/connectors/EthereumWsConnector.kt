@@ -17,7 +17,8 @@ class EthereumWsConnector(
     wsFactory: EthereumWsConnectionPoolFactory,
     upstream: DefaultUpstream,
     forkChoice: ForkChoice,
-    blockValidator: BlockValidator
+    blockValidator: BlockValidator,
+    skipEnhance: Boolean
 ) : EthereumConnector {
     private val pool: WsConnectionPool
     private val reader: JsonRpcReader
@@ -28,7 +29,7 @@ class EthereumWsConnector(
         pool = wsFactory.create(upstream)
         reader = JsonRpcWsClient(pool)
         val wsSubscriptions = WsSubscriptionsImpl(pool)
-        head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, reader, wsSubscriptions)
+        head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, reader, wsSubscriptions, skipEnhance)
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 

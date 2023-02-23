@@ -20,15 +20,10 @@ import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
-import org.slf4j.LoggerFactory
 
 class EthereumWsIngressSubscription(
-    private val conn: WsSubscriptions
+    conn: WsSubscriptions
 ) : IngressSubscription, EthereumIngressSubscription {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(EthereumWsIngressSubscription::class.java)
-    }
 
     private val pendingTxes = WebsocketPendingTxes(conn)
 
@@ -44,7 +39,7 @@ class EthereumWsIngressSubscription(
         return null
     }
 
-    override fun getPendingTxes(): PendingTxesSource? {
+    override fun getPendingTxes(): PendingTxesSource {
         return pendingTxes
     }
 }
