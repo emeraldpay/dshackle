@@ -190,6 +190,27 @@ Dshackle currently supports
 - `ws` websocket connection (supposed to be used in addition to `rpc` connection)
 - `grpc` connects to another Dshackle instance
 
+==== Connection mixture modes
+In case of rpc and ws connection we can specify different modes of works together:
+
+|===
+|Type |Description
+
+|WS_ONLY
+|Default mode in case WS endpoint specified. In this mode WS connection is used for all requests and subscriptions.
+
+|RPC_ONLY
+|Default in case WS endpoint not specified. In this mode RPC connection is used for all requests, subscriptions doesn't work, head subscription works through scheduled RPC head request.
+
+|RPC_REQUESTS_WITH_MIXED_HEAD
+|All requests are sent through RPC connection, eth_subscribe is sent through WS connection, head subscription works through scheduled RPC head request mixed with WS subscription.
+
+|RPC_REQUESTS_WITH_WS_HEAD
+|All requests are sent through RPC connection, all subscriptions works through WS connection.
+|===
+
+You can specify this modes through `connector-mode` parameter in connection config.
+
 === Bitcoin Methods
 
 .By default an ethereum upstream allows call to the following JSON RPC methods:

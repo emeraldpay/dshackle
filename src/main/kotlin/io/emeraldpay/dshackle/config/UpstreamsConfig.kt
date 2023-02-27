@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
 import java.net.URI
 import java.util.Arrays
 import java.util.Locale
@@ -120,6 +121,23 @@ open class UpstreamsConfig {
     class EthereumConnection : RpcConnection() {
         var ws: WsEndpoint? = null
         var preferHttp: Boolean = false
+        var connectorMode: String? = null
+
+        fun resolveMode(): ConnectorMode {
+            return if (preferHttp) {
+                ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
+            } else {
+                if (connectorMode == null) {
+                    if (ws == null) {
+                        ConnectorMode.RPC_ONLY
+                    } else {
+                        ConnectorMode.WS_ONLY
+                    }
+                } else {
+                    ConnectorMode.parse(connectorMode!!)
+                }
+            }
+        }
     }
 
     class BitcoinConnection : RpcConnection() {

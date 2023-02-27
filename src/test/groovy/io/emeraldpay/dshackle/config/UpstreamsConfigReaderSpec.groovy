@@ -153,7 +153,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse ethereum pos upstreams"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-ethereum-pos.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-ethereum-pos.yaml")
         when:
         def act = reader.readInternal(config)
         then:
@@ -404,7 +404,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse node id"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-node-id.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-node-id.yaml")
         when:
         def act = reader.readInternal(config)
         then:
@@ -422,7 +422,7 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Parse method groups"() {
         setup:
-        def config = this.class.getClassLoader().getResourceAsStream("upstreams-method-groups.yaml")
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-method-groups.yaml")
         when:
         def act = reader.readInternal(config)
         then:
@@ -457,6 +457,28 @@ class UpstreamsConfigReaderSpec extends Specification {
             disableValidation == true
             validateSyncing == true
             validatePeers == true
+        }
+    }
+
+    def "Parse connector mode in connection config"() {
+        setup:
+        def config = this.class.getClassLoader().getResourceAsStream("configs/upstreams-connector-mode.yaml")
+        when:
+        def act = reader.readInternal(config)
+        then:
+        act != null
+        act.upstreams.size() == 1
+        with(act.upstreams.get(0)) {
+            id == "local"
+            chain == "ethereum"
+            connection instanceof UpstreamsConfig.EthereumConnection
+            with((UpstreamsConfig.EthereumConnection) connection) {
+                rpc != null
+                rpc.url == new URI("https://localhost:8546")
+                ws != null
+                ws.url == new URI("ws://localhost:8546")
+                connectorMode == "RPC_REQUESTS_WITH_WS_HEAD"
+            }
         }
     }
 }

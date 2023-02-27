@@ -1,0 +1,12 @@
+version: v1
+
+upstreams:
+  - id: local
+    chain: ethereum
+    connection:
+      ethereum:
+        connector-mode: RPC_REQUESTS_WITH_WS_HEAD
+        ws:
+          url: "ws://localhost:8546"
+        rpc:
+          url: "https://localhost:8546"

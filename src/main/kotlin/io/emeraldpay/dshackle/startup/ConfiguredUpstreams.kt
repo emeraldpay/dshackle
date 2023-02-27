@@ -105,6 +105,15 @@ open class ConfiguredUpstreams(
                 val options = (defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
                     .merge(up.options ?: UpstreamsConfig.Options())
                 val upstream = when (BlockchainType.from(chain)) {
+                    BlockchainType.EVM_POS -> {
+                        buildEthereumPosUpstream(
+                            up.nodeId,
+                            up.cast(UpstreamsConfig.EthereumPosConnection::class.java),
+                            chain,
+                            options,
+                            chainsConfig.resolve(chain)
+                        )
+                    }
                     BlockchainType.EVM_POW -> {
                         buildEthereumUpstream(
                             up.nodeId,
@@ -114,20 +123,9 @@ open class ConfiguredUpstreams(
                             chainsConfig.resolve(chain)
                         )
                     }
-
                     BlockchainType.BITCOIN -> {
                         buildBitcoinUpstream(
                             up.cast(UpstreamsConfig.BitcoinConnection::class.java),
-                            chain,
-                            options,
-                            chainsConfig.resolve(chain)
-                        )
-                    }
-
-                    BlockchainType.EVM_POS -> {
-                        buildEthereumPosUpstream(
-                            up.nodeId,
-                            up.cast(UpstreamsConfig.EthereumPosConnection::class.java),
                             chain,
                             options,
                             chainsConfig.resolve(chain)
@@ -211,7 +209,7 @@ open class ConfiguredUpstreams(
         }
 
         val hashUrl = conn.execution!!.let {
-            if (it.preferHttp) it.rpc?.url ?: it.ws?.url else it.ws?.url ?: it.rpc?.url
+            if (it.preferHttp == true) it.rpc?.url ?: it.ws?.url else it.ws?.url ?: it.rpc?.url
         }
         val hash = getHash(nodeId, hashUrl!!)
         val upstream = EthereumPosRpcUpstream(
@@ -295,7 +293,7 @@ open class ConfiguredUpstreams(
             return null
         }
 
-        val hashUrl = if (conn.preferHttp) conn.rpc?.url ?: conn.ws?.url else conn.ws?.url ?: conn.rpc?.url
+        val hashUrl = if (conn.preferHttp == true) conn.rpc?.url ?: conn.ws?.url else conn.ws?.url ?: conn.rpc?.url
         val upstream = EthereumRpcUpstream(
             config.id!!,
             getHash(nodeId, hashUrl!!),
@@ -399,7 +397,7 @@ open class ConfiguredUpstreams(
         val httpFactory = buildHttpFactory(conn, urls)
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
         val connectorFactory =
-            EthereumConnectorFactory(conn.preferHttp, wsFactoryApi, httpFactory, forkChoice, blockValidator)
+            EthereumConnectorFactory(conn.resolveMode(), wsFactoryApi, httpFactory, forkChoice, blockValidator)
         if (!connectorFactory.isValid()) {
             log.warn("Upstream configuration is invalid (probably no http endpoint)")
             return null

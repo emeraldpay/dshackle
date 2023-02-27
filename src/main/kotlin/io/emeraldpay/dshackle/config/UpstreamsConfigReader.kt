@@ -186,6 +186,9 @@ class UpstreamsConfigReader(
         getValueAsBool(connConfigNode, "prefer-http")?.let {
             connection.preferHttp = it
         }
+        getValueAsString(connConfigNode, "connector-mode")?.let {
+            connection.connectorMode = it
+        }
         getMapping(connConfigNode, "ws")?.let { node ->
             getValueAsString(node, "url")?.let { url ->
                 val ws = UpstreamsConfig.WsEndpoint(URI(url))
