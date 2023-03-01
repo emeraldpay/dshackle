@@ -229,6 +229,22 @@ class DefaultEthereumMethods(
                         "\"11155111\""
                     }
 
+                    Chain.ARBITRUM == chain -> {
+                        "\"42161\""
+                    }
+
+                    Chain.OPTIMISM == chain -> {
+                        "\"10\""
+                    }
+
+                    Chain.TESTNET_ARBITRUM == chain -> {
+                        "\"421613\""
+                    }
+
+                    Chain.TESTNET_OPTIMISM == chain -> {
+                        "\"420\""
+                    }
+
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
@@ -269,6 +285,22 @@ class DefaultEthereumMethods(
 
                     Chain.TESTNET_SEPOLIA == chain -> {
                         "\"0xaa36a7\""
+                    }
+
+                    Chain.ARBITRUM == chain -> {
+                        "\"0xa4b1\""
+                    }
+
+                    Chain.OPTIMISM == chain -> {
+                        "\"0xa\""
+                    }
+
+                    Chain.TESTNET_ARBITRUM == chain -> {
+                        "\"0x66eed\""
+                    }
+
+                    Chain.TESTNET_OPTIMISM == chain -> {
+                        "\"0x1A4\""
                     }
 
                     else -> throw RpcException(-32602, "Invalid chain")

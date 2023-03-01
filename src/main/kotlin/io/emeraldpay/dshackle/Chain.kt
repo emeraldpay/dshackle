@@ -50,7 +50,13 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
         "Ropsten Testnet"
     ),
     TESTNET_RINKEBY(10007, "RINKEBY", "Rinkeby Testnet"),
-    TESTNET_SEPOLIA(10008, "SEPOLIA", "Sepolia Testnet");
+    TESTNET_SEPOLIA(10008, "SEPOLIA", "Sepolia Testnet"),
+    TESTNET_ARBITRUM(
+        10009,
+        "ARBITRUM_TESTNET",
+        "Arbitrum Testnet"
+    ),
+    TESTNET_OPTIMISM(10010, "OPTIMISM_TESTNET", "Optimism Testnet");
 
     companion object {
         fun byId(id: Int): Chain {

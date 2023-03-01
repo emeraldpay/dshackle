@@ -9,15 +9,17 @@ enum class BlockchainType {
             if (chain == Chain.TESTNET_ROPSTEN ||
                 chain == Chain.POLYGON ||
                 chain == Chain.OPTIMISM ||
+                chain == Chain.ARBITRUM ||
                 chain == Chain.BSC ||
                 chain == Chain.TESTNET_GOERLI ||
                 chain == Chain.ETHEREUM ||
-                chain == Chain.TESTNET_SEPOLIA
+                chain == Chain.TESTNET_SEPOLIA ||
+                chain == Chain.TESTNET_ARBITRUM ||
+                chain == Chain.TESTNET_OPTIMISM
             ) {
                 return EVM_POS
             }
             if (chain == Chain.ETHEREUM_CLASSIC ||
-                chain == Chain.ARBITRUM ||
                 chain == Chain.FANTOM ||
                 chain == Chain.RSK ||
                 chain == Chain.TESTNET_KOVAN ||
