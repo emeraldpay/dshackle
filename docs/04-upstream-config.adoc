@@ -73,17 +73,18 @@ cluster:
       options:
         disable-validation: true
       connection:
-        ethereum:
-          rpc:
-            url: "https://mainnet.infura.io/v3/${INFURA_USER}"
-            basic-auth:
-              username: ${INFURA_USER}
-              password: ${INFURA_PASSWD}
-          ws:
-            url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-            basic-auth:
-              username: ${INFURA_USER}
-              password: ${INFURA_PASSWD}
+        ethereum-pos:
+            execution:
+              rpc:
+                url: "https://mainnet.infura.io/v3/${INFURA_USER}"
+                basic-auth:
+                  username: ${INFURA_USER}
+                  password: ${INFURA_PASSWD}
+              ws:
+                url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+                basic-auth:
+                  username: ${INFURA_USER}
+                  password: ${INFURA_PASSWD}
     - id: ethereum-pos
       node-id: 3
       chain: ropsten
