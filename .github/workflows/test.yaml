@@ -30,7 +30,7 @@ jobs:
         run: sudo apt-get install -y openssl libapr1
 
       - name: Check
-        uses: eskatos/gradle-command-action@v1
+        uses: gradle/gradle-build-action@v2
         with:
           arguments: check
         env:
