@@ -18,7 +18,7 @@ jobs:
           java-version: 17
 
       - name: Upload to Docker
-        uses: eskatos/gradle-command-action@v1
+        uses: gradle/gradle-build-action@v2
         with:
           arguments: jib -Pdocker=drpcorg
         env:
@@ -37,7 +37,7 @@ jobs:
         with:
           java-version: 17
       - name: Build zip
-        uses: eskatos/gradle-command-action@v1
+        uses: gradle/gradle-build-action@v2
         with:
           arguments: distZip
       - name: Upload Release
