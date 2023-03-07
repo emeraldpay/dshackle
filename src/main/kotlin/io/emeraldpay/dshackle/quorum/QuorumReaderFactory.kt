@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import org.springframework.cloud.sleuth.Tracer
 
 // creates instance of a Quorum based reader
 interface QuorumReaderFactory {
@@ -29,11 +30,11 @@ interface QuorumReaderFactory {
         }
     }
 
-    fun create(apis: ApiSource, quorum: CallQuorum, signer: ResponseSigner?): Reader<JsonRpcRequest, QuorumRpcReader.Result>
+    fun create(apis: ApiSource, quorum: CallQuorum, signer: ResponseSigner?, tracer: Tracer): Reader<JsonRpcRequest, QuorumRpcReader.Result>
 
     class Default : QuorumReaderFactory {
-        override fun create(apis: ApiSource, quorum: CallQuorum, signer: ResponseSigner?): Reader<JsonRpcRequest, QuorumRpcReader.Result> {
-            return QuorumRpcReader(apis, quorum, signer)
+        override fun create(apis: ApiSource, quorum: CallQuorum, signer: ResponseSigner?, tracer: Tracer): Reader<JsonRpcRequest, QuorumRpcReader.Result> {
+            return QuorumRpcReader(apis, quorum, signer, tracer)
         }
     }
 }

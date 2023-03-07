@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import spock.lang.Specification
@@ -47,7 +48,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum())
+        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -78,7 +79,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum())
+        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -115,7 +116,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum())
+        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -147,7 +148,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
+        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -179,7 +180,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
+        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -211,7 +212,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
+        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -244,7 +245,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3))
+        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -274,7 +275,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum())
+        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -307,7 +308,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NotLaggingQuorum(1))
+        def reader = new QuorumRpcReader(apis, new NotLaggingQuorum(1), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))

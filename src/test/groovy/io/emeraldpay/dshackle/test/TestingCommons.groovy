@@ -47,6 +47,10 @@ class TestingCommons {
         return new ApiReaderMock()
     }
 
+    static TracerMock tracerMock() {
+        return new TracerMock(null, null, null)
+    }
+
     static EthereumPosRpcUpstreamMock upstream() {
         return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api())
     }
@@ -84,7 +88,7 @@ class TestingCommons {
     }
 
     static Multistream multistream(EthereumPosRpcUpstreamMock up) {
-        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default(), Schedulers.boundedElastic()).tap {
+        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default(), Schedulers.boundedElastic(), tracerMock()).tap {
             start()
         }
     }
@@ -105,11 +109,11 @@ class TestingCommons {
     }
 
     static Multistream multistreamWithoutUpstreams(Chain chain) {
-        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic())
+        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic(), tracerMock())
     }
 
     static Multistream multistreamClassicWithoutUpstreams(Chain chain) {
-        return new EthereumMultistream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic())
+        return new EthereumMultistream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic(), tracerMock())
     }
 
     static FileResolver fileResolver() {

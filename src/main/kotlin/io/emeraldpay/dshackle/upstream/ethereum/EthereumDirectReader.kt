@@ -29,6 +29,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.time.Duration
@@ -41,7 +42,8 @@ class EthereumDirectReader(
     private val up: Multistream,
     private val caches: Caches,
     private val balanceCache: CurrentBlockCache<Address, Wei>,
-    private val callMethodsFactory: Factory<CallMethods>
+    private val callMethodsFactory: Factory<CallMethods>,
+    private val tracer: Tracer
 ) {
 
     companion object {
@@ -175,7 +177,8 @@ class EthereumDirectReader(
                     up.getApiSource(matcher),
                     callMethodsFactory.create().createQuorumFor(request.method),
                     // we do not use Signer for internal requests because it doesn't make much sense
-                    null
+                    null,
+                    tracer
                 )
             }.flatMap {
                 it.read(request)

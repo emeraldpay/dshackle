@@ -131,7 +131,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(Reader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }
@@ -152,7 +152,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.empty()
             }
         }
@@ -176,7 +176,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.error(
                         new JsonRpcException(JsonRpcResponse.Id.from(12), new JsonRpcError(-32123, "Foo Bar", "Foo Bar Baz"), true)
                 )
@@ -613,7 +613,7 @@ class NativeCallSpec extends Specification {
         }
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(Reader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }
@@ -648,7 +648,7 @@ class NativeCallSpec extends Specification {
         }
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(Reader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }

@@ -39,6 +39,7 @@ import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.Tracer
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -49,7 +50,8 @@ open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
     caches: Caches,
-    headScheduler: Scheduler
+    headScheduler: Scheduler,
+    tracer: Tracer
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
     companion object {
@@ -65,7 +67,7 @@ open class EthereumMultistream(
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
-    private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
+    private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory(), tracer)
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
 
     private val supportsEIP1559 = when (chain) {

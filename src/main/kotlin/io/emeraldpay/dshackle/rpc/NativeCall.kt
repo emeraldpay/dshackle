@@ -23,11 +23,17 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.commons.LOCAL_READER
+import io.emeraldpay.dshackle.commons.REMOTE_QUORUM_RPC_READER
+import io.emeraldpay.dshackle.commons.SPAN_ERROR
+import io.emeraldpay.dshackle.commons.SPAN_REQUEST_ID
+import io.emeraldpay.dshackle.commons.SPAN_STATUS_MESSAGE
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
+import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -137,8 +143,8 @@ open class NativeCall(
 
     private fun errorSpan(span: Span?, message: String) {
         span?.apply {
-            tag("error", "true")
-            tag("status.message", message)
+            tag(SPAN_ERROR, "true")
+            tag(SPAN_STATUS_MESSAGE, message)
         }
     }
 
@@ -151,7 +157,7 @@ open class NativeCall(
         if (requestCount > 1) {
             val span = tracer.nextSpan(requestSpan)
                 .name(requestId)
-                .tag("request.id", requestId)
+                .tag(SPAN_REQUEST_ID, requestId)
                 .start()
             return ReactorSleuth.putSpanInScope(tracer, ctx, span)
         }
@@ -170,7 +176,7 @@ open class NativeCall(
                     return@run Mono.error(e)
                 }
                 if (callContext.requestCount == 1 && callContext.requestId.isNotBlank()) {
-                    requestSpan?.tag("request.id", callContext.requestId)
+                    requestSpan?.tag(SPAN_REQUEST_ID, callContext.requestId)
                 }
                 this.fetch(parsed)
                     .doOnError { e -> log.warn("Error during native call: ${e.message}") }
@@ -358,7 +364,8 @@ open class NativeCall(
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream.getLocalReader(localRouterEnabled)
             .flatMap { api ->
-                api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
+                SpannedReader(api, tracer, LOCAL_READER)
+                    .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
                     .flatMap(JsonRpcResponse::requireResult)
                     .map {
                         validateResult(it, "local", ctx)
@@ -381,14 +388,14 @@ open class NativeCall(
         if (!ctx.upstream.getMethods().isCallable(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
-        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum, signer)
+        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum, signer, tracer)
         val counter = if (reader is QuorumRpcReader) {
             reader.getValidAttemptsCount()
         } else {
             AtomicInteger(-1)
         }
 
-        return reader
+        return SpannedReader(reader, tracer, REMOTE_QUORUM_RPC_READER)
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)

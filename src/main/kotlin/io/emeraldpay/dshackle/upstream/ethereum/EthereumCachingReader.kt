@@ -20,6 +20,12 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.cache.HeightByHashAdding
+import io.emeraldpay.dshackle.commons.CACHE_BLOCK_BY_HASH_READER
+import io.emeraldpay.dshackle.commons.CACHE_BLOCK_BY_HEIGHT_READER
+import io.emeraldpay.dshackle.commons.CACHE_HEIGHT_BY_HASH_READER
+import io.emeraldpay.dshackle.commons.CACHE_RECEIPTS_READER
+import io.emeraldpay.dshackle.commons.CACHE_TX_BY_HASH_READER
+import io.emeraldpay.dshackle.commons.DIRECT_QUORUM_RPC_READER
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.SourceContainer
@@ -28,6 +34,7 @@ import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.reader.RekeyingReader
+import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.reader.TransformingReader
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -41,6 +48,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.Tracer
 import java.util.function.Function
 
 /**
@@ -49,7 +57,8 @@ import java.util.function.Function
 open class EthereumCachingReader(
     private val up: Multistream,
     private val caches: Caches,
-    private val callMethodsFactory: Factory<CallMethods>
+    private val callMethodsFactory: Factory<CallMethods>,
+    private val tracer: Tracer
 ) : Lifecycle {
 
     companion object {
@@ -58,7 +67,7 @@ open class EthereumCachingReader(
 
     private val objectMapper: ObjectMapper = Global.objectMapper
     private val balanceCache = CurrentBlockCache<Address, Wei>()
-    private val directReader = EthereumDirectReader(up, caches, balanceCache, callMethodsFactory)
+    private val directReader = EthereumDirectReader(up, caches, balanceCache, callMethodsFactory, tracer)
 
     val extractBlock = Function<BlockContainer, BlockJson<TransactionRefJson>> { block ->
         val existing = block.getParsed(BlockJson::class.java)
@@ -86,16 +95,17 @@ open class EthereumCachingReader(
     private val idToTxHash = Function<TxId, TransactionId> { id -> TransactionId.from(id.value) }
 
     private val blocksByIdAsCont = CompoundReader(
-        caches.getBlocksByHash(),
-        RekeyingReader(idToBlockHash, directReader.blockReader)
+        SpannedReader(caches.getBlocksByHash(), tracer, CACHE_BLOCK_BY_HASH_READER),
+        SpannedReader(RekeyingReader(idToBlockHash, directReader.blockReader), tracer, DIRECT_QUORUM_RPC_READER)
     )
 
-    private val heightByHash = HeightByHashAdding(caches, blocksByIdAsCont)
+    private val heightByHash =
+        SpannedReader(HeightByHashAdding(caches, blocksByIdAsCont), tracer, CACHE_HEIGHT_BY_HASH_READER)
 
     fun blocksByHashAsCont(): Reader<BlockHash, BlockContainer> {
         return CompoundReader(
-            RekeyingReader(blockHashToId, caches.getBlocksByHash()),
-            directReader.blockReader
+            SpannedReader(RekeyingReader(blockHashToId, caches.getBlocksByHash()), tracer, CACHE_BLOCK_BY_HASH_READER),
+            SpannedReader(directReader.blockReader, tracer, DIRECT_QUORUM_RPC_READER)
         )
     }
 
@@ -119,8 +129,8 @@ open class EthereumCachingReader(
 
     open fun blocksByHeightAsCont(): Reader<Long, BlockContainer> {
         return CompoundReader(
-            caches.getBlocksByHeight(),
-            directReader.blockByHeightReader
+            SpannedReader(caches.getBlocksByHeight(), tracer, CACHE_BLOCK_BY_HEIGHT_READER),
+            SpannedReader(directReader.blockByHeightReader, tracer, DIRECT_QUORUM_RPC_READER)
         )
     }
 
@@ -143,8 +153,8 @@ open class EthereumCachingReader(
 
     open fun txByHashAsCont(): Reader<TxId, TxContainer> {
         return CompoundReader(
-            caches.getTxByHash(),
-            RekeyingReader(idToTxHash, directReader.txReader)
+            SpannedReader(caches.getTxByHash(), tracer, CACHE_TX_BY_HASH_READER),
+            SpannedReader(RekeyingReader(idToTxHash, directReader.txReader), tracer, DIRECT_QUORUM_RPC_READER)
         )
     }
 
@@ -161,8 +171,8 @@ open class EthereumCachingReader(
             directReader.receiptReader
         )
         return CompoundReader(
-            caches.getReceipts(),
-            requested
+            SpannedReader(caches.getReceipts(), tracer, CACHE_RECEIPTS_READER),
+            SpannedReader(requested, tracer, DIRECT_QUORUM_RPC_READER)
         )
     }
 

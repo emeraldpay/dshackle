@@ -15,7 +15,11 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import io.emeraldpay.dshackle.commons.API_READER
+import io.emeraldpay.dshackle.commons.SPAN_REQUEST_API_TYPE
+import io.emeraldpay.dshackle.commons.SPAN_REQUEST_UPSTREAM_ID
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
@@ -25,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.util.function.Tuple3
@@ -42,13 +47,14 @@ class QuorumRpcReader(
     private val apiControl: ApiSource,
     private val quorum: CallQuorum,
     private val signer: ResponseSigner?,
+    private val tracer: Tracer
 ) : Reader<JsonRpcRequest, QuorumRpcReader.Result> {
 
     companion object {
         private val log = LoggerFactory.getLogger(QuorumRpcReader::class.java)
     }
 
-    constructor(apiControl: ApiSource, quorum: CallQuorum) : this(apiControl, quorum, null)
+    constructor(apiControl: ApiSource, quorum: CallQuorum, tracer: Tracer) : this(apiControl, quorum, null, tracer)
 
     override fun read(key: JsonRpcRequest): Mono<Result> {
         // needs at least one response, so start a request
@@ -129,7 +135,12 @@ class QuorumRpcReader(
     }
 
     fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple4<ByteArray, Optional<ResponseSigner.Signature>, Upstream, Optional<String>>> {
-        return api.getIngressReader()
+        val apiReader = api.getIngressReader()
+        val spanParams = mapOf(
+            SPAN_REQUEST_API_TYPE to apiReader.javaClass.name,
+            SPAN_REQUEST_UPSTREAM_ID to api.getId()
+        )
+        return SpannedReader(apiReader, tracer, API_READER, spanParams)
             .read(key)
             .flatMap { response ->
                 log.debug("Received response from upstream ${api.getId()} for method ${key.method}")

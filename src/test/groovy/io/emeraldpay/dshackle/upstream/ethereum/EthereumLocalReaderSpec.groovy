@@ -26,7 +26,8 @@ class EthereumLocalReaderSpec extends Specification {
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
-                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM)),
+                        TestingCommons.tracerMock()
                 ),
                 methods,
                 new EmptyHead(),
@@ -45,7 +46,8 @@ class EthereumLocalReaderSpec extends Specification {
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
-                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM))
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM)),
+                        TestingCommons.tracerMock()
                 ),
                 methods,
                 new EmptyHead(),

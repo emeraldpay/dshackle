@@ -19,11 +19,7 @@ package io.emeraldpay.dshackle.test
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -32,6 +28,8 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumCachingReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
 import org.jetbrains.annotations.NotNull
+import org.springframework.cloud.sleuth.Tracer
+import org.springframework.cloud.sleuth.brave.bridge.BraveTracer
 import reactor.core.scheduler.Schedulers
 
 class MultistreamHolderMock implements MultistreamHolder {
@@ -49,7 +47,10 @@ class MultistreamHolderMock implements MultistreamHolder {
                 if (up instanceof EthereumPosMultiStream) {
                     upstreams[chain] = up
                 } else if (up instanceof EthereumPosRpcUpstream) {
-                    upstreams[chain] = new EthereumPosMultiStream(chain, [up as EthereumPosRpcUpstream], Caches.default(), Schedulers.boundedElastic())
+                    upstreams[chain] = new EthereumPosMultiStream(
+                            chain, [up as EthereumPosRpcUpstream], Caches.default(),
+                            Schedulers.boundedElastic(), TestingCommons.tracerMock()
+                    )
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -97,7 +98,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         Head customHead = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches, Schedulers.boundedElastic())
+            super(chain, upstreams, caches, Schedulers.boundedElastic(), new BraveTracer(null, null, null))
         }
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams) {
