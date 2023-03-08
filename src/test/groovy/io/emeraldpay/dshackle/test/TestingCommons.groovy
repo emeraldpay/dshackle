@@ -43,16 +43,20 @@ import java.time.Instant
 
 class TestingCommons {
 
-    static ApiReaderMock api() {
-        return new ApiReaderMock()
+    static StandardApiReaderMock standardApi() {
+        return new StandardApiReaderMock()
+    }
+
+    static DshackleApiReaderMock dshackleApi() {
+        return new DshackleApiReaderMock()
     }
 
     static EthereumUpstreamMock upstream() {
-        return new EthereumUpstreamMock(Chain.ETHEREUM, api())
+        return new EthereumUpstreamMock(Chain.ETHEREUM, standardApi())
     }
 
     static EthereumUpstreamMock upstream(String id) {
-        return new EthereumUpstreamMock(id, Chain.ETHEREUM, api())
+        return new EthereumUpstreamMock(id, Chain.ETHEREUM, standardApi())
     }
 
     static EthereumUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {

@@ -20,7 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeCallReplySignature
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
@@ -37,14 +37,14 @@ class JsonRpcGrpcClient(
     private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val chain: Chain,
     private val metrics: RpcMetrics?,
-    private val modifier: Function<JsonRpcReader, JsonRpcReader>?,
+    private val modifier: Function<StandardRpcReader, StandardRpcReader>?,
 ) {
 
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcGrpcClient::class.java)
     }
 
-    fun forSelector(matcher: Selector.Matcher): JsonRpcReader {
+    fun forSelector(matcher: Selector.Matcher): StandardRpcReader {
         return Executor(stub, chain, matcher, metrics)
             .let { modifier?.apply(it) ?: it }
     }
@@ -54,7 +54,7 @@ class JsonRpcGrpcClient(
         private val chain: Chain,
         private val matcher: Selector.Matcher,
         private val metrics: RpcMetrics?
-    ) : JsonRpcReader {
+    ) : StandardRpcReader {
 
         override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
             val timer = StopWatch()

@@ -24,10 +24,8 @@ import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
-import reactor.test.StepVerifier
 import spock.lang.Specification
 
-import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -52,7 +50,7 @@ class EthereumWsHeadSpec extends Specification {
             Global.objectMapper.writeValueAsBytes(it)
         }
 
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], block)
 
         def ws = Mock(WsSubscriptions)

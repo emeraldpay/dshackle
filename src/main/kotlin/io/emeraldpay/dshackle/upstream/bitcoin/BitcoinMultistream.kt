@@ -17,44 +17,56 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.CompoundReader
+import io.emeraldpay.dshackle.reader.DshackleRpcReader
+import io.emeraldpay.dshackle.reader.MultistreamReader
 import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.EmptyHead
+import io.emeraldpay.dshackle.upstream.HardcodedReader
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IntegralRpcReader
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.RequestPostprocessor
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.VerifyingReader
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinEgressSubscription
-import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import reactor.core.publisher.Mono
+import java.util.concurrent.atomic.AtomicReference
 
 @Suppress("UNCHECKED_CAST")
 open class BitcoinMultistream(
     chain: Chain,
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
     caches: Caches
-) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches, RequestPostprocessor.Empty()), Lifecycle {
+) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches), DshackleRpcReader, Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinMultistream::class.java)
     }
 
-    private var head: Head = EmptyHead()
+    private val head: AtomicReference<Head> = AtomicReference(EmptyHead())
     private var egressSubscription = BitcoinEgressSubscription(this)
     private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
-    private var reader = BitcoinEgressReader(this, head, esplora)
+    private var ingressReader = MultistreamReader(this)
+    private val reader = IntegralRpcReader(
+        VerifyingReader(callMethods),
+        HardcodedReader(callMethods),
+        NormalizingReader(CompoundReader(BitcoinCacheReader(caches), ingressReader))
+    )
+    open var dataReaders = DataReaders(reader, head)
+    open var unspentReader: UnspentReader = CurrentUnspentReader(this, esplora)
     private var addressActiveCheck: AddressActiveCheck? = null
     private var xpubAddresses: XpubAddresses? = null
-    private val feeEstimation = BitcoinFees(this, reader, 6)
-    private var localReader: BitcoinLocalReader = BitcoinLocalReader(DefaultBitcoinMethods(), reader)
+    private val feeEstimation = BitcoinFees(this, dataReaders, 6)
 
     override fun init() {
         if (sourceUpstreams.size > 0) {
-            head = updateHead()
+            head.set(updateHead())
         }
         super.init()
     }
@@ -98,43 +110,38 @@ open class BitcoinMultistream(
             newHead
         }
         onHeadUpdated(head)
+        unspentReader = CurrentUnspentReader(this, esplora)
         return head
-    }
-
-    override fun getLocalReader(matcher: Selector.Matcher): JsonRpcReader {
-        return localReader
-    }
-
-    open fun getReader(): BitcoinEgressReader {
-        return reader
     }
 
     override fun onUpstreamsUpdated() {
         super.onUpstreamsUpdated()
         esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
-        reader = BitcoinEgressReader(this, this.head, esplora)
         addressActiveCheck = esplora?.let { AddressActiveCheck(it) }
         xpubAddresses = addressActiveCheck?.let { XpubAddresses(it) }
-        localReader = BitcoinLocalReader(getMethods(), reader)
+        unspentReader = CurrentUnspentReader(this, esplora)
     }
 
     override fun setHead(head: Head) {
-        this.head = head
-        reader = BitcoinEgressReader(this, head, esplora)
+        this.head.set(head)
     }
 
     override fun getHead(): Head {
-        return head
+        return head.get()
     }
 
     override fun getEgressSubscription() = egressSubscription
 
-    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
+    override fun read(key: DshackleRequest): Mono<DshackleResponse> {
+        return reader.read(key)
+    }
+
+    fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return sourceUpstreams.flatMap { it.getLabels() }
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : Upstream> cast(selfType: Class<T>): T {
+    override fun <T : Multistream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
@@ -142,16 +149,14 @@ open class BitcoinMultistream(
     }
 
     override fun isRunning(): Boolean {
-        return super.isRunning() || reader.isRunning
+        return super.isRunning()
     }
 
     override fun start() {
         super.start()
-        reader.start()
     }
 
     override fun stop() {
         super.stop()
-        reader.stop()
     }
 }

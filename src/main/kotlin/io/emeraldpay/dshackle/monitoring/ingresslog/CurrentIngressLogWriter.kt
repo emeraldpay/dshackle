@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.monitoring.FileLogWriter
 import io.emeraldpay.dshackle.monitoring.LogWriter
 import io.emeraldpay.dshackle.monitoring.NoLogWriter
 import io.emeraldpay.dshackle.monitoring.record.IngressRecord
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.LoggingJsonRpcReader
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -83,7 +83,7 @@ open class CurrentIngressLogWriter(
         logWriter.submit(event)
     }
 
-    fun wrap(reader: JsonRpcReader, upstreamId: String, channel: Channel): JsonRpcReader {
+    fun wrap(reader: StandardRpcReader, upstreamId: String, channel: Channel): StandardRpcReader {
         if (!config.enabled) {
             return reader
         }

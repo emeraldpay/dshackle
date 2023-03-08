@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
@@ -75,7 +75,7 @@ class BitcoinGrpcUpstream(
         this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.PartialOptions.getDefaults().build(), remote, client)
 
     private val extractBlock = ExtractBlock()
-    private val reader: JsonRpcReader = client.forSelector(Selector.empty)
+    private val reader: StandardRpcReader = client.forSelector(Selector.empty)
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val block = BlockContainer(
             value.height,
@@ -121,7 +121,7 @@ class BitcoinGrpcUpstream(
         return grpcHead
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): StandardRpcReader {
         return reader
     }
 

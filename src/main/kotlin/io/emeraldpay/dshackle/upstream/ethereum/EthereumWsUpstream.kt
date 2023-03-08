@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
@@ -33,7 +33,7 @@ class EthereumWsUpstream(
     id: String,
     val chain: Chain,
     forkWatch: ForkWatch,
-    val directReader: JsonRpcReader,
+    val directReader: StandardRpcReader,
     val pool: WsConnectionPool,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
@@ -60,7 +60,7 @@ class EthereumWsUpstream(
         return head
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): StandardRpcReader {
         return directReader
     }
 

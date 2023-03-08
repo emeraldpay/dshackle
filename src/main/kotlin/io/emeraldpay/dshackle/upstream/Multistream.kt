@@ -17,15 +17,13 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.DshackleRpcReader
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.NoCallMethods
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
-import org.apache.commons.collections4.Factory
-import org.apache.commons.collections4.FunctorException
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -46,8 +44,7 @@ abstract class Multistream(
     val chain: Chain,
     private val upstreams: MutableList<Upstream>,
     val caches: Caches,
-    val postprocessor: RequestPostprocessor
-) : Upstream, Lifecycle, HasEgressSubscription {
+) : DshackleRpcReader, Lifecycle, HasEgressSubscription {
 
     companion object {
         private val log = LoggerFactory.getLogger(Multistream::class.java)
@@ -56,10 +53,7 @@ abstract class Multistream(
 
     private var cacheSubscription: Disposable? = null
     private val reconfigLock = ReentrantLock()
-    private var callMethods: CallMethods? = null
-    private var callMethodsFactory: Factory<CallMethods> = Factory {
-        return@Factory callMethods ?: throw FunctorException("Not initialized yet")
-    }
+    protected val callMethods: AtomicReference<CallMethods> = AtomicReference(NoCallMethods())
     private var seq = 0
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
@@ -136,41 +130,16 @@ abstract class Multistream(
         return FilteredApis(chain, upstreams, matcher, i)
     }
 
-    /**
-     * Finds an API that executed directly on a remote.
-     */
-    open fun getDirectApi(matcher: Selector.Matcher): Mono<JsonRpcReader> {
-        val apis = getApiSource(matcher)
-        apis.request(1)
-        return Mono.from(apis)
-            .map(Upstream::getIngressReader)
-            .map {
-                RequestPostprocessor.wrap(
-                    it,
-                    postprocessor
-                )
-            } // TODO do it on upstream init, not each time it's called
-            .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
-    }
+    abstract fun getHead(): Head
 
     abstract fun getFeeEstimation(): ChainFees
-
-    /**
-     * Finds an API that leverages caches and other optimizations/transformations of the request.
-     * It responds with data only if it's available, otherwise returns empty.
-     */
-    abstract fun getLocalReader(matcher: Selector.Matcher): JsonRpcReader
-
-    override fun getIngressReader(): JsonRpcReader {
-        throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
-    }
 
     open fun onUpstreamsUpdated() {
         reconfigLock.withLock {
             val upstreams = getAll()
             upstreams.map { it.getMethods() }.let {
                 // TODO made list of uniq instances, and then if only one, just use it directly
-                callMethods = AggregatedCallMethods(it)
+                callMethods.set(AggregatedCallMethods(it))
             }
             capabilities = if (upstreams.isEmpty()) {
                 emptySet()
@@ -182,7 +151,7 @@ abstract class Multistream(
         }
     }
 
-    override fun observeStatus(): Flux<UpstreamAvailability> {
+    fun observeStatus(): Flux<UpstreamAvailability> {
         val upstreamsFluxes = getAll().map { up ->
             Flux.concat(
                 Mono.just(up.getStatus()),
@@ -194,32 +163,18 @@ abstract class Multistream(
             .map { it.status }
     }
 
-    override fun isAvailable(): Boolean {
+    fun isAvailable(): Boolean {
         return getAll().any { it.isAvailable() }
     }
 
-    override fun getStatus(): UpstreamAvailability {
+    fun getStatus(): UpstreamAvailability {
         val upstreams = getAll()
         return if (upstreams.isEmpty()) UpstreamAvailability.UNAVAILABLE
         else upstreams.minOf { it.getStatus() }
     }
 
-    // TODO options for multistream are useless
-    override fun getOptions(): UpstreamsConfig.Options {
-        throw RuntimeException("No options for multistream")
-    }
-
-    // TODO roles for multistream are useless
-    override fun getRole(): UpstreamsConfig.UpstreamRole {
-        return UpstreamsConfig.UpstreamRole.PRIMARY
-    }
-
-    override fun getMethods(): CallMethods {
-        return callMethods ?: throw IllegalStateException("Methods are not initialized yet")
-    }
-
-    fun getMethodsFactory(): Factory<CallMethods> {
-        return callMethodsFactory
+    open fun getMethods(): CallMethods {
+        return callMethods.get()
     }
 
     override fun start() {
@@ -258,32 +213,15 @@ abstract class Multistream(
     abstract fun updateHead(): Head
     abstract fun setHead(head: Head)
 
-    override fun getId(): String {
-        return "!all:${chain.chainCode}"
-    }
-
     override fun isRunning(): Boolean {
         return subscription != null
     }
 
-    override fun setLag(lag: Long) {
-    }
-
-    override fun getLag(): Long {
-        return 0
-    }
-
-    override fun getCapabilities(): Set<Capability> {
-        return this.capabilities
-    }
-
-    override fun isGrpc(): Boolean {
-        return false
-    }
-
-    override fun getBlockchain(): Chain {
+    fun getBlockchain(): Chain {
         return chain
     }
+
+    abstract fun <T : Multistream> cast(selfType: Class<T>): T
 
     fun printStatus() {
         var height: Long? = null

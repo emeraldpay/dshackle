@@ -18,6 +18,8 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
@@ -82,7 +84,7 @@ class TrackBitcoinTx(
     }
 
     fun continueWithMined(upstream: BitcoinMultistream, status: TxStatus): Flux<TxStatus> {
-        return upstream.getReader().getBlock(status.blockHash!!)
+        return upstream.dataReaders.getBlockJson(BlockId.from(status.blockHash!!))
             .map { block ->
                 TxStatus(
                     status.txid,
@@ -123,7 +125,7 @@ class TrackBitcoinTx(
     }
 
     fun loadExisting(api: BitcoinMultistream, txid: String): Mono<TxStatus> {
-        val mined = api.getReader().getTx(txid)
+        val mined = api.dataReaders.getTxJson(TxId.from(txid))
         return mined.map {
             val block = it["blockhash"] as String?
             TxStatus(txid, found = true, mined = block != null, blockHash = block, height = ExtractBlock.getHeight(it))
@@ -131,7 +133,7 @@ class TrackBitcoinTx(
     }
 
     fun loadMempool(upstream: BitcoinMultistream, txid: String): Mono<TxStatus> {
-        val mempool = upstream.getReader().getMempool().get()
+        val mempool = upstream.dataReaders.mempool.get()
         return mempool.map {
             if (it.contains(txid)) {
                 TxStatus(txid, found = true, mined = false)

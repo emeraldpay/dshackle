@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.quorum
+package io.emeraldpay.dshackle.reader
 
-import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
@@ -118,7 +118,7 @@ class QuorumRpcReader(
                 .filter { it.isResolved() } // return nothing if not resolved
                 .map {
                     // TODO find actual quorum number
-                    QuorumRpcReader.Result(it.getResult()!!, it.getSignature(), 1)
+                    Result(it.getResult()!!, it.getSignature(), 1)
                 }
                 .switchIfEmpty(defaultResult)
         }
@@ -141,7 +141,7 @@ class QuorumRpcReader(
             src.map {
                 val signature = response.providedSignature
                     ?: if (key.nonce != null) {
-                        signer?.sign(key.nonce, response.getResult(), api)
+                        signer?.sign(key.nonce, response.resultOrEmpty, api)
                     } else {
                         null
                     }

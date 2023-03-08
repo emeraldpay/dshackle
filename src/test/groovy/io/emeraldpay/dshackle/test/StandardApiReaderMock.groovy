@@ -56,7 +56,7 @@ import java.util.function.BiFunction
 import java.util.function.Consumer
 import java.util.function.Predicate
 
-class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
+class StandardApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
     private static final Logger log = LoggerFactory.getLogger(this)
     List<PredefinedResponse> predefined = []
@@ -65,15 +65,15 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     String id = "default"
     AtomicInteger calls = new AtomicInteger(0)
 
-    ApiReaderMock() {
+    StandardApiReaderMock() {
     }
 
-    ApiReaderMock answerOnce(@NotNull String method, List<Object> params, Object result) {
+    StandardApiReaderMock answerOnce(@NotNull String method, List<Object> params, Object result) {
         return answer(method, params, result, 1)
     }
 
-    ApiReaderMock answer(@NotNull String method, List<Object> params, Object result,
-                         Integer limit = null, Throwable exception = null) {
+    StandardApiReaderMock answer(@NotNull String method, List<Object> params, Object result,
+                                 Integer limit = null, Throwable exception = null) {
         predefined << new PredefinedResponse(method: method, params: params, result: result, limit: limit, exception: exception)
         return this
     }
@@ -120,7 +120,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
             def proto = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                     .setId(req.id)
                     .setSucceed(resp.hasResult())
-                    .setPayload(ByteString.copyFrom(resp.getResult()))
+                    .setPayload(ByteString.copyFrom(resp.resultOrEmpty))
 
             resp.error?.with { err ->
                 proto.setErrorMessage(err.message)
@@ -168,7 +168,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     }
 
     class WebsocketApi {
-        private final ApiReaderMock api
+        private final StandardApiReaderMock api
 
         private Sinks.Many<JsonRpcResponse> responses = Sinks
                 .many()
@@ -181,7 +181,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
         private WebsocketOutboundMock outbound
         private WebsocketInboundMock inbound
 
-        WebsocketApi(ApiReaderMock api) {
+        WebsocketApi(StandardApiReaderMock api) {
             this.api = api
             outbound = new WebsocketOutboundMock(api, responses)
             inbound = new WebsocketInboundMock(responses.asFlux(), jsonResponses.asFlux())
@@ -259,10 +259,10 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
     class WebsocketOutboundMock implements WebsocketOutbound {
 
-        private final ApiReaderMock api
+        private final StandardApiReaderMock api
         private final Sinks.Many<JsonRpcResponse> responses
 
-        WebsocketOutboundMock(ApiReaderMock api, Sinks.Many<JsonRpcResponse> responses) {
+        WebsocketOutboundMock(StandardApiReaderMock api, Sinks.Many<JsonRpcResponse> responses) {
             this.api = api
             this.responses = responses
         }

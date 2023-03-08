@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.function.Function
@@ -25,9 +25,9 @@ import java.util.function.Function
  * A wrapper around a JsonRpcReader that logs the request through the provided logger
  */
 class LoggingJsonRpcReader(
-    private val delegate: JsonRpcReader,
+    private val delegate: StandardRpcReader,
     private val logger: (key: JsonRpcRequest) -> Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>>,
-) : JsonRpcReader {
+) : StandardRpcReader {
 
     companion object {
         private val log = LoggerFactory.getLogger(LoggingJsonRpcReader::class.java)

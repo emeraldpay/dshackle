@@ -11,6 +11,7 @@ message ValueContainer {
     oneof meta_type {
         BlockMeta block_meta = 4;
         TxMeta tx_meta = 5;
+        GenericMeta generic_meta = 6;
     }
 
     enum ValueType {
@@ -18,6 +19,7 @@ message ValueContainer {
         BLOCK = 1;
         TX = 2;
         TX_RECEIPT = 3;
+        GENERIC = 4;
     }
 
     enum Compression {
@@ -38,5 +40,9 @@ message TxMeta {
     uint64 height = 1;
     bytes hash = 2;
     bytes block_hash = 3;
+}
+
+message GenericMeta {
+    string type = 1;
 }
 

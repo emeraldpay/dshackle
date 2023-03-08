@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.test.ApiReaderMock
+import io.emeraldpay.dshackle.test.StandardApiReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import reactor.util.function.Tuples
@@ -67,7 +67,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validateSyncing = true
         }.build()
         def up = TestingCommons.upstream(
-                new ApiReaderMock().tap {
+                new StandardApiReaderMock().tap {
                     answer("eth_syncing", [], false)
                 }
         )
@@ -85,7 +85,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validateSyncing = true
         }.build()
         def up = TestingCommons.upstream(
-                new ApiReaderMock().tap {
+                new StandardApiReaderMock().tap {
                     answer("eth_syncing", [], [startingBlock: 100, currentBlock: 50])
                 }
         )
@@ -103,7 +103,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validateSyncing = true
         }.build()
         def up = TestingCommons.upstream(
-                new ApiReaderMock().tap {
+                new StandardApiReaderMock().tap {
                     answer("eth_syncing", [], new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unavailable"))
                 }
         )
@@ -154,7 +154,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.minPeers = 10
         }.build()
         def up = TestingCommons.upstream(
-                new ApiReaderMock().tap {
+                new StandardApiReaderMock().tap {
                     answer("net_peerCount", [], "0x5")
                 }
         )
@@ -173,7 +173,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.minPeers = 10
         }.build()
         def up = TestingCommons.upstream(
-                new ApiReaderMock().tap {
+                new StandardApiReaderMock().tap {
                     answer("net_peerCount", [], "0xa")
                 }
         )
@@ -192,7 +192,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.minPeers = 10
         }.build()
         def up = TestingCommons.upstream(
-                new ApiReaderMock().tap {
+                new StandardApiReaderMock().tap {
                     answer("net_peerCount", [], "0xff")
                 }
         )
@@ -211,7 +211,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.minPeers = 10
         }.build()
         def up = TestingCommons.upstream(
-                new ApiReaderMock().tap {
+                new StandardApiReaderMock().tap {
                     answer("net_peerCount", [], new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unavailable"))
                 }
         )

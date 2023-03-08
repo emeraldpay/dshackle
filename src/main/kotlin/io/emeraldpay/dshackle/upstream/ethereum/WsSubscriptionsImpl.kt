@@ -47,7 +47,7 @@ class WsSubscriptionsImpl(
                     log.warn("Failed to establish ETH Subscription: ${it.error?.message}")
                     Mono.error(JsonRpcException(it.id, it.error!!))
                 } else {
-                    subscriptionId.set(it.getResultAsProcessedString())
+                    subscriptionId.set(it.resultAsProcessedString)
                     messages
                 }
             }

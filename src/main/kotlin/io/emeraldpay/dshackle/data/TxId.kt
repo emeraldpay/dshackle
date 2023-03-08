@@ -46,4 +46,8 @@ class TxId(
             return TxId(bytes)
         }
     }
+
+    fun toEthereumHash(): TransactionId {
+        return TransactionId.from(value)
+    }
 }

@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.monitoring.Channel
 import io.emeraldpay.dshackle.monitoring.ingresslog.CurrentIngressLogWriter
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.ForkWatchFactory
 import io.emeraldpay.dshackle.upstream.Head
@@ -158,7 +158,7 @@ open class ConfiguredUpstreams(
     ) {
         val id = config.id ?: "bitcoin-${seq.getAndIncrement()}"
         val conn = config.connection!!
-        val directApi: JsonRpcReader? = buildHttpClient(config)?.let {
+        val directApi: StandardRpcReader? = buildHttpClient(config)?.let {
             currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
         }
         if (directApi == null) {
@@ -240,7 +240,7 @@ open class ConfiguredUpstreams(
 
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
 
-        val httpApi: JsonRpcReader? = buildHttpClient(config)
+        val httpApi: StandardRpcReader? = buildHttpClient(config)
         val wsPool = wsFactoryApi?.let { factory ->
             val connection = config.connection?.ws?.connections ?: 1
             if (connection > 1) {

@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
@@ -9,9 +9,9 @@ import reactor.core.publisher.Mono
  * It always calls the Primary reader, and if it fails or produces an empty result, then it calls the Secondary reader.
  */
 class JsonRpcSwitchClient(
-    private val primary: JsonRpcReader,
-    private val secondary: JsonRpcReader,
-) : JsonRpcReader {
+    private val primary: StandardRpcReader,
+    private val secondary: StandardRpcReader,
+) : StandardRpcReader {
 
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcSwitchClient::class.java)

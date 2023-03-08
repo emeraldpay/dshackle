@@ -139,8 +139,8 @@ class TrackBitcoinAddress(
     }
 
     fun balanceForAddress(api: BitcoinMultistream, address: Address, includeUtxo: Boolean): Mono<AddressBalance> {
-        return api.getReader()
-            .listUnspent(address.bitcoinAddress)
+        return api.unspentReader
+            .read(address.bitcoinAddress)
             .map { unspent ->
                 totalUnspent(address, includeUtxo, unspent)
             }

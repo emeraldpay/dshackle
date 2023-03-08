@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.monitoring.ingresslog
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.IngressLogConfig
 import io.emeraldpay.dshackle.monitoring.record.IngressRecord
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
@@ -152,6 +153,12 @@ class IngressContext {
     }
 
     fun withRequest(req: JsonRpcRequest): Function<Context, Context> {
+        return Function { ctx ->
+            withRequest(req.method, req.params).apply(ctx)
+        }
+    }
+
+    fun withRequest(req: DshackleRequest): Function<Context, Context> {
         return Function { ctx ->
             withRequest(req.method, req.params).apply(ctx)
         }

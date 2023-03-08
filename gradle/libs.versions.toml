@@ -7,12 +7,12 @@ slf4j = "1.7.32"
 jackson = "2.11.0"
 grpc = "1.42.1"
 reactive-grpc = "1.2.0"
-spring-boot = "2.5.6"
+spring-boot = "2.7.9"
 spring-security = "5.5.3"
 reactor = "3.4.10"
 netty = "4.1.70.Final"
 netty-tcnative = "2.0.45.Final"
-kotlin = "1.5.31"
+kotlin = "1.7.22"
 httpcomponents = "4.5.8"
 
 [libraries]
@@ -107,6 +107,10 @@ snake-yaml = "org.yaml:snakeyaml:1.24"
 
 spockframework-core = "org.spockframework:spock-core:2.0-groovy-3.0"
 testcontainers = "org.testcontainers:spock:1.17.3"
+junit = "org.junit.jupiter:junit-jupiter-engine:5.9.1"
+ktest-runner = "io.kotest:kotest-runner-junit5:5.5.4"
+ktest-datatest = "io.kotest:kotest-framework-datatest:5.5.4"
+mockk = "io.mockk:mockk:1.13.3"
 
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "spring-boot" }
 spring-security-core = { module = "org.springframework.security:spring-security-core", version.ref = "spring-security" }
@@ -124,11 +128,12 @@ netty = ["netty-common", "netty-transport", "netty-handler-core", "netty-handler
 reactor = ["reactor-core", "reactor-netty", "reactor-extra", "reactor-kotlin"]
 slf4j = ["slf4j-api", "slf4j-jul", "slf4j-jcl", "log4j-slf4j"]
 spring-framework = ["spring-boot-starter", "spring-security-core", "spring-security-web", "spring-security-config"]
+ktest = ["ktest-runner", "ktest-datatest"]
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 jib = { id = "com.google.cloud.tools.jib", version = "2.5.0" }
-spring = { id = "org.springframework.boot", version = "2.3.5.RELEASE" }
+spring = { id = "org.springframework.boot", version.ref = "spring-boot" }
 git = { id = "com.palantir.git-version", version = "0.12.3" }
 protobuf = { id = "com.google.protobuf", version = "0.8.17" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "10.2.0" }

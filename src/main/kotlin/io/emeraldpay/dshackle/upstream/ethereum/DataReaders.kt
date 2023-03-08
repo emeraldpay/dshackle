@@ -4,20 +4,17 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
+import io.emeraldpay.dshackle.reader.DshackleRpcReader
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.Capability
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.reader.RekeyingReader
+import io.emeraldpay.dshackle.reader.TransformingReader
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
@@ -27,60 +24,88 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
-import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
-import org.apache.commons.collections4.Factory
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Common reads from upstream, makes actual calls with applying quorum and retries
  */
-class EthereumDirectReader(
-    private val up: Multistream,
-    private val caches: Caches,
-    private val balanceCache: CurrentBlockCache<Address, Wei>,
-    private val callMethodsFactory: Factory<CallMethods>
+open class DataReaders(
+    private val source: DshackleRpcReader,
+    private val head: AtomicReference<Head>,
 ) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumDirectReader::class.java)
+        private val log = LoggerFactory.getLogger(DataReaders::class.java)
     }
 
     private val objectMapper: ObjectMapper = Global.objectMapper
-    var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
-
-    private val selector = Selector.Builder()
-        .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
-        .build()
 
     val blockReader: Reader<BlockHash, BlockContainer>
+    val blockReaderById: Reader<BlockId, BlockContainer>
+    val blockReaderParsed: Reader<BlockHash, BlockJson<TransactionRefJson>>
     val blockByHeightReader: Reader<Long, BlockContainer>
+    open val blocksByHeightParsed: Reader<Long, BlockJson<TransactionRefJson>>
+
     val txReader: Reader<TransactionId, TxContainer>
-    val balanceReader: Reader<Address, Wei>
+    val txReaderById: Reader<TxId, TxContainer>
+    open val txReaderParsed: Reader<TransactionId, TransactionJson>
+
     val receiptReader: Reader<TransactionId, ByteArray>
+    val receiptReaderById: Reader<TxId, ByteArray>
+
+    val balanceReader: Reader<Address, Wei>
+
+    private val extractBlock = { block: BlockContainer ->
+        val existing = block.getParsed(BlockJson::class.java)
+        if (existing != null) {
+            existing.withoutTransactionDetails()
+        } else {
+            objectMapper
+                .readValue(block.json, BlockJson::class.java)
+                .withoutTransactionDetails()
+        }
+    }
+    private val extractTx = { tx: TxContainer ->
+        tx.getParsed(TransactionJson::class.java) ?: objectMapper.readValue(tx.json, TransactionJson::class.java)
+    }
 
     init {
         blockReader = object : Reader<BlockHash, BlockContainer> {
             override fun read(key: BlockHash): Mono<BlockContainer> {
-                val request = JsonRpcRequest("eth_getBlockByHash", listOf(key.toHex(), false))
+                val request = DshackleRequest(1, "eth_getBlockByHash", listOf(key.toHex(), false))
                 return readBlock(request, key.toHex())
             }
         }
+        blockReaderParsed = TransformingReader(
+            blockReader,
+            extractBlock
+        )
+        blockReaderById = RekeyingReader(
+            BlockId::toEthereumHash, blockReader
+        )
         blockByHeightReader = object : Reader<Long, BlockContainer> {
             override fun read(key: Long): Mono<BlockContainer> {
-                val request = JsonRpcRequest("eth_getBlockByNumber", listOf(HexQuantity.from(key).toHex(), false))
+                val request = DshackleRequest(1, "eth_getBlockByNumber", listOf(HexQuantity.from(key).toHex(), false))
                 return readBlock(request, key.toString())
             }
         }
+        blocksByHeightParsed = TransformingReader(
+            blockByHeightReader,
+            extractBlock
+        )
+
         txReader = object : Reader<TransactionId, TxContainer> {
             override fun read(key: TransactionId): Mono<TxContainer> {
-                val request = JsonRpcRequest("eth_getTransactionByHash", listOf(key.toHex()))
-                return readWithQuorum(request)
+                val request = DshackleRequest(1, "eth_getTransactionByHash", listOf(key.toHex()))
+                return source.read(request)
                     .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Tx not read $key")))
                     .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                    .flatMap(DshackleResponse::requireResult)
                     .flatMap { txbytes ->
                         val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
                         if (tx == null) {
@@ -89,19 +114,23 @@ class EthereumDirectReader(
                             Mono.just(TxContainer.from(tx, txbytes))
                         }
                     }
-                    .doOnNext { tx ->
-                        if (tx.blockId != null) {
-                            caches.cache(Caches.Tag.REQUESTED, tx)
-                        }
-                    }
             }
         }
+        txReaderById = RekeyingReader(
+            TxId::toEthereumHash, txReader
+        )
+        txReaderParsed = TransformingReader(
+            txReader,
+            extractTx
+        )
+
         balanceReader = object : Reader<Address, Wei> {
             override fun read(key: Address): Mono<Wei> {
-                val height = up.getHead().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
-                val request = JsonRpcRequest("eth_getBalance", listOf(key.toHex(), height))
-                return readWithQuorum(request)
+                val height = head.get().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
+                val request = DshackleRequest(1, "eth_getBalance", listOf(key.toHex(), height))
+                return source.read(request)
                     .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Balance not read $key")))
+                    .flatMap(DshackleResponse::requireResult)
                     .map {
                         val str = String(it)
                         // it's a json string, i.e. wrapped with quotes, ex. _"0x1234"_
@@ -112,44 +141,27 @@ class EthereumDirectReader(
                         }
                     }
                     .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
-                    .doOnNext { value ->
-                        balanceCache.put(key, value)
-                    }
             }
         }
         receiptReader = object : Reader<TransactionId, ByteArray> {
             override fun read(key: TransactionId): Mono<ByteArray> {
-                val request = JsonRpcRequest("eth_getTransactionReceipt", listOf(key.toHex()))
-                return readWithQuorum(request)
+                val request = DshackleRequest(1, "eth_getTransactionReceipt", listOf(key.toHex()))
+                return source.read(request)
                     .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Receipt not read $key")))
-                    .doOnNext { json ->
-                        try {
-                            // Caching needs some additional data (ex. Height) to make a decision on how long and where to cache
-                            // So we have to parse the JSON here and extract reference data
-                            val receipt = objectMapper.readValue(json, TransactionReceiptJson::class.java)
-                            caches.cacheReceipt(
-                                Caches.Tag.REQUESTED,
-                                DefaultContainer(
-                                    txId = TxId.from(key),
-                                    blockId = BlockId.from(receipt.blockHash),
-                                    height = receipt.blockNumber,
-                                    json = json,
-                                    parsed = receipt
-                                )
-                            )
-                        } catch (t: Throwable) {
-                            log.warn("Failed to cache Tx Receipt", t)
-                        }
-                    }
+                    .flatMap(DshackleResponse::requireResult)
             }
         }
+        receiptReaderById = RekeyingReader(
+            TxId::toEthereumHash, receiptReader
+        )
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun readBlock(request: JsonRpcRequest, id: String): Mono<BlockContainer> {
-        return readWithQuorum(request)
+    private fun readBlock(request: DshackleRequest, id: String): Mono<BlockContainer> {
+        return source.read(request)
             .timeout(Defaults.timeoutInternal, Mono.error(SilentException.Timeout("Block not read $id")))
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+            .flatMap(DshackleResponse::requireResult)
             .flatMap { blockbytes ->
                 val block = objectMapper.readValue(blockbytes, BlockJson::class.java) as BlockJson<TransactionRefJson>?
                 if (block == null) {
@@ -158,23 +170,5 @@ class EthereumDirectReader(
                     Mono.just(BlockContainer.from(block, blockbytes))
                 }
             }
-            .doOnNext { block ->
-                caches.cache(Caches.Tag.REQUESTED, block)
-            }
-    }
-
-    /**
-     * Read from an Upstream applying a Quorum specific for that request
-     */
-    private fun readWithQuorum(request: JsonRpcRequest): Mono<ByteArray> {
-        return quorumReaderFactory
-            .create(
-                up.getApiSource(selector),
-                callMethodsFactory.create().createQuorumFor(request.method),
-                // we do not use Signer for internal requests because it doesn't make much sense
-                null
-            )
-            .read(request)
-            .map { it.value }
     }
 }

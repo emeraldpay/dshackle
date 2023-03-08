@@ -16,6 +16,8 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.bitcoinj.core.Address
@@ -28,11 +30,9 @@ class RpcUnspentReaderSpec extends Specification {
     def "all if single address"() {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-one-addr.json").bytes
-        def rpcReader = Mock(Reader) {
-            1 * read(new JsonRpcRequest("listunspent", [1, 9999999, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"]])) >> Mono.just(JsonRpcResponse.ok(json))
-        }
         def upstreams = Mock(BitcoinMultistream) {
-            1 * getDirectApi(_) >> Mono.just(rpcReader)
+            1 * read(new DshackleRequest(1, "listunspent", [1, 9999999, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"]], null, RpcUnspentReader.selector)) >>
+                    Mono.just(new DshackleResponse(1, json))
         }
         def reader = new RpcUnspentReader(upstreams)
 
@@ -62,11 +62,9 @@ class RpcUnspentReaderSpec extends Specification {
     def "select if two addresses - 35hK"() {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json").bytes
-        def rpcReader = Mock(Reader) {
-            1 * read(new JsonRpcRequest("listunspent", [1, 9999999, ["35hK24tcLEWcgNA4JxpvbkNkoAcDGqQPsP"]])) >> Mono.just(JsonRpcResponse.ok(json))
-        }
         def upstreams = Mock(BitcoinMultistream) {
-            1 * getDirectApi(_) >> Mono.just(rpcReader)
+            1 * read(new DshackleRequest(1, "listunspent", [1, 9999999, ["35hK24tcLEWcgNA4JxpvbkNkoAcDGqQPsP"]], null, RpcUnspentReader.selector)) >>
+                    Mono.just(new DshackleResponse(1, json))
         }
         def reader = new RpcUnspentReader(upstreams)
 
@@ -97,11 +95,8 @@ class RpcUnspentReaderSpec extends Specification {
     def "select if two addresses - 1K7x"() {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json").bytes
-        def rpcReader = Mock(Reader) {
-            1 * read(_) >> Mono.just(JsonRpcResponse.ok(json))
-        }
         def upstreams = Mock(BitcoinMultistream) {
-            1 * getDirectApi(_) >> Mono.just(rpcReader)
+            1 * read(_) >> Mono.just(new DshackleResponse(1, json))
         }
         def reader = new RpcUnspentReader(upstreams)
 

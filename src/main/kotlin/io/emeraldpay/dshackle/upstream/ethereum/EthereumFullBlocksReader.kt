@@ -44,6 +44,8 @@ class EthereumFullBlocksReader(
         private val log = LoggerFactory.getLogger(EthereumFullBlocksReader::class.java)
     }
 
+    constructor(dataReaders: DataReaders) : this(dataReaders.blockReaderById, dataReaders.txReaderById)
+
     private val accumulate: BiFunction<ByteBuffer, ByteArray, ByteBuffer> = BiFunction { buf, x ->
         if (buf.remaining() < x.size) {
             val resize = ByteBuffer.allocate(buf.capacity() + buf.capacity() / 4 + x.size)

@@ -22,10 +22,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.monitoring.record.IngressRecord
-import io.emeraldpay.dshackle.quorum.CallQuorum
-import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
-import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -33,13 +30,11 @@ import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
@@ -54,7 +49,6 @@ import java.util.EnumMap
 @Service
 open class NativeCall(
     @Autowired private val multistreamHolder: MultistreamHolder,
-    @Autowired private val signer: ResponseSigner,
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -67,8 +61,8 @@ open class NativeCall(
         multistreamHolder.observeChains().subscribe { chain ->
             if (BlockchainType.from(chain) == BlockchainType.ETHEREUM && !ethereumCallSelectors.containsKey(chain)) {
                 multistreamHolder.getUpstream(chain)?.let { up ->
-                    val reader = up.cast(EthereumMultistream::class.java).getReader()
-                    ethereumCallSelectors[chain] = EthereumCallSelector(reader.heightByHash())
+                    val caches = up.cast(EthereumMultistream::class.java).caches
+                    ethereumCallSelectors[chain] = EthereumCallSelector(caches.getLastHeightByHash())
                 }
             }
         }
@@ -85,7 +79,7 @@ open class NativeCall(
             .flatMap {
                 if (it.isValid()) {
                     val parsed = parseParams(it.get())
-                    this.fetch(parsed)
+                    this.execute(parsed)
                         .contextWrite(Global.monitoring.ingress.withBlockchain(parsed.upstream.getBlockchain()))
                         .doOnError { e -> log.warn("Error during native call: ${e.message}") }
                 } else {
@@ -180,18 +174,7 @@ open class NativeCall(
     ): Mono<CallContext> {
         val method = requestItem.method
         val params = requestItem.payload.toStringUtf8()
-        val availableMethods = upstream.getMethods()
 
-        if (!availableMethods.isAvailable(method)) {
-            log.info("The method $method does not exist/is not available on $chain")
-            log.debug("Available methods: ${availableMethods.getSupportedMethods()} for ${chain.chainCode}. Requested $method")
-            val errorMessage = "The method $method does not exist/is not available"
-            return Mono.just(
-                InvalidCallContext(
-                    CallError(requestItem.id, errorMessage, JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage))
-                )
-            )
-        }
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
             if (BlockchainType.from(upstream.chain) == BlockchainType.ETHEREUM) {
@@ -199,6 +182,7 @@ open class NativeCall(
             } else {
                 null
             } ?: Mono.empty()
+
         return callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
             val matcher = Selector.Builder()
                 .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
@@ -206,47 +190,28 @@ open class NativeCall(
                 .forMethod(method)
                 .forLabels(Selector.convertToMatcher(request.selector))
 
-            val callQuorum = availableMethods.createQuorumFor(method) // can be null in tests
-            callQuorum.init(upstream.getHead())
-
-            // for NotLaggingQuorum it makes sense to select compatible upstreams before the call
-            if (callQuorum is NotLaggingQuorum) {
-                val lag = callQuorum.maxLag
-                val minHeight = ((upstream.getHead().getCurrentHeight() ?: 0) - lag).coerceAtLeast(0)
-                val heightMatcher = Selector.HeightMatcher(minHeight)
-                matcher.withMatcher(heightMatcher)
-            }
             val nonce = requestItem.nonce.let { if (it == 0L) null else it }
-            ValidCallContext(requestItem.id, nonce, upstream, matcher.build(), callQuorum, RawCallDetails(method, params))
+            ValidCallContext(requestItem.id, nonce, upstream, matcher.build(), RawCallDetails(method, params))
         }
     }
 
-    fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
-        val local = ctx.upstream.getLocalReader(ctx.matcher)
-        // The Local Reader produces an empty response if an actual upstream must be reached
-        // Or may return an error if request is invalid.
-        return readFromLocal(local, ctx)
-            // if it's empty then make a call to a remote
-            .switchIfEmpty(Mono.just(ctx).flatMap(this::executeOnRemote))
-            .onErrorResume { Mono.just(CallResult.fail(ctx.id, ctx.nonce, it)) }
-    }
-
-    private fun readFromLocal(api: JsonRpcReader, ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
-        return api.read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
-            .flatMap(JsonRpcResponse::requireResult)
-            .map { CallResult.ok(ctx.id, ctx.nonce, it, null) }
-    }
-
-    fun executeOnRemote(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
-        // check if method is allowed to be executed at all
-        if (!ctx.upstream.getMethods().isCallable(ctx.payload.method)) {
-            return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
-        }
-        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum, signer)
-        return reader
-            .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce))
+    fun execute(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
+        return ctx.upstream
+            .read(
+                DshackleRequest(
+                    id = 1,
+                    method = ctx.payload.method,
+                    params = ctx.payload.params,
+                    nonce = ctx.nonce,
+                    matcher = ctx.matcher,
+                )
+            )
             .map {
-                CallResult.ok(ctx.id, ctx.nonce, it.value, it.signature)
+                if (it.error != null) {
+                    CallResult.fail(ctx.id, ctx.nonce, CallError(ctx.id, it.error.message, it.error))
+                } else {
+                    CallResult.ok(ctx.id, ctx.nonce, it.resultOrEmpty, it.providedSignature)
+                }
             }
             .onErrorResume { t ->
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, t))
@@ -281,7 +246,6 @@ open class NativeCall(
         val nonce: Long?,
         val upstream: Multistream,
         val matcher: Selector.Matcher,
-        val callQuorum: CallQuorum,
         val payload: T
     ) : CallContext {
         override fun isValid(): Boolean {
@@ -297,7 +261,7 @@ open class NativeCall(
         }
 
         fun <X> withPayload(payload: X): ValidCallContext<X> {
-            return ValidCallContext(id, nonce, upstream, matcher, callQuorum, payload)
+            return ValidCallContext(id, nonce, upstream, matcher, payload)
         }
 
         fun getApis(): ApiSource {
@@ -331,7 +295,7 @@ open class NativeCall(
             fun from(t: Throwable): CallError {
                 return when (t) {
                     is JsonRpcException -> CallError(t.id.asNumber().toInt(), t.error.message, t.error)
-                    is RpcException -> CallError(t.code, t.rpcMessage, null)
+                    is RpcException -> CallError(t.code, t.rpcMessage, JsonRpcError(code = t.code, message = t.rpcMessage, details = t.details))
                     is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null)
                     else -> {
                         // May only happen if it's an unhandled exception.

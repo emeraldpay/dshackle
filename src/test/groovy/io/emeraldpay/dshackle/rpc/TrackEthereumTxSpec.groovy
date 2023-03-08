@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-import com.google.protobuf.ByteString
+
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -95,7 +95,7 @@ class TrackEthereumTxSpec extends Specification {
                         .setTimestamp(blockJson.timestamp.toEpochMilli())
             ).build()
 
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
@@ -115,7 +115,7 @@ class TrackEthereumTxSpec extends Specification {
 
     def "Wait for unknown transaction"() {
         setup:
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         ((EthereumMultistream) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(Head) {
@@ -165,7 +165,7 @@ class TrackEthereumTxSpec extends Specification {
             it
         }
 
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
@@ -190,7 +190,7 @@ class TrackEthereumTxSpec extends Specification {
 
     def "New block makes tx mined"() {
         setup:
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
@@ -212,7 +212,7 @@ class TrackEthereumTxSpec extends Specification {
 
     def "New block without current tx requires a call"() {
         setup:
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)
@@ -284,7 +284,7 @@ class TrackEthereumTxSpec extends Specification {
                 )
 
 
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams)

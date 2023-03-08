@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
@@ -35,7 +35,7 @@ open class BitcoinRpcUpstream(
     id: String,
     chain: Chain,
     forkWatch: ForkWatch,
-    private val directApi: JsonRpcReader,
+    private val directApi: StandardRpcReader,
     private val head: Head,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
@@ -68,7 +68,7 @@ open class BitcoinRpcUpstream(
         return head
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): StandardRpcReader {
         return directApi
     }
 
