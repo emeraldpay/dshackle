@@ -33,6 +33,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -43,7 +44,8 @@ import java.util.concurrent.atomic.AtomicReference
 open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
-    caches: Caches
+    caches: Caches,
+    signer: ResponseSigner,
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
 
     companion object {
@@ -52,7 +54,7 @@ open class EthereumMultistream(
 
     private var head = AtomicReference<Head>(EmptyHead())
 
-    private val ingressReader = CompoundReader(CacheReader(caches), MultistreamReader(this))
+    private val ingressReader = CompoundReader(CacheReader(caches), MultistreamReader(this, signer))
     val dataReaders = DataReaders(ingressReader, head)
     private val normalizedReader = NormalizingReader(head, caches, EthereumFullBlocksReader(dataReaders))
     private val ingressFinalReader = CompoundReader(normalizedReader, ingressReader)

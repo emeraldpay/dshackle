@@ -6,11 +6,13 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 open class MultistreamReader(
     private val upstreams: Multistream,
+    private val signer: ResponseSigner,
 ) : DshackleRpcReader {
 
     companion object {
@@ -36,13 +38,14 @@ open class MultistreamReader(
 
         val apis = upstreams.getApiSource(matcher)
 
-        val reader = quorumReaderFactory.create(apis, quorum, null)
+        val reader = quorumReaderFactory.create(apis, quorum, signer)
         return reader.read(key.asJsonRequest())
             .map {
                 DshackleResponse(
                     id = key.id,
                     result = it.value,
-                    error = null
+                    error = null,
+                    providedSignature = it.signature
                 )
             }
     }

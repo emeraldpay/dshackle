@@ -32,6 +32,7 @@ import io.emeraldpay.dshackle.upstream.VerifyingReader
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinEgressSubscription
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
@@ -42,7 +43,8 @@ import java.util.concurrent.atomic.AtomicReference
 open class BitcoinMultistream(
     chain: Chain,
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
-    caches: Caches
+    caches: Caches,
+    signer: ResponseSigner,
 ) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches), DshackleRpcReader, Lifecycle {
 
     companion object {
@@ -52,7 +54,7 @@ open class BitcoinMultistream(
     private val head: AtomicReference<Head> = AtomicReference(EmptyHead())
     private var egressSubscription = BitcoinEgressSubscription(this)
     private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
-    private var ingressReader = MultistreamReader(this)
+    private var ingressReader = MultistreamReader(this, signer)
     private val reader = IntegralRpcReader(
         VerifyingReader(callMethods),
         HardcodedReader(callMethods),

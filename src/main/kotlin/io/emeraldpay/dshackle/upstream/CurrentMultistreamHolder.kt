@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
@@ -42,7 +43,8 @@ import kotlin.concurrent.withLock
 
 @Repository
 open class CurrentMultistreamHolder(
-    @Autowired private val cachesFactory: CachesFactory
+    @Autowired private val cachesFactory: CachesFactory,
+    @Autowired private val signer: ResponseSigner,
 ) : MultistreamHolder {
 
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
@@ -65,10 +67,10 @@ open class CurrentMultistreamHolder(
                 val current = chainMapping[chain]
                 val factory = when (BlockchainType.from(chain)) {
                     BlockchainType.ETHEREUM -> Callable<Multistream> {
-                        EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
+                        EthereumMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), signer)
                     }
                     BlockchainType.BITCOIN -> Callable<Multistream> {
-                        BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain))
+                        BitcoinMultistream(chain, ArrayList(), cachesFactory.getCaches(chain), signer)
                     }
                     else -> throw IllegalStateException("Update for unsupported chain: $chain")
                 }

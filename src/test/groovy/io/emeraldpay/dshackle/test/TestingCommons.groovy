@@ -31,6 +31,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.etherjar.hex.Hex32
 import io.emeraldpay.grpc.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -80,7 +81,7 @@ class TestingCommons {
     }
 
     static Multistream multistream(EthereumUpstream up) {
-        return new EthereumMultistream(Chain.ETHEREUM, [up], Caches.default()).tap {
+        return new EthereumMultistream(Chain.ETHEREUM, [up], Caches.default(), new NoSigner()).tap {
             start()
         }
     }

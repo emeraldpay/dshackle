@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Mono
@@ -39,7 +40,7 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.standardApi(), new DirectCallMethods(["eth_test1", "eth_test2"]))
         def up2 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.standardApi(), new DirectCallMethods(["eth_test2", "eth_test3"]))
-        def aggr = new EthereumMultistream(Chain.ETHEREUM, [up1, up2], Caches.default())
+        def aggr = new EthereumMultistream(Chain.ETHEREUM, [up1, up2], Caches.default(), new NoSigner())
         when:
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()

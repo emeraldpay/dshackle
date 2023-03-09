@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
@@ -114,7 +115,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         Head customHead = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches)
+            super(chain, upstreams, caches, new NoSigner())
         }
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumUpstream> upstreams) {
