@@ -36,112 +36,127 @@ import java.util.function.BiFunction
  * If any of the expected block transactions is not available it returns empty
  */
 class EthereumFullBlocksReader(
-    private val blocks: Reader<BlockId, BlockContainer>,
-    private val txes: Reader<TxId, TxContainer>
-) : Reader<BlockId, BlockContainer> {
+    blocks: Reader<BlockId, BlockContainer>,
+    hashes: Reader<Long, BlockContainer>,
+    txes: Reader<TxId, TxContainer>
+) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumFullBlocksReader::class.java)
     }
 
-    constructor(dataReaders: DataReaders) : this(dataReaders.blockReaderById, dataReaders.txReaderById)
+    constructor(dataReaders: DataReaders) : this(dataReaders.blockReaderById, dataReaders.blockByHeightReader, dataReaders.txReaderById)
 
-    private val accumulate: BiFunction<ByteBuffer, ByteArray, ByteBuffer> = BiFunction { buf, x ->
-        if (buf.remaining() < x.size) {
-            val resize = ByteBuffer.allocate(buf.capacity() + buf.capacity() / 4 + x.size)
-            resize.put(buf.flip()).put(x)
-        } else {
-            buf.put(x)
-        }
-    }
+    val byHash: Reader<BlockId, BlockContainer> = BlockMerge(blocks, txes)
+    val byHeight: Reader<Long, BlockContainer> = BlockMerge(hashes, txes)
 
-    override fun read(key: BlockId): Mono<BlockContainer> {
-        return blocks.read(key).flatMap { block ->
-            if (block.transactions.isEmpty()) {
-                // in fact it's not necessary to create a copy, made just for code clarity but it may be a performance loss
-                val fullBlock = BlockContainer(
-                    block.height, block.hash, block.parentHash, block.difficulty, block.timestamp,
-                    true,
-                    block.json,
-                    block.parsed,
-                    block.transactions
-                )
-                return@flatMap Mono.just(fullBlock)
-            }
+    /**
+     * Does the actual block parsing/merging
+     */
+    open class BlockMerge<K>(
+        private val blocks: Reader<K, BlockContainer>,
+        private val txes: Reader<TxId, TxContainer>
+    ) : Reader<K, BlockContainer> {
 
-            val blockSplit = splitByTransactions(block.json!!)
-
-            val transactions = Flux.fromIterable(block.transactions)
-                .flatMapSequential { txes.read(it) }
-                .collectList()
-
-            return@flatMap transactions.flatMap { transactionsData ->
-                // make sure that all transaction are loaded, otherwise just return empty because cannot make full block data
-                if (transactionsData.size != block.transactions.size) {
-                    log.warn("No data to fill the block")
-                    Mono.empty()
+        companion object {
+            private val accumulate: BiFunction<ByteBuffer, ByteArray, ByteBuffer> = BiFunction { buf, x ->
+                if (buf.remaining() < x.size) {
+                    val resize = ByteBuffer.allocate(buf.capacity() + buf.capacity() / 4 + x.size)
+                    resize.put(buf.flip()).put(x)
                 } else {
-                    joinWithTransactions(
-                        blockSplit.t1,
-                        blockSplit.t2,
-                        Flux.fromIterable(transactionsData).map { it.json!! }
+                    buf.put(x)
+                }
+            }
+        }
+
+        override fun read(key: K): Mono<BlockContainer> {
+            return blocks.read(key).flatMap { block ->
+                if (block.transactions.isEmpty()) {
+                    // in fact, it's not necessary to create a copy, made just for code clarity, but it may be a performance loss
+                    val fullBlock = BlockContainer(
+                        block.height, block.hash, block.parentHash, block.difficulty, block.timestamp,
+                        true,
+                        block.json,
+                        block.parsed,
+                        block.transactions
                     )
-                        .reduce(ByteBuffer.allocate(block.json.size * 4), accumulate)
-                        .map(this@EthereumFullBlocksReader::extractContent)
-                        .map { json ->
-                            BlockContainer(
-                                block.height, block.hash, block.parentHash, block.difficulty, block.timestamp,
-                                true,
-                                json,
-                                null,
-                                block.transactions
-                            )
-                        }
+                    return@flatMap Mono.just(fullBlock)
+                }
+
+                val blockSplit = splitByTransactions(block.json!!)
+
+                val transactions = Flux.fromIterable(block.transactions)
+                    .flatMapSequential { txes.read(it) }
+                    .collectList()
+
+                return@flatMap transactions.flatMap { transactionsData ->
+                    // make sure that all transaction are loaded, otherwise just return empty because cannot make full block data
+                    if (transactionsData.size != block.transactions.size) {
+                        log.warn("No data to fill the block")
+                        Mono.empty()
+                    } else {
+                        joinWithTransactions(
+                            blockSplit.t1,
+                            blockSplit.t2,
+                            Flux.fromIterable(transactionsData).map { it.json!! }
+                        )
+                            .reduce(ByteBuffer.allocate(block.json.size * 4), accumulate)
+                            .map(this::extractContent)
+                            .map { json ->
+                                BlockContainer(
+                                    block.height, block.hash, block.parentHash, block.difficulty, block.timestamp,
+                                    true,
+                                    json,
+                                    null,
+                                    block.transactions
+                                )
+                            }
+                    }
                 }
             }
         }
-    }
 
-    fun extractContent(it: ByteBuffer): ByteArray {
-        val pos = it.position()
-        val result = ByteArray(pos)
-        it.flip().get(result, 0, pos)
-        return result
-    }
+        fun extractContent(it: ByteBuffer): ByteArray {
+            val pos = it.position()
+            val result = ByteArray(pos)
+            it.flip().get(result, 0, pos)
+            return result
+        }
 
-    fun splitByTransactions(json: ByteArray): Tuple2<ByteArray, ByteArray> {
-        // TODO find a lib that implements Knuth-Morris-Pratt Pattern Matching Algorithm for byte arrays
-        // and reimplement without making a string copy from bytes
+        fun splitByTransactions(json: ByteArray): Tuple2<ByteArray, ByteArray> {
+            // TODO find a lib that implements Knuth-Morris-Pratt Pattern Matching Algorithm for byte arrays
+            // and reimplement without making a string copy from bytes
 
-        val s = String(json)
-        val fieldStart = s.indexOf("\"transactions\"")
-        val arrayStart = s.indexOf("[", fieldStart)
-        val arrayEnd = s.indexOf("]", arrayStart)
+            val s = String(json)
+            val fieldStart = s.indexOf("\"transactions\"")
+            val arrayStart = s.indexOf("[", fieldStart)
+            val arrayEnd = s.indexOf("]", arrayStart)
 
-        val head = s.substring(0, arrayStart + 1)
-        val tail = s.substring(arrayEnd, s.length)
+            val head = s.substring(0, arrayStart + 1)
+            val tail = s.substring(arrayEnd, s.length)
 
-        return Tuples.of(head.toByteArray(), tail.toByteArray())
-    }
+            return Tuples.of(head.toByteArray(), tail.toByteArray())
+        }
 
-    fun joinWithTransactions(head: ByteArray, tail: ByteArray, transactions: Flux<ByteArray>): Flux<ByteArray> {
-        val separator = Flux.range(0, Integer.MAX_VALUE)
-            .map { it != 0 }
+        fun joinWithTransactions(head: ByteArray, tail: ByteArray, transactions: Flux<ByteArray>): Flux<ByteArray> {
+            val separator = Flux.range(0, Integer.MAX_VALUE)
+                .map { it != 0 }
 
-        val transactionsWithSeparator = transactions.zipWith(separator)
-            .flatMap {
-                val tx = Flux.just(it.t1)
-                if (it.t2) {
-                    Flux.concat(Flux.just(",".toByteArray()), tx)
-                } else {
-                    tx
+            val transactionsWithSeparator = transactions.zipWith(separator)
+                .flatMap {
+                    val tx = Flux.just(it.t1)
+                    if (it.t2) {
+                        Flux.concat(Flux.just(",".toByteArray()), tx)
+                    } else {
+                        tx
+                    }
                 }
-            }
 
-        return Flux.concat(
-            Flux.just(head),
-            transactionsWithSeparator,
-            Flux.just(tail)
-        )
+            return Flux.concat(
+                Flux.just(head),
+                transactionsWithSeparator,
+                Flux.just(tail)
+            )
+        }
     }
 }

@@ -25,7 +25,7 @@ class NormalizingReader(
 
     private val blockByHashFull = BlockByHash(fullBlocksReader)
     private val blockByHashAuto = BlockByHashAuto(blockByHashFull)
-    private val blockByNumber = BlockByNumber(caches.getBlockHashByHeight(), blockByHashAuto)
+    private val blockByNumber = BlockByNumber(fullBlocksReader, caches.getBlockHashByHeight(), blockByHashAuto)
     private val blockByTag = BlockByTag(head, blockByNumber)
 
     init {
@@ -55,7 +55,7 @@ class NormalizingReader(
                 log.warn("Invalid request ${key.method}(${key.params}")
                 return Mono.empty()
             }
-            return fullBlocksReader.read(id)
+            return fullBlocksReader.byHash.read(id)
                 .filter { it.json != null }
                 .map {
                     DshackleResponse(key.id, it.json!!)
@@ -79,6 +79,7 @@ class NormalizingReader(
     }
 
     class BlockByNumber(
+        private val fullBlocksReader: EthereumFullBlocksReader,
         private val hashByHeight: Reader<Long, BlockId>,
         private val delegate: DshackleRpcReader,
     ) : DshackleRpcReader {
@@ -91,11 +92,19 @@ class NormalizingReader(
                 return Mono.empty()
             }
 
-            return hashByHeight.read(height)
+            val usingCachedHeight = hashByHeight.read(height)
                 .map {
                     DshackleRequest(key.id, "eth_getBlockByHash", listOf(it.toHex()) + key.params.drop(1))
                 }
                 .flatMap(delegate::read)
+
+            val readingFromRpc = fullBlocksReader.byHeight
+                .read(height)
+                .filter { it.json != null }
+                .map { DshackleResponse(key.id, it.json!!) }
+
+            return usingCachedHeight
+                .switchIfEmpty(readingFromRpc)
         }
     }
 

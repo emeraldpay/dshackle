@@ -1,9 +1,11 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.cache.Caches
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.DshackleRpcReader
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.MethodSpecificReader
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
@@ -65,7 +67,10 @@ class CacheReader(
         }
     }
 
-    class BlockByHeight(private val caches: Caches) : DshackleRpcReader {
+    class BlockByHeight(caches: Caches) : DshackleRpcReader {
+
+        private val heights: Reader<Long, BlockId> = caches.getBlockHashByHeight()
+        private val blocks: Reader<BlockId, BlockContainer> = caches.getBlocksByHash()
 
         override fun read(key: DshackleRequest): Mono<DshackleResponse> {
             val height = try {
@@ -74,8 +79,9 @@ class CacheReader(
                 log.warn("Invalid request ${key.method}(${key.params}")
                 return Mono.empty()
             }
-            return caches.getBlocksByHeight()
+            return heights
                 .read(height)
+                .flatMap(blocks::read)
                 .filter { it.json != null }
                 .map {
                     DshackleResponse(key.id, it.json!!)
