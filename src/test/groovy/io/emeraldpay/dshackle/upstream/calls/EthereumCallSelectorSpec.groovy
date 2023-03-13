@@ -264,22 +264,29 @@ class EthereumCallSelectorSpec extends Specification {
         setup:
         def cache = Stub(Caches)
         def callSelector = new EthereumCallSelector(Stub(Reader), cache)
-        def head = Stub(Head)
+        def head = Mock(Head) {
+            _ * getCurrentHeight() >> 17654321L
+        }
 
         when:
         def act = callSelector.getMatcher(
-                method, '["0xfbfe3b", false]',
-                head, false
+                method, params, head, false
         )
 
         then:
         StepVerifier.create(act)
-                .expectNext(new Selector.HeightMatcher(16514619L))
+                .expectNext(new Selector.HeightMatcher(height))
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
 
         where:
-        method << ["eth_getTransactionByBlockNumberAndIndex", "eth_getBlockByNumber"]
+        method | params | height
+        "eth_getTransactionByBlockNumberAndIndex" | '["0xfbfe3b", false]' | 16514619L
+        "eth_getTransactionByBlockNumberAndIndex" | '["earliest", false]' | 0L
+        "eth_getTransactionByBlockNumberAndIndex" | '["latest", false]' | 17654321L
+        "eth_getBlockByNumber" | '["0xfbfe3b", false]' | 16514619L
+        "eth_getBlockByNumber" | '["earliest", false]' | 0L
+        "eth_getBlockByNumber" | '["latest", false]' | 17654321L
     }
 
     def "No height matcher for getByHash method"() {
@@ -306,5 +313,29 @@ class EthereumCallSelectorSpec extends Specification {
 
         where:
         resultFromCache << [Mono.empty(), Mono.error(new RuntimeException())]
+    }
+
+    def "Get height matcher for getLogs method"() {
+        setup:
+        def cache = Stub(Caches)
+        def callSelector = new EthereumCallSelector(Stub(Reader), cache)
+        def head = Mock(Head) {
+            _ * getCurrentHeight() >> 17654321L
+        }
+
+        when:
+        def act = callSelector.getMatcher(method, param, head, false)
+
+        then:
+        StepVerifier.create(act)
+                .expectNext(new Selector.HeightMatcher(height))
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+
+        where:
+        method | param | height
+        "eth_getLogs" | '[{"toBlock":"0xfbfe3b"}]' | 16514619L
+        "eth_getLogs" | '[{"toBlock":"latest"}]' | 17654321L
+        "eth_getLogs" | '[{"toBlock":"earliest"}]' | 0L
     }
 }
