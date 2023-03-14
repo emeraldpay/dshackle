@@ -17,8 +17,13 @@
 package io.emeraldpay.dshackle.data
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.domain.Bloom
+import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import java.math.BigInteger
 import java.time.Instant
 
@@ -98,5 +103,26 @@ class BlockContainer(
         result = 31 * result + height.hashCode()
         result = 31 * result + hash.hashCode()
         return result
+    }
+
+    fun toBlock(): BlockJson<*> {
+        return if (parsed != null) {
+            parsed as BlockJson<TransactionRefJson>
+        } else if (json != null) {
+            Global.objectMapper.readValue(json, BlockJson::class.java)
+        } else {
+            BlockJson<TransactionRefJson>().also {
+                it.number = height
+                it.hash = BlockHash.from(hash.value)
+                it.parentHash = BlockHash.empty()
+                it.timestamp = timestamp
+                it.difficulty = difficulty
+                it.gasLimit = 0
+                it.gasUsed = 0
+                it.logsBloom = Bloom.empty()
+                it.miner = Address.empty()
+                it.baseFeePerGas = Wei.ZERO
+            }
+        }
     }
 }
