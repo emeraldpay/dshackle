@@ -59,6 +59,16 @@ class DefaultEthereumMethods(
             "trace_get",
             "trace_transaction",
         )
+
+        val debugMethods = listOf(
+            "debug_storageRangeAt",
+            "debug_traceBlock",
+            "debug_traceBlockByHash",
+            "debug_traceBlockByNumber",
+            "debug_traceCall",
+            "debug_traceCallMany",
+            "debug_traceTransaction"
+        )
     }
 
     private val anyResponseMethods = listOf(
@@ -352,6 +362,7 @@ class DefaultEthereumMethods(
         when (groupName) {
             "filter" -> filterMethods
             "trace" -> traceMethods
+            "debug" -> debugMethods
             else -> emptyList()
         }.toSet()
 
