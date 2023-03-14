@@ -62,16 +62,18 @@ class EthereumCallSelector(
      * @param params JSON-encoded list of parameters for the method
      */
     fun getMatcher(method: String, params: String, head: Head, passthrough: Boolean): Mono<Selector.Matcher> {
-        if (!passthrough && Collections.binarySearch(TAG_METHODS, method) >= 0) {
-            return blockTagSelector(params, 1, null, head)
-        } else if (!passthrough && method == "eth_getStorageAt") {
-            return blockTagSelector(params, 2, null, head)
-        } else if (method in DefaultEthereumMethods.withFilterIdMethods) {
+        if (method in DefaultEthereumMethods.withFilterIdMethods) {
             return sameUpstreamMatcher(params)
-        } else if (method in GET_BY_HASH_OR_NUMBER_METHODS) {
-            return blockMethodSelector(method, params, head)
-        } else if (method == "eth_getLogs") {
-            return blockTagSelector(params, 0, "toBlock", head)
+        } else if (!passthrough) { // passthrough indicates we should match only labels
+            if (Collections.binarySearch(TAG_METHODS, method) >= 0) {
+                return blockTagSelector(params, 1, null, head)
+            } else if (method == "eth_getStorageAt") {
+                return blockTagSelector(params, 2, null, head)
+            } else if (method in GET_BY_HASH_OR_NUMBER_METHODS) {
+                return blockMethodSelector(method, params, head)
+            } else if (method == "eth_getLogs") {
+                return blockTagSelector(params, 0, "toBlock", head)
+            }
         }
         return Mono.empty()
     }

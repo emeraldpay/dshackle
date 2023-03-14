@@ -260,6 +260,32 @@ class EthereumCallSelectorSpec extends Specification {
         method << ["eth_getTransactionByBlockHashAndIndex", "eth_getBlockByHash"]
     }
 
+    def "No height matcher for getByNumber and getTransactionByBlockNumber methods when passthrough is on"() {
+        setup:
+        def cache = Stub(Caches)
+        def callSelector = new EthereumCallSelector(Stub(Reader), cache)
+        def head = Stub(Head)
+
+        when:
+        def act = callSelector.getMatcher(
+                method, params, head, true
+        )
+
+        then:
+        StepVerifier.create(act)
+                .expectNext()
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+
+        where:
+        method | params
+        "eth_getTransactionByBlockNumberAndIndex" | '["0xfbfe3b", false]'
+        "eth_getTransactionByBlockNumberAndIndex" | '["earliest", false]'
+        "eth_getTransactionByBlockNumberAndIndex" | '["latest", false]'
+        "eth_getBlockByNumber" | '["0xfbfe3b", false]'
+        "eth_getBlockByNumber" | '["earliest", false]'
+        "eth_getBlockByNumber" | '["latest", false]'
+    }
     def "Get height matcher for getByNumber and getTransactionByBlockNumber methods"() {
         setup:
         def cache = Stub(Caches)
@@ -337,5 +363,27 @@ class EthereumCallSelectorSpec extends Specification {
         "eth_getLogs" | '[{"toBlock":"0xfbfe3b"}]' | 16514619L
         "eth_getLogs" | '[{"toBlock":"latest"}]' | 17654321L
         "eth_getLogs" | '[{"toBlock":"earliest"}]' | 0L
+    }
+
+    def "No height matcher for getLogs method when passthrough is on"() {
+        setup:
+        def cache = Stub(Caches)
+        def callSelector = new EthereumCallSelector(Stub(Reader), cache)
+        def head = Stub(Head)
+
+        when:
+        def act = callSelector.getMatcher(method, param, head, true)
+
+        then:
+        StepVerifier.create(act)
+                .expectNext()
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+
+        where:
+        method | param
+        "eth_getLogs" | '[{"toBlock":"0xfbfe3b"}]'
+        "eth_getLogs" | '[{"toBlock":"latest"}]'
+        "eth_getLogs" | '[{"toBlock":"earliest"}]'
     }
 }
