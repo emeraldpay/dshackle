@@ -164,10 +164,10 @@ class EthereumCallSelector(
 
     private fun blockByHashFromCache(blockHash: String): Mono<Selector.Matcher> {
         return try {
-            caches.getBlocksByHash()
+            caches.getLastHeightByHash()
                 .read(BlockId.from(blockHash))
                 .onErrorResume { Mono.empty() }
-                .map { Selector.HeightMatcher(it.height) }
+                .map { Selector.HeightMatcher(it) }
         } catch (e: DecoderException) {
             log.warn("Invalid blockHash: $blockHash")
             Mono.empty()

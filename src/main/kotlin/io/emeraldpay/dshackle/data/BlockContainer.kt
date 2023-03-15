@@ -39,6 +39,7 @@ class BlockContainer(
     val nodeRating: Int = 0,
     val upstreamId: String = ""
 ) : SourceContainer(json, parsed) {
+    val enriched: Boolean = transactions.isNotEmpty()
 
     companion object {
         @JvmStatic

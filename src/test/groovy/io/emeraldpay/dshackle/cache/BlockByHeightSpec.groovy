@@ -19,7 +19,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import spock.lang.Specification
 
@@ -39,12 +41,14 @@ class BlockByHeightSpec extends Specification {
         def heights = new HeightCache()
 
         def block = new BlockJson<TransactionRefJson>()
+        def tx = new TransactionJson()
+        tx.hash = TransactionId.from(hash1)
         block.number = 100
         block.hash = BlockHash.from(hash1)
         block.totalDifficulty = BigInteger.ONE
         block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block.uncles = []
-        block.transactions = []
+        block.transactions = List.of(tx)
 
         BlockContainer.from(block).with {
             blocks.add(it)
@@ -65,12 +69,14 @@ class BlockByHeightSpec extends Specification {
         def heights = new HeightCache()
 
         def block1 = new BlockJson<TransactionRefJson>()
+        def tx = new TransactionJson()
+        tx.hash = TransactionId.from(hash1)
         block1.number = 100
         block1.hash = BlockHash.from(hash1)
         block1.totalDifficulty = BigInteger.ONE
         block1.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block1.uncles = []
-        block1.transactions = []
+        block1.transactions = List.of(tx)
 
         def block2 = new BlockJson<TransactionRefJson>()
         block2.number = 101
@@ -78,7 +84,7 @@ class BlockByHeightSpec extends Specification {
         block2.totalDifficulty = BigInteger.ONE
         block2.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block2.uncles = []
-        block2.transactions = []
+        block2.transactions = List.of(tx)
 
 
         BlockContainer.from(block1).with {
@@ -109,12 +115,14 @@ class BlockByHeightSpec extends Specification {
         def heights = new HeightCache()
 
         def block1 = new BlockJson<TransactionRefJson>()
+        def tx = new TransactionJson()
+        tx.hash = TransactionId.from(hash1)
         block1.number = 100
         block1.hash = BlockHash.from(hash1)
         block1.totalDifficulty = BigInteger.ONE
         block1.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block1.uncles = []
-        block1.transactions = []
+        block1.transactions = List.of(tx)
 
         def block2 = new BlockJson<TransactionRefJson>()
         block2.number = 100
@@ -122,7 +130,7 @@ class BlockByHeightSpec extends Specification {
         block2.totalDifficulty = BigInteger.ONE
         block2.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block2.uncles = []
-        block2.transactions = []
+        block2.transactions = List.of(tx)
 
         BlockContainer.from(block1).with {
             blocks.add(it)

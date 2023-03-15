@@ -21,7 +21,9 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import spock.lang.Specification
 
@@ -39,12 +41,14 @@ class BlocksMemCacheSpec extends Specification {
         setup:
         def cache = new BlocksMemCache()
         def block = new BlockJson<TransactionRefJson>()
+        def tx = new TransactionJson()
+        tx.hash = TransactionId.from(hash1)
         block.number = 100
         block.hash = BlockHash.from(hash1)
         block.totalDifficulty = BigInteger.ONE
         block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block.uncles = []
-        block.transactions = []
+        block.transactions = List.of(tx)
 
         when:
         cache.add(BlockContainer.from(block))
@@ -61,12 +65,14 @@ class BlocksMemCacheSpec extends Specification {
         when:
         [hash1, hash2, hash3, hash4].eachWithIndex { String hash, int i ->
             def block = new BlockJson<TransactionRefJson>()
+            def tx = new TransactionJson()
+            tx.hash = TransactionId.from(hash1)
             block.number = 100 + i
             block.hash = BlockHash.from(hash)
             block.totalDifficulty = BigInteger.ONE
             block.timestamp = Instant.now()
             block.uncles = []
-            block.transactions = []
+            block.transactions = List.of(tx)
 
             cache.add(BlockContainer.from(block))
         }
@@ -81,6 +87,24 @@ class BlocksMemCacheSpec extends Specification {
         act3.hash.toHex() == hash3.substring(2)
         act4.hash.toHex() == hash4.substring(2)
         act1 == null
+    }
+
+    def "Try add not full block and read"() {
+        setup:
+        def cache = new BlocksMemCache()
+        def block = new BlockJson<TransactionRefJson>()
+        block.number = 100
+        block.hash = BlockHash.from(hash1)
+        block.totalDifficulty = BigInteger.ONE
+        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block.uncles = []
+        block.transactions = []
+
+        when:
+        cache.add(BlockContainer.from(block))
+        def act = cache.read(BlockId.from(hash1)).block()
+        then:
+        act == null
     }
 
 }

@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
-class HeightByHashMemCache(
+open class HeightByHashMemCache(
     maxSize: Int = 256
 ) : Reader<BlockId, Long> {
 

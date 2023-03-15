@@ -97,6 +97,7 @@ open class CachesFactory(
             caches.setReceipts(ReceiptRedisCache(redis.reactive(), chain))
             caches.setHeightByHash(HeightByHashRedisCache(redis.reactive(), chain))
         }
+        caches.setCacheEnabled(cacheConfig.requestsCacheEnabled)
         return caches.build()
     }
 

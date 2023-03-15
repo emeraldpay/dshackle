@@ -39,7 +39,8 @@ open class Caches(
     private val redisBlocksByHash: BlocksRedisCache?,
     private val redisTxsByHash: TxRedisCache?,
     private val redisReceipts: ReceiptRedisCache?,
-    private val redisHeightByHashCache: HeightByHashRedisCache?
+    private val redisHeightByHashCache: HeightByHashRedisCache?,
+    private val cacheEnabled: Boolean
 ) {
 
     companion object {
@@ -89,6 +90,9 @@ open class Caches(
     }
 
     open fun cacheReceipt(tag: Tag, data: DefaultContainer<TransactionReceiptJson>) {
+        if (!cacheEnabled) {
+            return
+        }
         val currentHeight = head?.getCurrentHeight()
         if (currentHeight != null && data.height != null && memReceipts.acceptsRecentBlocks(currentHeight - data.height)) {
             memReceipts.add(data).subscribe()
@@ -98,6 +102,9 @@ open class Caches(
     }
 
     fun cache(tag: Tag, tx: TxContainer) {
+        if (!cacheEnabled) {
+            return
+        }
         // do not cache transactions that are not in a block yet
         if (tx.blockId == null) {
             return
@@ -110,6 +117,9 @@ open class Caches(
     }
 
     fun cache(tag: Tag, block: BlockContainer) {
+        if (!cacheEnabled) {
+            return
+        }
         val job = ArrayList<Mono<Void>>()
 
         redisHeightByHashCache?.add(block)?.let(job::add)
@@ -129,7 +139,6 @@ open class Caches(
                 blockOnlyContainer = block
             }
             memoizeBlock(blockOnlyContainer)
-            memBlocksByHash.add(blockOnlyContainer)
             redisBlocksByHash?.add(blockOnlyContainer)?.let(job::add)
 
             // now cache only transactions
@@ -198,7 +207,7 @@ open class Caches(
         return receiptByHash
     }
 
-    fun getLastHeightByHash(): Reader<BlockId, Long> {
+    open fun getLastHeightByHash(): Reader<BlockId, Long> {
         return memHeightByHash
     }
 
@@ -227,6 +236,7 @@ open class Caches(
         private var redisTxsByHash: TxRedisCache? = null
         private var redisReceiptCache: ReceiptRedisCache? = null
         private var redisHeightByHashCache: HeightByHashRedisCache? = null
+        private var cacheEnabled: Boolean = true
 
         fun setBlockByHash(cache: BlocksMemCache): Builder {
             blocksByHash = cache
@@ -268,6 +278,11 @@ open class Caches(
             return this
         }
 
+        fun setCacheEnabled(cacheEnabled: Boolean): Builder {
+            this.cacheEnabled = cacheEnabled
+            return this
+        }
+
         fun build(): Caches {
             if (blocksByHash == null) {
                 blocksByHash = BlocksMemCache()
@@ -283,7 +298,7 @@ open class Caches(
             }
             return Caches(
                 blocksByHash!!, blocksByHeight!!, txsByHash!!, receipts!!,
-                redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache
+                redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache, cacheEnabled
             )
         }
     }

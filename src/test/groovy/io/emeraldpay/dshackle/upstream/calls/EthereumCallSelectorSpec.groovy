@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
-import io.emeraldpay.dshackle.cache.BlocksMemCache
+
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.cache.HeightByHashMemCache
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
@@ -27,7 +27,6 @@ import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
-import java.time.Instant
 
 class EthereumCallSelectorSpec extends Specification {
 
@@ -233,14 +232,12 @@ class EthereumCallSelectorSpec extends Specification {
     def "Get height matcher for getByHash and getTransactionByBlockHash methods"() {
         setup:
         def hash = "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"
-        def block = new BlockContainer(
-                12079192L, BlockId.from(hash),
-                BigInteger.ONE, Instant.now(), false, "".bytes, null, [], 0, "upstream"
-        )
-        def blockByHashCache = Mock(BlocksMemCache) {
-            1 * read(BlockId.from(hash)) >> Mono.just(block)
+        def blockHeight = 12079192L
+        def cache = Mock(Caches) { caches ->
+            1 * caches.getLastHeightByHash() >> Mock(HeightByHashMemCache) { memCache ->
+                1 * memCache.read(BlockId.from(hash)) >> Mono.just(blockHeight)
+            }
         }
-        def cache = Caches.newBuilder().setBlockByHash(blockByHashCache).build()
         def callSelector = new EthereumCallSelector(Stub(Reader), cache)
         def head = Stub(Head)
 
@@ -318,10 +315,11 @@ class EthereumCallSelectorSpec extends Specification {
     def "No height matcher for getByHash method"() {
         setup:
         def hash = "0xa6af163aab691919c595e2a466f0a7b01f1dff8cfd9631dee811df57064c2d32"
-        def blockByHashCache = Mock(BlocksMemCache) {
-            1 * read(BlockId.from(hash)) >> resultFromCache
+        def cache = Mock(Caches) { caches ->
+            1 * caches.getLastHeightByHash() >> Mock(HeightByHashMemCache) { memCache ->
+                1 * memCache.read(BlockId.from(hash)) >> resultFromCache
+            }
         }
-        def cache = Caches.newBuilder().setBlockByHash(blockByHashCache).build()
         def callSelector = new EthereumCallSelector(Stub(Reader), cache)
         def head = Stub(Head)
 
