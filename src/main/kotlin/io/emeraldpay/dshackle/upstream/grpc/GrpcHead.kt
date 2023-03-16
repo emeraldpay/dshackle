@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.kotlin.extra.retry.retryExponentialBackoff
 import java.time.Duration
 import java.util.function.Function
 
@@ -62,27 +63,28 @@ class GrpcHead(
             stop()
         }
         log.debug("Start Head subscription to ${parent.getId()}")
-        internalStart(subscribeHead(remote))
+        subscribeHead(remote)
     }
 
-    fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub): Flux<BlockchainOuterClass.ChainHead> {
+    fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub) {
         val chainRef = Common.Chain.newBuilder()
             .setTypeValue(chain.id)
             .build()
 
-        return Flux.concat(
-            Mono.just(remote),
-            Mono.just(remote).repeat().delayElements(Duration.ofSeconds(1))
-        )
-            .flatMap { it.subscribeHead(chainRef) }
-            .doFinally { log.warn("Head subscription finished: $it") }
-    }
+        val heads =
+            Flux.concat(
+                Mono.just(client),
+                Mono.just(client)
+                    .repeat()
+                    .delayElements(Duration.ofSeconds(1))
+            )
+                .flatMap { it.subscribeHead(chainRef) }
+                .doFinally {
+                    parent.setStatus(UpstreamAvailability.UNAVAILABLE)
+                    log.warn("Head subscription finished: $it")
+                }
 
-    /**
-     * Initiate a new head from provided source of head details
-     */
-    private fun internalStart(source: Flux<BlockchainOuterClass.ChainHead>) {
-        var blocks = source.map(converter)
+        var blocks = heads.map(converter)
             .distinctUntilChanged {
                 it.hash
             }.filter { forkChoice.filter(it) }
@@ -91,11 +93,15 @@ class GrpcHead(
             blocks = blocks.flatMap(enhancer)
         }
 
-        blocks = blocks.onErrorContinue { err, _ ->
-            log.error("Head subscription error. ${err.javaClass.name}:${err.message}", err)
-            parent.setStatus(UpstreamAvailability.UNAVAILABLE)
-        }.doOnNext {
+        blocks = blocks.doOnNext {
             log.trace("Received block ${it.height}")
+        }.retryExponentialBackoff(
+            Long.MAX_VALUE,
+            Duration.ofMillis(100),
+            Duration.ofSeconds(60),
+            true
+        ) {
+            log.debug("Retry grpc head connection ${parent.getId()}")
         }
 
         headSubscription = super.follow(blocks)
