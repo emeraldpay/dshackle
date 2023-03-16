@@ -89,22 +89,22 @@ class BlocksMemCacheSpec extends Specification {
         act1 == null
     }
 
-    def "Try add not full block and read"() {
-        setup:
-        def cache = new BlocksMemCache()
-        def block = new BlockJson<TransactionRefJson>()
-        block.number = 100
-        block.hash = BlockHash.from(hash1)
-        block.totalDifficulty = BigInteger.ONE
-        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
-        block.uncles = []
-        block.transactions = []
-
-        when:
-        cache.add(BlockContainer.from(block))
-        def act = cache.read(BlockId.from(hash1)).block()
-        then:
-        act == null
-    }
+//    def "Try add not full block and read"() {
+//        setup:
+//        def cache = new BlocksMemCache()
+//        def block = new BlockJson<TransactionRefJson>()
+//        block.number = 100
+//        block.hash = BlockHash.from(hash1)
+//        block.totalDifficulty = BigInteger.ONE
+//        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+//        block.uncles = []
+//        block.transactions = []
+//
+//        when:
+//        cache.add(BlockContainer.from(block))
+//        def act = cache.read(BlockId.from(hash1)).block()
+//        then:
+//        act == null
+//    }
 
 }
