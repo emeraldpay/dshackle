@@ -227,11 +227,17 @@ class BlockchainRpc(
         return request.flatMapMany {
             val subId = it.traceId.takeIf { it.isNotBlank() } ?: RandomStringUtils.randomAlphanumeric(8)
             subscribeNodeStatus.subscribe(it).subscribeOn(scheduler)
-                .doOnError { failMetric.increment() }
-                .doOnNext {
+                .doOnError { err ->
+                    log.error("Error during processing node subscription [$subId], closing", err)
+                    failMetric.increment()
+                }
+                .doFinally { sig ->
+                    log.info("Closing node status subscription named $subId with $sig")
+                }
+                .doOnNext { elem ->
                     log.debug(
                         "Emitted next node status to [$subId] with data [${
-                        JsonFormat.printer().omittingInsignificantWhitespace().print(it)
+                        JsonFormat.printer().omittingInsignificantWhitespace().print(elem)
                         }]"
                     )
                 }
