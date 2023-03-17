@@ -57,6 +57,7 @@ abstract class HeadLagObserver(
 
     fun subscription(): Flux<Unit> {
         return master.getFlux()
+            .sample(Duration.ofSeconds(5))
             .flatMap(this::probeFollowers)
             .map { item ->
                 item.t2.setLag(item.t1)
