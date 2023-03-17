@@ -14,3 +14,19 @@ chain-settings:
       lags:
         syncing: 20
         lagging: 10
+    - id: arbitrum
+      lags:
+        syncing: 20
+        lagging: 10
+    - id: arbitrum-testnet
+      lags:
+        syncing: 20
+        lagging: 10
+    - id: optimism
+      lags:
+        syncing: 20
+        lagging: 10
+    - id: optimism-testnet
+      lags:
+        syncing: 20
+        lagging: 10
