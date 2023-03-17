@@ -286,7 +286,7 @@ open class WsConnectionImpl(
         )
         val sender = currentRequests.remove(msg.id.asNumber().toInt())
         if (sender == null) {
-            log.warn("Unknown response received for ${msg.id} with body ${msg.value?.let { String(it) }}")
+            log.warn("Unknown response received for ${msg.id}")
         } else {
             try {
                 val emitResult = sender.tryEmitValue(rpcResponse)

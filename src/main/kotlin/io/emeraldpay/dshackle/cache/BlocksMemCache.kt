@@ -35,12 +35,13 @@ open class BlocksMemCache(
     }
 
     open fun get(key: BlockId): BlockContainer? {
-        return mapping.getIfPresent(key)?.let {
-            return@let if (it.enriched) it else null
-        }
+        return mapping.getIfPresent(key)
     }
 
     open fun add(block: BlockContainer) {
+        if (!block.enriched) {
+            return
+        }
         mapping.put(block.hash, block)
     }
 

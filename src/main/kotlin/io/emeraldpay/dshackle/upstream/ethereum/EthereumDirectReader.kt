@@ -121,10 +121,11 @@ class EthereumDirectReader(
                 return readWithQuorum(request)
                     .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Receipt not read $key")))
                     .flatMap { json ->
-                        try {
-                            // Caching needs some additional data (ex. Height) to make a decision on how long and where to cache
-                            // So we have to parse the JSON here and extract reference data
-                            val receipt = objectMapper.readValue(json, TransactionReceiptJson::class.java)
+                        val receipt = objectMapper.readValue(json, TransactionReceiptJson::class.java)
+                        if (receipt == null) {
+                            log.debug("Empty receipt for txId $key")
+                            Mono.empty()
+                        } else {
                             caches.cacheReceipt(
                                 Caches.Tag.REQUESTED,
                                 DefaultContainer(
@@ -135,11 +136,8 @@ class EthereumDirectReader(
                                     parsed = receipt
                                 )
                             )
-                        } catch (t: Throwable) {
-                            log.warn("Failed to cache Tx Receipt", t)
-                            return@flatMap Mono.empty()
+                            Mono.just(json)
                         }
-                        Mono.just(json)
                     }
             }
         }
