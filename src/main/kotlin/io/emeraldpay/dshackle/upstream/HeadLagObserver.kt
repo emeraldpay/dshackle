@@ -34,7 +34,8 @@ typealias Extractor = (top: BlockContainer, curr: BlockContainer) -> DistanceExt
 abstract class HeadLagObserver(
     private val master: Head,
     private val followers: Collection<Upstream>,
-    private val distanceExtractor: Extractor
+    private val distanceExtractor: Extractor,
+    private val throttling: Duration = Duration.ofSeconds(5)
 ) : Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
@@ -57,7 +58,7 @@ abstract class HeadLagObserver(
 
     fun subscription(): Flux<Unit> {
         return master.getFlux()
-            .sample(Duration.ofSeconds(5))
+            .sample(throttling)
             .flatMap(this::probeFollowers)
             .map { item ->
                 item.t2.setLag(item.t1)

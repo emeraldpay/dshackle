@@ -72,7 +72,7 @@ class HeadLagObserverSpec extends Specification {
 
         HeadLagObserver observer = new TestHeadLagObserver(master, [up1, up2])
         when:
-        def act = observer.subscription().take(Duration.ofMillis(1200))
+        def act = observer.subscription().take(Duration.ofMillis(5000))
 
         then:
         StepVerifier.create(act)
@@ -111,7 +111,7 @@ class HeadLagObserverSpec extends Specification {
     class TestHeadLagObserver extends HeadLagObserver {
 
         TestHeadLagObserver(@NotNull Head master, @NotNull Collection<? extends Upstream> followers) {
-            super(master, followers, DistanceExtractor.@Companion::extractPowDistance)
+            super(master, followers, DistanceExtractor.@Companion::extractPowDistance, Duration.ofNanos(1))
         }
 
         @Override
