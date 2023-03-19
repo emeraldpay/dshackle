@@ -158,21 +158,29 @@ open class EthereumPosMultiStream(
     }
 
     override fun getHead(mather: Selector.Matcher): Head =
-        filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
-            upstreams.filter { mather.matches(it) }
-                .apply {
-                    log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
-                }
-                .let {
-                    val selected = it.map { it.getHead() }
-                    when (it.size) {
-                        0 -> EmptyHead()
-                        1 -> selected.first()
-                        else -> MergedHead(selected, PriorityForkChoice(), "ETH head for ${it.map { it.getId() }}").apply {
-                            start()
+        if (mather == Selector.empty) {
+            head
+        } else {
+            filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
+                upstreams.filter { mather.matches(it) }
+                    .apply {
+                        log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
+                    }
+                    .let {
+                        val selected = it.map { it.getHead() }
+                        when (it.size) {
+                            0 -> EmptyHead()
+                            1 -> selected.first()
+                            else -> MergedHead(
+                                selected,
+                                PriorityForkChoice(),
+                                "ETH head for ${it.map { it.getId() }}"
+                            ).apply {
+                                start()
+                            }
                         }
                     }
-                }
+            }
         }
 
     override fun getFeeEstimation(): ChainFees {
