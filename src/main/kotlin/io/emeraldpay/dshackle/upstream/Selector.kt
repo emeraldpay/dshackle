@@ -29,9 +29,12 @@ class Selector {
         val empty = EmptyMatcher()
 
         @JvmStatic
+        val anyLabel = AnyLabelMatcher()
+
+        @JvmStatic
         fun convertToMatcher(req: BlockchainOuterClass.Selector?): LabelSelectorMatcher {
             return when {
-                req == null -> AnyLabelMatcher()
+                req == null -> anyLabel
                 req.hasLabelSelector() -> req.labelSelector.let { selector ->
                     if (StringUtils.isNotEmpty(selector.name)) {
                         val values = selector.valueList
@@ -43,7 +46,7 @@ class Selector {
                             LabelMatcher(selector.name, selector.valueList)
                         }
                     } else {
-                        AnyLabelMatcher()
+                        anyLabel
                     }
                 }
                 req.hasAndSelector() -> AndMatcher(
@@ -66,7 +69,7 @@ class Selector {
                 )
                 req.hasNotSelector() -> NotMatcher(convertToMatcher(req.notSelector.selector))
                 req.hasExistsSelector() -> ExistsMatcher(req.existsSelector.name)
-                else -> AnyLabelMatcher()
+                else -> anyLabel
             }
         }
 

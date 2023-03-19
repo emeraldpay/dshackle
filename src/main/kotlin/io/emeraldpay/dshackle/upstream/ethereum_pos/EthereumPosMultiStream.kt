@@ -158,7 +158,7 @@ open class EthereumPosMultiStream(
     }
 
     override fun getHead(mather: Selector.Matcher): Head =
-        if (mather == Selector.empty) {
+        if (mather == Selector.empty || mather == Selector.anyLabel) {
             head
         } else {
             filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
