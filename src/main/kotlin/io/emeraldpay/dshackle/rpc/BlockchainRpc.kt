@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-import com.google.protobuf.util.JsonFormat
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
@@ -232,13 +231,11 @@ class BlockchainRpc(
                     failMetric.increment()
                 }
                 .doFinally { sig ->
-                    log.info("Closing node status subscription named $subId with $sig")
+                    log.info("Closing node status subscription named [$subId] with $sig")
                 }
                 .doOnNext { elem ->
                     log.debug(
-                        "Emitted next node status to [$subId] with data [${
-                        JsonFormat.printer().omittingInsignificantWhitespace().print(elem)
-                        }]"
+                        "Emitted next node status to [$subId] with [node: ${elem.nodeId}, chain: ${elem.description.chain.name}, status: ${elem.status.availability.name}, ]"
                     )
                 }
         }
