@@ -116,6 +116,7 @@ open class EthereumGrpcUpstream(
     private val reader: StandardRpcReader = client.forSelector(Selector.empty)
     var timeout = Defaults.timeout
     private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
+    private var updateHandler: (() -> Unit)? = null
 
     override fun getBlockchainApi(): ReactorBlockchainStub {
         return remote
@@ -134,10 +135,13 @@ open class EthereumGrpcUpstream(
     }
 
     override fun update(conf: BlockchainOuterClass.DescribeChain) {
-        upstreamStatus.update(conf)
+        val changed = upstreamStatus.update(conf)
         capabilities = RemoteCapabilities.extract(conf)
         grpcHead.setEnabled(this.capabilities.contains(Capability.RPC))
         conf.status?.let { status -> onStatus(status) }
+        if (changed) {
+            updateHandler?.invoke()
+        }
     }
 
     override fun getQuorumByLabel(): QuorumForLabels {
@@ -186,5 +190,9 @@ open class EthereumGrpcUpstream(
 
     override fun isGrpc(): Boolean {
         return true
+    }
+
+    override fun onUpdate(handler: () -> Unit) {
+        this.updateHandler = handler
     }
 }

@@ -112,6 +112,7 @@ class BitcoinGrpcUpstream(
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
     private val ingressSubscription = BitcoinDshackleIngressSubscription(chain, remote)
+    private var updateHandler: (() -> Unit)? = null
 
     override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
         return remote
@@ -165,11 +166,18 @@ class BitcoinGrpcUpstream(
         super.stop()
     }
 
+    override fun onUpdate(handler: () -> Unit) {
+        this.updateHandler = handler
+    }
+
     override fun update(conf: BlockchainOuterClass.DescribeChain) {
-        upstreamStatus.update(conf)
+        val changed = upstreamStatus.update(conf)
         this.capabilities = RemoteCapabilities.extract(conf)
         grpcHead.setEnabled(this.capabilities.contains(Capability.RPC))
         conf.status?.let { status -> onStatus(status) }
         ingressSubscription.update(conf)
+        if (changed) {
+            updateHandler?.invoke()
+        }
     }
 }

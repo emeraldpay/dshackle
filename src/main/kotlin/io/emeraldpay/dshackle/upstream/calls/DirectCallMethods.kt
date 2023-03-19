@@ -47,4 +47,17 @@ open class DirectCallMethods(private val methods: Set<String>) : CallMethods {
     override fun executeHardcoded(method: String): ByteArray {
         return "unsupported".toByteArray()
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is DirectCallMethods) return false
+
+        if (methods != other.methods) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return methods.hashCode()
+    }
 }

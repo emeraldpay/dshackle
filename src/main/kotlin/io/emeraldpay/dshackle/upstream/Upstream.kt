@@ -45,5 +45,10 @@ interface Upstream {
     fun isGrpc(): Boolean
     fun getBlockchain(): Chain
 
+    /**
+     * MUST be called by the upstream if it's execution configuration (labels, methods and capabilities) has changed.
+     */
+    fun onUpdate(handler: () -> Unit) {}
+
     fun <T : Upstream> cast(selfType: Class<T>): T
 }

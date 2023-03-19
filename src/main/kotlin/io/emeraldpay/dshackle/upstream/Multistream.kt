@@ -79,6 +79,7 @@ abstract class Multistream(
 
         upstreams.forEach { up ->
             monitorUpstream(up)
+            up.onUpdate(::onUpstreamsUpdated)
         }
     }
 
@@ -135,19 +136,21 @@ abstract class Multistream(
     abstract fun getFeeEstimation(): ChainFees
 
     open fun onUpstreamsUpdated() {
-        reconfigLock.withLock {
-            val upstreams = getAll()
-            upstreams.map { it.getMethods() }.let {
-                // TODO made list of uniq instances, and then if only one, just use it directly
-                callMethods.set(AggregatedCallMethods(it))
-            }
-            capabilities = if (upstreams.isEmpty()) {
-                emptySet()
+        log.debug("Updating state of upstreams for $chain")
+        upstreams.map { it.getMethods() }.let {
+            if (it.size > 1) {
+                AggregatedCallMethods(it)
+            } else if (it.size == 1) {
+                it.first()
             } else {
-                upstreams.map { up ->
-                    up.getCapabilities()
-                }.reduce { acc, curr -> acc + curr }
+                NoCallMethods()
             }
+        }.let(this.callMethods::set)
+        capabilities = if (upstreams.isEmpty()) {
+            emptySet()
+        } else {
+            upstreams.map(Upstream::getCapabilities)
+                .reduce { acc, curr -> acc + curr }
         }
     }
 
