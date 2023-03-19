@@ -32,7 +32,7 @@ abstract class BitcoinUpstream(
     callMethods: CallMethods,
     node: QuorumForLabels.QuorumItem,
     val esploraClient: EsploraClient? = null,
-    private val chainConfig: ChainsConfig.ChainConfig
+    chainConfig: ChainsConfig.ChainConfig
 ) : DefaultUpstream(id, 0.toByte(), options, role, callMethods, node, chainConfig) {
 
     constructor(

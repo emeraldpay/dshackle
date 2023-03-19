@@ -30,32 +30,24 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.rpc.RpcException
-import org.reactivestreams.Publisher
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
 import java.util.Locale
-import java.util.concurrent.TimeoutException
 import java.util.function.Function
 
 open class EthereumPosGrpcUpstream(
-    private val parentId: String,
+    parentId: String,
     hash: Byte,
     role: UpstreamsConfig.UpstreamRole,
-    private val chain: Chain,
+    chain: Chain,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
     client: JsonRpcGrpcClient,
     nodeRating: Int,
@@ -86,29 +78,8 @@ open class EthereumPosGrpcUpstream(
         block
     }
 
-    private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
-        // head comes without transaction data
-        // need to download transactions for the block
-        defaultReader.read(JsonRpcRequest("eth_getBlockByHash", listOf(existingBlock.hash.toHexWithPrefix(), false)))
-            .flatMap(JsonRpcResponse::requireResult)
-            .map {
-                BlockContainer.fromEthereumJson(it, getId())
-            }
-            .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
-            .doOnError { t ->
-                setStatus(UpstreamAvailability.UNAVAILABLE)
-                val msg = "Failed to download block data for chain $chain on $parentId"
-                if (t is RpcException || t is TimeoutException) {
-                    log.warn("$msg. Message: ${t.message}")
-                } else {
-                    log.error(msg, t)
-                }
-            }
-    }
-
-    private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
-    private val grpcHead = GrpcHead(chain, this, remote, blockConverter, null, NoChoiceWithPriorityForkChoice(nodeRating, parentId))
+    private val grpcHead = GrpcHead(getId(), chain, this, remote, blockConverter, null, NoChoiceWithPriorityForkChoice(nodeRating, parentId))
     private var capabilities: Set<Capability> = emptySet()
 
     private val defaultReader: JsonRpcReader = client.getReader()

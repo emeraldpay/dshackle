@@ -58,6 +58,7 @@ class GrpcHeadSpec extends Specification {
             TestingCommons.blockForBitcoin(head.height)
         }
         def head = new GrpcHead(
+                "test",
                 Chain.BITCOIN,
                 Stub(DefaultUpstream),
                 client,
@@ -119,6 +120,7 @@ class GrpcHeadSpec extends Specification {
             TestingCommons.blockForBitcoin(head.height)
         }
         def head = new GrpcHead(
+                "test",
                 Chain.BITCOIN,
                 Stub(DefaultUpstream),
                 client,

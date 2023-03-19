@@ -123,10 +123,6 @@ abstract class DefaultUpstream(
         return this.status.get().lag
     }
 
-    override fun getId(): String {
-        return id
-    }
-
     override fun getOptions(): UpstreamsConfig.Options {
         return options
     }
@@ -146,6 +142,10 @@ abstract class DefaultUpstream(
 
     open fun getQuorumByLabel(): QuorumForLabels {
         return quorumByLabel
+    }
+
+    override fun getId(): String {
+        return id
     }
 
     data class Status(val lag: Long, val avail: UpstreamAvailability, val status: UpstreamAvailability)

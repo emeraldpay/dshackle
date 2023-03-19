@@ -35,6 +35,7 @@ import java.time.Duration
 import java.util.function.Function
 
 class GrpcHead(
+    id: String,
     private val chain: Chain,
     private val parent: DefaultUpstream,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
@@ -47,7 +48,7 @@ class GrpcHead(
      */
     private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?,
     private val forkChoice: ForkChoice
-) : AbstractHead(forkChoice), Lifecycle {
+) : AbstractHead(forkChoice, upstreamId = id), Lifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(GrpcHead::class.java)
