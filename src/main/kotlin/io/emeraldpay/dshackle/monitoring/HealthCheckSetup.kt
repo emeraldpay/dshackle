@@ -65,6 +65,7 @@ class HealthCheckSetup(
                 val ok = response.ok
                 val data = response.details.joinToString("\n")
                 val code = if (ok) HttpStatus.OK else HttpStatus.SERVICE_UNAVAILABLE
+                log.debug("Health check response: ${code.value()} ${code.reasonPhrase} $data")
                 httpExchange.sendResponseHeaders(code.value(), data.toByteArray().size.toLong())
                 httpExchange.responseBody.use { os ->
                     os.write(data.toByteArray())
