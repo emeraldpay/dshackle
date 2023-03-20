@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.BuildInfo
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
@@ -52,6 +53,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
     )
 
     def hash = (byte)123
+    def buildInfo = new BuildInfo("v0.0.1-test")
 
     def "Subscribe to head"() {
         setup:
@@ -86,16 +88,22 @@ class EthereumGrpcUpstreamSpec extends Specification {
         })
         def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default())
         upstream.setLag(0)
-        upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
-                .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
-                .addAllSupportedMethods(["eth_getBlockByHash"])
-                .build())
+        upstream.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
+                        .addAllSupportedMethods(["eth_getBlockByHash"])
+                        .build(),
+                BlockchainOuterClass.BuildInfo.newBuilder()
+                        .setVersion(buildInfo.version)
+                        .build(),
+        )
         when:
         new Thread({ Thread.sleep(50); upstream.head.start() }).start()
         def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
         then:
         callData.chain == Chain.ETHEREUM.id
         upstream.status == UpstreamAvailability.OK
+        upstream.getBuildInfo() == buildInfo
         h.hash == BlockId.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
     }
 
@@ -144,15 +152,21 @@ class EthereumGrpcUpstreamSpec extends Specification {
         })
         def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null, ChainsConfig.ChainConfig.default())
         upstream.setLag(0)
-        upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
-                .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
-                .addAllSupportedMethods(["eth_getBlockByHash"])
-                .build())
+        upstream.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
+                        .addAllSupportedMethods(["eth_getBlockByHash"])
+                        .build(),
+                BlockchainOuterClass.BuildInfo.newBuilder()
+                        .setVersion(buildInfo.version)
+                        .build(),
+        )
         when:
         new Thread({ Thread.sleep(50); upstream.head.start() }).start()
         def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block(Duration.ofSeconds(2))
         then:
         upstream.status == UpstreamAvailability.OK
+        upstream.getBuildInfo() == buildInfo
         h.hash == BlockId.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
         h.height == 650246
     }
@@ -206,16 +220,22 @@ class EthereumGrpcUpstreamSpec extends Specification {
         })
         def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default())
         upstream.setLag(0)
-        upstream.update(BlockchainOuterClass.DescribeChain.newBuilder()
-                .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
-                .addAllSupportedMethods(["eth_getBlockByHash"])
-                .build())
+        upstream.update(
+                BlockchainOuterClass.DescribeChain.newBuilder()
+                        .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
+                        .addAllSupportedMethods(["eth_getBlockByHash"])
+                        .build(),
+                BlockchainOuterClass.BuildInfo.newBuilder()
+                        .setVersion(buildInfo.version)
+                        .build(),
+        )
         when:
         new Thread({ Thread.sleep(50); upstream.head.start() }).start()
         finished.get()
         def h = upstream.head.getFlux().take(Duration.ofSeconds(1)).last().block(Duration.ofSeconds(2))
         then:
         upstream.status == UpstreamAvailability.OK
+        upstream.getBuildInfo() == buildInfo
         h.hash == BlockId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
         h.height == 650247
     }

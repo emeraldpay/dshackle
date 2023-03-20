@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.upstream.BuildInfo
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
@@ -103,6 +104,7 @@ class BitcoinGrpcUpstream(
     private val grpcHead = GrpcHead(getId(), chain, this, remote, blockConverter, reloadBlock, MostWorkForkChoice())
     private val timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
+    private val buildInfo: BuildInfo = BuildInfo()
 
     override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
         return remote
@@ -149,11 +151,18 @@ class BitcoinGrpcUpstream(
     override fun stop() {
     }
 
-    override fun update(conf: BlockchainOuterClass.DescribeChain): Boolean {
+    override fun getBuildInfo(): BuildInfo {
+        return buildInfo
+    }
+
+    override fun update(conf: BlockchainOuterClass.DescribeChain, buildInfo: BlockchainOuterClass.BuildInfo): Boolean {
+        val newBuildInfo = BuildInfo.extract(buildInfo)
+        val buildInfoChanged = this.buildInfo.update(newBuildInfo)
         val newCapabilities = RemoteCapabilities.extract(conf)
         conf.status?.let { status -> onStatus(status) }
-        return (upstreamStatus.update(conf) || (newCapabilities != capabilities)).also {
+        val upstreamStatusChanged = (upstreamStatus.update(conf) || (newCapabilities != capabilities)).also {
             capabilities = newCapabilities
         }
+        return buildInfoChanged || upstreamStatusChanged
     }
 }

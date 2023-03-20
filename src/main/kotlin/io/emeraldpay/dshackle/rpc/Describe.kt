@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -35,6 +36,7 @@ class Describe(
     fun describe(requestMono: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
         return requestMono.map { _ ->
             val resp = BlockchainOuterClass.DescribeResponse.newBuilder()
+            resp.buildInfoBuilder.version = Global.version
             multistreamHolder.getAvailable().forEach { chain ->
                 multistreamHolder.getUpstream(chain).let { chainUpstreams ->
                     val status = subscribeStatus.chainStatus(chain, chainUpstreams.getStatus(), chainUpstreams)

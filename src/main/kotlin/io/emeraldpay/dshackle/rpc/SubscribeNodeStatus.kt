@@ -10,6 +10,7 @@ import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
@@ -118,8 +119,8 @@ class SubscribeNodeStatus(
         return Flux.concat(currentState, statuses)
     }
 
-    private fun buildDescription(ms: Multistream, up: Upstream): NodeDescription.Builder =
-        NodeDescription.newBuilder()
+    private fun buildDescription(ms: Multistream, up: Upstream): NodeDescription.Builder {
+        val builder = NodeDescription.newBuilder()
             .setChain(Common.ChainRef.forNumber(ms.chain.id))
             .setNodeId(up.nodeId().toInt())
             .addAllNodeLabels(
@@ -138,6 +139,13 @@ class SubscribeNodeStatus(
             )
             .addAllSupportedSubscriptions(ms.getEgressSubscription().getAvailableTopics())
             .addAllSupportedMethods(up.getMethods().getSupportedMethods())
+        (up as? GrpcUpstream)?.let {
+            it.getBuildInfo().version?.let { version ->
+                builder.nodeBuildInfoBuilder.setVersion(version)
+            }
+        }
+        return builder
+    }
 
     private fun buildStatus(status: UpstreamAvailability, height: Long?): NodeStatus.Builder =
         NodeStatus.newBuilder()

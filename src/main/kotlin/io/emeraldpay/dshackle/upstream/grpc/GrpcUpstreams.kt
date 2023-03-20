@@ -142,14 +142,16 @@ class GrpcUpstreams(
     }
 
     private fun processDescription(value: DescribeResponse): Flux<UpstreamChangeEvent> {
-        log.info("Start processing grpc upstream description for $id with chains ${value.chainsList.map { it.chain.name }}")
+        val chainNames = value.chainsList.map { it.chain.name }
+        val version = value.buildInfo.version
+        log.info("Start processing grpc upstream description for $id with chains $chainNames and version $version")
         val current = value.chainsList.filter {
             Chain.byId(it.chain.number) != Chain.UNSPECIFIED
         }.mapNotNull { chainDetails ->
             try {
                 val chain = Chain.byId(chainDetails.chain.number)
                 val up = getOrCreate(chain)
-                val changed = (up.upstream as GrpcUpstream).update(chainDetails)
+                val changed = (up.upstream as GrpcUpstream).update(chainDetails, value.buildInfo)
                 up.takeUnless {
                     changed && it.type == UpstreamChangeEvent.ChangeType.REVALIDATED
                 } ?: UpstreamChangeEvent(up.chain, up.upstream, UpstreamChangeEvent.ChangeType.UPDATED)
