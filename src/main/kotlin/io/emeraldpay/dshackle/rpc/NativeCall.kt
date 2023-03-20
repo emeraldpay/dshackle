@@ -22,8 +22,6 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.monitoring.record.IngressRecord
-import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
-import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -43,7 +41,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.toMono
 import java.util.EnumMap
 
 @Service
@@ -53,8 +50,6 @@ open class NativeCall(
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
     private val objectMapper: ObjectMapper = Global.objectMapper
-
-    var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
     private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
 
     init {
@@ -76,23 +71,20 @@ open class NativeCall(
 
     open fun nativeCallResult(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<CallResult> {
         return requestMono.flatMapMany(this::prepareCall)
-            .flatMap {
-                if (it.isValid()) {
-                    val parsed = parseParams(it.get())
-                    this.execute(parsed)
-                        .contextWrite(Global.monitoring.ingress.withBlockchain(parsed.upstream.getBlockchain()))
-                        .doOnError { e -> log.warn("Error during native call: ${e.message}") }
-                } else {
-                    val error = it.getError()
-                    Mono.just(
-                        CallResult(error.id, 0, null, error, null)
-                    )
-                }
-            }
+            .flatMap(::processPreparedCall)
             .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.REQUEST))
     }
 
-    fun parseParams(it: ValidCallContext<RawCallDetails>): ValidCallContext<ParsedCallDetails> {
+    fun processPreparedCall(call: CallContext<RawCallDetails>): Mono<CallResult> {
+        return Mono.fromCallable { parseParams(call) }
+            .flatMap { parsed ->
+                this.execute(parsed)
+                    .contextWrite(Global.monitoring.ingress.withBlockchain(parsed.upstream.getBlockchain()))
+                    .doOnError { e -> log.warn("Error during native call: ${e.message}") }
+            }
+    }
+
+    fun parseParams(it: CallContext<RawCallDetails>): CallContext<ParsedCallDetails> {
         val params = extractParams(it.payload.params)
         return it.withPayload(ParsedCallDetails(it.payload.method, params))
     }
@@ -124,21 +116,26 @@ open class NativeCall(
     }
 
     fun processException(it: Throwable?): Mono<BlockchainOuterClass.NativeCallReplyItem> {
-        val id: Int = if (it != null && it is CallFailure) {
-            it.id
+        return if (it == null) {
+            Mono.just(
+                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
+                    .setSucceed(false)
+                    .setErrorMessage("Internal error")
+                    .build()
+            )
         } else {
-            log.error("Lost context for a native call", it)
-            0
+            val error = CallError.from(it)
+            Mono.just(
+                BlockchainOuterClass.NativeCallReplyItem.newBuilder()
+                    .setSucceed(false)
+                    .setErrorMessage(error.message)
+                    .setId(error.id)
+                    .build()
+            )
         }
-        return BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-            .setSucceed(false)
-            .setErrorMessage(it?.message ?: "Internal error")
-            .setId(id)
-            .build()
-            .toMono()
     }
 
-    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest): Flux<CallContext> {
+    fun prepareCall(request: BlockchainOuterClass.NativeCallRequest): Flux<CallContext<RawCallDetails>> {
         val chain = Chain.byId(request.chain.number)
         if (chain == Chain.UNSPECIFIED) {
             return Flux.error(CallFailure(0, SilentException.UnsupportedBlockchain(request.chain.number)))
@@ -158,7 +155,7 @@ open class NativeCall(
     fun prepareCall(
         request: BlockchainOuterClass.NativeCallRequest,
         upstream: Multistream
-    ): Flux<CallContext> {
+    ): Flux<CallContext<RawCallDetails>> {
         val chain = Chain.byId(request.chainValue)
         return Flux.fromIterable(request.itemsList)
             .flatMap {
@@ -171,7 +168,7 @@ open class NativeCall(
         request: BlockchainOuterClass.NativeCallRequest,
         requestItem: BlockchainOuterClass.NativeCallItem,
         upstream: Multistream
-    ): Mono<CallContext> {
+    ): Mono<CallContext<RawCallDetails>> {
         val method = requestItem.method
         val params = requestItem.payload.toStringUtf8()
 
@@ -191,11 +188,11 @@ open class NativeCall(
                 .forLabels(Selector.convertToMatcher(request.selector))
 
             val nonce = requestItem.nonce.let { if (it == 0L) null else it }
-            ValidCallContext(requestItem.id, nonce, upstream, matcher.build(), RawCallDetails(method, params))
+            CallContext(requestItem.id, nonce, upstream, matcher.build(), RawCallDetails(method, params))
         }
     }
 
-    fun execute(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
+    fun execute(ctx: CallContext<ParsedCallDetails>): Mono<CallResult> {
         return ctx.upstream
             .read(
                 DshackleRequest(
@@ -235,75 +232,35 @@ open class NativeCall(
         return req as List<Any>
     }
 
-    interface CallContext {
-        fun isValid(): Boolean
-        fun <T> get(): ValidCallContext<T>
-        fun getError(): CallError
-    }
-
-    open class ValidCallContext<T>(
+    open class CallContext<T>(
         val id: Int,
         val nonce: Long?,
         val upstream: Multistream,
         val matcher: Selector.Matcher,
         val payload: T
-    ) : CallContext {
-        override fun isValid(): Boolean {
-            return true
-        }
+    ) {
 
-        override fun <X> get(): ValidCallContext<X> {
-            return this as ValidCallContext<X>
-        }
-
-        override fun getError(): CallError {
-            throw IllegalStateException("Invalid context $id")
-        }
-
-        fun <X> withPayload(payload: X): ValidCallContext<X> {
-            return ValidCallContext(id, nonce, upstream, matcher, payload)
-        }
-
-        fun getApis(): ApiSource {
-            return upstream.getApiSource(matcher)
+        fun <X> withPayload(payload: X): CallContext<X> {
+            return CallContext(id, nonce, upstream, matcher, payload)
         }
     }
 
-    /**
-     * Call context when it's known in advance that the call is invalid and should return an error
-     */
-    open class InvalidCallContext(
-        private val error: CallError
-    ) : CallContext {
-        override fun isValid(): Boolean {
-            return false
-        }
+    data class CallFailure(val id: Int, val reason: Throwable) : Exception("Failed to call $id: ${reason.message}")
 
-        override fun <T> get(): ValidCallContext<T> {
-            throw IllegalStateException("Invalid context ${error.id}")
-        }
-
-        override fun getError(): CallError {
-            return error
-        }
-    }
-
-    open class CallFailure(val id: Int, val reason: Throwable) : Exception("Failed to call $id: ${reason.message}")
-
-    open class CallError(val id: Int, val message: String, val upstreamError: JsonRpcError?) {
+    data class CallError(val id: Int, val message: String, val upstreamError: JsonRpcError?) {
         companion object {
             fun from(t: Throwable): CallError {
                 return when (t) {
                     is JsonRpcException -> CallError(t.id.asNumber().toInt(), t.error.message, t.error)
-                    is RpcException -> CallError(t.code, t.rpcMessage, JsonRpcError(code = t.code, message = t.rpcMessage, details = t.details))
-                    is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null)
+                    is RpcException -> CallError(0, t.rpcMessage, JsonRpcError(code = t.code, message = t.rpcMessage, details = t.details))
+                    is CallFailure -> from(t.reason).copy(id = t.id)
                     else -> {
                         // May only happen if it's an unhandled exception.
                         // In this case try to find a meaningless details in the stack. Most important reason for doing that is to find an ID of the request
                         if (t.cause != null) {
                             from(t.cause!!)
                         } else {
-                            CallError(1, t.message ?: "Upstream Error", null)
+                            CallError(0, t.message ?: "Upstream Error", null)
                         }
                     }
                 }

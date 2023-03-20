@@ -52,7 +52,8 @@ open class DataReaders(
     open fun getBlock(hash: BlockId, verbosity: Int): Mono<BlockContainer> {
         if (verbosity == 0) {
             // verbosity=0 returns only a raw transaction, so a BlockContainer cannot be built
-            return Mono.empty()
+            // TODO parse raw transactions?
+            return Mono.error(UnsupportedOperationException("getblock with verbosity=0"))
         }
         return readBytes(DshackleRequest("getblock", listOf(hash.toHex(), verbosity)))
             .map(extractBlock::extract)
