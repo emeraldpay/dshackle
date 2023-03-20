@@ -23,9 +23,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
 import io.emeraldpay.grpc.Chain
-import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Retry
 import spock.lang.Specification
@@ -49,7 +47,7 @@ class FilteredApisSpec extends Specification {
             new EthereumRpcUpstream(
                     "test",
                     Chain.ETHEREUM,
-                    TestingCommons.api().tap { it.id = "${i++}" },
+                    TestingCommons.standardApi().tap { it.id = "${i++}" },
                     UpstreamsConfig.PartialOptions.getDefaults().build(),
                     UpstreamsConfig.UpstreamRole.PRIMARY,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
@@ -142,8 +140,8 @@ class FilteredApisSpec extends Specification {
 
     def "Makes pause between batches"() {
         when:
-        def api1 = TestingCommons.api()
-        def api2 = TestingCommons.api()
+        def api1 = TestingCommons.standardApi()
+        def api2 = TestingCommons.standardApi()
         def up1 = TestingCommons.upstream(api1)
         def up2 = TestingCommons.upstream(api2)
         then:

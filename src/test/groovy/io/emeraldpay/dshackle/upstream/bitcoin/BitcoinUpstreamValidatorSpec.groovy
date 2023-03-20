@@ -1,7 +1,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.test.ApiReaderMock
+import io.emeraldpay.dshackle.test.StandardApiReaderMock
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import spock.lang.Specification
 
@@ -69,7 +69,7 @@ class BitcoinUpstreamValidatorSpec extends Specification {
             it.validatePeers = true
             it.minPeers = 10
         }.build()
-        def up = new ApiReaderMock()
+        def up = new StandardApiReaderMock()
                 .answerOnce("getconnectioncount", [], 5)
         def validator = new BitcoinUpstreamValidator(up, options)
 
@@ -86,7 +86,7 @@ class BitcoinUpstreamValidatorSpec extends Specification {
             it.validatePeers = true
             it.minPeers = 10
         }.build()
-        def up = new ApiReaderMock()
+        def up = new StandardApiReaderMock()
                 .answerOnce("getconnectioncount", [], 10)
         def validator = new BitcoinUpstreamValidator(up, options)
 
@@ -103,7 +103,7 @@ class BitcoinUpstreamValidatorSpec extends Specification {
             it.validatePeers = true
             it.minPeers = 10
         }.build()
-        def up = new ApiReaderMock()
+        def up = new StandardApiReaderMock()
                 .answerOnce("getconnectioncount", [], 20)
         def validator = new BitcoinUpstreamValidator(up, options)
 
@@ -120,7 +120,7 @@ class BitcoinUpstreamValidatorSpec extends Specification {
             it.validatePeers = true
             it.minPeers = 10
         }.build()
-        def up = new ApiReaderMock()
+        def up = new StandardApiReaderMock()
                 .answerOnce("getconnectioncount", [], new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unavailable"))
         def validator = new BitcoinUpstreamValidator(up, options)
 

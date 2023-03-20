@@ -38,7 +38,7 @@ class ProduceLogs(
         private val log = LoggerFactory.getLogger(ProduceLogs::class.java)
     }
 
-    constructor(upstream: EthereumMultistream) : this(upstream.getReader().receipts())
+    constructor(upstream: EthereumMultistream) : this(upstream.dataReaders.receiptReaderById)
 
     private val objectMapper = Global.objectMapper
 

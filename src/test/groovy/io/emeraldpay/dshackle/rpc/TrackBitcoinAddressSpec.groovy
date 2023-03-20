@@ -25,7 +25,7 @@ import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
-import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinEgressReader
+import io.emeraldpay.dshackle.upstream.bitcoin.UnspentReader
 import io.emeraldpay.dshackle.upstream.bitcoin.XpubAddresses
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.grpc.Chain
@@ -102,8 +102,8 @@ class TrackBitcoinAddressSpec extends Specification {
                 Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         def api = Mock(BitcoinMultistream) {
-            1 * getReader() >> Mock(BitcoinEgressReader) {
-                1 * listUnspent(_) >> Mono.empty()
+            1 * it.getUnspentReader() >> Mock(UnspentReader) {
+                1 * read(_) >> Mono.empty()
             }
         }
         when:
@@ -275,8 +275,8 @@ class TrackBitcoinAddressSpec extends Specification {
         }
         def upstream = null
         upstream = Mock(BitcoinMultistream) {
-            _ * getReader() >> Mock(BitcoinEgressReader) {
-                2 * listUnspent(_) >>> [
+            _ * getUnspentReader() >> Mock(UnspentReader) {
+                2 * read(_) >>> [
                         Mono.just([]),
                         Mono.just([
                                 new SimpleUnspent("f14b222e652c58d11435fa9172ddea000c6f5e20e6b715eb940fc28d1c4adeef", 0, 1230000L)

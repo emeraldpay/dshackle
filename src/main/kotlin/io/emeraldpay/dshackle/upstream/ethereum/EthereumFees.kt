@@ -29,7 +29,7 @@ import java.util.function.Function
 
 abstract class EthereumFees(
     upstreams: EthereumMultistream,
-    private val reader: EthereumCachingReader,
+    private val data: DataReaders,
     heightLimit: Int,
 ) : AbstractChainFees<EthereumFees.EthereumFee, BlockJson<TransactionRefJson>, TransactionRefJson, TransactionJson>(heightLimit, upstreams, extractTx), ChainFees {
 
@@ -44,11 +44,11 @@ abstract class EthereumFees(
     abstract fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJson): EthereumFee
 
     override fun readFeesAt(height: Long, selector: TxAt<BlockJson<TransactionRefJson>, TransactionRefJson>): Mono<EthereumFee> {
-        return reader.blocksByHeightParsed().read(height)
+        return data.blocksByHeightParsed.read(height)
             .flatMap { block ->
                 Mono.justOrEmpty(selector.get(block))
                     .cast(TransactionRefJson::class.java)
-                    .flatMap { reader.txByHash().read(it.hash) }
+                    .flatMap { data.txReaderParsed.read(it.hash) }
                     .map { tx -> extractFee(block, tx) }
             }
     }

@@ -3,7 +3,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
@@ -22,7 +22,7 @@ open class EthereumRpcUpstream(
     id: String,
     val chain: Chain,
     forkWatch: ForkWatch,
-    private val directReader: JsonRpcReader,
+    private val directReader: StandardRpcReader,
     private val wsPool: WsConnectionPool? = null,
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
@@ -30,12 +30,12 @@ open class EthereumRpcUpstream(
     targets: CallMethods
 ) : EthereumUpstream(id, chain, forkWatch, options, role, targets, node), Upstream, CachesEnabled, Lifecycle {
 
-    constructor(id: String, chain: Chain, directReader: JsonRpcReader, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, node: QuorumForLabels.QuorumItem, targets: CallMethods) :
+    constructor(id: String, chain: Chain, directReader: StandardRpcReader, options: UpstreamsConfig.Options, role: UpstreamsConfig.UpstreamRole, node: QuorumForLabels.QuorumItem, targets: CallMethods) :
         this(
             id, chain, ForkWatch.Never(), directReader, null, options, role, node, targets
         )
 
-    constructor(id: String, chain: Chain, forkWatch: ForkWatch, api: JsonRpcReader) :
+    constructor(id: String, chain: Chain, forkWatch: ForkWatch, api: StandardRpcReader) :
         this(
             id, chain, forkWatch, api, null,
             UpstreamsConfig.PartialOptions.getDefaults().build(), UpstreamsConfig.UpstreamRole.PRIMARY,
@@ -43,7 +43,7 @@ open class EthereumRpcUpstream(
             DirectCallMethods()
         )
 
-    constructor(id: String, chain: Chain, api: JsonRpcReader) :
+    constructor(id: String, chain: Chain, api: StandardRpcReader) :
         this(id, chain, ForkWatch.Never(), api)
 
     private val log = LoggerFactory.getLogger(EthereumRpcUpstream::class.java)
@@ -114,7 +114,7 @@ open class EthereumRpcUpstream(
         return head
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): StandardRpcReader {
         return directReader
     }
 

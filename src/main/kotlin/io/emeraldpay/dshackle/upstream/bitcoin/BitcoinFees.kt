@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.AbstractChainFees
 import io.emeraldpay.dshackle.upstream.ChainFees
 import org.slf4j.LoggerFactory
@@ -26,9 +27,9 @@ import java.util.function.Function
 
 class BitcoinFees(
     upstreams: BitcoinMultistream,
-    private val reader: BitcoinEgressReader,
+    private val data: DataReaders,
     heightLimit: Int,
-) : AbstractChainFees<BitcoinFees.TxFee, Map<String, Any>, String, Map<String, Any>>(heightLimit, upstreams, extractTx), ChainFees {
+) : AbstractChainFees<BitcoinFees.TxFee, Map<String, Any>, TxId, String>(heightLimit, upstreams, extractTx), ChainFees {
 
     companion object {
         private val log = LoggerFactory.getLogger(BitcoinFees::class.java)
@@ -38,6 +39,7 @@ class BitcoinFees(
                 ?.let { it as List<String> }
                 // drop first tx which is a miner reward
                 ?.let { if (it.isEmpty()) it else it.drop(1) }
+                ?.map { TxId.from(it) }
                 ?: emptyList()
         }
     }
@@ -52,7 +54,7 @@ class BitcoinFees(
                 if (txid == null || vout == null) {
                     Mono.empty()
                 } else {
-                    getTxOutAmount(txid, vout)
+                    getTxOutAmount(TxId.from(txid), vout)
                 }
             }
             .reduce { t, u -> t + u }
@@ -72,8 +74,8 @@ class BitcoinFees(
         return size.toInt()
     }
 
-    fun getTxOutAmount(txid: String, vout: Int): Mono<Long> {
-        return reader.getTx(txid)
+    fun getTxOutAmount(txid: TxId, vout: Int): Mono<Long> {
+        return data.getTxJson(txid)
             .switchIfEmpty(
                 Mono.fromCallable { log.warn("No tx $txid") }
                     .then(Mono.empty())
@@ -99,11 +101,11 @@ class BitcoinFees(
         }
     }
 
-    override fun readFeesAt(height: Long, selector: TxAt<Map<String, Any>, String>): Mono<TxFee> {
-        return reader.getBlock(height)
+    override fun readFeesAt(height: Long, selector: TxAt<Map<String, Any>, TxId>): Mono<TxFee> {
+        return data.getBlockJson(height)
             .flatMap { block ->
                 Mono.justOrEmpty(selector.get(block))
-                    .flatMap { txid -> reader.getTx(txid!!) }
+                    .flatMap { txid -> data.getTxJson(txid!!) }
                     .flatMap { tx ->
                         calculateFee(tx)
                             .map { fee ->

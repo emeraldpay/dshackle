@@ -156,8 +156,8 @@ class TrackEthereumTx(
     private fun update(tx: TxDetails): Mono<TxDetails> {
         val initialStatus = tx.status
         val upstream = getUpstream(tx.chain)
-        return upstream.getReader()
-            .txByHash().read(tx.txid)
+        return upstream.dataReaders
+            .txReaderParsed.read(tx.txid)
             .onErrorResume(RpcException::class.java) { t ->
                 log.warn("Upstream error, ignoring. {}", t.rpcMessage)
                 Mono.empty<TransactionJson>()
@@ -204,8 +204,8 @@ class TrackEthereumTx(
         if (tx.status.blockHash == null) {
             return Mono.empty()
         }
-        return upstream.getReader()
-            .blocksByHashParsed().read(tx.status.blockHash)
+        return upstream.dataReaders
+            .blockReaderParsed.read(tx.status.blockHash)
             .map { block ->
                 setBlockDetails(tx, block)
             }.doOnError { t ->

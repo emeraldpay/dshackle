@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.monitoring.record.IngressRecord
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -38,7 +38,7 @@ open class DefaultEthereumHead(
         private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)
     }
 
-    fun getLatestBlock(api: JsonRpcReader): Mono<BlockContainer> {
+    fun getLatestBlock(api: StandardRpcReader): Mono<BlockContainer> {
         return getBlockNumber(api)
             .transform(getBlockDetails(api))
             .onErrorResume { err ->
@@ -47,7 +47,7 @@ open class DefaultEthereumHead(
             }
     }
 
-    private fun getBlockNumber(api: JsonRpcReader): Mono<HexQuantity> {
+    private fun getBlockNumber(api: StandardRpcReader): Mono<HexQuantity> {
         val request = JsonRpcRequest("eth_blockNumber", emptyList())
         return api.read(request)
             .subscribeOn(EthereumRpcHead.scheduler)
@@ -59,13 +59,13 @@ open class DefaultEthereumHead(
                 if (it.error != null) {
                     Mono.error(it.error.asException(null))
                 } else {
-                    val value = it.getResultAsProcessedString()
+                    val value = it.resultAsProcessedString
                     Mono.just(HexQuantity.from(value))
                 }
             }
     }
 
-    private fun getBlockDetails(api: JsonRpcReader): Function<Mono<HexQuantity>, Mono<BlockContainer>> {
+    private fun getBlockDetails(api: StandardRpcReader): Function<Mono<HexQuantity>, Mono<BlockContainer>> {
         return Function { numberResponse ->
             numberResponse
                 .flatMap { number ->
@@ -80,7 +80,7 @@ open class DefaultEthereumHead(
                         .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
                 }
                 .map {
-                    BlockContainer.fromEthereumJson(it.getResult())
+                    BlockContainer.fromEthereumJson(it.resultOrEmpty)
                 }
         }
     }

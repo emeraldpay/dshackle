@@ -10,7 +10,8 @@ import org.bouncycastle.util.io.pem.PemReader
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.FactoryBean
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.stereotype.Repository
+import org.springframework.context.annotation.Lazy
+import org.springframework.stereotype.Service
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,9 +21,9 @@ import java.security.PublicKey
 import java.security.interfaces.ECPrivateKey
 import java.security.spec.PKCS8EncodedKeySpec
 
-@Repository
+@Service @Lazy
 open class ResponseSignerFactory(
-    @Autowired private val config: SignatureConfig
+    @Autowired private val signatureConfig: SignatureConfig
 ) : FactoryBean<ResponseSigner> {
 
     companion object {
@@ -75,14 +76,14 @@ open class ResponseSignerFactory(
     }
 
     override fun getObject(): ResponseSigner {
-        if (!config.enabled) {
+        if (!signatureConfig.enabled) {
             return NoSigner()
         }
-        if (config.privateKey == null) {
+        if (signatureConfig.privateKey == null) {
             log.warn("Private Key for response signature is not set")
             return NoSigner()
         }
-        val key = readKey(config.algorithm, config.privateKey!!)
+        val key = readKey(signatureConfig.algorithm, signatureConfig.privateKey!!)
         return EcdsaSigner(key.first, key.second)
     }
 

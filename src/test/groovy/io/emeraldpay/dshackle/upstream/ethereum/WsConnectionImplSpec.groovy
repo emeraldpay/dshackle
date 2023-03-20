@@ -33,7 +33,7 @@ class WsConnectionImplSpec extends Specification {
     def "Makes a RPC call"() {
         setup:
         def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def wsApiMock = apiMock.asWebsocket()
         def ws = wsf.create(null)
 
@@ -58,7 +58,7 @@ class WsConnectionImplSpec extends Specification {
     def "Makes a RPC call - return null"() {
         setup:
         def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def wsApiMock = apiMock.asWebsocket()
         def ws = wsf.create(null)
 
@@ -81,7 +81,7 @@ class WsConnectionImplSpec extends Specification {
     def "Makes a RPC call - return error"() {
         setup:
         def wsf = new EthereumWsFactory("test", Chain.ETHEREUM, new URI("http://localhost"), new URI("http://localhost"))
-        def apiMock = TestingCommons.api()
+        def apiMock = TestingCommons.standardApi()
         def wsApiMock = apiMock.asWebsocket()
         def ws = wsf.create(null)
 

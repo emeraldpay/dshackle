@@ -40,7 +40,6 @@ import spock.lang.Specification
 
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.CompletableFuture
 
 class EthereumGrpcUpstreamSpec extends Specification {
 
@@ -55,7 +54,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         setup:
         def callData = [:]
         def chain = Chain.ETHEREUM
-        def api = TestingCommons.api()
+        def api = TestingCommons.standardApi()
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -101,7 +100,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
     @Ignore("TODO moved to ForkChoice")
     def "Follows difficulty, ignores less difficult"() {
         setup:
-        def api = TestingCommons.api()
+        def api = TestingCommons.standardApi()
         def block1 = new BlockJson().with {
             it.number = 650246
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")

@@ -21,8 +21,8 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -33,6 +33,14 @@ class RpcUnspentReader(
 
     companion object {
         private val log = LoggerFactory.getLogger(RpcUnspentReader::class.java)
+
+        @JvmStatic
+        val selector = Selector.Builder()
+            // for BITCOIN balance we need an upstream can provide a balance
+            .withMatcher(Selector.CapabilityMatcher(Capability.BALANCE))
+            // but since we make an RPC call we need this capability as well (as opposed to RemoteUnspentReader)
+            .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
+            .build()
     }
 
     private val convert: (T: RpcUnspent) -> SimpleUnspent = { base ->
@@ -43,28 +51,20 @@ class RpcUnspentReader(
         )
     }
 
-    private val selector = Selector.Builder()
-        // for BITCOIN balance we need an upstream can provide a balance
-        .withMatcher(Selector.CapabilityMatcher(Capability.BALANCE))
-        // but since we make an RPC call we need this capability as well (as opposed to RemoteUnspentReader)
-        .withMatcher(Selector.CapabilityMatcher(Capability.RPC))
-        .build()
-
     override fun read(key: Address): Mono<List<SimpleUnspent>> {
         // docs: https://developer.bitcoin.org/reference/rpc/listunspent.html
         //
         val address = key.toString()
-        return upstreams.getDirectApi(selector).flatMap { api ->
-            api.read(JsonRpcRequest("listunspent", listOf(1, 9999999, listOf(address))))
-                .flatMap(JsonRpcResponse::requireResult)
-                .map {
-                    Global.objectMapper.readerFor(RpcUnspent::class.java).readValues<RpcUnspent>(it).readAll()
-                }
-                .map {
-                    it.filter {
-                        it.address == address
-                    }.map(convert)
-                }
-        }.switchIfEmpty(Mono.error(SilentException.DataUnavailable("BALANCE")))
+        return upstreams.read(DshackleRequest(1, "listunspent", listOf(1, 9999999, listOf(address)), matcher = selector))
+            .flatMap(DshackleResponse::requireResult)
+            .map {
+                Global.objectMapper.readerFor(RpcUnspent::class.java).readValues<RpcUnspent>(it).readAll()
+            }
+            .map {
+                it.filter {
+                    it.address == address
+                }.map(convert)
+            }
+            .switchIfEmpty(Mono.error(SilentException.DataUnavailable("BALANCE")))
     }
 }

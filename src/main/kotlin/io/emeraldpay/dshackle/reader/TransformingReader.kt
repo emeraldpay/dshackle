@@ -29,10 +29,12 @@ class TransformingReader<K, D0, D>(
     /**
      * Result transformation
      */
-    private val transformer: Function<in D0, out D>
+    private val transformer: Function<in D0, out D?>
 ) : Reader<K, D> {
 
     override fun read(key: K): Mono<D> {
-        return reader.read(key).map(transformer)
+        return reader.read(key).flatMap {
+            Mono.justOrEmpty(transformer.apply(it))
+        }
     }
 }

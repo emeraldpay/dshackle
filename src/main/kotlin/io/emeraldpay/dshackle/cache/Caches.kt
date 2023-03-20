@@ -22,9 +22,9 @@ import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.CompoundReader
+import io.emeraldpay.dshackle.reader.EmptyReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumFullBlocksReader
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
@@ -40,7 +40,8 @@ open class Caches(
     private val redisBlocksByHash: BlocksRedisCache?,
     private val redisTxsByHash: TxRedisCache?,
     private val redisReceipts: ReceiptRedisCache?,
-    private val redisHeightByHashCache: HeightByHashRedisCache?
+    private val redisHeightByHashCache: HeightByHashRedisCache?,
+    private val genericRedisCacheFactory: GenericRedisCacheFactory?,
 ) {
 
     companion object {
@@ -187,24 +188,20 @@ open class Caches(
         return blocksByHeight
     }
 
-    fun getBlocksByHeight(): Reader<Long, BlockContainer> {
-        return BlockByHeight(blocksByHeight, blocksByHash)
-    }
-
     fun getTxByHash(): Reader<TxId, TxContainer> {
         return txsByHash
     }
 
-    fun getFullBlocks(): Reader<BlockId, BlockContainer> {
-        return EthereumFullBlocksReader(blocksByHash, txsByHash)
-    }
-
-    fun getFullBlocksByHeight(): Reader<Long, BlockContainer> {
-        return BlockByHeight(blocksByHeight, EthereumFullBlocksReader(blocksByHash, txsByHash))
-    }
-
     fun getReceipts(): Reader<TxId, ByteArray> {
         return receiptByHash
+    }
+
+    fun getGenericCache(type: String): GenericRedisCache? {
+        return genericRedisCacheFactory?.get(type)
+    }
+
+    fun getGenericCacheReader(type: String): Reader<String, ByteArray> {
+        return getGenericCache(type) ?: EmptyReader.default()
     }
 
     fun getLastHeightByHash(): Reader<BlockId, Long> {
@@ -236,6 +233,7 @@ open class Caches(
         private var redisTxsByHash: TxRedisCache? = null
         private var redisReceiptCache: ReceiptRedisCache? = null
         private var redisHeightByHashCache: HeightByHashRedisCache? = null
+        private var redisGenericRedisCacheFactory: GenericRedisCacheFactory? = null
 
         fun setBlockByHash(cache: BlocksMemCache): Builder {
             blocksByHash = cache
@@ -277,6 +275,11 @@ open class Caches(
             return this
         }
 
+        fun setGeneric(cache: GenericRedisCacheFactory): Builder {
+            this.redisGenericRedisCacheFactory = cache
+            return this
+        }
+
         fun build(): Caches {
             if (blocksByHash == null) {
                 blocksByHash = BlocksMemCache()
@@ -292,7 +295,7 @@ open class Caches(
             }
             return Caches(
                 blocksByHash!!, blocksByHeight!!, txsByHash!!, receipts!!,
-                redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache
+                redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache, redisGenericRedisCacheFactory
             )
         }
     }

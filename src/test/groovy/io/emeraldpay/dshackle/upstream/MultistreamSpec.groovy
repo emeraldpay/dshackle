@@ -17,17 +17,18 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
-import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.grpc.Chain
 import org.jetbrains.annotations.NotNull
+import reactor.core.publisher.Mono
 import spock.lang.Specification
 
 import java.time.Duration
@@ -37,9 +38,9 @@ class MultistreamSpec extends Specification {
 
     def "Aggregates methods"() {
         setup:
-        def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
-        def up2 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(), new DirectCallMethods(["eth_test2", "eth_test3"]))
-        def aggr = new EthereumMultistream(Chain.ETHEREUM, [up1, up2], Caches.default())
+        def up1 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.standardApi(), new DirectCallMethods(["eth_test1", "eth_test2"]))
+        def up2 = new EthereumUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.standardApi(), new DirectCallMethods(["eth_test2", "eth_test3"]))
+        def aggr = new EthereumMultistream(Chain.ETHEREUM, [up1, up2], Caches.default(), new NoSigner())
         when:
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()
@@ -169,70 +170,4 @@ class MultistreamSpec extends Specification {
         !act
     }
 
-    def "Call postprocess after api use"() {
-        setup:
-        def request = new JsonRpcRequest("test_foo", [1], 1, null)
-
-        def api = TestingCommons.api()
-        api.answer("test_foo", [1], "test")
-        def postprocessor = Mock(RequestPostprocessor)
-        def up = TestingCommons.upstream(api)
-        def multistream = new TestMultistream([up], postprocessor)
-
-        when:
-        def rdr = multistream.getDirectApi(Selector.empty).block(Duration.ofSeconds(1))
-        def act = rdr.read(request).block(Duration.ofSeconds(1))
-
-        then:
-        act != null
-        act.hasResult()
-        act.resultAsProcessedString == "test"
-        1 * postprocessor.onReceive("test_foo", [1], "\"test\"".bytes)
-    }
-
-    class TestMultistream extends Multistream {
-
-        TestMultistream(List<Upstream> upstreams, @NotNull RequestPostprocessor postprocessor) {
-            super(Chain.ETHEREUM, upstreams, Caches.default(), postprocessor)
-        }
-
-        @Override
-        Reader<JsonRpcRequest, JsonRpcResponse> getLocalReader(@NotNull Selector.Matcher matcher) {
-            return null
-        }
-
-        @Override
-        Head updateHead() {
-            return null
-        }
-
-        @Override
-        void setHead(@NotNull Head head) {
-
-        }
-
-        @Override
-        Head getHead() {
-            return null
-        }
-
-        @Override
-        Collection<UpstreamsConfig.Labels> getLabels() {
-            return null
-        }
-
-        <T extends Upstream> T cast(Class<T> selfType) {
-            return this
-        }
-
-        @Override
-        ChainFees getFeeEstimation() {
-            return null
-        }
-
-        @Override
-        EgressSubscription getEgressSubscription() {
-            return null
-        }
-    }
 }

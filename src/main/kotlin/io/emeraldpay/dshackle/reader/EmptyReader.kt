@@ -20,6 +20,15 @@ import reactor.core.publisher.Mono
 
 class EmptyReader<K, D> : Reader<K, D> {
 
+    companion object {
+        val DEFAULT = EmptyReader<Any, Any>()
+
+        @Suppress("UNCHECKED_CAST")
+        fun <K, D> default(): Reader<K, D> {
+            return DEFAULT as Reader<K, D>
+        }
+    }
+
     override fun read(key: K): Mono<D> {
         return Mono.empty()
     }

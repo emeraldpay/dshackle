@@ -117,8 +117,8 @@ class TrackEthereumAddress(
 
     fun getBalance(addr: TrackedAddress): Mono<Wei> {
         return getUpstream(addr.chain)
-            .getReader()
-            .balance()
+            .dataReaders
+            .balanceReader
             .read(addr.address)
             .timeout(Defaults.timeout)
     }

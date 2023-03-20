@@ -201,6 +201,17 @@ open class UpstreamsConfig {
                 return labels
             }
         }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is Labels) return false
+
+            return this.size == other.size && this.entries == other.entries
+        }
+
+        override fun toString(): String {
+            return "[" + this.entries.joinToString(", ") { "${it.key}=${it.value}" } + "]"
+        }
     }
 
     enum class UpstreamType(vararg code: String) {

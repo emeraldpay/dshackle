@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -33,7 +33,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class BitcoinRpcHead(
-    private val api: JsonRpcReader,
+    private val api: StandardRpcReader,
     private val extractBlock: ExtractBlock,
     private val interval: Duration = Duration.ofSeconds(15)
 ) : Head, AbstractHead(), Lifecycle {

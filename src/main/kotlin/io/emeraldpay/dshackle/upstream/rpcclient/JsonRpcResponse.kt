@@ -80,27 +80,30 @@ class JsonRpcResponse(
         return result != null && NULL_VALUE.contentEquals(result)
     }
 
-    fun getResult(): ByteArray {
-        return result ?: ByteArray(0)
-    }
-
-    fun getResultAsRawString(): String {
-        return String(getResult())
-    }
-
-    fun getResultAsProcessedString(): String {
-        val str = getResultAsRawString()
-        if (str.startsWith("\"") && str.endsWith("\"")) {
-            return str.substring(1, str.length - 1)
+    val resultOrEmpty: ByteArray
+        get() {
+            return result ?: ByteArray(0)
         }
-        throw IllegalStateException("Not as JS string")
-    }
+
+    val resultAsRawString: String
+        get() {
+            return String(resultOrEmpty)
+        }
+
+    val resultAsProcessedString: String
+        get() {
+            val str = resultAsRawString
+            if (str.startsWith("\"") && str.endsWith("\"")) {
+                return str.substring(1, str.length - 1)
+            }
+            throw IllegalStateException("Not as JS string")
+        }
 
     fun requireResult(): Mono<ByteArray> {
         return if (error != null) {
             Mono.error(error.asException(id))
         } else {
-            Mono.just(getResult())
+            Mono.just(resultOrEmpty)
         }
     }
 
@@ -108,7 +111,7 @@ class JsonRpcResponse(
         return if (error != null) {
             Mono.error(error.asException(id))
         } else {
-            Mono.just(getResultAsProcessedString())
+            Mono.just(resultAsProcessedString)
         }
     }
 

@@ -51,4 +51,8 @@ class BlockId(
             return BlockId(bytes)
         }
     }
+
+    fun toEthereumHash(): BlockHash {
+        return BlockHash.from(value)
+    }
 }

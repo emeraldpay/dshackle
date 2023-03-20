@@ -75,10 +75,7 @@ class HealthCheckSetup(
 
     fun getHealth(): Detailed {
         val errors = healthConfig.configs().mapNotNull {
-            val up = multistreamHolder.getUpstream(it.blockchain)
-            if (up == null || !up.isAvailable()) {
-                return@mapNotNull "${it.blockchain} UNAVAILABLE"
-            }
+            val up = multistreamHolder.getUpstream(it.blockchain) ?: return@mapNotNull "${it.blockchain} UNAVAILABLE"
             val avail = up.getAll().count { it.getStatus() == UpstreamAvailability.OK }
             if (avail < it.minAvailable) {
                 return@mapNotNull "${it.blockchain} LACKS MIN AVAILABILITY"
@@ -100,7 +97,7 @@ class HealthCheckSetup(
             var chainUnavailable = false
             val up = multistreamHolder.getUpstream(chain)
             val required = healthConfig.chains[chain]
-            if (up == null || !up.isAvailable()) {
+            if (up == null) {
                 if (required != null) {
                     anyUnavailable = true
                 }

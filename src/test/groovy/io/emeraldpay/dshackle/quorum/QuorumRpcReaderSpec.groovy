@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.FilteredApis
 import io.emeraldpay.dshackle.upstream.Selector

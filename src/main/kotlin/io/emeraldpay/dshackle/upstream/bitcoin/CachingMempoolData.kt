@@ -17,11 +17,12 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.reader.DshackleRpcReader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -32,8 +33,8 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 
 open class CachingMempoolData(
-    private val upstreams: BitcoinMultistream,
-    private val head: Head
+    private val api: DshackleRpcReader,
+    private val head: AtomicReference<Head>
 ) : Lifecycle {
 
     companion object {
@@ -65,11 +66,15 @@ open class CachingMempoolData(
 
     @Suppress("UNCHECKED_CAST")
     fun fetchFromUpstream(): Mono<List<String>> {
-        return upstreams.getDirectApi(Selector.CapabilityMatcher(Capability.RPC)).flatMap { api ->
-            api.read(JsonRpcRequest("getrawmempool", emptyList()))
-                .flatMap(JsonRpcResponse::requireResult)
-                .map { objectMapper.readValue(it, List::class.java) as List<String> }
-        }
+        val request = DshackleRequest(
+            id = 1,
+            method = "getrawmempool",
+            params = emptyList(),
+            matcher = Selector.CapabilityMatcher(Capability.RPC)
+        )
+        return api.read(request)
+            .flatMap(DshackleResponse::requireResult)
+            .map { objectMapper.readValue(it, List::class.java) as List<String> }
     }
 
     class Container(val since: Instant, val value: List<String>) {
@@ -86,7 +91,7 @@ open class CachingMempoolData(
 
     override fun start() {
         headListener?.dispose()
-        headListener = head.getFlux().doOnNext {
+        headListener = head.get().getFlux().doOnNext {
             current.set(Container.empty())
         }.subscribe()
     }

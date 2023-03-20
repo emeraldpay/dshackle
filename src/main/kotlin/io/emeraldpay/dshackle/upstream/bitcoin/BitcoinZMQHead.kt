@@ -3,7 +3,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -19,7 +19,7 @@ import java.time.Duration
 
 class BitcoinZMQHead(
     private val server: ZMQServer,
-    private val api: JsonRpcReader,
+    private val api: StandardRpcReader,
     private val extractBlock: ExtractBlock,
 ) : Head, AbstractHead(), Lifecycle {
 

@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.calls.NoCallMethods
 import org.slf4j.LoggerFactory
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
@@ -32,9 +33,15 @@ class GrpcUpstreamStatus {
 
     private val allLabels: AtomicReference<Collection<UpstreamsConfig.Labels>> = AtomicReference(emptyList())
     private val nodes = AtomicReference<QuorumForLabels>(QuorumForLabels())
-    private var targets: CallMethods? = null
+    private val targets = AtomicReference<CallMethods>(NoCallMethods())
 
-    fun update(conf: BlockchainOuterClass.DescribeChain) {
+    /**
+     * Update with the new description
+     *
+     * @param conf current configuration of the upstream
+     * @return true if the configuration changed any of the internal state since the last update
+     */
+    fun update(conf: BlockchainOuterClass.DescribeChain): Boolean {
         val updateLabels = ArrayList<UpstreamsConfig.Labels>()
         val updateNodes = QuorumForLabels()
 
@@ -52,10 +59,14 @@ class GrpcUpstreamStatus {
             )
             updateNodes.add(node)
         }
+        val updateMethods = DirectCallMethods(conf.supportedMethodsList.toSet())
 
-        this.nodes.set(updateNodes)
-        this.allLabels.set(Collections.unmodifiableCollection(updateLabels))
-        this.targets = DirectCallMethods(conf.supportedMethodsList.toSet())
+        val existingNodes = this.nodes.getAndUpdate { updateNodes }
+        val existingLabels = this.allLabels.getAndUpdate { Collections.unmodifiableCollection(updateLabels) }
+        val existingMethods = this.targets.getAndUpdate { updateMethods }
+
+        val same = updateLabels.toSet() == existingLabels.toSet() && updateNodes == existingNodes && updateMethods == existingMethods
+        return !same
     }
 
     fun getLabels(): Collection<UpstreamsConfig.Labels> {
@@ -67,6 +78,6 @@ class GrpcUpstreamStatus {
     }
 
     fun getCallMethods(): CallMethods {
-        return targets ?: throw IllegalStateException("Upstream is not initialized yet")
+        return targets.get()
     }
 }

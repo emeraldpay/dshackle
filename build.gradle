@@ -97,6 +97,9 @@ dependencies {
     testImplementation libs.equals.verifier
     testImplementation libs.groovy
     testImplementation libs.testcontainers
+    testImplementation libs.junit
+    testImplementation libs.bundles.ktest
+    testImplementation libs.mockk
 
     detektPlugins libs.detekt.formatting
 }

@@ -69,7 +69,7 @@ class IngressLogProcessor(
                                         )
                                     )
                                 } else {
-                                    it.copy(responseSize = resp.getResult().size)
+                                    it.copy(responseSize = resp.resultOrEmpty.size)
                                 }
                             }
                             .build()

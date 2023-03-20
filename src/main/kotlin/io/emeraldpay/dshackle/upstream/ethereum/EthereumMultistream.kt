@@ -17,44 +17,66 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.CompoundReader
+import io.emeraldpay.dshackle.reader.MultistreamReader
 import io.emeraldpay.dshackle.upstream.ChainFees
+import io.emeraldpay.dshackle.upstream.EmptyHead
+import io.emeraldpay.dshackle.upstream.HardcodedReader
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IntegralRpcReader
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.VerifyingReader
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
+import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import reactor.core.publisher.Mono
+import java.util.concurrent.atomic.AtomicReference
 
 @Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
-    caches: Caches
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches, CacheRequested(caches)) {
+    caches: Caches,
+    signer: ResponseSigner,
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
     }
 
-    private var head: Head? = null
+    private var head = AtomicReference<Head>(EmptyHead())
 
-    private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory())
-    private var localReader: EthereumLocalReader? = null
+    private val ingressReader = CompoundReader(CacheReader(caches), MultistreamReader(this, signer))
+    val dataReaders = DataReaders(ingressReader, head)
+    private val normalizedReader = NormalizingReader(head, caches, EthereumFullBlocksReader(dataReaders))
+    private val ingressFinalReader = CompoundReader(normalizedReader, ingressReader)
+
+    private val reader = IntegralRpcReader(
+        VerifyingReader(callMethods),
+        HardcodedReader(callMethods),
+        ingressFinalReader
+    )
 
     private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
+
     private val supportsEIP1559 = when (chain) {
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY -> true
         else -> false
     }
-    private val feeEstimation = if (supportsEIP1559) EthereumPriorityFees(this, reader, 256)
-    else EthereumLegacyFees(this, reader, 256)
+
+    private val feeEstimation = if (supportsEIP1559) {
+        EthereumPriorityFees(this, dataReaders, 256)
+    } else {
+        EthereumLegacyFees(this, dataReaders, 256)
+    }
 
     init {
         this.init()
@@ -62,7 +84,7 @@ open class EthereumMultistream(
 
     override fun init() {
         if (upstreams.size > 0) {
-            head = updateHead()
+            head.set(updateHead())
         }
         super.init()
     }
@@ -85,42 +107,22 @@ open class EthereumMultistream(
         subscribe = EthereumEgressSubscription(this, pendingTxes)
     }
 
-    override fun start() {
-        super.start()
-        reader.start()
-    }
-
-    override fun stop() {
-        super.stop()
-        reader.stop()
-    }
-
-    override fun isRunning(): Boolean {
-        return super.isRunning() || reader.isRunning
-    }
-
-    open fun getReader(): EthereumCachingReader {
-        return reader
-    }
-
     override fun getHead(): Head {
-        return head!!
+        return head.get()
     }
 
     override fun setHead(head: Head) {
-        this.head = head
-        localReader = EthereumLocalReader(reader, getMethods(), head)
+        this.head.set(head)
+        onHeadUpdated(head)
     }
 
     override fun updateHead(): Head {
-        head?.let {
-            if (it is Lifecycle) {
-                it.stop()
-            }
-        }
         lagObserver?.stop()
         lagObserver = null
-        val head = if (upstreams.size == 1) {
+        val head = if (upstreams.isEmpty()) {
+            log.warn("No upstreams set")
+            EmptyHead()
+        } else if (upstreams.size == 1) {
             val upstream = upstreams.first()
             upstream.setLag(0)
             upstream.getHead().apply {
@@ -142,20 +144,16 @@ open class EthereumMultistream(
         return head
     }
 
-    override fun getLabels(): Collection<UpstreamsConfig.Labels> {
-        return upstreams.flatMap { it.getLabels() }
-    }
-
     @Suppress("UNCHECKED_CAST")
-    override fun <T : Upstream> cast(selfType: Class<T>): T {
+    override fun <T : Multistream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
         return this as T
     }
 
-    override fun getLocalReader(matcher: Selector.Matcher): JsonRpcReader {
-        return localReader ?: throw IllegalStateException("Local Reader is not initialized yet")
+    override fun read(key: DshackleRequest): Mono<DshackleResponse> {
+        return reader.read(key)
     }
 
     override fun getEgressSubscription(): EthereumEgressSubscription {

@@ -19,7 +19,7 @@ import reactor.core.publisher.Mono
 import java.util.function.Function
 
 /**
- * Reader wrapper that maps the input key from ne value to another (ex. convert from Long to String)
+ * Reader wrapper that maps the input key from one value to another (ex. convert from Long to String)
  */
 class RekeyingReader<K, K1, D>(
     /**

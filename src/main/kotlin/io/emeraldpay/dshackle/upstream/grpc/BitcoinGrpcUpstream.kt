@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
@@ -75,7 +75,7 @@ class BitcoinGrpcUpstream(
         this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.PartialOptions.getDefaults().build(), remote, client)
 
     private val extractBlock = ExtractBlock()
-    private val reader: JsonRpcReader = client.forSelector(Selector.empty)
+    private val reader: StandardRpcReader = client.forSelector(Selector.empty)
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val block = BlockContainer(
             value.height,
@@ -112,6 +112,7 @@ class BitcoinGrpcUpstream(
     var timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
     private val ingressSubscription = BitcoinDshackleIngressSubscription(chain, remote)
+    private var updateHandler: (() -> Unit)? = null
 
     override fun getBlockchainApi(): ReactorBlockchainGrpc.ReactorBlockchainStub {
         return remote
@@ -121,7 +122,7 @@ class BitcoinGrpcUpstream(
         return grpcHead
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): StandardRpcReader {
         return reader
     }
 
@@ -165,11 +166,18 @@ class BitcoinGrpcUpstream(
         super.stop()
     }
 
+    override fun onUpdate(handler: () -> Unit) {
+        this.updateHandler = handler
+    }
+
     override fun update(conf: BlockchainOuterClass.DescribeChain) {
-        upstreamStatus.update(conf)
+        val changed = upstreamStatus.update(conf)
         this.capabilities = RemoteCapabilities.extract(conf)
         grpcHead.setEnabled(this.capabilities.contains(Capability.RPC))
         conf.status?.let { status -> onStatus(status) }
         ingressSubscription.update(conf)
+        if (changed) {
+            updateHandler?.invoke()
+        }
     }
 }

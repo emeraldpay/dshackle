@@ -78,7 +78,7 @@ class StreamHeadSpec extends Specification {
                 .build()
         }
 
-        def upstream = new EthereumUpstreamMock(Chain.ETHEREUM, TestingCommons.api())
+        def upstream = new EthereumUpstreamMock(Chain.ETHEREUM, TestingCommons.standardApi())
         def upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstream)
         def streamHead = new StreamHead(upstreams)
         when:

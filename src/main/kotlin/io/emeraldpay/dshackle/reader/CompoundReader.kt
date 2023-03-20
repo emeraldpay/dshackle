@@ -49,7 +49,6 @@ class CompoundReader<K, D>(
                             log.warn("Failed to read from $rdr", t)
                         }
                     }
-                    .onErrorResume { Mono.empty() }
             }, 1)
             .next()
     }

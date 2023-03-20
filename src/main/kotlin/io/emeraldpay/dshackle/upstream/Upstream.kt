@@ -17,7 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
@@ -32,7 +32,7 @@ interface Upstream {
     /**
      * Get an actual reader that access the current upstream
      */
-    fun getIngressReader(): JsonRpcReader
+    fun getIngressReader(): StandardRpcReader
 
     fun getOptions(): UpstreamsConfig.Options
     fun getRole(): UpstreamsConfig.UpstreamRole
@@ -44,6 +44,11 @@ interface Upstream {
     fun getCapabilities(): Set<Capability>
     fun isGrpc(): Boolean
     fun getBlockchain(): Chain
+
+    /**
+     * MUST be called by the upstream if it's execution configuration (labels, methods and capabilities) has changed.
+     */
+    fun onUpdate(handler: () -> Unit) {}
 
     fun <T : Upstream> cast(selfType: Class<T>): T
 }
