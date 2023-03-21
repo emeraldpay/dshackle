@@ -36,4 +36,7 @@ class EmptyHead : Head {
 
     override fun stop() {
     }
+
+    override fun onNoHeadUpdates() {
+    }
 }

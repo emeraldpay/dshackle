@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -44,6 +45,10 @@ class EthereumWsHead(
     private val skipEnhance: Boolean
 ) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
 
+    companion object {
+        private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
+    }
+
     private var subscription: Disposable? = null
 
     override fun isRunning(): Boolean {
@@ -59,6 +64,11 @@ class EthereumWsHead(
             listenNewHeads()
         )
         this.subscription = super.follow(heads)
+    }
+
+    override fun onNoHeadUpdates() {
+        log.warn("Restart ws head, upstreamId: $upstreamId")
+        start()
     }
 
     fun listenNewHeads(): Flux<BlockContainer> {

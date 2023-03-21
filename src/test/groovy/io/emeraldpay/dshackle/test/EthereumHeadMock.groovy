@@ -77,4 +77,9 @@ class EthereumHeadMock implements Head {
     void stop() {
 
     }
+
+    @Override
+    void onNoHeadUpdates() {
+
+    }
 }

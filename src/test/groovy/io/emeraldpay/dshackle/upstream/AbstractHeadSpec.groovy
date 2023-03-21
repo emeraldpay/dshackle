@@ -60,7 +60,7 @@ class AbstractHeadSpec extends Specification {
                     head.stop()
                     source.tryEmitComplete()
                 }
-                .expectComplete()
+                .thenCancel()
                 .verify(Duration.ofSeconds(1))
     }
 
@@ -85,7 +85,7 @@ class AbstractHeadSpec extends Specification {
                     head.stop()
                     source.tryEmitComplete()
                 }
-                .expectComplete()
+                .thenCancel()
                 .verify(Duration.ofSeconds(1))
     }
 
@@ -115,7 +115,7 @@ class AbstractHeadSpec extends Specification {
                     head.stop()
                     source.tryEmitComplete()
                 }
-                .expectComplete()
+                .thenCancel()
                 .verify(Duration.ofSeconds(1))
     }
 

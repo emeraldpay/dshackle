@@ -41,4 +41,6 @@ interface Head {
     fun start()
 
     fun stop()
+
+    fun onNoHeadUpdates()
 }

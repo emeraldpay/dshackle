@@ -67,11 +67,6 @@ abstract class AbstractHead @JvmOverloads constructor(
     }
 
     fun follow(source: Flux<BlockContainer>): Disposable {
-        if (completed) {
-            // if stream was already completed it cannot accept messages (with FAIL_TERMINATED), so needs to be recreated
-            stream = Sinks.many().multicast().directBestEffort<BlockContainer>()
-            completed = false
-        }
         return source
             .filter {
                 log.trace("Filtering block $upstreamId block $it")
@@ -85,9 +80,7 @@ abstract class AbstractHead @JvmOverloads constructor(
                     log.warn("Received signal $upstreamId $it unexpectedly - restart head")
                     lastHeadUpdated = 0L
                 } else {
-                    log.warn("Received signal $upstreamId $it - stop emit new head")
-                    completed = true
-                    stream.tryEmitComplete()
+                    log.warn("Received signal $upstreamId $it, continue emit heads")
                 }
             }
             .subscribeOn(Schedulers.boundedElastic())
@@ -155,6 +148,9 @@ abstract class AbstractHead @JvmOverloads constructor(
         future = null
     }
 
+    override fun onNoHeadUpdates() {
+    }
+
     override fun start() {
         stopping = false
         log.debug("Start ${this.javaClass.simpleName} $upstreamId")
@@ -165,6 +161,7 @@ abstract class AbstractHead @JvmOverloads constructor(
                     delayed.set(delay > awaitHeadTimeoutMs)
                     if (delayed.get()) {
                         log.warn("No head updates $upstreamId for $delay ms @ ${this.javaClass.simpleName}")
+                        onNoHeadUpdates()
                     }
                 }, 180, 30, TimeUnit.SECONDS
             )
