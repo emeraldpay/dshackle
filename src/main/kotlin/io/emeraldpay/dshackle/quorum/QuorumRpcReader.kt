@@ -98,10 +98,10 @@ class QuorumRpcReader(
     fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
         val quorumReduce = BiFunction<CallQuorum, Tuple4<ByteArray, Optional<ResponseSigner.Signature>, Upstream, Optional<String>>, CallQuorum> { res, a ->
             if (res.record(a.t1, a.t2.orElse(null), a.t3, a.t4.orElse(null))) {
-                log.debug("Quorum is resolved for method ${key.method}")
+                log.trace("Quorum is resolved for method ${key.method}")
                 apiControl.resolve()
             } else {
-                log.debug("Quorum needs more responses for method ${key.method}")
+                log.trace("Quorum needs more responses for method ${key.method}")
                 // quorum needs more responses, so ask api controller to make another
                 apiControl.request(1)
             }
@@ -113,7 +113,7 @@ class QuorumRpcReader(
                     quorum.isFailed() || quorum.isResolved()
                 }
                 .flatMap { api ->
-                    log.debug("Calling upstream ${api.getId()} with method ${key.method}")
+                    log.trace("Calling upstream ${api.getId()} with method ${key.method}")
                     callApi(api, key)
                 }
                 .retryWhen(retrySpec)
@@ -143,7 +143,7 @@ class QuorumRpcReader(
         return SpannedReader(apiReader, tracer, API_READER, spanParams)
             .read(key)
             .flatMap { response ->
-                log.debug("Received response from upstream ${api.getId()} for method ${key.method}")
+                log.trace("Received response from upstream ${api.getId()} for method ${key.method}")
                 response.requireResult()
                     .transform(withSignatureAndUpstream(api, key, response))
             }
