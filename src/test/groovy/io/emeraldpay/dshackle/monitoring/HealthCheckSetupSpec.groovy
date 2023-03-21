@@ -46,7 +46,7 @@ class HealthCheckSetupSpec extends Specification {
         1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1]
-        1 * up1.status >> UpstreamAvailability.OK
+        1 * up1.isAvailable() >> true
     }
 
     def "OK when meets availability - 1 - bitcoin"() {
@@ -70,7 +70,7 @@ class HealthCheckSetupSpec extends Specification {
         1 * multistream.getUpstream(Chain.BITCOIN) >> bitcoinUpstreams
         1 * bitcoinUpstreams.available >> true
         1 * bitcoinUpstreams.getAll() >> [up1]
-        1 * up1.status >> UpstreamAvailability.OK
+        1 * up1.isAvailable() >> true
     }
 
     def "OK when meets availability - 2/3"() {
@@ -96,9 +96,9 @@ class HealthCheckSetupSpec extends Specification {
         1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
-        1 * up1.status >> UpstreamAvailability.OK
-        1 * up2.status >> UpstreamAvailability.SYNCING
-        1 * up3.status >> UpstreamAvailability.OK
+        1 * up1.isAvailable() >> true
+        1 * up2.isAvailable() >> false
+        1 * up3.isAvailable() >> true
     }
 
     def "OK when doesn't meet availability - 2/3"() {
@@ -124,9 +124,9 @@ class HealthCheckSetupSpec extends Specification {
         1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
-        1 * up1.status >> UpstreamAvailability.OK
-        1 * up2.status >> UpstreamAvailability.SYNCING
-        1 * up3.status >> UpstreamAvailability.LAGGING
+        1 * up1.isAvailable() >> true
+        1 * up2.isAvailable() >> false
+        1 * up3.isAvailable() >> false
     }
 
     def "OK when meets availability - 2/3 - detailed"() {
@@ -153,8 +153,8 @@ class HealthCheckSetupSpec extends Specification {
         1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
-        _ * up1.status >> UpstreamAvailability.OK
-        _ * up2.status >> UpstreamAvailability.SYNCING
-        _ * up3.status >> UpstreamAvailability.OK
+        _ * up1.isAvailable() >> true
+        _ * up2.isAvailable() >> false
+        _ * up3.isAvailable() >> true
     }
 }

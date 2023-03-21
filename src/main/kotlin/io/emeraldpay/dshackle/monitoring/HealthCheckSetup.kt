@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.monitoring
 import com.sun.net.httpserver.HttpServer
 import io.emeraldpay.dshackle.config.HealthConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
@@ -83,9 +82,9 @@ class HealthCheckSetup(
             if (!up.isAvailable()) {
                 return@mapNotNull "${it.blockchain} UNAVAILABLE"
             }
-            val avail = up.getAll().count { it.getStatus() == UpstreamAvailability.OK }
+            val avail = up.getAll().count { it.isAvailable() }
             if (avail < it.minAvailable) {
-                return@mapNotNull "${it.blockchain} LACKS MIN AVAILABILITY"
+                return@mapNotNull "${it.blockchain} LACKS MIN AVAILABILITY [CURRENT: $avail]"
             }
             null
         }
@@ -112,7 +111,7 @@ class HealthCheckSetup(
             } else {
                 val ups = up.getAll()
                 val checks = if (required != null) {
-                    val avail = ups.count { it.getStatus() == UpstreamAvailability.OK }
+                    val avail = ups.count { it.isAvailable() }
                     if (avail < required.minAvailable) {
                         chainUnavailable = true
                         listOf("  LACKS MIN AVAILABILITY")
