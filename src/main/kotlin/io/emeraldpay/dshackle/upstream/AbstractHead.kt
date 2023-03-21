@@ -41,9 +41,9 @@ abstract class AbstractHead @JvmOverloads constructor(
     private val awaitHeadTimeoutMs: Long = 60_000,
     private val upstreamId: String = ""
 ) : Head {
+    protected val log = LoggerFactory.getLogger(this::class.java)
 
     companion object {
-        private val log = LoggerFactory.getLogger(AbstractHead::class.java)
         private val executor = Executors.newSingleThreadScheduledExecutor()
     }
 

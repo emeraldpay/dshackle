@@ -55,9 +55,10 @@ abstract class Multistream(
 ) : Upstream, Lifecycle, HasEgressSubscription {
 
     companion object {
-        private val log = LoggerFactory.getLogger(Multistream::class.java)
         private const val metrics = "upstreams"
     }
+
+    protected val log = LoggerFactory.getLogger(this::class.java)
 
     private var started = false
 

@@ -23,7 +23,6 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -39,7 +38,6 @@ class BitcoinRpcHead(
 ) : Head, AbstractHead(MostWorkForkChoice(), awaitHeadTimeoutMs = 1200_000), Lifecycle {
 
     companion object {
-        private val log = LoggerFactory.getLogger(BitcoinRpcHead::class.java)
         val scheduler =
             Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("bitcoin-rpc-head")))
     }

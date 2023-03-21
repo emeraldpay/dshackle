@@ -38,7 +38,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.reactivestreams.Publisher
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
@@ -64,10 +63,6 @@ class BitcoinGrpcUpstream(
 ),
     GrpcUpstream,
     Lifecycle {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(BitcoinGrpcUpstream::class.java)
-    }
 
     private val extractBlock = ExtractBlock()
     private val defaultReader: JsonRpcReader = client.getReader()

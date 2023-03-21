@@ -24,7 +24,6 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.hex.HexQuantity
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 open class DefaultEthereumHead(
@@ -32,10 +31,6 @@ open class DefaultEthereumHead(
     forkChoice: ForkChoice,
     blockValidator: BlockValidator
 ) : Head, AbstractHead(forkChoice, blockValidator, 60_000, upstreamId) {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(DefaultEthereumHead::class.java)
-    }
 
     fun getLatestBlock(api: JsonRpcReader): Mono<BlockContainer> {
         return api.read(JsonRpcRequest("eth_blockNumber", emptyList()))

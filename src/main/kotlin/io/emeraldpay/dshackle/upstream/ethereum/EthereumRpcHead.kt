@@ -20,7 +20,6 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -40,8 +39,6 @@ class EthereumRpcHead(
         val scheduler =
             Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-rpc-head")))
     }
-
-    private val log = LoggerFactory.getLogger(EthereumRpcHead::class.java)
 
     private var refreshSubscription: Disposable? = null
 

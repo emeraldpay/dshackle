@@ -43,7 +43,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.reactivestreams.Publisher
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
@@ -106,7 +105,6 @@ open class EthereumGrpcUpstream(
             }
     }
 
-    private val log = LoggerFactory.getLogger(EthereumGrpcUpstream::class.java)
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
     private val grpcHead = GrpcHead(getId(), chain, this, remote, blockConverter, reloadBlock, MostWorkForkChoice())
     private var capabilities: Set<Capability> = emptySet()

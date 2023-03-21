@@ -38,7 +38,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
-import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
@@ -53,10 +52,6 @@ open class EthereumMultistream(
     headScheduler: Scheduler,
     tracer: Tracer
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(EthereumMultistream::class.java)
-    }
 
     private var head: DynamicMergedHead = DynamicMergedHead(
         PriorityForkChoice(),

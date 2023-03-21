@@ -49,9 +49,7 @@ abstract class DefaultUpstream(
     ) :
         this(id, hash, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node, chainConfig)
 
-    companion object {
-        private val log = LoggerFactory.getLogger(DefaultUpstream::class.java)
-    }
+    protected val log = LoggerFactory.getLogger(this::class.java)
 
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream = Sinks.many()

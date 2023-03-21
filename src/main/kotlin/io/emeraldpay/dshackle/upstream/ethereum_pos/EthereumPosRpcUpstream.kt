@@ -30,7 +30,6 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
-import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 
 open class EthereumPosRpcUpstream(
@@ -44,7 +43,6 @@ open class EthereumPosRpcUpstream(
     connectorFactory: ConnectorFactory,
     chainConfig: ChainsConfig.ChainConfig
 ) : EthereumPosUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
-    private val log = LoggerFactory.getLogger(EthereumPosRpcUpstream::class.java)
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions())
     private val connector: EthereumConnector = connectorFactory.create(this, validator, chain, true)
 

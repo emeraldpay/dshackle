@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 
@@ -29,10 +28,6 @@ class MergedHead @JvmOverloads constructor(
     forkChoice: ForkChoice,
     private val label: String = ""
 ) : AbstractHead(forkChoice, upstreamId = label), Lifecycle, CachesEnabled {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(MergedHead::class.java)
-    }
 
     private var subscription: Disposable? = null
 

@@ -26,7 +26,6 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.reactivestreams.Publisher
-import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -49,10 +48,6 @@ class GrpcHead(
     private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?,
     private val forkChoice: ForkChoice
 ) : AbstractHead(forkChoice, upstreamId = id), Lifecycle {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(GrpcHead::class.java)
-    }
 
     private var headSubscription: Disposable? = null
 
