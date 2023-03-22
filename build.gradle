@@ -162,10 +162,6 @@ jib {
             add "t" + DateTimeFormatter.ofPattern("yyyyMMddHHmm").withZone(ZoneId.of('UTC')).format(Instant.now())
             add project.version.toString().replaceAll('(\\d+\\.\\d+).+', '$1')
         }
-        auth {
-            username = 'splix'
-            password = System.getenv('DOCKER_KEY')
-        }
     }
     container {
         jvmFlags = ['-Xms1024m']

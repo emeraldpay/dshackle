@@ -132,7 +132,7 @@ ktest = ["ktest-runner", "ktest-datatest"]
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-jib = { id = "com.google.cloud.tools.jib", version = "2.5.0" }
+jib = { id = "com.google.cloud.tools.jib", version = "3.3.1" }
 spring = { id = "org.springframework.boot", version.ref = "spring-boot" }
 git = { id = "com.palantir.git-version", version = "0.12.3" }
 protobuf = { id = "com.google.protobuf", version = "0.8.17" }
