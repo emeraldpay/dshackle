@@ -57,7 +57,7 @@ class BitcoinGrpcUpstream(
 ) : BitcoinUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     chain,
-    UpstreamsConfig.Options.getDefaults(),
+    UpstreamsConfig.PartialOptions.getDefaults().buildOptions(),
     role,
     chainConfig
 ),

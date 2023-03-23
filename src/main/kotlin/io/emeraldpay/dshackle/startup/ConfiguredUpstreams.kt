@@ -94,16 +94,17 @@ open class ConfiguredUpstreams(
             }
             log.debug("Start upstream ${up.id}")
             if (up.connection is UpstreamsConfig.GrpcConnection) {
-                val options = up.options ?: UpstreamsConfig.Options()
-                buildGrpcUpstream(up.nodeId, up.cast(UpstreamsConfig.GrpcConnection::class.java), options, compressionConfig.grpc.clientEnabled)
+                val options = up.options ?: UpstreamsConfig.PartialOptions()
+                buildGrpcUpstream(up.nodeId, up.cast(UpstreamsConfig.GrpcConnection::class.java), options.buildOptions(), compressionConfig.grpc.clientEnabled)
             } else {
                 val chain = Global.chainById(up.chain)
                 if (chain == Chain.UNSPECIFIED) {
                     log.error("Chain is unknown: ${up.chain}")
                     return@forEach
                 }
-                val options = (defaultOptions[chain] ?: UpstreamsConfig.Options.getDefaults())
-                    .merge(up.options ?: UpstreamsConfig.Options())
+                val options = (defaultOptions[chain] ?: UpstreamsConfig.PartialOptions.getDefaults())
+                    .merge(up.options ?: UpstreamsConfig.PartialOptions())
+                    .buildOptions()
                 val upstream = when (BlockchainType.from(chain)) {
                     BlockchainType.EVM_POS -> {
                         buildEthereumPosUpstream(
@@ -140,8 +141,8 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.Options> {
-        val defaultOptions = HashMap<Chain, UpstreamsConfig.Options>()
+    private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.PartialOptions> {
+        val defaultOptions = HashMap<Chain, UpstreamsConfig.PartialOptions>()
         config.defaultOptions.forEach { defaultsConfig ->
             defaultsConfig.chains?.forEach { chainName ->
                 Global.chainById(chainName).let { chain ->

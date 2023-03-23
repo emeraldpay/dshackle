@@ -18,7 +18,9 @@ package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
+import org.apache.commons.lang3.ObjectUtils.firstNonNull
 import java.net.URI
+import java.time.Duration
 import java.util.Arrays
 import java.util.Locale
 
@@ -26,46 +28,67 @@ open class UpstreamsConfig {
     var defaultOptions: MutableList<DefaultOptions> = ArrayList<DefaultOptions>()
     var upstreams: MutableList<Upstream<*>> = ArrayList<Upstream<*>>()
 
-    open class Options {
+    data class Options(
+        val disableValidation: Boolean,
+        val validationInterval: Int,
+        val timeout: Duration,
+        val providesBalance: Boolean?,
+        val validatePeers: Boolean,
+        val minPeers: Int,
+        val validateSyncing: Boolean
+    )
+
+    open class PartialOptions {
         var disableValidation: Boolean? = null
-        var validationInterval: Int = 30
+        var validationInterval: Int? = null
             set(value) {
-                require(value > 0) {
+                require(value == null || value > 0) {
                     "validation-interval must be a positive number: $value"
                 }
                 field = value
             }
-        var timeout = Defaults.timeout
+        var timeout: Duration? = null
         var providesBalance: Boolean? = null
-        var validatePeers: Boolean = true
-        var minPeers: Int? = 1
+        var validatePeers: Boolean? = null
+        var minPeers: Int? = null
             set(value) {
-                require(value != null && value >= 0) {
+                require(value == null || value >= 0) {
                     "min-peers must be a positive number: $value"
                 }
                 field = value
             }
-        var validateSyncing: Boolean = true
-        fun merge(overwrites: Options?): Options {
+        var validateSyncing: Boolean? = null
+
+        fun merge(overwrites: PartialOptions?): PartialOptions {
             if (overwrites == null) {
                 return this
             }
-            val copy = Options()
-            copy.validatePeers = this.validatePeers && overwrites.validatePeers
-            copy.minPeers = if (this.minPeers != null) this.minPeers else overwrites.minPeers
-            copy.disableValidation =
-                if (this.disableValidation != null) this.disableValidation else overwrites.disableValidation
-            copy.validationInterval = overwrites.validationInterval
-            copy.providesBalance =
-                if (this.providesBalance != null) this.providesBalance else overwrites.providesBalance
-            copy.validateSyncing = this.validateSyncing && overwrites.validateSyncing
+            val copy = PartialOptions()
+            copy.validatePeers = firstNonNull(overwrites.validatePeers, this.validatePeers)
+            copy.minPeers = firstNonNull(overwrites.minPeers, this.minPeers)
+            copy.disableValidation = firstNonNull(overwrites.disableValidation, this.disableValidation)
+            copy.validationInterval = firstNonNull(overwrites.validationInterval, this.validationInterval)
+            copy.providesBalance = firstNonNull(overwrites.providesBalance, this.providesBalance)
+            copy.validateSyncing = firstNonNull(overwrites.validateSyncing, this.validateSyncing)
+            copy.timeout = firstNonNull(overwrites.timeout, this.timeout)
             return copy
         }
 
+        fun buildOptions(): Options =
+            Options(
+                firstNonNull(this.disableValidation, false)!!,
+                firstNonNull(this.validationInterval, 30)!!,
+                firstNonNull(this.timeout, Defaults.timeout)!!,
+                this.providesBalance,
+                firstNonNull(this.validatePeers, true)!!,
+                firstNonNull(this.minPeers, 1)!!,
+                firstNonNull(this.validateSyncing, true)!!
+            )
+
         companion object {
             @JvmStatic
-            fun getDefaults(): Options {
-                val options = Options()
+            fun getDefaults(): PartialOptions {
+                val options = PartialOptions()
                 options.minPeers = 1
                 options.disableValidation = false
                 return options
@@ -73,16 +96,16 @@ open class UpstreamsConfig {
         }
     }
 
-    class DefaultOptions : Options() {
+    class DefaultOptions : PartialOptions() {
         var chains: List<String>? = null
-        var options: Options? = null
+        var options: PartialOptions? = null
     }
 
     class Upstream<T : UpstreamConnection> {
         var id: String? = null
         var nodeId: Int? = null
         var chain: String? = null
-        var options: Options? = null
+        var options: PartialOptions? = null
         var isEnabled = true
         var connection: T? = null
         val labels = Labels()

@@ -63,7 +63,7 @@ open class EthereumGrpcUpstream(
 ) : EthereumUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     hash,
-    UpstreamsConfig.Options.getDefaults(),
+    UpstreamsConfig.PartialOptions.getDefaults().buildOptions(),
     role,
     null,
     null,

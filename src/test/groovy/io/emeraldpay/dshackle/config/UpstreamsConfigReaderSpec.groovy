@@ -16,8 +16,11 @@
  */
 package io.emeraldpay.dshackle.config
 
+
 import io.emeraldpay.dshackle.test.TestingCommons
 import spock.lang.Specification
+
+import java.time.Duration
 
 class UpstreamsConfigReaderSpec extends Specification {
 
@@ -480,5 +483,157 @@ class UpstreamsConfigReaderSpec extends Specification {
                 connectorMode == "RPC_REQUESTS_WITH_WS_HEAD"
             }
         }
+    }
+
+    def "Merge options for disableValidation"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { disableValidation = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { disableValidation = overwrite }
+        def result = a.merge(b).buildOptions()
+        result.disableValidation == exp
+
+        where:
+        base        | overwrite     | exp
+        true        | true          | true
+        true        | false         | false
+        true        | null          | true
+
+        false       | true          | true
+        false       | false         | false
+        false       | null          | false
+
+        null        | true          | true
+        null        | false         | false
+        null        | null          | false
+    }
+
+    def "Merge options for providesBalance"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { providesBalance = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { providesBalance = overwrite }
+        def result = a.merge(b).buildOptions()
+        result.providesBalance == exp
+
+        where:
+        base        | overwrite     | exp
+        true        | true          | true
+        true        | false         | false
+        true        | null          | true
+
+        false       | true          | true
+        false       | false         | false
+        false       | null          | false
+
+        null        | true          | true
+        null        | false         | false
+        null        | null          | null
+    }
+
+    def "Merge options for validatePeers"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { validatePeers = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { validatePeers = overwrite }
+        def result = a.merge(b).buildOptions()
+        result.validatePeers == exp
+
+        where:
+        base        | overwrite     | exp
+        true        | true          | true
+        true        | false         | false
+        true        | null          | true
+
+        false       | true          | true
+        false       | false         | false
+        false       | null          | false
+
+        null        | true          | true
+        null        | false         | false
+        null        | null          | true
+    }
+
+    def "Merge options for validateSyncing"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { validateSyncing = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { validateSyncing = overwrite }
+        def result = a.merge(b).buildOptions()
+        result.validateSyncing == exp
+
+        where:
+        base        | overwrite     | exp
+        true        | true          | true
+        true        | false         | false
+        true        | null          | true
+
+        false       | true          | true
+        false       | false         | false
+        false       | null          | false
+
+        null        | true          | true
+        null        | false         | false
+        null        | null          | true
+    }
+
+    def "Merge options for timeout"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap {
+            timeout = base == null ? null : Duration.ofSeconds(base)
+        }
+        def b = new UpstreamsConfig.PartialOptions().tap {
+            timeout = overwrite == null ? null : Duration.ofSeconds(overwrite)
+        }
+        def result = a.merge(b).buildOptions()
+        def expValue = exp == null ? Duration.ofSeconds(60) : Duration.ofSeconds(exp)
+        result.timeout == expValue
+
+        where:
+        base     | overwrite  | exp
+        1        | 2          | 2
+        3        | 4          | 4
+        5        | null       | 5
+        null     | 6          | 6
+        null     | null       | null
+    }
+
+    def "Merge options for minPeers"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { minPeers = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { minPeers = overwrite }
+        def result = a.merge(b).buildOptions()
+        result.minPeers == exp
+
+        where:
+        base     | overwrite  | exp
+        1        | 2          | 2
+        3        | 4          | 4
+        5        | null       | 5
+        null     | 6          | 6
+        null     | null       | 1
+    }
+
+    def "Merge options for validationInterval"() {
+        expect:
+        def a = new UpstreamsConfig.PartialOptions().tap { validationInterval = base }
+        def b = new UpstreamsConfig.PartialOptions().tap { validationInterval = overwrite }
+        def result = a.merge(b).buildOptions()
+        result.validationInterval == exp
+
+        where:
+        base     | overwrite  | exp
+        1        | 2          | 2
+        3        | 4          | 4
+        5        | null       | 5
+        null     | 6          | 6
+        null     | null       | 30
+    }
+
+    def "Options with default values"() {
+        setup:
+        def partialOptions = new UpstreamsConfig.PartialOptions()
+        when:
+        def options = partialOptions.buildOptions()
+        then:
+        options == new UpstreamsConfig.Options(
+                false, 30, Duration.ofSeconds(60), null, true, 1, true
+        )
     }
 }

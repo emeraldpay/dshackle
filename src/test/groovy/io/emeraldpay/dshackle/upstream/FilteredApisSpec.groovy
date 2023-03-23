@@ -54,7 +54,7 @@ class FilteredApisSpec extends Specification {
                     "test",
                     (byte)123,
                     Chain.ETHEREUM,
-                    new UpstreamsConfig.Options(),
+                    new UpstreamsConfig.PartialOptions().buildOptions(),
                     UpstreamsConfig.UpstreamRole.PRIMARY,
                     ethereumTargets,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),

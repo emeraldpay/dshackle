@@ -303,7 +303,7 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun tryReadOptions(upNode: MappingNode): UpstreamsConfig.Options? {
+    internal fun tryReadOptions(upNode: MappingNode): UpstreamsConfig.PartialOptions? {
         return if (hasAny(upNode, "options")) {
             return getMapping(upNode, "options")?.let { values ->
                 readOptions(values)
@@ -348,8 +348,8 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun readOptions(values: MappingNode): UpstreamsConfig.Options {
-        val options = UpstreamsConfig.Options()
+    internal fun readOptions(values: MappingNode): UpstreamsConfig.PartialOptions {
+        val options = UpstreamsConfig.PartialOptions()
         getValueAsBool(values, "validate-peers")?.let {
             options.validatePeers = it
         }

@@ -102,7 +102,7 @@ open class BitcoinRpcUpstream(
 
         validatorSubscription?.dispose()
 
-        if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
+        if (getOptions().disableValidation) {
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)
         } else {

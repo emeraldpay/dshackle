@@ -57,7 +57,7 @@ open class EthereumRpcUpstream(
     override fun start() {
         log.info("Configured for ${chain.chainName}")
         connector.start()
-        if (getOptions().disableValidation != null && getOptions().disableValidation!!) {
+        if (getOptions().disableValidation) {
             log.warn("Disable validation for upstream ${this.getId()}")
             this.setLag(0)
             this.setStatus(UpstreamAvailability.OK)

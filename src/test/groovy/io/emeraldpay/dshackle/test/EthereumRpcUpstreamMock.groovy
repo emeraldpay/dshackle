@@ -60,7 +60,7 @@ class EthereumRpcUpstreamMock extends EthereumRpcUpstream {
 
     EthereumRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
         super(id, id.hashCode().byteValue(), chain,
-                UpstreamsConfig.Options.getDefaults(),
+                UpstreamsConfig.PartialOptions.getDefaults().buildOptions(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,
                 new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),

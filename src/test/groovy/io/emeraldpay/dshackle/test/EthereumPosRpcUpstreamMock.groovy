@@ -83,9 +83,9 @@ class EthereumPosRpcUpstreamMock extends EthereumPosRpcUpstream {
     }
 
     static Options getOpts() {
-        def opt = UpstreamsConfig.Options.getDefaults()
+        def opt = UpstreamsConfig.PartialOptions.getDefaults()
         opt.setDisableValidation(true)
-        return opt
+        return opt.buildOptions()
     }
 
     void nextBlock(BlockContainer block) {
