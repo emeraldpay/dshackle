@@ -24,6 +24,7 @@ import io.grpc.ServerCall
 import io.grpc.ServerCallHandler
 import io.grpc.ServerInterceptor
 import io.grpc.netty.NettyServerBuilder
+import io.grpc.protobuf.services.ProtoReflectionService
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
 import org.slf4j.LoggerFactory
@@ -66,16 +67,14 @@ open class GrpcServer(
         val serverBuilder = NettyServerBuilder
             .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
             .maxInboundMessageSize(Defaults.maxMessageSize)
-            .let {
-                if (mainConfig.accessLogConfig.enabled) {
-                    it.intercept(accessHandler)
-                }
-                if (mainConfig.compression.grpc.serverEnabled) {
-                    it.intercept(CompressionInterceptor())
-                    log.info("Compression enabled for gRPC server")
-                }
-                it
-            }
+
+        if (mainConfig.accessLogConfig.enabled) {
+            serverBuilder.intercept(accessHandler)
+        }
+        if (mainConfig.compression.grpc.serverEnabled) {
+            serverBuilder.intercept(CompressionInterceptor())
+            log.info("Compression enabled for gRPC server")
+        }
 
         serverBuilder.intercept(grpcServerBraveInterceptor)
 
@@ -86,6 +85,8 @@ open class GrpcServer(
         rpcs.forEach {
             serverBuilder.addService(it)
         }
+
+        serverBuilder.addService(ProtoReflectionService.newInstance())
 
         val pool = Executors.newFixedThreadPool(20, CustomizableThreadFactory("fixed-grpc-"))
 
