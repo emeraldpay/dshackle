@@ -25,6 +25,8 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Metrics
 import org.reactivestreams.Publisher
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -75,6 +77,10 @@ class GrpcHead(
                     .delayElements(Duration.ofSeconds(1))
             )
                 .flatMap { it.subscribeHead(chainRef) }
+                .doOnNext {
+                    headsCounter.increment()
+                }
+                .sample(Duration.ofMillis(1)) // protect from too many heads
                 .doFinally {
                     parent.setStatus(UpstreamAvailability.UNAVAILABLE)
                     log.warn("Head subscription finished: $it")
@@ -116,4 +122,9 @@ class GrpcHead(
         super.stop()
         headSubscription?.dispose()
     }
+
+    val headsCounter = Counter.builder("grpc_head_received")
+        .tag("upstream", id)
+        .tag("chain", chain.chainCode)
+        .register(Metrics.globalRegistry)
 }

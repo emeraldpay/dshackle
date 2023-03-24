@@ -134,20 +134,23 @@ class EthereumGrpcUpstreamSpec extends Specification {
 
             @Override
             void subscribeHead(Common.Chain request, StreamObserver<BlockchainOuterClass.ChainHead> responseObserver) {
-                responseObserver.onNext(
-                        BlockchainOuterClass.ChainHead.newBuilder()
-                                .setBlockId(block1.hash.toHex().substring(2))
-                                .setHeight(block1.number)
-                                .setWeight(ByteString.copyFrom(block1.totalDifficulty.toByteArray()))
-                                .build()
-                )
-                responseObserver.onNext(
-                        BlockchainOuterClass.ChainHead.newBuilder()
-                                .setBlockId(block2.hash.toHex().substring(2))
-                                .setHeight(block2.number)
-                                .setWeight(ByteString.copyFrom(block2.totalDifficulty.toByteArray()))
-                                .build()
-                )
+                new Thread({
+                    responseObserver.onNext(
+                            BlockchainOuterClass.ChainHead.newBuilder()
+                                    .setBlockId(block1.hash.toHex().substring(2))
+                                    .setHeight(block1.number)
+                                    .setWeight(ByteString.copyFrom(block1.totalDifficulty.toByteArray()))
+                                    .build()
+                    )
+                    Thread.sleep(100)
+                    responseObserver.onNext(
+                            BlockchainOuterClass.ChainHead.newBuilder()
+                                    .setBlockId(block2.hash.toHex().substring(2))
+                                    .setHeight(block2.number)
+                                    .setWeight(ByteString.copyFrom(block2.totalDifficulty.toByteArray()))
+                                    .build()
+                    )
+                }).start()
             }
         })
         def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null, ChainsConfig.ChainConfig.default())

@@ -42,16 +42,20 @@ class GrpcHeadSpec extends Specification {
                     responseObserver.onError(new IllegalStateException("Unsupported chain"))
                     return
                 }
-                [10, 11, 12, 14].forEach { height ->
+                new Thread({ [10, 11, 12, 14].forEach { height ->
+                    println("next: $height")
                     responseObserver.onNext(
                             BlockchainOuterClass.ChainHead.newBuilder()
                                     .setChain(request.type)
+                                    .setBlockId(height.toString())
                                     .setHeight(height)
                                     .build()
                     )
-                    Thread.sleep(100)
+                    Thread.sleep(500)
                 }
-                responseObserver.onCompleted()
+                    responseObserver.onCompleted()
+                }).start()
+
             }
         })
         def convert = { BlockchainOuterClass.ChainHead head ->
@@ -88,32 +92,34 @@ class GrpcHeadSpec extends Specification {
                     responseObserver.onError(new IllegalStateException("Unsupported chain"))
                     return
                 }
-                phase++
-                if (phase == 1) {
-                    responseObserver.onError(new RuntimeException("Phase 1 error"))
-                } else if (phase == 2) {
-                    [10, 11].forEach { height ->
-                        responseObserver.onNext(
-                                BlockchainOuterClass.ChainHead.newBuilder()
-                                        .setChain(request.type)
-                                        .setHeight(height)
-                                        .build()
-                        )
-                        Thread.sleep(100)
+                new Thread({
+                    phase++
+                    if (phase == 1) {
+                        responseObserver.onError(new RuntimeException("Phase 1 error"))
+                    } else if (phase == 2) {
+                        [10, 11].forEach { height ->
+                            responseObserver.onNext(
+                                    BlockchainOuterClass.ChainHead.newBuilder()
+                                            .setChain(request.type)
+                                            .setHeight(height)
+                                            .build()
+                            )
+                            Thread.sleep(100)
+                        }
+                        responseObserver.onError(new RuntimeException("Phase 2 error"))
+                    } else if (phase == 3) {
+                        [11, 12, 13].forEach { height ->
+                            responseObserver.onNext(
+                                    BlockchainOuterClass.ChainHead.newBuilder()
+                                            .setChain(request.type)
+                                            .setHeight(height)
+                                            .build()
+                            )
+                            Thread.sleep(100)
+                        }
+                        responseObserver.onCompleted()
                     }
-                    responseObserver.onError(new RuntimeException("Phase 2 error"))
-                } else if (phase == 3) {
-                    [11, 12, 13].forEach { height ->
-                        responseObserver.onNext(
-                                BlockchainOuterClass.ChainHead.newBuilder()
-                                        .setChain(request.type)
-                                        .setHeight(height)
-                                        .build()
-                        )
-                        Thread.sleep(100)
-                    }
-                    responseObserver.onCompleted()
-                }
+                }).start()
             }
         })
         def convert = { BlockchainOuterClass.ChainHead head ->
