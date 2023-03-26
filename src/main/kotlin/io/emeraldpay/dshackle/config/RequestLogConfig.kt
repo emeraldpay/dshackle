@@ -13,9 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.ingresslog
+package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.dshackle.monitoring.record.IngressRecord
-import java.util.function.Consumer
+/**
+ * Config for logging of the request made from Dshackle to an upstream
+ */
+class RequestLogConfig(
+    val enabled: Boolean = false,
+    val includeParams: Boolean = false
+) {
 
-interface IngressLogWriter : Consumer<IngressRecord.BlockchainRequest>
+    var filename: String = "./request_log.jsonl"
+
+    companion object {
+
+        fun default(): RequestLogConfig {
+            return disabled()
+        }
+
+        fun disabled(): RequestLogConfig {
+            return RequestLogConfig(
+                enabled = false
+            )
+        }
+    }
+}

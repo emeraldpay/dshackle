@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.monitoring.record.IngressRecord
+import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -70,7 +70,7 @@ open class EthereumUpstreamValidator(
             .read(request)
             .contextWrite(Global.monitoring.ingress.withBlockchain(upstream.getBlockchain()))
             .contextWrite(Global.monitoring.ingress.withRequest(request))
-            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
+            .contextWrite(Global.monitoring.ingress.startCall(RequestRecord.Source.INTERNAL))
             .flatMap(JsonRpcResponse::requireResult)
             .map { objectMapper.readValue(it, SyncingJson::class.java) }
             .timeout(
@@ -98,7 +98,7 @@ open class EthereumUpstreamValidator(
             .read(request)
             .contextWrite(Global.monitoring.ingress.withRequest(request))
             .contextWrite(Global.monitoring.ingress.withBlockchain(upstream.getBlockchain()))
-            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
+            .contextWrite(Global.monitoring.ingress.startCall(RequestRecord.Source.INTERNAL))
             .flatMap(JsonRpcResponse::requireStringResult)
             .map(Integer::decode)
             .timeout(

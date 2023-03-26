@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.egresslog
+package io.emeraldpay.dshackle.monitoring.accesslog
 
 import org.slf4j.LoggerFactory
 import reactor.util.context.ContextView
@@ -27,13 +27,13 @@ import reactor.util.context.Context as ReactorContext
 /**
  * Access to the current Request ID
  */
-class EgressContext {
+class AccessContext {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EgressContext::class.java)
+        private val log = LoggerFactory.getLogger(AccessContext::class.java)
 
         val REQUEST_ID_GRPC_KEY = GrpcContext.key<Value>("DSHACKLE REQ ID")
-        private val REQUEST_ID_REACTOR_KEY = "DSHACKLE/MONITORING/EGRESS_REQ_ID"
+        private val REQUEST_ID_REACTOR_KEY = "DSHACKLE/MONITORING/ACCESS_REQ_ID"
     }
 
     data class Value(

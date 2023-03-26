@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.egresslog
+package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.grpc.Context
 import io.grpc.Contexts
@@ -28,7 +28,7 @@ import java.util.UUID
 /**
  * Generates a new random ID for the request and populates it into gRPC Context. Later in can be read from the Context and associated with other details.
  *
- * @see EgressContext to access the ID
+ * @see AccessContext to access the ID
  * @see io.emeraldpay.dshackle.rpc.BlockchainRpc which puts it using EgressContext into the Reactor context
  */
 class GenerateRequestId : ServerInterceptor {
@@ -39,7 +39,7 @@ class GenerateRequestId : ServerInterceptor {
 
     override fun <ReqT : Any?, RespT : Any?> interceptCall(call: ServerCall<ReqT, RespT>, headers: Metadata, next: ServerCallHandler<ReqT, RespT>): ServerCall.Listener<ReqT> {
         val ctx = Context.current()
-            .withValue(EgressContext.REQUEST_ID_GRPC_KEY, EgressContext.Value(UUID.randomUUID(), Instant.now()))
+            .withValue(AccessContext.REQUEST_ID_GRPC_KEY, AccessContext.Value(UUID.randomUUID(), Instant.now()))
 
         return Contexts.interceptCall(ctx, call, headers, next)
     }

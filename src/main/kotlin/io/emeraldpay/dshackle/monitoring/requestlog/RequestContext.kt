@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.ingresslog
+package io.emeraldpay.dshackle.monitoring.requestlog
 
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.config.IngressLogConfig
-import io.emeraldpay.dshackle.monitoring.record.IngressRecord
+import io.emeraldpay.dshackle.config.RequestLogConfig
+import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.grpc.Chain
@@ -31,11 +31,11 @@ import java.util.function.Function
 /**
  * Monitoring for request made by Dshackle to upstreams
  */
-class IngressContext {
+class RequestContext {
 
     companion object {
-        private val log = LoggerFactory.getLogger(IngressContext::class.java)
-        private val INGRESS_CTX_KEY = "DSHACKLE/MONITORING/INGRESS"
+        private val log = LoggerFactory.getLogger(RequestContext::class.java)
+        private val REQUEST_CTX_KEY = "DSHACKLE/MONITORING/REQUEST"
         private val RPC_ID_KEY = "DSHACKLE/MONITORING/RPCID"
     }
 
@@ -46,12 +46,12 @@ class IngressContext {
         var rpcId: Int? = null
     }
 
-    var includeParams: Boolean = IngressLogConfig.default().includeParams
+    var includeParams: Boolean = RequestLogConfig.default().includeParams
 
     /**
      * Supposed to be set with an actual config on start, ex. from CurrentRequestLogWriter
      */
-    var config: IngressLogConfig = IngressLogConfig.default()
+    var config: RequestLogConfig = RequestLogConfig.default()
         set(value) {
             field = value
             includeParams = value.includeParams
@@ -88,51 +88,51 @@ class IngressContext {
         return 0
     }
 
-    fun getOrCreate(ctx: ContextView): IngressRecord.Builder {
-        return if (!ctx.hasKey(INGRESS_CTX_KEY)) {
-            IngressRecord.newBuilder()
-                .copy(source = IngressRecord.Source.UNSET)
+    fun getOrCreate(ctx: ContextView): RequestRecord.Builder {
+        return if (!ctx.hasKey(REQUEST_CTX_KEY)) {
+            RequestRecord.newBuilder()
+                .copy(source = RequestRecord.Source.UNSET)
         } else {
-            ctx.get(INGRESS_CTX_KEY)
+            ctx.get(REQUEST_CTX_KEY)
         }
     }
 
-    private fun update(modifier: (IngressRecord.Builder) -> IngressRecord.Builder): Function<Context, Context> {
+    private fun update(modifier: (RequestRecord.Builder) -> RequestRecord.Builder): Function<Context, Context> {
         return Function { ctx ->
             val existing = getOrCreate(ctx)
-            ctx.put(INGRESS_CTX_KEY, modifier(existing))
+            ctx.put(REQUEST_CTX_KEY, modifier(existing))
         }
     }
 
     fun cleanup(): Function<Context, Context> {
         return Function { ctx ->
-            ctx.delete(INGRESS_CTX_KEY)
+            ctx.delete(REQUEST_CTX_KEY)
         }
     }
 
     fun isAvailable(ctx: ContextView): Boolean {
-        return ctx.hasKey(INGRESS_CTX_KEY)
+        return ctx.hasKey(REQUEST_CTX_KEY)
     }
 
-    fun startCall(source: IngressRecord.Source): Function<Context, Context> {
+    fun startCall(source: RequestRecord.Source): Function<Context, Context> {
         // prepare the value eagerly instead of the subscription moment, to make sure we have the timestamp of when the request was made
-        val value = IngressRecord.newBuilder()
+        val value = RequestRecord.newBuilder()
             .copy(source = source, ts = Instant.now())
         return Function { ctx ->
             val withRequest = Global.monitoring.egress.getRequest(ctx).let {
                 value.copy(requestId = it.id)
             }
-            ctx.put(INGRESS_CTX_KEY, withRequest)
+            ctx.put(REQUEST_CTX_KEY, withRequest)
         }
     }
 
     fun ensureInitialized(): Function<Context, Context> {
         return Function { ctx ->
-            if (!ctx.hasKey(INGRESS_CTX_KEY)) {
+            if (!ctx.hasKey(REQUEST_CTX_KEY)) {
                 ctx.put(
-                    INGRESS_CTX_KEY,
-                    IngressRecord.newBuilder()
-                        .copy(source = IngressRecord.Source.UNSET)
+                    REQUEST_CTX_KEY,
+                    RequestRecord.newBuilder()
+                        .copy(source = RequestRecord.Source.UNSET)
                 )
             } else {
                 ctx

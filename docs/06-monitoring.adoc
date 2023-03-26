@@ -7,26 +7,26 @@ Or https://jsonlines.org/[JSON Lines] to be more precise, i.e., a test file wher
 
 It includes:
 
-- _Egress Log_ - requests made to Dshackle from a client
-- _Ingress Log_ - requests made by Dshackle to upstreams
+- _Access Log_ - requests made to Dshackle from a client
+- _Request Log_ - requests made by Dshackle to an upstream
 
 Because some requests may produce multiple responses, or multiple internal requests the log is not related as one-to-one.
-But instead maintains a reference a `request.id` in both logs, that can be used to join multiple egress and ingress logs into a single trace.
+But instead maintains a reference a `request.id` in both logs, that can be used to join multiple access and request logs into a single trace.
 
-== Egress Log
+== Access Log
 
-NOTE: By default, the egress log is disabled.
+NOTE: By default, the Access log is disabled.
 
-To enable egress log add following configuration:
+To enable access log add following configuration:
 
 [source,yaml]
 ----
-egress-log:
+access-log:
   enabled: true
-  filename: /var/log/dshackle/egress_log.jsonl
+  filename: /var/log/dshackle/access_log.jsonl
 ----
 
-`filename` is optional, and the default value is `egress_log.jsonl` (i.e., in the current directory).
+`filename` is optional, and the default value is `access_log.jsonl` (i.e., in the current directory).
 
 Since a single request may contain multiple replies (ex., a batch call, or subscribe to the head blocks) the Dshackle logging is based on replies.
 The access log file contains details per each response send from the server, and each of them refers to original request details.
@@ -36,7 +36,7 @@ The log contains the JSON lines similar to:
 [source,json]
 ----
 {
-  "version":"egresslog/v1beta2",
+  "version":"accesslog/v1beta2",
   "id":"578d83db-cf53-4ef8-b73e-3f1cc0a67e96",
   "channel":"DSHACKLE",
   "ts":"2021-07-20T01:53:33.174645Z",
@@ -84,17 +84,17 @@ The log contains the JSON lines similar to:
 ** `id` request id provided in the original request
 ** `payloadSizeBytes` size of the original _individual_ request (for JSON RPC it's size of the `params` value)
 
-== Ingress Log
+== Request Log
 
-NOTE: By default, the ingress log is disabled.
+NOTE: By default, the request log is disabled.
 
-To enable ingress log add following configuration:
+To enable request log add following configuration:
 
 [source,yaml]
 ----
-ingress-log:
+request-log:
   enabled: true
-  filename: /var/log/dshackle/ingress_log.jsonl
+  filename: /var/log/dshackle/request_log.jsonl
 ----
 
 The log contains the JSON lines similar to:
@@ -102,7 +102,7 @@ The log contains the JSON lines similar to:
 [source,json]
 ----
 {
-  "version":"ingresslog/v1alpha",
+  "version":"requestlog/v1alpha",
   "id":"c23a5391-1b8c-40b0-a32f-fa736b8175a2",
   "success":true,
   "upstream":{
@@ -138,7 +138,7 @@ The log contains the JSON lines similar to:
 ** `type` type of the request (`DSHACKLE` for Dshackle gRPC request, `JSONRPC` as JSON RPC, and `WSSUBSCRIBE` Websocket subscription request)
 - `request` reference to original request
 ** `source` is `REQUEST` when is caused by external call, or `INTERNAL` if it's an internal request such as a health check
-** `id` for a `REQUEST` source it's the same id as in egress log in `request.id` field.
+** `id` for a `REQUEST` source it's the same id as in access log in `request.id` field.
 For an `INTERNAL` source it's just an internal id.
 ** `start` time when the request was initiated (note that the execution time may differ, see below)
 - `jsonrpc` details about the JSON RPC request (optional)

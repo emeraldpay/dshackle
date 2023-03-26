@@ -15,8 +15,8 @@
  */
 package io.emeraldpay.dshackle.monitoring
 
-import io.emeraldpay.dshackle.monitoring.egresslog.EgressContext
-import io.emeraldpay.dshackle.monitoring.ingresslog.IngressContext
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessContext
+import io.emeraldpay.dshackle.monitoring.requestlog.RequestContext
 import org.slf4j.LoggerFactory
 
 /**
@@ -31,10 +31,10 @@ class MonitoringContext {
     /**
      * Monitoring for request made by Dshackle to upstreams
      */
-    val ingress = IngressContext()
+    val ingress = RequestContext()
 
     /**
      * Monitoring for request made to Dshackle from a client
      */
-    val egress = EgressContext()
+    val egress = AccessContext()
 }

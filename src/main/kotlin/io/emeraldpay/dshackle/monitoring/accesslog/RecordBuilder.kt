@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.egresslog
+package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.config.EgressLogConfig
+import io.emeraldpay.dshackle.config.AccessLogConfig
 import io.emeraldpay.dshackle.monitoring.Channel
-import io.emeraldpay.dshackle.monitoring.record.EgressRecord
+import io.emeraldpay.dshackle.monitoring.record.AccessRecord
 import io.emeraldpay.grpc.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc
@@ -41,9 +41,9 @@ class RecordBuilder {
     companion object {
         private val log = LoggerFactory.getLogger(RecordBuilder::class.java)
 
-        // A reference to the config for current _running instance_.
+        // A reference to the config for the current _running instance_.
         // Initialized by AccessLogWriter
-        var egressLogConfig: EgressLogConfig = EgressLogConfig.default()
+        var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
     }
 
     interface StartingHttp2Request {
@@ -78,10 +78,10 @@ class RecordBuilder {
             private val invalidCharacters = Regex("[\n\t]+")
         }
 
-        var requestDetails = EgressRecord.RequestDetails(
+        var requestDetails = AccessRecord.RequestDetails(
             requestId,
             Instant.now(),
-            EgressRecord.Remote(emptyList(), "", "")
+            AccessRecord.Remote(emptyList(), "", "")
         )
 
         var chainId: Int = Chain.UNSPECIFIED.id
@@ -142,7 +142,7 @@ class RecordBuilder {
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
                 .copy(
-                    remote = EgressRecord.Remote(
+                    remote = AccessRecord.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
                         userAgent = userAgent
@@ -161,7 +161,7 @@ class RecordBuilder {
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
                 .copy(
-                    remote = EgressRecord.Remote(
+                    remote = AccessRecord.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
                         userAgent = userAgent
@@ -192,7 +192,7 @@ class RecordBuilder {
             val ip = findBestIp(ips)?.hostAddress ?: ""
             this.requestDetails = this.requestDetails
                 .copy(
-                    remote = EgressRecord.Remote(
+                    remote = AccessRecord.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
                         userAgent = userAgent
@@ -225,7 +225,7 @@ class RecordBuilder {
 
     class SubscribeHead(requestId: UUID) :
         Base<SubscribeHead>(requestId),
-        RequestReply<EgressRecord.SubscribeHead, Common.Chain, BlockchainOuterClass.ChainHead> {
+        RequestReply<AccessRecord.SubscribeHead, Common.Chain, BlockchainOuterClass.ChainHead> {
 
         private var index = 0
 
@@ -237,8 +237,8 @@ class RecordBuilder {
             withChain(msg.type.number)
         }
 
-        override fun onReply(msg: BlockchainOuterClass.ChainHead): EgressRecord.SubscribeHead {
-            return EgressRecord.SubscribeHead(
+        override fun onReply(msg: BlockchainOuterClass.ChainHead): AccessRecord.SubscribeHead {
+            return AccessRecord.SubscribeHead(
                 chain, UUID.randomUUID(), requestDetails, index++
             )
         }
@@ -246,29 +246,29 @@ class RecordBuilder {
 
     class SubscribeBalance(val subscribe: Boolean, requestId: UUID) :
         Base<SubscribeBalance>(requestId),
-        RequestReply<EgressRecord.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
+        RequestReply<AccessRecord.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
 
         private var index = 0
-        private var balanceRequest: EgressRecord.BalanceRequest? = null
+        private var balanceRequest: AccessRecord.BalanceRequest? = null
 
         override fun getT(): SubscribeBalance {
             return this
         }
 
         override fun onRequest(msg: BlockchainOuterClass.BalanceRequest) {
-            balanceRequest = EgressRecord.BalanceRequest(
+            balanceRequest = AccessRecord.BalanceRequest(
                 msg.asset.code.uppercase(Locale.getDefault()),
                 msg.address.addrTypeCase.name
             )
         }
 
-        override fun onReply(msg: BlockchainOuterClass.AddressBalance): EgressRecord.SubscribeBalance {
+        override fun onReply(msg: BlockchainOuterClass.AddressBalance): AccessRecord.SubscribeBalance {
             if (balanceRequest == null) {
                 throw IllegalStateException("Request is not initialized")
             }
-            val addressBalance = EgressRecord.AddressBalance(msg.asset.code, msg.address.address)
+            val addressBalance = AccessRecord.AddressBalance(msg.asset.code, msg.address.address)
             val chain = Chain.byId(msg.asset.chain.number)
-            return EgressRecord.SubscribeBalance(
+            return AccessRecord.SubscribeBalance(
                 chain, UUID.randomUUID(), subscribe, requestDetails, balanceRequest!!, addressBalance, index++
             )
         }
@@ -276,19 +276,19 @@ class RecordBuilder {
 
     class TxStatus(requestId: UUID) :
         Base<TxStatus>(requestId),
-        RequestReply<EgressRecord.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
+        RequestReply<AccessRecord.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
         private var index = 0
-        private var txStatusRequest: EgressRecord.TxStatusRequest? = null
+        private var txStatusRequest: AccessRecord.TxStatusRequest? = null
 
         override fun onRequest(msg: BlockchainOuterClass.TxStatusRequest) {
-            this.txStatusRequest = EgressRecord.TxStatusRequest(msg.txId)
+            this.txStatusRequest = AccessRecord.TxStatusRequest(msg.txId)
             withChain(msg.chainValue)
         }
 
-        override fun onReply(msg: BlockchainOuterClass.TxStatus): EgressRecord.TxStatus {
-            return EgressRecord.TxStatus(
+        override fun onReply(msg: BlockchainOuterClass.TxStatus): AccessRecord.TxStatus {
+            return AccessRecord.TxStatus(
                 chain, UUID.randomUUID(), requestDetails, txStatusRequest!!,
-                EgressRecord.TxStatusResponse(msg.confirmations),
+                AccessRecord.TxStatusResponse(msg.confirmations),
                 index++
             )
         }
@@ -300,8 +300,8 @@ class RecordBuilder {
 
     class NativeCall(requestId: UUID) :
         Base<NativeCall>(requestId),
-        RequestReply<EgressRecord.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
-        val items = ArrayList<EgressRecord.NativeCallItemDetails>()
+        RequestReply<AccessRecord.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
+        val items = ArrayList<AccessRecord.NativeCallItemDetails>()
         private var index = 0
 
         override fun getT(): NativeCall {
@@ -312,12 +312,12 @@ class RecordBuilder {
             withChain(msg.chain.number)
             msg.itemsList.forEach { item ->
                 this.items.add(
-                    EgressRecord.NativeCallItemDetails(
+                    AccessRecord.NativeCallItemDetails(
                         item.method,
                         item.id,
                         item.payload.size().toLong(),
                         item.nonce,
-                        if (egressLogConfig.includeMessages) {
+                        if (accessLogConfig.includeMessages) {
                             if (item.payload != null && !item.payload.isEmpty && item.payload.isValidUtf8) item.payload.toStringUtf8() else ""
                         } else null
                     )
@@ -325,9 +325,9 @@ class RecordBuilder {
             }
         }
 
-        override fun onReply(msg: BlockchainOuterClass.NativeCallReplyItem): EgressRecord.NativeCall {
+        override fun onReply(msg: BlockchainOuterClass.NativeCallReplyItem): AccessRecord.NativeCall {
             val item = items.find { it.id == msg.id }!!
-            return EgressRecord.NativeCall(
+            return AccessRecord.NativeCall(
                 request = requestDetails,
                 total = items.size,
                 index = index++,
@@ -337,10 +337,10 @@ class RecordBuilder {
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
                 channel = Channel.DSHACKLE,
-                responseBody = if (egressLogConfig.includeMessages) {
+                responseBody = if (accessLogConfig.includeMessages) {
                     if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
                 } else null,
-                errorMessage = if (egressLogConfig.includeMessages) msg.errorMessage else null,
+                errorMessage = if (accessLogConfig.includeMessages) msg.errorMessage else null,
                 signature = Hex.encodeHexString(msg.signature.signature.toByteArray()),
                 nonce = msg.signature.nonce
             )
@@ -349,9 +349,9 @@ class RecordBuilder {
         fun onReply(
             reply: io.emeraldpay.dshackle.rpc.NativeCall.CallResult,
             channel: Channel
-        ): EgressRecord.NativeCall {
+        ): AccessRecord.NativeCall {
             val item = items.find { it.id == reply.id }!!
-            return EgressRecord.NativeCall(
+            return AccessRecord.NativeCall(
                 request = requestDetails,
                 total = items.size,
                 index = index++,
@@ -361,8 +361,8 @@ class RecordBuilder {
                 payloadSizeBytes = item.payloadSizeBytes,
                 id = UUID.randomUUID(),
                 channel = channel,
-                responseBody = if (egressLogConfig.includeMessages) (reply.result?.let { String(it) } ?: "") else null,
-                errorMessage = if (egressLogConfig.includeMessages) {
+                responseBody = if (accessLogConfig.includeMessages) (reply.result?.let { String(it) } ?: "") else null,
+                errorMessage = if (accessLogConfig.includeMessages) {
                     reply.error?.let {
                         it.upstreamError?.message ?: it.message
                     } ?: ""
@@ -376,9 +376,9 @@ class RecordBuilder {
         requestId: UUID,
     ) :
         Base<NativeSubscribe>(requestId),
-        RequestReply<EgressRecord.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
-        var item: EgressRecord.NativeSubscribeItemDetails? = null
-        val replies = HashMap<Int, EgressRecord.NativeSubscribeReplyDetails>()
+        RequestReply<AccessRecord.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
+        var item: AccessRecord.NativeSubscribeItemDetails? = null
+        val replies = HashMap<Int, AccessRecord.NativeSubscribeReplyDetails>()
 
         override fun getT(): NativeSubscribe {
             return this
@@ -386,21 +386,21 @@ class RecordBuilder {
 
         override fun onRequest(msg: BlockchainOuterClass.NativeSubscribeRequest) {
             withChain(msg.chain.number)
-            this.item = EgressRecord.NativeSubscribeItemDetails(
+            this.item = AccessRecord.NativeSubscribeItemDetails(
                 msg.method,
                 msg.payload.size().toLong()
             )
         }
 
-        override fun onReply(msg: BlockchainOuterClass.NativeSubscribeReplyItem): EgressRecord.NativeSubscribe {
-            return EgressRecord.NativeSubscribe(
+        override fun onReply(msg: BlockchainOuterClass.NativeSubscribeReplyItem): AccessRecord.NativeSubscribe {
+            return AccessRecord.NativeSubscribe(
                 request = requestDetails,
                 blockchain = chain,
                 nativeSubscribe = item!!,
                 payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
                 id = UUID.randomUUID(),
                 channel = Channel.DSHACKLE,
-                responseBody = if (egressLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null,
+                responseBody = if (accessLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null,
             )
         }
     }
@@ -411,9 +411,9 @@ class RecordBuilder {
         requestId: UUID,
     ) :
         Base<NativeSubscribeHttp>(requestId),
-        RequestReply<EgressRecord.NativeSubscribe, Pair<String, ByteArray?>, Long> {
-        var item: EgressRecord.NativeSubscribeItemDetails? = null
-        val replies = HashMap<Int, EgressRecord.NativeSubscribeReplyDetails>()
+        RequestReply<AccessRecord.NativeSubscribe, Pair<String, ByteArray?>, Long> {
+        var item: AccessRecord.NativeSubscribeItemDetails? = null
+        val replies = HashMap<Int, AccessRecord.NativeSubscribeReplyDetails>()
 
         init {
             withChain(chain.id)
@@ -424,14 +424,14 @@ class RecordBuilder {
         }
 
         override fun onRequest(msg: Pair<String, ByteArray?>) {
-            this.item = EgressRecord.NativeSubscribeItemDetails(
+            this.item = AccessRecord.NativeSubscribeItemDetails(
                 msg.first,
                 msg.second?.size?.toLong() ?: 0L
             )
         }
 
-        override fun onReply(msg: Long): EgressRecord.NativeSubscribe {
-            return EgressRecord.NativeSubscribe(
+        override fun onReply(msg: Long): AccessRecord.NativeSubscribe {
+            return AccessRecord.NativeSubscribe(
                 request = requestDetails,
                 blockchain = chain,
                 nativeSubscribe = item!!,
@@ -444,7 +444,7 @@ class RecordBuilder {
 
     class Describe(requestId: UUID) :
         Base<Describe>(requestId),
-        RequestReply<EgressRecord.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {
+        RequestReply<AccessRecord.Describe, BlockchainOuterClass.DescribeRequest, BlockchainOuterClass.DescribeResponse> {
 
         override fun getT(): Describe {
             return this
@@ -453,8 +453,8 @@ class RecordBuilder {
         override fun onRequest(msg: BlockchainOuterClass.DescribeRequest) {
         }
 
-        override fun onReply(msg: BlockchainOuterClass.DescribeResponse): EgressRecord.Describe {
-            return EgressRecord.Describe(
+        override fun onReply(msg: BlockchainOuterClass.DescribeResponse): AccessRecord.Describe {
+            return AccessRecord.Describe(
                 id = UUID.randomUUID(),
                 request = requestDetails
             )
@@ -463,7 +463,7 @@ class RecordBuilder {
 
     class Status(requestId: UUID) :
         Base<Status>(requestId),
-        RequestReply<EgressRecord.Status, BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus> {
+        RequestReply<AccessRecord.Status, BlockchainOuterClass.StatusRequest, BlockchainOuterClass.ChainStatus> {
         override fun getT(): Status {
             return this
         }
@@ -471,9 +471,9 @@ class RecordBuilder {
         override fun onRequest(msg: BlockchainOuterClass.StatusRequest) {
         }
 
-        override fun onReply(msg: BlockchainOuterClass.ChainStatus): EgressRecord.Status {
+        override fun onReply(msg: BlockchainOuterClass.ChainStatus): AccessRecord.Status {
             val chain = Chain.byId(msg.chainValue)
-            return EgressRecord.Status(
+            return AccessRecord.Status(
                 blockchain = chain,
                 request = requestDetails,
                 id = UUID.randomUUID()
@@ -483,7 +483,7 @@ class RecordBuilder {
 
     class EstimateFee(requestId: UUID) :
         Base<EstimateFee>(requestId),
-        RequestReply<EgressRecord.EstimateFee, BlockchainOuterClass.EstimateFeeRequest, BlockchainOuterClass.EstimateFeeResponse> {
+        RequestReply<AccessRecord.EstimateFee, BlockchainOuterClass.EstimateFeeRequest, BlockchainOuterClass.EstimateFeeResponse> {
 
         private var mode: String = "UNKNOWN"
         private var blocks: Int = 0
@@ -498,12 +498,12 @@ class RecordBuilder {
             this.blocks = msg.blocks
         }
 
-        override fun onReply(msg: BlockchainOuterClass.EstimateFeeResponse): EgressRecord.EstimateFee {
-            return EgressRecord.EstimateFee(
+        override fun onReply(msg: BlockchainOuterClass.EstimateFeeResponse): AccessRecord.EstimateFee {
+            return AccessRecord.EstimateFee(
                 blockchain = chain,
                 request = requestDetails,
                 id = UUID.randomUUID(),
-                estimateFee = EgressRecord.EstimateFeeDetails(
+                estimateFee = AccessRecord.EstimateFeeDetails(
                     mode = mode,
                     blocks = blocks
                 )
