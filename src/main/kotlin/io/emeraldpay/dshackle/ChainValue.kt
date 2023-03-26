@@ -18,8 +18,9 @@ package io.emeraldpay.dshackle
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.grpc.Chain
 import java.util.EnumMap
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 /**
  * Keeps a lazily created value associated with a Chain
@@ -29,18 +30,20 @@ class ChainValue<V>(
 ) {
 
     private val values = EnumMap<Chain, V>(Chain::class.java)
-    private val valuesInitLock = ReentrantLock()
+    private val valuesInitLock = ReentrantReadWriteLock()
 
     fun get(chain: Common.ChainRef): V {
         return get(Chain.byId(chain.number))
     }
 
     fun get(chain: Chain): V {
-        val existing = values[chain]
-        if (existing != null) {
-            return existing
+        valuesInitLock.read {
+            val existing = values[chain]
+            if (existing != null) {
+                return existing
+            }
         }
-        return valuesInitLock.withLock {
+        return valuesInitLock.write {
             // second check in case it was updated while getting the lock
             val existing2 = values[chain]
             if (existing2 != null) {
