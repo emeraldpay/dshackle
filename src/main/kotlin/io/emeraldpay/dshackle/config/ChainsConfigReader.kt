@@ -5,7 +5,9 @@ import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 
-class ChainsConfigReader : YamlConfigReader<ChainsConfig>() {
+class ChainsConfigReader(
+    private val upstreamsConfigReader: UpstreamsConfigReader
+) : YamlConfigReader<ChainsConfig>() {
 
     private val defaultConfig = this::class.java.getResourceAsStream("/chains.yaml")!!
 
@@ -41,12 +43,20 @@ class ChainsConfigReader : YamlConfigReader<ChainsConfig>() {
     }
 
     private fun readChain(node: MappingNode): ChainsConfig.RawChainConfig? {
-        return getMapping(node, "lags")?.let {
-            return ChainsConfig.RawChainConfig(
-                getValueAsInt(it, "syncing"),
-                getValueAsInt(it, "lagging")
-            )
+        val rawConfig = ChainsConfig.RawChainConfig()
+        getMapping(node, "lags")?.let { lagConfig ->
+            getValueAsInt(lagConfig, "syncing")?.let {
+                rawConfig.syncingLagSize = it
+            }
+            getValueAsInt(lagConfig, "lagging")?.let {
+                rawConfig.laggingLagSize = it
+            }
         }
+        upstreamsConfigReader.tryReadOptions(node)?.let {
+            rawConfig.options = it
+        }
+
+        return rawConfig
     }
 
     private fun readChains(node: CollectionNode<MappingNode>): List<Pair<String, ChainsConfig.RawChainConfig>> {

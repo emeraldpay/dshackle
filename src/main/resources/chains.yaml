@@ -15,18 +15,26 @@ chain-settings:
         syncing: 20
         lagging: 10
     - id: arbitrum
+      options:
+        validate-peers: false
       lags:
         syncing: 20
         lagging: 10
     - id: arbitrum-testnet
+      options:
+        validate-peers: false
       lags:
         syncing: 20
         lagging: 10
     - id: optimism
+      options:
+        validate-peers: false
       lags:
         syncing: 20
         lagging: 10
     - id: optimism-testnet
+      options:
+        validate-peers: false
       lags:
         syncing: 20
         lagging: 10

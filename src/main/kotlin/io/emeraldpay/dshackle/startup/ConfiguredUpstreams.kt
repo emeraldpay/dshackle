@@ -102,7 +102,9 @@ open class ConfiguredUpstreams(
                     log.error("Chain is unknown: ${up.chain}")
                     return@forEach
                 }
-                val options = (defaultOptions[chain] ?: UpstreamsConfig.PartialOptions.getDefaults())
+                val chainConfig = chainsConfig.resolve(chain)
+                val options = chainConfig.options
+                    .merge(defaultOptions[chain] ?: UpstreamsConfig.PartialOptions.getDefaults())
                     .merge(up.options ?: UpstreamsConfig.PartialOptions())
                     .buildOptions()
                 val upstream = when (BlockchainType.from(chain)) {
@@ -112,7 +114,7 @@ open class ConfiguredUpstreams(
                             up.cast(UpstreamsConfig.EthereumPosConnection::class.java),
                             chain,
                             options,
-                            chainsConfig.resolve(chain)
+                            chainConfig
                         )
                     }
                     BlockchainType.EVM_POW -> {
@@ -121,7 +123,7 @@ open class ConfiguredUpstreams(
                             up.cast(UpstreamsConfig.EthereumConnection::class.java),
                             chain,
                             options,
-                            chainsConfig.resolve(chain)
+                            chainConfig
                         )
                     }
                     BlockchainType.BITCOIN -> {
@@ -129,7 +131,7 @@ open class ConfiguredUpstreams(
                             up.cast(UpstreamsConfig.BitcoinConnection::class.java),
                             chain,
                             options,
-                            chainsConfig.resolve(chain)
+                            chainConfig
                         )
                     }
                 }

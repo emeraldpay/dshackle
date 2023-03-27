@@ -32,7 +32,7 @@ class MainConfigReader(
     private val healthConfigReader = HealthConfigReader()
     private val signatureConfigReader = SignatureConfigReader(fileResolver)
     private val compressionConfigReader = CompressionConfigReader()
-    private val chainsConfigReader = ChainsConfigReader()
+    private val chainsConfigReader = ChainsConfigReader(upstreamsConfigReader)
 
     override fun read(input: MappingNode?): MainConfig {
         val config = MainConfig()

@@ -17,11 +17,14 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.FileResolver
 import spock.lang.Specification
 
 class ChainsConfigReaderSpec extends Specification {
 
-    ChainsConfigReader reader = new ChainsConfigReader()
+    ChainsConfigReader reader = new ChainsConfigReader(
+            new UpstreamsConfigReader(Stub(FileResolver))
+    )
 
     def "Parse standard config"() {
         setup:
@@ -41,6 +44,7 @@ class ChainsConfigReaderSpec extends Specification {
 
         opt.laggingLagSize == 3
         opt.syncingLagSize == 20
+        opt.options.validatePeers == false
 
         sep.laggingLagSize == 1
         sep.syncingLagSize == 10
