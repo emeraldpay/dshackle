@@ -1,9 +1,14 @@
 package io.emeraldpay.dshackle.reader
 
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.instanceOf
+import reactor.core.Exceptions
 import reactor.core.publisher.Mono
 import java.time.Duration
 
@@ -100,5 +105,26 @@ class CompoundReaderTest : ShouldSpec({
 
         act shouldNotBe null
         act.message!! shouldBe "Test Error"
+    }
+
+    should("Stop on RPC error") {
+        val readerFailing = object : Reader<String, String> {
+            override fun read(key: String): Mono<String> {
+                return Mono.error(JsonRpcException(100, "Test Error"))
+            }
+        }
+        val reader = CompoundReader(reader1Empty, readerFailing, reader1)
+
+        val act = shouldThrowAny {
+            reader.read("test")
+                .block(Duration.ofSeconds(1))
+        }.let(Exceptions::unwrap)
+
+        act shouldNotBe null
+        act shouldBe instanceOf<JsonRpcException>()
+        with(act as JsonRpcException) {
+            id shouldBe JsonRpcResponse.Id.from(100)
+            message!! shouldBe "Test Error"
+        }
     }
 })

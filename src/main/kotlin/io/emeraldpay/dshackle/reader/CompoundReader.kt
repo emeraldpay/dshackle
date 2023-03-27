@@ -18,6 +18,8 @@ package io.emeraldpay.dshackle.reader
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -45,7 +47,8 @@ class CompoundReader<K, D>(
                     .doOnError { t ->
                         if (t is SilentException) {
                             log.warn("Failed to read from $rdr: ${t.message}")
-                        } else {
+                        } else if (t !is JsonRpcException && t !is RpcException) {
+                            // a Rpc Exception are supposed to be returned as is, so log only unhandled exceptions
                             log.warn("Failed to read from $rdr", t)
                         }
                     }
