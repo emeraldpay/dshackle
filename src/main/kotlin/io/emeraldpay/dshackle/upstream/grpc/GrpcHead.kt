@@ -76,7 +76,7 @@ class GrpcHead(
                     .repeat()
                     .delayElements(Duration.ofSeconds(1))
             )
-                .flatMap { it.subscribeHead(chainRef) }
+                .concatMap({ it.subscribeHead(chainRef) }, 0)
                 .doOnNext {
                     headsCounter.increment()
                 }

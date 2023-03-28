@@ -61,7 +61,6 @@ abstract class HeadLagObserver(
             .sample(throttling)
             .flatMap(this::probeFollowers)
             .map { item ->
-                log.debug("Set to ${item.t2.getId()} lag = ${item.t1}")
                 item.t2.setLag(item.t1)
             }
     }
