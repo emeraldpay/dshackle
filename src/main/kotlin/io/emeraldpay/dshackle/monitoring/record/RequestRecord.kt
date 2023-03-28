@@ -36,7 +36,7 @@ class RequestRecord {
 
     @JsonPropertyOrder("version", "id", "success", "upstream", "request", "jsonrpc")
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    class BlockchainRequest(
+    data class BlockchainRequest(
         val id: UUID,
         val request: RequestDetails,
         val blockchain: Chain? = null,
@@ -54,13 +54,13 @@ class RequestRecord {
     ) {
         val version = "requestlog/v1alpha"
 
-        val queueTime: Long = if (execute != null) {
-            (execute.toEpochMilli() - request.start.toEpochMilli()).coerceAtLeast(0)
+        val queueTime: Double = if (execute != null) {
+            (execute.nano - request.start.nano).coerceAtLeast(0) / 1_000_000.0
         } else {
-            (complete.toEpochMilli() - request.start.toEpochMilli()).coerceAtLeast(0)
+            (complete.nano - request.start.nano).coerceAtLeast(0) / 1_000_000.0
         }
-        val requestTime: Long? = if (execute != null) {
-            (complete.toEpochMilli() - execute.toEpochMilli()).coerceAtLeast(0)
+        val requestTime: Double? = if (execute != null) {
+            (complete.nano - execute.nano).coerceAtLeast(0) / 1_000_000.0
         } else {
             null
         }
