@@ -87,10 +87,12 @@ class TrackEthereumAddressSpec extends Specification {
                 .setBalance("65432")
                 .build()
 
+        def hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
         def block2 = new BlockJson().with {
             it.number = 1
             it.totalDifficulty = 100
-            it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
+            it.hash = hash
+            it.parentHash = hash
             it.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
             return it
         }

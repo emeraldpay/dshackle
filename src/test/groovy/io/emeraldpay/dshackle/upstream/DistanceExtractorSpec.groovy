@@ -8,6 +8,8 @@ import spock.lang.Specification
 import java.time.Instant
 
 class DistanceExtractorSpec extends Specification {
+    BlockHash parent = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
+
     def "Correct distance for PoW"() {
         expect:
         def top = new BlockJson().with {
@@ -15,6 +17,7 @@ class DistanceExtractorSpec extends Specification {
             it.totalDifficulty = topDiff
             it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915123")
             it.timestamp = Instant.now()
+            it.parentHash = parent
             return it
         }
         def curr = new BlockJson().with {
@@ -22,6 +25,7 @@ class DistanceExtractorSpec extends Specification {
             it.totalDifficulty = currDiff
             it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915123")
             it.timestamp = Instant.now()
+            it.parentHash = parent
             return it
         }
         delta as DistanceExtractor.ChainDistance == DistanceExtractor.@Companion.extractPowDistance(BlockContainer.from(top), BlockContainer.from(curr))
@@ -49,6 +53,7 @@ class DistanceExtractorSpec extends Specification {
             it.totalDifficulty = 0
             it.hash = BlockHash.from(hashA == 0 ? hash1 : hash2)
             it.timestamp = Instant.now()
+            it.parentHash = parent
             return it
         }
         def curr = new BlockJson().with {
@@ -56,6 +61,7 @@ class DistanceExtractorSpec extends Specification {
             it.totalDifficulty = 0
             it.hash = BlockHash.from(hashB == 0 ? hash1 : hash2)
             it.timestamp = Instant.now()
+            it.parentHash = top.hash
             return it
         }
         delta as DistanceExtractor.ChainDistance == DistanceExtractor.@Companion.extractPriorityDistance(BlockContainer.from(top), BlockContainer.from(curr))
@@ -67,8 +73,36 @@ class DistanceExtractorSpec extends Specification {
         103       | 0     | 100        | 1     || new DistanceExtractor.ChainDistance.Distance(3)
         150       | 0     | 100        | 1     || new DistanceExtractor.ChainDistance.Distance(50)
 
-        100       | 0     | 101        | 1     || DistanceExtractor.ChainDistance.Fork.INSTANCE
-        100       | 0     | 102        | 1     || DistanceExtractor.ChainDistance.Fork.INSTANCE
+        100       | 0     | 101        | 1     || new DistanceExtractor.ChainDistance.Distance(0)
+        100       | 0     | 102        | 1     || new DistanceExtractor.ChainDistance.Distance(0)
         100       | 0     | 100        | 1     || DistanceExtractor.ChainDistance.Fork.INSTANCE
+    }
+
+    def "Correct distance if parentHash is null"() {
+        setup:
+        def hash1 = "0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915123"
+        def hash2 = "0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915124"
+        expect:
+        def top = new BlockJson().with {
+            it.number = topHeight
+            it.totalDifficulty = 0
+            it.hash = BlockHash.from(hashA == 0 ? hash1 : hash2)
+            it.timestamp = Instant.now()
+            it.parentHash = parent
+            return it
+        }
+        def curr = new BlockJson().with {
+            it.number = currHeight
+            it.totalDifficulty = 0
+            it.hash = BlockHash.from(hashB == 0 ? hash1 : hash2)
+            it.timestamp = Instant.now()
+            it.parentHash = null
+            return it
+        }
+        delta as DistanceExtractor.ChainDistance == DistanceExtractor.@Companion.extractPriorityDistance(BlockContainer.from(top), BlockContainer.from(curr))
+        where:
+        topHeight | hashA | currHeight | hashB || delta
+        105       | 0     | 100        | 0     || new DistanceExtractor.ChainDistance.Distance(5)
+        100       | 0     | 101        | 1     || new DistanceExtractor.ChainDistance.Distance(0)
     }
 }

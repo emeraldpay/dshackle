@@ -51,6 +51,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
             Timer.builder("test1").register(TestingCommons.meterRegistry),
             Counter.builder("test2").register(TestingCommons.meterRegistry)
     )
+    BlockHash parent = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
 
     def hash = (byte)123
     def buildInfo = new BuildInfo("v0.0.1-test")
@@ -65,6 +66,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
             it.totalDifficulty = new BigInteger("35bbde5595de6456", 16)
             it.timestamp = Instant.now()
+            it.parentHash = parent
             return it
         }
         api.answer("eth_getBlockByHash", [block1.hash.toHex(), false], block1)
@@ -81,6 +83,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                         BlockchainOuterClass.ChainHead.newBuilder()
                                 .setBlockId(block1.hash.toHex().substring(2))
                                 .setHeight(block1.number)
+                                .setParentBlockId(parent.toHex().substring(2))
                                 .setWeight(ByteString.copyFrom(block1.totalDifficulty.toByteArray()))
                                 .build()
                 )
@@ -115,6 +118,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
             it.totalDifficulty = new BigInteger("35bbde5595de6456", 16)
             it.timestamp = Instant.now()
+            it.parentHash = parent
             return it
         }
         def block2 = new BlockJson().with {
@@ -122,6 +126,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
             it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
             it.totalDifficulty = new BigInteger("35bbde5595de6455", 16)
             it.timestamp = Instant.now()
+            it.parentHash = parent
             return it
         }
         api.answer("eth_getBlockByHash", [block1.hash.toHex(), false], block1)
@@ -139,6 +144,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                             BlockchainOuterClass.ChainHead.newBuilder()
                                     .setBlockId(block1.hash.toHex().substring(2))
                                     .setHeight(block1.number)
+                                    .setParentBlockId(parent.toHex().substring(2))
                                     .setWeight(ByteString.copyFrom(block1.totalDifficulty.toByteArray()))
                                     .build()
                     )
@@ -147,6 +153,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                             BlockchainOuterClass.ChainHead.newBuilder()
                                     .setBlockId(block2.hash.toHex().substring(2))
                                     .setHeight(block2.number)
+                                    .setParentBlockId(parent.toHex().substring(2))
                                     .setWeight(ByteString.copyFrom(block2.totalDifficulty.toByteArray()))
                                     .build()
                     )
@@ -185,6 +192,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
             it.hash = BlockHash.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
             it.totalDifficulty = new BigInteger("35bbde5595de6456", 16)
             it.timestamp = Instant.now()
+            it.parentHash = parent
             return it
         }
         def block2 = new BlockJson().with {
@@ -192,6 +200,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
             it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
             it.totalDifficulty = new BigInteger("35bbde5595de6457", 16)
             it.timestamp = Instant.now()
+            it.parentHash = parent
             return it
         }
         api.answer("eth_getBlockByHash", [block1.hash.toHex(), false], block1)
@@ -208,6 +217,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                         BlockchainOuterClass.ChainHead.newBuilder()
                                 .setBlockId(block1.hash.toHex().substring(2))
                                 .setHeight(block1.number)
+                                .setParentBlockId(parent.toHex().substring(2))
                                 .setWeight(ByteString.copyFrom(block1.totalDifficulty.toByteArray()))
                                 .build()
                 )
@@ -215,6 +225,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                         BlockchainOuterClass.ChainHead.newBuilder()
                                 .setBlockId(block2.hash.toHex().substring(2))
                                 .setHeight(block2.number)
+                                .setParentBlockId(parent.toHex().substring(2))
                                 .setWeight(ByteString.copyFrom(block2.totalDifficulty.toByteArray()))
                                 .build()
                 )

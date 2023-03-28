@@ -86,6 +86,7 @@ class ReceiptMemCacheSpec extends Specification {
                 false,
                 "{}".bytes,
                 null,
+                BlockId.from(receipt.blockHash),
                 [TxId.from(receipt.transactionHash)],
                 0,
                 "unknown"

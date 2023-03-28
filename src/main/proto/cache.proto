@@ -31,6 +31,7 @@ message BlockMeta {
     bytes difficulty = 3;
     uint64 timestamp = 4;
     repeated bytes tx_hashes = 5;
+    bytes parent_hash = 6;
 }
 
 message TxMeta {

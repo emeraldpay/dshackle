@@ -10,7 +10,7 @@ class NoChoiceWithPriorityForkChoiceSpec extends Specification {
     def blocks = [1L, 2, 3, 4].collect { i ->
         byte[] hash = new byte[32]
         hash[0] = i as byte
-        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, [], 0, "NoChoiceWithPriorityForkChoiceSpec")
+        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, BlockId.from(hash), [], 0, "NoChoiceWithPriorityForkChoiceSpec")
     }
 
     def "filters blocks"() {

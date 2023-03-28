@@ -57,6 +57,7 @@ class CachesSpec extends Specification {
         block1.totalDifficulty = BigInteger.ONE
         block1.timestamp = Instant.now()
         block1.transactions = []
+        block1.parentHash = BlockHash.from(hash1)
         block1 = BlockContainer.from(block1)
 
         def block2 = new BlockJson()
@@ -65,6 +66,7 @@ class CachesSpec extends Specification {
         block2.totalDifficulty = BigInteger.ONE
         block2.timestamp = Instant.now()
         block2.transactions = []
+        block2.parentHash = BlockHash.from(hash2)
         block2 = BlockContainer.from(block2)
 
         when:
@@ -98,6 +100,7 @@ class CachesSpec extends Specification {
         block1.hash = BlockHash.from(hash1)
         block1.totalDifficulty = BigInteger.ONE
         block1.timestamp = Instant.now()
+        block1.parentHash = BlockHash.from(hash1)
         block1 = BlockContainer.from(block1)
 
         def block2 = new BlockJson()
@@ -105,6 +108,7 @@ class CachesSpec extends Specification {
         block2.hash = BlockHash.from(hash2)
         block2.totalDifficulty = BigInteger.ONE
         block2.timestamp = Instant.now()
+        block2.parentHash = BlockHash.from(hash2)
         block2 = BlockContainer.from(block2)
 
         when:
@@ -138,6 +142,7 @@ class CachesSpec extends Specification {
         block.hash = BlockHash.from(hash1)
         block.totalDifficulty = BigInteger.ONE
         block.timestamp = Instant.now()
+        block.parentHash = BlockHash.from(hash1)
         block.transactions = [
                 new TransactionRefJson(TransactionId.from(hash1)),
                 new TransactionRefJson(TransactionId.from(hash2)),
@@ -170,6 +175,7 @@ class CachesSpec extends Specification {
             block.totalDifficulty = BigInteger.ONE
             block.transactions = [tx1, tx2]
             block.timestamp = Instant.now()
+            block.parentHash = BlockHash.from(hash1)
             BlockContainer.from(block)
         }
 
@@ -212,6 +218,7 @@ class CachesSpec extends Specification {
             block.totalDifficulty = BigInteger.ONE
             block.transactions = [tx1]
             block.timestamp = Instant.now()
+            block.parentHash = BlockHash.from(hash1)
             BlockContainer.from(block)
         }
         TxMemCache txCache = Mock()

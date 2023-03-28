@@ -33,6 +33,8 @@ import java.time.Instant
 
 class ConnectBlockUpdatesSpec extends Specification {
 
+    BlockHash parent = BlockHash.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
+
     def "Extracts updates"() {
         setup:
         def connectBlockUpdates = new ConnectBlockUpdates(Stub(EthereumMultistream))
@@ -41,6 +43,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             number = 13412871
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
+            parentHash = parent
             transactions = [
                     new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
                     new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
@@ -74,6 +77,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             number = 13412871
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
+            parentHash = parent
             transactions = [
                     new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
                     new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
@@ -107,6 +111,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             number = 13412871
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
+            parentHash = parent
             transactions = [
                     new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
                     new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
@@ -117,6 +122,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             number = 13412871
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
+            parentHash = parent
             transactions = [
                     new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
                     new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
@@ -126,6 +132,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             hash = BlockHash.from("0xdb1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7")
             number = 13412872
             totalDifficulty = BigInteger.ONE
+            parentHash = parent
             timestamp = Instant.now()
             transactions = [
                     new TransactionRefJson(TransactionId.from("0x9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af6c88df9d65ccc")),
@@ -168,6 +175,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             number = 13412871
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
+            parentHash = parent
             transactions = [
                     new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
                     new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
@@ -178,6 +186,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             number = 13412871
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
+            parentHash = parent
             transactions = [
                     new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
                     new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))

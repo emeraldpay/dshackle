@@ -123,6 +123,7 @@ class TestingCommons {
     static BlockContainer blockForEthereum(Long height) {
         BlockJson block = new BlockJson().tap {
             setNumber(height)
+            setParentHash(BlockHash.from("0xc4b01774e426325b50f0c709753ec7cf1f1774439d587dfb91f2a4eeb8179cde"))
             setHash(BlockHash.from("0xc4b01774e426325b50f0c709753ec7cf1f1774439d587dfb91f2a4eeb8179cde"))
             setTotalDifficulty(BigInteger.ONE)
             setTimestamp(predictableTimestamp(height, 14))
@@ -131,6 +132,7 @@ class TestingCommons {
     }
 
     static BlockContainer blockForBitcoin(Long height) {
+        def parent = BlockId.from(StringUtils.leftPad(height.toString(), 64, "0"))
         return new BlockContainer(
                 height,
                 BlockId.from(StringUtils.leftPad(height.toString(), 64, "0")),
@@ -139,6 +141,7 @@ class TestingCommons {
                 false,
                 null,
                 null,
+                parent,
                 [],
                 0,
                 "upstream"

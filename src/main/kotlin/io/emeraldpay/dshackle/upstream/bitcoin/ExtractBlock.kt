@@ -56,6 +56,7 @@ class ExtractBlock {
         val data = objectMapper.readValue(json, Map::class.java) as Map<String, Any>
 
         val hash = data["hash"] as String? ?: throw IllegalArgumentException("Block JSON has no hash")
+        val parentHash = data["previousblockhash"] as String? ?: throw IllegalArgumentException("Block JSON has no previousblockhash")
         val transactions = (data["tx"] as List<String>?)?.map(TxId.Companion::from) ?: emptyList()
 
         return BlockContainer(
@@ -66,6 +67,7 @@ class ExtractBlock {
             false,
             json,
             data,
+            BlockId.from(parentHash),
             transactions
         )
     }

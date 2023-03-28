@@ -73,6 +73,9 @@ open class EthereumGrpcUpstream(
     Lifecycle {
 
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
+        val parentHash =
+            if (value.parentBlockId.isBlank()) null
+            else BlockId.from(BlockHash.from("0x" + value.parentBlockId))
         val block = BlockContainer(
             value.height,
             BlockId.from(BlockHash.from("0x" + value.blockId)),
@@ -80,7 +83,8 @@ open class EthereumGrpcUpstream(
             Instant.ofEpochMilli(value.timestamp),
             false,
             null,
-            null
+            null,
+            parentHash
         )
         block
     }

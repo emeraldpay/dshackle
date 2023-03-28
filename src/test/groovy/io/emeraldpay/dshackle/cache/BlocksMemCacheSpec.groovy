@@ -49,6 +49,7 @@ class BlocksMemCacheSpec extends Specification {
         block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block.uncles = []
         block.transactions = List.of(tx)
+        block.parentHash = BlockHash.from(hash1)
 
         when:
         cache.add(BlockContainer.from(block))
@@ -73,6 +74,7 @@ class BlocksMemCacheSpec extends Specification {
             block.timestamp = Instant.now()
             block.uncles = []
             block.transactions = List.of(tx)
+            block.parentHash = BlockHash.from(hash1)
 
             cache.add(BlockContainer.from(block))
         }
@@ -99,6 +101,7 @@ class BlocksMemCacheSpec extends Specification {
         block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block.uncles = []
         block.transactions = []
+        block.parentHash = BlockHash.from(hash1)
 
         when:
         cache.add(BlockContainer.from(block))

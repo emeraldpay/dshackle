@@ -62,6 +62,7 @@ class StreamHeadSpec extends Specification {
             return new BlockJson<TransactionRefJson>().with {
                 it.number = i
                 it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27${i}")
+                it.parentHash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27${i}")
                 it.totalDifficulty = i * 1000
                 it.timestamp = Instant.ofEpochMilli(1566000000000 + i * 10000)
                 return it
@@ -74,6 +75,7 @@ class StreamHeadSpec extends Specification {
                 .setTimestamp(it.timestamp.toEpochMilli())
                 .setBlockId(it.hash.toHex().substring(2))
                 .setWeight(ByteString.copyFrom(it.totalDifficulty.toByteArray()))
+                .setParentBlockId(it.parentHash.toHex().substring(2))
                 .setHeight(it.number)
                 .build()
         }

@@ -43,6 +43,7 @@ class EthereumDirectReaderSpec extends Specification {
             hash = BlockHash.from(hash1)
             timestamp = Instant.now()
             totalDifficulty = BigInteger.ONE
+            parentHash = BlockHash.from(hash1)
             transactions = []
         }
         def up = Mock(Multistream) {
@@ -108,6 +109,7 @@ class EthereumDirectReaderSpec extends Specification {
             hash = BlockHash.from(hash1)
             timestamp = Instant.now()
             totalDifficulty = BigInteger.ONE
+            parentHash = BlockHash.from(hash1)
             transactions = []
         }
         def up = Mock(Multistream) {
@@ -341,6 +343,7 @@ class EthereumDirectReaderSpec extends Specification {
         setup:
         def json = new BlockJson().tap {
             number = 100
+            parentHash = BlockHash.from(hash1)
             hash = BlockHash.from(hash1)
             timestamp = Instant.now()
             totalDifficulty = BigInteger.ONE
@@ -386,6 +389,7 @@ class EthereumDirectReaderSpec extends Specification {
             hash = BlockHash.from(hash1)
             timestamp = Instant.now()
             totalDifficulty = BigInteger.ONE
+            parentHash = BlockHash.from(hash1)
             transactions = []
         }
         def up = Mock(Multistream) {

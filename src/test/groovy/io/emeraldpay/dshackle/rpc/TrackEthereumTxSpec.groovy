@@ -47,7 +47,7 @@ class TrackEthereumTxSpec extends Specification {
 
     def chain = Common.ChainRef.CHAIN_ETHEREUM
     def txId = "0xba61ce4672751fd6086a9ac2b55547a5555af17535b6c0334ede2ecb6d64070a"
-
+    def parent = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
 
     def "Gives details for an old transaction"() {
         setup:
@@ -61,6 +61,7 @@ class TrackEthereumTxSpec extends Specification {
             it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
             it.timestamp = Instant.ofEpochMilli(156400000000)
             it.number = 100
+            it.parentHash = parent
             it.totalDifficulty = BigInteger.valueOf(500)
             it
         }
@@ -70,6 +71,7 @@ class TrackEthereumTxSpec extends Specification {
             it.timestamp = Instant.ofEpochMilli(156400200000)
             it.number = 108
             it.totalDifficulty = BigInteger.valueOf(800)
+            it.parentHash = parent
             it.transactions = []
             it
         }
@@ -198,7 +200,7 @@ class TrackEthereumTxSpec extends Specification {
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
                 100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null,
-                [TxId.from(txId)], 0, "unknown"
+                BlockId.from(txId), [TxId.from(txId)], 0, "unknown"
         )
 
         when:
@@ -219,7 +221,7 @@ class TrackEthereumTxSpec extends Specification {
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
-                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null,
+                100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null, BlockId.from(txId),
                 [TxId.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")],
                 0, "unknown"
         )
@@ -247,6 +249,7 @@ class TrackEthereumTxSpec extends Specification {
                 it.hash = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a2000${i}")
                 it.timestamp = Instant.ofEpochMilli(156400000000 + i * 10000)
                 it.setNumber(100L + i.longValue())
+                it.parentHash = parent
                 it.totalDifficulty = BigInteger.valueOf(500 + i)
                 it
             }

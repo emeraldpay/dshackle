@@ -135,6 +135,7 @@ class TxMemCacheSpec extends Specification {
 
         def block = new BlockJson<TransactionRefJson>()
         block.hash = BlockHash.from(hash1)
+        block.parentHash = BlockHash.from(hash1)
         block.number = 100
         block.totalDifficulty = BigInteger.ONE
         block.timestamp = Instant.now()

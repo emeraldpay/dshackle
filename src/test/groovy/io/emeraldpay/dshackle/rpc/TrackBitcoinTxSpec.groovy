@@ -142,7 +142,8 @@ class TrackBitcoinTxSpec extends Specification {
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         // start with the current block
         def next = Flux.fromIterable([10, 12, 13, 14, 15]).map { h ->
-            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, null, [], 0, "unknown")
+            def hash = BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f")
+            new BlockContainer(h.longValue(), hash, BigInteger.ONE, Instant.now(), false, null, null, hash, [], 0, "unknown")
         }
         Head head = Mock(Head) {
             1 * getFlux() >> next
@@ -173,7 +174,8 @@ class TrackBitcoinTxSpec extends Specification {
         def txid = "69cd44d7c641db82e69824523c7ac0c5c1e5628f025474529cf5ffe64527efc9"
         // start with the current block
         def next = Flux.fromIterable([10, 12, 13]).map { h ->
-            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, null, [], 0, "unknown")
+            def hash = BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f")
+            new BlockContainer(h.longValue(), hash, BigInteger.ONE, Instant.now(), false, null, null, hash, [], 0, "unknown")
         }
         Head head = Mock(Head) {
             1 * getFlux() >> next
@@ -268,7 +270,8 @@ class TrackBitcoinTxSpec extends Specification {
             ])
         }
         def next = Flux.fromIterable([10, 11, 12]).map { h ->
-            new BlockContainer(h.longValue(), BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f"), BigInteger.ONE, Instant.now(), false, null, null, [], 0, "unknown")
+            def hash = BlockId.from("0000000000000000000895d1b9d3898700e1deecc3b0e69f439aa77875e6042f")
+            new BlockContainer(h.longValue(), hash, BigInteger.ONE, Instant.now(), false, null, null, hash, [], 0, "unknown")
         }
         Head head = Mock(Head) {
             _ * getFlux() >> next

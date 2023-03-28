@@ -33,6 +33,7 @@ class DefaultEthereumHeadSpec extends Specification {
 
     DefaultEthereumHead head = new DefaultEthereumHead("upstream", new MostWorkForkChoice(), BlockValidator.ALWAYS_VALID)
     ObjectMapper objectMapper = Global.objectMapper
+    BlockHash parent = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915210")
 
     def blocks = (10L..20L).collect { i ->
         BlockContainer.from(
@@ -41,6 +42,7 @@ class DefaultEthereumHeadSpec extends Specification {
                     it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec89152" + i)
                     it.totalDifficulty = 11 * i
                     it.timestamp = Instant.now()
+                    it.parentHash = parent
                 })
     }
 
@@ -95,6 +97,7 @@ class DefaultEthereumHeadSpec extends Specification {
                     it.number = blocks[3].height
                     it.hash = BlockHash.from(blocks[3].hash.value)
                     it.totalDifficulty = blocks[3].difficulty - 1
+                    it.parentHash = parent
                     it.timestamp = Instant.now()
                 })
         head.follow(Flux.just(blocks[0], blocks[3], block3less))
@@ -113,6 +116,7 @@ class DefaultEthereumHeadSpec extends Specification {
                     it.number = blocks[3].height
                     it.hash = BlockHash.from(blocks[3].hash.value)
                     it.totalDifficulty = blocks[3].difficulty + 1
+                    it.parentHash = parent
                     it.timestamp = Instant.now()
                 })
         head.follow(Flux.just(blocks[0], blocks[3], block3less))

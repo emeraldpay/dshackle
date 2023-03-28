@@ -30,6 +30,7 @@ import java.time.Duration
 import java.time.Instant
 
 class HeadLagObserverSpec extends Specification {
+    def parent = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
 
     def "Updates lag distance"() {
         setup:
@@ -49,6 +50,7 @@ class HeadLagObserverSpec extends Specification {
             return BlockContainer.from(
                     new BlockJson().tap {
                         it.number = i
+                        it.parentHash = parent
                         it.totalDifficulty = 2000 + i
                         it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915" + i)
                         it.timestamp = Instant.now()
@@ -91,6 +93,7 @@ class HeadLagObserverSpec extends Specification {
             return BlockContainer.from(
                     new BlockJson().tap {
                         it.number = i
+                        it.parentHash = parent
                         it.totalDifficulty = 2000 + i
                         it.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915" + i)
                         it.timestamp = Instant.now()

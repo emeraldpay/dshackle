@@ -67,6 +67,9 @@ class BitcoinGrpcUpstream(
     private val extractBlock = ExtractBlock()
     private val defaultReader: JsonRpcReader = client.getReader()
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
+        val parentHash =
+            if (value.parentBlockId.isBlank()) null
+            else BlockId.from(value.parentBlockId)
         val block = BlockContainer(
             value.height,
             BlockId.from(value.blockId),
@@ -74,7 +77,8 @@ class BitcoinGrpcUpstream(
             Instant.ofEpochMilli(value.timestamp),
             false,
             null,
-            null
+            null,
+            parentHash
         )
         block
     }

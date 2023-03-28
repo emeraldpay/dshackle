@@ -49,6 +49,7 @@ class BlockByHeightSpec extends Specification {
         block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block.uncles = []
         block.transactions = List.of(tx)
+        block.parentHash = BlockHash.from(hash1)
 
         BlockContainer.from(block).with {
             blocks.add(it)
@@ -77,6 +78,7 @@ class BlockByHeightSpec extends Specification {
         block1.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block1.uncles = []
         block1.transactions = List.of(tx)
+        block1.parentHash = BlockHash.from(hash1)
 
         def block2 = new BlockJson<TransactionRefJson>()
         block2.number = 101
@@ -85,7 +87,7 @@ class BlockByHeightSpec extends Specification {
         block2.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block2.uncles = []
         block2.transactions = List.of(tx)
-
+        block2.parentHash = BlockHash.from(hash2)
 
         BlockContainer.from(block1).with {
             blocks.add(it)
@@ -123,6 +125,7 @@ class BlockByHeightSpec extends Specification {
         block1.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block1.uncles = []
         block1.transactions = List.of(tx)
+        block1.parentHash = BlockHash.from(hash1)
 
         def block2 = new BlockJson<TransactionRefJson>()
         block2.number = 100
@@ -131,6 +134,7 @@ class BlockByHeightSpec extends Specification {
         block2.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block2.uncles = []
         block2.transactions = List.of(tx)
+        block2.parentHash = BlockHash.from(hash2)
 
         BlockContainer.from(block1).with {
             blocks.add(it)
@@ -159,6 +163,7 @@ class BlockByHeightSpec extends Specification {
         block.hash = BlockHash.from(hash1)
         block.totalDifficulty = BigInteger.ONE
         block.timestamp = Instant.now()
+        block.parentHash = BlockHash.from(hash1)
 
         // add only to heights
         BlockContainer.from(block).with {
@@ -183,6 +188,7 @@ class BlockByHeightSpec extends Specification {
         block.hash = BlockHash.from(hash1)
         block.totalDifficulty = BigInteger.ONE
         block.timestamp = Instant.now()
+        block.parentHash = BlockHash.from(hash1)
 
         // add only to blocks
         BlockContainer.from(block).with {

@@ -55,6 +55,7 @@ class StreamHead(
             .setTimestamp(block.timestamp.toEpochMilli())
             .setWeight(ByteString.copyFrom(block.difficulty.toByteArray()))
             .setBlockId(block.hash.toHex())
+            .setParentBlockId(block.parentHash?.toHex() ?: "")
             .build()
     }
 }

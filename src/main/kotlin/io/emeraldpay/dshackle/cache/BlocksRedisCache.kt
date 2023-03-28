@@ -66,6 +66,7 @@ class BlocksRedisCache(
             false,
             value.value.toByteArray(),
             null,
+            BlockId.from(meta.parentHash.toByteArray()),
             meta.txHashesList.map {
                 TxId(it.toByteArray())
             }

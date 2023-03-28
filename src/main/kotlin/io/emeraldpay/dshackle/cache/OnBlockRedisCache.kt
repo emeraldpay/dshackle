@@ -62,6 +62,7 @@ abstract class OnBlockRedisCache<T>(
             .setHash(ByteString.copyFrom(block.hash.value))
             .setHeight(block.height)
             .setDifficulty(ByteString.copyFrom(block.difficulty.toByteArray()))
+            .setParentHash(ByteString.copyFrom(block.parentHash?.value ?: byteArrayOf()))
             .setTimestamp(block.timestamp.toEpochMilli())
     }
 

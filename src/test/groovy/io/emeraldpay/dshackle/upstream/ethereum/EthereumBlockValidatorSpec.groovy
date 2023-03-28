@@ -51,6 +51,7 @@ class EthereumBlockValidatorSpec extends Specification {
                 block.timestamp,
                 true, bytes,
                 block,
+                BlockId.from(block.hash.toHex()),
                 Collections.emptyList(),
                 1,
                 "upstream"

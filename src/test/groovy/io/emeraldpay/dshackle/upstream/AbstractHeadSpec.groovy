@@ -31,7 +31,7 @@ class AbstractHeadSpec extends Specification {
     def blocks = [1L, 2, 3, 4].collect { i ->
         byte[] hash = new byte[32]
         hash[0] = i as byte
-        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, [], 0, "AbstractHeadSpec")
+        new BlockContainer(i, BlockId.from(hash), BigInteger.valueOf(i), Instant.now(), false, null, null, BlockId.from(hash), [], 0, "AbstractHeadSpec")
     }
 
     def "Calls beforeBlock on each block"() {
@@ -93,11 +93,12 @@ class AbstractHeadSpec extends Specification {
         setup:
         Sinks.Many<BlockContainer> source = Sinks.many().unicast().onBackpressureBuffer()
         def head = new TestHead()
+        def hash = BlockId.from(blocks[1].hash.value.clone().tap { it[1] = 0xff as byte })
         def wrongblock = new BlockContainer(
-                blocks[1].height, BlockId.from(blocks[1].hash.value.clone().tap { it[1] = 0xff as byte }),
+                blocks[1].height, hash,
                 blocks[1].difficulty - 1,
                 Instant.now(),
-                false, null, null, [], 0, "AbstractHeadSpec"
+                false, null, null, hash, [], 0, "AbstractHeadSpec"
         )
         when:
         head.follow(source.asFlux())

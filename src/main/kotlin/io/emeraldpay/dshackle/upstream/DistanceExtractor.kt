@@ -19,9 +19,10 @@ class DistanceExtractor {
 
         fun extractPriorityDistance(top: BlockContainer, curr: BlockContainer): ChainDistance {
             return when {
-                curr.height > top.height -> ChainDistance.Fork
+                (curr.parentHash != null && curr.height - top.height == 1L) ->
+                    if (curr.parentHash == top.hash) ChainDistance.Distance(0) else ChainDistance.Fork
                 curr.height == top.height -> if (curr.hash == top.hash) ChainDistance.Distance(0) else ChainDistance.Fork
-                else -> ChainDistance.Distance(top.height - curr.height)
+                else -> ChainDistance.Distance((top.height - curr.height).coerceAtLeast(0))
             }
         }
     }

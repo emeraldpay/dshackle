@@ -15,7 +15,6 @@
  */
 package io.emeraldpay.dshackle.cache
 
-
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
@@ -42,6 +41,7 @@ class HeightCacheSpec extends Specification {
             block.hash = BlockHash.from(hash)
             block.totalDifficulty = BigInteger.ONE
             block.timestamp = Instant.now()
+            block.parentHash = BlockHash.from(hash)
             cache.add(BlockContainer.from(block))
         }
 
@@ -68,6 +68,7 @@ class HeightCacheSpec extends Specification {
             block.hash = BlockHash.from(hash)
             block.totalDifficulty = BigInteger.ONE
             block.timestamp = Instant.now()
+            block.parentHash = BlockHash.from(hash)
             cache.add(BlockContainer.from(block))
         }
         cache.purge()
