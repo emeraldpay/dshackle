@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.egresslog
+package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.MainConfig
@@ -25,25 +25,24 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
 import java.io.File
 import java.time.Duration
-import java.util.function.Function
 import javax.annotation.PostConstruct
 import javax.annotation.PreDestroy
 
 @Repository
-class CurrentEgressLogWriter(
+class CurrentAccessLogWriter(
     @Autowired mainConfig: MainConfig
 ) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(CurrentEgressLogWriter::class.java)
+        private val log = LoggerFactory.getLogger(CurrentAccessLogWriter::class.java)
         private const val WRITE_BATCH_LIMIT = 5000
         private val FLUSH_SLEEP = Duration.ofMillis(250L)
         private val START_SLEEP = Duration.ofMillis(1000L)
     }
 
-    private val config = mainConfig.egressLogConfig
+    private val config = mainConfig.accessLogConfig
 
-    private val serializer = Function<Any, ByteArray?> { next ->
+    private val serializer: (Any) -> ByteArray? = { next ->
         Global.objectMapper.writeValueAsBytes(next)
     }
 
@@ -52,11 +51,11 @@ class CurrentEgressLogWriter(
     @PostConstruct
     fun start() {
         if (!config.enabled) {
-            log.info("Egress Log is disabled")
+            log.info("Access Log is disabled")
             return
         }
         val file = File(config.filename)
-        log.info("Writing Egress Log to ${file.absolutePath}")
+        log.info("Writing Access Log to ${file.absolutePath}")
         logWriter = FileLogWriter<Any>(
             file, serializer,
             startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP,
@@ -65,7 +64,7 @@ class CurrentEgressLogWriter(
         logWriter.start()
 
         // propagate current config to the Event Builder, so it knows which details to include
-        RecordBuilder.egressLogConfig = config
+        RecordBuilder.accessLogConfig = config
     }
 
     @PreDestroy

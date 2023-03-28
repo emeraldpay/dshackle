@@ -24,8 +24,8 @@ class MainConfig {
     var upstreams: UpstreamsConfig? = null
     var tokens: TokensConfig? = null
     var monitoring: MonitoringConfig = MonitoringConfig.default()
-    var egressLogConfig: EgressLogConfig = EgressLogConfig.default()
-    var ingressLogConfig: IngressLogConfig = IngressLogConfig.default()
+    var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
+    var requestLogConfig: RequestLogConfig = RequestLogConfig.default()
     var health: HealthConfig = HealthConfig.default()
     var signature: SignatureConfig? = null
 }

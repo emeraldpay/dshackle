@@ -26,6 +26,7 @@ import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Timer
+import org.apache.commons.lang3.time.StopWatch
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.DependsOn
@@ -66,42 +67,43 @@ class BlockchainRpc(
     private val chainMetrics = ChainValue { chain -> RequestMetrics(chain) }
 
     override fun nativeCall(request: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
-        var startTime = 0L
-        var metrics: RequestMetrics? = null
-        return nativeCall.nativeCall(
-            request
-                .doOnNext {
-                    metrics = chainMetrics.get(it.chain)
-                    metrics!!.nativeCallMetric.increment()
-                    startTime = System.currentTimeMillis()
-                }
-        )
-            .doOnNext { reply ->
-                metrics?.let { m ->
-                    m.nativeCallRespMetric?.record(System.currentTimeMillis() - startTime, TimeUnit.MILLISECONDS)
-                    if (!reply.succeed) {
-                        m.nativeCallErrRespMetric.increment()
+        return request
+            .flatMapMany { req ->
+                val timer = StopWatch.createStarted()
+                val metrics = chainMetrics.get(req.chain)
+                metrics.nativeCallMetric.increment()
+                nativeCall.nativeCall(Mono.just(req))
+                    .doOnNext { reply ->
+                        metrics.nativeCallRespCountMetric.increment()
+                        metrics.nativeCallRespTimeMetric.record(timer.nanoTime, TimeUnit.NANOSECONDS)
+                        if (!reply.succeed) {
+                            metrics.nativeCallErrRespMetric.increment()
+                        }
                     }
-                }
+                    .doOnError { t ->
+                        log.error("Unhandled error", t)
+                        failMetric.increment()
+                    }
+                    .contextWrite(requestContext.updateFromGrpc())
             }
-            .doOnError { failMetric.increment() }
-            .contextWrite(requestContext.updateFromGrpc())
+            .doOnError { t ->
+                log.error("Unhandled error", t)
+                failMetric.increment()
+            }
     }
 
     override fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {
-        var metrics: RequestMetrics? = null
-        return nativeSubscribe.nativeSubscribe(
-            request
-                .doOnNext {
-                    metrics = chainMetrics.get(it.chain)
-                    metrics!!.nativeSubscribeMetric.increment()
-                }
-        )
-            .doOnNext {
-                metrics?.nativeSubscribeRespMetric?.increment()
+        return request
+            .flatMapMany { req ->
+                val metrics = chainMetrics.get(req.chain)
+                metrics.nativeSubscribeMetric.increment()
+                nativeSubscribe.nativeSubscribe(Mono.just(req))
+                    .doOnNext {
+                        metrics.nativeSubscribeRespMetric?.increment()
+                    }
+                    .doOnError { failMetric.increment() }
+                    .contextWrite(requestContext.updateFromGrpc())
             }
-            .doOnError { failMetric.increment() }
-            .contextWrite(requestContext.updateFromGrpc())
     }
 
     override fun subscribeHead(request: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
@@ -159,19 +161,17 @@ class BlockchainRpc(
 
     override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
         return requestMono.flatMapMany { request ->
+            val timer = StopWatch.createStarted()
             val chain = Chain.byId(request.asset.chainValue)
             val metrics = chainMetrics.get(chain)
             metrics.getBalanceMetric.increment()
             val asset = request.asset.code.lowercase(Locale.getDefault())
-            val startTime = System.currentTimeMillis()
             try {
                 trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
                     track.getBalance(request)
                         .doOnNext {
-                            metrics.getBalanceRespMetric.record(
-                                System.currentTimeMillis() - startTime,
-                                TimeUnit.MILLISECONDS
-                            )
+                            metrics.getBalanceRespCountMetric.increment()
+                            metrics.getBalanceRespTimeMetric.record(timer.nanoTime, TimeUnit.NANOSECONDS)
                         }
                 } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
                     .doOnSubscribe {
@@ -189,15 +189,13 @@ class BlockchainRpc(
     override fun estimateFee(request: Mono<BlockchainOuterClass.EstimateFeeRequest>): Mono<BlockchainOuterClass.EstimateFeeResponse> {
         return request
             .flatMap {
+                val timer = StopWatch.createStarted()
                 val chain = Chain.byId(it.chainValue)
                 val metrics = chainMetrics.get(chain)
                 metrics.estimateFeeMetric.increment()
-                val startTime = System.currentTimeMillis()
                 estimateFee.estimateFee(it).doFinally {
-                    metrics.estimateFeeRespMetric.record(
-                        System.currentTimeMillis() - startTime,
-                        TimeUnit.MILLISECONDS
-                    )
+                    metrics.estimateFeeRespCountMetric.increment()
+                    metrics.estimateFeeRespTimeMetric.record(timer.nanoTime, TimeUnit.NANOSECONDS)
                 }
             }
             .doOnError { t ->
@@ -226,10 +224,14 @@ class BlockchainRpc(
             .tag("type", "nativeCall")
             .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
-        val nativeCallRespMetric = Timer.builder("request.grpc.response")
+        val nativeCallRespTimeMetric = Timer.builder("request.grpc.response.time")
             .tag("type", "nativeCall")
             .tag("chain", chain.chainCode)
             .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+        val nativeCallRespCountMetric = Counter.builder("request.grpc.response")
+            .tag("type", "nativeCall")
+            .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
         val nativeCallErrRespMetric = Counter.builder("request.grpc.response.err")
             .tag("type", "nativeCall")
@@ -267,19 +269,27 @@ class BlockchainRpc(
             .tag("type", "getBalance")
             .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
-        val getBalanceRespMetric = Timer.builder("request.grpc.response")
+        val getBalanceRespTimeMetric = Timer.builder("request.grpc.response.time")
             .tag("type", "getBalance")
             .tag("chain", chain.chainCode)
             .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+        val getBalanceRespCountMetric = Counter.builder("request.grpc.response")
+            .tag("type", "getBalance")
+            .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
         val estimateFeeMetric = Counter.builder("request.grpc.request")
             .tag("type", "estimateFee")
             .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
-        val estimateFeeRespMetric = Timer.builder("request.grpc.response")
+        val estimateFeeRespTimeMetric = Timer.builder("request.grpc.response.time")
             .tag("type", "estimateFee")
             .tag("chain", chain.chainCode)
             .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+        val estimateFeeRespCountMetric = Counter.builder("request.grpc.response")
+            .tag("type", "estimateFee")
+            .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
     }
 }

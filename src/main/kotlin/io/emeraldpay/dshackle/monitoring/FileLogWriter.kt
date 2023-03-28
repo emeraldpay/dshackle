@@ -24,11 +24,10 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.function.Function
 
 class FileLogWriter<T>(
     private val file: File,
-    private val serializer: Function<T, ByteArray?>,
+    private val serializer: (T) -> ByteArray?,
     private val startSleep: Duration,
     private val flushSleep: Duration,
     private val batchLimit: Int = 5000
@@ -77,7 +76,7 @@ class FileLogWriter<T>(
         }
     }
 
-    protected fun flush(): Boolean {
+    fun flush(): Boolean {
         if (!file.exists()) {
             if (!file.createNewFile()) {
                 logError {
@@ -92,7 +91,7 @@ class FileLogWriter<T>(
                 limit -= 1
                 val next = queue.poll() ?: return true
                 val bytes = try {
-                    serializer.apply(next)
+                    serializer(next)
                 } catch (t: Throwable) {
                     logError {
                         log.warn("Failed to serialize log line. ${t.message}")

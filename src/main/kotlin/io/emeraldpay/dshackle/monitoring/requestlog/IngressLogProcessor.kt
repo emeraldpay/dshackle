@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.ingresslog
+package io.emeraldpay.dshackle.monitoring.requestlog
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.monitoring.Channel
-import io.emeraldpay.dshackle.monitoring.record.IngressRecord
+import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -27,7 +27,7 @@ import reactor.util.context.ContextView
 import java.util.function.Function
 
 class IngressLogProcessor(
-    private val writer: IngressLogWriter
+    private val writer: RequestLogWriter
 ) {
 
     companion object {
@@ -63,7 +63,7 @@ class IngressLogProcessor(
                             .let {
                                 if (resp.hasError()) {
                                     it.copy(
-                                        error = IngressRecord.ErrorDetails(
+                                        error = RequestRecord.ErrorDetails(
                                             resp.error!!.code,
                                             resp.error.message
                                         )
@@ -92,12 +92,12 @@ class IngressLogProcessor(
                                 .let(copyReqId(ctx))
                                 .let {
                                     val error = if (t is JsonRpcException) {
-                                        IngressRecord.ErrorDetails(
+                                        RequestRecord.ErrorDetails(
                                             t.error.code,
                                             t.error.message
                                         )
                                     } else {
-                                        IngressRecord.ErrorDetails(
+                                        RequestRecord.ErrorDetails(
                                             0,
                                             "ERROR ${t.javaClass}: ${t.message}"
                                         )
@@ -112,19 +112,19 @@ class IngressLogProcessor(
         }
     }
 
-    private fun copyUpstream(upstreamId: String, channel: Channel): (IngressRecord.Builder) -> IngressRecord.Builder = {
+    private fun copyUpstream(upstreamId: String, channel: Channel): (RequestRecord.Builder) -> RequestRecord.Builder = {
         it
             .copy(upstreamId = upstreamId, channel = channel)
             .copy(type = RequestType.JSONRPC)
     }
 
-    private fun copyEgressId(ctx: ContextView): (IngressRecord.Builder) -> IngressRecord.Builder = {
+    private fun copyEgressId(ctx: ContextView): (RequestRecord.Builder) -> RequestRecord.Builder = {
         Global.monitoring.egress.getRequest(ctx).let { req ->
             it.copy(ts = req.ts, requestId = req.id)
         }
     }
 
-    private fun copyReqId(ctx: ContextView): (IngressRecord.Builder) -> IngressRecord.Builder = {
+    private fun copyReqId(ctx: ContextView): (RequestRecord.Builder) -> RequestRecord.Builder = {
         it.copy(rpc = it.rpc.copy(id = context.getRpcId(ctx)))
     }
 }

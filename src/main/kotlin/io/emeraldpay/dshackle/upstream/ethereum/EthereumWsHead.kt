@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.monitoring.record.IngressRecord
+import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -63,7 +63,7 @@ class EthereumWsHead(
     fun listenNewHeads(): Flux<BlockContainer> {
         return wsSubscriptions.subscribe("newHeads")
             .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
-            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
+            .contextWrite(Global.monitoring.ingress.startCall(RequestRecord.Source.INTERNAL))
             .map {
                 Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
             }
@@ -95,7 +95,7 @@ class EthereumWsHead(
                     .subscribeOn(Schedulers.boundedElastic())
                     .contextWrite(Global.monitoring.ingress.withBlockchain(blockchain))
                     .contextWrite(Global.monitoring.ingress.withRequest(request))
-                    .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.INTERNAL))
+                    .contextWrite(Global.monitoring.ingress.startCall(RequestRecord.Source.INTERNAL))
                     .timeout(Defaults.timeoutInternal, Mono.empty())
             }.repeatWhenEmpty { n ->
                 Repeat.times<Any>(5)

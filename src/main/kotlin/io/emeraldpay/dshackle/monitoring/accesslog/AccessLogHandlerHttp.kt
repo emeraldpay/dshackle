@@ -1,4 +1,4 @@
-package io.emeraldpay.dshackle.monitoring.egresslog
+package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.MainConfig
@@ -16,18 +16,18 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Egress Log handler for JSON RPC proxy
+ * Access Log handler for JSON RPC proxy
  *
  * @see io.emeraldpay.dshackle.proxy.ProxyServer
  */
 @Service
-class EgressHandlerHttp(
+class AccessLogHandlerHttp(
     @Autowired private val mainConfig: MainConfig,
-    @Autowired accessLogWriter: CurrentEgressLogWriter
+    @Autowired accessLogWriter: CurrentAccessLogWriter
 ) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EgressHandlerHttp::class.java)
+        private val log = LoggerFactory.getLogger(AccessLogHandlerHttp::class.java)
 
         private val NO_SUBSCRIBE = NoOnSubscriptionHandler()
         private val NO_REQUEST = NoOpHandler()
@@ -36,7 +36,7 @@ class EgressHandlerHttp(
     /**
      * Use factory since we need a different behaviour for situation when log is configured and when is not
      */
-    val factory: HandlerFactory = if (mainConfig.egressLogConfig.enabled) {
+    val factory: HandlerFactory = if (mainConfig.accessLogConfig.enabled) {
         StandardFactory(accessLogWriter)
     } else {
         NoOpFactory()
@@ -62,7 +62,7 @@ class EgressHandlerHttp(
         }
     }
 
-    class StandardFactory(val accessLogWriter: CurrentEgressLogWriter) : HandlerFactory {
+    class StandardFactory(val accessLogWriter: CurrentAccessLogWriter) : HandlerFactory {
         override fun create(req: HttpServerRequest, blockchain: Chain, requestId: UUID): RequestHandler {
             return StandardHandler(accessLogWriter, req, blockchain, requestId)
         }
@@ -111,7 +111,7 @@ class EgressHandlerHttp(
     }
 
     class StandardWsHandlerFactory(
-        private val accessLogWriter: CurrentEgressLogWriter,
+        private val accessLogWriter: CurrentAccessLogWriter,
         private val wsRequest: WebsocketInbound,
         private val blockchain: Chain
     ) : WsHandlerFactory {
@@ -126,7 +126,7 @@ class EgressHandlerHttp(
     }
 
     abstract class AbstractRequestHandler(
-        private val accessLogWriter: CurrentEgressLogWriter,
+        private val accessLogWriter: CurrentAccessLogWriter,
         private val channel: Channel
     ) : RequestHandler {
         protected var request: BlockchainOuterClass.NativeCallRequest? = null
@@ -157,7 +157,7 @@ class EgressHandlerHttp(
     }
 
     class StandardHandler(
-        accessLogWriter: CurrentEgressLogWriter,
+        accessLogWriter: CurrentAccessLogWriter,
         private val httpRequest: HttpServerRequest,
         private val blockchain: Chain,
         private val requestId: UUID,
@@ -176,7 +176,7 @@ class EgressHandlerHttp(
     }
 
     class WsRequestHandler(
-        accessLogWriter: CurrentEgressLogWriter,
+        accessLogWriter: CurrentAccessLogWriter,
         private val wsRequest: WebsocketInbound,
         private val blockchain: Chain,
         private val requestId: UUID,
@@ -195,7 +195,7 @@ class EgressHandlerHttp(
     }
 
     class WsSubscriptionHandler(
-        private val accessLogWriter: CurrentEgressLogWriter,
+        private val accessLogWriter: CurrentAccessLogWriter,
         private val wsRequest: WebsocketInbound,
         private val blockchain: Chain,
         private val requestId: UUID,

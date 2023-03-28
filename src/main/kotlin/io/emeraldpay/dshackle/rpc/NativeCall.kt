@@ -21,7 +21,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.monitoring.record.IngressRecord
+import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
@@ -72,7 +72,7 @@ open class NativeCall(
     open fun nativeCallResult(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<CallResult> {
         return requestMono.flatMapMany(this::prepareCall)
             .flatMap(::processPreparedCall)
-            .contextWrite(Global.monitoring.ingress.startCall(IngressRecord.Source.REQUEST))
+            .contextWrite(Global.monitoring.ingress.startCall(RequestRecord.Source.REQUEST))
     }
 
     fun processPreparedCall(call: CallContext<RawCallDetails>): Mono<CallResult> {

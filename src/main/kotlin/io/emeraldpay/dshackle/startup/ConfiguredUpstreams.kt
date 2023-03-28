@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.monitoring.Channel
-import io.emeraldpay.dshackle.monitoring.ingresslog.CurrentIngressLogWriter
+import io.emeraldpay.dshackle.monitoring.requestlog.CurrentRequestLogWriter
 import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.ForkWatchFactory
@@ -67,7 +67,7 @@ open class ConfiguredUpstreams(
     @Autowired private val currentUpstreams: CurrentMultistreamHolder,
     @Autowired private val fileResolver: FileResolver,
     @Autowired private val config: UpstreamsConfig,
-    @Autowired private val currentIngressLogWriter: CurrentIngressLogWriter,
+    @Autowired private val currentRequestLogWriter: CurrentRequestLogWriter,
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -159,7 +159,7 @@ open class ConfiguredUpstreams(
         val id = config.id ?: "bitcoin-${seq.getAndIncrement()}"
         val conn = config.connection!!
         val directApi: StandardRpcReader? = buildHttpClient(config)?.let {
-            currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
+            currentRequestLogWriter.wrap(it, id, Channel.JSONRPC)
         }
         if (directApi == null) {
             log.warn("Upstream doesn't have API configuration")
@@ -254,7 +254,7 @@ open class ConfiguredUpstreams(
 
             if (conn.preferHttp) {
                 val directReader = httpApi.let {
-                    currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
+                    currentRequestLogWriter.wrap(it, id, Channel.JSONRPC)
                 }
                 EthereumRpcUpstream(
                     id,
@@ -269,10 +269,10 @@ open class ConfiguredUpstreams(
                 // In this case the failed request must be rerouted to the HTTP connection, because otherwise it would always fail
                 val directReader = JsonRpcSwitchClient(
                     JsonRpcWsClient(wsPool, emptyOnNoConnection = true).let {
-                        currentIngressLogWriter.wrap(it, id, Channel.WSJSONRPC)
+                        currentRequestLogWriter.wrap(it, id, Channel.WSJSONRPC)
                     },
                     httpApi.let {
-                        currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
+                        currentRequestLogWriter.wrap(it, id, Channel.JSONRPC)
                     }
                 )
                 EthereumWsUpstream(
@@ -288,7 +288,7 @@ open class ConfiguredUpstreams(
             }
         } else if (httpApi != null) {
             val directReader = httpApi.let {
-                currentIngressLogWriter.wrap(it, id, Channel.JSONRPC)
+                currentRequestLogWriter.wrap(it, id, Channel.JSONRPC)
             }
             EthereumRpcUpstream(
                 id,
@@ -299,7 +299,7 @@ open class ConfiguredUpstreams(
             )
         } else if (wsPool != null) {
             val directReader = JsonRpcWsClient(wsPool, emptyOnNoConnection = false).let {
-                currentIngressLogWriter.wrap(it, id, Channel.WSJSONRPC)
+                currentRequestLogWriter.wrap(it, id, Channel.WSJSONRPC)
             }
             EthereumWsUpstream(
                 id,
@@ -333,7 +333,7 @@ open class ConfiguredUpstreams(
             config.role,
             endpoint,
             fileResolver,
-            currentIngressLogWriter,
+            currentRequestLogWriter,
         ).apply {
             this.options = options
         }

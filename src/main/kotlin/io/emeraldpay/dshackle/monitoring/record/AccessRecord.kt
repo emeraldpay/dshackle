@@ -23,10 +23,10 @@ import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.UUID
 
-class EgressRecord {
+class AccessRecord {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EgressRecord::class.java)
+        private val log = LoggerFactory.getLogger(AccessRecord::class.java)
     }
 
     @JsonPropertyOrder("version", "id", "channel", "ts", "method")
@@ -35,7 +35,7 @@ class EgressRecord {
         val method: String,
         val channel: Channel
     ) {
-        val version = "egresslog/v1beta2"
+        val version = "accesslog/v1beta2"
         var ts = Instant.now()
     }
 

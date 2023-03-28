@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.monitoring.egresslog
+package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.dshackle.monitoring.Channel
 import io.grpc.ForwardingServerCall
@@ -29,12 +29,12 @@ import org.springframework.stereotype.Service
 import java.util.UUID
 
 @Service
-class EgressHandlerGrpc(
-    @Autowired private val accessLogWriter: CurrentEgressLogWriter
+class AccessLogHandlerGrpc(
+    @Autowired private val accessLogWriter: CurrentAccessLogWriter
 ) : ServerInterceptor {
 
     companion object {
-        private val log = LoggerFactory.getLogger(EgressHandlerGrpc::class.java)
+        private val log = LoggerFactory.getLogger(AccessLogHandlerGrpc::class.java)
     }
 
     override fun <ReqT : Any, RespT : Any> interceptCall(
@@ -43,7 +43,7 @@ class EgressHandlerGrpc(
         next: ServerCallHandler<ReqT, RespT>
     ): ServerCall.Listener<ReqT> {
 
-        val requestId = EgressContext.REQUEST_ID_GRPC_KEY.get().id
+        val requestId = AccessContext.REQUEST_ID_GRPC_KEY.get().id
 
         return when (val method = call.methodDescriptor.bareMethodName) {
             "SubscribeHead" -> processSubscribeHead(call, headers, next, requestId)
@@ -201,7 +201,7 @@ class EgressHandlerGrpc(
     open class StdCallResponse<ReqT : Any, RespT : Any, EB : RecordBuilder.RequestReply<*, ReqT, RespT>>(
         val next: ServerCall<ReqT, RespT>,
         val builder: EB,
-        val accessLogWriter: CurrentEgressLogWriter
+        val accessLogWriter: CurrentAccessLogWriter
     ) : ForwardingServerCall<ReqT, RespT>() {
 
         override fun getMethodDescriptor(): MethodDescriptor<ReqT, RespT> {

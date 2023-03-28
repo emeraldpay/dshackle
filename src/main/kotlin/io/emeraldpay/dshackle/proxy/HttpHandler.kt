@@ -17,8 +17,8 @@ package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ProxyConfig
-import io.emeraldpay.dshackle.monitoring.egresslog.EgressContext
-import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessContext
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessLogHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
@@ -44,7 +44,7 @@ class HttpHandler(
     private val readRpcJson: ReadRpcJson,
     writeRpcJson: WriteRpcJson,
     nativeCall: NativeCall,
-    private val accessHandler: EgressHandlerHttp.HandlerFactory,
+    private val accessHandler: AccessLogHandlerHttp.HandlerFactory,
     private val requestMetrics: ProxyServer.RequestMetricsFactory,
 ) : BaseHandler(writeRpcJson, nativeCall, requestMetrics) {
 
@@ -74,7 +74,7 @@ class HttpHandler(
                 .aggregate()
                 .asByteArray()
             val results = processRequest(routeConfig.blockchain, request, eventHandler)
-                .contextWrite(Global.monitoring.egress.setRequest(EgressContext.Value(requestId, Instant.now())))
+                .contextWrite(Global.monitoring.egress.setRequest(AccessContext.Value(requestId, Instant.now())))
                 // make sure that the access log handler is closed at the end, so it can render the logs
                 .doFinally { eventHandler.close() }
             addCorsHeadersIfSet(resp)
@@ -86,7 +86,7 @@ class HttpHandler(
     fun processRequest(
         chain: Chain,
         request: Mono<ByteArray>,
-        handler: EgressHandlerHttp.RequestHandler
+        handler: AccessLogHandlerHttp.RequestHandler
     ): Flux<ByteBuf> {
         return request
             .map(readRpcJson)

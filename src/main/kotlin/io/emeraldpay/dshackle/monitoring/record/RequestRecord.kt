@@ -18,16 +18,16 @@ package io.emeraldpay.dshackle.monitoring.record
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonPropertyOrder
 import io.emeraldpay.dshackle.monitoring.Channel
-import io.emeraldpay.dshackle.monitoring.ingresslog.RequestType
+import io.emeraldpay.dshackle.monitoring.requestlog.RequestType
 import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.UUID
 
-class IngressRecord {
+class RequestRecord {
 
     companion object {
-        private val log = LoggerFactory.getLogger(IngressRecord::class.java)
+        private val log = LoggerFactory.getLogger(RequestRecord::class.java)
 
         fun newBuilder(): Builder {
             return Builder()
@@ -36,7 +36,7 @@ class IngressRecord {
 
     @JsonPropertyOrder("version", "id", "success", "upstream", "request", "jsonrpc")
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    class BlockchainRequest(
+    data class BlockchainRequest(
         val id: UUID,
         val request: RequestDetails,
         val blockchain: Chain? = null,
@@ -52,15 +52,15 @@ class IngressRecord {
         val responseSize: Int = 0,
         val error: ErrorDetails? = null,
     ) {
-        val version = "ingresslog/v1alpha"
+        val version = "requestlog/v1alpha"
 
-        val queueTime: Long = if (execute != null) {
-            (execute.toEpochMilli() - request.start.toEpochMilli()).coerceAtLeast(0)
+        val queueTime: Double = if (execute != null) {
+            (execute.nano - request.start.nano).coerceAtLeast(0) / 1_000_000.0
         } else {
-            (complete.toEpochMilli() - request.start.toEpochMilli()).coerceAtLeast(0)
+            (complete.nano - request.start.nano).coerceAtLeast(0) / 1_000_000.0
         }
-        val requestTime: Long? = if (execute != null) {
-            (complete.toEpochMilli() - execute.toEpochMilli()).coerceAtLeast(0)
+        val requestTime: Double? = if (execute != null) {
+            (complete.nano - execute.nano).coerceAtLeast(0) / 1_000_000.0
         } else {
             null
         }

@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.proxy
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessLogHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
@@ -39,7 +39,7 @@ abstract class BaseHandler(
     fun execute(
         chain: Chain,
         call: ProxyCall,
-        handler: EgressHandlerHttp.RequestHandler,
+        handler: AccessLogHandlerHttp.RequestHandler,
         preserveBatchOrder: Boolean = false
     ): Publisher<String> {
         // return empty response for empty request
@@ -68,7 +68,7 @@ abstract class BaseHandler(
         }
     }
 
-    fun execute(chain: Chain, items: List<BlockchainOuterClass.NativeCallItem>, handler: EgressHandlerHttp.RequestHandler): Flux<NativeCall.CallResult> {
+    fun execute(chain: Chain, items: List<BlockchainOuterClass.NativeCallItem>, handler: AccessLogHandlerHttp.RequestHandler): Flux<NativeCall.CallResult> {
         val startTime = System.currentTimeMillis()
         // during the execution we know only ID of the call, so we use it to find the origin call and associated metrics
         val metricById = { id: Int ->

@@ -19,7 +19,7 @@ package io.emeraldpay.dshackle.proxy
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.TlsSetup
 import io.emeraldpay.dshackle.config.ProxyConfig
-import io.emeraldpay.dshackle.monitoring.egresslog.EgressHandlerHttp
+import io.emeraldpay.dshackle.monitoring.accesslog.AccessLogHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.grpc.Chain
@@ -46,7 +46,7 @@ class ProxyServer(
     nativeCall: NativeCall,
     nativeSubscribe: NativeSubscribe,
     private val tlsSetup: TlsSetup,
-    accessHandler: EgressHandlerHttp.HandlerFactory
+    accessHandler: AccessLogHandlerHttp.HandlerFactory
 ) {
 
     companion object {

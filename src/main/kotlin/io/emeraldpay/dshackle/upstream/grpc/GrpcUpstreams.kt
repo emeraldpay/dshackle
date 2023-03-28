@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.monitoring.Channel
-import io.emeraldpay.dshackle.monitoring.ingresslog.CurrentIngressLogWriter
+import io.emeraldpay.dshackle.monitoring.requestlog.CurrentRequestLogWriter
 import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ForkWatchFactory
@@ -58,7 +58,7 @@ class GrpcUpstreams(
     private val role: UpstreamsConfig.UpstreamRole,
     private val conn: UpstreamsConfig.GrpcConnection,
     private val fileResolver: FileResolver,
-    private val currentIngressLogWriter: CurrentIngressLogWriter,
+    private val currentRequestLogWriter: CurrentRequestLogWriter,
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -210,7 +210,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics) {
-                    currentIngressLogWriter.wrap(it, id, Channel.DSHACKLE)
+                    currentRequestLogWriter.wrap(it, id, Channel.DSHACKLE)
                 }
                 val created = EthereumGrpcUpstream(id, forkWatchFactory.create(chain), role, chain, this.options, client!!, rpcClient)
                 created.timeout = this.options.timeout
@@ -228,7 +228,7 @@ class GrpcUpstreams(
             val current = known[chain]
             return if (current == null) {
                 val rpcClient = JsonRpcGrpcClient(client!!, chain, metrics) {
-                    currentIngressLogWriter.wrap(it, id, Channel.DSHACKLE)
+                    currentRequestLogWriter.wrap(it, id, Channel.DSHACKLE)
                 }
                 val created = BitcoinGrpcUpstream(id, forkWatchFactory.create(chain), role, chain, this.options, client!!, rpcClient)
                 created.timeout = this.options.timeout
