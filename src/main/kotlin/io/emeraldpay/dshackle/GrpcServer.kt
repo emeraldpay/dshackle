@@ -26,6 +26,7 @@ import io.grpc.ServerInterceptor
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -95,7 +96,8 @@ open class GrpcServer(
                 ExecutorServiceMetrics.monitor(
                     Metrics.globalRegistry,
                     pool,
-                    "fixed-grpc-executor"
+                    "fixed-grpc-executor",
+                    Tag.of("reactor_scheduler_id", "_")
                 )
             else
                 pool

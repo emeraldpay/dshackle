@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.config.context
 
 import io.emeraldpay.dshackle.config.MonitoringConfig
 import io.micrometer.core.instrument.Metrics
+import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -45,7 +46,8 @@ open class SchedulersConfig {
             ExecutorServiceMetrics.monitor(
                 Metrics.globalRegistry,
                 pool,
-                name
+                name,
+                Tag.of("reactor_scheduler_id", "_")
             )
         else
             pool
