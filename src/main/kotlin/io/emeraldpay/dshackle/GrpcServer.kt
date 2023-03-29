@@ -95,8 +95,7 @@ open class GrpcServer(
                 ExecutorServiceMetrics.monitor(
                     Metrics.globalRegistry,
                     pool,
-                    "fixed-grpc-executor",
-                    "grpc_"
+                    "fixed-grpc-executor"
                 )
             else
                 pool

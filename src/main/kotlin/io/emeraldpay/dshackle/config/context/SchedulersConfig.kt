@@ -16,37 +16,36 @@ import java.util.concurrent.Executors
 open class SchedulersConfig {
     @Bean
     open fun rpcScheduler(monitoringConfig: MonitoringConfig): Scheduler {
-        return makeScheduler("blockchain-rpc-scheduler", "blockchain_rpc", 30, monitoringConfig)
+        return makeScheduler("blockchain-rpc-scheduler", 30, monitoringConfig)
     }
 
     @Bean
     open fun trackTxScheduler(monitoringConfig: MonitoringConfig): Scheduler {
-        return makeScheduler("tracktx-scheduler", "tracktx", 5, monitoringConfig)
+        return makeScheduler("tracktx-scheduler", 5, monitoringConfig)
     }
 
     @Bean
     open fun headMergedScheduler(monitoringConfig: MonitoringConfig): Scheduler {
-        return makeScheduler("head-scheduler", "head_merge", 5, monitoringConfig)
+        return makeScheduler("head-scheduler", 5, monitoringConfig)
     }
 
     @Bean
     open fun grpcChannelExecutor(monitoringConfig: MonitoringConfig): Executor {
-        return makePool("grpc-client-channel", "grpc_client_channel", 10, monitoringConfig)
+        return makePool("grpc-client-channel", 10, monitoringConfig)
     }
 
-    private fun makeScheduler(name: String, prefix: String, size: Int, monitoringConfig: MonitoringConfig): Scheduler {
-        return Schedulers.fromExecutorService(makePool(name, prefix, size, monitoringConfig))
+    private fun makeScheduler(name: String, size: Int, monitoringConfig: MonitoringConfig): Scheduler {
+        return Schedulers.fromExecutorService(makePool(name, size, monitoringConfig))
     }
 
-    private fun makePool(name: String, prefix: String, size: Int, monitoringConfig: MonitoringConfig): ExecutorService {
+    private fun makePool(name: String, size: Int, monitoringConfig: MonitoringConfig): ExecutorService {
         val pool = Executors.newFixedThreadPool(size, CustomizableThreadFactory("$name-"))
 
         return if (monitoringConfig.enableExtended)
             ExecutorServiceMetrics.monitor(
                 Metrics.globalRegistry,
                 pool,
-                name,
-                prefix
+                name
             )
         else
             pool
