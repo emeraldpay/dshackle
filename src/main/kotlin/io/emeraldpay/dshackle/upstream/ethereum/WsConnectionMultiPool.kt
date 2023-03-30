@@ -20,6 +20,9 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import org.springframework.util.backoff.BackOffExecution
 import org.springframework.util.backoff.ExponentialBackOff
+import reactor.core.Disposable
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -50,6 +53,8 @@ class WsConnectionMultiPool(
     private var adjustLock = ReentrantReadWriteLock()
     private val index = AtomicInteger(0)
     private var connIndex = 0
+    private val connectionInfo = Sinks.many().multicast().directBestEffort<WsConnection.ConnectionInfo>()
+    private val connectionSubscriptionMap = mutableMapOf<String, Disposable>()
 
     var scheduler: ScheduledExecutorService = Global.control
 
@@ -73,8 +78,13 @@ class WsConnectionMultiPool(
         return next
     }
 
+    override fun connectionInfoFlux(): Flux<WsConnection.ConnectionInfo> =
+        connectionInfo.asFlux()
+
     override fun close() {
         adjustLock.write {
+            connectionSubscriptionMap.values.forEach { it.dispose() }
+            connectionSubscriptionMap.clear()
             current.forEach { it.close() }
             current.clear()
         }
@@ -106,6 +116,9 @@ class WsConnectionMultiPool(
                             }
                         }.also {
                             it.connect()
+                            connectionSubscriptionMap[it.connectionId()] = it.connectionInfoFlux().subscribe { info ->
+                                connectionInfo.emitNext(info) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                            }
                         }
                     )
                     SCHEDULE_GROW
@@ -116,6 +129,7 @@ class WsConnectionMultiPool(
                 current.removeIf {
                     if (!it.isConnected) {
                         // DO NOT FORGET to close the connection, otherwise it would keep reconnecting but unused
+                        connectionSubscriptionMap.remove(it.connectionId())?.dispose()
                         it.close()
                         true
                     } else {

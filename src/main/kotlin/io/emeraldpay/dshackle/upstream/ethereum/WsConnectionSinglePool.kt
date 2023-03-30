@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import reactor.core.publisher.Flux
 
 class WsConnectionSinglePool(
     ethereumWsConnectionFactory: EthereumWsConnectionFactory,
@@ -35,6 +36,9 @@ class WsConnectionSinglePool(
     override fun getConnection(): WsConnection {
         return connection
     }
+
+    override fun connectionInfoFlux(): Flux<WsConnection.ConnectionInfo> =
+        connection.connectionInfoFlux()
 
     override fun close() {
         connection.close()

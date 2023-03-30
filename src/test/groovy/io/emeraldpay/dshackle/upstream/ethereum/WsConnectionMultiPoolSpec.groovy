@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import reactor.core.publisher.Flux
 import spock.lang.Specification
 
 import java.util.concurrent.ScheduledExecutorService
@@ -24,7 +25,9 @@ class WsConnectionMultiPoolSpec extends Specification {
 
     def "create connection when less than required"() {
         setup:
-        def conn = Mock(WsConnection)
+        def conn = Mock(WsConnection) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+        }
         def up = Mock(DefaultUpstream)
         def factory = Mock(EthereumWsConnectionFactory)
         def pool = new WsConnectionMultiPool(factory, up, 3)
@@ -40,9 +43,15 @@ class WsConnectionMultiPoolSpec extends Specification {
 
     def "create connection until target"() {
         setup:
-        def conn1 = Mock(WsConnection)
-        def conn2 = Mock(WsConnection)
-        def conn3 = Mock(WsConnection)
+        def conn1 = Mock(WsConnection) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+        }
+        def conn2 = Mock(WsConnection) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+        }
+        def conn3 = Mock(WsConnection) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+        }
         def up = Mock(DefaultUpstream)
         def factory = Mock(EthereumWsConnectionFactory)
         def pool = new WsConnectionMultiPool(factory, up, 3)
@@ -84,10 +93,18 @@ class WsConnectionMultiPoolSpec extends Specification {
 
     def "recreate connection after failure"() {
         setup:
-        def conn1 = Mock(WsConnection)
-        def conn2 = Mock(WsConnection)
-        def conn3 = Mock(WsConnection)
-        def conn4 = Mock(WsConnection)
+        def conn1 = Mock(WsConnection) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+        }
+        def conn2 = Mock(WsConnection) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+        }
+        def conn3 = Mock(WsConnection) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+        }
+        def conn4 = Mock(WsConnection) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+        }
         def up = Mock(DefaultUpstream)
         def factory = Mock(EthereumWsConnectionFactory)
         def pool = new WsConnectionMultiPool(factory, up, 3)

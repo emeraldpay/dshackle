@@ -33,7 +33,7 @@ class WsSubscriptionsImpl(
 
     private val ids = AtomicLong(1)
 
-    override fun subscribe(method: String): Flux<ByteArray> {
+    override fun subscribe(method: String): WsSubscriptions.SubscribeData {
         val subscriptionId = AtomicReference("")
         val conn = wsPool.getConnection()
         val messages = conn.getSubscribeResponses()
@@ -41,7 +41,7 @@ class WsSubscriptionsImpl(
             .filter { it.result != null } // should never happen
             .map { it.result!! }
 
-        return conn.callRpc(JsonRpcRequest("eth_subscribe", listOf(method), ids.incrementAndGet()))
+        val messageFlux = conn.callRpc(JsonRpcRequest("eth_subscribe", listOf(method), ids.incrementAndGet()))
             .flatMapMany {
                 if (it.hasError()) {
                     log.warn("Failed to establish ETH Subscription: ${it.error?.message}")
@@ -51,5 +51,10 @@ class WsSubscriptionsImpl(
                     messages
                 }
             }
+
+        return WsSubscriptions.SubscribeData(messageFlux, conn.connectionId())
     }
+
+    override fun connectionInfoFlux(): Flux<WsConnection.ConnectionInfo> =
+        wsPool.connectionInfoFlux()
 }

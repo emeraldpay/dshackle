@@ -36,7 +36,9 @@ class WsSubscriptionsImplSpec extends Specification {
                 ]
         )
 
-        def conn = Mock(WsConnection)
+        def conn = Mock(WsConnection) {
+            1 * it.connectionId() >> "id"
+        }
         def pool = Mock(WsConnectionPool) {
             getConnection() >> conn
         }
@@ -44,6 +46,7 @@ class WsSubscriptionsImplSpec extends Specification {
 
         when:
         def act = ws.subscribe("foo_bar")
+            .data
             .map { new String(it) }
             .take(3)
             .collectList().block(Duration.ofSeconds(1))
@@ -71,7 +74,9 @@ class WsSubscriptionsImplSpec extends Specification {
                 ]
         )
 
-        def conn = Mock(WsConnection)
+        def conn = Mock(WsConnection) {
+            1 * it.connectionId() >> "id"
+        }
         def pool = Mock(WsConnectionPool) {
             getConnection() >> conn
         }
@@ -79,6 +84,7 @@ class WsSubscriptionsImplSpec extends Specification {
 
         when:
         def act = ws.subscribe("foo_bar")
+                .data
                 .map { new String(it) }
                 .take(3)
                 .collectList().block(Duration.ofSeconds(1))

@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.WebsocketConnectionStatesHandler
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -40,11 +41,12 @@ class EthereumWsHead(
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
     private val api: JsonRpcReader,
-    private val wsSubscriptions: WsSubscriptions,
+    wsSubscriptions: WsSubscriptions,
     private val skipEnhance: Boolean
 ) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
 
     private var subscription: Disposable? = null
+    private val wsConnectionStatesHandler = WebsocketConnectionStatesHandler(wsSubscriptions, this::onNoHeadUpdates)
 
     override fun isRunning(): Boolean {
         return subscription != null
@@ -67,7 +69,7 @@ class EthereumWsHead(
     }
 
     fun listenNewHeads(): Flux<BlockContainer> {
-        return wsSubscriptions.subscribe("newHeads")
+        return wsConnectionStatesHandler.subscribe("newHeads")
             .map {
                 Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
             }

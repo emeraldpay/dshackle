@@ -18,6 +18,8 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AuthConfig
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnection.ConnectionState.CONNECTED
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnection.ConnectionState.DISCONNECTED
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -52,6 +54,7 @@ import java.net.URI
 import java.time.Duration
 import java.time.Instant
 import java.util.Base64
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
@@ -114,16 +117,25 @@ open class WsConnectionImpl(
         .multicast()
         .directBestEffort<Instant>()
 
+    private val connectionInfo = Sinks
+        .many()
+        .multicast()
+        .directBestEffort<WsConnection.ConnectionInfo>()
+
     private val currentRequests = ConcurrentHashMap<Int, Sinks.One<JsonRpcResponse>>()
 
+    private val connId = UUID.randomUUID().toString()
     private val sendIdSeq = AtomicInteger(IDS_START)
     private val sendExecutor = Executors.newSingleThreadExecutor()
     private var keepConnection = true
+    private var firstConnect = true
     private var connection: Disposable? = null
     private val reconnecting = AtomicBoolean(false)
 
     override val isConnected: Boolean
         get() = connection != null && !reconnecting.get()
+
+    override fun connectionId(): String = connId
 
     fun setReconnectIntervalSeconds(value: Long) {
         reconnectBackoff = FixedBackOff(value * 1000, FixedBackOff.UNLIMITED_ATTEMPTS)
@@ -135,6 +147,10 @@ open class WsConnectionImpl(
         connectInternal()
     }
 
+    override fun connectionInfoFlux(): Flux<WsConnection.ConnectionInfo> =
+        connectionInfo.asFlux()
+            .distinctUntilChanged { it.connectionState }
+
     private fun tryReconnectLater() {
         if (!keepConnection) {
             return
@@ -142,6 +158,10 @@ open class WsConnectionImpl(
         val alreadyReconnecting = reconnecting.getAndSet(true)
         if (alreadyReconnecting) {
             return
+        }
+        connectionInfo.tryEmitNext(WsConnection.ConnectionInfo(connId, DISCONNECTED))
+        if (firstConnect) {
+            firstConnect = false
         }
 
         // rpcSend is already CANCELLED, since the subscription owned by the previous connection is gone
@@ -182,6 +202,13 @@ open class WsConnectionImpl(
                 log.info("Disconnected from $uri")
                 if (keepConnection) {
                     tryReconnectLater()
+                }
+            }
+            .doOnConnected {
+                if (!firstConnect) {
+                    connectionInfo.tryEmitNext(WsConnection.ConnectionInfo(connId, CONNECTED))
+                } else {
+                    firstConnect = false
                 }
             }
             .doOnError(
@@ -379,6 +406,7 @@ open class WsConnectionImpl(
 
     override fun close() {
         log.info("Closing connection to WebSocket $uri")
+        connectionInfo.tryEmitComplete()
         keepConnection = false
         connection?.dispose()
         connection = null

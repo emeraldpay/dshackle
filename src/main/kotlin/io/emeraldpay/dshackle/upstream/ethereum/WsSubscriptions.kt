@@ -37,5 +37,12 @@ interface WsSubscriptions {
     /**
      * Subscribe on remote
      */
-    fun subscribe(method: String): Flux<ByteArray>
+    fun subscribe(method: String): SubscribeData
+
+    fun connectionInfoFlux(): Flux<WsConnection.ConnectionInfo>
+
+    data class SubscribeData(
+        val data: Flux<ByteArray>,
+        val connectionId: String
+    )
 }

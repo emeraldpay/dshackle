@@ -25,7 +25,18 @@ interface WsConnection : AutoCloseable {
 
     val isConnected: Boolean
 
+    fun connectionId(): String
     fun getSubscribeResponses(): Flux<JsonRpcWsMessage>
     fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse>
     fun connect()
+    fun connectionInfoFlux(): Flux<ConnectionInfo>
+
+    data class ConnectionInfo(
+        val connectionId: String,
+        val connectionState: ConnectionState
+    )
+
+    enum class ConnectionState {
+        CONNECTED, DISCONNECTED
+    }
 }

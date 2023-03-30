@@ -15,7 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import reactor.core.publisher.Flux
+
 interface WsConnectionPool : AutoCloseable {
     fun connect()
     fun getConnection(): WsConnection
+    fun connectionInfoFlux(): Flux<WsConnection.ConnectionInfo>
 }

@@ -40,7 +40,9 @@ class WebsocketPendingTxesSpec extends Specification {
                 .collectList().block(Duration.ofSeconds(1))
 
         then:
-        1 * ws.subscribe("newPendingTransactions") >> Flux.fromIterable(responses)
+        1 * ws.subscribe("newPendingTransactions") >> new WsSubscriptions.SubscribeData(
+                Flux.fromIterable(responses), "id"
+        )
         txes.collect {it.toHex() } == [
                 "0xa61bab14fc9720ea8725622688c2f964666d7c2afdae38af7dad53f12f242d5c",
                 "0x911548eb0f3bf353a54e03a3506c7c3e747470d6c201f03babbc07ff6e14cd6e",
