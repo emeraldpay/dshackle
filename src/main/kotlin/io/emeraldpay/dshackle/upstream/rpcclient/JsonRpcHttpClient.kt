@@ -63,6 +63,7 @@ class JsonRpcHttpClient(
             .pendingAcquireMaxCount(5000)
             .build()
         var build = HttpClient.create(connectionProvider)
+            .compress(true)
             .resolver(DefaultAddressResolverGroup.INSTANCE)
 
         build = build.headers { h ->
