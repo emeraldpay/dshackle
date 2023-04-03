@@ -23,7 +23,6 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.WebsocketConnectionStatesHandler
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -32,6 +31,8 @@ import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.Sinks
+import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import reactor.retry.Repeat
 import java.time.Duration
@@ -41,12 +42,21 @@ class EthereumWsHead(
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
     private val api: JsonRpcReader,
-    wsSubscriptions: WsSubscriptions,
-    private val skipEnhance: Boolean
+    private val wsSubscriptions: WsSubscriptions,
+    private val skipEnhance: Boolean,
+    private val wsConnectionResubscribeScheduler: Scheduler
 ) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
 
+    private var connectionId: String? = null
+    private var subscribed = false
+    private var connected = false
+
     private var subscription: Disposable? = null
-    private val wsConnectionStatesHandler = WebsocketConnectionStatesHandler(wsSubscriptions, this::onNoHeadUpdates)
+    private val noHeadUpdatesSink = Sinks.many().multicast().directBestEffort<Boolean>()
+
+    init {
+        registerHeadResubscribeFlux()
+    }
 
     override fun isRunning(): Boolean {
         return subscription != null
@@ -55,6 +65,7 @@ class EthereumWsHead(
     override fun start() {
         super.start()
         this.subscription?.dispose()
+        this.subscribed = true
         val heads = Flux.merge(
             // get the current block, not just wait for the next update
             getLatestBlock(api),
@@ -64,12 +75,11 @@ class EthereumWsHead(
     }
 
     override fun onNoHeadUpdates() {
-        log.warn("Restart ws head, upstreamId: $upstreamId")
-        start()
+        noHeadUpdatesSink.tryEmitNext(true)
     }
 
     fun listenNewHeads(): Flux<BlockContainer> {
-        return wsConnectionStatesHandler.subscribe("newHeads")
+        return subscribe()
             .map {
                 Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
             }
@@ -87,6 +97,11 @@ class EthereumWsHead(
                 } else {
                     Mono.just(BlockContainer.from(block))
                 }
+            }
+            .timeout(Duration.ofSeconds(60), Mono.error(RuntimeException("No response from subscribe to newHeads")))
+            .onErrorResume {
+                subscribed = false
+                Mono.empty()
             }
     }
 
@@ -118,5 +133,45 @@ class EthereumWsHead(
         super.stop()
         subscription?.dispose()
         subscription = null
+        noHeadUpdatesSink.tryEmitComplete()
+    }
+
+    private fun subscribe(): Flux<ByteArray> {
+        return try {
+            wsSubscriptions.subscribe("newHeads")
+                .also {
+                    connectionId = it.connectionId
+                    if (!connected) {
+                        connected = true
+                    }
+                }.data
+        } catch (e: Exception) {
+            Flux.error(e)
+        }
+    }
+
+    private fun registerHeadResubscribeFlux() {
+        val connectionStates = wsSubscriptions.connectionInfoFlux()
+            .map {
+                if (it.connectionId == connectionId && it.connectionState == WsConnection.ConnectionState.DISCONNECTED) {
+                    subscribed = false
+                    connected = false
+                    connectionId = null
+                } else if (it.connectionState == WsConnection.ConnectionState.CONNECTED) {
+                    connected = true
+                    return@map true
+                }
+                return@map false
+            }
+
+        Flux.merge(
+            noHeadUpdatesSink.asFlux(),
+            connectionStates,
+        ).subscribeOn(wsConnectionResubscribeScheduler)
+            .filter { it && !subscribed && connected }
+            .subscribe {
+                log.warn("Restart ws head, upstreamId: $upstreamId")
+                start()
+            }
     }
 }

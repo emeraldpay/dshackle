@@ -1,6 +1,5 @@
 package io.emeraldpay.dshackle.startup
 
-import io.emeraldpay.dshackle.Chain
 import brave.Tracing
 import brave.grpc.GrpcTracing
 import io.emeraldpay.dshackle.Chain
@@ -12,6 +11,7 @@ import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import org.springframework.context.ApplicationEventPublisher
+import reactor.core.scheduler.Schedulers
 import spock.lang.Specification
 
 import java.util.concurrent.Executors
@@ -29,7 +29,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
-                GrpcTracing.create(Tracing.newBuilder().build())
+                GrpcTracing.create(Tracing.newBuilder().build()),
+                Schedulers.boundedElastic()
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -58,7 +59,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
-                GrpcTracing.create(Tracing.newBuilder().build())
+                GrpcTracing.create(Tracing.newBuilder().build()),
+                Schedulers.boundedElastic()
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -86,7 +88,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
-                GrpcTracing.create(Tracing.newBuilder().build())
+                GrpcTracing.create(Tracing.newBuilder().build()),
+                Schedulers.boundedElastic()
         )
         expect:
         configurer.getHash(node, src) == expected
@@ -109,7 +112,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
-                GrpcTracing.create(Tracing.newBuilder().build())
+                GrpcTracing.create(Tracing.newBuilder().build()),
+                Schedulers.boundedElastic()
         )
         when:
         def h1 = configurer.getHash(null, "hohoho")
@@ -137,7 +141,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Mock(ApplicationEventPublisher),
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
-                GrpcTracing.create(Tracing.newBuilder().build())
+                GrpcTracing.create(Tracing.newBuilder().build()),
+                Schedulers.boundedElastic()
         )
         def methodsGroup = new UpstreamsConfig.MethodGroups(
                 ["filter"] as Set,

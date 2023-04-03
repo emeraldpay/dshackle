@@ -12,13 +12,15 @@ import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
+import reactor.core.scheduler.Scheduler
 
 class EthereumWsConnector(
     wsFactory: EthereumWsConnectionPoolFactory,
     upstream: DefaultUpstream,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
-    skipEnhance: Boolean
+    skipEnhance: Boolean,
+    wsConnectionResubscribeScheduler: Scheduler
 ) : EthereumConnector {
     private val pool: WsConnectionPool
     private val reader: JsonRpcReader
@@ -29,7 +31,10 @@ class EthereumWsConnector(
         pool = wsFactory.create(upstream)
         reader = JsonRpcWsClient(pool)
         val wsSubscriptions = WsSubscriptionsImpl(pool)
-        head = EthereumWsHead(upstream.getId(), forkChoice, blockValidator, reader, wsSubscriptions, skipEnhance)
+        head = EthereumWsHead(
+            upstream.getId(), forkChoice, blockValidator, reader,
+            wsSubscriptions, skipEnhance, wsConnectionResubscribeScheduler
+        )
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 

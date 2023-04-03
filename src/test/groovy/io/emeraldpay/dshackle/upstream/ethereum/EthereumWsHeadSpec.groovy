@@ -27,6 +27,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
+import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -65,7 +66,7 @@ class EthereumWsHeadSpec extends Specification {
             1 * it.connectionInfoFlux() >> Flux.empty()
         }
 
-        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, false)
+        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, false, Schedulers.boundedElastic())
 
         when:
         def act = head.listenNewHeads().blockFirst()
@@ -83,48 +84,43 @@ class EthereumWsHeadSpec extends Specification {
 
     def "Restart ethereum ws head"() {
         setup:
-        def block = new BlockJson<TransactionRefJson>()
-        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
-        block.number = 103
-        block.parentHash = parent
-        block.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
         def secondBlock = new BlockJson<TransactionRefJson>()
         secondBlock.parentHash = parent
         secondBlock.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         secondBlock.number = 105
         secondBlock.hash = BlockHash.from("0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8")
 
-        def firstHeadBlock = block.with {
-            Global.objectMapper.writeValueAsBytes(it)
-        }
         def secondHeadBlock = secondBlock.with {
             Global.objectMapper.writeValueAsBytes(it)
         }
 
         def apiMock = TestingCommons.api()
-        apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], null)
         apiMock.answerOnce("eth_getBlockByHash", ["0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8", false], null)
         apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
-        apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
 
+        def connectionInfoSink = Sinks.many().multicast().directBestEffort()
         def ws = Mock(WsSubscriptions) {
-            1 * it.connectionInfoFlux() >> Flux.empty()
+            1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             2 * subscribe("newHeads") >>> [
-                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
+                    new WsSubscriptions.SubscribeData(Flux.error(new RuntimeException()), "id"),
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id")
             ]
         }
 
-        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true)
+        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic())
 
         when:
         def act = head.getFlux()
 
         then:
         StepVerifier.create(act)
-                .then { head.start() }
-                .expectNext(BlockContainer.from(block))
-                .then { head.onNoHeadUpdates() }
+                .then {
+                    head.start()
+                }
+                .expectNoEvent(Duration.ofMillis(100))
+                .then {
+                    head.onNoHeadUpdates()
+                }
                 .expectNext(BlockContainer.from(secondBlock))
                 .thenCancel()
                 .verify(Duration.ofSeconds(1))
@@ -165,7 +161,7 @@ class EthereumWsHeadSpec extends Specification {
             ]
         }
 
-        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true)
+        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic())
 
         when:
         def act = head.getFlux()
@@ -177,6 +173,87 @@ class EthereumWsHeadSpec extends Specification {
                 .then { connectionInfoSink.tryEmitNext(new WsConnection.ConnectionInfo("id", WsConnection.ConnectionState.DISCONNECTED)) }
                 .then { connectionInfoSink.tryEmitNext(new WsConnection.ConnectionInfo("id", WsConnection.ConnectionState.CONNECTED)) }
                 .expectNext(BlockContainer.from(secondBlock))
+                .thenCancel()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "No restart if new connection from pool has been connected"() {
+        setup:
+        def block = new BlockJson<TransactionRefJson>()
+        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block.number = 103
+        block.parentHash = parent
+        block.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
+
+        def firstHeadBlock = block.with {
+            Global.objectMapper.writeValueAsBytes(it)
+        }
+
+        def apiMock = TestingCommons.api()
+        def connectionInfoSink = Sinks.many().multicast().directBestEffort()
+        apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], null)
+        apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
+
+        def ws = Mock(WsSubscriptions) {
+            1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
+            1 * subscribe("newHeads") >>> [
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
+            ]
+        }
+
+        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic())
+
+        when:
+        def act = head.getFlux()
+
+        then:
+        StepVerifier.create(act)
+                .then { head.start() }
+                .expectNext(BlockContainer.from(block))
+                .then { connectionInfoSink.tryEmitNext(new WsConnection.ConnectionInfo("id", WsConnection.ConnectionState.CONNECTED)) }
+                .expectNextCount(0)
+                .thenCancel()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "No reset current subscription if it's already subscribed but other connection has been disconnected"() {
+        setup:
+        def block = new BlockJson<TransactionRefJson>()
+        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block.number = 103
+        block.parentHash = parent
+        block.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
+
+        def firstHeadBlock = block.with {
+            Global.objectMapper.writeValueAsBytes(it)
+        }
+
+        def apiMock = TestingCommons.api()
+        def connectionInfoSink = Sinks.many().multicast().directBestEffort()
+        apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], null)
+        apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
+
+        def ws = Mock(WsSubscriptions) {
+            1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
+            1 * subscribe("newHeads") >>> [
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
+            ]
+        }
+
+        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic())
+
+        when:
+        def act = head.getFlux()
+
+        then:
+        StepVerifier.create(act)
+                .then { head.start() }
+                .expectNext(BlockContainer.from(block))
+                .then {
+                    connectionInfoSink.tryEmitNext(new WsConnection.ConnectionInfo("newId", WsConnection.ConnectionState.DISCONNECTED))
+                    connectionInfoSink.tryEmitNext(new WsConnection.ConnectionInfo("newId", WsConnection.ConnectionState.CONNECTED))
+                }
+                .expectNextCount(0)
                 .thenCancel()
                 .verify(Duration.ofSeconds(1))
     }

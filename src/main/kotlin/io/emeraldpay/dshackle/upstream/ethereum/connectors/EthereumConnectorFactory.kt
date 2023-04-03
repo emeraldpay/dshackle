@@ -11,6 +11,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFact
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.WS_ONLY
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import reactor.core.scheduler.Scheduler
 
 open class EthereumConnectorFactory(
     private val connectorType: ConnectorMode,
@@ -18,6 +19,7 @@ open class EthereumConnectorFactory(
     private val httpFactory: HttpFactory?,
     private val forkChoice: ForkChoice,
     private val blockValidator: BlockValidator,
+    private val wsConnectionResubscribeScheduler: Scheduler
 ) : ConnectorFactory {
 
     override fun isValid(): Boolean {
@@ -47,7 +49,9 @@ open class EthereumConnectorFactory(
         skipEnhance: Boolean
     ): EthereumConnector {
         if (wsFactory != null && connectorType == WS_ONLY) {
-            return EthereumWsConnector(wsFactory, upstream, forkChoice, blockValidator, skipEnhance)
+            return EthereumWsConnector(
+                wsFactory, upstream, forkChoice, blockValidator, skipEnhance, wsConnectionResubscribeScheduler
+            )
         }
         if (httpFactory == null) {
             throw java.lang.IllegalArgumentException("Can't create rpc connector if no http factory set")
@@ -59,7 +63,8 @@ open class EthereumConnectorFactory(
             upstream.getId(),
             forkChoice,
             blockValidator,
-            skipEnhance
+            skipEnhance,
+            wsConnectionResubscribeScheduler
         )
     }
 

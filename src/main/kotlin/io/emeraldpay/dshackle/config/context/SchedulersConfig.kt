@@ -31,6 +31,11 @@ open class SchedulersConfig {
     }
 
     @Bean
+    open fun wsConnectionResubscribeScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("ws-connection-resubscribe-scheduler", 2, monitoringConfig)
+    }
+
+    @Bean
     open fun grpcChannelExecutor(monitoringConfig: MonitoringConfig): Executor {
         return makePool("grpc-client-channel", 10, monitoringConfig)
     }

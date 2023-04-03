@@ -75,7 +75,8 @@ open class ConfiguredUpstreams(
     @Qualifier("grpcChannelExecutor")
     private val channelExecutor: Executor,
     private val chainsConfig: ChainsConfig,
-    private val grpcTracing: GrpcTracing
+    private val grpcTracing: GrpcTracing,
+    private val wsConnectionResubscribeScheduler: Scheduler
 ) : ApplicationRunner {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -400,7 +401,9 @@ open class ConfiguredUpstreams(
         val httpFactory = buildHttpFactory(conn, urls)
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
         val connectorFactory =
-            EthereumConnectorFactory(conn.resolveMode(), wsFactoryApi, httpFactory, forkChoice, blockValidator)
+            EthereumConnectorFactory(
+                conn.resolveMode(), wsFactoryApi, httpFactory, forkChoice, blockValidator, wsConnectionResubscribeScheduler
+            )
         if (!connectorFactory.isValid()) {
             log.warn("Upstream configuration is invalid (probably no http endpoint)")
             return null

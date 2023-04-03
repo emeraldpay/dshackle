@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFact
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.slf4j.LoggerFactory
+import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
 class EthereumRpcConnector(
@@ -31,7 +32,8 @@ class EthereumRpcConnector(
     id: String,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
-    skipEnhance: Boolean
+    skipEnhance: Boolean,
+    wsConnectionResubscribeScheduler: Scheduler
 ) : EthereumConnector, CachesEnabled {
     private val pool: WsConnectionPool?
     private val head: Head
@@ -57,14 +59,20 @@ class EthereumRpcConnector(
             }
             RPC_REQUESTS_WITH_MIXED_HEAD -> {
                 val wsHead =
-                    EthereumWsHead(id, AlwaysForkChoice(), blockValidator, getIngressReader(), WsSubscriptionsImpl(pool!!), skipEnhance)
+                    EthereumWsHead(
+                        id, AlwaysForkChoice(), blockValidator, getIngressReader(),
+                        WsSubscriptionsImpl(pool!!), skipEnhance, wsConnectionResubscribeScheduler
+                    )
                 // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
                 val rpcHead =
                     EthereumRpcHead(getIngressReader(), AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
                 MergedHead(listOf(rpcHead, wsHead), forkChoice, "Merged for $id")
             }
             RPC_REQUESTS_WITH_WS_HEAD -> {
-                EthereumWsHead(id, AlwaysForkChoice(), blockValidator, getIngressReader(), WsSubscriptionsImpl(pool!!), skipEnhance)
+                EthereumWsHead(
+                    id, AlwaysForkChoice(), blockValidator, getIngressReader(),
+                    WsSubscriptionsImpl(pool!!), skipEnhance, wsConnectionResubscribeScheduler
+                )
             }
         }
     }
