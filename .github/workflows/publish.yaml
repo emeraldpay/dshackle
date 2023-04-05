@@ -7,6 +7,7 @@ jobs:
 
   publish-docker:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@master
         with:
@@ -20,13 +21,14 @@ jobs:
       - name: Upload to Docker
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: jib -Pdocker=drpcorg
+          arguments: jib -Pdocker=drpcorg -Pbuild_version=${{ github.ref_name }}
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   publish-github:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@master
         with:
@@ -39,7 +41,7 @@ jobs:
       - name: Build zip
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: distZip
+          arguments: distZip -Pbuild_version=${{ github.ref_name }}
       - name: Upload Release
         id: upload-release-asset
         uses: svenstaro/upload-release-action@v1-release
