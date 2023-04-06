@@ -9,6 +9,7 @@ import org.springframework.util.backoff.FixedBackOff
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * A flux holder that reconnects to it on failure taking into account a back off strategy
@@ -17,6 +18,7 @@ class DurableFlux<T>(
     private val provider: () -> Flux<T>,
     private val errorBackOff: BackOff,
     private val log: Logger,
+    private val control: AtomicBoolean
 ) {
 
     companion object {
@@ -44,7 +46,7 @@ class DurableFlux<T>(
             }
             .onErrorResume { t ->
                 val backoff = errorBackOffExecution.nextBackOff()
-                if (backoff != BackOffExecution.STOP) {
+                if (backoff != BackOffExecution.STOP && control.get()) {
                     log.warn("Connection closed with ${t.message}. Reconnecting in ${backoff}ms")
                     connect().delaySubscription(Duration.ofMillis(backoff))
                 } else {
@@ -60,6 +62,7 @@ class DurableFlux<T>(
 
         protected var errorBackOff: BackOff = FixedBackOff(1_000, Long.MAX_VALUE)
         protected var log: Logger = DurableFlux.defaultLog
+        protected var control: AtomicBoolean = AtomicBoolean(true)
 
         @Suppress("UNCHECKED_CAST")
         fun <X> using(provider: () -> Flux<X>): Builder<X> {
@@ -91,11 +94,16 @@ class DurableFlux<T>(
             return this
         }
 
+        fun controlWith(control: AtomicBoolean): Builder<T> {
+            this.control = control
+            return this
+        }
+
         fun build(): DurableFlux<T> {
             if (provider == null) {
                 throw IllegalStateException("No provider for original Flux")
             }
-            return DurableFlux(provider!!, errorBackOff, log)
+            return DurableFlux(provider!!, errorBackOff, log, control)
         }
     }
 }

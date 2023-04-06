@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.monitoring.accesslog
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AccessLogConfig
+import io.emeraldpay.dshackle.config.LogTargetConfig
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.record.AccessRecord
 import io.emeraldpay.grpc.Chain
@@ -21,7 +22,9 @@ class CurrentAccessLogWriterTest : ShouldSpec({
         println("Write egress log to ${accessLog.absolutePath}")
         val config = MainConfig()
         config.accessLogConfig = AccessLogConfig(true, false).also {
-            it.filename = accessLog.absolutePath
+            it.target = LogTargetConfig.File(
+                filename = accessLog.absolutePath
+            )
         }
         val logWriter = CurrentAccessLogWriter(config)
 

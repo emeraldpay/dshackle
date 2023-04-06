@@ -32,8 +32,8 @@ class RequestLogConfigReader : YamlConfigReader(), ConfigReader<RequestLogConfig
             } else {
                 val includeParams = getValueAsBool(node, "include-params") ?: false
                 val config = RequestLogConfig(true, includeParams)
-                getValueAsString(node, "filename")?.let {
-                    config.filename = it
+                LogTargetConfigReader(RequestLogConfig.defaultFile).read(node)?.let {
+                    config.target = it
                 }
                 config
             }

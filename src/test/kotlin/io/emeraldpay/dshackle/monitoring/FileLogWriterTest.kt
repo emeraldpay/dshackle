@@ -6,28 +6,27 @@ import io.emeraldpay.grpc.Chain
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import java.io.File
 import java.nio.file.Files
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import kotlin.io.path.readLines
 
 class FileLogWriterTest : ShouldSpec({
 
     should("write a log event") {
-        val dir = Files.createTempDirectory("dshackle-test-").toFile()
-        val accessLog = File(dir, "log.jsonl")
-        println("Write log to ${accessLog.absolutePath}")
+        val dir = Files.createTempDirectory("dshackle-test-")
+        val accessLog = dir.resolve("log.jsonl")
+        println("Write log to $accessLog")
 
         val serializer: (Any) -> ByteArray? = {
             Global.objectMapper.writeValueAsBytes(it)
         }
 
         val logWriter = FileLogWriter(
-            accessLog, serializer, Duration.ofMillis(10), Duration.ofMillis(10), 100
+            accessLog, serializer, Duration.ofMillis(1000), Duration.ofMillis(1000), 100
         )
 
-        logWriter.start()
         val event = AccessRecord.Status(
             Chain.ETHEREUM, UUID.fromString("9d8ecbf3-12fb-49cf-af9d-949a1050a000"),
             AccessRecord.RequestDetails(
@@ -39,7 +38,13 @@ class FileLogWriterTest : ShouldSpec({
             )
         )
         logWriter.submitAll(listOf(event))
-        logWriter.flush()
+        Thread.sleep(50)
+        val flushed = logWriter.flush()
+        flushed shouldBe true
+
+        // on CI it takes a time to fsync
+        Thread.sleep(3000)
+
         val act = accessLog.readLines()
 
         act shouldHaveSize 1
