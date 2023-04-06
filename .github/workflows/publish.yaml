@@ -21,7 +21,7 @@ jobs:
       - name: Upload to Docker
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: jib -Pdocker=drpcorg -Pbuild_version=${{ github.ref_name }}
+          arguments: jib -Pdocker=drpcorg
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -41,7 +41,7 @@ jobs:
       - name: Build zip
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: distZip -Pbuild_version=${{ github.ref_name }}
+          arguments: distZip
       - name: Upload Release
         id: upload-release-asset
         uses: svenstaro/upload-release-action@v1-release

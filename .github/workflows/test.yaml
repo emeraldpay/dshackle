@@ -20,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
+          fetch-depth: 0
           submodules: recursive
       - name: Set up JDK
         uses: actions/setup-java@v1
@@ -32,6 +33,7 @@ jobs:
       - name: Check
         uses: gradle/gradle-build-action@v2
         with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           arguments: check
         env:
           CI: true

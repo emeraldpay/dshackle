@@ -36,7 +36,7 @@ group = 'io.emeraldpay.dshackle'
 // Version schema:
 //    x.x.x for production, following SemVer model
 //    x.x.x-SNAPSHOT for development
-version =  project.hasProperty('build_version') ? project.property('build_version') : "0.0.1-SNAPSHOT"
+version = "0.0.1-SNAPSHOT"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -199,6 +199,7 @@ jar {
 
 afterEvaluate {
     distZip.dependsOn(jar)
+    generateVersion.dependsOn(getVersion)
     compileKotlin.dependsOn(generateVersion)
     jar.dependsOn(generateVersion)
 }
@@ -317,5 +318,17 @@ tasks.withType(Detekt).configureEach {
     jvmTarget = "17"
 }
 
-// formats code for each build
-tasks.findByName("ktlintCheck").dependsOn("ktlintFormat")
+task getVersion {
+    def exactVersion = 'git describe --tags --exact-match'.execute().text.trim()
+    if (exactVersion) {
+        version = exactVersion
+    } else {
+        def tag = 'git describe --tags --abbrev=0'.execute().text.trim()
+        def m = tag =~ /\.(\d+)$/
+        def match = m[0][1]
+        def next = match.toInteger() + 1
+        tag = tag.replaceAll(/.\d+$/, "." + next.toString())
+        version = tag + '-SNAPSHOT'
+    }
+    version = version.replaceAll(/^v/, '')
+}
