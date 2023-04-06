@@ -91,6 +91,7 @@ zeromq = "org.zeromq:jeromq:0.5.2"
 objgenesis = "org.objenesis:objenesis:3.1"
 
 reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor" }
+reactor-tools = { module = "io.projectreactor:reactor-tools", version.ref = "reactor" }
 reactor-netty = { module = "io.projectreactor.netty:reactor-netty", version = "1.0.11" }
 reactor-extra = { module = "io.projectreactor.addons:reactor-extra", version = "3.4.5" }
 reactor-kotlin = { module = "io.projectreactor.kotlin:reactor-kotlin-extensions", version = "1.1.4" }
@@ -125,7 +126,7 @@ httpcomponents = ["httpcomponents-httpmime", "httpcomponents-httpclient"]
 jackson = ["jackson-core", "jackson-databind", "jackson-datatype-jdk8", "jackson-datatype-jsr310", "jackson-module-kotlin"]
 kotlin = ["kotlin-stdlib-jdk8", "kotlin-reflect"]
 netty = ["netty-common", "netty-transport", "netty-handler-core", "netty-handler-proxy", "netty-resolver-core", "netty-resolver-dns", "netty-codec-core", "netty-codec-http", "netty-codec-http2", "netty-buffer", "netty-tcnative-core", "netty-tcnative-boringssl"]
-reactor = ["reactor-core", "reactor-netty", "reactor-extra", "reactor-kotlin"]
+reactor = ["reactor-core", "reactor-tools", "reactor-netty", "reactor-extra", "reactor-kotlin"]
 slf4j = ["slf4j-api", "slf4j-jul", "slf4j-jcl", "log4j-slf4j"]
 spring-framework = ["spring-boot-starter", "spring-security-core", "spring-security-web", "spring-security-config"]
 ktest = ["ktest-runner", "ktest-datatest"]

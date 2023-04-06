@@ -24,6 +24,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.core.io.ClassPathResource
 import org.springframework.core.io.support.ResourcePropertySource
 import reactor.core.publisher.Hooks
+import reactor.tools.agent.ReactorDebugAgent
 
 @SpringBootApplication(scanBasePackages = ["io.emeraldpay.dshackle"])
 @Import(Config::class)
@@ -35,6 +36,14 @@ fun main(args: Array<String>) {
     val app = SpringApplication(Starter::class.java)
     app.setDefaultProperties(ResourcePropertySource("version.properties").source)
     app.setBanner(ResourceBanner(ClassPathResource("banner.txt")))
+
+    //
+    // Reactor Debug Agent adds a Java Agent to get better stacktraces.
+    // It doesn't add an overhead as per https://projectreactor.io/docs/core/release/reference/#reactor-tools-debug
+    // But in some cases users may want to disable it, therefore --disable-debug-agent option
+    if (!args.contains("--disable-debug-agent")) {
+        ReactorDebugAgent.init()
+    }
 
     Hooks.onErrorDropped { t ->
         if (t is SilentException) {
