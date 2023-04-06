@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022 EmeraldPay, Inc
+ * Copyright (c) 2023 EmeraldPay, Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,30 +15,23 @@
  */
 package io.emeraldpay.dshackle.config
 
-/**
- * Config for logging of the request made from Dshackle to an upstream
- */
-class RequestLogConfig(
-    val enabled: Boolean = false,
-    val includeParams: Boolean = false
-) {
+class LogTargetConfig {
 
-    var target: LogTargetConfig.Any = defaultFile
+    interface Any
 
-    companion object {
+    data class File(
+        val filename: String,
+    ) : Any
 
-        val defaultFile = LogTargetConfig.File(
-            filename = "./request_log.jsonl"
-        )
+    data class Socket(
+        val host: String,
+        val port: Int,
+        val encoding: Encoding = Encoding.SIZE_PREFIX,
+        val bufferLimit: Int? = null
+    ) : Any
 
-        fun default(): RequestLogConfig {
-            return disabled()
-        }
-
-        fun disabled(): RequestLogConfig {
-            return RequestLogConfig(
-                enabled = false
-            )
-        }
+    enum class Encoding {
+        NEW_LINE,
+        SIZE_PREFIX
     }
 }

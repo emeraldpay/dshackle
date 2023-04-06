@@ -8,9 +8,12 @@ class AccessLogConfig(
     val includeMessages: Boolean = false
 ) {
 
-    var filename: String = "./access_log.jsonl"
+    var target: LogTargetConfig.Any = defaultFile
 
     companion object {
+        val defaultFile = LogTargetConfig.File(
+            filename = "./access_log.jsonl"
+        )
 
         fun default(): AccessLogConfig {
             return disabled()

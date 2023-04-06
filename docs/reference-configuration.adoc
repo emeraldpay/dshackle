@@ -83,13 +83,13 @@ tokens:
     type: ERC-20
     address: 0xdac17f958d2ee523a2206206994597c13d831ec7
 
-egress-log:
+access-log:
   enabled: true
-  filename: /var/log/dshackle/egress_log.jsonl
+  filename: /var/log/dshackle/access_log.jsonl
 
-ingress-log:
+request-log:
   enabled: true
-  filename: /var/log/dshackle/ingress_log.jsonl
+  filename: /var/log/dshackle/request_log.jsonl
 
 cluster:
   defaults:
@@ -448,17 +448,17 @@ For WebSocket it's `wss` / `ws`, accordingly.
 
 |===
 
-[#egressLog]
-== Egress Log config
+[#accessLog]
+== Access Log config
 
 [source,yaml]
 ----
-egress-log:
+access-log:
   enabled: true
-  filename: /var/log/dshackle/egress_log.jsonl
+  filename: /var/log/dshackle/access_log.jsonl
 ----
 
-.Egress Log config
+.Access Log config
 [cols="2a,3a,7"]
 |===
 | Option | Default | Description
@@ -467,29 +467,56 @@ egress-log:
 | `false`
 | Enable/Disable Access logging
 
+3+| The following only when `enabled=true`:
+
 | `include-messages`
 | `false`
 | Include request params and response result/error (i.e., a JSON) in the log.
 It's an expensive operation, use it for debugging only.
 Note that for errors it provides only error message, not the error response itself.
 
+| `type`
+| `file`
+| `file` or `socket`
+
+3+| The following only when `type=file`:
+
 | `filename`
-| `egress_log.jsonl`
+| `access_log.jsonl`
 | Path to the log file
+
+3+| The following only when `type=socket`:
+
+| `host`
+| `127.0.0.1`
+| Target Host to submit data
+
+| `port`
+| `-` (required)
+| Target Port to submit data
+
+| `encoding`
+| `length-prefix`
+| `length-prefix` or `new-line`. Where `length-prefix` means prepend a 32-bit length to each log event;
+`new-line` is to append a `\n` after each log event
+
+| `buffer`
+| `5000`
+| Max size of the buffer to keep unsent events. For a slow connection, it drops all the new produced events after filling the buffer
 
 |===
 
-[#ingressLog]
-== Ingress Log config
+[#requestLog]
+== Request Log config
 
 [source,yaml]
 ----
-ingress-log:
+request-log:
   enabled: true
-  filename: /var/log/dshackle/ingress_log.jsonl
+  filename: /var/log/dshackle/request_log.jsonl
 ----
 
-.Ingress Log config
+.Request Log config
 [cols="2a,3a,7"]
 |===
 | Option | Default | Description
@@ -498,14 +525,41 @@ ingress-log:
 | `false`
 | Enable/Disable logging
 
+3+| The following only when `enabled=true`:
+
 | `include-params`
 | `false`
 | Include request params in the log.
-It's an expensive operation, use it for debugging only.
+It's an expensive operation, use it for a debugging only.
+
+| `type`
+| `file`
+| `file` or `socket`
+
+3+| The following only when `type=file`:
 
 | `filename`
-| `ingress_log.jsonl`
+| `request_log.jsonl`
 | Path to the log file
+
+3+| The following only when `type=socket`:
+
+| `host`
+| `127.0.0.1`
+| Target Host to submit data
+
+| `port`
+| `-` (required)
+| Target Port to submit data
+
+| `encoding`
+| `length-prefix`
+| `length-prefix` or `new-line`. Where `length-prefix` means prepend a 32-bit length to each log event;
+`new-line` is to append a `\n` after each log event
+
+| `buffer`
+| `5000`
+| Max size of the buffer to keep unsent events. For a slow connection, it drops all the new produced events after filling the buffer
 
 |===
 

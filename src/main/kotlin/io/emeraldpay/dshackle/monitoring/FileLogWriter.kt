@@ -15,44 +15,48 @@
  */
 package io.emeraldpay.dshackle.monitoring
 
+import io.emeraldpay.dshackle.commons.RateLimitedAction
 import org.slf4j.LoggerFactory
-import java.io.BufferedOutputStream
-import java.io.File
-import java.io.FileOutputStream
+import java.nio.channels.FileChannel
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.Duration
-import java.time.Instant
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
 class FileLogWriter<T>(
-    private val file: File,
-    private val serializer: (T) -> ByteArray?,
+    private val file: Path,
+    serializer: (T) -> ByteArray?,
     private val startSleep: Duration,
     private val flushSleep: Duration,
     private val batchLimit: Int = 5000
-) : LogWriter<T> {
+) : LogWriter<T>, BufferingLogWriter<T>(serializer, LogEncodingNewLine(), queueLimit = batchLimit) {
 
     companion object {
         private val log = LoggerFactory.getLogger(FileLogWriter::class.java)
-
-        private val NL = "\n".toByteArray()
     }
-
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
-    private val queue = ConcurrentLinkedQueue<T>()
-    private var lastErrorAt: Instant = Instant.ofEpochMilli(0)
     private var started: Boolean = false
+    private val batchTime = flushSleep.dividedBy(2).coerceAtLeast(Duration.ofMillis(5))
+    private val errors = RateLimitedAction(Duration.ofSeconds(1))
+    private val flushLock = Semaphore(1)
 
     private val runner = Runnable {
         flushRunner()
+    }
+
+    init {
+        check(flushSleep >= Duration.ofMillis(10)) {
+            "Flush sleep is too small: ${flushSleep.toMillis()}ms <= 10ms"
+        }
     }
 
     private fun flushRunner() {
         try {
             flush()
         } catch (t: Throwable) {
-            logError {
+            errors.execute {
                 log.error("Failed to write logs. ${t.javaClass}:${t.message}")
             }
         } finally {
@@ -60,52 +64,41 @@ class FileLogWriter<T>(
         }
     }
 
-    override fun submit(event: T) {
-        queue.add(event)
-    }
-
-    override fun submitAll(events: List<T>) {
-        queue.addAll(events)
-    }
-
-    fun logError(m: () -> Unit) {
-        val now = Instant.now()
-        if (lastErrorAt.isBefore(now - Duration.ofMinutes(1))) {
-            lastErrorAt = now
-            m()
-        }
-    }
-
     fun flush(): Boolean {
-        if (!file.exists()) {
-            if (!file.createNewFile()) {
-                logError {
-                    log.error("Cannot create log file at ${file.absolutePath}")
+        if (!flushLock.tryAcquire(1, batchTime.toMillis(), TimeUnit.MILLISECONDS)) {
+            return false
+        }
+
+        try {
+            val channel = try {
+                FileChannel.open(file, StandardOpenOption.WRITE, StandardOpenOption.APPEND, StandardOpenOption.CREATE)
+            } catch (t: Throwable) {
+                errors.execute {
+                    log.error("Cannot create log file at $file")
                 }
                 return false
             }
-        }
-        BufferedOutputStream(FileOutputStream(file, true)).use { wrt ->
-            var limit = batchLimit
-            while (limit > 0) {
-                limit -= 1
-                val next = queue.poll() ?: return true
-                val bytes = try {
-                    serializer(next)
-                } catch (t: Throwable) {
-                    logError {
-                        log.warn("Failed to serialize log line. ${t.message}")
-                    }
-                    null
-                }
 
-                if (bytes != null && bytes.isNotEmpty()) {
-                    wrt.write(bytes)
-                    wrt.write(NL, 0, 1)
+            return channel.use { wrt ->
+                try {
+                    super.readEncodedFromQueue()
+                        .map {
+                            wrt.write(it)
+                            true
+                        }
+                        .take(size().coerceAtMost(batchLimit).toLong())
+                        .take(batchTime)
+                        // complete writes in this thread _blocking_
+                        .blockLast()
+                    true
+                } catch (t: Throwable) {
+                    errors.execute { log.warn("Failed to write to the log", t) }
+                    false
                 }
             }
+        } finally {
+            flushLock.release()
         }
-        return true
     }
 
     override fun start() {
@@ -116,11 +109,12 @@ class FileLogWriter<T>(
     override fun stop() {
         var tries = 10
         var failed = false
-        while (tries > 0 && !failed && queue.isNotEmpty()) {
+        while (tries > 0 && !failed && !isEmpty()) {
             tries--
-            failed = flush()
+            failed = !flush()
         }
         started = false
+        super.stop()
     }
 
     override fun isRunning(): Boolean {

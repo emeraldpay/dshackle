@@ -18,16 +18,13 @@ package io.emeraldpay.dshackle.monitoring.requestlog
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.Channel
-import io.emeraldpay.dshackle.monitoring.FileLogWriter
-import io.emeraldpay.dshackle.monitoring.LogWriter
-import io.emeraldpay.dshackle.monitoring.NoLogWriter
+import io.emeraldpay.dshackle.monitoring.CurrentLogWriter
 import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.LoggingJsonRpcReader
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
-import java.io.File
 import java.time.Duration
 import javax.annotation.PostConstruct
 import javax.annotation.PreDestroy
@@ -35,7 +32,10 @@ import javax.annotation.PreDestroy
 @Repository
 open class CurrentRequestLogWriter(
     @Autowired mainConfig: MainConfig,
-) : RequestLogWriter {
+) : RequestLogWriter, CurrentLogWriter<RequestRecord.BlockchainRequest>(
+    Category.REQUEST, serializer,
+    FileOptions(startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP, batchLimit = WRITE_BATCH_LIMIT)
+) {
 
     companion object {
         private val log = LoggerFactory.getLogger(CurrentRequestLogWriter::class.java)
@@ -43,15 +43,15 @@ open class CurrentRequestLogWriter(
         private const val WRITE_BATCH_LIMIT = 5000
         private val FLUSH_SLEEP = Duration.ofMillis(250L)
         private val START_SLEEP = Duration.ofMillis(1000L)
+
+        private val serializer: (RequestRecord.BlockchainRequest) -> ByteArray? = { next ->
+            Global.objectMapper.writeValueAsBytes(next)
+        }
     }
 
     private val config = mainConfig.requestLogConfig
-    private val serializer: (RequestRecord.BlockchainRequest) -> ByteArray? = { next ->
-        Global.objectMapper.writeValueAsBytes(next)
-    }
-    private val processor = IngressLogProcessor(this)
 
-    var logWriter: LogWriter<RequestRecord.BlockchainRequest> = NoLogWriter()
+    private val processor = IngressLogProcessor(this)
 
     @PostConstruct
     fun start() {
@@ -60,17 +60,11 @@ open class CurrentRequestLogWriter(
             return
         }
 
+        setup(config.target)
+        logWriter.start()
+
         // pass the current config, so it knows what to include into the log
         Global.monitoring.ingress.config = config
-
-        val file = File(config.filename)
-        log.info("Request Ingress Log to ${file.absolutePath}")
-        logWriter = FileLogWriter(
-            file, serializer,
-            startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP,
-            batchLimit = WRITE_BATCH_LIMIT
-        )
-        logWriter.start()
     }
 
     @PreDestroy

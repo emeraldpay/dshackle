@@ -28,6 +28,19 @@ access-log:
 
 `filename` is optional, and the default value is `access_log.jsonl` (i.e., in the current directory).
 
+Or if you use a centralized log processor listening a socket:
+
+[source,yaml]
+----
+access-log:
+  enabled: true
+  type: socket
+  host: 127.0.0.1
+  port: 9000
+----
+
+In this case all logs sent to the `127.0.0.1:9000` socket via TCP, and each line is prefixed with a 32 bit length.
+
 Since a single request may contain multiple replies (ex., a batch call, or subscribe to the head blocks) the Dshackle logging is based on replies.
 The access log file contains details per each response send from the server, and each of them refers to original request details.
 
@@ -95,6 +108,17 @@ To enable request log add following configuration:
 request-log:
   enabled: true
   filename: /var/log/dshackle/request_log.jsonl
+----
+
+Could use the same config as Access Log for sockets:
+
+[source,yaml]
+----
+request-log:
+  enabled: true
+  type: socket
+  host: 127.0.0.1
+  port: 9000
 ----
 
 The log contains the JSON lines similar to:
