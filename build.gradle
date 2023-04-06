@@ -33,6 +33,8 @@ plugins {
 
 group = 'io.emeraldpay.dshackle'
 
+version = getVersion()
+
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
@@ -194,7 +196,6 @@ jar {
 
 afterEvaluate {
     distZip.dependsOn(jar)
-    generateVersion.dependsOn(getVersion)
     compileKotlin.dependsOn(generateVersion)
     jar.dependsOn(generateVersion)
 }
@@ -313,17 +314,22 @@ tasks.withType(Detekt).configureEach {
     jvmTarget = "17"
 }
 
-task getVersion {
+static def getVersion() {
     def exactVersion = 'git describe --tags --exact-match'.execute().text.trim()
+    def result = ""
     if (exactVersion) {
-        version = exactVersion
+        result = exactVersion
     } else {
         def tag = 'git describe --tags --abbrev=0'.execute().text.trim()
+        if (!tag) {
+            throw new GradleException("No tags found")
+        }
         def m = tag =~ /\.(\d+)$/
         def match = m[0][1]
         def next = match.toInteger() + 1
         tag = tag.replaceAll(/.\d+$/, "." + next.toString())
-        version = tag + '-SNAPSHOT'
+        result = tag + '-SNAPSHOT'
     }
-    version = version.replaceAll(/^v/, '')
+
+    return result.replaceAll(/^v/, '')
 }
