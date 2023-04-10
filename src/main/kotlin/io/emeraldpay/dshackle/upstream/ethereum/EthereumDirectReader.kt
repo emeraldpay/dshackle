@@ -78,7 +78,7 @@ class EthereumDirectReader(
                 val request = JsonRpcRequest("eth_getTransactionByHash", listOf(key.toHex()))
                 return readWithQuorum(request)
                     .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
-                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                    .retryWhen(Retry.fixedDelay(3, Duration.ofMillis(200)))
                     .flatMap { txbytes ->
                         val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
                         if (tx == null) {
@@ -109,7 +109,7 @@ class EthereumDirectReader(
                             throw RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Not Wei value")
                         }
                     }
-                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                    .retryWhen(Retry.fixedDelay(3, Duration.ofMillis(200)))
                     .doOnNext { value ->
                         balanceCache.put(key, value)
                     }
