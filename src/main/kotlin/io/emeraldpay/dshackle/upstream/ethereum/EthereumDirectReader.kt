@@ -172,7 +172,12 @@ class EthereumDirectReader(
         return Mono.just(quorumReaderFactory)
             .map {
                 it.create(
-                    up.getApiSource(matcher),
+                    up.getApiSource(
+                        Selector.Builder()
+                            .withMatcher(matcher)
+                            .forMethod(request.method)
+                            .build()
+                    ),
                     callMethodsFactory.create().createQuorumFor(request.method),
                     // we do not use Signer for internal requests because it doesn't make much sense
                     null,

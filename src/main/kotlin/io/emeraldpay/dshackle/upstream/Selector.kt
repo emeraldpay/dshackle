@@ -127,7 +127,7 @@ class Selector {
         fun describeInternal(): String
     }
 
-    class MultiMatcher(
+    data class MultiMatcher(
         private val matchers: Collection<Matcher>
     ) : Matcher {
         override fun matches(up: Upstream): Boolean {
@@ -156,7 +156,7 @@ class Selector {
         }
     }
 
-    class MethodMatcher(
+    data class MethodMatcher(
         val method: String
     ) : Matcher {
         override fun matches(up: Upstream): Boolean {

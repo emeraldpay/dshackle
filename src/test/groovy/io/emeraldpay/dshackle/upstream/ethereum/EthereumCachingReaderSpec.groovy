@@ -113,7 +113,9 @@ class EthereumDirectReaderSpec extends Specification {
             transactions = []
         }
         def up = Mock(Multistream) {
-            1 * getApiSource(new Selector.HeightMatcher(100)) >> Stub(ApiSource)
+            1 * getApiSource(
+                    new Selector.Builder().withMatcher(new Selector.HeightMatcher(100)).forMethod("eth_getBlockByNumber").build()
+            ) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
