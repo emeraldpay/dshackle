@@ -1,5 +1,6 @@
 spring:
   application:
+    max-metadata-size: ${MAX_METADATA_SIZE:16384}
     name: ${DRPC_APP_NAME:dshackle}
   zipkin:
     enabled: ${ZIPKIN_ENABLE:false}
@@ -15,3 +16,11 @@ spring:
         - ".+SubscribeStatus"
         - ".+SubscribeNodeStatus"
         - ".+Describe"
+
+spans:
+  collect:
+    enabled: ${ENABLE_COLLECT_SPANS:false}
+    provider:
+      enabled: ${ENABLE_PROVIDER_COLLECT_SPANS:true}
+    main:
+      enabled: ${ENABLE_MAIN_COLLECT_SPANS:false}

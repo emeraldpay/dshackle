@@ -29,6 +29,9 @@ import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
@@ -42,8 +45,13 @@ open class GrpcServer(
     private val mainConfig: MainConfig,
     private val tlsSetup: TlsSetup,
     private val accessHandler: AccessHandlerGrpc,
-    private val grpcServerBraveInterceptor: ServerInterceptor
+    private val grpcServerBraveInterceptor: ServerInterceptor,
+    @Autowired(required = false)
+    @Qualifier("serverSpansInterceptor")
+    private val serverSpansInterceptor: ServerInterceptor?
 ) {
+    @Value("\${spring.application.max-metadata-size}")
+    private var maxMetadataSize: Int = Defaults.maxMetadataSize
 
     private val log = LoggerFactory.getLogger(GrpcServer::class.java)
 
@@ -68,6 +76,7 @@ open class GrpcServer(
         val serverBuilder = NettyServerBuilder
             .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
             .maxInboundMessageSize(Defaults.maxMessageSize)
+            .maxInboundMetadataSize(maxMetadataSize)
 
         if (mainConfig.accessLogConfig.enabled) {
             serverBuilder.intercept(accessHandler)
@@ -78,6 +87,10 @@ open class GrpcServer(
         }
 
         serverBuilder.intercept(grpcServerBraveInterceptor)
+        serverSpansInterceptor?.let {
+            serverBuilder.intercept(it)
+            log.info("Collect spans from provider is enabled")
+        }
 
         tlsSetup.setupServer("Native gRPC", mainConfig.tls, true)?.let {
             serverBuilder.sslContext(it)

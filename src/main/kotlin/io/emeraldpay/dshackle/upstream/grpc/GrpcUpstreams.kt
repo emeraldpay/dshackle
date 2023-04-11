@@ -35,6 +35,7 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
+import io.grpc.ClientInterceptor
 import io.grpc.Codec
 import io.grpc.netty.NettyChannelBuilder
 import io.micrometer.core.instrument.Counter
@@ -72,7 +73,9 @@ class GrpcUpstreams(
     private val chainStatusScheduler: Scheduler,
     private val grpcExecutor: Executor,
     private val chainsConfig: ChainsConfig,
-    private val grpcTracing: GrpcTracing
+    private val grpcTracing: GrpcTracing,
+    private val clientSpansInterceptor: ClientInterceptor?,
+    private var maxMetadataSize: Int
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -86,10 +89,15 @@ class GrpcUpstreams(
         val chanelBuilder = NettyChannelBuilder.forAddress(host, port)
             // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
             .maxInboundMessageSize(Defaults.maxMessageSize)
+            .maxInboundMetadataSize(maxMetadataSize)
             .enableRetry()
             .intercept(grpcTracing.newClientInterceptor())
             .executor(grpcExecutor)
             .maxRetryAttempts(3)
+        clientSpansInterceptor?.let {
+            chanelBuilder.intercept(it)
+            log.info("Collect spans is enabled")
+        }
         if (auth != null && StringUtils.isNotEmpty(auth.ca)) {
             chanelBuilder
                 .useTransportSecurity()

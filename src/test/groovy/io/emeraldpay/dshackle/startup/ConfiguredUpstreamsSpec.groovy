@@ -30,7 +30,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
-                Schedulers.boundedElastic()
+                Schedulers.boundedElastic(),
+                null
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -60,7 +61,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
-                Schedulers.boundedElastic()
+                Schedulers.boundedElastic(),
+                null
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -89,7 +91,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
-                Schedulers.boundedElastic()
+                Schedulers.boundedElastic(),
+                null
         )
         expect:
         configurer.getHash(node, src) == expected
@@ -113,7 +116,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
-                Schedulers.boundedElastic()
+                Schedulers.boundedElastic(),
+                null
         )
         when:
         def h1 = configurer.getHash(null, "hohoho")
@@ -142,7 +146,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Executors.newFixedThreadPool(1),
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
-                Schedulers.boundedElastic()
+                Schedulers.boundedElastic(),
+                null
         )
         def methodsGroup = new UpstreamsConfig.MethodGroups(
                 ["filter"] as Set,

@@ -20,6 +20,7 @@ import brave.grpc.GrpcTracing
 import com.google.common.annotations.VisibleForTesting
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ChainsConfig
@@ -50,8 +51,11 @@ import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
+import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.ApplicationEventPublisher
@@ -76,8 +80,12 @@ open class ConfiguredUpstreams(
     private val channelExecutor: Executor,
     private val chainsConfig: ChainsConfig,
     private val grpcTracing: GrpcTracing,
-    private val wsConnectionResubscribeScheduler: Scheduler
+    private val wsConnectionResubscribeScheduler: Scheduler,
+    @Autowired(required = false)
+    private val clientSpansInterceptor: ClientInterceptor?
 ) : ApplicationRunner {
+    @Value("\${spring.application.max-metadata-size}")
+    private var maxMetadataSize: Int = Defaults.maxMetadataSize
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
     private var seq = AtomicInteger(0)
@@ -340,7 +348,9 @@ open class ConfiguredUpstreams(
             grpcUpstreamsScheduler,
             channelExecutor,
             chainsConfig,
-            grpcTracing
+            grpcTracing,
+            clientSpansInterceptor,
+            maxMetadataSize
         ).apply {
             timeout = options.timeout
         }
