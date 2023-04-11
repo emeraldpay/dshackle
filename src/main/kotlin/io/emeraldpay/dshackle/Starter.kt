@@ -31,6 +31,10 @@ private val log = LoggerFactory.getLogger(Starter::class.java)
 
 fun main(args: Array<String>) {
     Schedulers.enableMetrics()
+
+    val maxMemory: Long = Runtime.getRuntime().maxMemory() / (1024 * 1024).toLong()
+    log.info("Max heap size: {} MB", maxMemory)
+
     val app = SpringApplication(Starter::class.java)
     app.setDefaultProperties(ResourcePropertySource("version.properties").source)
     app.setBanner(ResourceBanner(ClassPathResource("banner.txt")))
