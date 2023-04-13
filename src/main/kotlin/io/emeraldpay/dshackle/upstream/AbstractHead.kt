@@ -43,6 +43,10 @@ abstract class AbstractHead : Head {
             completed = false
         }
         return source
+            .onErrorResume { t ->
+                log.warn("Failed to get update block ${t.message}")
+                Mono.empty<BlockContainer>()
+            }
             .distinctUntilChanged {
                 it.hash
             }
