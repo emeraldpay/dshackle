@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
@@ -41,20 +42,25 @@ open class EthereumWsFactory(
     private val metrics: RpcMetrics = run {
         val metricsTags = listOf(
             Tag.of("upstream", id),
-            // UNSPECIFIED shouldn't happen too
             Tag.of("chain", chain.chainCode)
         )
 
         RpcMetrics(
-            Timer.builder("upstream.ws.conn")
+            timer = Timer.builder("upstream.ws.conn")
                 .description("Request time through a WebSocket JSON RPC connection")
                 .tags(metricsTags)
                 .publishPercentileHistogram()
                 .register(Metrics.globalRegistry),
-            Counter.builder("upstream.ws.fail")
+            fails = Counter.builder("upstream.ws.fail")
                 .description("Number of failures of WebSocket JSON RPC requests")
                 .tags(metricsTags)
-                .register(Metrics.globalRegistry)
+                .register(Metrics.globalRegistry),
+            responseSize = DistributionSummary.builder("upstream.ws.response.size")
+                .description("Size of WebSocket JSON RPC responses")
+                .baseUnit("Bytes")
+                .tags(metricsTags)
+                .register(Metrics.globalRegistry),
+            connectionMetrics = ConnectionMetrics(metricsTags)
         )
     }
 

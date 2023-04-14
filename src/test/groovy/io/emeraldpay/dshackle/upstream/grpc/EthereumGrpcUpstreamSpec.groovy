@@ -35,6 +35,8 @@ import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
+import io.micrometer.core.instrument.DistributionSummary
+import reactor.netty.channel.ChannelMetricsRecorder
 import spock.lang.Ignore
 import spock.lang.Specification
 
@@ -47,7 +49,9 @@ class EthereumGrpcUpstreamSpec extends Specification {
     ObjectMapper objectMapper = Global.objectMapper
     RpcMetrics metrics = new RpcMetrics(
             Timer.builder("test1").register(TestingCommons.meterRegistry),
-            Counter.builder("test2").register(TestingCommons.meterRegistry)
+            Counter.builder("test2").register(TestingCommons.meterRegistry),
+            DistributionSummary.builder("test3").register(TestingCommons.meterRegistry),
+            [:] as ChannelMetricsRecorder
     )
 
     def "Subscribe to head"() {

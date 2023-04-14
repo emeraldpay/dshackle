@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.startup.UpstreamChange
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ForkWatchFactory
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.ethereum.ConnectionMetrics
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.BlockchainType
@@ -34,6 +35,7 @@ import io.emeraldpay.grpc.Chain
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
 import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
@@ -184,15 +186,21 @@ class GrpcUpstreams(
         )
 
         val metrics = RpcMetrics(
-            Timer.builder("upstream.grpc.conn")
+            timer = Timer.builder("upstream.grpc.conn")
                 .description("Request time through a Dshackle/gRPC connection")
                 .tags(metricsTags)
                 .publishPercentileHistogram()
                 .register(Metrics.globalRegistry),
-            Counter.builder("upstream.grpc.fail")
+            fails = Counter.builder("upstream.grpc.fail")
                 .description("Number of failures of Dshackle/gRPC requests")
                 .tags(metricsTags)
-                .register(Metrics.globalRegistry)
+                .register(Metrics.globalRegistry),
+            responseSize = DistributionSummary.builder("upstream.grpc.response.size")
+                .description("Size of Dshackle/gRPC responses")
+                .baseUnit("Bytes")
+                .tags(metricsTags)
+                .register(Metrics.globalRegistry),
+            connectionMetrics = ConnectionMetrics(metricsTags)
         )
 
         val blockchainType = BlockchainType.from(chain)

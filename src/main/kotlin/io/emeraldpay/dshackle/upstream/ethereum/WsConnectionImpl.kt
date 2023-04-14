@@ -31,6 +31,7 @@ import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.resolver.DefaultAddressResolverGroup
+import org.apache.commons.lang3.time.StopWatch
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.util.backoff.BackOff
@@ -184,6 +185,13 @@ open class WsConnectionImpl(
                     tryReconnectLater()
                 }
             }
+            .let {
+                if (rpcMetrics != null) {
+                    it.doOnChannelInit(rpcMetrics.onChannelInit)
+                } else {
+                    it
+                }
+            }
             .doOnError(
                 { _, t ->
                     log.warn("Failed to connect to $uri. Error: ${t.message}")
@@ -237,6 +245,7 @@ open class WsConnectionImpl(
                 // just make sure it's in active state
                 active = true
                 try {
+                    rpcMetrics?.responseSize?.record(it.size.toDouble())
                     val msg = parser.parse(it)
                     if (!read) {
                         if (msg.error != null) {
@@ -298,7 +307,7 @@ open class WsConnectionImpl(
             try {
                 val emitResult = sender.tryEmitValue(rpcResponse)
                 if (emitResult.isFailure) {
-                    log.debug("Response is ignored $emitResult")
+                    log.debug("Response is ignored {}", emitResult)
                 }
             } catch (t: Throwable) {
                 log.warn("Response is not processed ${t.message}", t)
@@ -328,9 +337,9 @@ open class WsConnectionImpl(
         // use an internal id sequence, to avoid id conflicts with user calls
         val internalId = sendIdSeq.getAndIncrement()
         return Mono.fromCallable {
-            val startTime = System.nanoTime()
+            val timer = StopWatch.createStarted()
             val originalId = originalRequest.id
-            Tuples.of(originalRequest.copy(id = internalId), originalId, startTime)
+            Tuples.of(originalRequest.copy(id = internalId), originalId, timer)
         }
             .flatMap { request ->
                 waitForResponse(request.t1, request.t2, request.t3)
@@ -348,7 +357,7 @@ open class WsConnectionImpl(
         }
     }
 
-    fun waitForResponse(request: JsonRpcRequest, originalId: Int, startTime: Long): Mono<JsonRpcResponse> {
+    fun waitForResponse(request: JsonRpcRequest, originalId: Int, timer: StopWatch): Mono<JsonRpcResponse> {
         val internalId = request.id.toLong()
         val onResponse = Sinks.one<JsonRpcResponse>()
         currentRequests[internalId.toInt()] = onResponse
@@ -379,7 +388,7 @@ open class WsConnectionImpl(
         return Mono.from(onResponse.asMono()).or(failOnDisconnect)
             .doOnSubscribe { sendRpc(request) }
             .take(Defaults.timeout)
-            .doOnNext { rpcMetrics?.timer?.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS) }
+            .doOnNext { rpcMetrics?.timer?.record(timer.nanoTime, TimeUnit.NANOSECONDS) }
             .doOnError { rpcMetrics?.fails?.increment() }
             .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
             .switchIfEmpty(
