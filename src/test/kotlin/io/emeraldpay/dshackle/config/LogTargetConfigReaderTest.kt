@@ -38,6 +38,19 @@ class LogTargetConfigReaderTest : ShouldSpec({
                 it.filename shouldBe "/var/log/hello.log"
             }
         }
+
+        should("Accept when only a path specified") {
+            val yaml = """
+                filename: /var/log/hello.log
+            """.trimIndent()
+            val reader = LogTargetConfigReader(defaultFile)
+
+            val act = reader.read(reader.readNode(yaml))
+            act shouldBe instanceOf<LogTargetConfig.File>()
+            (act as LogTargetConfig.File).also {
+                it.filename shouldBe "/var/log/hello.log"
+            }
+        }
     }
 
     context("Socket Config") {
