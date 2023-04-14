@@ -28,8 +28,11 @@ class LogTargetConfigReader(
     }
 
     override fun read(input: MappingNode?): LogTargetConfig.Any? {
+        if (input == null) {
+            return null
+        }
         return when (val type = getValueAsString(input, "type")) {
-            "file" -> {
+            "file", null -> {
                 var target = defaultFile.copy()
                 getValueAsString(input, "filename", "file")?.let {
                     target = target.copy(filename = it)
