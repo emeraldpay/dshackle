@@ -16,9 +16,38 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Timer
+import reactor.core.publisher.Mono
+import reactor.netty.ChannelPipelineConfigurer
+import reactor.netty.channel.ChannelMetricsRecorder
+import reactor.netty.channel.ChannelOperations
+import java.util.function.Function
 
 class RpcMetrics(
     val timer: Timer,
-    val fails: Counter
-)
+    val fails: Counter,
+    val responseSize: DistributionSummary,
+
+    // A standard Metrics Recorder supported by Reactor Netty, so pass it to the connections responsible for RPC operations
+    val connectionMetrics: ChannelMetricsRecorder,
+) {
+
+    val onChannelInit: ChannelPipelineConfigurer
+        get() = ChannelPipelineConfigurer { connectionObserver, channel, remoteAddress ->
+            // See reactor.netty.transport.TransportConfig$TransportChannelInitializer
+            // By default it creates a bunch of other metrics to monitor memory allocation, connection pool, connection time, etc.,
+            // which are not very applicable to the Dshackle usage scenarios.
+            // But we only register a basic ChannelMetricsRecorder with metrics and tags specific to Dshackle
+            ChannelOperations.addMetricsHandler(channel, connectionMetrics, remoteAddress, false)
+        }
+
+    val processResponseSize: Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>>
+        get() = java.util.function.Function {
+            it.doOnNext { response ->
+                if (response.hasResult()) {
+                    responseSize.record(response.resultOrEmpty.size.toDouble())
+                }
+            }
+        }
+}

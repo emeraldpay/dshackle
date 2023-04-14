@@ -59,6 +59,7 @@ class JsonRpcHttpClient(
     init {
         var build = HttpClient.create()
             .resolver(DefaultAddressResolverGroup.INSTANCE)
+            .doOnChannelInit(metrics.onChannelInit)
 
         build = build.headers { h ->
             h.add(HttpHeaderNames.CONTENT_TYPE, "application/json")
@@ -114,6 +115,7 @@ class JsonRpcHttpClient(
                 }
             }
             .transform(asJsonRpcResponse(key))
+            .transform(metrics.processResponseSize)
             .transform(convertErrors(key))
             .transform(throwIfError())
     }

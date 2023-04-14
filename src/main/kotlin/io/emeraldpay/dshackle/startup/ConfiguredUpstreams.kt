@@ -37,6 +37,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqSubscriptionS
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqTopic
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.ConnectionMetrics
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsFactory
@@ -51,6 +52,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
@@ -361,15 +363,20 @@ open class ConfiguredUpstreams(
                 Tag.of("chain", (Global.chainById(config.blockchain).chainCode))
             )
             val metrics = RpcMetrics(
-                Timer.builder("upstream.rpc.conn")
+                timer = Timer.builder("upstream.rpc.conn")
                     .description("Request time through a HTTP JSON RPC connection")
                     .tags(metricsTags)
                     .publishPercentileHistogram()
                     .register(Metrics.globalRegistry),
-                Counter.builder("upstream.rpc.fail")
+                fails = Counter.builder("upstream.rpc.fail")
                     .description("Number of failures of HTTP JSON RPC requests")
                     .tags(metricsTags)
-                    .register(Metrics.globalRegistry)
+                    .register(Metrics.globalRegistry),
+                responseSize = DistributionSummary.builder("upstream.rpc.response.size")
+                    .description("Size of HTTP JSON RPC responses")
+                    .tags(metricsTags)
+                    .register(Metrics.globalRegistry),
+                connectionMetrics = ConnectionMetrics(metricsTags)
             )
             urls.add(endpoint.url)
             JsonRpcHttpClient(

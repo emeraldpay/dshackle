@@ -83,6 +83,13 @@ class JsonRpcGrpcClient(
                         .single()
                         .onErrorResume(::handleError)
                         .flatMap(::handleResponse)
+                        .let {
+                            if (metrics != null) {
+                                it.transform(metrics.processResponseSize)
+                            } else {
+                                it
+                            }
+                        }
                 }
                 .doOnNext {
                     if (timer.isStarted) {
