@@ -29,6 +29,9 @@ import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
 import io.netty.buffer.Unpooled
+import io.netty.channel.ChannelOption
+import io.netty.channel.epoll.Epoll
+import io.netty.channel.epoll.EpollChannelOption
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.resolver.DefaultAddressResolverGroup
 import org.apache.commons.lang3.time.StopWatch
@@ -175,6 +178,16 @@ open class WsConnectionImpl(
         log.info("Connecting to WebSocket: $uri")
         connection?.dispose()
         connection = HttpClient.create()
+            // NODELAY and QUICKACK flags make it working a big faster in a load intensive environment (like ~10% for a 99-perc, though it's hard to measure it correctly)
+            // and, in general, as a load balancer it supposed to send/receive data as fast as it possible, so it makes sense to have them by default
+            .option(ChannelOption.TCP_NODELAY, true)
+            .let {
+                if (Epoll.isAvailable()) {
+                    it.option(EpollChannelOption.TCP_QUICKACK, true)
+                } else {
+                    it
+                }
+            }
             .resolver(DefaultAddressResolverGroup.INSTANCE)
             .doOnDisconnected {
                 active = false
