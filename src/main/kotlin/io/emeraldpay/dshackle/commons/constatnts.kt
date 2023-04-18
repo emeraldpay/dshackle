@@ -7,6 +7,7 @@ const val SPAN_STATUS_MESSAGE = "status.message"
 const val SPAN_READER_RESULT = "reader.result"
 const val SPAN_REQUEST_API_TYPE = "request.api.type"
 const val SPAN_REQUEST_UPSTREAM_ID = "request.upstreamId"
+const val SPAN_RESPONSE_UPSTREAM_ID = "response.upstreamId"
 const val SPAN_REQUEST_ID = "request.id"
 
 const val LOCAL_READER = "localReader"

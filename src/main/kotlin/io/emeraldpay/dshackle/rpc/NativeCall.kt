@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.commons.LOCAL_READER
 import io.emeraldpay.dshackle.commons.REMOTE_QUORUM_RPC_READER
 import io.emeraldpay.dshackle.commons.SPAN_ERROR
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_ID
+import io.emeraldpay.dshackle.commons.SPAN_RESPONSE_UPSTREAM_ID
 import io.emeraldpay.dshackle.commons.SPAN_STATUS_MESSAGE
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.CallQuorum
@@ -133,6 +134,9 @@ open class NativeCall(
 
     private fun completeSpan(callResult: CallResult, requestCount: Int) {
         val span = tracer.currentSpan()
+        callResult.upstreamId?.let {
+            span?.tag(SPAN_RESPONSE_UPSTREAM_ID, it)
+        }
         if (callResult.isError()) {
             errorSpan(span, callResult.error?.message ?: "Internal error")
         }
