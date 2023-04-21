@@ -90,7 +90,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.boundedElastic())
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.parallel())
         upstream.setLag(0)
         upstream.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
@@ -161,7 +161,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 }).start()
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.boundedElastic())
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.parallel())
         upstream.setLag(0)
         upstream.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
@@ -233,7 +233,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.boundedElastic())
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.parallel())
         upstream.setLag(0)
         upstream.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()

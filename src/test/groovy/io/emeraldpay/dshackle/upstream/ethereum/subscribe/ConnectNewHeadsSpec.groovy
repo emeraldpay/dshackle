@@ -21,7 +21,7 @@ class ConnectNewHeadsSpec extends Specification {
         def up = Mock(EthereumMultistream) {
             1 * getHead(Selector.empty) >> head
         }
-        ConnectNewHeads connectNewHeads = new ConnectNewHeads(up, Schedulers.boundedElastic())
+        ConnectNewHeads connectNewHeads = new ConnectNewHeads(up, Schedulers.parallel())
         when:
         def act1 = connectNewHeads.connect(Selector.empty)
         def act2 = connectNewHeads.connect(Selector.empty)

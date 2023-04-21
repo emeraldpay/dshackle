@@ -70,7 +70,7 @@ class GrpcHeadSpec extends Specification {
                 convert,
                 null,
                 new MostWorkForkChoice(),
-                Schedulers.boundedElastic()
+                Schedulers.parallel()
         )
         when:
         def act = head.getFlux()
@@ -137,7 +137,7 @@ class GrpcHeadSpec extends Specification {
                 convert,
                 null,
                 new MostWorkForkChoice(),
-                Schedulers.boundedElastic()
+                Schedulers.parallel()
         )
         when:
         def act = head.getFlux()

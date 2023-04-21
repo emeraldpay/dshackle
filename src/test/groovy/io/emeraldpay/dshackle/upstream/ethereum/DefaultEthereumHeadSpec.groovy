@@ -32,7 +32,7 @@ import java.time.Instant
 
 class DefaultEthereumHeadSpec extends Specification {
 
-    DefaultEthereumHead head = new DefaultEthereumHead("upstream", new MostWorkForkChoice(), BlockValidator.ALWAYS_VALID, Schedulers.boundedElastic())
+    DefaultEthereumHead head = new DefaultEthereumHead("upstream", new MostWorkForkChoice(), BlockValidator.ALWAYS_VALID, Schedulers.parallel())
     ObjectMapper objectMapper = Global.objectMapper
     BlockHash parent = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915210")
 

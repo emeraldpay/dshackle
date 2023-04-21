@@ -138,7 +138,7 @@ class AbstractHeadSpec extends Specification {
                 BlockContainer getHead() {
                     return null
                 }
-            }, Schedulers.boundedElastic(),   new BlockValidator.AlwaysValid() , 100_000)
+            }, Schedulers.parallel(),   new BlockValidator.AlwaysValid() , 100_000)
         }
     }
 }

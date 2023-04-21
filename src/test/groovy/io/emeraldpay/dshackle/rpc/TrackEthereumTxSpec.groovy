@@ -102,7 +102,7 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.boundedElastic())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.parallel())
 
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
         apiMock.answer("eth_getBlockByHash", [blockJson.hash.toHex(), false], blockJson)
@@ -195,7 +195,7 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.boundedElastic())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.parallel())
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
@@ -217,7 +217,7 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.boundedElastic())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.parallel())
 
         def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
@@ -296,7 +296,7 @@ class TrackEthereumTxSpec extends Specification {
         }
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, multi)
 
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.boundedElastic())
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.parallel())
 
         apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
         apiMock.answerOnce("eth_getTransactionByHash", [txId], txJsonBroadcasted)
