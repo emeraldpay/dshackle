@@ -22,12 +22,14 @@ import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Scheduler
 
 class MergedHead @JvmOverloads constructor(
     private val sources: Iterable<Head>,
     forkChoice: ForkChoice,
+    headScheduler: Scheduler,
     private val label: String = ""
-) : AbstractHead(forkChoice, upstreamId = label), Lifecycle, CachesEnabled {
+) : AbstractHead(forkChoice, headScheduler, upstreamId = label), Lifecycle, CachesEnabled {
 
     private var subscription: Disposable? = null
 

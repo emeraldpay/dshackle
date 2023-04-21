@@ -49,8 +49,8 @@ open class EthereumMultistream(
     chain: Chain,
     val upstreams: MutableList<EthereumUpstream>,
     caches: Caches,
-    headScheduler: Scheduler,
-    tracer: Tracer
+    private val headScheduler: Scheduler,
+    tracer: Tracer,
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
     private var head: DynamicMergedHead = DynamicMergedHead(
@@ -131,7 +131,7 @@ open class EthereumMultistream(
     }
 
     override fun makeLagObserver(): HeadLagObserver {
-        return EthereumHeadLagObserver(head, upstreams as Collection<Upstream>)
+        return EthereumHeadLagObserver(head, upstreams as Collection<Upstream>, headScheduler)
     }
 
     override fun isRunning(): Boolean {
@@ -192,7 +192,7 @@ open class EthereumMultistream(
                     when (it.size) {
                         0 -> EmptyHead()
                         1 -> selected.first()
-                        else -> MergedHead(selected, MostWorkForkChoice(), "Eth head ${it.map { it.getId() }}").apply {
+                        else -> MergedHead(selected, MostWorkForkChoice(), headScheduler, "Eth head ${it.map { it.getId() }}").apply {
                             start()
                         }
                     }

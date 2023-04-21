@@ -47,7 +47,7 @@ open class EthereumPosMultiStream(
     chain: Chain,
     val upstreams: MutableList<EthereumPosUpstream>,
     caches: Caches,
-    headScheduler: Scheduler,
+    private val headScheduler: Scheduler,
     tracer: Tracer
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
@@ -104,7 +104,7 @@ open class EthereumPosMultiStream(
     }
 
     override fun makeLagObserver(): HeadLagObserver =
-        EthereumPosHeadLagObserver(head, ArrayList(upstreams)).apply {
+        EthereumPosHeadLagObserver(head, ArrayList(upstreams), headScheduler).apply {
             start()
         }
 
@@ -169,6 +169,7 @@ open class EthereumPosMultiStream(
                             else -> MergedHead(
                                 selected,
                                 PriorityForkChoice(),
+                                headScheduler,
                                 "ETH head for ${it.map { it.getId() }}"
                             ).apply {
                                 start()

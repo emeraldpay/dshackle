@@ -49,13 +49,6 @@ open class BitcoinRpcUpstream(
         setOf(Capability.RPC)
     }
 
-    private fun createHead(): Head {
-        return BitcoinRpcHead(
-            directApi,
-            ExtractBlock()
-        )
-    }
-
     override fun getHead(): Head {
         return head
     }

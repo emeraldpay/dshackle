@@ -22,9 +22,11 @@ import io.emeraldpay.etherjar.rpc.json.BlockJson
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
+import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import reactor.util.function.Tuples
 import spock.lang.Specification
+
 
 import java.time.Duration
 import java.time.Instant
@@ -114,7 +116,8 @@ class HeadLagObserverSpec extends Specification {
     class TestHeadLagObserver extends HeadLagObserver {
 
         TestHeadLagObserver(@NotNull Head master, @NotNull Collection<? extends Upstream> followers) {
-            super(master, followers, DistanceExtractor.@Companion::extractPowDistance, Duration.ofNanos(1))
+            super(master, followers, DistanceExtractor.@Companion::extractPowDistance,
+                    Schedulers.boundedElastic(), Duration.ofNanos(1))
         }
 
         @Override

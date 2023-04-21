@@ -22,6 +22,7 @@ import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Sinks
 import reactor.test.StepVerifier
 import spock.lang.Specification
+import reactor.core.scheduler.Schedulers
 
 import java.time.Duration
 import java.time.Instant
@@ -137,7 +138,7 @@ class AbstractHeadSpec extends Specification {
                 BlockContainer getHead() {
                     return null
                 }
-            },  new BlockValidator.AlwaysValid(), 100_000)
+            }, Schedulers.boundedElastic(),   new BlockValidator.AlwaysValid() , 100_000)
         }
     }
 }

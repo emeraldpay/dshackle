@@ -82,7 +82,9 @@ open class ConfiguredUpstreams(
     private val grpcTracing: GrpcTracing,
     private val wsConnectionResubscribeScheduler: Scheduler,
     @Autowired(required = false)
-    private val clientSpansInterceptor: ClientInterceptor?
+    private val clientSpansInterceptor: ClientInterceptor?,
+    @Qualifier("headScheduler")
+    private val headScheduler: Scheduler
 ) : ApplicationRunner {
     @Value("\${spring.application.max-metadata-size}")
     private var maxMetadataSize: Int = Defaults.maxMetadataSize
@@ -261,11 +263,11 @@ open class ConfiguredUpstreams(
         }
 
         val extractBlock = ExtractBlock()
-        val rpcHead = BitcoinRpcHead(directApi, extractBlock)
+        val rpcHead = BitcoinRpcHead(directApi, extractBlock, headScheduler = headScheduler)
         val head: Head = conn.zeroMq?.let { zeroMq ->
             val server = ZMQServer(zeroMq.host, zeroMq.port, "hashblock")
-            val zeroMqHead = BitcoinZMQHead(server, directApi, extractBlock)
-            MergedHead(listOf(rpcHead, zeroMqHead), MostWorkForkChoice())
+            val zeroMqHead = BitcoinZMQHead(server, directApi, extractBlock, headScheduler)
+            MergedHead(listOf(rpcHead, zeroMqHead), MostWorkForkChoice(), headScheduler)
         } ?: rpcHead
 
         val methods = buildMethods(config, chain)
@@ -350,7 +352,8 @@ open class ConfiguredUpstreams(
             chainsConfig,
             grpcTracing,
             clientSpansInterceptor,
-            maxMetadataSize
+            maxMetadataSize,
+            headScheduler
         ).apply {
             timeout = options.timeout
         }
@@ -412,7 +415,13 @@ open class ConfiguredUpstreams(
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
         val connectorFactory =
             EthereumConnectorFactory(
-                conn.resolveMode(), wsFactoryApi, httpFactory, forkChoice, blockValidator, wsConnectionResubscribeScheduler
+                conn.resolveMode(),
+                wsFactoryApi,
+                httpFactory,
+                forkChoice,
+                blockValidator,
+                wsConnectionResubscribeScheduler,
+                headScheduler
             )
         if (!connectorFactory.isValid()) {
             log.warn("Upstream configuration is invalid (probably no http endpoint)")

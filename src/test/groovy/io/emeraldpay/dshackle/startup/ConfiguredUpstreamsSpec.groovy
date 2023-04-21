@@ -31,7 +31,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
                 Schedulers.boundedElastic(),
-                null
+                null,
+                Schedulers.boundedElastic(),
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -62,7 +63,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
                 Schedulers.boundedElastic(),
-                null
+                null,
+                Schedulers.boundedElastic(),
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -92,7 +94,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
                 Schedulers.boundedElastic(),
-                null
+                null,
+                Schedulers.boundedElastic(),
         )
         expect:
         configurer.getHash(node, src) == expected
@@ -117,7 +120,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
                 Schedulers.boundedElastic(),
-                null
+                null,
+                Schedulers.boundedElastic(),
         )
         when:
         def h1 = configurer.getHash(null, "hohoho")
@@ -147,7 +151,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 ChainsConfig.default(),
                 GrpcTracing.create(Tracing.newBuilder().build()),
                 Schedulers.boundedElastic(),
-                null
+                null,
+                Schedulers.boundedElastic(),
         )
         def methodsGroup = new UpstreamsConfig.MethodGroups(
                 ["filter"] as Set,

@@ -27,6 +27,7 @@ import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.time.Duration
 import java.util.concurrent.Executors
@@ -34,8 +35,9 @@ import java.util.concurrent.Executors
 class BitcoinRpcHead(
     private val api: JsonRpcReader,
     private val extractBlock: ExtractBlock,
-    private val interval: Duration = Duration.ofSeconds(15)
-) : Head, AbstractHead(MostWorkForkChoice(), awaitHeadTimeoutMs = 1200_000), Lifecycle {
+    private val interval: Duration = Duration.ofSeconds(15),
+    headScheduler: Scheduler
+) : Head, AbstractHead(MostWorkForkChoice(), headScheduler, awaitHeadTimeoutMs = 1200_000), Lifecycle {
 
     companion object {
         val scheduler =

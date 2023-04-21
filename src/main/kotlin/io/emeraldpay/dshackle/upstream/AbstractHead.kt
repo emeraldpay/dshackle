@@ -26,7 +26,7 @@ import reactor.core.publisher.SignalType
 import reactor.core.publisher.Sinks
 import reactor.core.publisher.Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER
 import reactor.core.publisher.Sinks.EmitResult.OK
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 import reactor.kotlin.core.publisher.toMono
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -37,9 +37,10 @@ import java.util.concurrent.locks.ReentrantLock
 
 abstract class AbstractHead @JvmOverloads constructor(
     private val forkChoice: ForkChoice,
+    private val headScheduler: Scheduler,
     private val blockValidator: BlockValidator = BlockValidator.ALWAYS_VALID,
     private val awaitHeadTimeoutMs: Long = 60_000,
-    private val upstreamId: String = ""
+    private val upstreamId: String = "",
 ) : Head {
     protected val log = LoggerFactory.getLogger(this::class.java)
 
@@ -83,7 +84,7 @@ abstract class AbstractHead @JvmOverloads constructor(
                     log.warn("Received signal $upstreamId $it, continue emit heads")
                 }
             }
-            .subscribeOn(Schedulers.boundedElastic())
+            .subscribeOn(headScheduler)
             .subscribe { block ->
                 val valid = runCatching {
                     blockValidator.isValid(forkChoice.getHead(), block)

@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.grpc.stub.StreamObserver
+import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -66,7 +67,10 @@ class GrpcHeadSpec extends Specification {
                 Chain.BITCOIN,
                 Stub(DefaultUpstream),
                 client,
-                convert, null, new MostWorkForkChoice()
+                convert,
+                null,
+                new MostWorkForkChoice(),
+                Schedulers.boundedElastic()
         )
         when:
         def act = head.getFlux()
@@ -130,7 +134,10 @@ class GrpcHeadSpec extends Specification {
                 Chain.BITCOIN,
                 Stub(DefaultUpstream),
                 client,
-                convert, null, new MostWorkForkChoice()
+                convert,
+                null,
+                new MostWorkForkChoice(),
+                Schedulers.boundedElastic()
         )
         when:
         def act = head.getFlux()

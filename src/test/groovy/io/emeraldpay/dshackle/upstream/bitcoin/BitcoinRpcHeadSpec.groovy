@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -85,7 +86,7 @@ class BitcoinRpcHeadSpec extends Specification {
             _ * read(new JsonRpcRequest("getblock", [hash1])) >> Mono.just(new JsonRpcResponse(block1.bytes, null))
             _ * read(new JsonRpcRequest("getblock", [hash2])) >> Mono.just(new JsonRpcResponse(block2.bytes, null))
         }
-        BitcoinRpcHead head = new BitcoinRpcHead(api, new ExtractBlock(), Duration.ofMillis(200))
+        BitcoinRpcHead head = new BitcoinRpcHead(api, new ExtractBlock(), Duration.ofMillis(200), Schedulers.boundedElastic())
 
         when:
         def act = head.flux.take(2)

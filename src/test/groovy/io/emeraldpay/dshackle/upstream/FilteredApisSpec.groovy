@@ -51,12 +51,17 @@ class FilteredApisSpec extends Specification {
                 create(_, _) >> TestingCommons.api().tap { it.id = "${i++}" }
             }
             def connectorFactory = new EthereumConnectorFactory(
-                    EthereumConnectorFactory.ConnectorMode.RPC_ONLY, null, httpFactory,
-                    new MostWorkForkChoice(), BlockValidator.ALWAYS_VALID, Schedulers.boundedElastic()
+                    EthereumConnectorFactory.ConnectorMode.RPC_ONLY,
+                    null,
+                    httpFactory,
+                    new MostWorkForkChoice(),
+                    BlockValidator.ALWAYS_VALID,
+                    Schedulers.boundedElastic(),
+                    Schedulers.boundedElastic()
             )
             new EthereumRpcUpstream(
                     "test",
-                    (byte)123,
+                    (byte) 123,
                     Chain.ETHEREUM,
                     new UpstreamsConfig.PartialOptions().buildOptions(),
                     UpstreamsConfig.UpstreamRole.PRIMARY,
@@ -79,8 +84,8 @@ class FilteredApisSpec extends Specification {
                 .expectNext(upstreams[0])
                 .expectNext(upstreams[2])
                 .expectNext(upstreams[3])
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
 
         when:
         iter = new FilteredApis(Chain.ETHEREUM, upstreams, matcher, 1, 1, 0)
@@ -114,19 +119,19 @@ class FilteredApisSpec extends Specification {
         expect:
         wait == apis.waitDuration(n).toMillis() as Integer
         where:
-        n   | wait
-        0   | 100
-        1   | 100
-        2   | 400
-        3   | 900
-        4   | 1600
-        5   | 2500
-        6   | 3600
-        7   | 4900
-        8   | 5000
-        9   | 5000
-        10  | 5000
-        -1  | 100
+        n  | wait
+        0  | 100
+        1  | 100
+        2  | 400
+        3  | 900
+        4  | 1600
+        5  | 2500
+        6  | 3600
+        7  | 4900
+        8  | 5000
+        9  | 5000
+        10 | 5000
+        -1 | 100
     }
 
     @Retry
@@ -169,8 +174,8 @@ class FilteredApisSpec extends Specification {
                 .expectNext(up1, up2).as("Batch 3")
                 .expectNoEvent(Duration.ofMillis(900)).as("Wait 3")
                 .expectNext(up1, up2).as("Batch 4")
-        .expectComplete()
-        .verify(Duration.ofSeconds(10))
+                .expectComplete()
+                .verify(Duration.ofSeconds(10))
     }
 
     def "Starts with right position"() {

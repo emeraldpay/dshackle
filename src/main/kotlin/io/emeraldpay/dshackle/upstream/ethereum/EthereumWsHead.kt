@@ -44,8 +44,9 @@ class EthereumWsHead(
     private val api: JsonRpcReader,
     private val wsSubscriptions: WsSubscriptions,
     private val skipEnhance: Boolean,
-    private val wsConnectionResubscribeScheduler: Scheduler
-) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
+    private val wsConnectionResubscribeScheduler: Scheduler,
+    headScheduler: Scheduler,
+) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator, headScheduler), Lifecycle {
 
     private var connectionId: String? = null
     private var subscribed = false

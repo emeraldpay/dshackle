@@ -31,6 +31,7 @@ import org.reactivestreams.Publisher
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 import reactor.kotlin.extra.retry.retryExponentialBackoff
 import java.time.Duration
 import java.util.function.Function
@@ -48,8 +49,9 @@ class GrpcHead(
      * Populate block data with all missing details, of any
      */
     private val enhancer: Function<BlockContainer, Publisher<BlockContainer>>?,
-    private val forkChoice: ForkChoice
-) : AbstractHead(forkChoice, upstreamId = id), Lifecycle {
+    private val forkChoice: ForkChoice,
+    headScheduler: Scheduler,
+) : AbstractHead(forkChoice, headScheduler, upstreamId = id), Lifecycle {
 
     private var headSubscription: Disposable? = null
 

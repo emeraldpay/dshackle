@@ -25,16 +25,18 @@ import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.hex.HexQuantity
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 
 open class DefaultEthereumHead(
     protected val upstreamId: String,
     forkChoice: ForkChoice,
-    blockValidator: BlockValidator
-) : Head, AbstractHead(forkChoice, blockValidator, 60_000, upstreamId) {
+    blockValidator: BlockValidator,
+    private val headScheduler: Scheduler,
+) : Head, AbstractHead(forkChoice, headScheduler, blockValidator, 60_000, upstreamId) {
 
     fun getLatestBlock(api: JsonRpcReader): Mono<BlockContainer> {
         return api.read(JsonRpcRequest("eth_blockNumber", emptyList()))
-            .subscribeOn(EthereumRpcHead.scheduler)
+            .subscribeOn(headScheduler)
             .timeout(Defaults.timeout, Mono.error(Exception("Block number not received")))
             .flatMap {
                 if (it.error != null) {
@@ -48,7 +50,7 @@ open class DefaultEthereumHead(
                 // fetching by Block Height here, critical to use the same upstream as in previous call,
                 // b/c different upstreams may have different blocks on the same height
                 api.read(JsonRpcRequest("eth_getBlockByNumber", listOf(it.toHex(), false)))
-                    .subscribeOn(EthereumRpcHead.scheduler)
+                    .subscribeOn(headScheduler)
                     .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
             }
             .map {

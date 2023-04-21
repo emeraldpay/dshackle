@@ -40,6 +40,7 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 import java.math.BigInteger
 import java.time.Instant
 import java.util.Locale
@@ -51,9 +52,10 @@ class BitcoinGrpcUpstream(
     role: UpstreamsConfig.UpstreamRole,
     chain: Chain,
     val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,
-    private val client: JsonRpcGrpcClient,
+    client: JsonRpcGrpcClient,
     overrideLabels: UpstreamsConfig.Labels?,
-    chainConfig: ChainsConfig.ChainConfig
+    chainConfig: ChainsConfig.ChainConfig,
+    headScheduler: Scheduler,
 ) : BitcoinUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     chain,
@@ -100,7 +102,10 @@ class BitcoinGrpcUpstream(
             }
     }
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
-    private val grpcHead = GrpcHead(getId(), chain, this, remote, blockConverter, reloadBlock, MostWorkForkChoice())
+    private val grpcHead = GrpcHead(
+        getId(), chain, this, remote, blockConverter, reloadBlock,
+        MostWorkForkChoice(), headScheduler
+    )
     private val timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()
     private val buildInfo: BuildInfo = BuildInfo()

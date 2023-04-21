@@ -39,6 +39,7 @@ import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.etherjar.domain.BlockHash
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Scheduler
 import java.math.BigInteger
 import java.time.Instant
 import java.util.Locale
@@ -53,7 +54,8 @@ open class EthereumPosGrpcUpstream(
     client: JsonRpcGrpcClient,
     nodeRating: Int,
     overrideLabels: UpstreamsConfig.Labels?,
-    chainConfig: ChainsConfig.ChainConfig
+    chainConfig: ChainsConfig.ChainConfig,
+    headScheduler: Scheduler,
 ) : EthereumPosUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     hash,
@@ -84,7 +86,10 @@ open class EthereumPosGrpcUpstream(
     }
 
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
-    private val grpcHead = GrpcHead(getId(), chain, this, remote, blockConverter, null, NoChoiceWithPriorityForkChoice(nodeRating, parentId))
+    private val grpcHead = GrpcHead(
+        getId(), chain, this, remote, blockConverter, null,
+        NoChoiceWithPriorityForkChoice(nodeRating, parentId), headScheduler
+    )
     private var capabilities: Set<Capability> = emptySet()
     private val buildInfo: BuildInfo = BuildInfo()
 

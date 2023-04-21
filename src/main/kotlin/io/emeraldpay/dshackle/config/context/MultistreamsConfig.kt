@@ -21,18 +21,17 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
     open fun allMultistreams(
         cachesFactory: CachesFactory,
         callTargetsHolder: CallTargetsHolder,
-        @Qualifier("headMergedScheduler")
+        @Qualifier("headScheduler")
         headScheduler: Scheduler,
         tracer: Tracer
     ): List<Multistream> {
         return Chain.values()
             .filterNot { it == Chain.UNSPECIFIED }
-            .mapNotNull { chain ->
+            .map { chain ->
                 when (BlockchainType.from(chain)) {
                     BlockchainType.EVM_POS -> ethereumPosMultistream(chain, cachesFactory, headScheduler, tracer)
                     BlockchainType.EVM_POW -> ethereumMultistream(chain, cachesFactory, headScheduler, tracer)
-                    BlockchainType.BITCOIN -> bitcoinMultistream(chain, cachesFactory)
-                    else -> null
+                    BlockchainType.BITCOIN -> bitcoinMultistream(chain, cachesFactory, headScheduler)
                 }
             }
     }
@@ -73,14 +72,16 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
 
     open fun bitcoinMultistream(
         chain: Chain,
-        cachesFactory: CachesFactory
+        cachesFactory: CachesFactory,
+        headScheduler: Scheduler
     ): BitcoinMultistream {
         val name = "multi-bitcoin-$chain"
 
         return BitcoinMultistream(
             chain,
             ArrayList(),
-            cachesFactory.getCaches(chain)
+            cachesFactory.getCaches(chain),
+            headScheduler
         ).also { register(it, name) }
     }
 

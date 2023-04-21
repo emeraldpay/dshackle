@@ -37,6 +37,7 @@ import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.grpc.stub.StreamObserver
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
+import reactor.core.scheduler.Schedulers
 import spock.lang.Specification
 
 import java.time.Duration
@@ -89,7 +90,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 )
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default())
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.boundedElastic())
         upstream.setLag(0)
         upstream.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
@@ -160,7 +161,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 }).start()
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null, ChainsConfig.ChainConfig.default())
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.boundedElastic())
         upstream.setLag(0)
         upstream.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
@@ -232,7 +233,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 finished.complete(true)
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default())
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.boundedElastic())
         upstream.setLag(0)
         upstream.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()

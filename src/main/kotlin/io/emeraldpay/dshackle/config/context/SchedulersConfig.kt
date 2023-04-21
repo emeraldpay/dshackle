@@ -26,8 +26,8 @@ open class SchedulersConfig {
     }
 
     @Bean
-    open fun headMergedScheduler(monitoringConfig: MonitoringConfig): Scheduler {
-        return makeScheduler("head-scheduler", 5, monitoringConfig)
+    open fun headScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("head-scheduler", 4, monitoringConfig)
     }
 
     @Bean

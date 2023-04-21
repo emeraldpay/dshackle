@@ -22,11 +22,13 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Upstream
 import org.slf4j.LoggerFactory
+import reactor.core.scheduler.Scheduler
 
 class EthereumHeadLagObserver(
     master: Head,
-    followers: Collection<Upstream>
-) : HeadLagObserver(master, followers, DistanceExtractor::extractPowDistance) {
+    followers: Collection<Upstream>,
+    headScheduler: Scheduler
+) : HeadLagObserver(master, followers, DistanceExtractor::extractPowDistance, headScheduler) {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumHeadLagObserver::class.java)

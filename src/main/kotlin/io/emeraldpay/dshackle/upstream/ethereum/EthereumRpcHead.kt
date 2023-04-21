@@ -20,25 +20,19 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 import java.time.Duration
-import java.util.concurrent.Executors
 
 class EthereumRpcHead(
     private val api: JsonRpcReader,
     forkChoice: ForkChoice,
     upstreamId: String,
     blockValidator: BlockValidator,
+    private val headScheduler: Scheduler,
     private val interval: Duration = Duration.ofSeconds(10),
-) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator), Lifecycle {
-
-    companion object {
-        val scheduler =
-            Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-rpc-head")))
-    }
+) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator, headScheduler), Lifecycle {
 
     private var refreshSubscription: Disposable? = null
 
@@ -46,7 +40,7 @@ class EthereumRpcHead(
         super.start()
         refreshSubscription?.dispose()
         val base = Flux.interval(interval)
-            .publishOn(scheduler)
+            .publishOn(headScheduler)
             .flatMap {
                 getLatestBlock(api)
             }

@@ -33,7 +33,8 @@ class EthereumRpcConnector(
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
     skipEnhance: Boolean,
-    wsConnectionResubscribeScheduler: Scheduler
+    wsConnectionResubscribeScheduler: Scheduler,
+    headScheduler: Scheduler
 ) : EthereumConnector, CachesEnabled {
     private val pool: WsConnectionPool?
     private val head: Head
@@ -43,35 +44,50 @@ class EthereumRpcConnector(
     }
 
     init {
-        if (wsFactory != null) {
-            pool = wsFactory.create(null)
-        } else {
-            pool = null
-        }
+        pool = wsFactory?.create(null)
 
         head = when (connectorType) {
             RPC_ONLY -> {
                 log.warn("Setting up connector for $id upstream with RPC-only access, less effective than WS+RPC")
-                EthereumRpcHead(getIngressReader(), forkChoice, id, blockValidator)
+                EthereumRpcHead(getIngressReader(), forkChoice, id, blockValidator, headScheduler)
             }
+
             WS_ONLY -> {
                 throw IllegalStateException("WS-only mode is not supported in RPC connector")
             }
+
             RPC_REQUESTS_WITH_MIXED_HEAD -> {
                 val wsHead =
                     EthereumWsHead(
-                        id, AlwaysForkChoice(), blockValidator, getIngressReader(),
-                        WsSubscriptionsImpl(pool!!), skipEnhance, wsConnectionResubscribeScheduler
+                        id,
+                        AlwaysForkChoice(),
+                        blockValidator,
+                        getIngressReader(),
+                        WsSubscriptionsImpl(pool!!),
+                        skipEnhance,
+                        wsConnectionResubscribeScheduler,
+                        headScheduler
                     )
                 // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
                 val rpcHead =
-                    EthereumRpcHead(getIngressReader(), AlwaysForkChoice(), id, blockValidator, Duration.ofSeconds(30))
-                MergedHead(listOf(rpcHead, wsHead), forkChoice, "Merged for $id")
+                    EthereumRpcHead(
+                        getIngressReader(),
+                        AlwaysForkChoice(),
+                        id,
+                        blockValidator,
+                        headScheduler,
+                        Duration.ofSeconds(30)
+                    )
+                MergedHead(listOf(rpcHead, wsHead), forkChoice, headScheduler, "Merged for $id")
             }
+
             RPC_REQUESTS_WITH_WS_HEAD -> {
                 EthereumWsHead(
-                    id, AlwaysForkChoice(), blockValidator, getIngressReader(),
-                    WsSubscriptionsImpl(pool!!), skipEnhance, wsConnectionResubscribeScheduler
+                    id,
+                    AlwaysForkChoice(),
+                    blockValidator, getIngressReader(),
+                    WsSubscriptionsImpl(pool!!), skipEnhance, wsConnectionResubscribeScheduler,
+                    headScheduler
                 )
             }
         }

@@ -13,6 +13,7 @@ import org.apache.commons.codec.binary.Hex
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 import reactor.util.retry.Retry
 import java.time.Duration
 
@@ -20,7 +21,8 @@ class BitcoinZMQHead(
     private val server: ZMQServer,
     private val api: JsonRpcReader,
     private val extractBlock: ExtractBlock,
-) : Head, AbstractHead(MostWorkForkChoice(), awaitHeadTimeoutMs = 1200_000), Lifecycle {
+    headScheduler: Scheduler,
+) : Head, AbstractHead(MostWorkForkChoice(), headScheduler, awaitHeadTimeoutMs = 1200_000), Lifecycle {
     private var refreshSubscription: Disposable? = null
 
     fun connect(): Flux<BlockContainer> {

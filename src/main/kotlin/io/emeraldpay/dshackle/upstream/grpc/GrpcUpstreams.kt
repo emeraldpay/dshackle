@@ -75,7 +75,8 @@ class GrpcUpstreams(
     private val chainsConfig: ChainsConfig,
     private val grpcTracing: GrpcTracing,
     private val clientSpansInterceptor: ClientInterceptor?,
-    private var maxMetadataSize: Int
+    private var maxMetadataSize: Int,
+    private val headScheduler: Scheduler
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -213,13 +214,34 @@ class GrpcUpstreams(
 
     private val creators: Map<BlockchainType, (chain: Chain, client: JsonRpcGrpcClient) -> DefaultUpstream> = mapOf(
         BlockchainType.EVM_POW to { chain, rpcClient ->
-            EthereumGrpcUpstream(id, hash, role, chain, client, rpcClient, labels, chainsConfig.resolve(chain))
+            EthereumGrpcUpstream(
+                id,
+                hash,
+                role,
+                chain,
+                client,
+                rpcClient,
+                labels,
+                chainsConfig.resolve(chain),
+                headScheduler
+            )
         },
         BlockchainType.EVM_POS to { chain, rpcClient ->
-            EthereumPosGrpcUpstream(id, hash, role, chain, client, rpcClient, nodeRating, labels, chainsConfig.resolve(chain))
+            EthereumPosGrpcUpstream(
+                id,
+                hash,
+                role,
+                chain,
+                client,
+                rpcClient,
+                nodeRating,
+                labels,
+                chainsConfig.resolve(chain),
+                headScheduler
+            )
         },
         BlockchainType.BITCOIN to { chain, rpcClient ->
-            BitcoinGrpcUpstream(id, role, chain, client, rpcClient, labels, chainsConfig.resolve(chain))
+            BitcoinGrpcUpstream(id, role, chain, client, rpcClient, labels, chainsConfig.resolve(chain), headScheduler)
         }
     )
 

@@ -33,12 +33,14 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 
 @Suppress("UNCHECKED_CAST")
 open class BitcoinMultistream(
     chain: Chain,
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
     caches: Caches,
+    private val headScheduler: Scheduler,
 ) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches), Lifecycle {
 
     private var head: Head = EmptyHead()
@@ -86,7 +88,7 @@ open class BitcoinMultistream(
                 }
             }
         } else {
-            val newHead = MergedHead(sourceUpstreams.map { it.getHead() }, MostWorkForkChoice()).apply {
+            val newHead = MergedHead(sourceUpstreams.map { it.getHead() }, MostWorkForkChoice(), headScheduler).apply {
             this.start()
         }
             newHead
@@ -152,7 +154,7 @@ open class BitcoinMultistream(
     }
 
     override fun makeLagObserver(): HeadLagObserver {
-        return BitcoinHeadLagObserver(head, sourceUpstreams)
+        return BitcoinHeadLagObserver(head, sourceUpstreams, headScheduler)
     }
 
     override fun start() {

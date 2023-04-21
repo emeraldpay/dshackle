@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
 import java.time.Duration
@@ -35,6 +35,7 @@ abstract class HeadLagObserver(
     private val master: Head,
     private val followers: Collection<Upstream>,
     private val distanceExtractor: Extractor,
+    private val lagObserverScheduler: Scheduler,
     private val throttling: Duration = Duration.ofSeconds(5)
 ) : Lifecycle {
 
@@ -44,7 +45,7 @@ abstract class HeadLagObserver(
 
     override fun start() {
         current?.dispose()
-        current = subscription().subscribe { }
+        current = subscription().subscribeOn(lagObserverScheduler).subscribe { }
     }
 
     override fun isRunning(): Boolean {
@@ -68,7 +69,7 @@ abstract class HeadLagObserver(
     fun probeFollowers(top: BlockContainer): Flux<Tuple2<Long, Upstream>> {
         return Flux.fromIterable(followers)
             .parallel(followers.size)
-            .flatMap { up -> mapLagging(top, up, getCurrentBlocks(up)).subscribeOn(Schedulers.boundedElastic()) }
+            .flatMap { up -> mapLagging(top, up, getCurrentBlocks(up)).subscribeOn(lagObserverScheduler) }
             .sequential()
             .onErrorContinue { t, _ -> log.warn("Failed to update lagging distance", t) }
     }
