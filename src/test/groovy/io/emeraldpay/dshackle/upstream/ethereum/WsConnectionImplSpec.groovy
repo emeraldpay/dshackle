@@ -23,6 +23,7 @@ import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -39,7 +40,8 @@ class WsConnectionImplSpec extends Specification {
                         "test",
                         Chain.ETHEREUM,
                         new URI("http://localhost"),
-                        new URI("http://localhost")
+                        new URI("http://localhost"),
+                        Schedulers.parallel()
                 )
         )
         def apiMock = TestingCommons.api()
@@ -73,7 +75,8 @@ class WsConnectionImplSpec extends Specification {
                         "test",
                         Chain.ETHEREUM,
                         new URI("http://localhost"),
-                        new URI("http://localhost")
+                        new URI("http://localhost"),
+                        Schedulers.parallel()
                 )
         )
         def apiMock = TestingCommons.api()
@@ -105,7 +108,8 @@ class WsConnectionImplSpec extends Specification {
                         "test",
                         Chain.ETHEREUM,
                         new URI("http://localhost"),
-                        new URI("http://localhost")
+                        new URI("http://localhost"),
+                        Schedulers.parallel()
                 )
         )
         def apiMock = TestingCommons.api()

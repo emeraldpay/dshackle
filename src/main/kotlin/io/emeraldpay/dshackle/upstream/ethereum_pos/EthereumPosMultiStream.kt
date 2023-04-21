@@ -58,7 +58,7 @@ open class EthereumPosMultiStream(
     )
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory(), tracer)
-    private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
+    private var subscribe = EthereumEgressSubscription(this, headScheduler, NoPendingTxes())
     private val feeEstimation = EthereumPriorityFees(this, reader, 256)
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
@@ -198,6 +198,6 @@ open class EthereumPosMultiStream(
                     AggregatedPendingTxes(it)
                 }
             }
-        subscribe = EthereumEgressSubscription(this, pendingTxes)
+        subscribe = EthereumEgressSubscription(this, headScheduler, pendingTxes)
     }
 }

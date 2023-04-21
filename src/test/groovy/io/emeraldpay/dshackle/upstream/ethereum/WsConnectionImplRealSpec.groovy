@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.test.MockWSServer
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Shared
 import spock.lang.Specification
@@ -38,7 +39,8 @@ class WsConnectionImplRealSpec extends Specification {
                         "test",
                         Chain.ETHEREUM,
                         "ws://localhost:${port}".toURI(),
-                        "http://localhost:${port}".toURI()
+                        "http://localhost:${port}".toURI(),
+                        Schedulers.parallel()
                 )
         ).create(null).getConnection()
     }
@@ -117,7 +119,8 @@ class WsConnectionImplRealSpec extends Specification {
                         "test",
                         Chain.ETHEREUM,
                         "ws://localhost:${port}".toURI(),
-                        "http://localhost:${port}".toURI()
+                        "http://localhost:${port}".toURI(),
+                        Schedulers.parallel()
                 )
         ).create(up).getConnection()
         when:

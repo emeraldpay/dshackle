@@ -63,7 +63,7 @@ open class EthereumMultistream(
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory(), tracer)
-    private var subscribe = EthereumEgressSubscription(this, NoPendingTxes())
+    private var subscribe = EthereumEgressSubscription(this, headScheduler, NoPendingTxes())
 
     private val supportsEIP1559 = when (chain) {
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN,
@@ -102,7 +102,7 @@ open class EthereumMultistream(
                     AggregatedPendingTxes(it)
                 }
             }
-        subscribe = EthereumEgressSubscription(this, pendingTxes)
+        subscribe = EthereumEgressSubscription(this, headScheduler, pendingTxes)
     }
 
     override fun start() {

@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Specification
 
@@ -20,7 +21,7 @@ class ConnectNewHeadsSpec extends Specification {
         def up = Mock(EthereumMultistream) {
             1 * getHead(Selector.empty) >> head
         }
-        ConnectNewHeads connectNewHeads = new ConnectNewHeads(up)
+        ConnectNewHeads connectNewHeads = new ConnectNewHeads(up, Schedulers.boundedElastic())
         when:
         def act1 = connectNewHeads.connect(Selector.empty)
         def act2 = connectNewHeads.connect(Selector.empty)

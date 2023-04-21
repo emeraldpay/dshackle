@@ -44,7 +44,7 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 import reactor.netty.http.client.HttpClient
 import reactor.netty.http.client.WebsocketClientSpec
 import reactor.netty.http.websocket.WebsocketInbound
@@ -67,7 +67,8 @@ open class WsConnectionImpl(
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
-    private val onDisconnect: () -> Unit
+    private val onDisconnect: () -> Unit,
+    private val scheduler: Scheduler
 ) : AutoCloseable, WsConnection, Cloneable {
 
     companion object {
@@ -292,8 +293,8 @@ open class WsConnectionImpl(
 
         return outbound.send(
             Flux.merge(
-                calls.subscribeOn(Schedulers.boundedElastic()),
-                consumer.then(Mono.empty<ByteBuf>()).subscribeOn(Schedulers.boundedElastic())
+                calls.subscribeOn(scheduler),
+                consumer.then(Mono.empty<ByteBuf>()).subscribeOn(scheduler)
             )
         )
     }

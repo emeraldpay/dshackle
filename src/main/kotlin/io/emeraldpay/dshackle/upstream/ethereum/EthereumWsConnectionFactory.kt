@@ -8,6 +8,7 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
+import reactor.core.scheduler.Scheduler
 import java.net.URI
 
 open class EthereumWsConnectionFactory(
@@ -15,6 +16,7 @@ open class EthereumWsConnectionFactory(
     private val chain: Chain,
     private val uri: URI,
     private val origin: URI,
+    private val scheduler: Scheduler
 ) {
 
     var basicAuth: AuthConfig.ClientBasicAuth? = null
@@ -42,7 +44,7 @@ open class EthereumWsConnectionFactory(
     }
 
     open fun createWsConnection(connIndex: Int = 0, onDisconnect: () -> Unit): WsConnection =
-        WsConnectionImpl(uri, origin, basicAuth, metrics(connIndex), onDisconnect).also { ws ->
+        WsConnectionImpl(uri, origin, basicAuth, metrics(connIndex), onDisconnect, scheduler).also { ws ->
             config?.frameSize?.let {
                 ws.frameSize = it
             }

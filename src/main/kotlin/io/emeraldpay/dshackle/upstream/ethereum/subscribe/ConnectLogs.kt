@@ -22,8 +22,8 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
 import io.emeraldpay.etherjar.hex.HexDataComparator
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Scheduler
 import java.util.function.Function
 
 open class ConnectLogs(
@@ -32,14 +32,11 @@ open class ConnectLogs(
 ) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(ConnectLogs::class.java)
-
         private val ADDR_COMPARATOR = HexDataComparator()
         private val TOPIC_COMPARATOR = HexDataComparator()
     }
 
-    constructor(upstream: EthereumLikeMultistream) : this(upstream, ConnectBlockUpdates(upstream))
-
+    constructor(upstream: EthereumLikeMultistream, scheduler: Scheduler) : this(upstream, ConnectBlockUpdates(upstream, scheduler))
     private val produceLogs = ProduceLogs(upstream)
 
     fun start(matcher: Selector.Matcher): Flux<LogMessage> {

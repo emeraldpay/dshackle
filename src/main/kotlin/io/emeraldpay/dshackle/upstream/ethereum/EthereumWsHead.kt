@@ -33,7 +33,6 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
-import reactor.core.scheduler.Schedulers
 import reactor.retry.Repeat
 import java.time.Duration
 
@@ -45,7 +44,7 @@ class EthereumWsHead(
     private val wsSubscriptions: WsSubscriptions,
     private val skipEnhance: Boolean,
     private val wsConnectionResubscribeScheduler: Scheduler,
-    headScheduler: Scheduler,
+    private val headScheduler: Scheduler,
 ) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator, headScheduler), Lifecycle {
 
     private var connectionId: String? = null
@@ -119,7 +118,7 @@ class EthereumWsHead(
                     }
                     .flatMap(JsonRpcResponse::requireResult)
                     .map { BlockContainer.fromEthereumJson(it, upstreamId) }
-                    .subscribeOn(Schedulers.boundedElastic())
+                    .subscribeOn(headScheduler)
                     .timeout(Defaults.timeoutInternal, Mono.empty())
             }.repeatWhenEmpty { n ->
                 Repeat.times<Any>(5)

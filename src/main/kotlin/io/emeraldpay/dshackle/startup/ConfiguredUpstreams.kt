@@ -388,6 +388,7 @@ open class ConfiguredUpstreams(
                 id, chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
+                headScheduler
             ).apply {
                 config = endpoint
                 basicAuth = endpoint.basicAuth

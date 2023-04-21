@@ -10,9 +10,11 @@ import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Scheduler
 
 open class EthereumEgressSubscription(
     val upstream: EthereumLikeMultistream,
+    val scheduler: Scheduler,
     val pendingTxesSource: PendingTxesSource?
 ) : EgressSubscription {
 
@@ -37,8 +39,8 @@ open class EthereumEgressSubscription(
         }
     }
 
-    private val newHeads = ConnectNewHeads(upstream)
-    open val logs = ConnectLogs(upstream)
+    private val newHeads = ConnectNewHeads(upstream, scheduler)
+    open val logs = ConnectLogs(upstream, scheduler)
     private val syncing = ConnectSyncing(upstream)
 
     override fun getAvailableTopics() = availableTopics

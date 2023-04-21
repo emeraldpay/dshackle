@@ -22,9 +22,8 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 import java.time.Duration
 import java.util.LinkedList
 import java.util.concurrent.ConcurrentHashMap
@@ -33,11 +32,11 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
-    private val upstream: EthereumLikeMultistream
+    private val upstream: EthereumLikeMultistream,
+    private val scheduler: Scheduler
 ) : SubscriptionConnect<ConnectBlockUpdates.Update> {
 
     companion object {
-        private val log = LoggerFactory.getLogger(ConnectBlockUpdates::class.java)
         private const val HISTORY_LIMIT = 6 * 3
     }
 
@@ -53,7 +52,7 @@ class ConnectBlockUpdates(
     override fun connect(matcher: Selector.Matcher): Flux<Update> {
         return connected.computeIfAbsent(matcher.describeInternal()) { key ->
             extract(upstream.getHead(matcher))
-                .publishOn(Schedulers.boundedElastic())
+                .publishOn(scheduler)
                 .publish()
                 .refCount(1, Duration.ofSeconds(60))
                 .doFinally {

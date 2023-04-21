@@ -19,9 +19,8 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
-import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
@@ -29,12 +28,9 @@ import java.util.concurrent.ConcurrentHashMap
  * Connects/reconnects to the upstream to produce NewHeads messages
  */
 class ConnectNewHeads(
-    private val upstream: EthereumLikeMultistream
+    private val upstream: EthereumLikeMultistream,
+    private val scheduler: Scheduler
 ) : SubscriptionConnect<NewHeadMessage> {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(ConnectNewHeads::class.java)
-    }
 
     private val connected: MutableMap<String, Flux<NewHeadMessage>> = ConcurrentHashMap()
 
@@ -42,7 +38,7 @@ class ConnectNewHeads(
         connected.computeIfAbsent(matcher.describeInternal()) { key ->
             ProduceNewHeads(upstream.getHead(matcher))
                 .start()
-                .publishOn(Schedulers.boundedElastic())
+                .publishOn(scheduler)
                 .publish()
                 .refCount(1, Duration.ofSeconds(60))
                 .doFinally {
