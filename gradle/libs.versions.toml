@@ -102,7 +102,7 @@ reactor-grpc-stub = "com.salesforce.servicelibs:reactor-grpc-stub:1.2.0"
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-jul = { module = "org.slf4j:jul-to-slf4j", version.ref = "slf4j" }
 slf4j-jcl = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4j" }
-log4j-slf4j = "org.apache.logging.log4j:log4j-slf4j-impl:2.17.0"
+log4j-slf4j = "org.apache.logging.log4j:log4j-slf4j-impl:2.17.1"
 
 snake-yaml = "org.yaml:snakeyaml:1.24"
 
