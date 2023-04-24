@@ -35,7 +35,7 @@ class ErrorSpanHandler(
         currentSpan.context().parentId()?.let {
             spans.getIfPresent(it)?.let { mutableSpans ->
                 if (mutableSpans.isNotEmpty()) {
-                    spansInfo.spans.add(mutableSpans[0])
+                    processSpanInfo(mutableSpans[0], spansInfo)
                 }
             }
         }
@@ -59,13 +59,17 @@ class ErrorSpanHandler(
         val currentSpans: List<MutableSpan>? = spans.getIfPresent(spanId)
 
         currentSpans?.forEach {
-            spansInfo.spans.add(it)
-            if (it.tags().containsKey(SPAN_ERROR)) {
-                spansInfo.hasError = true
-            }
+            processSpanInfo(it, spansInfo)
             if (spanId != it.id()) {
                 enrichErrorSpans(it.id(), spansInfo)
             }
+        }
+    }
+
+    private fun processSpanInfo(span: MutableSpan, spansInfo: SpansInfo) {
+        spansInfo.spans.add(span)
+        if (span.tags().containsKey(SPAN_ERROR)) {
+            spansInfo.hasError = true
         }
     }
 
