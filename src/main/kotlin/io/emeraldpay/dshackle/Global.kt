@@ -39,6 +39,8 @@ class Global {
 
     companion object {
 
+        val nullValue: ByteArray = "null".toByteArray()
+
         var metricsExtended = false
 
         val chainNames = mapOf(

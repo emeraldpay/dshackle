@@ -76,9 +76,8 @@ class EthereumDirectReader(
         txReader = object : Reader<TransactionId, TxContainer> {
             override fun read(key: TransactionId): Mono<TxContainer> {
                 val request = JsonRpcRequest("eth_getTransactionByHash", listOf(key.toHex()))
-                return readWithQuorum(request)
+                return readWithQuorum(request) // retries were removed because we use NotNullQuorum which handle errors too
                     .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
-                    .retryWhen(Retry.fixedDelay(3, Duration.ofMillis(200)))
                     .flatMap { txbytes ->
                         val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
                         if (tx == null) {

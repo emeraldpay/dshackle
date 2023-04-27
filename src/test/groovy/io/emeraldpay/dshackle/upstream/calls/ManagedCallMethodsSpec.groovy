@@ -17,11 +17,7 @@
 package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.quorum.AlwaysQuorum
-import io.emeraldpay.dshackle.quorum.BroadcastQuorum
-import io.emeraldpay.dshackle.quorum.CallQuorum
-import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
-import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
+import io.emeraldpay.dshackle.quorum.*
 import spock.lang.Specification
 
 import java.util.concurrent.Executors
@@ -109,7 +105,7 @@ class ManagedCallMethodsSpec extends Specification {
         when:
         def act = managed.createQuorumFor("eth_test")
         then:
-        act instanceof NonEmptyQuorum
+        act instanceof NotNullQuorum
 
         when:
         act = managed.createQuorumFor("eth_foo")

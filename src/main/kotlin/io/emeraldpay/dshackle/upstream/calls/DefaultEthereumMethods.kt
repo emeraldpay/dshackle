@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NonceQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
+import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import io.emeraldpay.etherjar.rpc.RpcException
 
 /**
@@ -77,15 +78,18 @@ class DefaultEthereumMethods(
         "eth_estimateGas"
     )
 
+    private val possibleNotIndexedMethods = listOf(
+        "eth_getTransactionByHash",
+        "eth_getTransactionReceipt"
+    )
+
     private val firstValueMethods = listOf(
         "eth_getBlockTransactionCountByHash",
         "eth_getUncleCountByBlockHash",
         "eth_getBlockByHash",
         "eth_getBlockByNumber",
-        "eth_getTransactionByHash",
         "eth_getTransactionByBlockHashAndIndex",
         "eth_getTransactionByBlockNumberAndIndex",
-        "eth_getTransactionReceipt",
         "eth_getStorageAt",
         "eth_getCode",
         "eth_getUncleByBlockHashAndIndex",
@@ -127,6 +131,7 @@ class DefaultEthereumMethods(
     init {
         allowedMethods = anyResponseMethods +
             firstValueMethods +
+            possibleNotIndexedMethods +
             specialMethods +
             headVerifiedMethods -
             chainUnsupportedMethods(chain) +
@@ -141,6 +146,7 @@ class DefaultEthereumMethods(
             firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
             headVerifiedMethods.contains(method) -> NotLaggingQuorum(1)
+            possibleNotIndexedMethods.contains(method) -> NotNullQuorum()
             specialMethods.contains(method) -> {
                 when (method) {
                     "eth_getTransactionCount" -> NonceQuorum()

@@ -169,7 +169,7 @@ class QuorumRpcReader(
     fun <T> withErrorResume(api: Upstream, key: JsonRpcRequest): Function<Mono<T>, Mono<T>> {
         return Function { src ->
             src.onErrorResume { err ->
-                log.error("Error during call upstream ${api.getId()} with method $${key.method}", err)
+                log.error("Error during call upstream ${api.getId()} with method ${key.method}", err)
                 // when the call failed with an error we want to notify the quorum because
                 // it may use the error message or other details
                 //

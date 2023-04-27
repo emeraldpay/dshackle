@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Global.Companion.nullValue
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.JsonRpcReader
@@ -27,6 +28,7 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 import java.math.BigInteger
 
 /**
@@ -88,7 +90,10 @@ class EthereumLocalReader(
                 } catch (e: IllegalArgumentException) {
                     throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
                 }
-                reader.txByHashAsCont().read(hash).map { it.json!! }
+                reader.txByHashAsCont()
+                    .read(hash)
+                    .map { it.json!! }
+                    .switchIfEmpty { Mono.just(nullValue) }
             }
             method == "eth_getBlockByHash" -> {
                 if (params.size != 2) {
@@ -120,7 +125,9 @@ class EthereumLocalReader(
                 } catch (e: IllegalArgumentException) {
                     throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
                 }
-                reader.receipts().read(hash)
+                reader.receipts()
+                    .read(hash)
+                    .switchIfEmpty { Mono.just(nullValue) }
             }
             else -> null
         }

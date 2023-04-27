@@ -19,8 +19,8 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
-import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
+import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import io.emeraldpay.etherjar.rpc.RpcException
 import java.util.Collections
 
@@ -62,7 +62,7 @@ class DefaultBitcoinMethods : CallMethods {
     override fun createQuorumFor(method: String): CallQuorum {
         return when {
             Collections.binarySearch(hardcodedMethods, method) >= 0 -> AlwaysQuorum()
-            Collections.binarySearch(anyResponseMethods, method) >= 0 -> NonEmptyQuorum()
+            Collections.binarySearch(anyResponseMethods, method) >= 0 -> NotNullQuorum()
             Collections.binarySearch(freshMethods, method) >= 0 -> NotLaggingQuorum(2)
             Collections.binarySearch(headVerifiedMethods, method) >= 0 -> NotLaggingQuorum(0)
             Collections.binarySearch(broadcastMethods, method) >= 0 -> BroadcastQuorum()

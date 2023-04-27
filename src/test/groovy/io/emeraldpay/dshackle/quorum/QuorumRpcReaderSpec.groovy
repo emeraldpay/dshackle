@@ -148,7 +148,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3), Stub(Tracer))
+        def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -180,39 +180,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3), Stub(Tracer))
-
-        when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
-                .map {
-                    new String(it.value)
-                }
-
-        then:
-        StepVerifier.create(act)
-                .expectNext("1")
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
-    }
-
-    def "non-empty-quorum - get the third result if first two are not ok"() {
-        setup:
-        def up = Mock(Upstream) {
-            _ * isAvailable() >> true
-            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
-            _ * getIngressReader() >> Mock(Reader) {
-                3 * read(new JsonRpcRequest("eth_test", [])) >>> [
-                        Mono.just(JsonRpcResponse.ok("null")),
-                        Mono.just(JsonRpcResponse.error(1, "test")),
-                        Mono.just(JsonRpcResponse.ok("1"))
-                ]
-            }
-        }
-        def apis = new FilteredApis(
-                Chain.ETHEREUM,
-                [up], Selector.empty
-        )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3), Stub(Tracer))
+        def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))
@@ -230,13 +198,13 @@ class QuorumRpcReaderSpec extends Specification {
     def "non-empty-quorum - error if all failed"() {
         setup:
         def api = Mock(Reader) {
-            3 * read(new JsonRpcRequest("eth_test", [])) >>> [
-                    Mono.just(JsonRpcResponse.ok("null")),
+            2 * read(new JsonRpcRequest("eth_test", [])) >>> [
                     Mono.just(JsonRpcResponse.error(1, "test")),
-                    Mono.just(JsonRpcResponse.ok("null"))
+                    Mono.just(JsonRpcResponse.error(1, "test")),
             ]
         }
         def up = Mock(Upstream) {
+            _ * getId() >> "test"
             _ * isAvailable() >> true
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> api
@@ -245,7 +213,7 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NonEmptyQuorum(3), Stub(Tracer))
+        def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
         def act = reader.read(new JsonRpcRequest("eth_test", []))

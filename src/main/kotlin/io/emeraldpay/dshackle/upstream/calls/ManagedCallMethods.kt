@@ -19,8 +19,8 @@ package io.emeraldpay.dshackle.upstream.calls
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
-import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
+import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import org.apache.commons.collections4.Factory
 import org.slf4j.LoggerFactory
 import java.io.IOException
@@ -66,7 +66,7 @@ class ManagedCallMethods(
         val quorum = when (quorumId) {
             "always" -> Factory<CallQuorum> { AlwaysQuorum() }
             "no-lag", "not-lagging", "no_lag", "not_lagging" -> Factory<CallQuorum> { NotLaggingQuorum(0) }
-            "not-empty", "not_empty", "non-empty", "non_empty" -> Factory<CallQuorum> { NonEmptyQuorum() }
+            "not-empty", "not_empty", "non-empty", "non_empty" -> Factory<CallQuorum> { NotNullQuorum() }
             else -> {
                 log.warn("Unknown quorum: $quorumId for custom method $method")
                 return

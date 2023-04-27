@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Chain
@@ -141,6 +140,7 @@ class TrackEthereumTxSpec extends Specification {
         act
                 .expectSubscription()
                 .expectNoEvent(Duration.ofSeconds(20)).as("Waited for updates")
+                .thenAwait(Duration.ofSeconds(2))
                 .expectComplete()
                 .verify(Duration.ofSeconds(3))
     }
@@ -171,18 +171,15 @@ class TrackEthereumTxSpec extends Specification {
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
         MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
-        def scheduler = VirtualTimeScheduler.create(true)
-        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, scheduler)
+        TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.boundedElastic())
 
-        apiMock.answerOnce("eth_getTransactionByHash", [txId], null)
+        apiMock.answer("eth_getTransactionByHash", [txId], null, 2)
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
 
         when:
-        def act = StepVerifier.withVirtualTime({
-            return trackTx.subscribe(req).take(2)
-        }, { scheduler }, 5)
+        def act = trackTx.subscribe(req).take(2)
         then:
-        act
+        StepVerifier.create(act)
                 .expectSubscription()
                 .expectNext(exp1).as("Unknown tx")
                 .expectNext(exp2).as("Found in mempool")

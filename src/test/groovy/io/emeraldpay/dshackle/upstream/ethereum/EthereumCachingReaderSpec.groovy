@@ -427,32 +427,6 @@ class EthereumDirectReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
-    def "Reads tx by hash with retries - expects an error within 1 sec"() {
-        setup:
-        def up = Mock(Multistream) {
-            4 * getApiSource(_) >> Stub(ApiSource)
-        }
-        def calls = Mock(Factory) {
-            4 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
-        }
-        EthereumDirectReader reader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
-        )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            4 * create(_, _, _, _) >> Mock(Reader) {
-                4 * read(new JsonRpcRequest("eth_getTransactionByHash", [hash1])) >>>
-                        [Mono.error(new RuntimeException()), Mono.error(new RuntimeException()),
-                         Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
-            }
-        }
-        when:
-        def act = reader.txReader.read(TransactionId.from(hash1))
-        then:
-        StepVerifier.create(act)
-                .expectError()
-                .verify(Duration.ofSeconds(1))
-    }
-
     def "Reads balance with retries - expects an error within 1 sec"() {
         setup:
         def up = Mock(Multistream) {

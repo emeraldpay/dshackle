@@ -22,6 +22,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.Global.Companion.nullValue
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.commons.LOCAL_READER
 import io.emeraldpay.dshackle.commons.REMOTE_QUORUM_RPC_READER
@@ -77,8 +78,6 @@ open class NativeCall(
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
     private val objectMapper: ObjectMapper = Global.objectMapper
-
-    private val nullValue: ByteArray = "null".toByteArray()
 
     private val localRouterEnabled = config.cache?.requestsCacheEnabled ?: true
     private val passthrough = config.passthrough

@@ -7,7 +7,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.CompressionConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
+import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import org.springframework.context.ApplicationEventPublisher
@@ -47,7 +47,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def act = configurer.buildMethods(upstream, Chain.ETHEREUM)
         then:
         act instanceof ManagedCallMethods
-        act.createQuorumFor("foo_bar") instanceof NonEmptyQuorum
+        act.createQuorumFor("foo_bar") instanceof NotNullQuorum
     }
 
     def "Got static response from extra methods"() {
