@@ -12,13 +12,13 @@ plugins {
     id 'application'
     id 'jacoco'
 
-    alias(libs.plugins.kotlin)
-    alias(libs.plugins.jib)
-    alias(libs.plugins.spring)
-    alias(libs.plugins.git)
-    alias(libs.plugins.protobuf)
-    alias(libs.plugins.ktlint)
-    alias(libs.plugins.detekt)
+    id("org.jetbrains.kotlin.jvm") version "$kotlinVersion"
+    id("com.google.cloud.tools.jib") version "3.3.1"
+    id("org.springframework.boot") version "$springBootVersion"
+    id("com.palantir.git-version") version "0.12.3"
+    id("com.google.protobuf") version "0.8.17"
+    id("org.jlleitschuh.gradle.ktlint") version "10.2.0"
+    id("io.gitlab.arturbosch.detekt") version "$detektVersion"
 }
 
 
@@ -43,65 +43,110 @@ repositories {
 }
 
 configurations {
-    compile.exclude group: "commons-logging"
-    compile.exclude group: "ch.qos.logback"
-    compile.exclude group: "org.slf4j", module: "slf4j-jdk14"
-    compile.exclude group: "org.slf4j", module: "log4j-over-slf4j"
-    // should be used only for generation of the stubs, the lib contains grpc classes
-    compile.exclude group: "com.salesforce.servicelibs", module: "reactor-grpc"
+    all {
+        exclude group: "commons-logging"
+        exclude group: "ch.qos.logback"
+        exclude group: "org.slf4j", module: "slf4j-jdk14"
+        exclude group: "org.slf4j", module: "log4j-over-slf4j"
+        exclude group: "org.slf4j", module: "log4j-to-slf4j"
+        // should be used only for generation of the stubs, the lib contains grpc classes
+        exclude group: "com.salesforce.servicelibs", module: "reactor-grpc"
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
 }
 
 dependencies {
-    implementation libs.bundles.kotlin
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion"
+    implementation "org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion"
 
-    implementation libs.bundles.grpc
-    implementation libs.bundles.netty
-    implementation libs.zeromq
-    implementation(libs.bundles.spring.framework) {
-        exclude module: 'spring-boot-starter-logging'
-    }
+    implementation "io.grpc:grpc-protobuf:$grpcVersion"
+    implementation "io.grpc:grpc-stub:$grpcVersion"
+    implementation "io.grpc:grpc-netty:$grpcVersion"
 
-    implementation libs.bundles.reactor
+    implementation "io.netty:netty-common:$nettyVersion"
+    implementation "io.netty:netty-transport:$nettyVersion"
+    implementation "io.netty:netty-handler:$nettyVersion"
+    implementation "io.netty:netty-handler-proxy:$nettyVersion"
+    implementation "io.netty:netty-resolver:$nettyVersion"
+    implementation "io.netty:netty-resolver-dns:$nettyVersion"
+    implementation "io.netty:netty-codec:$nettyVersion"
+    implementation "io.netty:netty-codec-http:$nettyVersion"
+    implementation "io.netty:netty-codec-http2:$nettyVersion"
+    implementation "io.netty:netty-buffer:$nettyVersion"
+    implementation "io.netty:netty-tcnative:$nettyTcnativeVersion"
+    implementation "io.netty:netty-tcnative-boringssl-static:$nettyTcnativeVersion"
 
-    implementation(libs.reactor.grpc.stub)
+    implementation "org.zeromq:jeromq:0.5.2"
 
-    implementation libs.micrometer.registry.prometheus
-    implementation libs.lettuce.core
+    implementation "org.springframework.boot:spring-boot-starter:$springBootVersion"
+    implementation "org.springframework.security:spring-security-core:$springSecurityVersion"
+    implementation "org.springframework.security:spring-security-web:$springSecurityVersion"
+    implementation "org.springframework.security:spring-security-config:$springSecurityVersion"
 
-    implementation libs.bundles.etherjar
+    implementation "io.projectreactor:reactor-core:$reactorVersion"
+    implementation "io.projectreactor:reactor-tools:$reactorVersion"
+    implementation "io.projectreactor.netty:reactor-netty:1.0.11"
+    implementation "io.projectreactor.addons:reactor-extra:3.4.5"
+    implementation "io.projectreactor.kotlin:reactor-kotlin-extensions:1.1.4"
 
-    implementation(libs.emerald.api) {
-        exclude group: 'com.salesforce.servicelibs', module: 'reactor-grpc'
-    }
+    implementation "com.salesforce.servicelibs:reactor-grpc-stub:1.2.0"
 
-    implementation libs.bitcoinj
+    implementation "io.micrometer:micrometer-registry-prometheus:1.5.6"
+    implementation "io.lettuce:lettuce-core:5.2.2.RELEASE"
 
-    implementation libs.snake.yaml
-    implementation libs.bundles.httpcomponents
-    implementation libs.bundles.jackson
+    implementation "io.emeraldpay.etherjar:etherjar-domain:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-hex:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-rpc-api:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-rpc-http:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-rpc-ws:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-tx:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-contract:$etherjarVersion"
+    implementation "io.emeraldpay.etherjar:etherjar-erc20:$etherjarVersion"
 
-    implementation libs.bundles.apache.commons
-    implementation libs.bouncycastle
-    implementation libs.caffeine
-    implementation libs.javax.annotations
+    implementation "io.emeraldpay:emerald-api:0.12-alpha.3"
 
-    implementation libs.bundles.slf4j
+    implementation "org.bitcoinj:bitcoinj-core:0.15.8"
 
-    testImplementation libs.cglib.nodep
-    testImplementation libs.spockframework.core
-    testImplementation libs.grpc.testing
-    testImplementation libs.reactor.test
-    testImplementation libs.objgenesis
-    testImplementation libs.mockserver.netty
-    testImplementation libs.java.websocket
-    testImplementation libs.equals.verifier
-    testImplementation libs.groovy
-    testImplementation libs.testcontainers
-    testImplementation libs.junit
-    testImplementation libs.bundles.ktest
-    testImplementation libs.mockk
+    implementation "org.yaml:snakeyaml:1.24"
+    implementation "org.apache.httpcomponents:httpmime:$httpcomponentsVersion"
+    implementation "org.apache.httpcomponents:httpclient:$httpcomponentsVersion"
 
-    detektPlugins libs.detekt.formatting
+    implementation "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"
+    implementation "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion"
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion"
+
+    implementation "commons-io:commons-io:2.6"
+    implementation "org.apache.commons:commons-lang3:3.9"
+    implementation "org.apache.commons:commons-collections4:4.3"
+
+    implementation "org.bouncycastle:bcprov-jdk15on:1.61"
+    implementation "com.github.ben-manes.caffeine:caffeine:2.8.5"
+    implementation "javax.annotation:javax.annotation-api:1.3.2"
+
+    implementation "org.slf4j:slf4j-api:$slf4jVersion"
+    implementation "org.slf4j:jul-to-slf4j:$slf4jVersion"
+    implementation "org.slf4j:jcl-over-slf4j:$slf4jVersion"
+    implementation "org.apache.logging.log4j:log4j-slf4j-impl:2.17.0"
+
+
+    testImplementation "cglib:cglib-nodep:3.3.0"
+    testImplementation "org.spockframework:spock-core:2.0-groovy-3.0"
+    testImplementation "io.grpc:grpc-testing:$grpcVersion"
+    testImplementation "io.projectreactor:reactor-test:$reactorVersion"
+    testImplementation "org.objenesis:objenesis:3.1"
+    testImplementation "org.mock-server:mockserver-netty:5.11.2"
+    testImplementation "org.java-websocket:Java-WebSocket:1.5.1"
+    testImplementation "nl.jqno.equalsverifier:equalsverifier:3.3"
+    testImplementation "org.codehaus.groovy:groovy:$groovyVersion"
+    testImplementation "org.testcontainers:spock:1.17.3"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:5.9.1"
+    testImplementation "io.kotest:kotest-runner-junit5:5.5.4"
+    testImplementation "io.kotest:kotest-framework-datatest:5.5.4"
+    testImplementation "io.mockk:mockk:1.13.3"
+
+    detektPlugins "io.gitlab.arturbosch.detekt:detekt-formatting:$detektVersion"
 }
 
 compileKotlin {
@@ -185,7 +230,7 @@ protobuf {
     protoc {
         // if $PROTOC_PATH is set then locally installed protoc is used otherwise it is downloaded remotely
         path = System.getenv("PROTOC_PATH") ?: null
-        artifact = System.getenv("PROTOC_PATH") == null ? "com.google.protobuf:protoc:${libs.versions.protoc.get()}" : null
+        artifact = System.getenv("PROTOC_PATH") == null ? "com.google.protobuf:protoc:$protocVersion" : null
     }
     plugins {
     }
