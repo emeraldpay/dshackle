@@ -48,6 +48,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
     MockGrpcServer mockServer = new MockGrpcServer()
     ObjectMapper objectMapper = Global.objectMapper
     RpcMetrics metrics = new RpcMetrics(
+            [],
             Timer.builder("test1").register(TestingCommons.meterRegistry),
             Counter.builder("test2").register(TestingCommons.meterRegistry),
             DistributionSummary.builder("test3").register(TestingCommons.meterRegistry),

@@ -10,6 +10,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.instanceOf
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.DistributionSummary
+import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
 import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
@@ -23,6 +24,7 @@ class JsonRpcHttpClientTest : ShouldSpec({
 
     val port = SocketUtils.findAvailableTcpPort(20000)
     val metrics = RpcMetrics(
+        emptyList<Tag>(),
         Timer.builder("test1").register(TestingCommonsKotlin.meterRegistry),
         Counter.builder("test2").register(TestingCommonsKotlin.meterRegistry),
         DistributionSummary.builder("test3").register(TestingCommonsKotlin.meterRegistry),

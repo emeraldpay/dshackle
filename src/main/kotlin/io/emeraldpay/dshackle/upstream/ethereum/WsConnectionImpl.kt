@@ -120,7 +120,7 @@ open class WsConnectionImpl(
     private var keepConnection = true
     private var connection: Disposable? = null
     private val reconnecting = AtomicBoolean(false)
-    private var onConnectionChange: Consumer<WsConnection.ConnectionStatus>? = null
+    private var onConnectionChange: Consumer<WsConnection.ConnectionStatus> = defaultOnConnectionChange()
 
     /**
      * true when the connection is actively receiving messages
@@ -130,8 +130,18 @@ open class WsConnectionImpl(
     override val isConnected: Boolean
         get() = connection != null && !reconnecting.get() && active
 
+    private fun defaultOnConnectionChange(): Consumer<WsConnection.ConnectionStatus> {
+        return rpcMetrics?.let {
+            ConnectionTimeMonitoring(it)
+        } ?: Consumer { }
+    }
+
     override fun onConnectionChange(handler: Consumer<WsConnection.ConnectionStatus>?) {
-        this.onConnectionChange = handler
+        this.onConnectionChange = if (handler != null) {
+            handler.andThen(defaultOnConnectionChange())
+        } else {
+            defaultOnConnectionChange()
+        }
     }
 
     fun setReconnectIntervalSeconds(value: Long) {
@@ -192,7 +202,7 @@ open class WsConnectionImpl(
             .doOnDisconnected {
                 active = false
                 disconnects.tryEmitNext(Instant.now())
-                this.onConnectionChange?.accept(WsConnection.ConnectionStatus.DISCONNECTED)
+                this.onConnectionChange.accept(WsConnection.ConnectionStatus.DISCONNECTED)
                 log.info("Disconnected from $uri")
                 if (keepConnection) {
                     tryReconnectLater()
@@ -235,13 +245,13 @@ open class WsConnectionImpl(
             )
             .uri(uri)
             .handle { inbound, outbound ->
-                this.onConnectionChange?.accept(WsConnection.ConnectionStatus.CONNECTED)
+                this.onConnectionChange.accept(WsConnection.ConnectionStatus.CONNECTED)
                 // mark as active once connected, because the actual message wouldn't come until a request is sent
                 active = true
                 handle(inbound, outbound)
             }
             .onErrorResume { t ->
-                log.debug("Dropping WS connection to $uri. Error: ${t.message}")
+                log.debug("Dropping WS connection to {}. Error: {}", uri, t.message)
                 Mono.empty<Void>()
             }
             .subscribe()
@@ -374,6 +384,7 @@ open class WsConnectionImpl(
         val internalId = request.id.toLong()
         val onResponse = Sinks.one<JsonRpcResponse>()
         currentRequests[internalId.toInt()] = onResponse
+        rpcMetrics?.onMessageEnqueued()
 
         // a default response when nothing is received back from WS after a timeout
         val noResponse = JsonRpcException(
@@ -407,7 +418,10 @@ open class WsConnectionImpl(
             .switchIfEmpty(
                 Mono.fromCallable { log.warn("No response for ${request.method} ${request.params}") }.then(Mono.error(noResponse))
             )
-            .doFinally { currentRequests.remove(internalId.toInt()) }
+            .doFinally {
+                currentRequests.remove(internalId.toInt())
+                rpcMetrics?.onMessageFinished()
+            }
     }
 
     override fun close() {

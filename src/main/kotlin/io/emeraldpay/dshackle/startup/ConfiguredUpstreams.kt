@@ -363,6 +363,7 @@ open class ConfiguredUpstreams(
                 Tag.of("chain", (Global.chainById(config.blockchain).chainCode))
             )
             val metrics = RpcMetrics(
+                metricsTags,
                 timer = Timer.builder("upstream.rpc.conn")
                     .description("Request time through a HTTP JSON RPC connection")
                     .tags(metricsTags)
