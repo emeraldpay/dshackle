@@ -100,12 +100,15 @@ class JsonRpcHttpClient(
             bytes.aggregate().asByteArray().map {
                 Tuples.of(statusCode, it)
             }
+        }.doFinally {
+            metrics.onMessageFinished()
         }.single()
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         val startTime = StopWatch()
         return Mono.just(key)
+            .doOnSubscribe { metrics.onMessageEnqueued() }
             .map(JsonRpcRequest::toJson)
             .doOnNext { startTime.start() }
             .flatMap(this@JsonRpcHttpClient::execute)

@@ -186,6 +186,7 @@ class GrpcUpstreams(
         )
 
         val metrics = RpcMetrics(
+            metricsTags,
             timer = Timer.builder("upstream.grpc.conn")
                 .description("Request time through a Dshackle/gRPC connection")
                 .tags(metricsTags)

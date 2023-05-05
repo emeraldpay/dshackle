@@ -46,6 +46,7 @@ open class EthereumWsFactory(
         )
 
         RpcMetrics(
+            metricsTags,
             timer = Timer.builder("upstream.ws.conn")
                 .description("Request time through a WebSocket JSON RPC connection")
                 .tags(metricsTags)
