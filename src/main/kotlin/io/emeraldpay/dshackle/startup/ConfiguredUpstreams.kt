@@ -340,11 +340,12 @@ open class ConfiguredUpstreams(
             this.options = options
         }
         log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
-        ds.start()
+        ds.subscribeUpstreamChanges()
             .doOnNext {
                 log.info("Chain ${it.chain} ${it.type} through gRPC at ${endpoint.host}:${endpoint.port}. With caps: ${it.upstream.getCapabilities()}")
             }
             .subscribe(currentUpstreams::update)
+        ds.startStatusUpdates()
     }
 
     private fun buildHttpClient(config: UpstreamsConfig.Upstream<out UpstreamsConfig.RpcConnection>): JsonRpcHttpClient? {
