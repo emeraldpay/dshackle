@@ -18,21 +18,23 @@ package io.emeraldpay.dshackle.upstream.grpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.commons.DurableFlux
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.grpc.BlockchainType
 import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
+import org.springframework.util.backoff.ExponentialBackOff
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.util.retry.Retry
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.function.Function
 
 class GrpcHead(
@@ -54,6 +56,7 @@ class GrpcHead(
     }
 
     private var headSubscription: Disposable? = null
+    private val shouldBeRunning = AtomicBoolean(false)
 
     /**
      * Initiate a new head subscription with connection to the remote
@@ -64,51 +67,54 @@ class GrpcHead(
         }
         log.debug("Start Head subscription to ${parent.getId()}")
 
-        val source = Flux.concat(
-            // first connect immediately
-            Flux.just(remote),
-            // following requests do with delay, give it a time to recover
-            Flux.just(remote).repeat().delayElements(Defaults.retryConnection)
-        ).flatMap(this::subscribeHead)
-
-        internalStart(source)
+        val blocks = DurableFlux(
+            { connect(remote) },
+            ExponentialBackOff(100, 1.5),
+            log,
+            shouldBeRunning,
+        )
+        headSubscription = super.follow(blocks.connect())
     }
 
-    fun subscribeHead(client: ReactorBlockchainGrpc.ReactorBlockchainStub): Publisher<BlockchainOuterClass.ChainHead> {
+    private fun connect(remote: ReactorBlockchainGrpc.ReactorBlockchainStub): Flux<BlockContainer> {
         val chainRef = Common.Chain.newBuilder()
             .setTypeValue(chain.id)
             .build()
-        return client.subscribeHead(chainRef)
-            // simple retry on failure, if eventually failed then it supposed to resubscribe later from outer method
-            .retryWhen(Retry.backoff(4, Duration.ofSeconds(1)))
-            .onErrorContinue { err, _ ->
-                log.warn("Disconnected $chain from ${parent.getId()}: ${err.message}")
+        return remote.subscribeHead(chainRef)
+            // if nothing returned for a relatively long period it's probably because of a broken connection, so in this case we force to drop the connection
+            .timeout(
+                expectEventsTime(),
+                Mono.fromCallable { log.info("No events received from ${parent.getId()}. Reconnecting...") }
+                    .then(Mono.error(SilentException.Timeout("No Events")))
+            )
+            .doOnError { err ->
+                if (err !is SilentException) {
+                    log.warn("Disconnected $chain from ${parent.getId()}: ${err.message}")
+                }
                 parent.setStatus(UpstreamAvailability.UNAVAILABLE)
-                Mono.empty<BlockchainOuterClass.ChainHead>()
             }
+            .map(converter)
+            .distinctUntilChanged(BlockContainer::hash)
+            .transform(enhanced())
     }
 
-    /**
-     * Initiate a new head from provided source of head details
-     */
-    private fun internalStart(source: Flux<BlockchainOuterClass.ChainHead>) {
-        var blocks = source.map(converter)
-            .distinctUntilChanged {
-                it.hash
+    private fun expectEventsTime(): Duration {
+        return try {
+            when (BlockchainType.from(chain)) {
+                BlockchainType.BITCOIN -> Duration.ofHours(1)
+                BlockchainType.ETHEREUM -> Duration.ofMinutes(5)
             }
-        if (enhancer != null) {
-            blocks = blocks.flatMap(enhancer)
+        } catch (e: IllegalArgumentException) {
+            Duration.ofMinutes(15)
         }
+    }
 
-        blocks = blocks.onErrorContinue { err, _ ->
-            if (err is RpcException) {
-                log.error("Head subscription error on ${parent.getId()}. ${err.javaClass.name}:${err.message}")
-            } else {
-                log.error("Head subscription error on ${parent.getId()}. ${err.javaClass.name}:${err.message}", err)
-            }
+    private fun enhanced(): Function<Flux<BlockContainer>, Flux<BlockContainer>> {
+        return if (enhancer != null) {
+            Function { blocks -> blocks.flatMap(enhancer) }
+        } else {
+            Function.identity()
         }
-
-        headSubscription = super.follow(blocks)
     }
 
     override fun isRunning(): Boolean {
@@ -117,10 +123,12 @@ class GrpcHead(
 
     override fun start() {
         headSubscription?.dispose()
+        shouldBeRunning.set(true)
         this.internalStart(remote)
     }
 
     override fun stop() {
+        shouldBeRunning.set(false)
         headSubscription?.dispose()
     }
 }
