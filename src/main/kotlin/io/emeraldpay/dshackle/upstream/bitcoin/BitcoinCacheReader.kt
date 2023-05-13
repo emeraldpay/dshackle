@@ -81,7 +81,11 @@ class BitcoinCacheReader(
                 return@fromCallable null
             }
             val txid = TxId.from(key.params[0].toString())
-            val verbose = key.params[1] as Boolean
+            val verbose = if (key.params.size >= 2) {
+                key.params[1] as Boolean
+            } else {
+                false
+            }
             Tuples.of(txid, verbose)
         }
             .onErrorResume { t ->
