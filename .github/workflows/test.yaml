@@ -23,7 +23,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v1
         with:
-          java-version: 13
+          java-version: 17
 
       - name: Install System Libs
         run: sudo apt-get install -y openssl libapr1
