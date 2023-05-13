@@ -77,7 +77,7 @@ open class XpubAddresses(
 
         return Flux.range(start, limit)
             .map { HDKeyDerivation.deriveChildKey(key, ChildNumber(it, false)) }
-            .map { Address.fromKey(network, ECKey.fromPublicOnly(it.pubKeyPoint), type) }
+            .map { Address.fromKey(network, ECKey.fromPublicOnly(it.pubKey), type) }
     }
 
     open fun activeAddresses(xpub: String, start: Int, limit: Int): Flux<Address> {

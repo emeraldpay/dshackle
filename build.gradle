@@ -19,6 +19,7 @@ plugins {
     id("com.google.protobuf") version "0.8.17"
     id("org.jlleitschuh.gradle.ktlint") version "10.2.0"
     id("io.gitlab.arturbosch.detekt") version "$detektVersion"
+    id("com.google.osdetector") version "1.7.0"
 }
 
 
@@ -30,8 +31,8 @@ group = 'io.emeraldpay.dshackle'
 version = '0.15.0-SNAPSHOT'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_13
-    targetCompatibility = JavaVersion.VERSION_13
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 repositories {
@@ -75,6 +76,7 @@ dependencies {
     implementation "io.netty:netty-buffer:$nettyVersion"
     implementation "io.netty:netty-tcnative:$nettyTcnativeVersion"
     implementation "io.netty:netty-tcnative-boringssl-static:$nettyTcnativeVersion"
+    implementation "io.netty:netty-tcnative-boringssl-static:$nettyTcnativeVersion:${osdetector.classifier}"
 
     implementation "org.zeromq:jeromq:0.5.2"
 
@@ -85,7 +87,7 @@ dependencies {
 
     implementation "io.projectreactor:reactor-core:$reactorVersion"
     implementation "io.projectreactor:reactor-tools:$reactorVersion"
-    implementation "io.projectreactor.netty:reactor-netty:1.0.11"
+    implementation "io.projectreactor.netty:reactor-netty:1.1.7"
     implementation "io.projectreactor.addons:reactor-extra:3.4.5"
     implementation "io.projectreactor.kotlin:reactor-kotlin-extensions:1.1.4"
 
@@ -105,7 +107,7 @@ dependencies {
 
     implementation "io.emeraldpay:emerald-api:0.12-alpha.3"
 
-    implementation "org.bitcoinj:bitcoinj-core:0.15.8"
+    implementation "org.bitcoinj:bitcoinj-core:0.16.2"
 
     implementation "org.yaml:snakeyaml:1.24"
     implementation "org.apache.httpcomponents:httpmime:$httpcomponentsVersion"
@@ -121,24 +123,24 @@ dependencies {
     implementation "org.apache.commons:commons-lang3:3.9"
     implementation "org.apache.commons:commons-collections4:4.3"
 
-    implementation "org.bouncycastle:bcprov-jdk15on:1.61"
+    implementation "org.bouncycastle:bcprov-jdk18on:1.73"
     implementation "com.github.ben-manes.caffeine:caffeine:2.8.5"
     implementation "javax.annotation:javax.annotation-api:1.3.2"
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
     implementation "org.slf4j:jul-to-slf4j:$slf4jVersion"
     implementation "org.slf4j:jcl-over-slf4j:$slf4jVersion"
-    implementation "org.apache.logging.log4j:log4j-slf4j-impl:2.17.0"
+    implementation "org.apache.logging.log4j:log4j-slf4j2-impl:2.20.0"
 
 
     testImplementation "cglib:cglib-nodep:3.3.0"
-    testImplementation "org.spockframework:spock-core:2.0-groovy-3.0"
+    testImplementation "org.spockframework:spock-core:2.3-groovy-3.0"
     testImplementation "io.grpc:grpc-testing:$grpcVersion"
     testImplementation "io.projectreactor:reactor-test:$reactorVersion"
     testImplementation "org.objenesis:objenesis:3.1"
-    testImplementation "org.mock-server:mockserver-netty:5.11.2"
-    testImplementation "org.java-websocket:Java-WebSocket:1.5.1"
-    testImplementation "nl.jqno.equalsverifier:equalsverifier:3.3"
+    testImplementation "org.mock-server:mockserver-netty:5.15.0"
+    testImplementation "org.java-websocket:Java-WebSocket:1.5.3"
+    testImplementation "nl.jqno.equalsverifier:equalsverifier:3.14.1"
     testImplementation "org.codehaus.groovy:groovy:$groovyVersion"
     testImplementation "org.testcontainers:spock:1.17.3"
     testImplementation "org.junit.jupiter:junit-jupiter-engine:5.9.1"
@@ -151,12 +153,12 @@ dependencies {
 
 compileKotlin {
     kotlinOptions {
-        jvmTarget = "13"
+        jvmTarget = "17"
     }
 }
 compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "13"
+        jvmTarget = "17"
     }
 }
 
@@ -189,7 +191,7 @@ application {
 
 jib {
     from {
-        image = 'openjdk:13'
+        image = 'azul/zulu-openjdk-debian:17'
     }
     to {
         // by default publish as:
@@ -313,7 +315,7 @@ jacoco {
 }
 
 detekt {
-    toolVersion = "1.18.1"
+    toolVersion = "$detektVersion"
     parallel = false
     basePath = projectDir
     debug = false
@@ -332,5 +334,5 @@ detekt {
 }
 
 tasks.withType(Detekt).configureEach {
-    jvmTarget = "13"
+    jvmTarget = "17"
 }

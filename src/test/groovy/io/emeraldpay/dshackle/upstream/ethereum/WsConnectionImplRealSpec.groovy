@@ -104,7 +104,7 @@ class WsConnectionImplRealSpec extends Specification {
         }
         WsConnection.ConnectionStatus result = null
         conn = new EthereumWsFactory("test", Chain.ETHEREUM, "ws://localhost:${port}".toURI(), "http://localhost:${port}".toURI())
-                .create({ result = it  }) as WsConnectionImpl
+                .create({ result = it  })
         when:
         conn.connect()
         conn.reconnectIntervalSeconds = 10

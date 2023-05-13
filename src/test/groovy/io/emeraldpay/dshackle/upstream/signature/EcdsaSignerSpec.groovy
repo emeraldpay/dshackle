@@ -26,7 +26,7 @@ class EcdsaSignerSpec extends Specification {
     def "Reads private key"() {
         setup:
         def file = File.createTempFile("test", ".pem")
-        def keygen = KeyPairGenerator.getInstance("EC")
+        def keygen = KeyPairGenerator.getInstance("EC", "BC")
         keygen.initialize(new ECGenParameterSpec("secp256k1"))
         def key = keygen.generateKeyPair()
         def keyBuilder = new PKCS8EncodedKeySpec(key.getPrivate().getEncoded())
@@ -48,7 +48,7 @@ class EcdsaSignerSpec extends Specification {
     def "Reads private key NIST P256"() {
         setup:
         def file = File.createTempFile("test", ".pem")
-        def keygen = KeyPairGenerator.getInstance("EC")
+        def keygen = KeyPairGenerator.getInstance("EC", "BC")
         keygen.initialize(new ECGenParameterSpec("secp256r1"))
         def key = keygen.generateKeyPair()
         def keyBuilder = new PKCS8EncodedKeySpec(key.getPrivate().getEncoded())
@@ -108,10 +108,10 @@ class EcdsaSignerSpec extends Specification {
             _ * getId() >> "infura"
         }
 
-        def keyPairGen = KeyPairGenerator.getInstance("EC")
+        def keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
         keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
         def pair = keyPairGen.generateKeyPair()
-        def verifier = Signature.getInstance("SHA256withECDSA")
+        def verifier = Signature.getInstance("SHA256withECDSA", Security.getProvider("BC"))
         verifier.initVerify(pair.getPublic())
         verifier.update("DSHACKLESIG/10/infura/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08".getBytes())
 
@@ -140,8 +140,8 @@ class EcdsaSignerSpec extends Specification {
         def factory = new ResponseSignerFactory(conf)
 
         def sk = factory.readKey(conf.algorithm, conf.privateKey).first
-        def pk = factory.extractPublicKey(KeyFactory.getInstance("EC"), sk, SignatureConfig.Algorithm.SECP256K1)
-        def verifier = Signature.getInstance("SHA256withECDSA")
+        def pk = factory.extractPublicKey(KeyFactory.getInstance("EC", "BC"), sk, SignatureConfig.Algorithm.SECP256K1)
+        def verifier = Signature.getInstance("SHA256withECDSA", Security.getProvider("BC"))
         verifier.initVerify(pk)
         verifier.update("DSHACKLESIG/10/infura/${Hex.encodeHexString(sha256.digest(result))}".getBytes())
 
