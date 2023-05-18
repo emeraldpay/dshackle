@@ -115,10 +115,10 @@ open class EthereumPosGrpcUpstream(
         val newBuildInfo = BuildInfo.extract(buildInfo)
         val buildInfoChanged = this.buildInfo.update(newBuildInfo)
         val newCapabilities = RemoteCapabilities.extract(conf)
-        conf.status?.let { status -> onStatus(status) }
         val upstreamStatusChanged = (upstreamStatus.update(conf) || (newCapabilities != capabilities)).also {
             capabilities = newCapabilities
         }
+        conf.status?.let { status -> onStatus(status) }
         return buildInfoChanged || upstreamStatusChanged
     }
 
