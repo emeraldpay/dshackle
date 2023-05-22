@@ -18,6 +18,14 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.upstream.MatchesResponse.AvailabilityResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.CapabilityResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.ExistsResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.GrpcResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.HeightResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.NotMatchedResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.SameNodeResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.Success
 import org.apache.commons.lang3.StringUtils
 import java.util.Collections
 
@@ -121,17 +129,27 @@ class Selector {
         }
     }
 
-    interface Matcher {
-        fun matches(up: Upstream): Boolean
+    abstract class Matcher {
+        fun matches(up: Upstream): Boolean = matchesWithCause(up).matched()
 
-        fun describeInternal(): String
+        abstract fun matchesWithCause(up: Upstream): MatchesResponse
+
+        abstract fun describeInternal(): String
     }
 
     data class MultiMatcher(
         private val matchers: Collection<Matcher>
-    ) : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return matchers.all { it.matches(up) }
+    ) : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse {
+            val responses = matchers.map { it.matchesWithCause(up) }
+            return if (responses.all { it is Success }) {
+                Success
+            } else {
+                MatchesResponse.MultiResponse(
+                    responses.filter { it !is Success }.toSet()
+                )
+            }
         }
 
         fun getMatchers(): Collection<Matcher> {
@@ -158,10 +176,14 @@ class Selector {
 
     data class MethodMatcher(
         val method: String
-    ) : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return up.getMethods().isCallable(method)
-        }
+    ) : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse =
+            if (up.getMethods().isCallable(method)) {
+                Success
+            } else {
+                MatchesResponse.MethodResponse(method)
+            }
 
         override fun describeInternal(): String {
             return "allow method $method"
@@ -172,19 +194,26 @@ class Selector {
         }
     }
 
-    abstract class LabelSelectorMatcher : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return up.getLabels().any(this::matches)
+    abstract class LabelSelectorMatcher : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse {
+            val labelsResponses = up.getLabels().map { matchesWithCause(it) }
+            return if (labelsResponses.any { it is Success }) {
+                Success
+            } else {
+                MatchesResponse.MultiResponse(
+                    labelsResponses.filter { it !is Success }.toSet()
+                )
+            }
         }
 
-        abstract fun matches(labels: UpstreamsConfig.Labels): Boolean
+        abstract fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse
         abstract fun asProto(): BlockchainOuterClass.Selector?
     }
 
-    class EmptyMatcher : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return true
-        }
+    class EmptyMatcher : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse = Success
 
         override fun describeInternal(): String {
             return "empty"
@@ -197,16 +226,10 @@ class Selector {
 
     class AnyLabelMatcher : LabelSelectorMatcher() {
 
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return true
-        }
+        override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse = Success
 
         override fun asProto(): BlockchainOuterClass.Selector? {
             return null
-        }
-
-        override fun matches(up: Upstream): Boolean {
-            return true
         }
 
         override fun describeInternal(): String {
@@ -218,26 +241,22 @@ class Selector {
         }
     }
 
-    class LocalAndMatcher(vararg val matchers: Matcher) : Matcher {
+    class LabelMatcher(
+        val name: String,
+        val values: Collection<String>
+    ) : LabelSelectorMatcher() {
 
-        override fun matches(up: Upstream): Boolean {
-            return matchers.all { it.matches(up) }
-        }
-
-        override fun describeInternal(): String {
-            return "local upstream"
-        }
-
-        override fun toString(): String {
-            return "Matcher: ${describeInternal()}"
-        }
-    }
-
-    class LabelMatcher(val name: String, val values: Collection<String>) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return labels.get(name)?.let { labelValue ->
+        override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse {
+            val response = labels[name]?.let { labelValue ->
                 values.any { it == labelValue }
             } ?: false
+            return if (response) {
+                Success
+            } else {
+                MatchesResponse.LabelResponse(
+                    name, values
+                )
+            }
         }
 
         override fun asProto(): BlockchainOuterClass.Selector {
@@ -257,9 +276,19 @@ class Selector {
         }
     }
 
-    class OrMatcher(val matchers: Collection<LabelSelectorMatcher>) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return matchers.any { matcher -> matcher.matches(labels) }
+    class OrMatcher(
+        val matchers: Collection<LabelSelectorMatcher>,
+    ) : LabelSelectorMatcher() {
+
+        override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse {
+            val responses = matchers.map { it.matchesWithCause(labels) }
+            return if (responses.any { it is Success }) {
+                Success
+            } else {
+                MatchesResponse.MultiResponse(
+                    responses.filter { it !is Success }.toSet()
+                )
+            }
         }
 
         override fun asProto(): BlockchainOuterClass.Selector {
@@ -279,9 +308,19 @@ class Selector {
         }
     }
 
-    class AndMatcher(val matchers: Collection<LabelSelectorMatcher>) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return matchers.all { matcher -> matcher.matches(labels) }
+    class AndMatcher(
+        val matchers: Collection<LabelSelectorMatcher>
+    ) : LabelSelectorMatcher() {
+
+        override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse {
+            val responses = matchers.map { it.matchesWithCause(labels) }
+            return if (responses.all { it is Success }) {
+                Success
+            } else {
+                MatchesResponse.MultiResponse(
+                    responses.filter { it !is Success }.toSet()
+                )
+            }
         }
 
         override fun asProto(): BlockchainOuterClass.Selector {
@@ -301,9 +340,17 @@ class Selector {
         }
     }
 
-    class NotMatcher(val matcher: LabelSelectorMatcher) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return !matcher.matches(labels)
+    class NotMatcher(
+        val matcher: LabelSelectorMatcher
+    ) : LabelSelectorMatcher() {
+
+        override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse {
+            val response = matcher.matchesWithCause(labels)
+            return if (response !is Success) {
+                Success
+            } else {
+                NotMatchedResponse(response)
+            }
         }
 
         override fun asProto(): BlockchainOuterClass.Selector {
@@ -323,10 +370,16 @@ class Selector {
         }
     }
 
-    class ExistsMatcher(val name: String) : LabelSelectorMatcher() {
-        override fun matches(labels: UpstreamsConfig.Labels): Boolean {
-            return labels.containsKey(name)
-        }
+    class ExistsMatcher(
+        val name: String
+    ) : LabelSelectorMatcher() {
+
+        override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse =
+            if (labels.containsKey(name)) {
+                Success
+            } else {
+                ExistsResponse(name)
+            }
 
         override fun asProto(): BlockchainOuterClass.Selector {
             return BlockchainOuterClass.Selector.newBuilder().setExistsSelector(
@@ -345,10 +398,14 @@ class Selector {
         }
     }
 
-    class CapabilityMatcher(val capability: Capability) : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return up.getCapabilities().contains(capability)
-        }
+    class CapabilityMatcher(val capability: Capability) : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse =
+            if (up.getCapabilities().contains(capability)) {
+                Success
+            } else {
+                CapabilityResponse(capability)
+            }
 
         override fun describeInternal(): String {
             return "provides $capability API"
@@ -359,10 +416,14 @@ class Selector {
         }
     }
 
-    class GrpcMatcher : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return up.isGrpc()
-        }
+    class GrpcMatcher : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse =
+            if (up.isGrpc()) {
+                Success
+            } else {
+                GrpcResponse
+            }
 
         override fun describeInternal(): String {
             return "is gRPC"
@@ -373,9 +434,15 @@ class Selector {
         }
     }
 
-    class HeightMatcher(val height: Long) : Matcher {
-        override fun matches(up: Upstream): Boolean {
-            return (up.getHead().getCurrentHeight() ?: 0) >= height
+    class HeightMatcher(val height: Long) : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse {
+            val currentHeight = up.getHead().getCurrentHeight() ?: 0
+            return if (currentHeight >= height) {
+                Success
+            } else {
+                HeightResponse(height, currentHeight)
+            }
         }
 
         override fun equals(other: Any?): Boolean {
@@ -400,9 +467,14 @@ class Selector {
         }
     }
 
-    class SameNodeMatcher(private val upstreamHash: Byte) : Matcher {
-        override fun matches(up: Upstream): Boolean =
-            up.nodeId() == upstreamHash
+    class SameNodeMatcher(private val upstreamHash: Byte) : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse =
+            if (up.nodeId() == upstreamHash) {
+                Success
+            } else {
+                SameNodeResponse(upstreamHash)
+            }
 
         override fun describeInternal(): String =
             "upstream node-id=${upstreamHash.toUByte()}"
@@ -416,5 +488,18 @@ class Selector {
             if (other !is SameNodeMatcher) return false
             return other.upstreamHash == upstreamHash
         }
+    }
+
+    class AvailabilityMatcher : Matcher() {
+        override fun matchesWithCause(up: Upstream): MatchesResponse =
+            if (up.isAvailable()) {
+                Success
+            } else {
+                AvailabilityResponse
+            }
+
+        override fun describeInternal(): String = "availability"
+
+        override fun toString(): String = "Matcher: ${describeInternal()}"
     }
 }

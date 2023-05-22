@@ -37,7 +37,7 @@ class CollectSpanConfigTest {
                 appCtx.getBean(SpanConfig::class.java)
             }
             assertThrows(NoSuchBeanDefinitionException::class.java) {
-                appCtx.getBean(ErrorSpanHandler::class.java)
+                appCtx.getBean(ProviderSpanHandler::class.java)
             }
             assertThrows(NoSuchBeanDefinitionException::class.java) {
                 appCtx.getBean(ServerSpansInterceptor::class.java)
@@ -72,7 +72,7 @@ class CollectSpanConfigTest {
                 appCtx.getBean(SpanConfig::class.java)
             }
             assertDoesNotThrow {
-                appCtx.getBean(ErrorSpanHandler::class.java)
+                appCtx.getBean(ProviderSpanHandler::class.java)
             }
             assertDoesNotThrow {
                 appCtx.getBean(ServerSpansInterceptor::class.java)
@@ -113,7 +113,7 @@ class CollectSpanConfigTest {
                 appCtx.getBean(SpanConfig::class.java)
             }
             assertThrows(NoSuchBeanDefinitionException::class.java) {
-                appCtx.getBean(ErrorSpanHandler::class.java)
+                appCtx.getBean(ProviderSpanHandler::class.java)
             }
             assertThrows(NoSuchBeanDefinitionException::class.java) {
                 appCtx.getBean(ServerSpansInterceptor::class.java)

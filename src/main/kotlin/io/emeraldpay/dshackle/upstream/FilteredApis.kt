@@ -49,6 +49,7 @@ class FilteredApis(
     private val retryLimit: Long,
     jitter: Int
 ) : ApiSource {
+    private val internalMatcher: Selector.Matcher
 
     companion object {
         private val log = LoggerFactory.getLogger(FilteredApis::class.java)
@@ -94,6 +95,7 @@ class FilteredApis(
 
     private var started = false
     private val control = Sinks.many().unicast().onBackpressureBuffer<Boolean>()
+    private var upstreamsMatchesResponse: UpstreamsMatchesResponse? = UpstreamsMatchesResponse()
 
     init {
         delay = if (jitter > 0) {
@@ -129,6 +131,9 @@ class FilteredApis(
                 monitoring.countFallback.record(fallbackUpstreams.size.toDouble())
             }
         }
+        internalMatcher = Selector.MultiMatcher(
+            listOf(Selector.AvailabilityMatcher(), matcher)
+        )
     }
 
     private fun getMetrics(chain: Chain): Monitoring {
@@ -181,14 +186,16 @@ class FilteredApis(
         }
 
         result.filter { up ->
-            (up.isAvailable() && matcher.matches(up)).also {
-                if (it) {
-                    counter.incrementAndGet()
-                }
-            }
+            val matchesResponse = internalMatcher.matchesWithCause(up)
+            processMatchesResponse(up.getId(), matchesResponse)
+            matchesResponse.matched()
         }
             .zipWith(control.asFlux())
-            .map { it.t1 }
+            .map {
+                upstreamsMatchesResponse = null
+                counter.incrementAndGet()
+                it.t1
+            }
             .doOnSubscribe {
                 if (!started) {
                     // in addition to subscription the FilteredAPI should use request() method to prepare the control flow
@@ -196,6 +203,14 @@ class FilteredApis(
                 }
             }
             .subscribe(subscriber)
+    }
+
+    private fun processMatchesResponse(upstreamId: String, matchesResponse: MatchesResponse) {
+        upstreamsMatchesResponse?.run {
+            if (!matchesResponse.matched()) {
+                addUpstreamMatchesResponse(upstreamId, matchesResponse)
+            }
+        }
     }
 
     override fun resolve() {
@@ -213,8 +228,10 @@ class FilteredApis(
     override fun attempts(): AtomicInteger =
         counter
 
+    override fun upstreamsMatchesResponse(): UpstreamsMatchesResponse? = upstreamsMatchesResponse
+
     override fun toString(): String {
-        return "Filter API: ${allUpstreams.size} upstreams with $matcher"
+        return "Filter API: ${allUpstreams.size} upstreams with $internalMatcher"
     }
 
     class Monitoring(chain: Chain) {

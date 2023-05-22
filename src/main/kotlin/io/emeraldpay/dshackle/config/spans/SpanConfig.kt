@@ -56,13 +56,14 @@ open class SpanConfig {
         @Bean
         open fun errorSpanHandler(
             @Qualifier("spanMapper")
-            spanMapper: ObjectMapper
-        ): ErrorSpanHandler = ErrorSpanHandler(spanMapper)
+            spanMapper: ObjectMapper,
+            spanExportableList: List<SpanExportable>
+        ): ProviderSpanHandler = ProviderSpanHandler(spanMapper, spanExportableList)
 
         @Bean
         open fun serverSpansInterceptor(
             tracer: org.springframework.cloud.sleuth.Tracer,
-            errorSpanHandler: ErrorSpanHandler
-        ): ServerInterceptor = ServerSpansInterceptor(tracer, errorSpanHandler)
+            providerSpanHandler: ProviderSpanHandler
+        ): ServerInterceptor = ServerSpansInterceptor(tracer, providerSpanHandler)
     }
 }

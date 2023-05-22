@@ -29,4 +29,6 @@ interface ApiSource : Publisher<Upstream> {
     fun request(tries: Int)
 
     fun attempts(): AtomicInteger
+
+    fun upstreamsMatchesResponse(): UpstreamsMatchesResponse?
 }

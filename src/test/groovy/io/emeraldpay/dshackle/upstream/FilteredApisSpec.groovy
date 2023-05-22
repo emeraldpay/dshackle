@@ -33,6 +33,8 @@ import spock.lang.Specification
 
 import java.time.Duration
 
+import static java.util.List.of
+
 class FilteredApisSpec extends Specification {
 
     def ethereumTargets = new DefaultEthereumMethods(Chain.ETHEREUM)
@@ -194,6 +196,29 @@ class FilteredApisSpec extends Specification {
                 .expectNext(ups[2], ups[3], ups[4], ups[5], ups[0], ups[1])
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
+        act.attempts().get() == 6
+    }
+
+    def "FilteredApis is requested 3 times"() {
+        setup:
+        def apis = (0..5).collect {
+            new EthereumApiStub(it)
+        }
+        def ups = apis.collect {
+            TestingCommons.upstream(it)
+        }
+        when:
+        def act = new FilteredApis(Chain.ETHEREUM, ups, Selector.empty, 2, 1, 0)
+        act.request(3)
+        then:
+        StepVerifier.create(act)
+                .expectNext(ups[2], ups[3], ups[4])
+                .then {
+                    act.resolve()
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+        act.attempts().get() == 3
     }
 
     def "Start with offset - 5 items"() {
@@ -329,5 +354,208 @@ class FilteredApisSpec extends Specification {
                 .expectNext(lagging[0]).as("retry requests with lagging")
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
+    }
+
+    def "No upstreams if they all are unavailable"() {
+        setup:
+        List<Upstream> ups = [
+                Mock(Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> false
+                    _ * getId() >> "id1"
+                    _ * getStatus() >> UpstreamAvailability.SYNCING
+                },
+                Mock(Upstream) {
+                    _ * getId() >> "id2"
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> false
+                    _ * getStatus() >> UpstreamAvailability.SYNCING
+                }
+        ]
+        when:
+        def act = new FilteredApis(Chain.ETHEREUM, ups, Selector.empty)
+        act.request(1)
+        then:
+        StepVerifier.create(act)
+                .expectNextCount(0)
+                .expectComplete()
+                .verify(Duration.ofSeconds(5))
+        act.upstreamsMatchesResponse() != null
+        act.upstreamsMatchesResponse().getFullCause() == "id1 - Upstream is not available; id2 - Upstream is not available"
+        act.upstreamsMatchesResponse().getCause("").cause == "Upstream is not available"
+    }
+
+    def "No upstreams if they all are not matched"() {
+        setup:
+        List<Upstream> ups = [
+                Mock(Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> true
+                    _ * getId() >> "id1"
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "archive")))
+                },
+                Mock(Upstream) {
+                    _ * getId() >> "id2"
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> true
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "archive")))
+                }
+        ]
+        when:
+        def act = new FilteredApis(Chain.ETHEREUM, ups, new Selector.LabelMatcher("node", of("test")))
+        act.request(1)
+        then:
+        StepVerifier.create(act)
+                .expectNextCount(0)
+                .expectComplete()
+                .verify(Duration.ofSeconds(5))
+        act.upstreamsMatchesResponse() != null
+        act.upstreamsMatchesResponse().getFullCause() == "id1 - No label `node` with values [test]; id2 - No label `node` with values [test]"
+        act.upstreamsMatchesResponse().getCause("").cause == "No label `node` with values [test]"
+    }
+
+    def "No upstreams if they all are not matched by first matcher"() {
+        setup:
+        List<Upstream> ups = [
+                Mock(Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> false
+                    _ * getId() >> "id1"
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getHead() >> Mock(Head) {
+                        _ * getCurrentHeight() >> 100000
+                    }
+                    _ * getLabels() >> of(
+                            UpstreamsConfig.Labels.fromMap(
+                                    Map.of("node", "archive", "type", "super")
+                            )
+                    )
+                },
+                Mock(Upstream) {
+                    _ * getId() >> "id2"
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> false
+                    _ * getHead() >> Mock(Head) {
+                        _ * getCurrentHeight() >> 100000
+                    }
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "archive")))
+                }
+        ]
+        when:
+        def act = new FilteredApis(
+                Chain.ETHEREUM, ups,
+                new Selector.MultiMatcher(
+                        of(
+                            new Selector.HeightMatcher(100000000),
+                        )
+                )
+        )
+        act.request(1)
+        then:
+        StepVerifier.create(act)
+                .expectNextCount(0)
+                .expectComplete()
+                .verify(Duration.ofSeconds(5))
+        act.upstreamsMatchesResponse() != null
+        act.upstreamsMatchesResponse().getFullCause() == "id1 - Upstream is not available; Upstream height 100000 is less than 100000000; id2 - Upstream is not available; Upstream height 100000 is less than 100000000"
+        act.upstreamsMatchesResponse().getCause("eth_getTransactionByHash").cause == null
+        act.upstreamsMatchesResponse().getCause("eth_getTransactionByHash").shouldReturnNull
+    }
+
+    def "No upstreams if they all are not matched and return null cause"() {
+        setup:
+        List<Upstream> ups = [
+                Mock(Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> false
+                    _ * getId() >> "id1"
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getHead() >> Mock(Head) {
+                        _ * getCurrentHeight() >> 100000
+                    }
+                    _ * getLabels() >> of(
+                            UpstreamsConfig.Labels.fromMap(
+                                    Map.of("node", "archive", "type", "super")
+                            )
+                    )
+                },
+                Mock(Upstream) {
+                    _ * getId() >> "id2"
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> false
+                    _ * getHead() >> Mock(Head) {
+                        _ * getCurrentHeight() >> 100000
+                    }
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "archive")))
+                }
+        ]
+        when:
+        def act = new FilteredApis(
+                Chain.ETHEREUM, ups,
+                new Selector.MultiMatcher(
+                        of(
+                                new Selector.HeightMatcher(100000000),
+                        )
+                )
+        )
+        act.request(1)
+        then:
+        StepVerifier.create(act)
+                .expectNextCount(0)
+                .expectComplete()
+                .verify(Duration.ofSeconds(5))
+        act.upstreamsMatchesResponse() != null
+        act.upstreamsMatchesResponse().getFullCause() == "id1 - Upstream is not available; Upstream height 100000 is less than 100000000; id2 - Upstream is not available; Upstream height 100000 is less than 100000000"
+        act.upstreamsMatchesResponse().getCause("other") == null
+    }
+
+    def "Second upstream if first is not matched"() {
+        setup:
+        def up = Mock(Upstream) {
+            _ * getId() >> "id2"
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+            _ * isAvailable() >> true
+            _ * getHead() >> Mock(Head) {
+                _ * getCurrentHeight() >> 100000001
+            }
+            _ * getStatus() >> UpstreamAvailability.OK
+            _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "test")))
+        }
+        List<Upstream> ups = [
+                Mock(Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> true
+                    _ * getId() >> "id1"
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getHead() >> Mock(Head) {
+                        _ * getCurrentHeight() >> 100000
+                    }
+                    _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "archive")))
+                }, up
+        ]
+        when:
+        def act = new FilteredApis(
+                Chain.ETHEREUM, ups,
+                new Selector.MultiMatcher(
+                        of(
+                                new Selector.HeightMatcher(100000000),
+                                new Selector.LabelMatcher("node", of("test"))
+                        )
+                )
+        )
+        act.request(1)
+        then:
+        StepVerifier.create(act)
+                .expectNext(up)
+                .then {
+                    act.resolve()
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(5))
+        act.upstreamsMatchesResponse() == null
     }
 }

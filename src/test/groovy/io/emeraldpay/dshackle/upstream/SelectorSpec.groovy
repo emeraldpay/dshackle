@@ -178,9 +178,12 @@ class SelectorSpec extends Specification {
     def "LABEL matches single label"() {
         setup:
         def matcher = new Selector.LabelMatcher("test", ["foo"])
+        def up = Mock(Upstream) {
+            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(maps)]
+        }
 
         expect:
-        matcher.matches(UpstreamsConfig.Labels.fromMap(maps))
+        matcher.matches(up)
 
         where:
         maps << [
@@ -193,9 +196,12 @@ class SelectorSpec extends Specification {
     def "LABEL matches one label two values"() {
         setup:
         def matcher = new Selector.LabelMatcher("test", ["foo", "bar"])
+        def up = Mock(Upstream) {
+            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(maps)]
+        }
 
         expect:
-        matcher.matches(UpstreamsConfig.Labels.fromMap(maps))
+        matcher.matches(up)
 
         where:
         maps << [
@@ -212,9 +218,12 @@ class SelectorSpec extends Specification {
                 new Selector.LabelMatcher("test", ["foo", "bar"])
                 ]
         )
+        def up = Mock(Upstream) {
+            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(maps)]
+        }
 
         expect:
-        matcher.matches(UpstreamsConfig.Labels.fromMap(maps))
+        matcher.matches(up)
 
         where:
         maps << [
@@ -232,9 +241,12 @@ class SelectorSpec extends Specification {
                         new Selector.LabelMatcher("test2", ["baz"])
                 ]
         )
+        def up = Mock(Upstream) {
+            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(maps)]
+        }
 
         expect:
-        matcher.matches(UpstreamsConfig.Labels.fromMap(maps))
+        matcher.matches(up)
 
         where:
         maps << [
@@ -252,9 +264,12 @@ class SelectorSpec extends Specification {
                         new Selector.LabelMatcher("test2", ["baz"])
                 ]
         )
+        def up = Mock(Upstream) {
+            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(maps)]
+        }
 
         expect:
-        matcher.matches(UpstreamsConfig.Labels.fromMap(maps))
+        matcher.matches(up)
 
         where:
         maps << [
@@ -277,9 +292,12 @@ class SelectorSpec extends Specification {
                         )
                 ]
         )
+        def up = Mock(Upstream) {
+            1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(maps)]
+        }
 
         expect:
-        matcher.matches(UpstreamsConfig.Labels.fromMap(maps))
+        matcher.matches(up)
 
         where:
         maps << [

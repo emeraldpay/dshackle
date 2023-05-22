@@ -9,7 +9,7 @@ import org.springframework.cloud.sleuth.Tracer
 
 class ServerSpansInterceptor(
     private val tracer: Tracer,
-    private val errorSpanHandler: ErrorSpanHandler
+    private val providerSpanHandler: ProviderSpanHandler
 ) : ServerInterceptor {
     override fun <ReqT : Any?, RespT : Any?> interceptCall(
         call: ServerCall<ReqT, RespT>,
@@ -32,7 +32,7 @@ class ServerSpansInterceptor(
             tracer.currentSpan()?.let {
                 val parentId = it.context().parentId()
                 if (parentId != null) {
-                    val spans = errorSpanHandler.getErrorSpans(it.context().spanId(), it)
+                    val spans = providerSpanHandler.getErrorSpans(it.context().spanId(), it)
                     if (spans.isNotBlank()) {
                         headers.put(Metadata.Key.of(SPAN_HEADER, Metadata.ASCII_STRING_MARSHALLER), spans)
                     }

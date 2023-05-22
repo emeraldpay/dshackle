@@ -63,9 +63,11 @@ class TrackBitcoinAddress(
     /**
      * Criteria for a remote grpc upstream that can provide a balance
      */
-    private val balanceUpstreamMatcher = Selector.LocalAndMatcher(
-        Selector.GrpcMatcher(),
-        Selector.CapabilityMatcher(Capability.BALANCE)
+    private val balanceUpstreamMatcher = Selector.MultiMatcher(
+        listOf(
+            Selector.GrpcMatcher(),
+            Selector.CapabilityMatcher(Capability.BALANCE)
+        )
     )
 
     @EventListener

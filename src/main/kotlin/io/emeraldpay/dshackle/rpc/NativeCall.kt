@@ -66,7 +66,6 @@ import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 import reactor.util.context.Context
 import java.util.EnumMap
-import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 open class NativeCall(
@@ -392,18 +391,16 @@ open class NativeCall(
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
         val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum, signer, tracer)
-        val counter = if (reader is QuorumRpcReader) {
-            reader.getValidAttemptsCount()
-        } else {
-            AtomicInteger(-1)
-        }
+        val counter = reader.attempts()
 
         return SpannedReader(reader, tracer, REMOTE_QUORUM_RPC_READER)
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
                 validateResult(bytes, "remote", ctx)
-                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, it.providedUpstreamId ?: it.resolvers.first().getId(), ctx)
+                val upId = it.providedUpstreamId
+                    ?: if (it.resolvers.isEmpty()) ctx.upstream.getId() else it.resolvers.first().getId()
+                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, upId, ctx)
             }
             .onErrorResume { t ->
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, t, ctx))

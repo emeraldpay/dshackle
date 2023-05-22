@@ -289,4 +289,33 @@ class QuorumRpcReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
+    def "Error if no upstreams"() {
+        setup:
+        def api = Stub(Reader)
+        def up = Mock(Upstream) {
+            _ * getId() >> "id1"
+            _ * isAvailable() >> false
+            _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+            _ * getIngressReader() >> api
+        }
+        def apis = new FilteredApis(
+                Chain.ETHEREUM,
+                [up], Selector.empty
+        )
+        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
+
+        when:
+        def act = reader.read(new JsonRpcRequest("eth_test", []))
+                .map {
+                    new String(it.value)
+                }
+
+        then:
+        StepVerifier.create(act)
+                .expectErrorMatches { t ->
+                    t instanceof RpcException && t.rpcMessage == "No response for method eth_test. Cause - Upstream is not available" && t.error.code == 1
+                }
+                .verify(Duration.ofSeconds(4))
+    }
+
 }

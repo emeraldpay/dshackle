@@ -5,16 +5,20 @@ import brave.handler.SpanHandler
 import brave.propagation.TraceContext
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.emeraldpay.dshackle.commons.SPAN_ERROR
+import io.emeraldpay.dshackle.commons.SPAN_NO_RESPONSE_MESSAGE
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.springframework.cloud.sleuth.Span
 import org.springframework.cloud.sleuth.brave.bridge.BraveTraceContext
 
-class ErrorSpanHandlerTest {
+class ProviderSpanHandlerTest {
     private val mapper = SpanConfig().spanMapper()
+    private val spanExportableList = listOf(ErrorSpanExportable(), NoResponseSpanExportable())
     private val ctx = TraceContext.newBuilder()
         .traceId(1223324)
         .spanId(234235)
@@ -48,13 +52,11 @@ class ErrorSpanHandlerTest {
         assertEquals("", result)
     }
 
-    @Test
-    fun `span with length of traceId greater than 20 and with parentId is collected`() {
-        val spanId = "f7e83f2b69ec684d"
+    @ParameterizedTest
+    @MethodSource("spans")
+    fun `span with length of traceId greater than 20 and with parentId is collected`(span: MutableSpan) {
         val currentSpan = Mockito.mock(Span::class.java)
         val handler = spanHandler()
-        val span = span("6666632728347823749827349723985", spanId)
-            .apply { parentId("f7e83f2b69ec682d") }
 
         `when`(currentSpan.context()).thenReturn(BraveTraceContext(ctx))
 
@@ -92,5 +94,25 @@ class ErrorSpanHandlerTest {
             tag(SPAN_ERROR, "true")
         }
 
-    private fun spanHandler() = ErrorSpanHandler(mapper)
+    companion object {
+        @JvmStatic
+        fun spans() = listOf(
+            MutableSpan()
+                .apply {
+                    traceId("6666632728347823749827349723985")
+                    id("f7e83f2b69ec682d")
+                    tag(SPAN_ERROR, "true")
+                    parentId("f7e83f2b69ec682d")
+                },
+            MutableSpan()
+                .apply {
+                    traceId("6666632728347823749827349723985")
+                    id("f7e83f2b69ec111d")
+                    parentId("f7e83f2b69ec682d")
+                    tag(SPAN_NO_RESPONSE_MESSAGE, "noResp")
+                }
+        )
+    }
+
+    private fun spanHandler() = ProviderSpanHandler(mapper, spanExportableList)
 }

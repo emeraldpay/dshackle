@@ -5,14 +5,14 @@ import brave.handler.SpanHandler
 import brave.propagation.TraceContext
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.github.benmanes.caffeine.cache.Caffeine
-import io.emeraldpay.dshackle.commons.SPAN_ERROR
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.cloud.sleuth.Span
 import java.time.Duration
 
-class ErrorSpanHandler(
+class ProviderSpanHandler(
     @Qualifier("spanMapper")
     private val spanMapper: ObjectMapper,
+    private val spanExportableList: List<SpanExportable>
 ) : SpanHandler() {
     private val spans = Caffeine
         .newBuilder()
@@ -48,7 +48,7 @@ class ErrorSpanHandler(
                 }
             }
 
-        return if (spansInfo.hasError) {
+        return if (spansInfo.exportable) {
             spanMapper.writeValueAsString(spansInfo.spans)
         } else {
             ""
@@ -68,13 +68,13 @@ class ErrorSpanHandler(
 
     private fun processSpanInfo(span: MutableSpan, spansInfo: SpansInfo) {
         spansInfo.spans.add(span)
-        if (span.tags().containsKey(SPAN_ERROR)) {
-            spansInfo.hasError = true
+        if (spanExportableList.any { it.isExportable(span) }) {
+            spansInfo.exportable = true
         }
     }
 
     private data class SpansInfo(
-        var hasError: Boolean = false,
+        var exportable: Boolean = false,
         val spans: MutableList<MutableSpan> = mutableListOf()
     )
 }

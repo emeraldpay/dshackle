@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
+import io.emeraldpay.dshackle.quorum.QuorumReader
 import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
@@ -52,6 +53,7 @@ import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicInteger
 
 class NativeCallSpec extends Specification {
 
@@ -131,7 +133,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(QuorumReader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }
@@ -152,7 +154,8 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+                1 * attempts() >> new AtomicInteger(1)
                 1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.empty()
             }
         }
@@ -176,7 +179,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(QuorumReader) {
                 1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.error(
                         new JsonRpcException(JsonRpcResponse.Id.from(12), new JsonRpcError(-32123, "Foo Bar", "Foo Bar Baz"), true)
                 )
@@ -613,7 +616,7 @@ class NativeCallSpec extends Specification {
         }
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(QuorumReader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }
@@ -648,7 +651,7 @@ class NativeCallSpec extends Specification {
         }
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(Reader) {
+            1 * create(_, _, _, _) >> Mock(QuorumReader) {
                 1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, Collections.singletonList(ups), null))
             }
         }

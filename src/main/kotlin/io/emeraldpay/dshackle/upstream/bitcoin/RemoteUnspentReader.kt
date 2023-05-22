@@ -17,9 +17,11 @@ class RemoteUnspentReader(
         private val log = LoggerFactory.getLogger(RemoteUnspentReader::class.java)
     }
 
-    private val selector = Selector.LocalAndMatcher(
-        Selector.GrpcMatcher(),
-        Selector.CapabilityMatcher(Capability.BALANCE)
+    private val selector = Selector.MultiMatcher(
+        listOf(
+            Selector.GrpcMatcher(),
+            Selector.CapabilityMatcher(Capability.BALANCE)
+        )
     )
 
     override fun read(key: Address): Mono<List<SimpleUnspent>> {
