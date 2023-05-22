@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.etherjar.domain.Wei
-import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import spock.lang.Specification
 

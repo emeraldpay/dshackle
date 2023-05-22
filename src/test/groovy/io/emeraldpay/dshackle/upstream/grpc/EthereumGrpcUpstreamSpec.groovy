@@ -33,7 +33,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.grpc.stub.StreamObserver
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer

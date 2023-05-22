@@ -2,7 +2,7 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import spock.lang.Specification
 
 import java.time.Instant

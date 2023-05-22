@@ -10,7 +10,7 @@ import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import org.apache.commons.collections4.functors.ConstantFactory
 import reactor.core.publisher.Mono
 import spock.lang.Specification

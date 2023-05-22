@@ -4,7 +4,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import org.apache.commons.io.FileUtils
 import spock.lang.Specification
 

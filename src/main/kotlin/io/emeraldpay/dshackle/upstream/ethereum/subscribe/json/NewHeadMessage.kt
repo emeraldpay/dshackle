@@ -21,14 +21,15 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.Bloom
+import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.json.HexDataSerializer
 import java.math.BigInteger
 import java.time.Instant
 
 /**
  * Common fields for newHeads event. IT's different from Block JSON and doesn't include many fields, most notable is
- * list of transactions. Also, our JSON doesn't include rarely used fields such as extraData, sha3uncles, stateRoot,
- * transactionRoot and some others.
+ * list of transactions.
  */
 data class NewHeadMessage(
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
@@ -52,6 +53,30 @@ data class NewHeadMessage(
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
     @get:JsonInclude(JsonInclude.Include.NON_NULL)
     val baseFeePerGas: BigInteger?,
+
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val extraData: HexData,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val mixHash: HexData?,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val nonce: HexData,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val receiptsRoot: HexData,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val sha3Uncles: HexData,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val stateRoot: HexData,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    val transactionsRoot: HexData,
+    @get:JsonSerialize(using = HexDataSerializer::class)
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val withdrawalsRoot: HexData?,
+
     @get:JsonIgnore
-    override val upstreamId: String
+    override val upstreamId: String,
+
+    // lists always empty
+    val transactions: List<TransactionId> = emptyList(),
+    val uncles: List<BlockHash> = emptyList(),
+    val sealFields: List<BlockHash> = emptyList(),
 ) : HasUpstream

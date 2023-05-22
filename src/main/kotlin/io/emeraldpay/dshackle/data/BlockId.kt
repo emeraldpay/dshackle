@@ -16,8 +16,8 @@
  */
 package io.emeraldpay.dshackle.data
 
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.rpc.json.BlockJson
 import org.bouncycastle.util.encoders.Hex
 
 class BlockId(

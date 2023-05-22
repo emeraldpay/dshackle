@@ -43,6 +43,14 @@ class ProduceNewHeads(
                     block.logsBloom,
                     block.miner,
                     block.baseFeePerGas?.amount,
+                    block.extraData,
+                    block.mixHash,
+                    block.nonce,
+                    block.receiptsRoot,
+                    block.sha3Uncles,
+                    block.stateRoot,
+                    block.transactionsRoot,
+                    block.withdrawalsRoot,
                     it.upstreamId
                 )
             }

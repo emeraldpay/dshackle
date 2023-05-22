@@ -10,7 +10,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.RLP.Companion.encodeBigInt
 import io.emeraldpay.dshackle.upstream.ethereum.RLP.Companion.encodeList
 import io.emeraldpay.dshackle.upstream.ethereum.RLP.Companion.fromHexString
 import io.emeraldpay.dshackle.upstream.ethereum.RLP.Companion.fromHexStringI
-import io.emeraldpay.etherjar.rpc.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import org.bouncycastle.jcajce.provider.digest.Keccak
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
