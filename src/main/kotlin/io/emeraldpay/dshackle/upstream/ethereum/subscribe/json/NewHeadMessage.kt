@@ -55,19 +55,26 @@ data class NewHeadMessage(
     val baseFeePerGas: BigInteger?,
 
     @get:JsonSerialize(using = HexDataSerializer::class)
-    val extraData: HexData,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val extraData: HexData?,
     @get:JsonSerialize(using = HexDataSerializer::class)
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
     val mixHash: HexData?,
     @get:JsonSerialize(using = HexDataSerializer::class)
-    val nonce: HexData,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val nonce: HexData?,
     @get:JsonSerialize(using = HexDataSerializer::class)
-    val receiptsRoot: HexData,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val receiptsRoot: HexData?,
     @get:JsonSerialize(using = HexDataSerializer::class)
-    val sha3Uncles: HexData,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val sha3Uncles: HexData?,
     @get:JsonSerialize(using = HexDataSerializer::class)
-    val stateRoot: HexData,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val stateRoot: HexData?,
     @get:JsonSerialize(using = HexDataSerializer::class)
-    val transactionsRoot: HexData,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val transactionsRoot: HexData?,
     @get:JsonSerialize(using = HexDataSerializer::class)
     @get:JsonInclude(JsonInclude.Include.NON_NULL)
     val withdrawalsRoot: HexData?,
