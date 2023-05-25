@@ -55,7 +55,6 @@ import reactor.core.scheduler.Scheduler
 import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.Executor
-import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -114,7 +113,7 @@ class GrpcUpstreams(
         }
         this.client = client
 
-        val statusSubscription = AtomicReference<Disposable>()
+        val statusSubscriptions = mutableMapOf<Chain, Disposable>()
 
         return Flux.interval(Duration.ZERO, Duration.ofSeconds(20))
             .flatMap {
@@ -131,19 +130,19 @@ class GrpcUpstreams(
             }.flatMap { value ->
                 processDescription(value)
             }.doOnNext {
-                val subscription = client.subscribeStatus(
-                    StatusRequest.newBuilder()
-                        .addChains(Common.ChainRef.forNumber(it.chain.id)).build()
-                ).subscribeOn(chainStatusScheduler)
-                    .subscribe { value ->
-                        val chain = Chain.byId(value.chain.number)
-                        if (chain != Chain.UNSPECIFIED) {
-                            known[chain]?.onStatus(value)
+                val sub = statusSubscriptions[it.chain]
+                if (sub == null || sub.isDisposed) {
+                    val subscription = client.subscribeStatus(
+                        StatusRequest.newBuilder()
+                            .addChains(Common.ChainRef.forNumber(it.chain.id)).build()
+                    ).subscribeOn(chainStatusScheduler)
+                        .subscribe { value ->
+                            val chain = Chain.byId(value.chain.number)
+                            if (chain != Chain.UNSPECIFIED) {
+                                known[chain]?.onStatus(value)
+                            }
                         }
-                    }
-                statusSubscription.updateAndGet { prev ->
-                    prev?.dispose()
-                    subscription
+                    statusSubscriptions[it.chain] = subscription
                 }
             }.doOnError { t ->
                 log.error("Failed to process update from gRPC upstream $id", t)

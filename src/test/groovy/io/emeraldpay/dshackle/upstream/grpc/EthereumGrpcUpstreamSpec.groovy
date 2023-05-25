@@ -30,14 +30,15 @@ import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.BuildInfo
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.grpc.stub.StreamObserver
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import reactor.core.scheduler.Schedulers
+import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
@@ -253,5 +254,62 @@ class EthereumGrpcUpstreamSpec extends Specification {
         upstream.getBuildInfo() == buildInfo
         h.hash == BlockId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec891521a")
         h.height == 650247
+    }
+
+    def "Send update status if methods were changed"() {
+        setup:
+        def chain = Chain.ETHEREUM
+        def client = mockServer.clientForServer(new BlockchainGrpc.BlockchainImplBase() {
+            @Override
+            void nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {
+            }
+
+            @Override
+            void subscribeHead(Common.Chain request, StreamObserver<BlockchainOuterClass.ChainHead> responseObserver) {
+            }
+        })
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.parallel())
+        upstream.setLag(0)
+        upstream.setStatus(UpstreamAvailability.OK)
+        when:
+        def statuses = upstream.observeStatus()
+        then:
+        StepVerifier.create(statuses)
+            .then {
+                upstream.update(
+                        describe(["eth_getBlockByHash"]),
+                        BlockchainOuterClass.BuildInfo.newBuilder()
+                                .setVersion(buildInfo.version)
+                                .build(),
+                )
+            }
+            .expectNext(UpstreamAvailability.OK)
+            .then {
+                upstream.update(
+                        describe(["eth_getBlockByHash"]),
+                        BlockchainOuterClass.BuildInfo.newBuilder()
+                                .setVersion(buildInfo.version)
+                                .build(),
+                )
+            }
+            .expectNextCount(0)
+            .then {
+                upstream.update(
+                        describe(["eth_getBlockByHash", "eth_getBlockByHash1"]),
+                        BlockchainOuterClass.BuildInfo.newBuilder()
+                                .setVersion(buildInfo.version)
+                                .build(),
+                )
+            }
+            .expectNext(UpstreamAvailability.OK)
+            .thenCancel()
+            .verify(Duration.ofSeconds(3))
+    }
+
+    private BlockchainOuterClass.DescribeChain describe(List<String> methods) {
+        return BlockchainOuterClass.DescribeChain.newBuilder()
+                .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
+                .addAllSupportedMethods(methods)
+                .build()
     }
 }

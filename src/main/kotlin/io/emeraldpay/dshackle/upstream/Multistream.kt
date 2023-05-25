@@ -38,6 +38,7 @@ import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
+import reactor.util.function.Tuples
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -81,6 +82,9 @@ abstract class Multistream(
     private val removedUpstreams = Sinks.many()
         .multicast()
         .directBestEffort<Upstream>()
+    private val stateStream = Sinks.many()
+        .multicast()
+        .directBestEffort<UpstreamChangeState>()
 
     init {
         UpstreamAvailability.values().forEach { status ->
@@ -266,7 +270,39 @@ abstract class Multistream(
             // print status _change_ every 15 seconds, at most; otherwise prints it on interval of 30 seconds
             .sample(Duration.ofSeconds(15))
             .subscribe { printStatus() }
+
+        observeUpstreamsStatuses()
+
         started = true
+    }
+
+    private fun observeUpstreamsStatuses() {
+        stateStream.asFlux()
+            .distinctUntilChanged(
+                { it },
+                { prev, current ->
+                    prev.status == current.status || prev.equals(current)
+                }
+            ).subscribe {
+                upstreams.filter { it.isAvailable() }.map { it.getMethods() }.let {
+                    callMethods = AggregatedCallMethods(it)
+                }
+            }
+
+        subscribeAddedUpstreams()
+            .filter { !it.isGrpc() }
+            .distinctUntilChanged {
+                it.getId()
+            }.map {
+                Tuples.of(it.getId(), it.observeStatus())
+            }
+            .subscribe { pair ->
+                pair.t2.subscribe { status ->
+                    stateStream.emitNext(
+                        UpstreamChangeState(pair.t1, status)
+                    ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                }
+            }
     }
 
     override fun stop() {
@@ -411,6 +447,9 @@ abstract class Multistream(
     fun subscribeRemovedUpstreams(): Flux<Upstream> =
         removedUpstreams.asFlux()
 
+    fun subscribeStateChanges(): Flux<UpstreamChangeState> =
+        stateStream.asFlux()
+
     abstract fun makeLagObserver(): HeadLagObserver
 
     // --------------------------------------------------------------------------------------------------------
@@ -435,4 +474,9 @@ abstract class Multistream(
             return curr == t
         }
     }
+
+    data class UpstreamChangeState(
+        val upId: String,
+        val status: UpstreamAvailability
+    )
 }

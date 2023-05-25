@@ -23,16 +23,17 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.grpc.EthereumPosGrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
@@ -250,6 +251,63 @@ class MultistreamSpec extends Specification {
 
         then:
         !act
+    }
+
+    def "Change ms methods based on upstream availability"() {
+        setup:
+        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
+        def up2 = new EthereumPosRpcUpstreamMock("test2", Chain.ETHEREUM, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
+        def ms = new EthereumPosMultiStream(Chain.ETHEREUM, new ArrayList<EthereumPosUpstream>(), Caches.default(), Schedulers.parallel(), TestingCommons.tracerMock())
+        when:
+        ms.onUpstreamChange(
+                new UpstreamChangeEvent(Chain.ETHEREUM, up1, UpstreamChangeEvent.ChangeType.ADDED)
+        )
+        ms.onUpstreamChange(
+                new UpstreamChangeEvent(Chain.ETHEREUM, up2, UpstreamChangeEvent.ChangeType.ADDED)
+        )
+        def states = ms.subscribeStateChanges()
+        then:
+        StepVerifier.create(states)
+            .then {
+                up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+                up2.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+            }
+                .expectNext(new Multistream.UpstreamChangeState(up1.getId(), UpstreamAvailability.OK))
+                .expectNext(new Multistream.UpstreamChangeState(up2.getId(), UpstreamAvailability.OK))
+                .then {
+                    assert ms.getMethods().supportedMethods == Set.of("eth_test1", "eth_test2", "eth_test3")
+                }
+                .then {
+                    up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_SYNCING))
+                }
+                .expectNext(new Multistream.UpstreamChangeState(up1.getId(), UpstreamAvailability.SYNCING))
+                .then {
+                    assert ms.getMethods().supportedMethods == Set.of("eth_test1", "eth_test2")
+                }
+                .then {
+                    up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+                }
+                .expectNext(new Multistream.UpstreamChangeState(up1.getId(), UpstreamAvailability.OK))
+                .then {
+                    assert ms.getMethods().supportedMethods == Set.of("eth_test1", "eth_test2", "eth_test3")
+                }
+                .then {
+                    up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+                }
+                .expectNextCount(0)
+                .then {
+                    up2.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+                }
+                .expectNextCount(0)
+                .thenCancel()
+                .verify(Duration.ofSeconds(3))
+
+    }
+
+    private BlockchainOuterClass.ChainStatus status(BlockchainOuterClass.AvailabilityEnum status) {
+        return BlockchainOuterClass.ChainStatus.newBuilder()
+                .setAvailability(status)
+                .build()
     }
 
     class TestEthereumPosMultistream extends EthereumPosMultiStream {
