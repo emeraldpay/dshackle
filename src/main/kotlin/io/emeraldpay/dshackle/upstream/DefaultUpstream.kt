@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference
 abstract class DefaultUpstream(
     private val id: String,
     private val hash: Byte,
-    defaultLag: Long,
+    defaultLag: Long?,
     defaultAvail: UpstreamAvailability,
     private val options: UpstreamsConfig.Options,
     private val role: UpstreamsConfig.UpstreamRole,
@@ -47,7 +47,7 @@ abstract class DefaultUpstream(
         node: QuorumForLabels.QuorumItem?,
         chainConfig: ChainsConfig.ChainConfig
     ) :
-        this(id, hash, Long.MAX_VALUE, UpstreamAvailability.UNAVAILABLE, options, role, targets, node, chainConfig)
+        this(id, hash, null, UpstreamAvailability.UNAVAILABLE, options, role, targets, node, chainConfig)
 
     protected val log = LoggerFactory.getLogger(this::class.java)
 
@@ -97,11 +97,14 @@ abstract class DefaultUpstream(
         }
     }
 
-    private fun statusByLag(lag: Long, proposed: UpstreamAvailability): UpstreamAvailability {
+    private fun statusByLag(lag: Long?, proposed: UpstreamAvailability): UpstreamAvailability {
         if (options.disableValidation) {
             // if we specifically told that this upstream should be _always valid_ then skip
             // the status calculation and trust the proposed value as is
             return proposed
+        }
+        if (lag == null) {
+            return UpstreamAvailability.UNAVAILABLE
         }
         return if (proposed == UpstreamAvailability.OK) {
             when {
@@ -140,7 +143,7 @@ abstract class DefaultUpstream(
         }
     }
 
-    override fun getLag(): Long {
+    override fun getLag(): Long? {
         return this.status.get().lag
     }
 
@@ -169,7 +172,7 @@ abstract class DefaultUpstream(
         return id
     }
 
-    data class Status(val lag: Long, val avail: UpstreamAvailability, val status: UpstreamAvailability)
+    data class Status(val lag: Long?, val avail: UpstreamAvailability, val status: UpstreamAvailability)
 
     private data class UpstreamChangeState(
         val status: UpstreamAvailability,

@@ -55,7 +55,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         upstream: Upstream,
         providedUpstreamId: String?
     ): Boolean {
-        val lagging = upstream.getLag() > maxLag
+        val lagging = upstream.getLag()?.run { this > maxLag } ?: true
         if (!lagging) {
             result.set(response)
             sig = signature
@@ -72,7 +72,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         upstream: Upstream
     ) {
         this.rpcError = error.error
-        val lagging = upstream.getLag() > maxLag
+        val lagging = upstream.getLag()?.run { this > maxLag } ?: true
         if (!lagging && result.get() == null) {
             failed.set(true)
         }

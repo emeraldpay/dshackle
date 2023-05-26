@@ -35,7 +35,7 @@ interface Upstream {
     fun getOptions(): UpstreamsConfig.Options
     fun getRole(): UpstreamsConfig.UpstreamRole
     fun setLag(lag: Long)
-    fun getLag(): Long
+    fun getLag(): Long?
     fun getLabels(): Collection<UpstreamsConfig.Labels>
     fun getMethods(): CallMethods
     fun getId(): String
