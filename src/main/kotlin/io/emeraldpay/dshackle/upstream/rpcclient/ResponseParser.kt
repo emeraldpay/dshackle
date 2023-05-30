@@ -109,7 +109,8 @@ abstract class ResponseParser<T> {
         } else if (parser.currentToken() == JsonToken.VALUE_STRING) {
             JsonRpcResponse.StringId(parser.text)
         } else {
-            throw IllegalStateException("Not a string or number: ${parser.currentToken()}")
+            log.warn("Invalid id type: ${parser.currentToken()}")
+            return JsonRpcResponse.NumberId(0)
         }
     }
 
