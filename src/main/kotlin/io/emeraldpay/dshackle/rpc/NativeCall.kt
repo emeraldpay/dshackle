@@ -95,10 +95,9 @@ open class NativeCall(
     fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
         casting[BlockchainType.from(event.chain)]?.let { cast ->
             multistreamHolder.getUpstream(event.chain).let { up ->
-                val reader = up.cast(cast).getReader()
                 ethereumCallSelectors.putIfAbsent(
                     event.chain,
-                    EthereumCallSelector(reader.heightByHash(), up.caches)
+                    EthereumCallSelector(up.caches)
                 )
             }
         }

@@ -18,14 +18,12 @@ package io.emeraldpay.dshackle.upstream.calls
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.hex.HexQuantity
 import org.bouncycastle.util.encoders.DecoderException
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
-import java.util.Collections
 import java.util.Objects
 
 /**
@@ -33,7 +31,6 @@ import java.util.Objects
  * The implementation is specific for Ethereum.
  */
 class EthereumCallSelector(
-    private val heightReader: Reader<BlockId, Long>,
     private val caches: Caches
 ) {
 
@@ -41,17 +38,25 @@ class EthereumCallSelector(
         private val log = LoggerFactory.getLogger(EthereumCallSelector::class.java)
 
         // ref https://eth.wiki/json-rpc/API#the-default-block-parameter
-        private val TAG_METHODS = listOf(
+        private val TAG_METHODS = setOf(
             "eth_getBalance",
             "eth_getCode",
             "eth_getTransactionCount",
             // no "eth_getStorageAt" because it has different structure, and therefore separate logic
-            "eth_call"
-        ).sorted()
+            "eth_call",
+            "eth_getRootHash",
+            "bor_getRootHash"
+        )
+
+        private val FILTER_OBJECT_METHODS = setOf(
+            "eth_newFilter", "eth_getLogs"
+        )
 
         private val GET_BY_HASH_OR_NUMBER_METHODS = setOf(
-            "eth_getBlockByHash", "eth_getBlockByNumber",
-            "eth_getTransactionByBlockHashAndIndex", "eth_getTransactionByBlockNumberAndIndex"
+            "eth_getBlockByHash", "eth_getBlockByNumber", "bor_getSignersAtHash",
+            "eth_getTransactionByBlockHashAndIndex", "eth_getTransactionByBlockNumberAndIndex",
+            "eth_getBlockTransactionCountByNumber", "bor_getAuthor", "eth_getUncleCountByBlockNumber",
+            "eth_getUncleByBlockNumberAndIndex"
         )
     }
 
@@ -65,14 +70,19 @@ class EthereumCallSelector(
         if (method in DefaultEthereumMethods.withFilterIdMethods) {
             return sameUpstreamMatcher(params)
         } else if (!passthrough) { // passthrough indicates we should match only labels
-            if (Collections.binarySearch(TAG_METHODS, method) >= 0) {
-                return blockTagSelector(params, 1, null, head)
-            } else if (method == "eth_getStorageAt") {
-                return blockTagSelector(params, 2, null, head)
-            } else if (method in GET_BY_HASH_OR_NUMBER_METHODS) {
-                return blockMethodSelector(method, params, head)
-            } else if (method == "eth_getLogs") {
-                return blockTagSelector(params, 0, "toBlock", head)
+            when (method) {
+                in TAG_METHODS -> {
+                    return blockTagSelector(params, 1, null, head)
+                }
+                "eth_getStorageAt" -> {
+                    return blockTagSelector(params, 2, null, head)
+                }
+                in GET_BY_HASH_OR_NUMBER_METHODS -> {
+                    return blockTagSelector(params, 0, null, head)
+                }
+                in FILTER_OBJECT_METHODS -> {
+                    return blockTagSelector(params, 0, "toBlock", head)
+                }
             }
         }
         return Mono.empty()
@@ -91,6 +101,7 @@ class EthereumCallSelector(
         val nodeId = hashHex.toInt(16)
         return Mono.just(Selector.SameNodeMatcher(nodeId.toByte()))
     }
+
     private fun blockTagSelector(params: String, pos: Int, paramName: String?, head: Head): Mono<Selector.Matcher> {
         val list = objectMapper.readerFor(Any::class.java).readValues<Any>(params).readAll()
         if (list.size < pos + 1) {
@@ -131,9 +142,9 @@ class EthereumCallSelector(
         val minHeight: Long? = when (tag) {
             "latest" -> head.getCurrentHeight()
             "earliest" -> 0L // for earliest it doesn't nothing, we expect to have 0 block
-            else -> if (tag.startsWith("0x")) {
+            else -> if (tag.startsWith("0x") || tag.toLongOrNull() != null) {
                 return if (tag.length == 66) { // 32-byte hash is represented as 0x + 64 characters
-                    blockByHash(tag, head)
+                    blockByHash(tag)
                 } else {
                     blockByHeight(tag)
                 }
@@ -148,21 +159,8 @@ class EthereumCallSelector(
             Mono.empty()
         }
     }
-    private fun blockMethodSelector(method: String, params: String, head: Head): Mono<Selector.Matcher> {
-        val list = objectMapper.readerFor(Any::class.java).readValues<Any>(params).readAll()
-        if (list.isEmpty()) {
-            return Mono.empty()
-        }
-        val hashOrNumber = Objects.toString(list[0])
 
-        return when (method) {
-            "eth_getTransactionByBlockHashAndIndex", "eth_getBlockByHash" -> blockByHashFromCache(hashOrNumber)
-            "eth_getTransactionByBlockNumberAndIndex", "eth_getBlockByNumber" -> blockSelectorByTag(hashOrNumber, head)
-            else -> Mono.empty()
-        }
-    }
-
-    private fun blockByHashFromCache(blockHash: String): Mono<Selector.Matcher> {
+    private fun blockByHash(blockHash: String): Mono<Selector.Matcher> {
         return try {
             caches.getLastHeightByHash()
                 .read(BlockId.from(blockHash))
@@ -176,22 +174,16 @@ class EthereumCallSelector(
 
     private fun blockByHeight(blockNumber: String): Mono<Selector.Matcher> {
         return try {
-            Mono.just(Selector.HeightMatcher(HexQuantity.from(blockNumber).value.longValueExact()))
+            val height =
+                if (blockNumber.startsWith("0x")) {
+                    HexQuantity.from(blockNumber).value.longValueExact()
+                } else {
+                    blockNumber.toLong()
+                }
+            Mono.just(Selector.HeightMatcher(height))
         } catch (t: Throwable) {
             log.warn("Invalid blockNumber: $blockNumber")
-            Mono.empty<Selector.Matcher>()
-        }
-    }
-
-    private fun blockByHash(blockHash: String, head: Head): Mono<Selector.Matcher> {
-        return try {
-            val blockId = BlockId.from(blockHash)
-            heightReader.read(blockId)
-                .switchIfEmpty(Mono.justOrEmpty(head.getCurrentHeight()))
-                .map { Selector.HeightMatcher(it) }
-        } catch (t: Throwable) {
-            log.warn("Invalid blockHash: $blockHash")
-            Mono.empty<Selector.Matcher>()
+            Mono.empty()
         }
     }
 }
