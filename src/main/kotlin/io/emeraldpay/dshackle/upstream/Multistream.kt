@@ -40,10 +40,8 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.util.function.Tuples
 import java.time.Duration
-import java.time.Instant
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
-import java.util.function.Predicate
 import kotlin.concurrent.withLock
 
 /**
@@ -232,8 +230,8 @@ abstract class Multistream(
             ).map { UpstreamStatus(up, it) }
         }
         return Flux.merge(upstreamsFluxes)
-            .filter(FilterBestAvailability())
-            .map { it.status }
+            .map(FilterBestAvailability())
+            .distinct()
     }
 
     override fun isAvailable(): Boolean {
@@ -452,24 +450,13 @@ abstract class Multistream(
 
     // --------------------------------------------------------------------------------------------------------
 
-    class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability, val ts: Instant = Instant.now())
+    class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability)
 
-    class FilterBestAvailability : Predicate<UpstreamStatus> {
-        private val lastRef = AtomicReference<UpstreamStatus>()
-
-        override fun test(t: UpstreamStatus): Boolean {
-            val curr = lastRef.updateAndGet { last ->
-                val changed = last == null ||
-                    t.status < last.status ||
-                    (last.upstream == t.upstream && t.status != last.status) ||
-                    last.ts.isBefore(t.ts - Duration.ofSeconds(60))
-                if (changed) {
-                    t
-                } else {
-                    last
-                }
-            }
-            return curr == t
+    class FilterBestAvailability : java.util.function.Function<UpstreamStatus, UpstreamAvailability> {
+        val map = ConcurrentHashMap<String, UpstreamAvailability>()
+        override fun apply(t: UpstreamStatus): UpstreamAvailability {
+            map[t.upstream.getId()] = t.status
+            return map.values.min()
         }
     }
 
