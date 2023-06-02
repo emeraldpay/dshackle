@@ -264,11 +264,13 @@ class MultistreamSpec extends Specification {
         then:
         StepVerifier.create(states)
             .then {
-                up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+                up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_UNAVAILABLE))
                 up2.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+                up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
             }
-                .expectNext(new Multistream.UpstreamChangeState(up1.getId(), UpstreamAvailability.OK))
+                .expectNext(new Multistream.UpstreamChangeState(up1.getId(), UpstreamAvailability.UNAVAILABLE))
                 .expectNext(new Multistream.UpstreamChangeState(up2.getId(), UpstreamAvailability.OK))
+                .expectNext(new Multistream.UpstreamChangeState(up1.getId(), UpstreamAvailability.OK))
                 .then {
                     assert ms.getMethods().supportedMethods == Set.of("eth_test1", "eth_test2", "eth_test3")
                 }

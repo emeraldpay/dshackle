@@ -278,12 +278,7 @@ abstract class Multistream(
 
     private fun observeUpstreamsStatuses() {
         stateStream.asFlux()
-            .distinctUntilChanged(
-                { it },
-                { prev, current ->
-                    prev.status == current.status || prev.equals(current)
-                }
-            ).subscribe {
+            .subscribe {
                 upstreams.filter { it.isAvailable() }.map { it.getMethods() }.let {
                     callMethods = AggregatedCallMethods(it)
                 }
