@@ -203,7 +203,12 @@ open class NativeCall(
             .setId(it.id)
         if (it.isError()) {
             it.error?.let { error ->
-                result.setErrorMessage(error.message).setErrorCode(error.id)
+                result.setErrorMessage(error.message)
+                    .setErrorCode(error.id)
+
+                error.data?.let { data ->
+                    result.setErrorData(data)
+                }
             }
         } else {
             result.payload = ByteString.copyFrom(it.result)
@@ -301,7 +306,8 @@ open class NativeCall(
                     CallError(
                         requestItem.id,
                         errorMessage,
-                        JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage)
+                        JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage),
+                        null
                     ),
                     requestId,
                     requestCount
@@ -409,7 +415,7 @@ open class NativeCall(
                     counter.get().let { attempts ->
                         CallResult.fail(
                             ctx.id, ctx.nonce,
-                            CallError(1, "No response or no available upstream for ${ctx.payload.method}", null),
+                            CallError(1, "No response or no available upstream for ${ctx.payload.method}", null, null),
                             ctx
                         ).also {
                             countFailure(attempts, ctx)
@@ -592,20 +598,33 @@ open class NativeCall(
 
     open class CallFailure(val id: Int, val reason: Throwable) : Exception("Failed to call $id: ${reason.message}")
 
-    open class CallError(val id: Int, val message: String, val upstreamError: JsonRpcError?) {
+    open class CallError(val id: Int, val message: String, val upstreamError: JsonRpcError?, val data: String?) {
+
         companion object {
+
+            private val log = LoggerFactory.getLogger(CallError::class.java)
+            private fun getDataAsSting(details: Any?): String? {
+                return when (details) {
+                    is String -> details
+                    null -> null
+                    else -> {
+                        log.debug("Unsupported error details: {}", details)
+                        null
+                    }
+                }
+            }
             fun from(t: Throwable): CallError {
                 return when (t) {
-                    is JsonRpcException -> CallError(t.id.asNumber().toInt(), t.error.message, t.error)
-                    is RpcException -> CallError(t.code, t.rpcMessage, null)
-                    is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null)
+                    is JsonRpcException -> CallError(t.id.asNumber().toInt(), t.error.message, t.error, getDataAsSting(t.error.details))
+                    is RpcException -> CallError(t.code, t.rpcMessage, null, getDataAsSting(t.details))
+                    is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null, null)
                     else -> {
                         // May only happen if it's an unhandled exception.
                         // In this case try to find a meaningless details in the stack. Most important reason for doing that is to find an ID of the request
                         if (t.cause != null) {
                             from(t.cause!!)
                         } else {
-                            CallError(1, t.message ?: "Upstream Error", null)
+                            CallError(1, t.message ?: "Upstream Error", null, null)
                         }
                     }
                 }
