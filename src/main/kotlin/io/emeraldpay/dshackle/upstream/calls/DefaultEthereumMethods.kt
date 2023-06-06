@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
-import io.emeraldpay.dshackle.quorum.NonceQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import io.emeraldpay.etherjar.rpc.RpcException
@@ -149,7 +148,7 @@ class DefaultEthereumMethods(
             possibleNotIndexedMethods.contains(method) -> NotNullQuorum()
             specialMethods.contains(method) -> {
                 when (method) {
-                    "eth_getTransactionCount" -> NonceQuorum()
+                    "eth_getTransactionCount" -> NotLaggingQuorum(0)
                     "eth_getBalance" -> NotLaggingQuorum(0)
                     "eth_sendRawTransaction" -> BroadcastQuorum()
                     "eth_blockNumber" -> NotLaggingQuorum(0)
