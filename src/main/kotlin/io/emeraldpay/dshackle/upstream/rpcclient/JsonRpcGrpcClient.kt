@@ -95,8 +95,9 @@ class JsonRpcGrpcClient(
                 metrics?.fails?.increment()
                 Mono.error(
                     RpcException(
-                        RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                        resp.errorMessage
+                        resp.errorCode,
+                        resp.errorMessage,
+                        if (resp.errorData == null || resp.errorData.isEmpty()) null else resp.errorData
                     )
                 )
             }
