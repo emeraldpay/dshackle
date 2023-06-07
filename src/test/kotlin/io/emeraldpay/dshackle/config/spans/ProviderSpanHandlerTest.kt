@@ -18,7 +18,9 @@ import org.springframework.cloud.sleuth.brave.bridge.BraveTraceContext
 
 class ProviderSpanHandlerTest {
     private val mapper = SpanConfig().spanMapper()
-    private val spanExportableList = listOf(ErrorSpanExportable(), NoResponseSpanExportable())
+    private val spanExportableList = listOf(
+        ErrorSpanExportable(), NoResponseSpanExportable(), LongResponseSpanExportable(10)
+    )
     private val ctx = TraceContext.newBuilder()
         .traceId(1223324)
         .spanId(234235)
@@ -110,6 +112,14 @@ class ProviderSpanHandlerTest {
                     id("f7e83f2b69ec111d")
                     parentId("f7e83f2b69ec682d")
                     tag(SPAN_NO_RESPONSE_MESSAGE, "noResp")
+                },
+            MutableSpan()
+                .apply {
+                    traceId("6666632728347823749827349723985")
+                    id("f7e83f2b69ec111d")
+                    parentId("f7e83f2b69ec682d")
+                    startTimestamp(3034272)
+                    finishTimestamp(15034272)
                 }
         )
     }
