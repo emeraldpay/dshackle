@@ -157,7 +157,7 @@ open class NativeCall(
     ): Context {
         if (requestCount > 1) {
             val span = tracer.nextSpan(requestSpan)
-                .name(requestId)
+                .name("emerald.blockchain/nativecall")
                 .tag(SPAN_REQUEST_ID, requestId)
                 .start()
             return ReactorSleuth.putSpanInScope(tracer, ctx, span)
