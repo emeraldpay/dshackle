@@ -615,7 +615,7 @@ open class NativeCall(
             }
             fun from(t: Throwable): CallError {
                 return when (t) {
-                    is JsonRpcException -> CallError(t.id.asNumber().toInt(), t.error.message, t.error, getDataAsSting(t.error.details))
+                    is JsonRpcException -> CallError(t.error.code, t.error.message, t.error, getDataAsSting(t.error.details))
                     is RpcException -> CallError(t.code, t.rpcMessage, null, getDataAsSting(t.details))
                     is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null, null)
                     else -> {
