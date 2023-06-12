@@ -18,10 +18,10 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.domain.Wei
-import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -38,7 +38,7 @@ class EthereumPriorityFeesSpec extends Specification {
             it.baseFeePerGas = new Wei(104197355513)
         }
         // 0x5da50f35a51e56ecd4313417b1c30f9c088222f3f8763701effe14f3dd18b6cc
-        def tx = new TransactionJson().tap {
+        def tx = new TransactionJsonSnapshot().tap {
             it.type = 2
             it.maxFeePerGas = Wei.ofUnits(999, Wei.Unit.GWEI)
             it.maxPriorityFeePerGas = Wei.ofUnits(5.0001, Wei.Unit.GWEI)
@@ -60,7 +60,7 @@ class EthereumPriorityFeesSpec extends Specification {
             it.baseFeePerGas = new Wei(104197355513)
         }
         // 0x1f507982bef0f11a8304287d41f228b5f1dda1114a446ee781c3d95ef4a7b891
-        def tx = new TransactionJson().tap {
+        def tx = new TransactionJsonSnapshot().tap {
             it.type = 0
             // 109.564020111 Gwei
             it.gasPrice = Wei.from("0x198286458f")
@@ -111,12 +111,12 @@ class EthereumPriorityFeesSpec extends Specification {
                     new TransactionRefJson(TransactionId.from("0x55555555fad596cad644b785a8a74f6580ceec9ae13c8aa174f819c0223b8c77")),
             ]
         }
-        def tx1 = new TransactionJson().tap {
+        def tx1 = new TransactionJsonSnapshot().tap {
             it.type = 2
             it.maxFeePerGas = Wei.ofUnits(150, Wei.Unit.GWEI)
             it.maxPriorityFeePerGas = Wei.ofUnits(3, Wei.Unit.GWEI)
         }
-        def tx2 = new TransactionJson().tap {
+        def tx2 = new TransactionJsonSnapshot().tap {
             it.type = 2
             it.maxFeePerGas = Wei.ofUnits(200, Wei.Unit.GWEI)
             it.maxPriorityFeePerGas = Wei.ofUnits(6, Wei.Unit.GWEI)

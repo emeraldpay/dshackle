@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.data
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 
 class TxContainer(
@@ -40,6 +41,16 @@ class TxContainer(
         }
 
         fun from(tx: TransactionJson, raw: ByteArray): TxContainer {
+            return TxContainer(
+                tx.blockNumber,
+                TxId.from(tx.hash),
+                tx.blockHash?.let { BlockId.from(it) },
+                raw,
+                tx
+            )
+        }
+
+        fun from(tx: TransactionJsonSnapshot, raw: ByteArray): TxContainer {
             return TxContainer(
                 tx.blockNumber,
                 TxId.from(tx.hash),

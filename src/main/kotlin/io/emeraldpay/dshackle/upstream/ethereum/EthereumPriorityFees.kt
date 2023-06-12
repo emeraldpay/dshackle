@@ -18,8 +18,8 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.etherjar.domain.Wei
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import java.util.function.Function
@@ -43,7 +43,7 @@ class EthereumPriorityFees(upstreams: Multistream, reader: EthereumCachingReader
                 .build()
         }
 
-    override fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJson): EthereumFee {
+    override fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJsonSnapshot): EthereumFee {
         val baseFee = block.baseFeePerGas ?: Wei.ZERO
         if (tx.type == 2) {
             // an EIP-1559 Transaction provides Max and Priority fee

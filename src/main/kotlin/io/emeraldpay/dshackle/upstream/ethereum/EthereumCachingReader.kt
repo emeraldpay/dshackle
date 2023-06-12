@@ -40,11 +40,11 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.domain.Wei
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
 import org.slf4j.LoggerFactory
@@ -80,8 +80,8 @@ open class EthereumCachingReader(
         }
     }
 
-    val extractTx = Function<TxContainer, TransactionJson> { tx ->
-        tx.getParsed(TransactionJson::class.java) ?: objectMapper.readValue(tx.json, TransactionJson::class.java)
+    val extractTx = Function<TxContainer, TransactionJsonSnapshot> { tx ->
+        tx.getParsed(TransactionJsonSnapshot::class.java) ?: objectMapper.readValue(tx.json, TransactionJsonSnapshot::class.java)
     }
 
     val asRaw = Function<SourceContainer, ByteArray> { tx ->
@@ -141,7 +141,7 @@ open class EthereumCachingReader(
         )
     }
 
-    open fun txByHash(): Reader<TransactionId, TransactionJson> {
+    open fun txByHash(): Reader<TransactionId, TransactionJsonSnapshot> {
         return TransformingReader(
             CompoundReader(
                 RekeyingReader(txHashToId, caches.getTxByHash()),

@@ -26,10 +26,10 @@ import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -159,7 +159,7 @@ class TrackEthereumTx(
             .txByHash().read(tx.txid)
             .onErrorResume(RpcException::class.java) { t ->
                 log.warn("Upstream error, ignoring. {}", t.rpcMessage)
-                Mono.empty<TransactionJson>()
+                Mono.empty()
             }
             .flatMap { updateFromBlock(upstream, tx, it) }
             .doOnError { t ->
@@ -212,7 +212,7 @@ class TrackEthereumTx(
             }
     }
 
-    fun updateFromBlock(upstream: EthereumPosMultiStream, tx: TxDetails, blockTx: TransactionJson): Mono<TxDetails> {
+    fun updateFromBlock(upstream: EthereumPosMultiStream, tx: TxDetails, blockTx: TransactionJsonSnapshot): Mono<TxDetails> {
         return if (blockTx.blockNumber != null && blockTx.blockHash != null && blockTx.blockHash != ZERO_BLOCK) {
             val updated = tx.withStatus(
                 blockHash = blockTx.blockHash,

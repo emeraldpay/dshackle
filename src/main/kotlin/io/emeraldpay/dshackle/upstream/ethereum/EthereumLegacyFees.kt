@@ -17,8 +17,8 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.etherjar.domain.Wei
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import java.util.function.Function
@@ -39,7 +39,7 @@ class EthereumLegacyFees(upstreams: EthereumMultistream, reader: EthereumCaching
             .build()
     }
 
-    override fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJson): EthereumFee {
+    override fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJsonSnapshot): EthereumFee {
         return EthereumFee(tx.gasPrice, tx.gasPrice, tx.gasPrice, Wei.ZERO)
     }
 

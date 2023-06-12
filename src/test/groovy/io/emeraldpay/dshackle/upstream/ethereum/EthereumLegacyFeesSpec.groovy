@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
+import io.emeraldpay.etherjar.domain.Wei
 import spock.lang.Specification
 
 class EthereumLegacyFeesSpec extends Specification {
@@ -26,7 +26,7 @@ class EthereumLegacyFeesSpec extends Specification {
         setup:
         def block = new BlockJson()
         // 0x75cc01873a9818bf426a8b23d83450bf18530a822fd4fe9e86a416a5554176a6
-        def tx = new TransactionJson().tap {
+        def tx = new TransactionJsonSnapshot().tap {
             it.gasPrice = Wei.ofUnits(8, Wei.Unit.GWEI)
         }
 

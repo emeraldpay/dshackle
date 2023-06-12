@@ -16,6 +16,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -24,7 +25,6 @@ import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.etherjar.hex.HexQuantity
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
@@ -79,7 +79,7 @@ class EthereumDirectReader(
                 return readWithQuorum(request) // retries were removed because we use NotNullQuorum which handle errors too
                     .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
                     .flatMap { txbytes ->
-                        val tx = objectMapper.readValue(txbytes, TransactionJson::class.java)
+                        val tx = objectMapper.readValue(txbytes, TransactionJsonSnapshot::class.java)
                         if (tx == null) {
                             Mono.empty()
                         } else {

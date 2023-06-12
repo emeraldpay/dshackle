@@ -19,8 +19,8 @@ import io.emeraldpay.dshackle.upstream.AbstractChainFees
 import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.etherjar.domain.Wei
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -32,7 +32,7 @@ abstract class EthereumFees(
     upstreams: Multistream,
     private val reader: EthereumCachingReader,
     heightLimit: Int,
-) : AbstractChainFees<EthereumFees.EthereumFee, BlockJson<TransactionRefJson>, TransactionRefJson, TransactionJson>(heightLimit, upstreams, extractTx), ChainFees {
+) : AbstractChainFees<EthereumFees.EthereumFee, BlockJson<TransactionRefJson>, TransactionRefJson, TransactionJsonSnapshot>(heightLimit, upstreams, extractTx), ChainFees {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumFees::class.java)
@@ -42,7 +42,7 @@ abstract class EthereumFees(
         }
     }
 
-    abstract fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJson): EthereumFee
+    abstract fun extractFee(block: BlockJson<TransactionRefJson>, tx: TransactionJsonSnapshot): EthereumFee
 
     override fun readFeesAt(height: Long, selector: TxAt<BlockJson<TransactionRefJson>, TransactionRefJson>): Mono<EthereumFee> {
         return reader.blocksByHeightParsed().read(height)
