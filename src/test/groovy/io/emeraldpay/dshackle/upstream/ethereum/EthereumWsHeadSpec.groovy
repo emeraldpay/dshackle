@@ -22,7 +22,7 @@ import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import reactor.core.publisher.Flux
 import spock.lang.Specification
 

@@ -26,7 +26,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Mono
 import spock.lang.Specification

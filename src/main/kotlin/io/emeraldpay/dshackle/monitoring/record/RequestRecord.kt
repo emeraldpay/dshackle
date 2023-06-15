@@ -17,9 +17,9 @@ package io.emeraldpay.dshackle.monitoring.record
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonPropertyOrder
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.monitoring.Channel
 import io.emeraldpay.dshackle.monitoring.requestlog.RequestType
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.UUID

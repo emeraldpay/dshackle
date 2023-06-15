@@ -19,7 +19,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.grpc.Channel
 import io.grpc.ManagedChannel
 import io.grpc.Server

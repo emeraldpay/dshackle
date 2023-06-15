@@ -16,11 +16,11 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.grpc.Chain
 import org.springframework.context.Lifecycle
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono

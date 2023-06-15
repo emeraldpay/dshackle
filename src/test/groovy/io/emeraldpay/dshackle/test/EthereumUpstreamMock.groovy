@@ -33,7 +33,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
 

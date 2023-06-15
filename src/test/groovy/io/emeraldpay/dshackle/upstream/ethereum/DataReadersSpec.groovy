@@ -15,7 +15,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId

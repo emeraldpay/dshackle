@@ -15,11 +15,11 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin.subscribe
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.grpc.Chain
 import java.util.EnumMap
 
 class BitcoinDshackleIngressSubscription(

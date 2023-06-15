@@ -16,12 +16,12 @@
  */
 package io.emeraldpay.dshackle.rpc
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.grpc.Chain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux

@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.config
 
 
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import spock.lang.Specification
 
 class MainConfigReaderSpec extends Specification {

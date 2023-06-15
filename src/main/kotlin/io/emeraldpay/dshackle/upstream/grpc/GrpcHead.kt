@@ -15,6 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream.grpc
 
+import io.emeraldpay.api.BlockchainType
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
@@ -24,8 +26,6 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle

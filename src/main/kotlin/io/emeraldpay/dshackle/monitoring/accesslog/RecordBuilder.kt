@@ -15,12 +15,12 @@
  */
 package io.emeraldpay.dshackle.monitoring.accesslog
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.config.AccessLogConfig
 import io.emeraldpay.dshackle.monitoring.Channel
 import io.emeraldpay.dshackle.monitoring.record.AccessRecord
-import io.emeraldpay.grpc.Chain
 import io.grpc.Attributes
 import io.grpc.Grpc
 import io.grpc.Metadata

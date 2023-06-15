@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.cache
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.lettuce.core.api.StatefulRedisConnection
 import spock.lang.IgnoreIf
 import spock.lang.Specification

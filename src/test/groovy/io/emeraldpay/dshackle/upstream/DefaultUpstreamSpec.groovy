@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
 import reactor.core.publisher.Sinks

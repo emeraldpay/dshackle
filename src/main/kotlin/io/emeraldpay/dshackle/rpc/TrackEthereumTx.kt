@@ -16,6 +16,8 @@
  */
 package io.emeraldpay.dshackle.rpc
 
+import io.emeraldpay.api.BlockchainType
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.SilentException
@@ -29,8 +31,6 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

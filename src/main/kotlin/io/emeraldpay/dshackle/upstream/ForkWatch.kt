@@ -15,8 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import org.slf4j.LoggerFactory

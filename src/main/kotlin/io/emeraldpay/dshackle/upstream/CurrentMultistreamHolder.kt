@@ -16,6 +16,8 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.BlockchainType
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.startup.UpstreamChange
@@ -25,8 +27,6 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository

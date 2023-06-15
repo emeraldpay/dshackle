@@ -16,9 +16,9 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag

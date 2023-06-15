@@ -15,8 +15,8 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode

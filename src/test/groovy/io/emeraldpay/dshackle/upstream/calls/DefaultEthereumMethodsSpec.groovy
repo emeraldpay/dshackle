@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.upstream.calls
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import spock.lang.Specification
 
 class DefaultEthereumMethodsSpec extends Specification {

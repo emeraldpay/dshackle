@@ -17,11 +17,11 @@
 package io.emeraldpay.dshackle.rpc
 
 import com.google.protobuf.ByteString
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

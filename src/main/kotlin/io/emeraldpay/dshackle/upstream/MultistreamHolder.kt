@@ -16,8 +16,8 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 import reactor.util.function.Tuple2
 

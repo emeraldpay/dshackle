@@ -16,12 +16,12 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.reader.DshackleRpcReader
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.NoCallMethods
-import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import org.slf4j.LoggerFactory

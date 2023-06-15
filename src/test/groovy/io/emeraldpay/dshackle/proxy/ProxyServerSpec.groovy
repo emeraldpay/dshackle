@@ -6,7 +6,7 @@ import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessLogHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import reactor.netty.http.server.HttpServerRoutes
 import spock.lang.Specification
 

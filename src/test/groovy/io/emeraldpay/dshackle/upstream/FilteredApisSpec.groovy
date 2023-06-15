@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import reactor.test.StepVerifier
 import spock.lang.Retry
 import spock.lang.Specification

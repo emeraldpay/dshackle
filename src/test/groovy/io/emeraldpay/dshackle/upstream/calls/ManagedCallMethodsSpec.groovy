@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import spock.lang.Specification
 
 import java.util.concurrent.Executors

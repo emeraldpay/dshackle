@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification

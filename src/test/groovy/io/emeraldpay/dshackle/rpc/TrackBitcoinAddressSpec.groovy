@@ -28,7 +28,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.UnspentReader
 import io.emeraldpay.dshackle.upstream.bitcoin.XpubAddresses
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import org.bitcoinj.core.Address
 import org.bitcoinj.params.MainNetParams
 import reactor.core.publisher.Flux

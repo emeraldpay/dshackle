@@ -1,11 +1,11 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AccessLogConfig
 import io.emeraldpay.dshackle.config.LogTargetConfig
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.record.AccessRecord
-import io.emeraldpay.grpc.Chain
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe

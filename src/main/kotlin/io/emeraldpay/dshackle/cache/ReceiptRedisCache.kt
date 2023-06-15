@@ -15,10 +15,10 @@
  */
 package io.emeraldpay.dshackle.cache
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.proto.CachesProto
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
-import io.emeraldpay.grpc.Chain
 import io.lettuce.core.api.reactive.RedisReactiveCommands
 import reactor.core.publisher.Mono
 

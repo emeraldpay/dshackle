@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import spock.lang.Specification
 
 class HealthConfigReaderSpec extends Specification {

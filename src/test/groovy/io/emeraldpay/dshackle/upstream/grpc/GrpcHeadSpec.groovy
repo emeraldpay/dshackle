@@ -21,7 +21,7 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.grpc.stub.StreamObserver
 import reactor.test.StepVerifier
 import spock.lang.Specification

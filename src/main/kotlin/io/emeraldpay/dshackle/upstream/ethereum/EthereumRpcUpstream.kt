@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -12,7 +13,6 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable

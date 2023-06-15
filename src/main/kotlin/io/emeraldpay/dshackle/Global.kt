@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.monitoring.MonitoringContext
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspentDeserializer
@@ -30,7 +31,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.TransactionIdSeri
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.grpc.Chain
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
