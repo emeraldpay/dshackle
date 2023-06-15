@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification

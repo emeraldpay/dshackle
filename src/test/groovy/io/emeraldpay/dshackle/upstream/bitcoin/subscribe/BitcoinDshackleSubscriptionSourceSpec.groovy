@@ -4,7 +4,7 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.test.MockGrpcServer
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.grpc.stub.StreamObserver
 import spock.lang.Specification
 

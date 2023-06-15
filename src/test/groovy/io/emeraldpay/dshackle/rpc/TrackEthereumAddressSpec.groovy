@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import reactor.test.StepVerifier

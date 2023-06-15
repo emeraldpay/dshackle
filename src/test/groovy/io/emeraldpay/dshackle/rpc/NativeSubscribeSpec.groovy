@@ -20,7 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
 import spock.lang.Specification

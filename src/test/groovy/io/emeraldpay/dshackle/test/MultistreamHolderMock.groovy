@@ -29,8 +29,8 @@ import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.BlockchainType
+import io.emeraldpay.api.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 import reactor.util.function.Tuple2

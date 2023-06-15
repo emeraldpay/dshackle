@@ -15,12 +15,12 @@
  */
 package io.emeraldpay.dshackle.monitoring.requestlog
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.RequestLogConfig
 import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import reactor.util.context.Context

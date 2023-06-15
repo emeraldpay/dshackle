@@ -1,8 +1,8 @@
 package io.emeraldpay.dshackle.monitoring.accesslog
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.grpc.Chain
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.shouldBe
 import java.util.UUID

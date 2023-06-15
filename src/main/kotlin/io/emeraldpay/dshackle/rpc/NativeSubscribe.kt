@@ -16,12 +16,12 @@
 package io.emeraldpay.dshackle.rpc
 
 import com.google.protobuf.ByteString
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.upstream.HasEgressSubscription
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.grpc.Chain
 import io.grpc.Status
 import io.grpc.StatusException
 import org.reactivestreams.Publisher

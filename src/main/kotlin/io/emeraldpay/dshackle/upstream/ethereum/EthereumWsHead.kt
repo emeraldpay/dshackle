@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
@@ -26,7 +27,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable

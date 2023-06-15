@@ -8,7 +8,7 @@ import io.emeraldpay.dshackle.test.MockGrpcServer
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.grpc.stub.StreamObserver
 import spock.lang.Specification
 

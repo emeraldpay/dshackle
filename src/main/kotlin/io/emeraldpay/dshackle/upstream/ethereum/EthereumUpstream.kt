@@ -16,13 +16,13 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.grpc.Chain
 
 abstract class EthereumUpstream(
     id: String,

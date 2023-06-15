@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.test
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.NeverForkChoice
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 

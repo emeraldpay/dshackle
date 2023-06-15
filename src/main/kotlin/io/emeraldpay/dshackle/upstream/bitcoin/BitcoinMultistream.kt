@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.CompoundReader
@@ -33,7 +34,6 @@ import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinEgressSubscripti
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.publisher.Mono

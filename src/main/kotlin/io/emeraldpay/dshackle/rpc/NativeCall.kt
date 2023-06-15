@@ -18,6 +18,8 @@ package io.emeraldpay.dshackle.rpc
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
+import io.emeraldpay.api.BlockchainType
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
@@ -33,8 +35,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired

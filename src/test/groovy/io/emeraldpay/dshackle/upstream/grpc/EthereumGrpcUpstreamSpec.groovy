@@ -29,7 +29,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.grpc.stub.StreamObserver
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson

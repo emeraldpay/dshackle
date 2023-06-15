@@ -15,13 +15,13 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeReplyItem
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeRequest
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 
 class DshacklePendingTxesSource(

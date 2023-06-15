@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.rpc
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.shouldNotBe
 

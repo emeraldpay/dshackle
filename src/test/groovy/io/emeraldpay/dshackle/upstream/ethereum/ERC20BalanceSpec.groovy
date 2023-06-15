@@ -26,7 +26,7 @@ import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.erc20.ERC20Token
 import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.json.TransactionCallJson
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import spock.lang.Specification
 
 import java.time.Duration

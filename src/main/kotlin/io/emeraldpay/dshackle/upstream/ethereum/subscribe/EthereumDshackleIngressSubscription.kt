@@ -15,13 +15,13 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 
 class EthereumDshackleIngressSubscription(

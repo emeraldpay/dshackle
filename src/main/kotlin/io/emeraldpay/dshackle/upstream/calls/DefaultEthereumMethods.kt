@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
@@ -23,7 +24,6 @@ import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NonceQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.grpc.Chain
 
 /**
  * Default configuration for Ethereum based RPC. Defines optimal Quorum strategies for different methods, and provides

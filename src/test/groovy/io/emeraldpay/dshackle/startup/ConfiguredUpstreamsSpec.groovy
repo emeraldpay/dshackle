@@ -7,7 +7,7 @@ import io.emeraldpay.dshackle.quorum.NonEmptyQuorum
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import spock.lang.Specification
 
 class ConfiguredUpstreamsSpec extends Specification {

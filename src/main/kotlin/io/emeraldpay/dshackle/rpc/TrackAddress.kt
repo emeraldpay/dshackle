@@ -15,8 +15,8 @@
  */
 package io.emeraldpay.dshackle.rpc
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 
 /**

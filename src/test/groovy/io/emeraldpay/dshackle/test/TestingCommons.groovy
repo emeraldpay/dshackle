@@ -33,7 +33,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.etherjar.hex.Hex32
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.micrometer.core.instrument.MeterRegistry

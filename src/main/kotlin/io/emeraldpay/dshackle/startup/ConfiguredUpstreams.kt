@@ -16,6 +16,8 @@
  */
 package io.emeraldpay.dshackle.startup
 
+import io.emeraldpay.api.BlockchainType
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -49,8 +51,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcHttpClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcSwitchClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Metrics

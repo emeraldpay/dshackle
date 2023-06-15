@@ -15,8 +15,8 @@
  */
 package io.emeraldpay.dshackle.cache
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.config.CacheConfig
-import io.emeraldpay.grpc.Chain
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisConnectionException
 import io.lettuce.core.RedisURI
@@ -42,7 +42,7 @@ open class CachesFactory(
     }
 
     private var redis: StatefulRedisConnection<String, ByteArray>? = null
-    private val all = EnumMap<Chain, Caches>(io.emeraldpay.grpc.Chain::class.java)
+    private val all = EnumMap<Chain, Caches>(io.emeraldpay.api.Chain::class.java)
 
     @PostConstruct
     fun init() {

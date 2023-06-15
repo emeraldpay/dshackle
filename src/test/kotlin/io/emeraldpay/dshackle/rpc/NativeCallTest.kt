@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.rpc
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.SilentException
@@ -13,10 +14,8 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.grpc.Chain
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.ShouldSpec
-import io.kotest.matchers.ints.exactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.instanceOf
@@ -27,7 +26,6 @@ import org.apache.commons.codec.binary.Hex
 import reactor.core.Exceptions
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.lang.RuntimeException
 import java.nio.charset.Charset
 import java.time.Duration
 

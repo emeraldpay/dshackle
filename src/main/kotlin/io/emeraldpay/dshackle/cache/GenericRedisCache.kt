@@ -1,9 +1,9 @@
 package io.emeraldpay.dshackle.cache
 
 import com.google.protobuf.ByteString
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.proto.CachesProto
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.grpc.Chain
 import io.lettuce.core.api.reactive.RedisReactiveCommands
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory

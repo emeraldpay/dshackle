@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin.subscribe
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 
 class BitcoinDshackleSubscriptionSource(

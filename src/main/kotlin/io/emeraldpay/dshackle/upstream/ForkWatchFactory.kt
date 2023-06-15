@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service

@@ -15,6 +15,8 @@
  */
 package io.emeraldpay.dshackle.rpc
 
+import io.emeraldpay.api.BlockchainType
+import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
@@ -26,8 +28,6 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.grpc.BitcoinGrpcUpstream
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 import org.apache.commons.lang3.StringUtils
 import org.bitcoinj.params.MainNetParams
 import org.bitcoinj.params.TestNet3Params

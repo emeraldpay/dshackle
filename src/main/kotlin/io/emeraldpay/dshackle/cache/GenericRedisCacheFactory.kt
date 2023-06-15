@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.cache
 
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import io.lettuce.core.api.reactive.RedisReactiveCommands
 import org.slf4j.LoggerFactory
 import java.util.concurrent.locks.ReentrantReadWriteLock

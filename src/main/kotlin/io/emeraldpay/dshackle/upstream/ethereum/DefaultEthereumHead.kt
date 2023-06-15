@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
@@ -25,7 +26,6 @@ import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.hex.HexQuantity
-import io.emeraldpay.grpc.Chain
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.function.Function

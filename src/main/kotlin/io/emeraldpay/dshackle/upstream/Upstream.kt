@@ -16,10 +16,10 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.grpc.Chain
 import reactor.core.publisher.Flux
 
 interface Upstream {

@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.api.BlockchainType
+import io.emeraldpay.api.Chain
 import io.emeraldpay.etherjar.domain.Address
-import io.emeraldpay.grpc.BlockchainType
-import io.emeraldpay.grpc.Chain
 
 class TokensConfig(
     val tokens: List<Token>

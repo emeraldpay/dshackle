@@ -16,7 +16,7 @@ import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.erc20.ERC20Token
 import io.emeraldpay.etherjar.hex.Hex32
 import io.emeraldpay.etherjar.hex.HexData
-import io.emeraldpay.grpc.Chain
+import io.emeraldpay.api.Chain
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier

@@ -10,6 +10,9 @@ service Blockchain {
 
     rpc GetBalance (BalanceRequest) returns (stream AddressBalance) {}
 
+    rpc GetAddressAllowance(AddressAllowanceRequest) returns (stream AddressAllowance) {}
+    rpc SubscribeAddressAllowance(AddressAllowanceRequest) returns (stream AddressAllowance) {}
+
     /**
      * Fee Estimation service. The server tries to estimate a fair fee based on the last N blocks.
      */
@@ -105,17 +108,40 @@ message TxStatus {
 }
 
 message BalanceRequest {
-    Asset asset = 1;
+    oneof balance_type {
+        Asset asset = 1;
+        Erc20Asset erc20_asset = 4;
+    }
     AnyAddress address = 2;
     bool include_utxo = 3;
 }
 
 message AddressBalance {
-    Asset asset = 1;
+    oneof balance_type {
+        Asset asset = 1;
+        Erc20Asset erc20_asset = 6;
+    }
     SingleAddress address = 2;
     string balance = 3;
     bool confirmed = 4;
     repeated Utxo utxo = 5;
+}
+
+message AddressAllowanceRequest {
+    ChainRef chain = 1;
+    AnyAddress address = 2;
+    repeated SingleAddress contract_addresses = 3; // contract addresses filter, no filter if empty
+}
+
+message AddressAllowance {
+    ChainRef chain = 1;
+    SingleAddress address = 2;
+
+    SingleAddress contract_address = 3;
+    SingleAddress owner_address = 4;
+    SingleAddress spender_address = 5;
+    string allowance = 6;
+    string available = 7; // minOf(owner_balance, allowance)
 }
 
 message Utxo {
@@ -136,9 +162,17 @@ message DescribeChain {
     ChainRef chain = 1;
     ChainStatus status = 2;
     repeated NodeDetails nodes = 3;
+
+    /**
+     * List of method available through NativeCall
+     */
     repeated string supportedMethods = 4;
     repeated string excludedMethods = 5;
     repeated Capabilities capabilities = 6;
+
+    /**
+     * List of subscriptions available through NativeSubscribe
+     */
     repeated string supportedSubscriptions = 7;
 }
 
