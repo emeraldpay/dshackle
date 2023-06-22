@@ -44,8 +44,8 @@ class TrackERC20AddressSpec extends Specification {
         when:
         track.init()
         def act = track.tokens
-        def supportDai = track.isSupported(Chain.ETHEREUM, "DAI")
-        def supportSai = track.isSupported(Chain.ETHEREUM, "SAI")
+        def supportDai = track.isSupported(buildRequest(Chain.ETHEREUM, "DAI"))
+        def supportSai = track.isSupported(buildRequest(Chain.ETHEREUM, "SAI"))
 
         then:
         act.size() == 1
@@ -73,13 +73,30 @@ class TrackERC20AddressSpec extends Specification {
         when:
         track.init()
         def act = track.tokens
-        def supportDai = track.isSupported(Chain.ETHEREUM, "dai")
-        def supportSai = track.isSupported(Chain.ETHEREUM, "sai")
+        def supportDai = track.isSupported(buildRequest(Chain.ETHEREUM, "dai"))
+        def supportSai = track.isSupported(buildRequest(Chain.ETHEREUM, "sai"))
 
         then:
         act.size() == 0
         !supportDai
         !supportSai
+    }
+
+    private BlockchainOuterClass.BalanceRequest buildRequest(Chain chain, String code) {
+        BlockchainOuterClass.BalanceRequest.newBuilder()
+                .setAddress(
+                        Common.AnyAddress.newBuilder()
+                                .setAddressSingle(
+                                        Common.SingleAddress.newBuilder()
+                                                .setAddress("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D")
+                                )
+                )
+                .setAsset(
+                        Common.Asset.newBuilder()
+                                .setChainValue(chain.id)
+                                .setCode(code)
+                )
+                .build()
     }
 
     def "Init with two tokens"() {
@@ -108,8 +125,8 @@ class TrackERC20AddressSpec extends Specification {
         when:
         track.init()
         def act = track.tokens
-        def supportDai = track.isSupported(Chain.ETHEREUM, "dai")
-        def supportSai = track.isSupported(Chain.ETHEREUM, "sai")
+        def supportDai = track.isSupported(buildRequest(Chain.ETHEREUM, "dai"))
+        def supportSai = track.isSupported(buildRequest(Chain.ETHEREUM, "sai"))
 
         then:
         act.size() == 2

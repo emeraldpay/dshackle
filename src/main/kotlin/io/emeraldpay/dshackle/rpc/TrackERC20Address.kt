@@ -66,25 +66,52 @@ class TrackERC20Address(
         }
     }
 
-    override fun isSupported(chain: Chain, asset: String): Boolean {
-        return tokens.containsKey(TokenId(chain, asset.lowercase(Locale.getDefault()))) &&
-            BlockchainType.from(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
+    override fun isSupported(request: BlockchainOuterClass.BalanceRequest): Boolean {
+        val chain = request.getAnyAssetChain()
+        if (BlockchainType.from(chain) != BlockchainType.ETHEREUM) {
+            return false
+        }
+        if (!multistreamHolder.isAvailable(chain)) {
+            return false
+        }
+        if (request.hasAsset()) {
+            // supports registered tokens by token name
+            val asset = request.asset.code.lowercase(Locale.getDefault())
+            return tokens.containsKey(TokenId(chain, asset))
+        }
+        if (request.hasErc20Asset()) {
+            // supports any valid address as contract address
+            val address = request.erc20Asset.contractAddress.lowercase(Locale.getDefault())
+            return Address.isValidAddress(address)
+        }
+        return false
     }
 
     override fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
-        val chain = Chain.byId(request.asset.chainValue)
-        val asset = request.asset.code.lowercase(Locale.getDefault())
-        val tokenDefinition = tokens[TokenId(chain, asset)] ?: return Flux.empty()
+        val chain = request.getAnyAssetChain()
+        val tokenDefinition = tokenDefinition(chain, request) ?: return Flux.empty()
         return ethereumAddresses.extract(request.address)
             .map { TrackedAddress(chain, it, tokenDefinition.token, tokenDefinition.name) }
             .flatMap { addr -> getBalance(addr).map(addr::withBalance) }
             .map { buildResponse(it) }
     }
 
+    private fun tokenDefinition(chain: Chain, request: BlockchainOuterClass.BalanceRequest): TokenDefinition? {
+        if (request.hasAsset()) {
+            val asset = request.asset.code.lowercase(Locale.getDefault())
+            return tokens[TokenId(chain, asset)]
+        }
+        if (request.hasErc20Asset()) {
+            val asset = request.erc20Asset.contractAddress.lowercase(Locale.getDefault())
+            val token = ERC20Token(Address.from(asset))
+            return TokenDefinition(chain, null, token)
+        }
+        throw IllegalArgumentException("Neither asset nor erc20Asset is specified")
+    }
+
     override fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance> {
-        val chain = Chain.byId(request.asset.chainValue)
-        val asset = request.asset.code.lowercase(Locale.getDefault())
-        val tokenDefinition = tokens[TokenId(chain, asset)] ?: return Flux.empty()
+        val chain = request.getAnyAssetChain()
+        val tokenDefinition = tokenDefinition(chain, request) ?: return Flux.empty()
         val logs = getUpstream(chain)
             .getEgressSubscription().logs
             .create(
@@ -128,27 +155,37 @@ class TrackERC20Address(
     }
 
     private fun buildResponse(address: TrackedAddress): BlockchainOuterClass.AddressBalance {
-        return BlockchainOuterClass.AddressBalance.newBuilder()
+        val builder = BlockchainOuterClass.AddressBalance.newBuilder()
             .setBalance(address.balance!!.toString(10))
-            .setAsset(
+            .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.toHex()))
+
+        if (address.tokenName != null) {
+            builder.setAsset(
                 Common.Asset.newBuilder()
                     .setChainValue(address.chain.id)
                     .setCode(address.tokenName.uppercase(Locale.getDefault()))
             )
-            .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.toHex()))
-            .build()
+        } else {
+            builder.setErc20Asset(
+                Common.Erc20Asset.newBuilder()
+                    .setChainValue(address.chain.id)
+                    .setContractAddress(address.token.contract.toHex())
+            )
+        }
+
+        return builder.build()
     }
 
-    class TrackedAddress(
+    data class TrackedAddress(
         val chain: Chain,
         val address: Address,
         val token: ERC20Token,
-        val tokenName: String,
+        val tokenName: String? = null,
         val balance: BigInteger? = null
     ) {
-        fun withBalance(balance: BigInteger) = TrackedAddress(chain, address, token, tokenName, balance)
+        fun withBalance(balance: BigInteger) = copy(balance = balance)
     }
 
     data class TokenId(val chain: Chain, val name: String)
-    data class TokenDefinition(val chain: Chain, val name: String, val token: ERC20Token)
+    data class TokenDefinition(val chain: Chain, val name: String?, val token: ERC20Token)
 }

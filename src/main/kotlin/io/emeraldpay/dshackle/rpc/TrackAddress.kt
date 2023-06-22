@@ -15,7 +15,6 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import reactor.core.publisher.Flux
 
@@ -24,7 +23,7 @@ import reactor.core.publisher.Flux
  */
 interface TrackAddress {
 
-    fun isSupported(chain: Chain, asset: String): Boolean
+    fun isSupported(request: BlockchainOuterClass.BalanceRequest): Boolean
     fun getBalance(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance>
     fun subscribe(request: BlockchainOuterClass.BalanceRequest): Flux<BlockchainOuterClass.AddressBalance>
 }

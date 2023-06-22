@@ -41,7 +41,12 @@ class TrackEthereumAddress(
     private val log = LoggerFactory.getLogger(TrackEthereumAddress::class.java)
     private val ethereumAddresses = EthereumAddresses()
 
-    override fun isSupported(chain: Chain, asset: String): Boolean {
+    override fun isSupported(request: BlockchainOuterClass.BalanceRequest): Boolean {
+        if (!request.hasAsset()) {
+            return false
+        }
+        val asset = request.asset.code.lowercase(Locale.getDefault())
+        val chain = Chain.byId(request.asset.chainValue)
         return asset == "ether" &&
             BlockchainType.from(chain) == BlockchainType.ETHEREUM && multistreamHolder.isAvailable(chain)
     }
