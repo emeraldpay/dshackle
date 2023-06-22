@@ -263,12 +263,12 @@ abstract class Multistream(
     }
 
     override fun start() {
-        val repeated = Flux.interval(Duration.ofSeconds(3))
+        val repeated = Flux.interval(Duration.ofSeconds(30))
         val whenChanged = observeStatus()
             .distinctUntilChanged()
         subscription = Flux.merge(repeated, whenChanged)
             // print status _change_ every 15 seconds, at most; otherwise prints it on interval of 30 seconds
-            .sample(Duration.ofSeconds(3))
+            .sample(Duration.ofSeconds(15))
             .subscribe { printStatus() }
 
         observeUpstreamsStatuses()
