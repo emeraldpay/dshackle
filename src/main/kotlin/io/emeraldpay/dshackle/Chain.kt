@@ -35,7 +35,20 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
         "Arbitrum"
     ),
     OPTIMISM(1005, "OPTIMISM", "Optimism"),
-    BSC(1006, "BSC", "Binance Smart Chain"), // Testnets
+    BSC(1006, "BSC", "Binance Smart Chain"),
+    POLYGON_ZKEVM(
+        1007,
+        "POLYGON_ZKEVM",
+        "Polygon ZK-EVM"
+    ),
+    ARBITRUM_NOVA(
+        1008,
+        "ARBITRUM_NOVA",
+        "Arbitrum Nova"
+    ),
+    ZKSYNC(1009, "ZKSYNC", "ZkSync Era"),
+
+    // Testnets
     TESTNET_MORDEN(10001, "MORDEN", "Morden Testnet"),
     TESTNET_KOVAN(10002, "KOVAN", "Kovan Testnet"),
     TESTNET_BITCOIN(
@@ -56,7 +69,17 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
         "ARBITRUM_TESTNET",
         "Arbitrum Testnet"
     ),
-    TESTNET_OPTIMISM(10010, "OPTIMISM_TESTNET", "Optimism Testnet");
+    TESTNET_OPTIMISM(10010, "OPTIMISM_TESTNET", "Optimism Testnet"),
+    TESTNET_POLYGON_ZKEVM(
+        10011,
+        "POLYGON_ZKEVM_TESTNET",
+        "Polygon ZK-EVM Testnet"
+    ),
+    TESTNET_ZKSYNC(
+        10012,
+        "ZKS_TESTNET",
+        "ZkSync Testnet"
+    );
 
     companion object {
         fun byId(id: Int): Chain {

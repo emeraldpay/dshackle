@@ -38,3 +38,33 @@ chain-settings:
       lags:
         syncing: 20
         lagging: 10
+    - id: arbitrum-nova
+      options:
+        disable-validation: true
+      lags:
+        syncing: 20
+        lagging: 10
+    - id: polygon-zkevm
+      options:
+        disable-validation: true
+      lags:
+        syncing: 20
+        lagging: 10
+    - id: polygon-zkevm-testnet
+      options:
+        disable-validation: true
+      lags:
+        syncing: 20
+        lagging: 10
+    - id: zksync
+      options:
+        disable-validation: true
+      lags:
+        syncing: 20
+        lagging: 10
+    - id: zksync-testnet
+      options:
+        disable-validation: true
+      lags:
+        syncing: 20
+        lagging: 10

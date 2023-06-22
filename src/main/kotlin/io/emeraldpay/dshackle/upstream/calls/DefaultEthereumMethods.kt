@@ -172,7 +172,7 @@ class DefaultEthereumMethods(
 
     private fun getChainSpecificMethods(chain: Chain): List<String> {
         return when (chain) {
-            Chain.OPTIMISM -> listOf(
+            Chain.OPTIMISM, Chain.TESTNET_OPTIMISM -> listOf(
                 "rollup_gasPrices"
             )
             Chain.POLYGON -> listOf(
@@ -182,6 +182,37 @@ class DefaultEthereumMethods(
                 "bor_getRootHash",
                 "bor_getSignersAtHash",
                 "eth_getRootHash"
+            )
+            Chain.POLYGON_ZKEVM, Chain.TESTNET_POLYGON_ZKEVM -> listOf(
+                "zkevm_consolidatedBlockNumber",
+                "zkevm_isBlockConsolidated",
+                "zkevm_isBlockVirtualized",
+                "zkevm_batchNumberByBlockNumber",
+                "zkevm_batchNumber",
+                "zkevm_virtualBatchNumber",
+                "zkevm_verifiedBatchNumber",
+                "zkevm_getBatchByNumber",
+                "zkevm_getBroadcastURI"
+            )
+            Chain.ZKSYNC, Chain.TESTNET_ZKSYNC -> listOf(
+                "zks_estimateFee",
+                "zks_estimateGasL1ToL2",
+                "zks_getAllAccountBalances",
+                "zks_getBlockDetails",
+                "zks_getBridgeContracts",
+                "zks_getBytecodeByHash",
+                "zks_getConfirmedTokens",
+                "zks_getL1BatchBlockRange",
+                "zks_getL1BatchDetails",
+                "zks_getL2ToL1LogProof",
+                "zks_getL2ToL1MsgProof",
+                "zks_getMainContract",
+                "zks_getRawBlockTransactions",
+                "zks_getTestnetPaymaster",
+                "zks_getTokenPrice",
+                "zks_getTransactionDetails",
+                "zks_L1BatchNumber",
+                "zks_L1ChainId"
             )
             else -> emptyList()
         }
@@ -260,6 +291,26 @@ class DefaultEthereumMethods(
                         "\"420\""
                     }
 
+                    Chain.ARBITRUM_NOVA == chain -> {
+                        "\"42170\""
+                    }
+
+                    Chain.POLYGON_ZKEVM == chain -> {
+                        "\"1101\""
+                    }
+
+                    Chain.TESTNET_POLYGON_ZKEVM == chain -> {
+                        "\"1442\""
+                    }
+
+                    Chain.ZKSYNC == chain -> {
+                        "\"324\""
+                    }
+
+                    Chain.TESTNET_ZKSYNC == chain -> {
+                        "\"280\""
+                    }
+
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
@@ -316,6 +367,26 @@ class DefaultEthereumMethods(
 
                     Chain.TESTNET_OPTIMISM == chain -> {
                         "\"0x1A4\""
+                    }
+
+                    Chain.ARBITRUM_NOVA == chain -> {
+                        "\"0xa4ba\""
+                    }
+
+                    Chain.POLYGON_ZKEVM == chain -> {
+                        "\"0x44d\""
+                    }
+
+                    Chain.TESTNET_POLYGON_ZKEVM == chain -> {
+                        "\"0x5a2\""
+                    }
+
+                    Chain.ZKSYNC == chain -> {
+                        "\"0x144\""
+                    }
+
+                    Chain.TESTNET_ZKSYNC == chain -> {
+                        "\"0x118\""
                     }
 
                     else -> throw RpcException(-32602, "Invalid chain")

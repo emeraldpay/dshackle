@@ -15,7 +15,12 @@ enum class BlockchainType {
                 chain == Chain.ETHEREUM ||
                 chain == Chain.TESTNET_SEPOLIA ||
                 chain == Chain.TESTNET_ARBITRUM ||
-                chain == Chain.TESTNET_OPTIMISM
+                chain == Chain.TESTNET_OPTIMISM ||
+                chain == Chain.ARBITRUM_NOVA ||
+                chain == Chain.POLYGON_ZKEVM ||
+                chain == Chain.TESTNET_POLYGON_ZKEVM ||
+                chain == Chain.ZKSYNC ||
+                chain == Chain.TESTNET_ZKSYNC
             ) {
                 return EVM_POS
             }

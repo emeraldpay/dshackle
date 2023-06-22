@@ -65,14 +65,24 @@ open class EthereumMultistream(
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory(), tracer)
     private var subscribe = EthereumEgressSubscription(this, headScheduler, NoPendingTxes())
 
-    private val supportsEIP1559 = when (chain) {
+    private val supportsEIP1559set = setOf(
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN,
-        Chain.TESTNET_GOERLI, Chain.TESTNET_RINKEBY,
-        Chain.TESTNET_SEPOLIA, Chain.ARBITRUM,
-        Chain.OPTIMISM, Chain.TESTNET_ARBITRUM,
-        Chain.TESTNET_OPTIMISM -> true
-        else -> false
-    }
+        Chain.TESTNET_GOERLI,
+        Chain.TESTNET_RINKEBY,
+        Chain.TESTNET_SEPOLIA,
+        Chain.ARBITRUM,
+        Chain.OPTIMISM,
+        Chain.TESTNET_ARBITRUM,
+        Chain.TESTNET_OPTIMISM,
+        Chain.POLYGON_ZKEVM,
+        Chain.TESTNET_POLYGON_ZKEVM,
+        Chain.ZKSYNC,
+        Chain.TESTNET_ZKSYNC,
+        Chain.ARBITRUM_NOVA
+    )
+
+    private val supportsEIP1559 = supportsEIP1559set.contains(chain)
+
     private val feeEstimation = if (supportsEIP1559) EthereumPriorityFees(this, reader, 256)
     else EthereumLegacyFees(this, reader, 256)
 

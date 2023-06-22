@@ -71,6 +71,11 @@ class Global {
             "sepolia-testnet" to Chain.TESTNET_SEPOLIA,
             "optimism-testnet" to Chain.TESTNET_OPTIMISM,
             "arbitrum-testnet" to Chain.TESTNET_ARBITRUM,
+            "arbitrum-nova" to Chain.ARBITRUM_NOVA,
+            "polygon-zkevm" to Chain.POLYGON_ZKEVM,
+            "polygon-zkevm-testnet" to Chain.TESTNET_POLYGON_ZKEVM,
+            "zksync" to Chain.ZKSYNC,
+            "zksync-testnet" to Chain.TESTNET_ZKSYNC,
         )
 
         fun chainById(id: String?): Chain {

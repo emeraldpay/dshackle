@@ -90,7 +90,6 @@ open class UpstreamsConfig {
             fun getDefaults(): PartialOptions {
                 val options = PartialOptions()
                 options.minPeers = 1
-                options.disableValidation = false
                 return options
             }
         }

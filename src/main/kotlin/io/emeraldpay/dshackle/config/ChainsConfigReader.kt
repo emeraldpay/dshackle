@@ -14,7 +14,8 @@ class ChainsConfigReader(
     override fun read(input: MappingNode?): ChainsConfig {
         val default = readInternal(defaultConfig)
         val current = readInternal(input)
-        return default.patch(current)
+        val res = default.patch(current)
+        return res
     }
 
     fun readInternal(input: InputStream): ChainsConfig {
