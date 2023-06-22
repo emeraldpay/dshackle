@@ -33,7 +33,6 @@ import org.springframework.context.annotation.DependsOn
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 @Service
@@ -137,17 +136,17 @@ class BlockchainRpc(
 
     override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
         return requestMono.flatMapMany { request ->
-            val chain = Chain.byId(request.asset.chainValue)
+            val chain = request.getAnyAssetChain()
             val metrics = chainMetrics.get(chain)
             metrics.subscribeBalanceMetric.increment()
-            val asset = request.asset.code.lowercase(Locale.getDefault())
-            try {
-                trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
+            return@flatMapMany try {
+                trackAddress.find { it.isSupported(request) }?.let { track ->
                     track.subscribe(request)
                         .doOnNext { metrics.subscribeBalanceRespMetric.increment() }
                         .doOnError { failMetric.increment() }
                 } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
                     .doOnSubscribe {
+                        val asset = request.getAssetCodeOrContractAddress()
                         log.error("Balance for $chain:$asset is not supported")
                     }
             } catch (t: Throwable) {
@@ -162,12 +161,11 @@ class BlockchainRpc(
     override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
         return requestMono.flatMapMany { request ->
             val timer = StopWatch.createStarted()
-            val chain = Chain.byId(request.asset.chainValue)
+            val chain = request.getAnyAssetChain()
             val metrics = chainMetrics.get(chain)
             metrics.getBalanceMetric.increment()
-            val asset = request.asset.code.lowercase(Locale.getDefault())
-            try {
-                trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
+            return@flatMapMany try {
+                trackAddress.find { it.isSupported(request) }?.let { track ->
                     track.getBalance(request)
                         .doOnNext {
                             metrics.getBalanceRespCountMetric.increment()
@@ -175,6 +173,7 @@ class BlockchainRpc(
                         }
                 } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
                     .doOnSubscribe {
+                        val asset = request.getAssetCodeOrContractAddress()
                         log.error("Balance for $chain:$asset is not supported")
                     }
             } catch (t: Throwable) {

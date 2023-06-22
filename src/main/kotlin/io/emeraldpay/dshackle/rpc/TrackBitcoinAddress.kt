@@ -37,6 +37,7 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.math.BigInteger
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import javax.annotation.PostConstruct
 
@@ -49,7 +50,12 @@ class TrackBitcoinAddress(
         private val log = LoggerFactory.getLogger(TrackBitcoinAddress::class.java)
     }
 
-    override fun isSupported(chain: Chain, asset: String): Boolean {
+    override fun isSupported(request: BlockchainOuterClass.BalanceRequest): Boolean {
+        if (!request.hasAsset()) {
+            return false
+        }
+        val asset = request.asset.code.lowercase(Locale.getDefault())
+        val chain = Chain.byId(request.asset.chainValue)
         return (asset == "bitcoin" || asset == "btc" || asset == "satoshi") &&
             BlockchainType.from(chain) == BlockchainType.BITCOIN && multistreamHolder.isAvailable(chain)
     }
