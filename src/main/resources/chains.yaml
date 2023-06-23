@@ -18,53 +18,53 @@ chain-settings:
       options:
         validate-peers: false
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20
     - id: arbitrum-testnet
       options:
         validate-peers: false
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20
     - id: optimism
       options:
         validate-peers: false
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20
     - id: optimism-testnet
       options:
         validate-peers: false
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20
     - id: arbitrum-nova
       options:
         disable-validation: true
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20
     - id: polygon-zkevm
       options:
         disable-validation: true
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20
     - id: polygon-zkevm-testnet
       options:
         disable-validation: true
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20
     - id: zksync
       options:
         disable-validation: true
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20
     - id: zksync-testnet
       options:
         disable-validation: true
       lags:
-        syncing: 20
-        lagging: 10
+        syncing: 40
+        lagging: 20

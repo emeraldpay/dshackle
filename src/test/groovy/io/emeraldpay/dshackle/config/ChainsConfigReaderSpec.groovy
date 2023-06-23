@@ -43,7 +43,7 @@ class ChainsConfigReaderSpec extends Specification {
         pol.syncingLagSize == 20
 
         opt.laggingLagSize == 3
-        opt.syncingLagSize == 20
+        opt.syncingLagSize == 40
         opt.options.validatePeers == false
 
         sep.laggingLagSize == 1
