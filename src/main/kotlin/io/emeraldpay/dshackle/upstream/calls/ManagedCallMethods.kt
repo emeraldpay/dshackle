@@ -84,7 +84,7 @@ class ManagedCallMethods(
             isDelegated(method) && !isRedefined(method) -> delegate.createQuorumFor(method)
             enabled.contains(method) -> quorum[method]?.create() ?: defaultQuorum.create()
             else -> {
-                log.warn("Getting quorum for unknown method")
+                log.warn("Getting quorum for unknown method - $method")
                 defaultQuorum.create()
             }
         }
