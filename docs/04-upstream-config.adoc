@@ -131,8 +131,15 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - ethereum-classic (etc)
 - polygon (matic)
 - arbitrum (arb)
+- arbitrum-testnet
+- arbitrum-nova
 - optimism
+- optimism-testnet
 - binance (bsc, bnb-smart-chain)
+- zksync
+- zksync-testnet
+- polygon-zkevm
+- polygon-zkevm-testnet
 - morden
 - kovan (kovan-testnet)
 - goerli (goerli-testnet)
