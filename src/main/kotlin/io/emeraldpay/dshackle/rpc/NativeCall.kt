@@ -458,7 +458,7 @@ open class NativeCall(
 
     @Suppress("UNCHECKED_CAST")
     private fun extractParams(jsonParams: String): List<Any> {
-        if (StringUtils.isEmpty(jsonParams)) {
+        if (StringUtils.isEmpty(jsonParams) || jsonParams == "null") {
             return emptyList()
         }
         val req = objectMapper.readValue(jsonParams, List::class.java)
