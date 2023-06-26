@@ -12,11 +12,12 @@ class RemoteCapabilitiesSpec extends Specification {
                 .addCapabilities(BlockchainOuterClass.Capabilities.CAP_CALLS)
                 .addCapabilities(BlockchainOuterClass.Capabilities.CAP_NONE)
                 .addCapabilities(BlockchainOuterClass.Capabilities.CAP_BALANCE)
+                .addCapabilities(BlockchainOuterClass.Capabilities.CAP_ALLOWANCE)
                 .build()
         when:
         def act = RemoteCapabilities.extract(remote)
         then:
-        act == [Capability.BALANCE, Capability.RPC].toSet()
+        act == [Capability.BALANCE, Capability.RPC, Capability.ALLOWANCE].toSet()
     }
 
     def "parse from remote - only call"() {

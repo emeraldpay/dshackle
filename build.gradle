@@ -105,7 +105,7 @@ dependencies {
     implementation "io.emeraldpay.etherjar:etherjar-contract:$etherjarVersion"
     implementation "io.emeraldpay.etherjar:etherjar-erc20:$etherjarVersion"
 
-    implementation "io.emeraldpay:emerald-api:0.12-alpha.6"
+    implementation "io.emeraldpay:emerald-api:0.12-alpha.7"
 
     implementation "org.bitcoinj:bitcoinj-core:0.16.2"
 

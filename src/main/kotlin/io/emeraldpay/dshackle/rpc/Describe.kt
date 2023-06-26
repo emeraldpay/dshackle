@@ -72,6 +72,7 @@ class Describe(
                             when (it) {
                                 Capability.RPC -> BlockchainOuterClass.Capabilities.CAP_CALLS
                                 Capability.BALANCE -> BlockchainOuterClass.Capabilities.CAP_BALANCE
+                                Capability.ALLOWANCE -> BlockchainOuterClass.Capabilities.CAP_ALLOWANCE
                             }
                         }
                     )

@@ -57,7 +57,7 @@ open class EthereumGrpcUpstream(
     role: UpstreamsConfig.UpstreamRole,
     private val chain: Chain,
     options: UpstreamsConfig.Options,
-    private val remote: ReactorBlockchainStub,
+    val remote: ReactorBlockchainStub,
     private val client: JsonRpcGrpcClient
 ) : EthereumUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",

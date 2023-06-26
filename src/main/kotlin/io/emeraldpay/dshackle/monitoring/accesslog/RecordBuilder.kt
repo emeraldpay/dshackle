@@ -274,6 +274,35 @@ class RecordBuilder {
         }
     }
 
+    class SubscribeAddressAllowance(val subscribe: Boolean, requestId: UUID) :
+        Base<SubscribeAddressAllowance>(requestId),
+        RequestReply<AccessRecord.SubscribeAddressAllowance, BlockchainOuterClass.AddressAllowanceRequest, BlockchainOuterClass.AddressAllowance> {
+
+        private var index = 0
+        private var allowanceRequest: AccessRecord.AddressAllowanceRequest? = null
+
+        override fun getT(): SubscribeAddressAllowance {
+            return this
+        }
+
+        override fun onRequest(msg: BlockchainOuterClass.AddressAllowanceRequest) {
+            allowanceRequest = AccessRecord.AddressAllowanceRequest(
+                msg.address.addrTypeCase.name
+            )
+        }
+
+        override fun onReply(msg: BlockchainOuterClass.AddressAllowance): AccessRecord.SubscribeAddressAllowance {
+            if (allowanceRequest == null) {
+                throw IllegalStateException("Request is not initialized")
+            }
+            val addressAllowance = AccessRecord.AddressAllowance(msg.address.address)
+            val chain = Chain.byId(msg.chain.number)
+            return AccessRecord.SubscribeAddressAllowance(
+                chain, UUID.randomUUID(), subscribe, requestDetails, allowanceRequest!!, addressAllowance, index++
+            )
+        }
+    }
+
     class TxStatus(requestId: UUID) :
         Base<TxStatus>(requestId),
         RequestReply<AccessRecord.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {

@@ -83,6 +83,19 @@ class AccessRecord {
     ) : ChainBase(blockchain, if (subscribe) "SubscribeBalance" else "GetBalance", id, Channel.DSHACKLE)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    class SubscribeAddressAllowance(
+        blockchain: Chain,
+        id: UUID,
+        subscribe: Boolean,
+        // initial request details
+        val request: RequestDetails,
+        val addressAllowanceRequest: AddressAllowanceRequest,
+        val addressAllowance: AddressAllowance,
+        // index of the current response
+        val index: Int
+    ) : ChainBase(blockchain, if (subscribe) "SubscribeAddressAllowance" else "GetAddressAllowance", id, Channel.DSHACKLE)
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     class TxStatus(
         blockchain: Chain,
         id: UUID,
@@ -193,6 +206,14 @@ class AccessRecord {
 
     data class AddressBalance(
         val asset: String,
+        val address: String
+    )
+
+    data class AddressAllowanceRequest(
+        val addressType: String
+    )
+
+    data class AddressAllowance(
         val address: String
     )
 
