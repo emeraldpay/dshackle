@@ -43,6 +43,7 @@ class BlockchainRpc(
     @Autowired private val streamHead: StreamHead,
     @Autowired private val trackTx: List<TrackTx>,
     @Autowired private val trackAddress: List<TrackAddress>,
+    @Autowired private val trackErc20Allowance: TrackERC20Allowance,
     @Autowired private val describe: Describe,
     @Autowired private val subscribeStatus: SubscribeStatus,
     @Autowired private val estimateFee: EstimateFee,
@@ -185,6 +186,57 @@ class BlockchainRpc(
             .contextWrite(requestContext.updateFromGrpc())
     }
 
+    override fun subscribeAddressAllowance(requestMono: Mono<BlockchainOuterClass.AddressAllowanceRequest>): Flux<BlockchainOuterClass.AddressAllowance> {
+        return requestMono.flatMapMany { request ->
+            val chain = Chain.byId(request.chainValue)
+            val metrics = chainMetrics.get(chain)
+            metrics.subscribeAddressAllowanceMetric.increment()
+            return@flatMapMany try {
+                if (trackErc20Allowance.isSupported(request)) {
+                    trackErc20Allowance.subscribeAddressAllowance(request)
+                        .doOnNext { metrics.subscribeAddressAllowanceRespMetric.increment() }
+                        .doOnError { failMetric.increment() }
+                } else {
+                    Flux.error<BlockchainOuterClass.AddressAllowance>(SilentException.UnsupportedBlockchain(chain))
+                        .doOnSubscribe {
+                            log.error("Allowance for $chain is not supported")
+                        }
+                }
+            } catch (t: Throwable) {
+                log.error("Internal error during Allowance Subscription", t)
+                failMetric.increment()
+                Flux.error<BlockchainOuterClass.AddressAllowance>(IllegalStateException("Internal Error"))
+            }
+        }
+    }
+
+    override fun getAddressAllowance(requestMono: Mono<BlockchainOuterClass.AddressAllowanceRequest>): Flux<BlockchainOuterClass.AddressAllowance> {
+        return requestMono.flatMapMany { request ->
+            val timer = StopWatch.createStarted()
+            val chain = Chain.byId(request.chainValue)
+            val metrics = chainMetrics.get(chain)
+            metrics.getAddressAllowanceMetric.increment()
+            return@flatMapMany try {
+                if (trackErc20Allowance.isSupported(request)) {
+                    trackErc20Allowance.getAddressAllowance(request)
+                        .doOnNext {
+                            metrics.getAddressAllowanceRespCountMetric.increment()
+                            metrics.getAddressAllowanceRespTimeMetric.record(timer.nanoTime, TimeUnit.NANOSECONDS)
+                        }
+                } else {
+                    Flux.error<BlockchainOuterClass.AddressAllowance>(SilentException.UnsupportedBlockchain(chain))
+                        .doOnSubscribe {
+                            log.error("Allowance for $chain is not supported")
+                        }
+                }
+            } catch (t: Throwable) {
+                log.error("Internal error during Allowance Request", t)
+                failMetric.increment()
+                Flux.error<BlockchainOuterClass.AddressAllowance>(IllegalStateException("Internal Error"))
+            }
+        }
+    }
+
     override fun estimateFee(request: Mono<BlockchainOuterClass.EstimateFeeRequest>): Mono<BlockchainOuterClass.EstimateFeeResponse> {
         return request
             .flatMap {
@@ -275,6 +327,27 @@ class BlockchainRpc(
             .register(Metrics.globalRegistry)
         val getBalanceRespCountMetric = Counter.builder("request.grpc.response")
             .tag("type", "getBalance")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
+        val getAddressAllowanceMetric = Counter.builder("request.grpc.request")
+            .tag("type", "getAllowance")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
+        val getAddressAllowanceRespCountMetric = Counter.builder("request.grpc.response")
+            .tag("type", "getAllowance")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
+        val getAddressAllowanceRespTimeMetric = Timer.builder("request.grpc.response.time")
+            .tag("type", "getAllowance")
+            .tag("chain", chain.chainCode)
+            .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+        val subscribeAddressAllowanceMetric = Counter.builder("request.grpc.request")
+            .tag("type", "subscribeAllowance")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
+        val subscribeAddressAllowanceRespMetric = Counter.builder("request.grpc.response")
+            .tag("type", "subscribeAllowance")
             .tag("chain", chain.chainCode)
             .register(Metrics.globalRegistry)
         val estimateFeeMetric = Counter.builder("request.grpc.request")

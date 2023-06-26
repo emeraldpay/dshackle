@@ -55,6 +55,8 @@ class AccessLogHandlerGrpc(
             "Describe" -> processDescribe(call, headers, next, requestId)
             "SubscribeStatus" -> processStatus(call, headers, next, requestId)
             "EstimateFee" -> processEstimateFee(call, headers, next, requestId)
+            "SubscribeAddressAllowance" -> processSubscribeAddressAllowance(call, headers, next, true, requestId)
+            "GetAddressAllowance" -> processSubscribeAddressAllowance(call, headers, next, false, requestId)
             else -> {
                 log.warn("unsupported method `{}`", method)
                 next.startCall(call, headers)
@@ -102,6 +104,20 @@ class AccessLogHandlerGrpc(
         return process(
             call, headers, next,
             RecordBuilder.SubscribeBalance(subscribe, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <ReqT : Any, RespT : Any> processSubscribeAddressAllowance(
+        call: ServerCall<ReqT, RespT>,
+        headers: Metadata,
+        next: ServerCallHandler<ReqT, RespT>,
+        subscribe: Boolean,
+        requestId: UUID,
+    ): ServerCall.Listener<ReqT> {
+        return process(
+            call, headers, next,
+            RecordBuilder.SubscribeAddressAllowance(subscribe, requestId) as RecordBuilder.RequestReply<*, ReqT, RespT>
         )
     }
 
