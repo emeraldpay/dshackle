@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
 @Service
@@ -100,6 +101,21 @@ class SubscribeNodeStatus(
         upstream: Upstream,
         cancel: Sinks.Many<Boolean>
     ): Flux<NodeStatusResponse> {
+        val heads = upstream.getHead().getFlux()
+            .takeUntilOther(cancel.asFlux())
+            .sample(Duration.ofSeconds(2))
+            .map { block ->
+                NodeStatusResponse.newBuilder()
+                    .setDescription(
+                        NodeDescription.newBuilder()
+                            .setNodeId(upstream.nodeId().toInt())
+                            .setChain(Common.ChainRef.forNumber(ms.chain.id))
+                            .build()
+                    )
+                    .setNodeId(upstream.getId())
+                    .setStatus(buildStatus(upstream.getStatus(), block.height))
+                    .build()
+            }
         val statuses = upstream.observeStatus()
             .takeUntilOther(cancel.asFlux())
             .map {
@@ -116,7 +132,7 @@ class SubscribeNodeStatus(
                 .setStatus(buildStatus(upstream.getStatus(), upstream.getHead().getCurrentHeight()))
                 .build()
         )
-        return Flux.concat(currentState, statuses)
+        return Flux.concat(currentState, Flux.merge(statuses, heads))
     }
 
     private fun buildDescription(ms: Multistream, up: Upstream): NodeDescription.Builder {
