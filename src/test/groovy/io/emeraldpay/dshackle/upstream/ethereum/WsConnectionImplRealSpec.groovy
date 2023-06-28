@@ -37,7 +37,7 @@ class WsConnectionImplRealSpec extends Specification {
                 1,
                 new EthereumWsConnectionFactory(
                         "test",
-                        Chain.ETHEREUM,
+                        Chain.ETHEREUM__MAINNET,
                         "ws://localhost:${port}".toURI(),
                         "http://localhost:${port}".toURI(),
                         Schedulers.parallel()
@@ -117,7 +117,7 @@ class WsConnectionImplRealSpec extends Specification {
                 1,
                 new EthereumWsConnectionFactory(
                         "test",
-                        Chain.ETHEREUM,
+                        Chain.ETHEREUM__MAINNET,
                         "ws://localhost:${port}".toURI(),
                         "http://localhost:${port}".toURI(),
                         Schedulers.parallel()

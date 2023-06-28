@@ -67,7 +67,7 @@ class DshacklePendingTxesSourceSpec extends Specification {
                 .build()
 
         def remote = ReactorBlockchainGrpc.newReactorStub(channel)
-        def pending = new DshacklePendingTxesSource(Chain.ETHEREUM, remote)
+        def pending = new DshacklePendingTxesSource(Chain.ETHEREUM__MAINNET, remote)
 
         when:
         pending.available = true
@@ -76,7 +76,7 @@ class DshacklePendingTxesSourceSpec extends Specification {
 
         then:
         receivedRequest != null
-        receivedRequest.chainValue == Chain.ETHEREUM.id
+        receivedRequest.chainValue == Chain.ETHEREUM__MAINNET.id
         receivedRequest.method == "newPendingTransactions"
         txes.collect {it.toHex() } == [
                 "0xa61bab14fc9720ea8725622688c2f964666d7c2afdae38af7dad53f12f242d5c",
@@ -87,7 +87,7 @@ class DshacklePendingTxesSourceSpec extends Specification {
 
     def "available when method is enabled on remote"() {
         setup:
-        def pending = new DshacklePendingTxesSource(Chain.ETHEREUM, ReactorBlockchainGrpc.newReactorStub(Stub(Channel)))
+        def pending = new DshacklePendingTxesSource(Chain.ETHEREUM__MAINNET, ReactorBlockchainGrpc.newReactorStub(Stub(Channel)))
         pending.available = false
         when:
         pending.update(
@@ -101,7 +101,7 @@ class DshacklePendingTxesSourceSpec extends Specification {
 
     def "unavailable when not method is enabled on remote"() {
         setup:
-        def pending = new DshacklePendingTxesSource(Chain.ETHEREUM, ReactorBlockchainGrpc.newReactorStub(Stub(Channel)))
+        def pending = new DshacklePendingTxesSource(Chain.ETHEREUM__MAINNET, ReactorBlockchainGrpc.newReactorStub(Stub(Channel)))
         pending.available = false
         when:
         pending.update(

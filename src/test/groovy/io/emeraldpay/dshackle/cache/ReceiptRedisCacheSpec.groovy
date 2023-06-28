@@ -47,7 +47,7 @@ class ReceiptRedisCacheSpec extends Specification {
         redis = IntegrationTestingCommons.redisConnection()
         redis.sync().flushdb()
         cache = new ReceiptRedisCache(
-                redis.reactive(), Chain.ETHEREUM
+                redis.reactive(), Chain.ETHEREUM__MAINNET
         )
     }
 

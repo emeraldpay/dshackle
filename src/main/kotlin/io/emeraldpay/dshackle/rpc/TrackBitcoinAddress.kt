@@ -287,7 +287,7 @@ class TrackBitcoinAddress(
 
     // TODO use bitcoin class for address
     class Address(val chain: Chain, val address: String) {
-        val network = if (chain == Chain.BITCOIN) {
+        val network = if (chain == Chain.BITCOIN__MAINNET) {
             MainNetParams()
         } else {
             TestNet3Params()

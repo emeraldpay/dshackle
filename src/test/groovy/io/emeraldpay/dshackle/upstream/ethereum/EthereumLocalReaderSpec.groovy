@@ -21,12 +21,12 @@ class EthereumLocalReaderSpec extends Specification {
 
     def "Calls hardcoded"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
-                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM)),
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)),
                         TestingCommons.tracerMock()
                 ),
                 methods,
@@ -41,12 +41,12 @@ class EthereumLocalReaderSpec extends Specification {
 
     def "Returns empty if nonce set"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
-                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM)),
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)),
                         TestingCommons.tracerMock()
                 ),
                 methods,
@@ -72,7 +72,7 @@ class EthereumLocalReaderSpec extends Specification {
                 1 * read(101L) >> Mono.just(TestingCommons.blockForEthereum(101L))
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         def router = new EthereumLocalReader(reader, methods, head, true)
 
         when:
@@ -98,7 +98,7 @@ class EthereumLocalReaderSpec extends Specification {
                 1 * read(0L) >> Mono.just(TestingCommons.blockForEthereum(0L))
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         def router = new EthereumLocalReader(reader, methods, head, true)
 
         when:
@@ -124,7 +124,7 @@ class EthereumLocalReaderSpec extends Specification {
                 1 * read(74735L) >> Mono.just(TestingCommons.blockForEthereum(74735L))
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         def router = new EthereumLocalReader(reader, methods, head, true)
 
         when:
@@ -148,7 +148,7 @@ class EthereumLocalReaderSpec extends Specification {
             _ * txByHashAsCont() >> new EmptyReader<>()
             _ * blocksByHeightAsCont() >> new EmptyReader<>()
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         def router = new EthereumLocalReader(reader, methods, head, true)
 
         when:

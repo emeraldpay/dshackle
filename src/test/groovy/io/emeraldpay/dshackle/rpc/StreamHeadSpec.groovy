@@ -43,11 +43,11 @@ class StreamHeadSpec extends Specification {
 
     def "Errors on unavailable chain"() {
         setup:
-        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM, Stub(EthereumPosRpcUpstream))
+        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, Stub(EthereumPosRpcUpstream))
         def streamHead = new StreamHead(upstreams)
         when:
         def flux = streamHead.add(
-                Mono.just(Common.Chain.newBuilder().setType(Common.ChainRef.CHAIN_ETHEREUM_CLASSIC).build())
+                Mono.just(Common.Chain.newBuilder().setType(Common.ChainRef.CHAIN_ETHEREUM_CLASSIC__MAINNET).build())
         )
         then:
         StepVerifier.create(flux)
@@ -71,7 +71,7 @@ class StreamHeadSpec extends Specification {
 
         def heads = blocks.collect {
             return BlockchainOuterClass.ChainHead.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .setTimestamp(it.timestamp.toEpochMilli())
                 .setBlockId(it.hash.toHex().substring(2))
                 .setWeight(ByteString.copyFrom(it.totalDifficulty.toByteArray()))
@@ -80,12 +80,12 @@ class StreamHeadSpec extends Specification {
                 .build()
         }
 
-        def upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, TestingCommons.api())
-        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstream)
+        def upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstream)
         def streamHead = new StreamHead(upstreams)
         when:
         def flux = streamHead.add(
-                Mono.just(Common.Chain.newBuilder().setType(Common.ChainRef.CHAIN_ETHEREUM).build())
+                Mono.just(Common.Chain.newBuilder().setType(Common.ChainRef.CHAIN_ETHEREUM__MAINNET).build())
         )
         then:
         StepVerifier.create(flux.take(2))

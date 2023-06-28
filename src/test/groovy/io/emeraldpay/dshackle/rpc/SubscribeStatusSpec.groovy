@@ -26,14 +26,14 @@ class SubscribeStatusSpec extends Specification {
             _ * it.getAll() >> [ethereumUp]
         }
         def ups = Mock(MultistreamHolder) {
-            _ * it.getAvailable() >> [Chain.ETHEREUM]
-            1 * it.getUpstream(Chain.ETHEREUM) >> ethereumUpAll
+            _ * it.getAvailable() >> [Chain.ETHEREUM__MAINNET]
+            1 * it.getUpstream(Chain.ETHEREUM__MAINNET) >> ethereumUpAll
         }
         def ctrl = new SubscribeStatus(ups)
 
         when:
         def req = BlockchainOuterClass.StatusRequest.newBuilder()
-                .addChains(Common.ChainRef.CHAIN_ETHEREUM)
+                .addChains(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .build()
         def act = ctrl.subscribeStatus(Mono.just(req))
                 .take(1)
@@ -47,7 +47,7 @@ class SubscribeStatusSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectNextMatches {
-                    it.chainValue == Chain.ETHEREUM.id && it.availability == BlockchainOuterClass.AvailabilityEnum.AVAIL_OK
+                    it.chainValue == Chain.ETHEREUM__MAINNET.id && it.availability == BlockchainOuterClass.AvailabilityEnum.AVAIL_OK
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(3))

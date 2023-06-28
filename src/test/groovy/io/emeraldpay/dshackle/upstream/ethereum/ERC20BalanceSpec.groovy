@@ -47,7 +47,7 @@ class ERC20BalanceSpec extends Specification {
                         JsonRpcResponse.ok('"0x0000000000000000000000000000000000000000000000000000001f28d72868"')
                 )
 
-        EthereumPosRpcUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
+        EthereumPosRpcUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api)
         ERC20Token token = new ERC20Token(Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9"))
         ERC20Balance query = new ERC20Balance()
 
@@ -73,12 +73,12 @@ class ERC20BalanceSpec extends Specification {
                         JsonRpcResponse.ok('"0x0000000000000000000000000000000000000000000000000000001f28d72868"')
                 )
 
-        EthereumPosRpcUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
+        EthereumPosRpcUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api)
         ERC20Token token = new ERC20Token(Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9"))
         ERC20Balance query = new ERC20Balance()
 
         ApiSource apiSource = new FilteredApis(
-                Chain.ETHEREUM, [upstream], Selector.empty
+                Chain.ETHEREUM__MAINNET, [upstream], Selector.empty
         )
 
         when:

@@ -297,7 +297,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChainValue(Chain.TESTNET_MORDEN.id)
+                .setChainValue(Chain.ETHEREUM__MORDEN.id)
                 .addAllItems([1, 2].collect { id ->
                     return BlockchainOuterClass.NativeCallItem.newBuilder()
                             .setId(id)
@@ -305,7 +305,7 @@ class NativeCallSpec extends Specification {
                             .build()
                 })
                 .build()
-        1 * upstreams.isAvailable(Chain.TESTNET_MORDEN) >> false
+        1 * upstreams.isAvailable(Chain.ETHEREUM__MORDEN) >> false
         when:
         def resp = nativeCall.prepareCall(req)
         then:
@@ -323,7 +323,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
@@ -353,7 +353,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
@@ -384,11 +384,11 @@ class NativeCallSpec extends Specification {
                 .setMethod("eth_testInvalid")
                 .build()
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(item)
                 .build()
         when:
-        def act = nativeCall.prepareIndividualCall(Chain.ETHEREUM, req, item, TestingCommons.emptyMultistream())
+        def act = nativeCall.prepareIndividualCall(Chain.ETHEREUM__MAINNET, req, item, TestingCommons.emptyMultistream())
                 .block(Duration.ofSeconds(1))
         then:
         act instanceof NativeCall.InvalidCallContext
@@ -402,14 +402,14 @@ class NativeCallSpec extends Specification {
     def "Prepare call adds height selector for not-lagging quorum"() {
         setup:
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["foo_bar"] as Set, [] as Set, [] as Set, [] as Set
         )
         methods.setQuorum("foo_bar", "not_lagging")
         def head = Mock(Head) {
             1 * it.getCurrentHeight() >> 101
         }
-        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream())
         multistream.customMethods = methods
         multistream.customHead = head
         def multistreamHolder = Mock(MultistreamHolder) {
@@ -418,7 +418,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
@@ -443,11 +443,11 @@ class NativeCallSpec extends Specification {
     def "Prepare call adds decorator for eth_newFilter"() {
         setup:
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_newFilter"] as Set, [] as Set, [] as Set, [] as Set
         )
         methods.setQuorum("eth_newFilter", "always")
-        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream())
         multistream.customMethods = methods
         multistream.customHead = Mock(Head)
         def multistreamHolder = Mock(MultistreamHolder) {
@@ -456,7 +456,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
@@ -474,10 +474,10 @@ class NativeCallSpec extends Specification {
     def "Prepare call adds decorator for eth_getFilterChanges"() {
         setup:
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_getFilterChanges"] as Set, [] as Set, [] as Set, [] as Set
         )
-        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream())
         multistream.customMethods = methods
         multistream.customHead = Mock(Head)
         def multistreamHolder = Mock(MultistreamHolder) {
@@ -486,7 +486,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
@@ -504,10 +504,10 @@ class NativeCallSpec extends Specification {
     def "Prepare call adds decorator for eth_uninstallFilter"() {
         setup:
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_uninstallFilter"] as Set, [] as Set, [] as Set, [] as Set
         )
-        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream())
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream())
         multistream.customMethods = methods
         multistream.customHead = Mock(Head)
         def multistreamHolder = Mock(MultistreamHolder) {
@@ -516,7 +516,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
@@ -604,10 +604,10 @@ class NativeCallSpec extends Specification {
         }
         def quorum = new AlwaysQuorum()
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 [] as Set, [] as Set, ["filter"] as Set, [] as Set
         )
-        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream(
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream(
                 TestingCommons.api(), methods
         ))
         multistream.customHead = Mock(Head)
@@ -639,10 +639,10 @@ class NativeCallSpec extends Specification {
         }
         def quorum = new AlwaysQuorum()
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 [] as Set, [] as Set, ["filter"] as Set, [] as Set
         )
-        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM, TestingCommons.upstream(
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream(
                 TestingCommons.api(), methods
         ))
         multistream.customHead = Mock(Head)

@@ -54,23 +54,23 @@ class MainConfigReaderSpec extends Specification {
             routes.size() == 5
             with(routes[0]) {
                 id == "eth"
-                blockchain == Chain.ETHEREUM
+                blockchain == Chain.ETHEREUM__MAINNET
             }
             with(routes[1]) {
                 id == "etc"
-                blockchain == Chain.ETHEREUM_CLASSIC
+                blockchain == Chain.ETHEREUM_CLASSIC__MAINNET
             }
             with(routes[2]) {
                 id == "kovan"
-                blockchain == Chain.TESTNET_KOVAN
+                blockchain == Chain.ETHEREUM__KOVAN
             }
             with(routes[3]) {
                 id == "goerli"
-                blockchain == Chain.TESTNET_GOERLI
+                blockchain == Chain.ETHEREUM__GOERLI
             }
             with(routes[4]) {
                 id == "rinkeby"
-                blockchain == Chain.TESTNET_RINKEBY
+                blockchain == Chain.ETHEREUM__RINKEBY
             }
         }
         with(act.health) {
@@ -78,7 +78,7 @@ class MainConfigReaderSpec extends Specification {
             with(it.configs()) {
                 it.size() == 1
                 with(it[0]) {
-                    it.blockchain == Chain.ETHEREUM
+                    it.blockchain == Chain.ETHEREUM__MAINNET
                     it.minAvailable == 1
                 }
             }

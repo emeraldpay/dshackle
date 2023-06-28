@@ -50,7 +50,7 @@ class TxRedisCacheSpec extends Specification {
     def setup() {
         StatefulRedisConnection<String, byte[]> redis = IntegrationTestingCommons.redisConnection()
         redis.sync().flushdb()
-        cache = new TxRedisCache(redis.reactive(), Chain.ETHEREUM)
+        cache = new TxRedisCache(redis.reactive(), Chain.ETHEREUM__MAINNET)
     }
 
     def "Decode encoded"() {

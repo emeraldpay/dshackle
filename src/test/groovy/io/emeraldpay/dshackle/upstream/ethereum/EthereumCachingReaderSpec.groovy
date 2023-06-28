@@ -50,7 +50,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * getApiSource(_) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -80,7 +80,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * getApiSource(_) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -118,7 +118,7 @@ class EthereumDirectReaderSpec extends Specification {
             ) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -154,7 +154,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * getApiSource(_) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -190,7 +190,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * getApiSource(_) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -223,7 +223,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * getApiSource(_) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         def caches = Mock(Caches) {
             // note that the Caches needs a Height value, otherwise it's not cached
@@ -255,7 +255,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * getApiSource(_) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -286,7 +286,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -318,7 +318,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         def calls = Mock(Factory) {
-            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -355,7 +355,7 @@ class EthereumDirectReaderSpec extends Specification {
             3 * getApiSource(_) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         def result = Mono.just(
                 new QuorumRpcReader.Result(
@@ -398,7 +398,7 @@ class EthereumDirectReaderSpec extends Specification {
             3 * getApiSource(_) >> Stub(ApiSource)
         }
         def calls = Mock(Factory) {
-            3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         def result = Mono.just(
                 new QuorumRpcReader.Result(
@@ -436,7 +436,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         def calls = Mock(Factory) {
-            4 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM)
+            4 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()

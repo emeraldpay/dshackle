@@ -52,7 +52,7 @@ class TrackBitcoinAddressSpec extends Specification {
         ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
-                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+                Chain.BITCOIN__MAINNET, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         when:
         def total = track.totalUnspent(address, false, unspents)
@@ -70,7 +70,7 @@ class TrackBitcoinAddressSpec extends Specification {
         ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
-                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+                Chain.BITCOIN__MAINNET, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         when:
         def total = track.totalUnspent(address, false, unspents)
@@ -85,7 +85,7 @@ class TrackBitcoinAddressSpec extends Specification {
         def unspents = []
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
-                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+                Chain.BITCOIN__MAINNET, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         when:
         def total = track.totalUnspent(address, false, unspents)
@@ -99,7 +99,7 @@ class TrackBitcoinAddressSpec extends Specification {
         setup:
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
-                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+                Chain.BITCOIN__MAINNET, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         def api = Mock(BitcoinMultistream) {
             1 * getReader() >> Mock(BitcoinReader) {
@@ -122,7 +122,7 @@ class TrackBitcoinAddressSpec extends Specification {
         ]
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
         def address = new TrackBitcoinAddress.Address(
-                Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
+                Chain.BITCOIN__MAINNET, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         )
         when:
         def total = track.totalUnspent(address, true, unspents)
@@ -225,39 +225,39 @@ class TrackBitcoinAddressSpec extends Specification {
     def "Build proto for common balance"() {
         setup:
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
-        def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.valueOf(123456))
+        def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN__MAINNET, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.valueOf(123456))
         when:
         def act = track.buildResponse(balance)
         then:
         act.address.address == "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         act.balance == "123456"
-        act.asset.chain.number == Chain.BITCOIN.id
+        act.asset.chain.number == Chain.BITCOIN__MAINNET.id
         act.asset.code == "BTC"
     }
 
     def "Build proto for zero balance"() {
         setup:
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
-        def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.ZERO)
+        def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN__MAINNET, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.ZERO)
         when:
         def act = track.buildResponse(balance)
         then:
         act.address.address == "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         act.balance == "0"
-        act.asset.chain.number == Chain.BITCOIN.id
+        act.asset.chain.number == Chain.BITCOIN__MAINNET.id
         act.asset.code == "BTC"
     }
 
     def "Build proto for all bitcoins"() {
         setup:
         TrackBitcoinAddress track = new TrackBitcoinAddress(Stub(MultistreamHolder))
-        def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.valueOf(21_000_000).multiply(BigInteger.TEN.pow(8)))
+        def balance = new TrackBitcoinAddress.AddressBalance(Chain.BITCOIN__MAINNET, "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK", BigInteger.valueOf(21_000_000).multiply(BigInteger.TEN.pow(8)))
         when:
         def act = track.buildResponse(balance)
         then:
         act.address.address == "1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"
         act.balance == "2100000000000000"
-        act.asset.chain.number == Chain.BITCOIN.id
+        act.asset.chain.number == Chain.BITCOIN__MAINNET.id
         act.asset.code == "BTC"
     }
 
@@ -288,13 +288,13 @@ class TrackBitcoinAddressSpec extends Specification {
                 upstream
             }
         }
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.BITCOIN, upstream)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.BITCOIN__MAINNET, upstream)
         TrackBitcoinAddress track = new TrackBitcoinAddress(upstreams)
-        track.setBalanceAvailability(Chain.BITCOIN, true)
+        track.setBalanceAvailability(Chain.BITCOIN__MAINNET, true)
 
         when:
         def resp = track.subscribe(BlockchainOuterClass.BalanceRequest.newBuilder()
-                .setAsset(Common.Asset.newBuilder().setChain(Common.ChainRef.CHAIN_BITCOIN))
+                .setAsset(Common.Asset.newBuilder().setChain(Common.ChainRef.CHAIN_BITCOIN__MAINNET))
                 .setAddress(
                         Common.AnyAddress.newBuilder().setAddressSingle(
                                 Common.SingleAddress.newBuilder().setAddress("1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK")

@@ -38,7 +38,7 @@ class WsConnectionImplSpec extends Specification {
                 1,
                 new EthereumWsConnectionFactory(
                         "test",
-                        Chain.ETHEREUM,
+                        Chain.ETHEREUM__MAINNET,
                         new URI("http://localhost"),
                         new URI("http://localhost"),
                         Schedulers.parallel()
@@ -73,7 +73,7 @@ class WsConnectionImplSpec extends Specification {
                 1,
                 new EthereumWsConnectionFactory(
                         "test",
-                        Chain.ETHEREUM,
+                        Chain.ETHEREUM__MAINNET,
                         new URI("http://localhost"),
                         new URI("http://localhost"),
                         Schedulers.parallel()
@@ -106,7 +106,7 @@ class WsConnectionImplSpec extends Specification {
                 1,
                 new EthereumWsConnectionFactory(
                         "test",
-                        Chain.ETHEREUM,
+                        Chain.ETHEREUM__MAINNET,
                         new URI("http://localhost"),
                         new URI("http://localhost"),
                         Schedulers.parallel()

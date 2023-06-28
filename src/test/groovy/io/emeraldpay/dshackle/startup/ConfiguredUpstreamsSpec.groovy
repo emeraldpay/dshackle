@@ -44,7 +44,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def upstream = new UpstreamsConfig.Upstream()
         upstream.methods = methods
         when:
-        def act = configurer.buildMethods(upstream, Chain.ETHEREUM)
+        def act = configurer.buildMethods(upstream, Chain.ETHEREUM__MAINNET)
         then:
         act instanceof ManagedCallMethods
         act.createQuorumFor("foo_bar") instanceof NotNullQuorum
@@ -75,7 +75,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def upstream = new UpstreamsConfig.Upstream()
         upstream.methods = methods
         when:
-        def act = configurer.buildMethods(upstream, Chain.ETHEREUM)
+        def act = configurer.buildMethods(upstream, Chain.ETHEREUM__MAINNET)
         then:
         act instanceof ManagedCallMethods
         new String(act.executeHardcoded("foo_bar")) == "\"static_response\""
@@ -161,7 +161,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def upstream = new UpstreamsConfig.Upstream()
         upstream.methodGroups = methodsGroup
         when:
-        def act = configurer.buildMethods(upstream, Chain.ETHEREUM)
+        def act = configurer.buildMethods(upstream, Chain.ETHEREUM__MAINNET)
         then:
         act instanceof ManagedCallMethods
         act.supportedMethods.findAll {it.containsIgnoreCase("filter")}.size() == 6

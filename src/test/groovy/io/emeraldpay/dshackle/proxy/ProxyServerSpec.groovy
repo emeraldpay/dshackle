@@ -16,7 +16,7 @@ class ProxyServerSpec extends Specification {
         setup:
         def config1 = new ProxyConfig()
         config1.routes = [
-                new ProxyConfig.Route("test", Chain.ETHEREUM)
+                new ProxyConfig.Route("test", Chain.ETHEREUM__MAINNET)
         ]
         def proxyServer = new ProxyServer(
                 config1,
@@ -40,7 +40,7 @@ class ProxyServerSpec extends Specification {
         def config1 = new ProxyConfig()
         config1.websocketEnabled = false
         config1.routes = [
-                new ProxyConfig.Route("test", Chain.ETHEREUM)
+                new ProxyConfig.Route("test", Chain.ETHEREUM__MAINNET)
         ]
         def proxyServer = new ProxyServer(
                 config1,

@@ -52,23 +52,23 @@ class TestingCommons {
     }
 
     static EthereumPosRpcUpstreamMock upstream() {
-        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api())
+        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api())
     }
 
     static EthereumPosRpcUpstreamMock upstream(String id) {
-        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM, api())
+        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM__MAINNET, api())
     }
 
     static EthereumPosRpcUpstreamMock upstream(String id, String provider) {
-        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM, api(), Collections.singletonMap("provider", provider))
+        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM__MAINNET, api(), Collections.singletonMap("provider", provider))
     }
 
     static EthereumPosRpcUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM, api)
+        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM__MAINNET, api)
     }
 
     static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api)
+        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api)
     }
 
     static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, String method) {
@@ -76,11 +76,11 @@ class TestingCommons {
     }
 
     static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, List<String> methods) {
-        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api, new DirectCallMethods(methods))
+        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api, new DirectCallMethods(methods))
     }
 
     static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods callMethods) {
-        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM, api, callMethods)
+        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api, callMethods)
     }
 
     static Multistream multistream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
@@ -88,7 +88,7 @@ class TestingCommons {
     }
 
     static Multistream multistream(EthereumPosRpcUpstreamMock up) {
-        return new EthereumPosMultiStream(Chain.ETHEREUM, [up], Caches.default(), Schedulers.parallel(), tracerMock()).tap {
+        return new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up], Caches.default(), Schedulers.parallel(), tracerMock()).tap {
             start()
         }
     }
@@ -103,8 +103,8 @@ class TestingCommons {
 
     static List<Multistream> defaultMultistreams() {
         return [
-                multistreamWithoutUpstreams(Chain.ETHEREUM),
-                multistreamClassicWithoutUpstreams(Chain.ETHEREUM_CLASSIC)
+                multistreamWithoutUpstreams(Chain.ETHEREUM__MAINNET),
+                multistreamClassicWithoutUpstreams(Chain.ETHEREUM_CLASSIC__MAINNET)
         ]
     }
 

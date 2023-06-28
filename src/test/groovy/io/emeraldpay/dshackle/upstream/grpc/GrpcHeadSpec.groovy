@@ -39,7 +39,7 @@ class GrpcHeadSpec extends Specification {
         def client = mockServer.clientForServer(new BlockchainGrpc.BlockchainImplBase() {
             @Override
             void subscribeHead(Common.Chain request, StreamObserver<BlockchainOuterClass.ChainHead> responseObserver) {
-                if (request.type.number != Chain.BITCOIN.id) {
+                if (request.type.number != Chain.BITCOIN__MAINNET.id) {
                     responseObserver.onError(new IllegalStateException("Unsupported chain"))
                     return
                 }
@@ -64,7 +64,7 @@ class GrpcHeadSpec extends Specification {
         }
         def head = new GrpcHead(
                 "test",
-                Chain.BITCOIN,
+                Chain.BITCOIN__MAINNET,
                 Stub(DefaultUpstream),
                 client,
                 convert,
@@ -92,7 +92,7 @@ class GrpcHeadSpec extends Specification {
         def client = mockServer.clientForServer(new BlockchainGrpc.BlockchainImplBase() {
             @Override
             void subscribeHead(Common.Chain request, StreamObserver<BlockchainOuterClass.ChainHead> responseObserver) {
-                if (request.type.number != Chain.BITCOIN.id) {
+                if (request.type.number != Chain.BITCOIN__MAINNET.id) {
                     responseObserver.onError(new IllegalStateException("Unsupported chain"))
                     return
                 }
@@ -131,7 +131,7 @@ class GrpcHeadSpec extends Specification {
         }
         def head = new GrpcHead(
                 "test",
-                Chain.BITCOIN,
+                Chain.BITCOIN__MAINNET,
                 Stub(DefaultUpstream),
                 client,
                 convert,

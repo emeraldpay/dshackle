@@ -48,7 +48,7 @@ class BlocksRedisCacheSpec extends Specification {
         redis = IntegrationTestingCommons.redisConnection()
         redis.sync().flushdb()
         cache = new BlocksRedisCache(
-                redis.reactive(), Chain.ETHEREUM
+                redis.reactive(), Chain.ETHEREUM__MAINNET
         )
     }
 

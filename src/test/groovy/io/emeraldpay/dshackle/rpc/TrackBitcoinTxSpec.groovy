@@ -241,7 +241,7 @@ class TrackBitcoinTxSpec extends Specification {
 
         when:
         def steps = StepVerifier.withVirtualTime {
-            track.untilFound(Chain.BITCOIN, upstream, txid).take(1)
+            track.untilFound(Chain.BITCOIN__MAINNET, upstream, txid).take(1)
         }
 
         then:
@@ -282,7 +282,7 @@ class TrackBitcoinTxSpec extends Specification {
         }
 
         when:
-        def act = track.subscribe(Chain.BITCOIN, upstream, txid)
+        def act = track.subscribe(Chain.BITCOIN__MAINNET, upstream, txid)
 
         then:
         StepVerifier.create(act)

@@ -31,10 +31,10 @@ class ChainsConfigReaderSpec extends Specification {
         def stream = this.class.getClassLoader().getResourceAsStream("configs/chains-basic.yaml")
         when:
         def config = reader.read(stream)
-        def eth = config.resolve(Chain.ETHEREUM)
-        def pol = config.resolve(Chain.POLYGON)
-        def opt = config.resolve(Chain.OPTIMISM)
-        def sep = config.resolve(Chain.TESTNET_SEPOLIA)
+        def eth = config.resolve(Chain.ETHEREUM__MAINNET)
+        def pol = config.resolve(Chain.POLYGON_POS__MAINNET)
+        def opt = config.resolve(Chain.OPTIMISM__MAINNET)
+        def sep = config.resolve(Chain.ETHEREUM__SEPOLIA)
         then:
         eth.laggingLagSize == 1
         eth.syncingLagSize == 6

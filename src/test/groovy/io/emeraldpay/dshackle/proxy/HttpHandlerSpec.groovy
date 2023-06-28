@@ -44,7 +44,7 @@ class HttpHandlerSpec extends Specification {
                 .build()
         def respItem = new NativeCall.CallResult(1, null, "100".bytes, null, null, null, null)
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(reqItem)
                 .build()
 
@@ -62,7 +62,7 @@ class HttpHandlerSpec extends Specification {
         )
 
         when:
-        handler.execute(Chain.ETHEREUM, [reqItem], accessHandler)
+        handler.execute(Chain.ETHEREUM__MAINNET, [reqItem], accessHandler)
                 .blockLast()
 
         then:
@@ -79,7 +79,7 @@ class HttpHandlerSpec extends Specification {
             1 * increment()
         }
         ProxyServer.RequestMetricsFactory metrics = Mock(ProxyServer.RequestMetricsFactory) {
-            1 * get(Chain.ETHEREUM, "invalid_method") >> Mock(ProxyServer.RequestMetrics) {
+            1 * get(Chain.ETHEREUM__MAINNET, "invalid_method") >> Mock(ProxyServer.RequestMetrics) {
                 1 * it.errorMetric >> errorMetric
             }
         }
@@ -92,7 +92,7 @@ class HttpHandlerSpec extends Specification {
         )
         when:
 
-        def act = handler.processRequest(Chain.ETHEREUM, Mono.just("".bytes), new AccessHandlerHttp.NoOpHandler())
+        def act = handler.processRequest(Chain.ETHEREUM__MAINNET, Mono.just("".bytes), new AccessHandlerHttp.NoOpHandler())
                 .map { new String(it.array()) }
         then:
         StepVerifier.create(act)
@@ -125,7 +125,7 @@ class HttpHandlerSpec extends Specification {
                         .build()
         )
         when:
-        def act = handler.execute(Chain.ETHEREUM, call, new AccessHandlerHttp.NoOpHandler(), false)
+        def act = handler.execute(Chain.ETHEREUM__MAINNET, call, new AccessHandlerHttp.NoOpHandler(), false)
 
         then:
         1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, null, "".bytes, null, null, null, null))

@@ -39,7 +39,7 @@ class WebsocketHandlerSpec extends Specification {
                 new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
         when:
-        def act = handler.parseRequest('{"id": 5, "jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["0x100001", false]}'.bytes, Chain.ETHEREUM)
+        def act = handler.parseRequest('{"id": 5, "jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["0x100001", false]}'.bytes, Chain.ETHEREUM__MAINNET)
                 .block(Duration.ofSeconds(1))
 
         then:
@@ -54,7 +54,7 @@ class WebsocketHandlerSpec extends Specification {
             1 * increment()
         }
         ProxyServer.RequestMetricsFactory metrics = Mock(ProxyServer.RequestMetricsFactory) {
-            1 * get(Chain.ETHEREUM, "invalid_method") >> Mock(ProxyServer.RequestMetrics) {
+            1 * get(Chain.ETHEREUM__MAINNET, "invalid_method") >> Mock(ProxyServer.RequestMetrics) {
                 1 * it.errorMetric >> errorMetric
             }
         }
@@ -62,7 +62,7 @@ class WebsocketHandlerSpec extends Specification {
                 new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, metrics
         )
         when:
-        def act = handler.parseRequest('hello world'.bytes, Chain.ETHEREUM)
+        def act = handler.parseRequest('hello world'.bytes, Chain.ETHEREUM__MAINNET)
                 .block(Duration.ofSeconds(1))
 
         then:
@@ -76,7 +76,7 @@ class WebsocketHandlerSpec extends Specification {
                 new ReadRpcJson(), Stub(WriteRpcJson), Stub(NativeCall), Stub(NativeSubscribe), requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
         )
         when:
-        def act = handler.parseRequest("[$req1]".bytes, Chain.ETHEREUM)
+        def act = handler.parseRequest("[$req1]".bytes, Chain.ETHEREUM__MAINNET)
                 .block(Duration.ofSeconds(1))
 
         then:
@@ -96,7 +96,7 @@ class WebsocketHandlerSpec extends Specification {
 
         def request = new RequestJson("foo_test", [], 2)
         when:
-        def act = handler.respond(Chain.ETHEREUM, new HashMap<String, Sinks.One<Boolean>>(), Flux.just(request), requestHandler)
+        def act = handler.respond(Chain.ETHEREUM__MAINNET, new HashMap<String, Sinks.One<Boolean>>(), Flux.just(request), requestHandler)
                 .single()
                 .block(Duration.ofSeconds(1))
         then:
@@ -109,7 +109,7 @@ class WebsocketHandlerSpec extends Specification {
         def response2 = [foo: 2]
 
         def nativeSubscribe = Mock(NativeSubscribe) {
-            1 * it.subscribe(Chain.ETHEREUM, "foo_test", null, Selector.empty) >> Flux.fromIterable([response1, response2])
+            1 * it.subscribe(Chain.ETHEREUM__MAINNET, "foo_test", null, Selector.empty) >> Flux.fromIterable([response1, response2])
         }
         def handler = new WebsocketHandler(
                 new ReadRpcJson(), new WriteRpcJson(), Stub(NativeCall), nativeSubscribe, requestHandlerFactory, Stub(ProxyServer.RequestMetricsFactory)
@@ -117,7 +117,7 @@ class WebsocketHandlerSpec extends Specification {
 
         def request = new RequestJson("eth_subscribe", ["foo_test"], 2)
         when:
-        def act = handler.respond(Chain.ETHEREUM, new HashMap<String, Sinks.One<Boolean>>(), Flux.just(request), requestHandler)
+        def act = handler.respond(Chain.ETHEREUM__MAINNET, new HashMap<String, Sinks.One<Boolean>>(), Flux.just(request), requestHandler)
                 .collectList()
                 .block(Duration.ofSeconds(1))
         then:
@@ -139,7 +139,7 @@ class WebsocketHandlerSpec extends Specification {
         control["5"] = sink
         def request = new RequestJson("eth_unsubscribe", ["5"], 0)
         when:
-        def act = handler.respond(Chain.ETHEREUM, control, Flux.just(request), requestHandler)
+        def act = handler.respond(Chain.ETHEREUM__MAINNET, control, Flux.just(request), requestHandler)
                 .single()
                 .block(Duration.ofSeconds(1))
         def sinkResponse = sink.asMono().block()
@@ -158,7 +158,7 @@ class WebsocketHandlerSpec extends Specification {
         def control = new HashMap<String, Sinks.One<Boolean>>()
         def request = new RequestJson("eth_unsubscribe", ["5"], 0)
         when:
-        def act = handler.respond(Chain.ETHEREUM, control, Flux.just(request), requestHandler)
+        def act = handler.respond(Chain.ETHEREUM__MAINNET, control, Flux.just(request), requestHandler)
                 .single()
                 .block(Duration.ofSeconds(1))
         then:

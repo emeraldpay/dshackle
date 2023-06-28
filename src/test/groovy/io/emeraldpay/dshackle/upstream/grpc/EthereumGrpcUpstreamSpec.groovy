@@ -61,7 +61,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
     def "Subscribe to head"() {
         setup:
         def callData = [:]
-        def chain = Chain.ETHEREUM
+        def chain = Chain.ETHEREUM__MAINNET
         def api = TestingCommons.api()
         def block1 = new BlockJson().with {
             it.number = 650246
@@ -106,7 +106,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         new Thread({ Thread.sleep(50); upstream.head.start() }).start()
         def h = upstream.head.getFlux().next().block(Duration.ofSeconds(1))
         then:
-        callData.chain == Chain.ETHEREUM.id
+        callData.chain == Chain.ETHEREUM__MAINNET.id
         upstream.status == UpstreamAvailability.OK
         upstream.getBuildInfo() == buildInfo
         h.hash == BlockId.from("0x50d26e119968e791970d84a7bf5d0ec474d3ec2ef85d5ec8915210ac6bc09ad7")
@@ -162,7 +162,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
                 }).start()
             }
         })
-        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.parallel())
+        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, Chain.ETHEREUM__MAINNET, client, new JsonRpcGrpcClient(client, Chain.ETHEREUM__MAINNET, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.parallel())
         upstream.setLag(0)
         upstream.update(
                 BlockchainOuterClass.DescribeChain.newBuilder()
@@ -187,7 +187,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
         setup:
         def callData = [:]
         def finished = new CompletableFuture<Boolean>()
-        def chain = Chain.ETHEREUM
+        def chain = Chain.ETHEREUM__MAINNET
         def api = TestingCommons.api()
         def block1 = new BlockJson().with {
             it.number = 650246
@@ -258,7 +258,7 @@ class EthereumGrpcUpstreamSpec extends Specification {
 
     def "Send update status if methods were changed"() {
         setup:
-        def chain = Chain.ETHEREUM
+        def chain = Chain.ETHEREUM__MAINNET
         def client = mockServer.clientForServer(new BlockchainGrpc.BlockchainImplBase() {
             @Override
             void nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {

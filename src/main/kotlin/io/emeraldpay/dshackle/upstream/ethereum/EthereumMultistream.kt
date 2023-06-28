@@ -66,19 +66,19 @@ open class EthereumMultistream(
     private var subscribe = EthereumEgressSubscription(this, headScheduler, NoPendingTxes())
 
     private val supportsEIP1559set = setOf(
-        Chain.ETHEREUM, Chain.TESTNET_ROPSTEN,
-        Chain.TESTNET_GOERLI,
-        Chain.TESTNET_RINKEBY,
-        Chain.TESTNET_SEPOLIA,
-        Chain.ARBITRUM,
-        Chain.OPTIMISM,
-        Chain.TESTNET_ARBITRUM,
-        Chain.TESTNET_OPTIMISM,
-        Chain.POLYGON_ZKEVM,
-        Chain.TESTNET_POLYGON_ZKEVM,
-        Chain.ZKSYNC,
-        Chain.TESTNET_ZKSYNC,
-        Chain.ARBITRUM_NOVA
+        Chain.ETHEREUM__MAINNET, Chain.ETHEREUM__ROPSTEN,
+        Chain.ETHEREUM__GOERLI,
+        Chain.ETHEREUM__RINKEBY,
+        Chain.ETHEREUM__SEPOLIA,
+        Chain.ARBITRUM__MAINNET,
+        Chain.OPTIMISM__MAINNET,
+        Chain.ARBITRUM__GOERLI,
+        Chain.OPTIMISM__GOERLI,
+        Chain.POLYGON_ZKEVM__MAINNET,
+        Chain.POLYGON_ZKEVM__TESTNET,
+        Chain.ZKSYNC__MAINNET,
+        Chain.ZKSYNC__TESTNET,
+        Chain.ARBITRUM_NOVA__MAINNET
     )
 
     private val supportsEIP1559 = supportsEIP1559set.contains(chain)

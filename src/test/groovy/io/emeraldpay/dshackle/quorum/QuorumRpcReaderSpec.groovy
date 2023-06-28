@@ -45,7 +45,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
@@ -76,7 +76,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getIngressReader() >> api
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
@@ -113,7 +113,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getIngressReader() >> api
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
@@ -145,7 +145,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
@@ -177,7 +177,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
@@ -210,7 +210,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getIngressReader() >> api
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
@@ -240,7 +240,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getIngressReader() >> api
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
@@ -273,7 +273,7 @@ class QuorumRpcReaderSpec extends Specification {
             }
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new NotLaggingQuorum(1), Stub(Tracer))
@@ -299,7 +299,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getIngressReader() >> api
         }
         def apis = new FilteredApis(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))

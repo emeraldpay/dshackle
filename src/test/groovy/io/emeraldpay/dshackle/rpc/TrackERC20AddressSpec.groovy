@@ -30,12 +30,12 @@ class TrackERC20AddressSpec extends Specification {
     def "Init with single token"() {
         setup:
         MultistreamHolder ups = Mock(MultistreamHolder) {
-            _ * isAvailable(Chain.ETHEREUM) >> true
+            _ * isAvailable(Chain.ETHEREUM__MAINNET) >> true
         }
         TokensConfig tokens = new TokensConfig([
                 new TokensConfig.Token().tap {
                     id = "dai"
-                    blockchain = Chain.ETHEREUM
+                    blockchain = Chain.ETHEREUM__MAINNET
                     name = "DAI"
                     type = TokensConfig.Type.ERC20
                     address = Address.from("0x6B175474E89094C44Da98b954EedeAC495271d0F")
@@ -45,17 +45,17 @@ class TrackERC20AddressSpec extends Specification {
         when:
         track.init()
         def act = track.tokens
-        def supportDai = track.isSupported(Chain.ETHEREUM, "DAI")
-        def supportSai = track.isSupported(Chain.ETHEREUM, "SAI")
+        def supportDai = track.isSupported(Chain.ETHEREUM__MAINNET, "DAI")
+        def supportSai = track.isSupported(Chain.ETHEREUM__MAINNET, "SAI")
 
         then:
         act.size() == 1
         with(act.keySet().first()) {
-            chain == Chain.ETHEREUM
+            chain == Chain.ETHEREUM__MAINNET
             name == "dai"
         }
         with(act.values().first()) {
-            chain == Chain.ETHEREUM
+            chain == Chain.ETHEREUM__MAINNET
             name == "dai"
             token != null
         }
@@ -66,7 +66,7 @@ class TrackERC20AddressSpec extends Specification {
     def "Init without tokens"() {
         setup:
         MultistreamHolder ups = Mock(MultistreamHolder) {
-            _ * isAvailable(Chain.ETHEREUM) >> true
+            _ * isAvailable(Chain.ETHEREUM__MAINNET) >> true
         }
 
         TokensConfig tokens = new TokensConfig([])
@@ -74,8 +74,8 @@ class TrackERC20AddressSpec extends Specification {
         when:
         track.init()
         def act = track.tokens
-        def supportDai = track.isSupported(Chain.ETHEREUM, "dai")
-        def supportSai = track.isSupported(Chain.ETHEREUM, "sai")
+        def supportDai = track.isSupported(Chain.ETHEREUM__MAINNET, "dai")
+        def supportSai = track.isSupported(Chain.ETHEREUM__MAINNET, "sai")
 
         then:
         act.size() == 0
@@ -86,20 +86,20 @@ class TrackERC20AddressSpec extends Specification {
     def "Init with two tokens"() {
         setup:
         MultistreamHolder ups = Mock(MultistreamHolder) {
-            _ * isAvailable(Chain.ETHEREUM) >> true
+            _ * isAvailable(Chain.ETHEREUM__MAINNET) >> true
         }
 
         TokensConfig tokens = new TokensConfig([
                 new TokensConfig.Token().tap {
                     id = "dai"
-                    blockchain = Chain.ETHEREUM
+                    blockchain = Chain.ETHEREUM__MAINNET
                     name = "DAI"
                     type = TokensConfig.Type.ERC20
                     address = Address.from("0x6B175474E89094C44Da98b954EedeAC495271d0F")
                 },
                 new TokensConfig.Token().tap {
                     id = "sai"
-                    blockchain = Chain.ETHEREUM
+                    blockchain = Chain.ETHEREUM__MAINNET
                     name = "SAI"
                     type = TokensConfig.Type.ERC20
                     address = Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")
@@ -109,17 +109,17 @@ class TrackERC20AddressSpec extends Specification {
         when:
         track.init()
         def act = track.tokens
-        def supportDai = track.isSupported(Chain.ETHEREUM, "dai")
-        def supportSai = track.isSupported(Chain.ETHEREUM, "sai")
+        def supportDai = track.isSupported(Chain.ETHEREUM__MAINNET, "dai")
+        def supportSai = track.isSupported(Chain.ETHEREUM__MAINNET, "sai")
 
         then:
         act.size() == 2
         with(act[act.keySet().find { it.name == "dai" }]) {
-            chain == Chain.ETHEREUM
+            chain == Chain.ETHEREUM__MAINNET
             name == "dai"
         }
         with(act[act.keySet().find { it.name == "sai" }]) {
-            chain == Chain.ETHEREUM
+            chain == Chain.ETHEREUM__MAINNET
             name == "sai"
         }
         supportDai
@@ -130,7 +130,7 @@ class TrackERC20AddressSpec extends Specification {
         setup:
         TrackERC20Address track = new TrackERC20Address(Stub(MultistreamHolder), new TokensConfig([]))
         TrackERC20Address.TrackedAddress address = new TrackERC20Address.TrackedAddress(
-                Chain.ETHEREUM,
+                Chain.ETHEREUM__MAINNET,
                 Address.from("0x16c15c65ad00b6dfbcc2cb8a7b6c2d0103a3883b"),
                 new ERC20Token(Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")),
                 "test",
@@ -142,7 +142,7 @@ class TrackERC20AddressSpec extends Specification {
         act == BlockchainOuterClass.AddressBalance.newBuilder()
                 .setAddress(Common.SingleAddress.newBuilder().setAddress("0x16c15c65ad00b6dfbcc2cb8a7b6c2d0103a3883b"))
                 .setAsset(Common.Asset.newBuilder()
-                        .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                        .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                         .setCode("TEST")
                 )
                 .setBalance("1234")
@@ -194,12 +194,12 @@ class TrackERC20AddressSpec extends Specification {
             }
         }
         def mup = Mock(MultistreamHolder) {
-            _ * getUpstream(Chain.ETHEREUM) >> up
+            _ * getUpstream(Chain.ETHEREUM__MAINNET) >> up
         }
         TokensConfig tokens = new TokensConfig([
                 new TokensConfig.Token().tap {
                     id = "test"
-                    blockchain = Chain.ETHEREUM
+                    blockchain = Chain.ETHEREUM__MAINNET
                     name = "TEST"
                     type = TokensConfig.Type.ERC20
                     address = Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")
@@ -220,7 +220,7 @@ class TrackERC20AddressSpec extends Specification {
                 )
                 .setAsset(
                         Common.Asset.newBuilder()
-                                .setChain(Common.ChainRef.CHAIN_ETHEREUM)
+                                .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                                 .setCode("TEST")
                 )
                 .build()

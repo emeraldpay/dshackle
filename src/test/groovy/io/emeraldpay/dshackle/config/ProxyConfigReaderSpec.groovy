@@ -36,7 +36,7 @@ class ProxyConfigReaderSpec extends Specification {
         act.routes.size() == 1
         with(act.routes[0]) {
             id == "ethereum"
-            blockchain == Chain.ETHEREUM
+            blockchain == Chain.ETHEREUM__MAINNET
         }
     }
 
@@ -63,11 +63,11 @@ class ProxyConfigReaderSpec extends Specification {
         act.routes.size() == 2
         with(act.routes[0]) {
             id == "ethereum"
-            blockchain == Chain.ETHEREUM
+            blockchain == Chain.ETHEREUM__MAINNET
         }
         with(act.routes[1]) {
             id == "classic"
-            blockchain == Chain.ETHEREUM_CLASSIC
+            blockchain == Chain.ETHEREUM_CLASSIC__MAINNET
         }
     }
 
@@ -87,11 +87,11 @@ class ProxyConfigReaderSpec extends Specification {
         act.corsAllowedHeaders == "Content-Type"
         with(act.routes[0]) {
             id == "ethereum"
-            blockchain == Chain.ETHEREUM
+            blockchain == Chain.ETHEREUM__MAINNET
         }
         with(act.routes[1]) {
             id == "classic"
-            blockchain == Chain.ETHEREUM_CLASSIC
+            blockchain == Chain.ETHEREUM_CLASSIC__MAINNET
         }
     }
 }

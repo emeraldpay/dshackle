@@ -33,14 +33,14 @@ class TokensConfigReaderSpec extends Specification {
         act.tokens.size() == 2
         with(act.tokens[0]) {
             id == "dai"
-            blockchain == Chain.ETHEREUM
+            blockchain == Chain.ETHEREUM__MAINNET
             name == "DAI"
             type == TokensConfig.Type.ERC20
             address == "0x6B175474E89094C44Da98b954EedeAC495271d0F"
         }
         with(act.tokens[1]) {
             id == "tether"
-            blockchain == Chain.ETHEREUM
+            blockchain == Chain.ETHEREUM__MAINNET
             name == "Tether"
             type == TokensConfig.Type.ERC20
             address == "0xdac17f958d2ee523a2206206994597c13d831ec7"

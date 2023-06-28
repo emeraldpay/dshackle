@@ -37,7 +37,7 @@ class EventsBuilderSubscribeBalanceSpec extends Specification {
         }.onReply(resp)
         then:
         act.index == 0
-        act.blockchain == Chain.ETHEREUM
+        act.blockchain == Chain.ETHEREUM__MAINNET
         act.balanceRequest.asset == "ETHER"
         act.balanceRequest.addressType == "ADDRESS_SINGLE"
         act.addressBalance.asset == "ETHER"
@@ -74,7 +74,7 @@ class EventsBuilderSubscribeBalanceSpec extends Specification {
         }.onReply(resp)
         then:
         act.index == 0
-        act.blockchain == Chain.BITCOIN
+        act.blockchain == Chain.BITCOIN__MAINNET
         act.balanceRequest.asset == "BTC"
         act.balanceRequest.addressType == "ADDRESS_SINGLE"
         act.addressBalance.asset == "BTC"

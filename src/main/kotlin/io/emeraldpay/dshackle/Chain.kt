@@ -17,70 +17,70 @@ package io.emeraldpay.dshackle
 
 enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
     UNSPECIFIED(0, "UNSPECIFIED", "Unknown"),
-    BITCOIN(1, "BTC", "Bitcoin"), // GRIN(2, "GRIN", "Grin"),
+    BITCOIN__MAINNET(1, "BTC", "Bitcoin"), // GRIN(2, "GRIN", "Grin"),
 
     // Networks with tokens
-    ETHEREUM(100, "ETH", "Ethereum"),
-    ETHEREUM_CLASSIC(101, "ETC", "Ethereum Classic"),
-    FANTOM(
+    ETHEREUM__MAINNET(100, "ETH", "Ethereum"),
+    ETHEREUM_CLASSIC__MAINNET(101, "ETC", "Ethereum Classic"),
+    FANTOM__MAINNET(
         102,
         "FTM",
         "Fantom"
     ), // LIGHTNING(1001, "BTC_LN", "Bitcoin Lightning"),
-    POLYGON(1002, "POLYGON", "Polygon Matic"),
-    RSK(1003, "RSK", "Bitcoin RSK"),
-    ARBITRUM(
+    POLYGON_POS__MAINNET(1002, "POLYGON", "Polygon Matic"),
+    RSK__MAINNET(1003, "RSK", "Bitcoin RSK"),
+    ARBITRUM__MAINNET(
         1004,
         "ARBITRUM",
         "Arbitrum"
     ),
-    OPTIMISM(1005, "OPTIMISM", "Optimism"),
-    BSC(1006, "BSC", "Binance Smart Chain"),
-    POLYGON_ZKEVM(
+    OPTIMISM__MAINNET(1005, "OPTIMISM", "Optimism"),
+    BSC__MAINNET(1006, "BSC", "Binance Smart Chain"),
+    POLYGON_ZKEVM__MAINNET(
         1007,
         "POLYGON_ZKEVM",
         "Polygon ZK-EVM"
     ),
-    ARBITRUM_NOVA(
+    ARBITRUM_NOVA__MAINNET(
         1008,
         "ARBITRUM_NOVA",
         "Arbitrum Nova"
     ),
-    ZKSYNC(1009, "ZKSYNC", "ZkSync Era"),
+    ZKSYNC__MAINNET(1009, "ZKSYNC", "ZkSync Era"),
 
     // Testnets
-    TESTNET_MORDEN(10001, "MORDEN", "Morden Testnet"),
-    TESTNET_KOVAN(10002, "KOVAN", "Kovan Testnet"),
-    TESTNET_BITCOIN(
+    ETHEREUM__MORDEN(10001, "MORDEN", "Morden Testnet"),
+    ETHEREUM__KOVAN(10002, "KOVAN", "Kovan Testnet"),
+    BITCOIN__TESTNET(
         10003,
         "TESTNET_BITCOIN",
         "Bitcoin Testnet"
     ), // TESTNET_FLOONET(10004, "FLOONET", "Floonet Testnet"),
-    TESTNET_GOERLI(10005, "GOERLI", "Goerli Testnet"),
-    TESTNET_ROPSTEN(
+    ETHEREUM__GOERLI(10005, "GOERLI", "Goerli Testnet"),
+    ETHEREUM__ROPSTEN(
         10006,
         "ROPSTEN",
         "Ropsten Testnet"
     ),
-    TESTNET_RINKEBY(10007, "RINKEBY", "Rinkeby Testnet"),
-    TESTNET_SEPOLIA(10008, "SEPOLIA", "Sepolia Testnet"),
-    TESTNET_ARBITRUM(
+    ETHEREUM__RINKEBY(10007, "RINKEBY", "Rinkeby Testnet"),
+    ETHEREUM__SEPOLIA(10008, "SEPOLIA", "Sepolia Testnet"),
+    ARBITRUM__GOERLI(
         10009,
         "ARBITRUM_TESTNET",
         "Arbitrum Testnet"
     ),
-    TESTNET_OPTIMISM(10010, "OPTIMISM_TESTNET", "Optimism Testnet"),
-    TESTNET_POLYGON_ZKEVM(
+    OPTIMISM__GOERLI(10010, "OPTIMISM_TESTNET", "Optimism Testnet"),
+    POLYGON_ZKEVM__TESTNET(
         10011,
         "POLYGON_ZKEVM_TESTNET",
         "Polygon ZK-EVM Testnet"
     ),
-    TESTNET_ZKSYNC(
+    ZKSYNC__TESTNET(
         10012,
         "ZKS_TESTNET",
         "ZkSync Testnet"
     ),
-    TESTNET_POYGON_POS_MUMBAI(
+    POYGON_POS__MUMBAI(
         10013,
         "POLYGON_POS_MUMBAI",
         "Polygon POS Mumbai Testnet"

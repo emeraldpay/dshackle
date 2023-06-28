@@ -27,62 +27,62 @@ class CurrentMultistreamHolderSpec extends Specification {
     def "add upstream"() {
         setup:
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
-        def up = new EthereumPosRpcUpstreamMock("test", Chain.ETHEREUM, TestingCommons.api())
+        def up = new EthereumPosRpcUpstreamMock("test", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
-        current.getUpstream(Chain.ETHEREUM).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM, up, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up, UpstreamChangeEvent.ChangeType.ADDED))
         then:
-        current.getAvailable() == [Chain.ETHEREUM]
-        current.getUpstream(Chain.ETHEREUM).getAll()[0] == up
+        current.getAvailable() == [Chain.ETHEREUM__MAINNET]
+        current.getUpstream(Chain.ETHEREUM__MAINNET).getAll()[0] == up
     }
 
     def "add multiple upstreams"() {
         setup:
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api())
-        def up2 = new EthereumRpcUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api())
-        def up3 = new EthereumPosRpcUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api())
+        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up2 = new EthereumRpcUpstreamMock("test2", Chain.ETHEREUM_CLASSIC__MAINNET, TestingCommons.api())
+        def up3 = new EthereumPosRpcUpstreamMock("test3", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
-        current.getUpstream(Chain.ETHEREUM).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM, up1, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM_CLASSIC).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC, up2, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM, up3, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM_CLASSIC).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM, up3, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
         then:
-        current.getAvailable().toSet() == [Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC].toSet()
-        current.getUpstream(Chain.ETHEREUM).getAll().toSet() == [up1, up3].toSet()
-        current.getUpstream(Chain.ETHEREUM_CLASSIC).getAll().toSet() == [up2].toSet()
+        current.getAvailable().toSet() == [Chain.ETHEREUM__MAINNET, Chain.ETHEREUM_CLASSIC__MAINNET].toSet()
+        current.getUpstream(Chain.ETHEREUM__MAINNET).getAll().toSet() == [up1, up3].toSet()
+        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).getAll().toSet() == [up2].toSet()
     }
 
     def "remove upstream"() {
         setup:
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api())
-        def up2 = new EthereumRpcUpstreamMock("test2", Chain.ETHEREUM_CLASSIC, TestingCommons.api())
-        def up3 = new EthereumPosRpcUpstreamMock("test3", Chain.ETHEREUM, TestingCommons.api())
-        def up1_del = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api())
+        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up2 = new EthereumRpcUpstreamMock("test2", Chain.ETHEREUM_CLASSIC__MAINNET, TestingCommons.api())
+        def up3 = new EthereumPosRpcUpstreamMock("test3", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up1_del = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
-        current.getUpstream(Chain.ETHEREUM).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM, up1, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM_CLASSIC).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC, up2, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM, up3, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM, up1_del, UpstreamChangeEvent.ChangeType.REMOVED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1_del, UpstreamChangeEvent.ChangeType.REMOVED))
         then:
-        current.getAvailable().toSet() == [Chain.ETHEREUM, Chain.ETHEREUM_CLASSIC].toSet()
-        current.getUpstream(Chain.ETHEREUM).getAll().toSet() == [up3].toSet()
-        current.getUpstream(Chain.ETHEREUM_CLASSIC).getAll().toSet() == [up2].toSet()
+        current.getAvailable().toSet() == [Chain.ETHEREUM__MAINNET, Chain.ETHEREUM_CLASSIC__MAINNET].toSet()
+        current.getUpstream(Chain.ETHEREUM__MAINNET).getAll().toSet() == [up3].toSet()
+        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).getAll().toSet() == [up2].toSet()
     }
 
     def "available after adding"() {
         setup:
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM, TestingCommons.api())
+        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
 
         when:
-        def act = current.isAvailable(Chain.ETHEREUM)
+        def act = current.isAvailable(Chain.ETHEREUM__MAINNET)
         then:
         !act
 
         when:
-        current.getUpstream(Chain.ETHEREUM).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM, up1, UpstreamChangeEvent.ChangeType.ADDED))
-        act = current.isAvailable(Chain.ETHEREUM)
+        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
+        act = current.isAvailable(Chain.ETHEREUM__MAINNET)
 
         then:
         act

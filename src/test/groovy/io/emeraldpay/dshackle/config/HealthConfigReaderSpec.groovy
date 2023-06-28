@@ -50,7 +50,7 @@ class HealthConfigReaderSpec extends Specification {
         with(act.configs()) {
             size() == 1
             with(it[0]) {
-                it.blockchain == Chain.ETHEREUM
+                it.blockchain == Chain.ETHEREUM__MAINNET
                 it.minAvailable == 2
             }
         }
@@ -70,11 +70,11 @@ class HealthConfigReaderSpec extends Specification {
         with(act.configs().toSorted { it.blockchain.id }) {
             size() == 2
             with(it[0]) {
-                it.blockchain == Chain.BITCOIN
+                it.blockchain == Chain.BITCOIN__MAINNET
                 it.minAvailable == 1
             }
             with(it[1]) {
-                it.blockchain == Chain.ETHEREUM
+                it.blockchain == Chain.ETHEREUM__MAINNET
                 it.minAvailable == 2
             }
         }

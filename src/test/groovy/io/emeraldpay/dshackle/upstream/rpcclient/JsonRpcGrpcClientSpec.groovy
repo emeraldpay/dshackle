@@ -34,7 +34,7 @@ class JsonRpcGrpcClientSpec extends Specification {
             }
         })
         def client = new JsonRpcGrpcClient(
-                grpc, Chain.BITCOIN, null
+                grpc, Chain.BITCOIN__MAINNET, null
         ).getReader()
 
         when:
@@ -47,7 +47,7 @@ class JsonRpcGrpcClientSpec extends Specification {
         act.resultAsProcessedString == "hello world!"
 
         requested.get() == BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChain(Common.ChainRef.CHAIN_BITCOIN)
+                .setChain(Common.ChainRef.CHAIN_BITCOIN__MAINNET)
                 .addAllItems([
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
@@ -68,7 +68,7 @@ class JsonRpcGrpcClientSpec extends Specification {
             }
         })
         def client = new JsonRpcGrpcClient(
-                grpc, Chain.BITCOIN, null
+                grpc, Chain.BITCOIN__MAINNET, null
         ).getReader()
 
         when:

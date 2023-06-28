@@ -172,10 +172,10 @@ class DefaultEthereumMethods(
 
     private fun getChainSpecificMethods(chain: Chain): List<String> {
         return when (chain) {
-            Chain.OPTIMISM, Chain.TESTNET_OPTIMISM -> listOf(
+            Chain.OPTIMISM__MAINNET, Chain.OPTIMISM__GOERLI -> listOf(
                 "rollup_gasPrices"
             )
-            Chain.POLYGON, Chain.TESTNET_POYGON_POS_MUMBAI -> listOf(
+            Chain.POLYGON_POS__MAINNET, Chain.POYGON_POS__MUMBAI -> listOf(
                 "bor_getAuthor",
                 "bor_getCurrentValidators",
                 "bor_getCurrentProposer",
@@ -183,7 +183,7 @@ class DefaultEthereumMethods(
                 "bor_getSignersAtHash",
                 "eth_getRootHash"
             )
-            Chain.POLYGON_ZKEVM, Chain.TESTNET_POLYGON_ZKEVM -> listOf(
+            Chain.POLYGON_ZKEVM__MAINNET, Chain.POLYGON_ZKEVM__TESTNET -> listOf(
                 "zkevm_consolidatedBlockNumber",
                 "zkevm_isBlockConsolidated",
                 "zkevm_isBlockVirtualized",
@@ -194,7 +194,7 @@ class DefaultEthereumMethods(
                 "zkevm_getBatchByNumber",
                 "zkevm_getBroadcastURI"
             )
-            Chain.ZKSYNC, Chain.TESTNET_ZKSYNC -> listOf(
+            Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__TESTNET -> listOf(
                 "zks_estimateFee",
                 "zks_estimateGasL1ToL2",
                 "zks_getAllAccountBalances",
@@ -219,7 +219,7 @@ class DefaultEthereumMethods(
     }
 
     private fun chainUnsupportedMethods(chain: Chain): Set<String> {
-        if (chain == Chain.OPTIMISM) {
+        if (chain == Chain.OPTIMISM__MAINNET) {
             return setOf("eth_getAccounts")
         }
         return emptySet()
@@ -239,79 +239,79 @@ class DefaultEthereumMethods(
         val json = when (method) {
             "net_version" -> {
                 when {
-                    Chain.ETHEREUM == chain -> {
+                    Chain.ETHEREUM__MAINNET == chain -> {
                         "\"1\""
                     }
 
-                    Chain.ETHEREUM_CLASSIC == chain -> {
+                    Chain.ETHEREUM_CLASSIC__MAINNET == chain -> {
                         "\"1\""
                     }
 
-                    Chain.POLYGON == chain -> {
+                    Chain.POLYGON_POS__MAINNET == chain -> {
                         "\"137\""
                     }
 
-                    Chain.TESTNET_MORDEN == chain -> {
+                    Chain.ETHEREUM__MORDEN == chain -> {
                         "\"2\""
                     }
 
-                    Chain.TESTNET_ROPSTEN == chain -> {
+                    Chain.ETHEREUM__ROPSTEN == chain -> {
                         "\"3\""
                     }
 
-                    Chain.TESTNET_RINKEBY == chain -> {
+                    Chain.ETHEREUM__RINKEBY == chain -> {
                         "\"4\""
                     }
 
-                    Chain.TESTNET_KOVAN == chain -> {
+                    Chain.ETHEREUM__KOVAN == chain -> {
                         "\"42\""
                     }
 
-                    Chain.TESTNET_GOERLI == chain -> {
+                    Chain.ETHEREUM__GOERLI == chain -> {
                         "\"5\""
                     }
 
-                    Chain.TESTNET_SEPOLIA == chain -> {
+                    Chain.ETHEREUM__SEPOLIA == chain -> {
                         "\"11155111\""
                     }
 
-                    Chain.ARBITRUM == chain -> {
+                    Chain.ARBITRUM__MAINNET == chain -> {
                         "\"42161\""
                     }
 
-                    Chain.OPTIMISM == chain -> {
+                    Chain.OPTIMISM__MAINNET == chain -> {
                         "\"10\""
                     }
 
-                    Chain.TESTNET_ARBITRUM == chain -> {
+                    Chain.ARBITRUM__GOERLI == chain -> {
                         "\"421613\""
                     }
 
-                    Chain.TESTNET_OPTIMISM == chain -> {
+                    Chain.OPTIMISM__GOERLI == chain -> {
                         "\"420\""
                     }
 
-                    Chain.ARBITRUM_NOVA == chain -> {
+                    Chain.ARBITRUM_NOVA__MAINNET == chain -> {
                         "\"42170\""
                     }
 
-                    Chain.POLYGON_ZKEVM == chain -> {
+                    Chain.POLYGON_ZKEVM__MAINNET == chain -> {
                         "\"1101\""
                     }
 
-                    Chain.TESTNET_POLYGON_ZKEVM == chain -> {
+                    Chain.POLYGON_ZKEVM__TESTNET == chain -> {
                         "\"1442\""
                     }
 
-                    Chain.ZKSYNC == chain -> {
+                    Chain.ZKSYNC__MAINNET == chain -> {
                         "\"324\""
                     }
 
-                    Chain.TESTNET_ZKSYNC == chain -> {
+                    Chain.ZKSYNC__TESTNET == chain -> {
                         "\"280\""
                     }
 
-                    Chain.TESTNET_POYGON_POS_MUMBAI == chain -> {
+                    Chain.POYGON_POS__MUMBAI == chain -> {
                         "\"80001\""
                     }
 
@@ -321,79 +321,79 @@ class DefaultEthereumMethods(
 
             "eth_chainId" -> {
                 when {
-                    Chain.ETHEREUM == chain -> {
+                    Chain.ETHEREUM__MAINNET == chain -> {
                         "\"0x1\""
                     }
 
-                    Chain.POLYGON == chain -> {
+                    Chain.POLYGON_POS__MAINNET == chain -> {
                         "\"0x89\""
                     }
 
-                    Chain.TESTNET_ROPSTEN == chain -> {
+                    Chain.ETHEREUM__ROPSTEN == chain -> {
                         "\"0x3\""
                     }
 
-                    Chain.TESTNET_RINKEBY == chain -> {
+                    Chain.ETHEREUM__RINKEBY == chain -> {
                         "\"0x4\""
                     }
 
-                    Chain.ETHEREUM_CLASSIC == chain -> {
+                    Chain.ETHEREUM_CLASSIC__MAINNET == chain -> {
                         "\"0x3d\""
                     }
 
-                    Chain.TESTNET_MORDEN == chain -> {
+                    Chain.ETHEREUM__MORDEN == chain -> {
                         "\"0x3c\""
                     }
 
-                    Chain.TESTNET_KOVAN == chain -> {
+                    Chain.ETHEREUM__KOVAN == chain -> {
                         "\"0x2a\""
                     }
 
-                    Chain.TESTNET_GOERLI == chain -> {
+                    Chain.ETHEREUM__GOERLI == chain -> {
                         "\"0x5\""
                     }
 
-                    Chain.TESTNET_SEPOLIA == chain -> {
+                    Chain.ETHEREUM__SEPOLIA == chain -> {
                         "\"0xaa36a7\""
                     }
 
-                    Chain.ARBITRUM == chain -> {
+                    Chain.ARBITRUM__MAINNET == chain -> {
                         "\"0xa4b1\""
                     }
 
-                    Chain.OPTIMISM == chain -> {
+                    Chain.OPTIMISM__MAINNET == chain -> {
                         "\"0xa\""
                     }
 
-                    Chain.TESTNET_ARBITRUM == chain -> {
+                    Chain.ARBITRUM__GOERLI == chain -> {
                         "\"0x66eed\""
                     }
 
-                    Chain.TESTNET_OPTIMISM == chain -> {
+                    Chain.OPTIMISM__GOERLI == chain -> {
                         "\"0x1A4\""
                     }
 
-                    Chain.ARBITRUM_NOVA == chain -> {
+                    Chain.ARBITRUM_NOVA__MAINNET == chain -> {
                         "\"0xa4ba\""
                     }
 
-                    Chain.POLYGON_ZKEVM == chain -> {
+                    Chain.POLYGON_ZKEVM__MAINNET == chain -> {
                         "\"0x44d\""
                     }
 
-                    Chain.TESTNET_POLYGON_ZKEVM == chain -> {
+                    Chain.POLYGON_ZKEVM__TESTNET == chain -> {
                         "\"0x5a2\""
                     }
 
-                    Chain.ZKSYNC == chain -> {
+                    Chain.ZKSYNC__MAINNET == chain -> {
                         "\"0x144\""
                     }
 
-                    Chain.TESTNET_ZKSYNC == chain -> {
+                    Chain.ZKSYNC__TESTNET == chain -> {
                         "\"0x118\""
                     }
 
-                    Chain.TESTNET_POYGON_POS_MUMBAI == chain -> {
+                    Chain.POYGON_POS__MUMBAI == chain -> {
                         "\"0x13881\""
                     }
 

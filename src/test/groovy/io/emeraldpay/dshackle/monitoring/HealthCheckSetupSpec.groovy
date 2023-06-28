@@ -20,7 +20,6 @@ import io.emeraldpay.dshackle.config.HealthConfig
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import spock.lang.Specification
 
 class HealthCheckSetupSpec extends Specification {
@@ -28,8 +27,8 @@ class HealthCheckSetupSpec extends Specification {
     def "OK when meets availability - 1"() {
         setup:
         def config = new HealthConfig().tap {
-            it.chains[Chain.ETHEREUM] = new HealthConfig.ChainConfig(
-                    Chain.ETHEREUM, 1
+            it.chains[Chain.ETHEREUM__MAINNET] = new HealthConfig.ChainConfig(
+                    Chain.ETHEREUM__MAINNET, 1
             )
         }
         def up1 = Mock(Upstream)
@@ -43,7 +42,7 @@ class HealthCheckSetupSpec extends Specification {
         then:
         act.ok
         act.details == ["OK"]
-        1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
+        1 * multistream.getUpstream(Chain.ETHEREUM__MAINNET) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1]
         1 * up1.isAvailable() >> true
@@ -52,8 +51,8 @@ class HealthCheckSetupSpec extends Specification {
     def "OK when meets availability - 1 - bitcoin"() {
         setup:
         def config = new HealthConfig().tap {
-            it.chains[Chain.BITCOIN] = new HealthConfig.ChainConfig(
-                    Chain.BITCOIN, 1
+            it.chains[Chain.BITCOIN__MAINNET] = new HealthConfig.ChainConfig(
+                    Chain.BITCOIN__MAINNET, 1
             )
         }
         def up1 = Mock(Upstream)
@@ -67,7 +66,7 @@ class HealthCheckSetupSpec extends Specification {
         then:
         act.ok
         act.details == ["OK"]
-        1 * multistream.getUpstream(Chain.BITCOIN) >> bitcoinUpstreams
+        1 * multistream.getUpstream(Chain.BITCOIN__MAINNET) >> bitcoinUpstreams
         1 * bitcoinUpstreams.available >> true
         1 * bitcoinUpstreams.getAll() >> [up1]
         1 * up1.isAvailable() >> true
@@ -76,8 +75,8 @@ class HealthCheckSetupSpec extends Specification {
     def "OK when meets availability - 2/3"() {
         setup:
         def config = new HealthConfig().tap {
-            it.chains[Chain.ETHEREUM] = new HealthConfig.ChainConfig(
-                    Chain.ETHEREUM, 2
+            it.chains[Chain.ETHEREUM__MAINNET] = new HealthConfig.ChainConfig(
+                    Chain.ETHEREUM__MAINNET, 2
             )
         }
         def up1 = Mock(Upstream)
@@ -93,7 +92,7 @@ class HealthCheckSetupSpec extends Specification {
         then:
         act.ok
         act.details == ["OK"]
-        1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
+        1 * multistream.getUpstream(Chain.ETHEREUM__MAINNET) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
         1 * up1.isAvailable() >> true
@@ -104,8 +103,8 @@ class HealthCheckSetupSpec extends Specification {
     def "OK when doesn't meet availability - 2/3"() {
         setup:
         def config = new HealthConfig().tap {
-            it.chains[Chain.ETHEREUM] = new HealthConfig.ChainConfig(
-                    Chain.ETHEREUM, 2
+            it.chains[Chain.ETHEREUM__MAINNET] = new HealthConfig.ChainConfig(
+                    Chain.ETHEREUM__MAINNET, 2
             )
         }
         def up1 = Mock(Upstream)
@@ -121,7 +120,7 @@ class HealthCheckSetupSpec extends Specification {
         then:
         !act.ok
         act.details != ["OK"]
-        1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
+        1 * multistream.getUpstream(Chain.ETHEREUM__MAINNET) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
         1 * up1.isAvailable() >> true
@@ -132,8 +131,8 @@ class HealthCheckSetupSpec extends Specification {
     def "OK when meets availability - 2/3 - detailed"() {
         setup:
         def config = new HealthConfig().tap {
-            it.chains[Chain.ETHEREUM] = new HealthConfig.ChainConfig(
-                    Chain.ETHEREUM, 2
+            it.chains[Chain.ETHEREUM__MAINNET] = new HealthConfig.ChainConfig(
+                    Chain.ETHEREUM__MAINNET, 2
             )
         }
         def up1 = Mock(Upstream)
@@ -149,8 +148,8 @@ class HealthCheckSetupSpec extends Specification {
         then:
         act.ok
         act.details.size() > 1
-        1 * multistream.getAvailable() >> [Chain.ETHEREUM]
-        1 * multistream.getUpstream(Chain.ETHEREUM) >> ethereumUpstreams
+        1 * multistream.getAvailable() >> [Chain.ETHEREUM__MAINNET]
+        1 * multistream.getUpstream(Chain.ETHEREUM__MAINNET) >> ethereumUpstreams
         1 * ethereumUpstreams.available >> true
         1 * ethereumUpstreams.getAll() >> [up1, up2, up3]
         _ * up1.isAvailable() >> true

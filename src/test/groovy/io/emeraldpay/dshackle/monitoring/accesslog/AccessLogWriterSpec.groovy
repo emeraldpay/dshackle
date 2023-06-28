@@ -24,7 +24,7 @@ class AccessLogWriterSpec extends Specification {
 
         when:
         def event = new Events.Status(
-                Chain.ETHEREUM, UUID.fromString("9d8ecbf3-12fb-49cf-af9d-949a1050a000"),
+                Chain.ETHEREUM__MAINNET, UUID.fromString("9d8ecbf3-12fb-49cf-af9d-949a1050a000"),
                 new Events.StreamRequestDetails(
                         UUID.fromString("9d8ecbf3-12fb-49cf-af9d-949a1050a000"),
                         Instant.ofEpochMilli(1626746880123),
@@ -43,7 +43,7 @@ class AccessLogWriterSpec extends Specification {
             json["version"] == "accesslog/v1beta"
             json["id"] == "9d8ecbf3-12fb-49cf-af9d-949a1050a000"
             json["method"] == "Status"
-            json["blockchain"] == "ETHEREUM"
+            json["blockchain"] == "ETHEREUM__MAINNET"
             json["request"]["start"] == "2021-07-20T02:08:00.123Z"
             json["request"]["id"] == "9d8ecbf3-12fb-49cf-af9d-949a1050a000"
             json["request"]["remote"]["ip"] == "172.217.8.78"

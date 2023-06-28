@@ -40,7 +40,7 @@ class EthereumRpcUpstreamMock extends EthereumRpcUpstream {
 
     static CallMethods allMethods() {
         new AggregatedCallMethods([
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 new DefaultBitcoinMethods(),
                 new DirectCallMethods(["eth_test"])
         ])

@@ -35,7 +35,7 @@ class NativeSubscribeSpec extends Specification {
     def "Call with empty params when not provided"() {
         setup:
         def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
-                .setChainValue(Chain.ETHEREUM.id)
+                .setChainValue(Chain.ETHEREUM__MAINNET.id)
                 .setMethod("newHeads")
                 .build()
 
@@ -47,7 +47,7 @@ class NativeSubscribeSpec extends Specification {
             1 * it.getEgressSubscription() >> subscribe
         }
 
-        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
+        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)
 
         when:
         def act = nativeSubscribe.start(call)
@@ -62,7 +62,7 @@ class NativeSubscribeSpec extends Specification {
     def "Call with params when provided"() {
         setup:
         def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
-                .setChainValue(Chain.ETHEREUM.id)
+                .setChainValue(Chain.ETHEREUM__MAINNET.id)
                 .setMethod("logs")
                 .setPayload(ByteString.copyFromUtf8(
                         '{"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", ' +
@@ -86,7 +86,7 @@ class NativeSubscribeSpec extends Specification {
             1 * it.getEgressSubscription() >> subscribe
         }
 
-        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
+        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)
 
         when:
         def act = nativeSubscribe.start(call)
@@ -101,7 +101,7 @@ class NativeSubscribeSpec extends Specification {
     def "Proxy call"() {
         setup:
         def call = BlockchainOuterClass.NativeSubscribeRequest.newBuilder()
-                .setChainValue(Chain.ETHEREUM.id)
+                .setChainValue(Chain.ETHEREUM__MAINNET.id)
                 .setMethod("newHeads")
                 .build()
         def up = Mock(EthereumPosMultiStream) {
@@ -109,7 +109,7 @@ class NativeSubscribeSpec extends Specification {
             0 * it.getEgressSubscription()
         }
 
-        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM, up), signer)
+        def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)
 
         when:
         def act = nativeSubscribe.start(call)

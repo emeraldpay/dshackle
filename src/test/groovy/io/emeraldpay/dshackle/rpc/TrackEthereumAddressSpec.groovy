@@ -34,7 +34,7 @@ import java.time.temporal.ChronoUnit
 
 class TrackEthereumAddressSpec extends Specification {
 
-    def chain = Common.ChainRef.CHAIN_ETHEREUM
+    def chain = Common.ChainRef.CHAIN_ETHEREUM__MAINNET
     def address1 = "0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f"
     def address1Proto = Common.SingleAddress.newBuilder()
             .setAddress(address1)
@@ -57,7 +57,7 @@ class TrackEthereumAddressSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstreamMock)
         TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)
 
         apiMock.answer("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")
@@ -99,7 +99,7 @@ class TrackEthereumAddressSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstreamMock)
         TrackEthereumAddress trackAddress = new TrackEthereumAddress(upstreams)
 
         apiMock.answerOnce("eth_getBalance", ["0xe2c8fa8120d813cd0b5e6add120295bf20cfa09f", "latest"], "0x499602D2")

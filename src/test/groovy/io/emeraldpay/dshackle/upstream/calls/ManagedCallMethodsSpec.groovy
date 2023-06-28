@@ -94,7 +94,7 @@ class ManagedCallMethodsSpec extends Specification {
     def "Use custom quorum if provided"() {
         setup:
         def managed = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_test", "eth_foo", "eth_bar"] as Set,
                 [] as Set,
                 [] as Set,
@@ -120,7 +120,7 @@ class ManagedCallMethodsSpec extends Specification {
 
     def "Doesn't reuse same instance"() {
         def managed = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_test"] as Set,
                 [] as Set,
                 [] as Set,
@@ -145,7 +145,7 @@ class ManagedCallMethodsSpec extends Specification {
     def "Test enable method group"() {
         setup:
         def managed = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 [] as Set,
                 [] as Set,
                 ["filter"] as Set,
@@ -169,7 +169,7 @@ class ManagedCallMethodsSpec extends Specification {
     def "Test enable method group minus one"() {
         setup:
         def managed = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 [] as Set,
                 ["eth_newPendingTransactionFilter"] as Set,
                 ["filter"] as Set,
@@ -193,7 +193,7 @@ class ManagedCallMethodsSpec extends Specification {
     def "Test disabled group not disable enabled method"() {
         setup:
         def managed = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_newPendingTransactionFilter"] as Set,
                 [] as Set,
                 [] as Set,

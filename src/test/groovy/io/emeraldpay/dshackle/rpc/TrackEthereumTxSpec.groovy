@@ -44,7 +44,7 @@ import java.time.Instant
 
 class TrackEthereumTxSpec extends Specification {
 
-    def chain = Common.ChainRef.CHAIN_ETHEREUM
+    def chain = Common.ChainRef.CHAIN_ETHEREUM__MAINNET
     def txId = "0xba61ce4672751fd6086a9ac2b55547a5555af17535b6c0334ede2ecb6d64070a"
     def parent = BlockHash.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")
 
@@ -100,7 +100,7 @@ class TrackEthereumTxSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.parallel())
 
         apiMock.answer("eth_getTransactionByHash", [txId], txJson)
@@ -120,8 +120,8 @@ class TrackEthereumTxSpec extends Specification {
         setup:
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
-        ((EthereumPosMultiStream) upstreams.getUpstream(Chain.ETHEREUM)).head = Mock(DynamicMergedHead) {
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstreamMock)
+        ((EthereumPosMultiStream) upstreams.getUpstream(Chain.ETHEREUM__MAINNET)).head = Mock(DynamicMergedHead) {
             _ * getFlux() >> Flux.empty()
         }
         def scheduler = VirtualTimeScheduler.create(true)
@@ -130,9 +130,9 @@ class TrackEthereumTxSpec extends Specification {
         apiMock.answer("eth_getTransactionByHash", [txId], null)
 
         when:
-        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
+        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM__MAINNET, Instant.now(), TransactionId.from(txId), 6)
         def act = StepVerifier.withVirtualTime(
-                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM).cast(EthereumPosMultiStream)) },
+                { trackTx.subscribe(tx, upstreams.getUpstream(Chain.ETHEREUM__MAINNET).cast(EthereumPosMultiStream)) },
                 { scheduler },
                 5)
 
@@ -170,7 +170,7 @@ class TrackEthereumTxSpec extends Specification {
 
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.boundedElastic())
 
         apiMock.answer("eth_getTransactionByHash", [txId], null, 2)
@@ -191,10 +191,10 @@ class TrackEthereumTxSpec extends Specification {
         setup:
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.parallel())
 
-        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
+        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM__MAINNET, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
                 100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null,
                 BlockId.from(txId), [TxId.from(txId)], 0, "unknown"
@@ -213,10 +213,10 @@ class TrackEthereumTxSpec extends Specification {
         setup:
         def apiMock = TestingCommons.api()
         def upstreamMock = TestingCommons.upstream(apiMock)
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, upstreamMock)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstreamMock)
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.parallel())
 
-        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM, Instant.now(), TransactionId.from(txId), 6)
+        def tx = new TrackEthereumTx.TxDetails(Chain.ETHEREUM__MAINNET, Instant.now(), TransactionId.from(txId), 6)
         def block = new BlockContainer(
                 100, BlockId.from(txId), BigInteger.ONE, Instant.now(), false, "".bytes, null, BlockId.from(txId),
                 [TxId.from("0xa0e65cbc1b52a8ca60562112c6060552d882f16f34a9dba2ccdc05c0a6a27c22")],
@@ -291,7 +291,7 @@ class TrackEthereumTxSpec extends Specification {
         def multi = Mock(EthereumPosMultiStream) {
             _ * getHead() >> upstreamMock.getHead()
         }
-        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM, multi)
+        MultistreamHolder upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, multi)
 
         TrackEthereumTx trackTx = new TrackEthereumTx(upstreams, Schedulers.parallel())
 

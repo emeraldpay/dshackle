@@ -37,7 +37,7 @@ import static java.util.List.of
 
 class FilteredApisSpec extends Specification {
 
-    def ethereumTargets = new DefaultEthereumMethods(Chain.ETHEREUM)
+    def ethereumTargets = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
 
     def "Verifies labels"() {
         setup:
@@ -64,7 +64,7 @@ class FilteredApisSpec extends Specification {
             new EthereumRpcUpstream(
                     "test",
                     (byte) 123,
-                    Chain.ETHEREUM,
+                    Chain.ETHEREUM__MAINNET,
                     new UpstreamsConfig.PartialOptions().buildOptions(),
                     UpstreamsConfig.UpstreamRole.PRIMARY,
                     ethereumTargets,
@@ -79,7 +79,7 @@ class FilteredApisSpec extends Specification {
             it.setStatus(UpstreamAvailability.OK)
         }
         when:
-        def iter = new FilteredApis(Chain.ETHEREUM, upstreams, matcher, 0, 1, 0)
+        def iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 0, 1, 0)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -90,7 +90,7 @@ class FilteredApisSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
 
         when:
-        iter = new FilteredApis(Chain.ETHEREUM, upstreams, matcher, 1, 1, 0)
+        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 1, 0)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -101,7 +101,7 @@ class FilteredApisSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
 
         when:
-        iter = new FilteredApis(Chain.ETHEREUM, upstreams, matcher, 1, 2, 0)
+        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 2, 0)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -117,7 +117,7 @@ class FilteredApisSpec extends Specification {
 
     def "Exponential backoff"() {
         setup:
-        def apis = new FilteredApis(Chain.ETHEREUM, [], Selector.empty, 0, 1, 0)
+        def apis = new FilteredApis(Chain.ETHEREUM__MAINNET, [], Selector.empty, 0, 1, 0)
         expect:
         wait == apis.waitDuration(n).toMillis() as Integer
         where:
@@ -139,7 +139,7 @@ class FilteredApisSpec extends Specification {
     @Retry
     def "Backoff uses jitter"() {
         setup:
-        def apis = new FilteredApis(Chain.ETHEREUM, [], Selector.empty, 0, 1, 20)
+        def apis = new FilteredApis(Chain.ETHEREUM__MAINNET, [], Selector.empty, 0, 1, 20)
         when:
         def act = apis.waitDuration(1).toMillis()
         println act
@@ -165,7 +165,7 @@ class FilteredApisSpec extends Specification {
         def up2 = TestingCommons.upstream(api2)
         then:
         StepVerifier.withVirtualTime({
-            def apis = new FilteredApis(Chain.ETHEREUM, [up1, up2], Selector.empty, 0, 4, 0)
+            def apis = new FilteredApis(Chain.ETHEREUM__MAINNET, [up1, up2], Selector.empty, 0, 4, 0)
             apis.request(10)
             return apis
         })
@@ -189,7 +189,7 @@ class FilteredApisSpec extends Specification {
             TestingCommons.upstream(it)
         }
         when:
-        def act = new FilteredApis(Chain.ETHEREUM, ups, Selector.empty, 2, 1, 0)
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 1, 0)
         act.request(10)
         then:
         StepVerifier.create(act)
@@ -208,7 +208,7 @@ class FilteredApisSpec extends Specification {
             TestingCommons.upstream(it)
         }
         when:
-        def act = new FilteredApis(Chain.ETHEREUM, ups, Selector.empty, 2, 1, 0)
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 1, 0)
         act.request(3)
         then:
         StepVerifier.create(act)
@@ -265,7 +265,7 @@ class FilteredApisSpec extends Specification {
                 }
         ]
         when:
-        def act = new FilteredApis(Chain.ETHEREUM,
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + fallback + standard,
                 Selector.empty, 0, 3, 0)
         act.request(10)
@@ -305,7 +305,7 @@ class FilteredApisSpec extends Specification {
                 }
         ]
         when:
-        def act = new FilteredApis(Chain.ETHEREUM,
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + fallback + standard + secondary,
                 Selector.empty, 0, 3, 0)
         act.request(11)
@@ -342,7 +342,7 @@ class FilteredApisSpec extends Specification {
                 }
         ]
         when:
-        def act = new FilteredApis(Chain.ETHEREUM,
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + lagging + ok,
                 Selector.empty, 0, 2, 0)
         act.request(4)
@@ -373,7 +373,7 @@ class FilteredApisSpec extends Specification {
                 }
         ]
         when:
-        def act = new FilteredApis(Chain.ETHEREUM, ups, Selector.empty)
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty)
         act.request(1)
         then:
         StepVerifier.create(act)
@@ -404,7 +404,7 @@ class FilteredApisSpec extends Specification {
                 }
         ]
         when:
-        def act = new FilteredApis(Chain.ETHEREUM, ups, new Selector.LabelMatcher("node", of("test")))
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, new Selector.LabelMatcher("node", of("test")))
         act.request(1)
         then:
         StepVerifier.create(act)
@@ -446,7 +446,7 @@ class FilteredApisSpec extends Specification {
         ]
         when:
         def act = new FilteredApis(
-                Chain.ETHEREUM, ups,
+                Chain.ETHEREUM__MAINNET, ups,
                 new Selector.MultiMatcher(
                         of(
                             new Selector.HeightMatcher(100000000),
@@ -495,7 +495,7 @@ class FilteredApisSpec extends Specification {
         ]
         when:
         def act = new FilteredApis(
-                Chain.ETHEREUM, ups,
+                Chain.ETHEREUM__MAINNET, ups,
                 new Selector.MultiMatcher(
                         of(
                                 new Selector.HeightMatcher(100000000),
@@ -539,7 +539,7 @@ class FilteredApisSpec extends Specification {
         ]
         when:
         def act = new FilteredApis(
-                Chain.ETHEREUM, ups,
+                Chain.ETHEREUM__MAINNET, ups,
                 new Selector.MultiMatcher(
                         of(
                                 new Selector.HeightMatcher(100000000),

@@ -10,18 +10,18 @@ internal class ChainsConfigTest {
     fun patch() {
         val orig = ChainsConfig(
             mapOf(
-                Chain.BITCOIN to createRawChainConfig(0, 0),
-                Chain.ETHEREUM to createRawChainConfig(1, 2),
-                Chain.POLYGON to createRawChainConfig(3, 4)
+                Chain.BITCOIN__MAINNET to createRawChainConfig(0, 0),
+                Chain.ETHEREUM__MAINNET to createRawChainConfig(1, 2),
+                Chain.POLYGON_POS__MAINNET to createRawChainConfig(3, 4)
             ),
             createRawChainConfig(1, 2)
         )
 
         val patch = ChainsConfig(
             mapOf(
-                Chain.BITCOIN to createRawChainConfig(null, 10000),
-                Chain.POLYGON to createRawChainConfig(10, 11),
-                Chain.ARBITRUM to createRawChainConfig(999, 999)
+                Chain.BITCOIN__MAINNET to createRawChainConfig(null, 10000),
+                Chain.POLYGON_POS__MAINNET to createRawChainConfig(10, 11),
+                Chain.ARBITRUM__MAINNET to createRawChainConfig(999, 999)
             ),
             createRawChainConfig(100, null)
         )
@@ -31,10 +31,10 @@ internal class ChainsConfigTest {
         assertEquals(
             ChainsConfig(
                 mapOf(
-                    Chain.BITCOIN to createRawChainConfig(0, 10000),
-                    Chain.ETHEREUM to createRawChainConfig(1, 2),
-                    Chain.POLYGON to createRawChainConfig(10, 11),
-                    Chain.ARBITRUM to createRawChainConfig(999, 999)
+                    Chain.BITCOIN__MAINNET to createRawChainConfig(0, 10000),
+                    Chain.ETHEREUM__MAINNET to createRawChainConfig(1, 2),
+                    Chain.POLYGON_POS__MAINNET to createRawChainConfig(10, 11),
+                    Chain.ARBITRUM__MAINNET to createRawChainConfig(999, 999)
                 ),
                 createRawChainConfig(100, 2)
             ),

@@ -34,7 +34,7 @@ class BaseHandlerSpec extends Specification {
         setup:
         def handler = new BaseHandlerImpl(new WriteRpcJson(), Stub(NativeCall), Stub(ProxyServer.RequestMetricsFactory))
         when:
-        def act = Mono.from(handler.execute(Chain.ETHEREUM, new ProxyCall(ProxyCall.RpcType.SINGLE), requestHandler, false))
+        def act = Mono.from(handler.execute(Chain.ETHEREUM__MAINNET, new ProxyCall(ProxyCall.RpcType.SINGLE), requestHandler, false))
                 .block(Duration.ofSeconds(1))
         then:
         act == ""
@@ -44,7 +44,7 @@ class BaseHandlerSpec extends Specification {
         setup:
         def handler = new BaseHandlerImpl(new WriteRpcJson(), Stub(NativeCall), Stub(ProxyServer.RequestMetricsFactory))
         when:
-        def act = Mono.from(handler.execute(Chain.ETHEREUM, new ProxyCall(ProxyCall.RpcType.BATCH), requestHandler, false))
+        def act = Mono.from(handler.execute(Chain.ETHEREUM__MAINNET, new ProxyCall(ProxyCall.RpcType.BATCH), requestHandler, false))
                 .block(Duration.ofSeconds(1))
         then:
         act == "[]"
@@ -64,7 +64,7 @@ class BaseHandlerSpec extends Specification {
         call.ids[0] = 5
         def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, null, null)
         when:
-        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, false))
+        def act = Flux.from(handler.execute(Chain.ETHEREUM__MAINNET, call, requestHandler, false))
                 .collectList()
                 .block(Duration.ofSeconds(1))
                 .join("")
@@ -87,7 +87,7 @@ class BaseHandlerSpec extends Specification {
         call.ids[0] = 5
         def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, null, null)
         when:
-        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, false))
+        def act = Flux.from(handler.execute(Chain.ETHEREUM__MAINNET, call, requestHandler, false))
                 .collectList()
                 .block(Duration.ofSeconds(1))
                 .join("")
@@ -120,7 +120,7 @@ class BaseHandlerSpec extends Specification {
                 new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, null, null)
         ]
         when:
-        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
+        def act = Flux.from(handler.execute(Chain.ETHEREUM__MAINNET, call, requestHandler, true))
                 .collectList()
                 .block(Duration.ofSeconds(1))
                 .join("")
@@ -153,7 +153,7 @@ class BaseHandlerSpec extends Specification {
                 new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, null, null)
         ]
         when:
-        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
+        def act = Flux.from(handler.execute(Chain.ETHEREUM__MAINNET, call, requestHandler, true))
                 .collectList()
                 .block(Duration.ofSeconds(1))
                 .join("")
@@ -193,7 +193,7 @@ class BaseHandlerSpec extends Specification {
                 new NativeCall.CallResult(2, null, '{"foo": 3}'.bytes, null, null, null, null)
         ]
         when:
-        def act = Flux.from(handler.execute(Chain.ETHEREUM, call, requestHandler, true))
+        def act = Flux.from(handler.execute(Chain.ETHEREUM__MAINNET, call, requestHandler, true))
                 .collectList()
                 .block(Duration.ofSeconds(1))
                 .join("")
