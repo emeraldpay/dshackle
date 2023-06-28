@@ -175,7 +175,7 @@ class DefaultEthereumMethods(
             Chain.OPTIMISM, Chain.TESTNET_OPTIMISM -> listOf(
                 "rollup_gasPrices"
             )
-            Chain.POLYGON -> listOf(
+            Chain.POLYGON, Chain.TESTNET_POYGON_POS_MUMBAI -> listOf(
                 "bor_getAuthor",
                 "bor_getCurrentValidators",
                 "bor_getCurrentProposer",
@@ -311,6 +311,10 @@ class DefaultEthereumMethods(
                         "\"280\""
                     }
 
+                    Chain.TESTNET_POYGON_POS_MUMBAI == chain -> {
+                        "\"80001\""
+                    }
+
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
@@ -387,6 +391,10 @@ class DefaultEthereumMethods(
 
                     Chain.TESTNET_ZKSYNC == chain -> {
                         "\"0x118\""
+                    }
+
+                    Chain.TESTNET_POYGON_POS_MUMBAI == chain -> {
+                        "\"0x13881\""
                     }
 
                     else -> throw RpcException(-32602, "Invalid chain")

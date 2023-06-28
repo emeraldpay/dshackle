@@ -79,6 +79,11 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
         10012,
         "ZKS_TESTNET",
         "ZkSync Testnet"
+    ),
+    TESTNET_POYGON_POS_MUMBAI(
+        10013,
+        "POLYGON_POS_MUMBAI",
+        "Polygon POS Mumbai Testnet"
     );
 
     companion object {

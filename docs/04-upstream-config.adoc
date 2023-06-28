@@ -130,6 +130,7 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - ethereum (eth)
 - ethereum-classic (etc)
 - polygon (matic)
+- polygon-mumbai
 - arbitrum (arb)
 - arbitrum-testnet
 - arbitrum-nova

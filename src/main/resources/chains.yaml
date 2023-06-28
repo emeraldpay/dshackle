@@ -14,6 +14,10 @@ chain-settings:
       lags:
         syncing: 20
         lagging: 10
+    - id: polygon-mumbai
+      lags:
+        syncing: 20
+        lagging: 10
     - id: arbitrum
       options:
         validate-peers: false
