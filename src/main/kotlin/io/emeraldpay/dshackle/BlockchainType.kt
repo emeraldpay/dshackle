@@ -21,7 +21,7 @@ enum class BlockchainType {
                 chain == Chain.POLYGON_ZKEVM__TESTNET ||
                 chain == Chain.ZKSYNC__MAINNET ||
                 chain == Chain.ZKSYNC__TESTNET ||
-                chain == Chain.POYGON_POS__MUMBAI
+                chain == Chain.POLYGON_POS__MUMBAI
             ) {
                 return EVM_POS
             }

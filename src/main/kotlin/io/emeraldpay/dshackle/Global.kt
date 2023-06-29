@@ -76,7 +76,7 @@ class Global {
             "polygon-zkevm-testnet" to Chain.POLYGON_ZKEVM__TESTNET,
             "zksync" to Chain.ZKSYNC__MAINNET,
             "zksync-testnet" to Chain.ZKSYNC__TESTNET,
-            "polygon-mumbai" to Chain.POYGON_POS__MUMBAI,
+            "polygon-mumbai" to Chain.POLYGON_POS__MUMBAI,
         )
 
         fun chainById(id: String?): Chain {

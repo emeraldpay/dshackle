@@ -166,6 +166,7 @@ class DefaultEthereumMethods(
                     else -> AlwaysQuorum()
                 }
             }
+
             else -> AlwaysQuorum()
         }
     }
@@ -175,7 +176,8 @@ class DefaultEthereumMethods(
             Chain.OPTIMISM__MAINNET, Chain.OPTIMISM__GOERLI -> listOf(
                 "rollup_gasPrices"
             )
-            Chain.POLYGON_POS__MAINNET, Chain.POYGON_POS__MUMBAI -> listOf(
+
+            Chain.POLYGON_POS__MAINNET, Chain.POLYGON_POS__MUMBAI -> listOf(
                 "bor_getAuthor",
                 "bor_getCurrentValidators",
                 "bor_getCurrentProposer",
@@ -183,6 +185,7 @@ class DefaultEthereumMethods(
                 "bor_getSignersAtHash",
                 "eth_getRootHash"
             )
+
             Chain.POLYGON_ZKEVM__MAINNET, Chain.POLYGON_ZKEVM__TESTNET -> listOf(
                 "zkevm_consolidatedBlockNumber",
                 "zkevm_isBlockConsolidated",
@@ -194,6 +197,7 @@ class DefaultEthereumMethods(
                 "zkevm_getBatchByNumber",
                 "zkevm_getBroadcastURI"
             )
+
             Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__TESTNET -> listOf(
                 "zks_estimateFee",
                 "zks_estimateGasL1ToL2",
@@ -214,6 +218,7 @@ class DefaultEthereumMethods(
                 "zks_L1BatchNumber",
                 "zks_L1ChainId"
             )
+
             else -> emptyList()
         }
     }
@@ -233,173 +238,44 @@ class DefaultEthereumMethods(
         return hardcodedMethods.contains(method)
     }
 
+    data class HardcodedData(val netVersion: String, val chainId: String)
+
+    private val hardcodedData = mapOf(
+        Chain.ETHEREUM__MAINNET to HardcodedData("\"1\"", "\"0x1\""),
+        Chain.ETHEREUM__RINKEBY to HardcodedData("\"4\"", "\"0x4\""),
+        Chain.ETHEREUM__ROPSTEN to HardcodedData("\"3\"", "\"0x3\""),
+        Chain.ETHEREUM__KOVAN to HardcodedData("\"42\"", "\"0x2a\""),
+        Chain.ETHEREUM__GOERLI to HardcodedData("\"5\"", "\"0x5\""),
+        Chain.ETHEREUM__SEPOLIA to HardcodedData("\"11155111\"", "\"0xaa36a7\""),
+
+        Chain.ETHEREUM_CLASSIC__MAINNET to HardcodedData("\"1\"", "\"0x3d\""),
+
+        Chain.POLYGON_POS__MAINNET to HardcodedData("\"137\"", "\"0x89\""),
+        Chain.POLYGON_POS__MUMBAI to HardcodedData("\"80001\"", "\"0x13881\""),
+
+        Chain.ARBITRUM__MAINNET to HardcodedData("\"42161\"", "\"0xa4b1\""),
+        Chain.ARBITRUM__GOERLI to HardcodedData("\"421613\"", "\"0x66eed\""),
+
+        Chain.OPTIMISM__MAINNET to HardcodedData("\"10\"", "\"0xa\""),
+        Chain.OPTIMISM__GOERLI to HardcodedData("\"420\"", "\"0x1A4\""),
+
+        Chain.ARBITRUM_NOVA__MAINNET to HardcodedData("\"42170\"", "\"0xa4ba\""),
+
+        Chain.POLYGON_ZKEVM__MAINNET to HardcodedData("\"1101\"", "\"0x44d\""),
+        Chain.POLYGON_ZKEVM__TESTNET to HardcodedData("\"1442\"", "\"0x5a2\""),
+
+        Chain.ZKSYNC__MAINNET to HardcodedData("\"324\"", "\"0x144\""),
+        Chain.ZKSYNC__TESTNET to HardcodedData("\"280\"", "\"0x118\""),
+
+        Chain.BSC__MAINNET to HardcodedData("\"56\"", "\"0x38\""),
+    )
+
     override fun executeHardcoded(method: String): ByteArray {
         // note that the value is in json representation, i.e. if it's a string it should be with quotes,
         // that's why "\"0x0\"", "\"1\"", etc. But just "true" for a boolean, or "[]" for array.
         val json = when (method) {
-            "net_version" -> {
-                when {
-                    Chain.ETHEREUM__MAINNET == chain -> {
-                        "\"1\""
-                    }
-
-                    Chain.ETHEREUM_CLASSIC__MAINNET == chain -> {
-                        "\"1\""
-                    }
-
-                    Chain.POLYGON_POS__MAINNET == chain -> {
-                        "\"137\""
-                    }
-
-                    Chain.ETHEREUM__MORDEN == chain -> {
-                        "\"2\""
-                    }
-
-                    Chain.ETHEREUM__ROPSTEN == chain -> {
-                        "\"3\""
-                    }
-
-                    Chain.ETHEREUM__RINKEBY == chain -> {
-                        "\"4\""
-                    }
-
-                    Chain.ETHEREUM__KOVAN == chain -> {
-                        "\"42\""
-                    }
-
-                    Chain.ETHEREUM__GOERLI == chain -> {
-                        "\"5\""
-                    }
-
-                    Chain.ETHEREUM__SEPOLIA == chain -> {
-                        "\"11155111\""
-                    }
-
-                    Chain.ARBITRUM__MAINNET == chain -> {
-                        "\"42161\""
-                    }
-
-                    Chain.OPTIMISM__MAINNET == chain -> {
-                        "\"10\""
-                    }
-
-                    Chain.ARBITRUM__GOERLI == chain -> {
-                        "\"421613\""
-                    }
-
-                    Chain.OPTIMISM__GOERLI == chain -> {
-                        "\"420\""
-                    }
-
-                    Chain.ARBITRUM_NOVA__MAINNET == chain -> {
-                        "\"42170\""
-                    }
-
-                    Chain.POLYGON_ZKEVM__MAINNET == chain -> {
-                        "\"1101\""
-                    }
-
-                    Chain.POLYGON_ZKEVM__TESTNET == chain -> {
-                        "\"1442\""
-                    }
-
-                    Chain.ZKSYNC__MAINNET == chain -> {
-                        "\"324\""
-                    }
-
-                    Chain.ZKSYNC__TESTNET == chain -> {
-                        "\"280\""
-                    }
-
-                    Chain.POYGON_POS__MUMBAI == chain -> {
-                        "\"80001\""
-                    }
-
-                    else -> throw RpcException(-32602, "Invalid chain")
-                }
-            }
-
-            "eth_chainId" -> {
-                when {
-                    Chain.ETHEREUM__MAINNET == chain -> {
-                        "\"0x1\""
-                    }
-
-                    Chain.POLYGON_POS__MAINNET == chain -> {
-                        "\"0x89\""
-                    }
-
-                    Chain.ETHEREUM__ROPSTEN == chain -> {
-                        "\"0x3\""
-                    }
-
-                    Chain.ETHEREUM__RINKEBY == chain -> {
-                        "\"0x4\""
-                    }
-
-                    Chain.ETHEREUM_CLASSIC__MAINNET == chain -> {
-                        "\"0x3d\""
-                    }
-
-                    Chain.ETHEREUM__MORDEN == chain -> {
-                        "\"0x3c\""
-                    }
-
-                    Chain.ETHEREUM__KOVAN == chain -> {
-                        "\"0x2a\""
-                    }
-
-                    Chain.ETHEREUM__GOERLI == chain -> {
-                        "\"0x5\""
-                    }
-
-                    Chain.ETHEREUM__SEPOLIA == chain -> {
-                        "\"0xaa36a7\""
-                    }
-
-                    Chain.ARBITRUM__MAINNET == chain -> {
-                        "\"0xa4b1\""
-                    }
-
-                    Chain.OPTIMISM__MAINNET == chain -> {
-                        "\"0xa\""
-                    }
-
-                    Chain.ARBITRUM__GOERLI == chain -> {
-                        "\"0x66eed\""
-                    }
-
-                    Chain.OPTIMISM__GOERLI == chain -> {
-                        "\"0x1A4\""
-                    }
-
-                    Chain.ARBITRUM_NOVA__MAINNET == chain -> {
-                        "\"0xa4ba\""
-                    }
-
-                    Chain.POLYGON_ZKEVM__MAINNET == chain -> {
-                        "\"0x44d\""
-                    }
-
-                    Chain.POLYGON_ZKEVM__TESTNET == chain -> {
-                        "\"0x5a2\""
-                    }
-
-                    Chain.ZKSYNC__MAINNET == chain -> {
-                        "\"0x144\""
-                    }
-
-                    Chain.ZKSYNC__TESTNET == chain -> {
-                        "\"0x118\""
-                    }
-
-                    Chain.POYGON_POS__MUMBAI == chain -> {
-                        "\"0x13881\""
-                    }
-
-                    else -> throw RpcException(-32602, "Invalid chain")
-                }
-            }
+            "net_version" -> hardcodedData.get(chain)?.netVersion ?: throw RpcException(-32602, "Invalid chain")
+            "eth_chainId" -> hardcodedData.get(chain)?.chainId ?: throw RpcException(-32602, "Invalid chain")
 
             "net_peerCount" -> {
                 "\"0x2a\""

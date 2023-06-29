@@ -80,7 +80,7 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
         "ZKS_TESTNET",
         "ZkSync Testnet"
     ),
-    POYGON_POS__MUMBAI(
+    POLYGON_POS__MUMBAI(
         10013,
         "POLYGON_POS_MUMBAI",
         "Polygon POS Mumbai Testnet"
