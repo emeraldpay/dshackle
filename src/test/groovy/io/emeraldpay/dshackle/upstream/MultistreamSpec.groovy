@@ -301,6 +301,36 @@ class MultistreamSpec extends Specification {
 
     }
 
+    def "Filter older blocks on multistream head"() {
+        setup:
+        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
+        def up2 = new EthereumPosRpcUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
+        def ms = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, new ArrayList<EthereumPosUpstream>(), Caches.default(), Schedulers.parallel(), TestingCommons.tracerMock())
+        def head1 = createBlock(250, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448401b")
+        def head2 = createBlock(270, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448402b")
+        def head3 = createBlock(100, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448412b")
+        when:
+        ms.onUpstreamChange(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED)
+        )
+        ms.onUpstreamChange(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED)
+        )
+        def head = ms.getHead()
+        then:
+        StepVerifier.create(head.getFlux())
+                .then { up1.nextBlock(head1) }
+                .expectNext(head1)
+                .then { up2.nextBlock(head2) }
+                .expectNext(head2)
+                .then { up1.nextBlock(head3) }
+                .then {
+                    assert head.getCurrentHeight() == 270
+                }
+                .thenCancel()
+                .verify(Duration.ofSeconds(3))
+    }
+
     private BlockchainOuterClass.ChainStatus status(BlockchainOuterClass.AvailabilityEnum status) {
         return BlockchainOuterClass.ChainStatus.newBuilder()
                 .setAvailability(status)
@@ -339,10 +369,10 @@ class MultistreamSpec extends Specification {
         }
     }
 
-    BlockContainer createBlock(long number) {
+    BlockContainer createBlock(long number, String hash) {
         def block = new BlockJson<TransactionRefJson>()
         block.number = number
-        block.hash = BlockHash.from("0x0000000000000000000000000000000000000000000000000000000000" + number)
+        block.hash = BlockHash.from(hash)
         block.totalDifficulty = BigInteger.ONE
         block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
         block.uncles = []

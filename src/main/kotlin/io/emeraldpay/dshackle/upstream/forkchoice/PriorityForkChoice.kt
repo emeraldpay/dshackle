@@ -22,7 +22,8 @@ class PriorityForkChoice : ForkChoice {
 
     override fun filter(block: BlockContainer): Boolean {
         val curr = head.get()
-        return (curr == null || curr.nodeRating <= block.nodeRating) && seenBlocks.getIfPresent(block.hash) == null
+        return (curr == null || curr.nodeRating <= block.nodeRating) && seenBlocks.getIfPresent(block.hash) == null &&
+            block.height >= (curr?.height?.minus(10) ?: 0)
     }
 
     override fun choose(block: BlockContainer): ForkChoice.ChoiceResult {
