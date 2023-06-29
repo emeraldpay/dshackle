@@ -103,7 +103,7 @@ class SubscribeNodeStatus(
     ): Flux<NodeStatusResponse> {
         val heads = upstream.getHead().getFlux()
             .takeUntilOther(cancel.asFlux())
-            .sample(Duration.ofSeconds(2))
+            .sample(Duration.ofMillis(500))
             .map { block ->
                 NodeStatusResponse.newBuilder()
                     .setDescription(
