@@ -183,9 +183,6 @@ class UpstreamsConfigReader(
         val connection = UpstreamsConfig.EthereumConnection()
             .apply { rpc = readRpcConfig(connConfigNode) }
 
-        getValueAsBool(connConfigNode, "prefer-http")?.let {
-            connection.preferHttp = it
-        }
         getValueAsString(connConfigNode, "connector-mode")?.let {
             connection.connectorMode = it
         }

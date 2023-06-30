@@ -27,10 +27,9 @@ internal class UpstreamsConfigTest {
                 Arguments.of(
                     UpstreamsConfig.EthereumConnection()
                         .apply {
-                            preferHttp = true
                             ws = UpstreamsConfig.WsEndpoint(URI("ws://localhost:8546"))
                         },
-                    ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
+                    ConnectorMode.WS_ONLY
                 ),
                 Arguments.of(
                     UpstreamsConfig.EthereumConnection()
@@ -43,11 +42,18 @@ internal class UpstreamsConfigTest {
                 Arguments.of(
                     UpstreamsConfig.EthereumConnection()
                         .apply {
-                            preferHttp = true
-                            connectorMode = "RPC_REQUESTS_WITH_WS_HEAD"
+                            connectorMode = "RPC_REQUESTS_WITH_MIXED_HEAD"
                             ws = UpstreamsConfig.WsEndpoint(URI("ws://localhost:8546"))
                         },
                     ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
+                ),
+                Arguments.of(
+                    UpstreamsConfig.EthereumConnection()
+                        .apply {
+                            rpc = UpstreamsConfig.HttpEndpoint(URI("http://localhost:8546"))
+                            ws = UpstreamsConfig.WsEndpoint(URI("ws://localhost:8546"))
+                        },
+                    ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD
                 ),
             )
         }
