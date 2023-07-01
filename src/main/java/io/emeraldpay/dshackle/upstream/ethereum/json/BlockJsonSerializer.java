@@ -63,7 +63,7 @@ public class BlockJsonSerializer extends EtherJsonSerializer<BlockJson<?>> {
         writeField(gen, "difficulty", value.getDifficulty());
         writeField(gen, "totalDifficulty", value.getTotalDifficulty());
         if (value.getSize() != null) {
-            writeFieldNumber(gen, "size", value.getSize().intValue());
+            writeField(gen, "size", value.getSize().intValue());
         }
         writeField(gen, "gasLimit", value.getGasLimit());
         writeField(gen, "gasUsed", value.getGasUsed());
