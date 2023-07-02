@@ -20,6 +20,7 @@ import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.commons.DurableFlux
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.reader.StandardRpcReader
@@ -35,6 +36,7 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.retry.Repeat
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicBoolean
 
 class EthereumWsHead(
     private val blockchain: Chain,
@@ -44,6 +46,7 @@ class EthereumWsHead(
 
     private val log = LoggerFactory.getLogger(EthereumWsHead::class.java)
 
+    private val running = AtomicBoolean(false)
     private var subscription: Disposable? = null
 
     override fun isRunning(): Boolean {
@@ -51,13 +54,26 @@ class EthereumWsHead(
     }
 
     override fun start() {
+        running.set(true)
         this.subscription?.dispose()
         val heads = Flux.merge(
-            // get the current block, not just wait for the next update
+            // get the current block immediately, not just wait for the next update
             getLatestBlock(api),
-            listenNewHeads()
+            listNewHeadsWithRetry()
         )
         this.subscription = super.follow(heads)
+    }
+
+    /**
+     * WebSocket connection may disconnect, and it should retry again subscribing to newHeads
+     */
+    fun listNewHeadsWithRetry(): Flux<BlockContainer> {
+        return DurableFlux.newBuilder()
+            .logTo(log)
+            .controlWith(running)
+            .using { listenNewHeads() }
+            .build()
+            .connect()
     }
 
     fun listenNewHeads(): Flux<BlockContainer> {
@@ -76,6 +92,8 @@ class EthereumWsHead(
                     Mono.just(BlockContainer.from(block))
                 }
             }
+            // provide an error once the source completes, so we can retry to request heads again
+            .concatWith(Mono.error(SilentException.DataUnavailable("newHeads")))
     }
 
     fun enhanceRealBlock(block: BlockJson<TransactionRefJson>): Mono<BlockContainer> {
@@ -107,6 +125,7 @@ class EthereumWsHead(
     }
 
     override fun stop() {
+        running.set(false)
         subscription?.dispose()
         subscription = null
     }

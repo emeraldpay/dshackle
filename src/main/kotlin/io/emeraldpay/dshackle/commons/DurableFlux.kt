@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.commons
 
+import io.emeraldpay.dshackle.SilentException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.util.backoff.BackOff
@@ -46,11 +47,16 @@ class DurableFlux<T>(
             }
             .onErrorResume { t ->
                 val backoff = errorBackOffExecution.nextBackOff()
+                val silent = t is SilentException
                 if (backoff != BackOffExecution.STOP && control.get()) {
-                    log.warn("Connection closed with ${t.message}. Reconnecting in ${backoff}ms")
+                    if (!silent) {
+                        log.warn("Connection closed with ${t.message}. Reconnecting in ${backoff}ms")
+                    }
                     connect().delaySubscription(Duration.ofMillis(backoff))
                 } else {
-                    log.warn("Connection closed with ${t.message}. Not reconnecting")
+                    if (!silent) {
+                        log.warn("Connection closed with ${t.message}. Not reconnecting")
+                    }
                     Mono.error(t)
                 }
             }
