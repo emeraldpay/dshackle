@@ -50,6 +50,7 @@ import reactor.netty.http.client.HttpClient
 import reactor.netty.http.client.WebsocketClientSpec
 import reactor.netty.http.websocket.WebsocketInbound
 import reactor.netty.http.websocket.WebsocketOutbound
+import reactor.netty.resources.ConnectionProvider
 import reactor.util.function.Tuples
 import java.net.URI
 import java.time.Duration
@@ -187,7 +188,9 @@ open class WsConnectionImpl(
     private fun connectInternal() {
         log.info("Connecting to WebSocket: $uri")
         connection?.dispose()
-        connection = HttpClient.create()
+        connection = HttpClient
+            // It maybe not necessary but it seems it sometimes tries to reuse the same connection which was broken before
+            .create(ConnectionProvider.newConnection())
             // NODELAY and QUICKACK flags make it working a big faster in a load intensive environment (like ~10% for a 99-perc, though it's hard to measure it correctly)
             // and, in general, as a load balancer it supposed to send/receive data as fast as it possible, so it makes sense to have them by default
             .option(ChannelOption.TCP_NODELAY, true)
@@ -316,7 +319,10 @@ open class WsConnectionImpl(
                 ResponseWSParser.Type.RPC -> onMessageRpc(msg)
                 ResponseWSParser.Type.SUBSCRIPTION -> onMessageSubscription(msg)
             }
-        }.then()
+        }
+            .doOnError { t -> log.warn("Failed to process WS message. ${t.javaClass}: ${t.message}") }
+            .onErrorComplete()
+            .then()
     }
 
     fun onMessageRpc(msg: ResponseWSParser.WsResponse) {
@@ -354,6 +360,9 @@ open class WsConnectionImpl(
 
     override fun getSubscribeResponses(): Flux<JsonRpcWsMessage> {
         return Flux.from(subscriptionResponses.asFlux())
+            // make sure to complete the subscription when the connection is closed,
+            // because even if it reconnects later a new subscription must be created
+            .takeUntilOther(disconnects.asFlux())
     }
 
     override fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
