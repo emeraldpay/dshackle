@@ -4,11 +4,11 @@ import clc from "cli-color";
 import util from "util";
 
 const chains = {
-    CHAIN_BSC: 1006,
-    CHAIN_OPTIMISM: 1005,
-    CHAIN_ARBITRUM: 1004,
-    CHAIN_MATIC: 1002,
-    CHAIN_ETHEREUM: 100
+    CHAIN_BSC__MAINNET: 1006,
+    CHAIN_OPTIMISM__MAINNET: 1005,
+    CHAIN_ARBITRUM__MAINNET: 1004,
+    CHAIN_POLYGON_POS__MAINNET: 1002,
+    CHAIN_ETHEREUM__MAINNET: 100
 }
 
 export function cli(args) {
