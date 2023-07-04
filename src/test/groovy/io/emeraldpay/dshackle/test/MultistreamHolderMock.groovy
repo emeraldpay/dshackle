@@ -25,10 +25,9 @@ import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumCachingReader
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
 import org.jetbrains.annotations.NotNull
-import org.springframework.cloud.sleuth.Tracer
 import org.springframework.cloud.sleuth.brave.bridge.BraveTracer
 import reactor.core.scheduler.Schedulers
 
@@ -46,9 +45,9 @@ class MultistreamHolderMock implements MultistreamHolder {
             if (BlockchainType.from(chain) == BlockchainType.EVM_POS) {
                 if (up instanceof EthereumPosMultiStream) {
                     upstreams[chain] = up
-                } else if (up instanceof EthereumPosRpcUpstream) {
+                } else if (up instanceof EthereumLikeRpcUpstream) {
                     upstreams[chain] = new EthereumPosMultiStream(
-                            chain, [up as EthereumPosRpcUpstream], Caches.default(),
+                            chain, [up as EthereumLikeRpcUpstream], Caches.default(),
                             Schedulers.parallel(), TestingCommons.tracerMock()
                     )
                 } else {
@@ -97,15 +96,15 @@ class MultistreamHolderMock implements MultistreamHolder {
         CallMethods customMethods = null
         Head customHead = null
 
-        EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams, @NotNull Caches caches) {
+        EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumLikeRpcUpstream> upstreams, @NotNull Caches caches) {
             super(chain, upstreams, caches, Schedulers.parallel(), new BraveTracer(null, null, null))
         }
 
-        EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumPosRpcUpstream> upstreams) {
+        EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumLikeRpcUpstream> upstreams) {
             this(chain, upstreams, Caches.default())
         }
 
-        EthereumMultistreamMock(@NotNull Chain chain, @NotNull EthereumPosRpcUpstream upstream) {
+        EthereumMultistreamMock(@NotNull Chain chain, @NotNull EthereumLikeRpcUpstream upstream) {
             this(chain, [upstream])
         }
 

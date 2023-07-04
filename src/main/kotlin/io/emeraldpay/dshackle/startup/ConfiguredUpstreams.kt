@@ -42,8 +42,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumBlockValidator
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
@@ -227,7 +226,7 @@ open class ConfiguredUpstreams(
             if (it.connectorMode == RPC_REQUESTS_WITH_MIXED_HEAD.name) it.rpc?.url ?: it.ws?.url else it.ws?.url ?: it.rpc?.url
         }
         val hash = getHash(nodeId, hashUrl!!)
-        val upstream = EthereumPosRpcUpstream(
+        val upstream = EthereumLikeRpcUpstream(
             config.id!!,
             hash,
             chain,
@@ -236,7 +235,8 @@ open class ConfiguredUpstreams(
             methods,
             QuorumForLabels.QuorumItem(1, config.labels),
             connectorFactory,
-            chainConf
+            chainConf,
+            true
         )
         upstream.start()
         return upstream
@@ -291,7 +291,7 @@ open class ConfiguredUpstreams(
         chain: Chain,
         options: UpstreamsConfig.Options,
         chainConf: ChainsConfig.ChainConfig
-    ): EthereumRpcUpstream? {
+    ): Upstream? {
         val conn = config.connection!!
 
         val urls = ArrayList<URI>()
@@ -310,7 +310,7 @@ open class ConfiguredUpstreams(
         }
 
         val hashUrl = if (conn.connectorMode == RPC_REQUESTS_WITH_MIXED_HEAD.name) conn.rpc?.url ?: conn.ws?.url else conn.ws?.url ?: conn.rpc?.url
-        val upstream = EthereumRpcUpstream(
+        val upstream = EthereumLikeRpcUpstream(
             config.id!!,
             getHash(nodeId, hashUrl!!),
             chain,
@@ -318,7 +318,8 @@ open class ConfiguredUpstreams(
             methods,
             QuorumForLabels.QuorumItem(1, config.labels),
             connectorFactory,
-            chainConf
+            chainConf,
+            false
         )
         upstream.start()
         return upstream

@@ -23,18 +23,14 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
-import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
-import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
+import io.emeraldpay.dshackle.upstream.calls.*
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
 
-class EthereumRpcUpstreamMock extends EthereumRpcUpstream {
+class EthereumRpcUpstreamMock extends EthereumLikeRpcUpstream {
     EthereumHeadMock ethereumHeadMock
 
 
@@ -65,7 +61,9 @@ class EthereumRpcUpstreamMock extends EthereumRpcUpstream {
                 methods,
                 new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
                 new ConnectorFactoryMock(api, new EthereumHeadMock()),
-                ChainsConfig.ChainConfig.default())
+                ChainsConfig.ChainConfig.default(),
+                false
+        )
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock
         setLag(0)
         setStatus(UpstreamAvailability.OK)

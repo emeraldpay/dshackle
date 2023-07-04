@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import reactor.core.scheduler.Schedulers
@@ -42,7 +42,7 @@ class FilteredApisSpec extends Specification {
     def "Verifies labels"() {
         setup:
         def i = 0
-        List<EthereumRpcUpstream> upstreams = [
+        List<EthereumLikeRpcUpstream> upstreams = [
                 [test: "foo"],
                 [test: "bar"],
                 [test: "foo", test2: "baz"],
@@ -61,7 +61,7 @@ class FilteredApisSpec extends Specification {
                     Schedulers.parallel(),
                     Schedulers.parallel()
             )
-            new EthereumRpcUpstream(
+            new EthereumLikeRpcUpstream(
                     "test",
                     (byte) 123,
                     Chain.ETHEREUM__MAINNET,
@@ -70,7 +70,8 @@ class FilteredApisSpec extends Specification {
                     ethereumTargets,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     connectorFactory,
-                    ChainsConfig.ChainConfig.default()
+                    ChainsConfig.ChainConfig.default(),
+                    false
             )
         }
         def matcher = new Selector.LabelMatcher("test", ["foo"])

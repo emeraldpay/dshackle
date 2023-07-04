@@ -42,5 +42,5 @@ interface Head {
 
     fun stop()
 
-    fun onNoHeadUpdates()
+    fun onSyncingNode(isSyncing: Boolean)
 }

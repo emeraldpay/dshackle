@@ -50,6 +50,7 @@ class EthereumWsHead(
     private var connectionId: String? = null
     private var subscribed = false
     private var connected = false
+    private var isSyncing = false
 
     private var subscription: Disposable? = null
     private val noHeadUpdatesSink = Sinks.many().multicast().directBestEffort<Boolean>()
@@ -76,6 +77,13 @@ class EthereumWsHead(
 
     override fun onNoHeadUpdates() {
         noHeadUpdatesSink.tryEmitNext(true)
+    }
+
+    override fun onSyncingNode(isSyncing: Boolean) {
+        if (isSyncing && !this.isSyncing) {
+            cancelSub()
+        }
+        this.isSyncing = isSyncing
     }
 
     fun listenNewHeads(): Flux<BlockContainer> {
@@ -131,8 +139,7 @@ class EthereumWsHead(
 
     override fun stop() {
         super.stop()
-        subscription?.dispose()
-        subscription = null
+        cancelSub()
         noHeadUpdatesSink.tryEmitComplete()
     }
 
@@ -168,10 +175,16 @@ class EthereumWsHead(
             noHeadUpdatesSink.asFlux(),
             connectionStates,
         ).subscribeOn(wsConnectionResubscribeScheduler)
-            .filter { it && !subscribed && connected }
+            .filter { it && !subscribed && connected && !isSyncing }
             .subscribe {
                 log.warn("Restart ws head, upstreamId: $upstreamId")
                 start()
             }
+    }
+
+    private fun cancelSub() {
+        subscription?.dispose()
+        subscription = null
+        subscribed = false
     }
 }

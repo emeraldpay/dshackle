@@ -257,4 +257,69 @@ class EthereumWsHeadSpec extends Specification {
                 .thenCancel()
                 .verify(Duration.ofSeconds(1))
     }
+
+    def "Reset current subscription if upstream is syncing and then restore it"() {
+        setup:
+        def block = new BlockJson<TransactionRefJson>()
+        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block.number = 103
+        block.parentHash = parent
+        block.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
+        def secondBlock = new BlockJson<TransactionRefJson>()
+        secondBlock.parentHash = parent
+        secondBlock.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        secondBlock.number = 105
+        secondBlock.hash = BlockHash.from("0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8")
+
+        def firstHeadBlock = block.with {
+            Global.objectMapper.writeValueAsBytes(it)
+        }
+        def secondHeadBlock = secondBlock.with {
+            Global.objectMapper.writeValueAsBytes(it)
+        }
+
+        def apiMock = TestingCommons.api()
+        def connectionInfoSink = Sinks.many().multicast().directBestEffort()
+        apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], null)
+        apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
+        apiMock.answerOnce("eth_getBlockByHash", ["0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8", false], null)
+        apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
+
+        def ws = Mock(WsSubscriptions) {
+            1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
+            2 * subscribe("newHeads") >>> [
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id"),
+            ]
+        }
+
+        def head = new EthereumWsHead("fake", new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.parallel(), Schedulers.parallel())
+
+        when:
+        def act = head.getFlux()
+
+        then:
+        StepVerifier.create(act)
+                .then { head.start() }
+                .expectNext(BlockContainer.from(block))
+                .then {
+                    head.onSyncingNode(true)
+                }
+                .then {
+                    assert !head.isRunning()
+                }
+                .then {
+                    head.onNoHeadUpdates()
+                }
+                .then {
+                    assert !head.isRunning()
+                }
+                .then {
+                    head.onSyncingNode(false)
+                    head.onNoHeadUpdates()
+                }
+                .expectNext(BlockContainer.from(secondBlock))
+                .thenCancel()
+                .verify(Duration.ofSeconds(1))
+    }
 }

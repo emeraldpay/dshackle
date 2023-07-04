@@ -35,12 +35,14 @@ class EthereumRpcHead(
 ) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator, headScheduler), Lifecycle {
 
     private var refreshSubscription: Disposable? = null
+    private var isSyncing = false
 
     override fun start() {
         super.start()
         refreshSubscription?.dispose()
         val base = Flux.interval(interval)
             .publishOn(headScheduler)
+            .filter { !isSyncing }
             .flatMap {
                 getLatestBlock(api)
             }
@@ -49,6 +51,10 @@ class EthereumRpcHead(
 
     override fun isRunning(): Boolean {
         return refreshSubscription != null
+    }
+
+    override fun onSyncingNode(isSyncing: Boolean) {
+        this.isSyncing = isSyncing
     }
 
     override fun stop() {

@@ -16,9 +16,13 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.ApiReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import reactor.core.publisher.Mono
 import reactor.util.function.Tuples
 import spock.lang.Specification
 
@@ -30,7 +34,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Resolve to final availability"() {
         setup:
-        def validator = new EthereumUpstreamValidator(Stub(EthereumUpstream), UpstreamsConfig.PartialOptions.getDefaults().buildOptions())
+        def validator = new EthereumUpstreamValidator(Stub(EthereumLikeUpstream), UpstreamsConfig.PartialOptions.getDefaults().buildOptions())
         expect:
         validator.resolve(Tuples.of(sync, peers)) == exp
         where:
@@ -51,7 +55,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
             it.validateSyncing = false
         }.buildOptions()
-        def up = Mock(EthereumUpstream)
+        def up = Mock(EthereumLikeUpstream)
         def validator = new EthereumUpstreamValidator(up, options)
 
         when:
@@ -77,6 +81,33 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def act = validator.validateSyncing().block(Duration.ofSeconds(1))
         then:
         act == OK
+    }
+
+    def "Execute onSyncingNode with result of eth_syncing"() {
+        setup:
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+            it.validateSyncing = true
+        }.buildOptions()
+        def up = Mock(EthereumLikeUpstream) {
+            2 * getIngressReader() >> Mock(Reader) { reader ->
+                2 * reader.read(_) >>> [
+                        Mono.just(new JsonRpcResponse('true'.getBytes(), null)),
+                        Mono.just(new JsonRpcResponse('false'.getBytes(), null))
+                ]
+            }
+            2 * getHead() >> Mock(Head) {head ->
+                1 * head.onSyncingNode(true)
+                1 * head.onSyncingNode(false)
+            }
+        }
+        def validator = new EthereumUpstreamValidator(up, options)
+
+        when:
+        def act = validator.validateSyncing().block(Duration.ofSeconds(1))
+        def act2 = validator.validateSyncing().block(Duration.ofSeconds(1))
+        then:
+        act == SYNCING
+        act2 == OK
     }
 
     def "Syncing is SYNCING when state returned from upstream"() {
@@ -121,7 +152,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validatePeers = false
             it.minPeers = 10
         }.buildOptions()
-        def up = Mock(EthereumUpstream)
+        def up = Mock(EthereumLikeUpstream)
         def validator = new EthereumUpstreamValidator(up, options)
 
         when:
@@ -137,7 +168,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validatePeers = true
             it.minPeers = 0
         }.buildOptions()
-        def up = Mock(EthereumUpstream)
+        def up = Mock(EthereumLikeUpstream)
         def validator = new EthereumUpstreamValidator(up, options)
 
         when:

@@ -34,7 +34,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumDshackleIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
@@ -62,7 +62,7 @@ open class EthereumGrpcUpstream(
     overrideLabels: UpstreamsConfig.Labels?,
     chainConfig: ChainsConfig.ChainConfig,
     headScheduler: Scheduler,
-) : EthereumUpstream(
+) : EthereumLikeUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     hash,
     UpstreamsConfig.PartialOptions.getDefaults().buildOptions(),

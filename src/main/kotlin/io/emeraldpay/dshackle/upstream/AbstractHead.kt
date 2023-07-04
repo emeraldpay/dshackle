@@ -149,7 +149,12 @@ abstract class AbstractHead @JvmOverloads constructor(
         future = null
     }
 
-    override fun onNoHeadUpdates() {
+    protected open fun onNoHeadUpdates() {
+        // NOOP
+    }
+
+    override fun onSyncingNode(isSyncing: Boolean) {
+        // NOOP
     }
 
     override fun start() {

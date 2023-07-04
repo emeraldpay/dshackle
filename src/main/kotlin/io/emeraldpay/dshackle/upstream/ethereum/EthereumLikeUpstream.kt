@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 
-abstract class EthereumUpstream(
+abstract class EthereumLikeUpstream(
     id: String,
     hash: Byte,
     options: UpstreamsConfig.Options,

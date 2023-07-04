@@ -24,15 +24,15 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
+import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 
-open class EthereumPosRpcUpstream(
+open class EthereumLikeRpcUpstream(
     id: String,
     hash: Byte,
     val chain: Chain,
@@ -41,10 +41,11 @@ open class EthereumPosRpcUpstream(
     targets: CallMethods?,
     node: QuorumForLabels.QuorumItem?,
     connectorFactory: ConnectorFactory,
-    chainConfig: ChainsConfig.ChainConfig
-) : EthereumPosUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
+    chainConfig: ChainsConfig.ChainConfig,
+    skipEnhance: Boolean
+) : EthereumLikeUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions())
-    private val connector: EthereumConnector = connectorFactory.create(this, validator, chain, true)
+    private val connector: EthereumConnector = connectorFactory.create(this, validator, chain, skipEnhance)
 
     private var validatorSubscription: Disposable? = null
 
@@ -67,6 +68,11 @@ open class EthereumPosRpcUpstream(
                 .subscribe(this::setStatus)
         }
     }
+
+    override fun getIngressSubscription(): EthereumIngressSubscription {
+        return connector.getIngressSubscription()
+    }
+
     override fun getHead(): Head {
         return connector.getHead()
     }
@@ -95,9 +101,5 @@ open class EthereumPosRpcUpstream(
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
         return this as T
-    }
-
-    override fun getIngressSubscription(): EthereumIngressSubscription {
-        return connector.getIngressSubscription()
     }
 }

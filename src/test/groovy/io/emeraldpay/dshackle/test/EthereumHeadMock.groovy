@@ -79,7 +79,7 @@ class EthereumHeadMock implements Head {
     }
 
     @Override
-    void onNoHeadUpdates() {
+    void onSyncingNode(boolean isSyncing) {
 
     }
 }

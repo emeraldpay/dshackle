@@ -47,7 +47,7 @@ import reactor.core.scheduler.Scheduler
 @Suppress("UNCHECKED_CAST")
 open class EthereumMultistream(
     chain: Chain,
-    val upstreams: MutableList<EthereumUpstream>,
+    val upstreams: MutableList<EthereumLikeUpstream>,
     caches: Caches,
     private val headScheduler: Scheduler,
     tracer: Tracer,

@@ -65,8 +65,7 @@ open class EthereumUpstreamValidator(
         if (!options.validateSyncing) {
             return Mono.just(UpstreamAvailability.OK)
         }
-        return upstream
-            .getIngressReader()
+        return upstream.getIngressReader()
             .read(JsonRpcRequest("eth_syncing", listOf()))
             .flatMap(JsonRpcResponse::requireResult)
             .map { objectMapper.readValue(it, SyncingJson::class.java) }
@@ -75,8 +74,10 @@ open class EthereumUpstreamValidator(
                 Mono.fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
                     .then(Mono.error(TimeoutException("Validation timeout for Syncing")))
             )
-            .map { value ->
-                if (value.isSyncing) {
+            .map {
+                val isSyncing = it.isSyncing
+                upstream.getHead().onSyncingNode(isSyncing)
+                if (isSyncing) {
                     UpstreamAvailability.SYNCING
                 } else {
                     UpstreamAvailability.OK
