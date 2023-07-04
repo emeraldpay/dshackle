@@ -47,8 +47,15 @@ class WsSubscriptionsImpl(
                     log.warn("Failed to establish ETH Subscription: ${it.error?.message}")
                     Mono.error(JsonRpcException(it.id, it.error!!))
                 } else {
-                    subscriptionId.set(it.resultAsProcessedString)
-                    messages
+                    val id = it.resultAsProcessedString
+                    subscriptionId.set(id)
+                    // Once all data is read it should close the subscription. But it makes sense only when the future items
+                    // are cancelled from the downstream, not when it completes from the upstream, that's why it's not a `concat` flux.
+                    // Also, it's not a critical operation, so a simple fire-and-forget is fine
+                    messages.doOnCancel {
+                        conn.callRpc(JsonRpcRequest("eth_unsubscribe", listOf(id), ids.incrementAndGet()))
+                            .subscribe()
+                    }
                 }
             }
     }
