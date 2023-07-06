@@ -126,7 +126,7 @@ open class EthereumMultistream(
             val upstream = upstreams.first()
             upstream.setLag(0)
             upstream.getHead().apply {
-                if (this is Lifecycle) {
+                if (this is Lifecycle && !this.isRunning) {
                     this.start()
                 }
             }
