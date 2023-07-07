@@ -32,6 +32,9 @@ open class AlwaysQuorum : CallQuorum {
     override fun init(head: Head) {
     }
 
+    override fun setTotalUpstreams(total: Int) {
+    }
+
     override fun isResolved(): Boolean {
         return resolved
     }

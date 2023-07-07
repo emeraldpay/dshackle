@@ -27,7 +27,12 @@ open class NonEmptyQuorum(
     private var result: ByteArray? = null
     private var tries: Int = 0
     private var sig: ResponseSigner.Signature? = null
+
     override fun init(head: Head) {
+    }
+
+    override fun setTotalUpstreams(total: Int) {
+        // ignore the number because NonEmpty is supposed to retry if some data is empty because it just not yet available
     }
 
     override fun isResolved(): Boolean {

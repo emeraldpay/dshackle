@@ -38,6 +38,9 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     override fun init(head: Head) {
     }
 
+    override fun setTotalUpstreams(total: Int) {
+    }
+
     override fun isResolved(): Boolean {
         return !isFailed() && result.get() != null
     }

@@ -22,9 +22,10 @@ import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.hex.HexQuantity
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.math.min
 
 open class NonceQuorum(
-    val tries: Int = 3
+    maxTries: Int = 3
 ) : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
 
     private val lock = ReentrantLock()
@@ -33,8 +34,13 @@ open class NonceQuorum(
     private var receivedTimes = 0
     private var errors = 0
     private var sig: ResponseSigner.Signature? = null
+    private var tries = maxTries
 
     override fun init(head: Head) {
+    }
+
+    override fun setTotalUpstreams(total: Int) {
+        tries = min(total, tries).coerceAtLeast(1)
     }
 
     override fun isResolved(): Boolean {

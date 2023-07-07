@@ -155,6 +155,10 @@ class FilteredApis(
         return Duration.ofMillis(time)
     }
 
+    override val size: Int
+        // note it uses the whole set of upstreams and not the subset of matched ones
+        get() = allUpstreams.size
+
     override fun subscribe(subscriber: Subscriber<in Upstream>) {
         // initially try only standard upstreams
         val first = Flux.fromIterable(primaryUpstreams)
