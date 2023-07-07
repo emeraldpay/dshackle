@@ -34,7 +34,7 @@ abstract class DefaultUpstream(
     private val options: UpstreamsConfig.Options,
     private val role: UpstreamsConfig.UpstreamRole,
     private val targets: CallMethods?,
-    node: QuorumForLabels.QuorumItem?,
+    private val node: QuorumForLabels.QuorumItem?,
     private val chainConfig: ChainsConfig.ChainConfig
 ) : Upstream {
 
@@ -161,11 +161,9 @@ abstract class DefaultUpstream(
 
     override fun nodeId(): Byte = hash
 
-    private val quorumByLabel = node?.let { QuorumForLabels(it) }
-        ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
-
     open fun getQuorumByLabel(): QuorumForLabels {
-        return quorumByLabel
+        return node?.let { QuorumForLabels(it) }
+            ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
     }
 
     override fun getId(): String {

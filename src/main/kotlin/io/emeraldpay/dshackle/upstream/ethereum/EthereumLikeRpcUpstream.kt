@@ -29,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumLabelsDetector
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 
@@ -39,13 +40,14 @@ open class EthereumLikeRpcUpstream(
     options: UpstreamsConfig.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
-    node: QuorumForLabels.QuorumItem?,
+    private val node: QuorumForLabels.QuorumItem?,
     connectorFactory: ConnectorFactory,
     chainConfig: ChainsConfig.ChainConfig,
     skipEnhance: Boolean
 ) : EthereumLikeUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions())
     private val connector: EthereumConnector = connectorFactory.create(this, validator, chain, skipEnhance)
+    private val labelsDetector = EthereumLabelsDetector(this.getIngressReader())
 
     private var validatorSubscription: Disposable? = null
 
@@ -67,6 +69,13 @@ open class EthereumLikeRpcUpstream(
             validatorSubscription = validator.start()
                 .subscribe(this::setStatus)
         }
+        labelsDetector.detectLabels()
+            .toStream()
+            .forEach {
+                node?.labels?.let { labels ->
+                    labels[it.first] = it.second
+                }
+            }
     }
 
     override fun getIngressSubscription(): EthereumIngressSubscription {

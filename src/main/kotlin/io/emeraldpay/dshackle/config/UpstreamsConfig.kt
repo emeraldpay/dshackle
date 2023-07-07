@@ -23,6 +23,7 @@ import java.net.URI
 import java.time.Duration
 import java.util.Arrays
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 open class UpstreamsConfig {
     var defaultOptions: MutableList<DefaultOptions> = ArrayList<DefaultOptions>()
@@ -188,7 +189,7 @@ open class UpstreamsConfig {
     }
 
     // TODO make it unmodifiable after initial load
-    class Labels : HashMap<String, String>() {
+    class Labels : ConcurrentHashMap<String, String>() {
 
         companion object {
             @JvmStatic
