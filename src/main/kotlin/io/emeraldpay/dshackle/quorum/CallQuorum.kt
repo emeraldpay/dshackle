@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 interface CallQuorum {
 
     fun init(head: Head)
+    fun setTotalUpstreams(total: Int)
 
     fun isResolved(): Boolean
     fun isFailed(): Boolean

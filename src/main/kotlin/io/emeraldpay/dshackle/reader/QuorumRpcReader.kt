@@ -50,6 +50,9 @@ class QuorumRpcReader(
     constructor(apiControl: ApiSource, quorum: CallQuorum) : this(apiControl, quorum, null)
 
     override fun read(key: JsonRpcRequest): Mono<Result> {
+        // let the quorum know the number of total upstreams available which may affect their requirements for data
+        quorum.setTotalUpstreams(apiControl.size)
+
         // needs at least one response, so start a request
         apiControl.request(1)
 

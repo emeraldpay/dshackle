@@ -19,25 +19,34 @@ package io.emeraldpay.dshackle.quorum
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import kotlin.math.min
 
 open class BroadcastQuorum(
-    val quorum: Int = 3
+    maxQuorum: Int = 3
 ) : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
 
     private var result: ByteArray? = null
     private var txid: String? = null
     private var calls = 0
     private var sig: ResponseSigner.Signature? = null
+    var quorum: Int = maxQuorum
+
+    private val isQuorumReached: Boolean
+        get() = calls >= quorum
 
     override fun init(head: Head) {
     }
 
+    override fun setTotalUpstreams(total: Int) {
+        quorum = min(total, quorum).coerceAtLeast(1)
+    }
+
     override fun isResolved(): Boolean {
-        return calls >= quorum && txid != null
+        return isQuorumReached && txid != null
     }
 
     override fun isFailed(): Boolean {
-        return calls >= quorum && getError() != null
+        return isQuorumReached && !isResolved()
     }
 
     override fun getResult(): ByteArray? {
