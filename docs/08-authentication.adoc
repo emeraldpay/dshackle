@@ -180,15 +180,17 @@ tls:
 ----
 | Path to certificate and certificate private key
 
-a| `client.ca`, `client.required`
+a| `client.ca`, `client.cas`, `client.required`
 a|
 [source,yaml]
 ----
 tls:
   client:
-    ca: ca.crt
+    cas:
+      - ca1.crt
+      - ca2.crt
     required: true
 ----
-a| Path to CA used to authenticate incoming connections, used if `required: true`
+a| Paths to CA used to authenticate incoming connections, used if `required: true`
 
 |===

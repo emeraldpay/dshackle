@@ -39,7 +39,7 @@ class MainConfigReaderSpec extends Specification {
             certificate == "/path/127.0.0.1.crt"
             key == "/path/127.0.0.1.p8.key"
             !clientRequire
-            clientCa == "/path/ca.dshackle.test.crt"
+            clientCAs == ["/path/ca.dshackle.test.crt"]
         }
         act.cache != null
         with(act.cache) {

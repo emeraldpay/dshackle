@@ -78,7 +78,7 @@ class TlsSetupSpec extends Specification {
                 certificate: "127.0.0.1.crt",
                 key: "127.0.0.1.p8.key",
                 clientRequire: true,
-                clientCa: "ca.myhost.dev.crt"
+                clientCAs: ["ca.myhost.dev.crt"]
         )
         when:
         def act = tlsSetup.setupServer("test", config, false)
@@ -182,12 +182,12 @@ class TlsSetupSpec extends Specification {
                 certificate: "127.0.0.1.crt",
                 key: "127.0.0.1.p8.key",
                 clientRequire: true,
-                clientCa: "none.crt"
+                clientCAs: ["none.crt"]
         )
         when:
         tlsSetup.setupServer("test", config, false)
         then:
-        def t = thrown(IllegalArgumentException)
+        def t = thrown(FileNotFoundException)
     }
 
     def "Fail if client certificate is invalid"() {
@@ -197,11 +197,11 @@ class TlsSetupSpec extends Specification {
                 certificate: "127.0.0.1.crt",
                 key: "127.0.0.1.p8.key",
                 clientRequire: true,
-                clientCa: "ca.myhost.dev.key"
+                clientCAs: ["ca.myhost.dev.key"]
         )
         when:
         tlsSetup.setupServer("test", config, false)
         then:
-        def t = thrown(IllegalArgumentException)
+        def t = thrown(java.security.cert.CertificateParsingException)
     }
 }

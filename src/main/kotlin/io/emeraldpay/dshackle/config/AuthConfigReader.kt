@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.config
 
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
+import org.yaml.snakeyaml.nodes.ScalarNode
 
 class AuthConfigReader : YamlConfigReader<AuthConfig>() {
 
@@ -77,7 +78,15 @@ class AuthConfigReader : YamlConfigReader<AuthConfig>() {
                 getValueAsBool(clientNode, "require")?.let {
                     auth.clientRequire = it
                 }
-                auth.clientCa = getValueAsString(clientNode, "ca")
+                getValueAsString(clientNode, "ca")?.let {
+                    auth.clientCAs.add(it)
+                }
+                getList<ScalarNode>(clientNode, "cas")?.let {
+                    println(it)
+                    it.value?.let { crt ->
+                        auth.clientCAs.addAll(crt.map { v -> v.value })
+                    }
+                }
             }
             auth
         }

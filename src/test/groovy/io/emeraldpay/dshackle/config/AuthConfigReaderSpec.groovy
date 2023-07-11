@@ -72,6 +72,6 @@ class AuthConfigReaderSpec extends Specification {
         act.key == "/etc/client1.myservice.com.key"
         act.clientRequire != null
         !act.clientRequire
-        act.clientCa == "/etc/ca.myservice.com.crt"
+        act.clientCAs == ["/etc/ca.myservice.com.crt"]
     }
 }

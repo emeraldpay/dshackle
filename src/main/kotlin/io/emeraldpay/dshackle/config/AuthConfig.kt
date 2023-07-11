@@ -56,6 +56,6 @@ class AuthConfig {
         var certificate: String? = null
         var key: String? = null
         var clientRequire: Boolean? = null
-        var clientCa: String? = null
+        var clientCAs: MutableList<String> = mutableListOf()
     }
 }

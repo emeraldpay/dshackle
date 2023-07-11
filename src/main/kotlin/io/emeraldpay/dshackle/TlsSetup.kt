@@ -26,6 +26,7 @@ import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import java.security.cert.CertificateFactory
 
 @Service
 open class TlsSetup(
@@ -77,10 +78,18 @@ open class TlsSetup(
                     fileResolver.resolve(config.key!!)
                 )
             }
-            if (StringUtils.isNotEmpty(config.clientCa)) {
+            if (config.clientCAs.isNotEmpty()) {
                 log.info("Using TLS for client authentication for $category")
+                val cf = CertificateFactory.getInstance("X.509")
                 sslContextBuilder.trustManager(
-                    fileResolver.resolve(config.clientCa!!)
+
+                    config.clientCAs
+                        .map { fileResolver.resolve(it) }
+                        .map { file ->
+                            file.inputStream().use {
+                                cf.generateCertificate(it) as java.security.cert.X509Certificate
+                            }
+                        }
                 )
                 if (config.clientRequire != null && config.clientRequire!!) {
                     sslContextBuilder.clientAuth(ClientAuth.REQUIRE)
