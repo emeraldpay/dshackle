@@ -53,6 +53,9 @@ class ChainsConfigReader(
                 rawConfig.laggingLagSize = it
             }
         }
+        getValueAsString(node, "call-validate-contract")?.let {
+            rawConfig.callLimitContract = it
+        }
         upstreamsConfigReader.tryReadOptions(node)?.let {
             rawConfig.options = it
         }

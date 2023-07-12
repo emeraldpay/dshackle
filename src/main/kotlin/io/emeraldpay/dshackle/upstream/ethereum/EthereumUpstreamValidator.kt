@@ -24,21 +24,26 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.json.SyncingJson
+import io.emeraldpay.etherjar.rpc.json.TransactionCallJson
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
-import reactor.util.function.Tuple2
+import reactor.util.function.Tuple3
 import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
 
-open class EthereumUpstreamValidator(
+open class EthereumUpstreamValidator @JvmOverloads constructor(
     private val upstream: Upstream,
-    private val options: UpstreamsConfig.Options
+    private val options: UpstreamsConfig.Options,
+    private val callLimitContract: String? = null
 ) {
+    private var callLimitSucceed: Boolean = false
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
         val scheduler =
@@ -50,15 +55,54 @@ open class EthereumUpstreamValidator(
     open fun validate(): Mono<UpstreamAvailability> {
         return Mono.zip(
             validateSyncing(),
-            validatePeers()
+            validatePeers(),
+            validateCallLimit()
         )
             .map(::resolve)
             .defaultIfEmpty(UpstreamAvailability.UNAVAILABLE)
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
-    fun resolve(results: Tuple2<UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability {
-        return if (results.t1.isBetterTo(results.t2)) results.t2 else results.t1
+    fun resolve(results: Tuple3<UpstreamAvailability, UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability {
+        val cp = Comparator { avail1: UpstreamAvailability, avail2: UpstreamAvailability -> if (avail1.isBetterTo(avail2)) -1 else 1 }
+        return listOf(results.t1, results.t2, results.t3).sortedWith(cp).last()
+    }
+
+    fun validateCallLimit(): Mono<UpstreamAvailability> {
+        // do not rerun this check after first success because it's more expensive than others
+        if (!options.validateCallLimit || callLimitContract == null || callLimitSucceed) {
+            return Mono.just(UpstreamAvailability.OK)
+        }
+        return upstream.getIngressReader()
+            .read(
+                JsonRpcRequest(
+                    "eth_call",
+                    listOf(
+                        TransactionCallJson(
+                            Address.from(callLimitContract),
+                            // calling contract with param 200_000, meaning it will generate 200k symbols or response
+                            // 30d40 — 200_000
+                            HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030d40")
+                        )
+                    )
+                )
+            )
+            .flatMap(JsonRpcResponse::requireResult)
+            .doOnError {
+                log.error(
+                    "Node ${upstream.getId()} is incorrectly configured. " +
+                        "You need to set up your return limit to at least 200000." +
+                        "Erigon config example: https://github.com/ledgerwatch/erigon/blob/devel/cmd/utils/flags.go#L364. "
+                )
+            }
+            .map { UpstreamAvailability.OK }
+            .timeout(
+                Defaults.timeoutInternal,
+                Mono.fromCallable { log.error("No response for eth_call limit check from ${upstream.getId()}") }
+                    .then(Mono.error(TimeoutException("Validation timeout for call limit")))
+            )
+            .doOnSuccess { callLimitSucceed = true }
+            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
     fun validateSyncing(): Mono<UpstreamAvailability> {

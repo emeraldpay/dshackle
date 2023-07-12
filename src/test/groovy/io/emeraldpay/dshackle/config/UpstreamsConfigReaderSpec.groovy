@@ -450,11 +450,13 @@ class UpstreamsConfigReaderSpec extends Specification {
             disableValidation == false
             validateSyncing == true
             validatePeers == false
+            validateCalllimit == true
         }
         with(act.upstreams.get(1).options) {
             disableValidation == false
             validateSyncing == false
             validatePeers == false
+            validateCalllimit == false
         }
         with(act.upstreams.get(2).options) {
             disableValidation == true
@@ -633,7 +635,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         def options = partialOptions.buildOptions()
         then:
         options == new UpstreamsConfig.Options(
-                false, 30, Duration.ofSeconds(60), null, true, 1, true
+                false, 30, Duration.ofSeconds(60), null, true, 1, true, true
         )
     }
 }

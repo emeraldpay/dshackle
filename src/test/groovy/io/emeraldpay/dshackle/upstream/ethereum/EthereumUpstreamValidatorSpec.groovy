@@ -15,13 +15,17 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.ApiReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.etherjar.rpc.json.TransactionCallJson
+import io.emeraldpay.etherjar.domain.Address
 import reactor.core.publisher.Mono
 import reactor.util.function.Tuples
 import spock.lang.Specification
@@ -36,18 +40,18 @@ class EthereumUpstreamValidatorSpec extends Specification {
         setup:
         def validator = new EthereumUpstreamValidator(Stub(EthereumLikeUpstream), UpstreamsConfig.PartialOptions.getDefaults().buildOptions())
         expect:
-        validator.resolve(Tuples.of(sync, peers)) == exp
+        validator.resolve(Tuples.of(sync, peers, call)) == exp
         where:
-        exp         | sync          |  peers
-        OK          | OK            | OK
-        IMMATURE    | OK            | IMMATURE
-        UNAVAILABLE | OK            | UNAVAILABLE
-        SYNCING     | SYNCING       | OK
-        SYNCING     | SYNCING       | IMMATURE
-        UNAVAILABLE | SYNCING       | UNAVAILABLE
-        UNAVAILABLE | UNAVAILABLE   | OK
-        UNAVAILABLE | UNAVAILABLE   | IMMATURE
-        UNAVAILABLE | UNAVAILABLE   | UNAVAILABLE
+        exp         | sync          | peers       | call
+        OK          | OK            | OK          | OK
+        IMMATURE    | OK            | IMMATURE    | OK
+        UNAVAILABLE | OK            | UNAVAILABLE | OK
+        SYNCING     | SYNCING       | OK          | OK
+        SYNCING     | SYNCING       | IMMATURE    | OK
+        UNAVAILABLE | SYNCING       | UNAVAILABLE | OK
+        UNAVAILABLE | UNAVAILABLE   | OK          | OK
+        UNAVAILABLE | UNAVAILABLE   | IMMATURE    | OK
+        UNAVAILABLE | UNAVAILABLE   | UNAVAILABLE | OK
     }
 
     def "Doesnt check eth_syncing when disabled"() {
@@ -62,7 +66,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def act = validator.validateSyncing().block(Duration.ofSeconds(1))
         then:
         act == OK
-        0 * up.getApi()
+        0 * up.getIngressReader()
     }
 
     def "Syncing is OK when false returned from upstream"() {
@@ -175,7 +179,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
         then:
         act == OK
-        0 * up.getApi()
+        0 * up.getIngressReader()
     }
 
     def "Peers is IMMATURE when state returned too few peers"() {
@@ -253,4 +257,66 @@ class EthereumUpstreamValidatorSpec extends Specification {
         then:
         act == UNAVAILABLE
     }
+
+    def "Doesnt check call limit when disabled"() {
+        setup:
+        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+            it.validateCalllimit = false
+        }.buildOptions()
+        def up = Mock(EthereumLikeUpstream)
+        def validator = new EthereumUpstreamValidator(up, options)
+
+        when:
+        def act = validator.validateCallLimit().block(Duration.ofSeconds(1))
+        then:
+        act == OK
+        0 * up.getIngressReader()
+    }
+
+    def "Upstream available if not error from call limit check"() {
+        setup:
+        def options = UpstreamsConfig.PartialOptions.getDefaults().buildOptions()
+        def up = TestingCommons.upstream(
+                new ApiReaderMock().tap {
+                    answerOnce("eth_call", [new TransactionCallJson(
+                            Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
+                            HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030d40")
+                    )], "0x00000000000000000000")
+                }
+        )
+        def validator = new EthereumUpstreamValidator(up, options, "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
+
+        when:
+        def act = validator.validateCallLimit().block(Duration.ofSeconds(1))
+        then:
+        act == OK
+        when:
+        def act2 = validator.validateCallLimit().block(Duration.ofSeconds(1))
+        then:
+        act2 == OK
+    }
+
+    def "Upstream not available if error returned on call limit check"() {
+        setup:
+        def options = UpstreamsConfig.PartialOptions.getDefaults().buildOptions()
+        def up = TestingCommons.upstream(
+                new ApiReaderMock().tap {
+                    answer("eth_call", [new TransactionCallJson(
+                            Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
+                            HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030d40")
+                    )], new RpcResponseError(RpcResponseError.CODE_INVALID_REQUEST, "Too long"))
+                }
+        )
+        def validator = new EthereumUpstreamValidator(up, options, "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
+
+        when:
+        def act = validator.validateCallLimit().block(Duration.ofSeconds(1))
+        then:
+        act == UNAVAILABLE
+        when:
+        def act2 = validator.validateCallLimit().block(Duration.ofSeconds(1))
+        then:
+        act2 == UNAVAILABLE
+    }
+
 }

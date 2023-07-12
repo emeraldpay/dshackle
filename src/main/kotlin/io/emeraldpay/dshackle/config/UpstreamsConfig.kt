@@ -36,7 +36,8 @@ open class UpstreamsConfig {
         val providesBalance: Boolean?,
         val validatePeers: Boolean,
         val minPeers: Int,
-        val validateSyncing: Boolean
+        val validateSyncing: Boolean,
+        val validateCallLimit: Boolean
     )
 
     open class PartialOptions {
@@ -51,6 +52,7 @@ open class UpstreamsConfig {
         var timeout: Duration? = null
         var providesBalance: Boolean? = null
         var validatePeers: Boolean? = null
+        var validateCalllimit: Boolean? = null
         var minPeers: Int? = null
             set(value) {
                 require(value == null || value >= 0) {
@@ -71,6 +73,7 @@ open class UpstreamsConfig {
             copy.validationInterval = firstNonNull(overwrites.validationInterval, this.validationInterval)
             copy.providesBalance = firstNonNull(overwrites.providesBalance, this.providesBalance)
             copy.validateSyncing = firstNonNull(overwrites.validateSyncing, this.validateSyncing)
+            copy.validateCalllimit = firstNonNull(overwrites.validateCalllimit, this.validateCalllimit)
             copy.timeout = firstNonNull(overwrites.timeout, this.timeout)
             return copy
         }
@@ -83,7 +86,8 @@ open class UpstreamsConfig {
                 this.providesBalance,
                 firstNonNull(this.validatePeers, true)!!,
                 firstNonNull(this.minPeers, 1)!!,
-                firstNonNull(this.validateSyncing, true)!!
+                firstNonNull(this.validateSyncing, true)!!,
+                firstNonNull(this.validateCalllimit, true)!!
             )
 
         companion object {

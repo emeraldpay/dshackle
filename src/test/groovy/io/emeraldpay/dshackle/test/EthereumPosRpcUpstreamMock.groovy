@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
+import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig.Options
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -70,7 +71,7 @@ class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
                 methods,
                 new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(labels)),
                 new ConnectorFactoryMock(api, new EthereumHeadMock()),
-                ChainsConfig.ChainConfig.default(),
+                ChainConfig.default(),
                 true
         )
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock

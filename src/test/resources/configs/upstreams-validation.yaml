@@ -8,6 +8,7 @@ upstreams:
       disable-validation: false
       validate-syncing: true
       validate-peers: false
+      validate-call-limit: true
     connection:
       ethereum:
         rpc:
@@ -19,6 +20,7 @@ upstreams:
       disable-validation: false
       validate-syncing: false
       validate-peers: false
+      validate-call-limit: false
     connection:
       ethereum:
         rpc:

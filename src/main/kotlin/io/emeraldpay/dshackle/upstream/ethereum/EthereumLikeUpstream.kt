@@ -30,7 +30,7 @@ abstract class EthereumLikeUpstream(
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?,
-    chainConfig: ChainsConfig.ChainConfig
+    val chainConfig: ChainsConfig.ChainConfig
 ) : DefaultUpstream(id, hash, options, role, targets, node, chainConfig) {
 
     private val capabilities = if (options.providesBalance != false) {

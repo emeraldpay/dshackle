@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.CacheConfig
+import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.EmptyReader

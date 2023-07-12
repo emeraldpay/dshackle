@@ -45,7 +45,7 @@ open class EthereumLikeRpcUpstream(
     chainConfig: ChainsConfig.ChainConfig,
     skipEnhance: Boolean
 ) : EthereumLikeUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
-    private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions())
+    private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions(), chainConfig.callLimitContract)
     private val connector: EthereumConnector = connectorFactory.create(this, validator, chain, skipEnhance)
     private val labelsDetector = EthereumLabelsDetector(this.getIngressReader())
 

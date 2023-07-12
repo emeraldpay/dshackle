@@ -38,6 +38,7 @@ class ChainsConfigReaderSpec extends Specification {
         then:
         eth.laggingLagSize == 1
         eth.syncingLagSize == 6
+        eth.callLimitContract == "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"
 
         pol.laggingLagSize == 10
         pol.syncingLagSize == 20
@@ -48,8 +49,5 @@ class ChainsConfigReaderSpec extends Specification {
 
         sep.laggingLagSize == 1
         sep.syncingLagSize == 10
-
-        eth.laggingLagSize == 1
-        eth.syncingLagSize == 6
     }
 }

@@ -353,6 +353,9 @@ class UpstreamsConfigReader(
         getValueAsBool(values, "validate-syncing")?.let {
             options.validateSyncing = it
         }
+        getValueAsBool(values, "validate-call-limit")?.let {
+            options.validateCalllimit = it
+        }
         getValueAsInt(values, "min-peers")?.let {
             options.minPeers = it
         }

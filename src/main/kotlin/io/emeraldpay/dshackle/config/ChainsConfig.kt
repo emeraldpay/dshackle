@@ -11,6 +11,7 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
     data class RawChainConfig(
         var syncingLagSize: Int? = null,
         var laggingLagSize: Int? = null,
+        var callLimitContract: String? = null,
         var options: UpstreamsConfig.PartialOptions? = null
     ) {
 
@@ -26,11 +27,12 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
     data class ChainConfig(
         val syncingLagSize: Int,
         val laggingLagSize: Int,
-        val options: UpstreamsConfig.PartialOptions
+        val options: UpstreamsConfig.PartialOptions,
+        val callLimitContract: String?
     ) {
         companion object {
             @JvmStatic
-            fun default() = ChainConfig(6, 1, UpstreamsConfig.PartialOptions())
+            fun default() = ChainConfig(6, 1, UpstreamsConfig.PartialOptions(), null)
         }
     }
 
@@ -42,7 +44,8 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
         return ChainConfig(
             laggingLagSize = raw.laggingLagSize ?: default.laggingLagSize ?: panic(),
             syncingLagSize = raw.syncingLagSize ?: default.syncingLagSize ?: panic(),
-            options = options
+            options = options,
+            callLimitContract = raw.callLimitContract
         )
     }
 
@@ -57,7 +60,8 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
     ) = RawChainConfig(
         syncingLagSize = patch?.syncingLagSize ?: current.syncingLagSize,
         laggingLagSize = patch?.laggingLagSize ?: current.laggingLagSize,
-        options = patch?.options ?: current.options
+        options = patch?.options ?: current.options,
+        callLimitContract = patch?.callLimitContract ?: current.callLimitContract
     )
 
     private fun merge(

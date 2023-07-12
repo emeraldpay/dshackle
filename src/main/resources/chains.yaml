@@ -7,6 +7,12 @@ chain-settings:
       lagging: 1
   chains:
     - id: eth
+      call-validate-contract: 0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96
+      lags:
+        syncing: 6
+        lagging: 1
+    - id: goerli
+      call-validate-contract: 0xCD9303A1F6da2a68f465A579a24cc2Ee5AE2192f
       lags:
         syncing: 6
         lagging: 1
