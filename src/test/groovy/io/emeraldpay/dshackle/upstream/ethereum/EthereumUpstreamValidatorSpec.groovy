@@ -280,7 +280,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                 new ApiReaderMock().tap {
                     answerOnce("eth_call", [new TransactionCallJson(
                             Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
-                            HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030d40")
+                            HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030ce0")
                     )], "0x00000000000000000000")
                 }
         )
