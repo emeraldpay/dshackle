@@ -3,8 +3,8 @@ spring:
     max-metadata-size: ${MAX_METADATA_SIZE:16384}
     name: ${DRPC_APP_NAME:dshackle}
   zipkin:
-    enabled: ${ZIPKIN_ENABLE:false}
-    base-url: ${ZIPKIN_URL:http://localhost:9411/}
+    enabled: ${ENABLE_COLLECT_SPANS:false}
+    base-url: ${ZIPKIN_URL:https://trace.drpc.dev/}
   sleuth:
     span-filter:
       additional-span-name-patterns-to-ignore:
@@ -16,12 +16,9 @@ spring:
         - ".+SubscribeStatus"
         - ".+SubscribeNodeStatus"
         - ".+Describe"
+        - ".+ServerReflectionInfo"
 
 spans:
   collect:
-    enabled: ${ENABLE_COLLECT_SPANS:false}
-    provider:
-      enabled: ${ENABLE_PROVIDER_COLLECT_SPANS:true}
-      long-span-threshold: ${LONG_SPAN_THRESHOLD:1}
-    main:
-      enabled: ${ENABLE_MAIN_COLLECT_SPANS:false}
+    long-span-threshold: ${LONG_SPAN_THRESHOLD:1000}
+    collect-only-errors: ${ONLY_ERROR_SPANS:true}

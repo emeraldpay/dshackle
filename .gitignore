@@ -13,3 +13,11 @@ testsetup/
 # nix
 env
 /dshackle-cli/node_modules/
+
+# temp files
+/test*
+/test/
+Test*.kt
+
+# http-client config
+http-client.env.json

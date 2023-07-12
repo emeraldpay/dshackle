@@ -94,7 +94,7 @@ dependencies {
     implementation libs.bundles.jackson
 
     implementation libs.bundles.apache.commons
-    implementation libs.bouncycastle
+    implementation libs.bundles.bouncycastle
     implementation libs.caffeine
     implementation libs.javax.annotations
 

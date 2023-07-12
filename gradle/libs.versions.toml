@@ -24,7 +24,8 @@ logstash-encoder = "net.logstash.logback:logstash-logback-encoder:7.2"
 
 janino = "org.codehaus.janino:janino:3.1.9"
 
-bouncycastle = "org.bouncycastle:bcprov-jdk15on:1.61"
+bouncycastle-prov = "org.bouncycastle:bcprov-jdk15on:1.61"
+bouncycastle-pkix = 'org.bouncycastle:bcpkix-jdk15on:1.61'
 
 caffeine = "com.github.ben-manes.caffeine:caffeine:2.8.5"
 
@@ -135,6 +136,7 @@ reactor = ["reactor-core", "reactor-netty", "reactor-extra", "reactor-kotlin"]
 spring-framework = ["spring-boot-starter", "spring-security-core", "spring-security-web", "spring-security-config"]
 testcontainers = ["testcontainers", "testcontainers-ganache"]
 junit = ["junit-jupiter", "assertj"]
+bouncycastle = ["bouncycastle-pkix", "bouncycastle-prov"]
 
 
 [plugins]

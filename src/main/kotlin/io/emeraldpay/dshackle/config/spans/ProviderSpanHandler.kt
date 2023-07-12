@@ -3,78 +3,48 @@ package io.emeraldpay.dshackle.config.spans
 import brave.handler.MutableSpan
 import brave.handler.SpanHandler
 import brave.propagation.TraceContext
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.github.benmanes.caffeine.cache.Caffeine
-import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.cloud.sleuth.Span
-import java.time.Duration
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.stereotype.Component
+import java.util.concurrent.TimeUnit
 
+@Component
+@ConditionalOnProperty(value = ["spring.zipkin.enabled"], havingValue = "true")
 class ProviderSpanHandler(
-    @Qualifier("spanMapper")
-    private val spanMapper: ObjectMapper,
-    private val spanExportableList: List<SpanExportable>
+    @Value("\${spans.collect.collect-only-errors:false}")
+    private val onlyErrors: Boolean? = false,
+    @Value("\${spans.collect.long-span-threshold}")
+    private val longSpanThreshold: Long? = null
 ) : SpanHandler() {
-    private val spans = Caffeine
-        .newBuilder()
-        .expireAfterWrite(Duration.ofMinutes(5))
-        .build<String, MutableList<MutableSpan>>()
 
-    override fun end(context: TraceContext, span: MutableSpan, cause: Cause): Boolean {
-        if (span.traceId().length > 20 && span.parentId() != null) {
-            val spanList = spans.asMap().computeIfAbsent(span.parentId()) { mutableListOf() }
-            spanList.add(span)
+    override fun end(context: TraceContext?, span: MutableSpan, cause: Cause?): Boolean {
+        val duration = TimeUnit.MILLISECONDS.convert(span.finishTimestamp() - span.startTimestamp(), TimeUnit.MICROSECONDS)
+
+        val isError = span.tags().containsKey("error")
+
+        // If onlyErrors is true and there is an error, return true.
+        if (onlyErrors == true && isError) {
+            return true
         }
-        return super.end(context, span, cause)
-    }
 
-    fun getErrorSpans(spanId: String, currentSpan: Span): String {
-        val spansInfo = SpansInfo()
+        // If onlyErrors is true, there is no error, and the span is long, return true.
+        if (onlyErrors == true && !isError && longSpanThreshold != null && duration >= longSpanThreshold) {
+            return true
+        }
 
-        enrichErrorSpans(spanId, spansInfo)
-        currentSpan.end()
-        currentSpan.context().parentId()?.let {
-            spans.getIfPresent(it)?.let { mutableSpans ->
-                if (mutableSpans.isNotEmpty()) {
-                    processSpanInfo(mutableSpans[0], spansInfo)
-                }
+        // If onlyErrors is false, check for the time threshold condition.
+        if (onlyErrors == false) {
+            // If longSpanThreshold is null, return true.
+            if (longSpanThreshold == null) {
+                return true
+            }
+            // If longSpanThreshold is set, only return true if the duration is >= time threshold.
+            else if (duration >= longSpanThreshold) {
+                return true
             }
         }
 
-        spansInfo.spans
-            .map { it.parentId() }
-            .forEach {
-                if (it != null) {
-                    spans.invalidate(it)
-                }
-            }
-
-        return if (spansInfo.exportable) {
-            spanMapper.writeValueAsString(spansInfo.spans)
-        } else {
-            ""
-        }
+        // Return false if none of the above conditions are met.
+        return false
     }
-
-    private fun enrichErrorSpans(spanId: String, spansInfo: SpansInfo) {
-        val currentSpans: List<MutableSpan>? = spans.getIfPresent(spanId)
-
-        currentSpans?.forEach {
-            processSpanInfo(it, spansInfo)
-            if (spanId != it.id()) {
-                enrichErrorSpans(it.id(), spansInfo)
-            }
-        }
-    }
-
-    private fun processSpanInfo(span: MutableSpan, spansInfo: SpansInfo) {
-        spansInfo.spans.add(span)
-        if (spanExportableList.any { it.isExportable(span) }) {
-            spansInfo.exportable = true
-        }
-    }
-
-    private data class SpansInfo(
-        var exportable: Boolean = false,
-        val spans: MutableList<MutableSpan> = mutableListOf()
-    )
 }
