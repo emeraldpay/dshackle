@@ -73,7 +73,6 @@ class DefaultEthereumMethods(
 
     private val anyResponseMethods = listOf(
         "eth_gasPrice",
-        "eth_call",
         "eth_estimateGas"
     )
 
@@ -149,8 +148,9 @@ class DefaultEthereumMethods(
             possibleNotIndexedMethods.contains(method) -> NotNullQuorum()
             specialMethods.contains(method) -> {
                 when (method) {
-                    "eth_getTransactionCount" -> NotLaggingQuorum(0)
-                    "eth_getBalance" -> NotLaggingQuorum(0)
+                    "eth_call" -> AlwaysQuorum()
+                    "eth_getTransactionCount" -> AlwaysQuorum()
+                    "eth_getBalance" -> AlwaysQuorum()
                     "eth_sendRawTransaction" -> BroadcastQuorum()
                     "eth_blockNumber" -> NotLaggingQuorum(0)
                     else -> AlwaysQuorum()
