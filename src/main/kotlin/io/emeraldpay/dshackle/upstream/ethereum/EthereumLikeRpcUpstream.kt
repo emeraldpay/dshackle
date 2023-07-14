@@ -72,6 +72,7 @@ open class EthereumLikeRpcUpstream(
         labelsDetector.detectLabels()
             .toStream()
             .forEach {
+                log.info("Detected label ${it.first} with value ${it.second} for upstream ${getId()}")
                 node?.labels?.let { labels ->
                     labels[it.first] = it.second
                 }
