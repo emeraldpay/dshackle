@@ -127,20 +127,27 @@ class TrackERC20Address(
 
                 val updates = logs
                     .filter {
-                        it.topics.size >= 3 && (Address.extract(it.topics[1]) == addr.address || Address.extract(it.topics[2]) == addr.address)
+                        try {
+                            it.topics.size >= 3 && (Address.extract(it.topics[1]) == addr.address || Address.extract(it.topics[2]) == addr.address)
+                        } catch (e: Exception) {
+                            // technically it's possible to construct an invalid event that would crash the previous step, so we just ignore those events
+                            log.debug("Invalid event {}", it.transactionHash)
+                            false
+                        }
                     }
                     .distinctUntilChanged {
                         // check it once per block
                         it.blockHash
                     }
                     .flatMap {
-                        // make sure we use actual balance, don't trust event blindly
+                        // make sure we use actual balance, don't trust the event blindly
                         getBalance(addr)
                     }
                 Flux.concat(current, updates)
                     .distinctUntilChanged()
                     .map { addr.withBalance(it) }
             }
+            .doOnError { t -> log.error("Failed to process subscription to ERC20 balance", t) }
             .map { buildResponse(it) }
     }
 

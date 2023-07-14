@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.commons.DurableFlux
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
@@ -61,7 +62,14 @@ class ConnectBlockUpdates(
             if (currentRecheck != null) {
                 return currentRecheck
             }
-            val created = extract(upstream.getHead())
+            val connection = DurableFlux.newBuilder()
+                .logTo(log)
+                .using { extract(upstream.getHead()) }
+                .backoffOnError(Duration.ofSeconds(1), 1.5, Duration.ofMinutes(1))
+                .build()
+                .connect()
+
+            val created = connection
                 .publishOn(Schedulers.boundedElastic())
                 .publish()
                 .refCount(1, Duration.ofSeconds(60))
