@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.Global.Companion.objectMapper
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.etherjar.hex.HexQuantity
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
@@ -39,7 +40,17 @@ class EthereumLabelsDetector(
 
     private fun detectArchiveNode(): Mono<Pair<String, String>> {
         return reader
-            .read(JsonRpcRequest("eth_getBalance", listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x1")))
+            .read(JsonRpcRequest("eth_blockNumber", listOf()))
+            .flatMap(JsonRpcResponse::requireResult)
+            .flatMap {
+                val blockNum = HexQuantity.from(String(it).substring(3, it.size - 1).toLong(radix = 16) - 10_000) // this is definitely archive
+                reader.read(
+                    JsonRpcRequest(
+                        "eth_getBalance",
+                        listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", blockNum.toHex())
+                    )
+                )
+            }
             .flatMap(JsonRpcResponse::requireResult)
             .map { "archive" to "true" }
             .onErrorResume { Mono.empty() }

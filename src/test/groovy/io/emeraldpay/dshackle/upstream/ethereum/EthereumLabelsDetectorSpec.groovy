@@ -21,7 +21,8 @@ class EthereumLabelsDetectorSpec extends Specification {
         def up = TestingCommons.upstream(
                 new ApiReaderMock().tap {
                     answer("web3_clientVersion", [], response)
-                    answer("eth_getBalance", ["0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x1"], "")
+                    answer("eth_blockNumber", [], "0x10df3e5")
+                    answer("eth_getBalance", ["0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x10dccd5"], "")
                 }
         )
         def detector = new EthereumLabelsDetector(up.getIngressReader())
@@ -50,7 +51,9 @@ class EthereumLabelsDetectorSpec extends Specification {
             1 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("web3_clientVersion", [])) >>
                         Mono.just(new JsonRpcResponse('no/v1.19.3+e8ac1da4/linux-x64/dotnet7.0.8'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_getBalance", ["0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x1"])) >>
+                1 * read(new JsonRpcRequest("eth_blockNumber", [])) >>
+                        Mono.just(new JsonRpcResponse("\"0x10df3e5\"".getBytes(), null))
+                1 * read(new JsonRpcRequest("eth_getBalance", ["0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x10dccd5"])) >>
                         Mono.error(new RuntimeException())
             }
         }
