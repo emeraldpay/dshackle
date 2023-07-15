@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.startup.UpstreamChange
-import io.emeraldpay.dshackle.test.EthereumUpstreamMock
+import io.emeraldpay.dshackle.testgroovy.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.api.Chain
