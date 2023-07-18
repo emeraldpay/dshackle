@@ -75,7 +75,7 @@ class BitcoinGrpcUpstream(
         this(parentId, ForkWatch.Never(), role, chain, UpstreamsConfig.PartialOptions.getDefaults().build(), remote, client)
 
     private val extractBlock = ExtractBlock()
-    private val reader: StandardRpcReader = client.forSelector(Selector.empty)
+    private val reader: StandardRpcReader = client.forSelector(parentId, Selector.empty)
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val block = BlockContainer(
             value.height,

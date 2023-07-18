@@ -80,6 +80,7 @@ class ProduceLogs(
 
     fun produceAdded(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
         return receipts.read(update.transactionId)
+            .checkpoint("Read a Full Receipt for an Added Log Tx ${update.transactionId}")
             .switchIfEmpty {
                 log.warn("Cannot find receipt for tx ${update.transactionId}")
                 Mono.empty()

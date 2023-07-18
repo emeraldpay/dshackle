@@ -44,12 +44,13 @@ class JsonRpcGrpcClient(
         private val log = LoggerFactory.getLogger(JsonRpcGrpcClient::class.java)
     }
 
-    fun forSelector(matcher: Selector.Matcher): StandardRpcReader {
-        return Executor(stub, chain, matcher, metrics)
+    fun forSelector(upstreamId: String, matcher: Selector.Matcher): StandardRpcReader {
+        return Executor(upstreamId, stub, chain, matcher, metrics)
             .let { modifier?.apply(it) ?: it }
     }
 
     class Executor(
+        private val upstreamId: String,
         private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val chain: Chain,
         private val matcher: Selector.Matcher,
@@ -80,6 +81,7 @@ class JsonRpcGrpcClient(
                 .doOnNext { timer.start() }
                 .flatMap {
                     stub.nativeCall(req.build())
+                        .checkpoint("Call ${key.method} using Dshackle-gRPC on $upstreamId")
                         .single()
                         .onErrorResume(::handleError)
                         .flatMap(::handleResponse)
@@ -119,6 +121,7 @@ class JsonRpcGrpcClient(
 
         fun handleError(t: Throwable): Mono<BlockchainOuterClass.NativeCallReplyItem> {
             metrics?.fails?.increment()
+            log.warn("Upstream $upstreamId error calling a $chain/NativeMethod: ${t.message}")
             return when (t) {
                 is StatusRuntimeException -> Mono.error(
                     RpcException(

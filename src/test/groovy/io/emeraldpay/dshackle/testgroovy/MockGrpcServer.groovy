@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.test
+package io.emeraldpay.dshackle.testgroovy
 
 import io.emeraldpay.api.proto.BlockchainGrpc
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
