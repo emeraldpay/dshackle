@@ -87,4 +87,37 @@ class DefaultEthereumMethodsSpec extends Specification {
         then:
         act.isEmpty()
     }
+
+    def "Default eth methods are available"() {
+        setup:
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        expect:
+        methods.isAvailable(method)
+        where:
+        method                                      | _
+        "eth_gasPrice"                              | _
+        "eth_estimateGas"                           | _
+        "eth_getBlockTransactionCountByHash"        | _
+        "eth_getUncleCountByBlockHash"              | _
+        "eth_getBlockByHash"                        | _
+        "eth_getBlockByNumber"                      | _
+        "eth_getTransactionByBlockHashAndIndex"     | _
+        "eth_getTransactionByBlockNumberAndIndex"   | _
+        "eth_getStorageAt"                          | _
+        "eth_getCode"                               | _
+        "eth_getUncleByBlockHashAndIndex"           | _
+        "eth_getLogs"                               | _
+        "eth_maxPriorityFeePerGas"                  | _
+        "eth_getTransactionByHash"                  | _
+        "eth_getTransactionReceipt"                 | _
+        "eth_call"                                  | _
+        "eth_getTransactionCount"                   | _
+        "eth_blockNumber"                           | _
+        "eth_getBalance"                            | _
+        "eth_sendRawTransaction"                    | _
+        "eth_getBlockTransactionCountByNumber"      | _
+        "eth_getUncleCountByBlockNumber"            | _
+        "eth_getUncleByBlockNumberAndIndex"         | _
+        "eth_feeHistory"                            | _
+    }
 }
