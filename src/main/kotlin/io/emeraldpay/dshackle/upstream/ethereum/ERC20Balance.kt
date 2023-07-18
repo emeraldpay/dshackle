@@ -22,7 +22,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.erc20.ERC20Token
-import io.emeraldpay.etherjar.hex.Hex32
 import io.emeraldpay.etherjar.hex.HexQuantity
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -62,7 +61,13 @@ open class ERC20Balance {
             .getIngressReader()
             .read(prepareEthCall(token, address, upstream.getHead()))
             .flatMap(JsonRpcResponse::requireStringResult)
-            .map { Hex32.from(it).asQuantity().value }
+            .map {
+                // The value may be just `0x` when the contract doesn't exist, or if it's corrupted and its method returns nothing.
+                // In this case there are two options: return null (Mono.empty()) or return 0 (BigInteger.ZERO)
+                // We return BigInteger.ZERO because it's more safe for the caller that may not properly process empty / no-result,
+                // also for the money zero is the same as nothing.
+                HexQuantity.from(it)?.value ?: BigInteger.ZERO
+            }
     }
 
     fun prepareEthCall(token: ERC20Token, target: Address, head: Head): JsonRpcRequest {

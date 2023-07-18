@@ -24,7 +24,7 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.test.MockGrpcServer
+import io.emeraldpay.dshackle.testgroovy.MockGrpcServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient

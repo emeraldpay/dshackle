@@ -18,17 +18,12 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
-import io.emeraldpay.dshackle.test.EthereumUpstreamMock
+import io.emeraldpay.dshackle.testgroovy.EthereumUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.rpcclient.DshackleRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.DshackleResponse
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import io.emeraldpay.api.Chain
-import org.jetbrains.annotations.NotNull
-import reactor.core.publisher.Mono
 import spock.lang.Specification
 
 import java.time.Duration

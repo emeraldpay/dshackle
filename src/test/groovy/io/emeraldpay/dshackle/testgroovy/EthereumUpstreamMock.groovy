@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.test
+package io.emeraldpay.dshackle.testgroovy
 
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -28,7 +28,6 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse

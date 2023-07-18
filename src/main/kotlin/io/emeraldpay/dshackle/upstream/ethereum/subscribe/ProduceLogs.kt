@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import com.google.common.cache.CacheBuilder
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.commons.RateLimitedAction
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
@@ -28,6 +29,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 class ProduceLogs(
@@ -42,8 +44,11 @@ class ProduceLogs(
 
     private val objectMapper = Global.objectMapper
 
+    // sometimes it comes as a bunch on events, we don't need to produce all of them to the log
+    private val removedLogMissingRateLimit = RateLimitedAction(Duration.ofSeconds(10))
+
     // need to keep history of recent messages in case they get removed. cannot rely on
-    // any other cache or upstream because if when it gets removed it's unavailable in any other source
+    // any other cache or upstream because when it gets removed it's unavailable in any other source
     private val oldMessages = CacheBuilder.newBuilder()
         // in general a block with its events can be replaced in ~90 seconds, but in case of a big network disturbance
         // it can be much longer. here we keep events up to an hour
@@ -64,7 +69,9 @@ class ProduceLogs(
     fun produceRemoved(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
         val old = oldMessages.getIfPresent(LogReference(update.blockHash, update.transactionId))
         if (old == null) {
-            log.warn("No old message to produce removal messages for tx ${update.transactionId} at block ${update.blockHash}")
+            removedLogMissingRateLimit.execute {
+                log.warn("No old message to produce removal messages for tx ${update.transactionId} at block ${update.blockHash}")
+            }
             return Flux.empty()
         }
         return Flux.fromIterable(old)
@@ -73,6 +80,7 @@ class ProduceLogs(
 
     fun produceAdded(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
         return receipts.read(update.transactionId)
+            .checkpoint("Read a Full Receipt for an Added Log Tx ${update.transactionId}")
             .switchIfEmpty {
                 log.warn("Cannot find receipt for tx ${update.transactionId}")
                 Mono.empty()

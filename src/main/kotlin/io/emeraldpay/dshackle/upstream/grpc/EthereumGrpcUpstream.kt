@@ -113,7 +113,7 @@ open class EthereumGrpcUpstream(
     )
     private var capabilities: Set<Capability> = emptySet()
 
-    private val reader: StandardRpcReader = client.forSelector(Selector.empty)
+    private val reader: StandardRpcReader = client.forSelector(parentId, Selector.empty)
     var timeout = Defaults.timeout
     private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
     private var updateHandler: (() -> Unit)? = null
