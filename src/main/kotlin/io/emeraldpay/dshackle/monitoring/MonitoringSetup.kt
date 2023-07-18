@@ -33,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.util.zip.GZIPOutputStream
 import javax.annotation.PostConstruct
 
 @Service
@@ -83,9 +84,12 @@ class MonitoringSetup(
                 )
                 server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
                     val response = prometheusRegistry.scrape()
-                    httpExchange.sendResponseHeaders(200, response.toByteArray().size.toLong())
+                    httpExchange.responseHeaders.add("Content-Encoding", "gzip")
+                    httpExchange.sendResponseHeaders(200, 0)
                     httpExchange.responseBody.use { os ->
-                        os.write(response.toByteArray())
+                        GZIPOutputStream(os).use { gzos ->
+                            gzos.write(response.toByteArray())
+                        }
                     }
                 }
                 Thread(server::start).start()
