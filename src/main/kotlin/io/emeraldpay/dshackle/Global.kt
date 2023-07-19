@@ -77,6 +77,8 @@ class Global {
             "zksync" to Chain.ZKSYNC__MAINNET,
             "zksync-testnet" to Chain.ZKSYNC__TESTNET,
             "polygon-mumbai" to Chain.POLYGON_POS__MUMBAI,
+            "base" to Chain.BASE__MAINNET,
+            "base-goerli" to Chain.BASE__GOERLI,
         )
 
         fun chainById(id: String?): Chain {

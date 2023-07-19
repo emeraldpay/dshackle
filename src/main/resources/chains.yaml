@@ -78,3 +78,15 @@ chain-settings:
       lags:
         syncing: 40
         lagging: 20
+    - id: base
+      options:
+        validate-peers: false
+      lags:
+        syncing: 40
+        lagging: 20
+    - id: base-goerli
+      options:
+        validate-peers: false
+      lags:
+        syncing: 40
+        lagging: 20

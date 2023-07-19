@@ -271,6 +271,9 @@ class DefaultEthereumMethods(
         Chain.ZKSYNC__TESTNET to HardcodedData("\"280\"", "\"0x118\""),
 
         Chain.BSC__MAINNET to HardcodedData("\"56\"", "\"0x38\""),
+
+        Chain.BASE__MAINNET to HardcodedData("\"8453\"", "\"0x2105\""),
+        Chain.BASE__GOERLI to HardcodedData("\"84531\"", "\"0x14a33\""),
     )
 
     override fun executeHardcoded(method: String): ByteArray {
