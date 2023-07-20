@@ -92,6 +92,8 @@ class JsonRpcHttpClientTest : ShouldSpec({
             client.read(JsonRpcRequest("test", emptyList())).block(Duration.ofSeconds(1))
         }.let(Exceptions::unwrap)
 
+        t.printStackTrace()
+
         t shouldBe instanceOf<JsonRpcException>()
         (t as JsonRpcException).error.also {
             it.code shouldBe RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE

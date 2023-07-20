@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.reader.QuorumRpcReader
 import io.emeraldpay.dshackle.upstream.FilteredApis
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -51,7 +52,7 @@ class QuorumRpcReaderTest : ShouldSpec({
             every { upstream.isAvailable() } returns true
             every { upstream.getRole() } returns UpstreamsConfig.UpstreamRole.PRIMARY
             every { upstream.getIngressReader() } returns mockk() {
-                every { read(JsonRpcRequest("eth_test", emptyList())) } returns Mono.just(JsonRpcResponse.error(1, "test"))
+                every { read(JsonRpcRequest("eth_test", emptyList())) } returns Mono.just(JsonRpcResponse.error( "test", JsonRpcResponse.NumberId(1)))
             }
 
             val apis = FilteredApis(
@@ -129,7 +130,7 @@ class QuorumRpcReaderTest : ShouldSpec({
             every { upstream.getRole() } returns UpstreamsConfig.UpstreamRole.PRIMARY
             every { upstream.getIngressReader() } returns mockk() {
                 every { read(JsonRpcRequest("eth_test", emptyList())) } returnsMany listOf(
-                    Mono.just(JsonRpcResponse.error(1, "test")),
+                    Mono.just(JsonRpcResponse.error( "test", JsonRpcResponse.NumberId(1))),
                     Mono.just(JsonRpcResponse.ok("1"))
                 )
             }
@@ -155,7 +156,7 @@ class QuorumRpcReaderTest : ShouldSpec({
             every { upstream.getIngressReader() } returns mockk() {
                 every { read(JsonRpcRequest("eth_test", emptyList())) } returnsMany listOf(
                     Mono.just(JsonRpcResponse.ok("null")),
-                    Mono.just(JsonRpcResponse.error(1, "test")),
+                    Mono.just(JsonRpcResponse.error( "test", JsonRpcResponse.NumberId(1))),
                     Mono.just(JsonRpcResponse.ok("1"))
                 )
             }
@@ -180,9 +181,9 @@ class QuorumRpcReaderTest : ShouldSpec({
             every { upstream.getRole() } returns UpstreamsConfig.UpstreamRole.PRIMARY
             every { upstream.getIngressReader() } returns mockk() {
                 every { read(JsonRpcRequest("eth_test", emptyList())) } returnsMany listOf(
-                    Mono.just(JsonRpcResponse.error(1, "test")),
-                    Mono.just(JsonRpcResponse.error(1, "test")),
-                    Mono.just(JsonRpcResponse.error(1, "test"))
+                    Mono.just(JsonRpcResponse.error( "test", JsonRpcResponse.NumberId(1))),
+                    Mono.just(JsonRpcResponse.error( "test", JsonRpcResponse.NumberId(1))),
+                    Mono.just(JsonRpcResponse.error( "test", JsonRpcResponse.NumberId(1)))
                 )
             }
 
@@ -212,7 +213,7 @@ class QuorumRpcReaderTest : ShouldSpec({
             every { upstream.getLag() } returns 0
             every { upstream.getRole() } returns UpstreamsConfig.UpstreamRole.PRIMARY
             every { upstream.getIngressReader() } returns mockk() {
-                every { read(JsonRpcRequest("eth_test", emptyList())) } returns Mono.just(JsonRpcResponse.error(-3010, "test"))
+                every { read(JsonRpcRequest("eth_test", emptyList())) } returns Mono.just(JsonRpcResponse.error( JsonRpcError(-2010, "test"), JsonRpcResponse.NumberId(1)))
             }
 
             val apis = FilteredApis(
@@ -230,7 +231,7 @@ class QuorumRpcReaderTest : ShouldSpec({
 
             t shouldBe instanceOf<JsonRpcException>()
             (t as JsonRpcException).error.message shouldBe "test"
-            (t as JsonRpcException).error.code shouldBe -3010
+            (t as JsonRpcException).error.code shouldBe -2010
         }
     }
 })

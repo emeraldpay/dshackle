@@ -95,6 +95,9 @@ open class NativeCall(
             .setId(it.id)
         if (it.isError()) {
             it.error?.let { error ->
+                if (error.upstreamError != null) {
+                    result.payload = ByteString.copyFrom(objectMapper.writeValueAsBytes(error.upstreamError))
+                }
                 result.setErrorMessage(error.message)
             }
         } else {

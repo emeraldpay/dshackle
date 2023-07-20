@@ -73,7 +73,7 @@ class HttpHandlerSpec extends Specification {
     def "Return error on invalid request"() {
         setup:
         ReadRpcJson read = Mock(ReadRpcJson) {
-            1 * apply(_) >> { throw new RpcException(-32123, "test", new JsonRpcResponse.NumberId(4)) }
+            1 * apply(_) >> { throw new RpcException(-32123, "test") }
         }
         Counter errorMetric = Mock(Counter) {
             1 * increment()
@@ -96,7 +96,8 @@ class HttpHandlerSpec extends Specification {
                 .map { new String(it.array()) }
         then:
         StepVerifier.create(act)
-                .expectNext('{"jsonrpc":"2.0","id":4,"error":{"code":-32123,"message":"test"}}')
+                // note that id is not set anywhere in the test
+                .expectNext('{"jsonrpc":"2.0","id":-1,"error":{"code":-32123,"message":"test"}}')
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }

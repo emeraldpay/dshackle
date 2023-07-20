@@ -108,7 +108,7 @@ class StandardApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                 }
                 error = new JsonRpcError(-32601, "Method ${request.method} with ${request.params} is not mocked")
             }
-            return new JsonRpcResponse(result, error, JsonRpcResponse.Id.from(request.id), null)
+            return new JsonRpcResponse(result, error, null, JsonRpcResponse.Id.from(request.id), null)
         } as Callable<JsonRpcResponse>
         return Mono.fromCallable(call)
     }
@@ -119,7 +119,7 @@ class StandardApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                     .block(Duration.ofSeconds(5))
             def proto = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                     .setId(req.id)
-                    .setSucceed(resp.hasResult())
+                    .setSucceed(resp.getHasResult())
                     .setPayload(ByteString.copyFrom(resp.resultOrEmpty))
 
             resp.error?.with { err ->

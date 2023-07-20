@@ -129,8 +129,13 @@ class JsonRpcHttpClient(
     private fun throwIfError(): Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>> {
         return Function { resp ->
             resp.flatMap {
-                if (it.hasError()) {
-                    Mono.error(JsonRpcException(it.id, it.error!!))
+                if (it.hasError) {
+                    if (it.error != null) {
+                        Mono.error(JsonRpcException(it.id, it.error))
+                    } else {
+                        // we got an internal exception converted to a response, so we mark it as a CODE_UPSTREAM_INVALID_RESPONSE
+                        Mono.error(JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, it.errorMessage ?: "").asException(it.id))
+                    }
                 } else {
                     Mono.just(it)
                 }
@@ -166,14 +171,13 @@ class JsonRpcHttpClient(
                 val parsed = parser.parse(it.t2)
                 val statusCode = it.t1
                 if (statusCode != 200) {
-                    if (parsed.hasError() && parsed.error!!.code != RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE) {
+                    if (parsed.hasError && parsed.error!!.code != RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE) {
                         // extracted the error details from the HTTP Body
                         parsed
                     } else {
                         // here we got a valid response with ERROR as HTTP Status Code. We assume that HTTP Status has
                         // a higher priority so return an error here anyway
                         JsonRpcResponse.error(
-                            RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
                             "HTTP Code: $statusCode",
                             JsonRpcResponse.NumberId(key.id)
                         )

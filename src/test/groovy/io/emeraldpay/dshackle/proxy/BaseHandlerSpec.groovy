@@ -198,7 +198,7 @@ class BaseHandlerSpec extends Specification {
                 .block(Duration.ofSeconds(1))
                 .join("")
         then:
-        act == '[{"jsonrpc":"2.0","id":5,"error":{"code":-32002,"message":"No response"}},{"jsonrpc":"2.0","id":6,"result":{"foo": 2}},{"jsonrpc":"2.0","id":7,"result":{"foo": 3}}]'
+        act == '[{"jsonrpc":"2.0","id":5,"error":{"code":-32603,"message":"No response"}},{"jsonrpc":"2.0","id":6,"result":{"foo": 2}},{"jsonrpc":"2.0","id":7,"result":{"foo": 3}}]'
         1 * nativeCall.nativeCallResult(_) >> Flux.fromIterable(response)
     }
 

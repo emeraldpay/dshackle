@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessContext
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessLogHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.netty.buffer.ByteBuf
@@ -105,7 +106,7 @@ class HttpHandler(
                     if (it is JsonRpcResponse.Id) it else JsonRpcResponse.NumberId(-1)
                 } ?: JsonRpcResponse.NumberId(-1)
 
-                val json = JsonRpcResponse.error(err.code, err.rpcMessage, id)
+                val json = JsonRpcResponse.error(JsonRpcError.from(err), id)
                 Mono.just(Global.objectMapper.writeValueAsString(json))
             }
             .map { Unpooled.wrappedBuffer(it.toByteArray()) }

@@ -19,11 +19,13 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import io.emeraldpay.etherjar.rpc.RpcResponseError
 import reactor.core.publisher.Mono
 
 class JsonRpcResponse(
     private val result: ByteArray?,
     val error: JsonRpcError?,
+    val errorMessage: String?,
     val id: Id,
 
     /**
@@ -32,7 +34,7 @@ class JsonRpcResponse(
     val providedSignature: ResponseSigner.Signature? = null
 ) {
 
-    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
+    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, null, NumberId(0))
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
@@ -44,7 +46,7 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun ok(value: ByteArray, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(value, null, id)
+            return JsonRpcResponse(value, null, null, id)
         }
 
         @JvmStatic
@@ -53,32 +55,30 @@ class JsonRpcResponse(
         }
 
         @JvmStatic
-        fun error(code: Int, msg: String): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg))
-        }
-
-        @JvmStatic
         fun error(error: JsonRpcError, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, error, id)
+            return JsonRpcResponse(null, error, null, id)
         }
 
-        @JvmStatic
-        fun error(code: Int, msg: String, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg), id)
+        fun error(error: String, id: Id): JsonRpcResponse {
+            return JsonRpcResponse(null, null, error, id)
         }
     }
 
-    fun hasResult(): Boolean {
-        return result != null
+    init {
+        val haveResult = result != null
+        val haveError = error != null || errorMessage != null
+        require(haveResult || haveError) { "Response should have result or error" }
+        require(!(haveResult && haveError)) { "Response cannot have both error and result" }
     }
 
-    fun hasError(): Boolean {
-        return error != null
-    }
+    val hasResult: Boolean
+        get() = result != null
 
-    fun isNull(): Boolean {
-        return result != null && NULL_VALUE.contentEquals(result)
-    }
+    val hasError: Boolean
+        get() = error != null || errorMessage != null
+
+    val isNull: Boolean
+        get() = result != null && NULL_VALUE.contentEquals(result)
 
     val resultOrEmpty: ByteArray
         get() {
@@ -100,8 +100,12 @@ class JsonRpcResponse(
         }
 
     fun requireResult(): Mono<ByteArray> {
-        return if (error != null) {
-            Mono.error(error.asException(id))
+        return if (hasError) {
+            if (error != null) {
+                Mono.error(error.asException(id))
+            } else {
+                Mono.error(JsonRpcError(RpcResponseError.CODE_INTERNAL_ERROR, errorMessage!!).asException(id))
+            }
         } else {
             Mono.just(resultOrEmpty)
         }
@@ -116,11 +120,11 @@ class JsonRpcResponse(
     }
 
     fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, providedSignature)
+        return JsonRpcResponse(result, error, errorMessage, id, providedSignature)
     }
 
     fun copyWithSignature(signature: ResponseSigner.Signature): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, signature)
+        return JsonRpcResponse(result, error, errorMessage, id, signature)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -251,6 +255,13 @@ class JsonRpcResponse(
                         else -> gen.writeObjectField("data", details)
                     }
                 }
+                gen.writeEndObject()
+            } else if (value.errorMessage != null) {
+                // this is a case for an internal dshackle error, which is a different from the case when an upstream returned an error
+                gen.writeObjectFieldStart("error")
+                // code for an "internal error" by JSON RPC spec
+                gen.writeNumberField("code", -32603)
+                gen.writeStringField("message", value.errorMessage)
                 gen.writeEndObject()
             } else {
                 if (value.result == null) {

@@ -102,7 +102,7 @@ class EthereumWsHead(
                 val request = JsonRpcRequest("eth_getBlockByHash", listOf(hash.toHex(), false))
                 api.read(request)
                     .flatMap { resp ->
-                        if (resp.isNull()) {
+                        if (resp.isNull) {
                             Mono.error(SilentException("Received null for block $hash"))
                         } else {
                             Mono.just(resp)

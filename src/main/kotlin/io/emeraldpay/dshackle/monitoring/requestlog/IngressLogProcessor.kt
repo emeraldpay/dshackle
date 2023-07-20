@@ -61,7 +61,7 @@ class IngressLogProcessor(
                             .let(copyEgressId(ctx))
                             .let(copyReqId(ctx))
                             .let {
-                                if (resp.hasError()) {
+                                if (resp.hasError) {
                                     it.copy(
                                         error = RequestRecord.ErrorDetails(
                                             resp.error!!.code,

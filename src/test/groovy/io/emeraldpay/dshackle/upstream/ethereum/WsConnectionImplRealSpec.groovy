@@ -50,7 +50,7 @@ class WsConnectionImplRealSpec extends Specification {
                     server.onNextReply('{"jsonrpc":"2.0", "id":100, "result": "baz"}')
                 }
                 .expectNextMatches {
-                    it.hasResult() && it.resultAsProcessedString == "baz"
+                    it.getHasResult() && it.resultAsProcessedString == "baz"
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(5))
@@ -154,7 +154,7 @@ class WsConnectionImplRealSpec extends Specification {
                     server.onNextReply('{"jsonrpc":"2.0", "id":100, "result": "baz"}')
                 }
                 .expectNextMatches {
-                    it.hasResult() && it.resultAsProcessedString == "baz"
+                    it.getHasResult() && it.resultAsProcessedString == "baz"
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(5))

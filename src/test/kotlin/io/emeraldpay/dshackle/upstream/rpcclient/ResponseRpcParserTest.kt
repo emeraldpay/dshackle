@@ -136,8 +136,8 @@ class ResponseRpcParserTest : ShouldSpec({
         val act = parser.parse(json.toByteArray())
 
         act.error shouldNotBe null
-        act.hasError() shouldBe true
-        act.hasResult() shouldBe false
+        act.hasError shouldBe true
+        act.hasResult shouldBe false
 
         act.error!!.code shouldBe -1111
         act.error!!.message shouldBe "test"
@@ -150,8 +150,8 @@ class ResponseRpcParserTest : ShouldSpec({
         val act = parser.parse(json.toByteArray())
 
         act.error shouldNotBe null
-        act.hasError() shouldBe true
-        act.hasResult() shouldBe false
+        act.hasError shouldBe true
+        act.hasResult shouldBe false
 
         act.error!!.code shouldBe -1111
         act.error!!.message shouldBe "test"
@@ -164,8 +164,8 @@ class ResponseRpcParserTest : ShouldSpec({
         val act = parser.parse(json.toByteArray())
 
         act.error shouldNotBe null
-        act.hasError() shouldBe true
-        act.hasResult() shouldBe false
+        act.hasError shouldBe true
+        act.hasResult shouldBe false
 
         act.error!!.code shouldBe -1111
         act.error!!.message shouldBe "test"
@@ -179,8 +179,8 @@ class ResponseRpcParserTest : ShouldSpec({
         val act = parser.parse(json.toByteArray())
 
         act.error shouldNotBe null
-        act.hasError() shouldBe true
-        act.hasResult() shouldBe false
+        act.hasError shouldBe true
+        act.hasResult shouldBe false
 
         act.error!!.code shouldBe -1111
         act.error!!.message shouldBe "test"
@@ -194,8 +194,8 @@ class ResponseRpcParserTest : ShouldSpec({
         val act = parser.parse(json.toByteArray())
 
         act.error shouldNotBe null
-        act.hasError() shouldBe true
-        act.hasResult() shouldBe false
+        act.hasError shouldBe true
+        act.hasResult shouldBe false
 
         act.error!!.code shouldBe RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
 
@@ -204,8 +204,8 @@ class ResponseRpcParserTest : ShouldSpec({
         val act2 = parser.parse(json2.toByteArray())
 
         act2.error shouldNotBe null
-        act2.hasError() shouldBe true
-        act2.hasResult() shouldBe false
+        act2.hasError shouldBe true
+        act2.hasResult shouldBe false
 
         act2.error!!.code shouldBe RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
     }
@@ -217,8 +217,8 @@ class ResponseRpcParserTest : ShouldSpec({
         val act = parser.parse(json.toByteArray())
 
         act.error shouldNotBe null
-        act.hasError() shouldBe true
-        act.hasResult() shouldBe false
+        act.hasError shouldBe true
+        act.hasResult shouldBe false
 
         act.id.asNumber() shouldBe 1
     }
@@ -230,8 +230,8 @@ class ResponseRpcParserTest : ShouldSpec({
         val act = parser.parse(json.toByteArray())
 
         act.error shouldNotBe null
-        act.hasError() shouldBe true
-        act.hasResult() shouldBe false
+        act.hasError shouldBe true
+        act.hasResult shouldBe false
 
         act.id.asNumber() shouldBe 101
     }

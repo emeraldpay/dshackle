@@ -230,12 +230,27 @@ class NativeCallTest : ShouldSpec({
         should("build basic fail response") {
             val native = create()
             val act = native.buildResponse(
-                NativeCall.CallResult.fail(1051, null, NativeCall.CallError(-32000, "test error", null))
+                NativeCall.CallResult.fail(1051, null, NativeCall.CallError(1051, "test error", null))
             )
 
             act.succeed shouldBe false
             act.id shouldBe 1051
             act.payload.isEmpty shouldBe true
+            act.hasSignature() shouldBe false
+            act.errorMessageBytes.isEmpty shouldBe false
+            act.errorMessage shouldBe "test error"
+        }
+
+        should("build fail response from remote error") {
+            val native = create()
+            val act = native.buildResponse(
+                NativeCall.CallResult.fail(1051, null, NativeCall.CallError(1051, "test error", JsonRpcError(-32000, "test error")))
+            )
+
+            act.succeed shouldBe false
+            act.id shouldBe 1051
+            act.payload.isEmpty shouldBe false
+            act.payload.toStringUtf8() shouldBe "{\"code\":-32000,\"message\":\"test error\",\"details\":null}"
             act.hasSignature() shouldBe false
             act.errorMessageBytes.isEmpty shouldBe false
             act.errorMessage shouldBe "test error"

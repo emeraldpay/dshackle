@@ -74,7 +74,7 @@ open class WriteRpcJson {
             val error = response.error!!
             error.upstreamError?.let { upstreamError ->
                 JsonRpcResponse.error(upstreamError, id)
-            } ?: JsonRpcResponse.error(-32002, error.message, id)
+            } ?: JsonRpcResponse.error(error.message, id)
         } else {
             JsonRpcResponse.ok(response.result!!, id)
         }
@@ -83,7 +83,7 @@ open class WriteRpcJson {
 
     fun toJson(call: ProxyCall, error: NativeCall.CallFailure): String? {
         val id = call.ids[error.id] ?: return null
-        val json = JsonRpcResponse.error(-32003, error.reason.message ?: "", JsonRpcResponse.Id.from(id))
+        val json = JsonRpcResponse.error(error.reason.message ?: "", JsonRpcResponse.Id.from(id))
         return objectMapper.writeValueAsString(json)
     }
 

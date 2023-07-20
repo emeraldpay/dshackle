@@ -57,7 +57,7 @@ class RpcMetrics(
     val processResponseSize: Function<Mono<JsonRpcResponse>, Mono<JsonRpcResponse>>
         get() = java.util.function.Function {
             it.doOnNext { response ->
-                if (response.hasResult()) {
+                if (response.hasResult) {
                     responseSize.record(response.resultOrEmpty.size.toDouble())
                 }
             }

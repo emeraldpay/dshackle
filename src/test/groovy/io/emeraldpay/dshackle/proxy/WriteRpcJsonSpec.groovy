@@ -103,7 +103,7 @@ class WriteRpcJsonSpec extends Specification {
         when:
         def act = writer.toJson(call, data[0])
         then:
-        act == '{"jsonrpc":"2.0","id":1,"error":{"code":-32002,"message":"Internal Error"}}'
+        act == '{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"Internal Error"}}'
     }
 
     def "Convert basic to JSON with string id"() {
@@ -138,7 +138,7 @@ class WriteRpcJsonSpec extends Specification {
         then:
         act.size() == 3
         act[0] == '{"jsonrpc":"2.0","id":10,"result":"0x98dbb1"}'
-        act[1] == '{"jsonrpc":"2.0","id":11,"error":{"code":-32002,"message":"oops"}}'
+        act[1] == '{"jsonrpc":"2.0","id":11,"error":{"code":-32603,"message":"oops"}}'
         act[2] == '{"jsonrpc":"2.0","id":15,"result":{"hash": "0x2484f459dc"}}'
     }
 
@@ -162,6 +162,6 @@ class WriteRpcJsonSpec extends Specification {
                 .collectList()
                 .block(Duration.ofSeconds(1))
         then:
-        act[0] == '{"jsonrpc":"2.0","id":10,"error":{"code":-32003,"message":"TEST"}}'
+        act[0] == '{"jsonrpc":"2.0","id":10,"error":{"code":-32603,"message":"TEST"}}'
     }
 }

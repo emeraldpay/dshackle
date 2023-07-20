@@ -25,11 +25,11 @@ open class ResponseRpcParser : ResponseParser<JsonRpcResponse>() {
 
     override fun build(state: Preparsed): JsonRpcResponse {
         if (state.error != null) {
-            return JsonRpcResponse(null, state.error, state.id ?: JsonRpcResponse.Id.from(-1), null)
+            return JsonRpcResponse(null, state.error, null, state.id ?: JsonRpcResponse.Id.from(-1), null)
         }
         if (state.nullResult) {
-            return JsonRpcResponse("null".toByteArray(), null, state.id ?: JsonRpcResponse.Id.from(-1), null)
+            return JsonRpcResponse("null".toByteArray(), null, null, state.id ?: JsonRpcResponse.Id.from(-1), null)
         }
-        return JsonRpcResponse(state.result, null, state.id ?: JsonRpcResponse.Id.from(-1), null)
+        return JsonRpcResponse(state.result, null, null, state.id ?: JsonRpcResponse.Id.from(-1), null)
     }
 }

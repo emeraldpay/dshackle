@@ -46,7 +46,7 @@ class JsonRpcGrpcClientTest : ShouldSpec({
             .block(Duration.ofSeconds(1))
 
         act shouldNotBe null
-        act!!.hasError() shouldBe false
+        act!!.hasError shouldBe false
         act.resultAsProcessedString shouldBe "hello world!"
 
         requested.get() shouldBe BlockchainOuterClass.NativeCallRequest.newBuilder()
@@ -86,5 +86,40 @@ class JsonRpcGrpcClientTest : ShouldSpec({
             message shouldBe "Remote status code: UNKNOWN"
             code shouldBe RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR
         }
+    }
+
+    should("Process original JSON RPC Error") {
+        val mockGrpc = MockGrpcServer()
+
+        val gprc = mockGrpc.clientForServer(object : BlockchainGrpc.BlockchainImplBase() {
+            override fun nativeCall(request: BlockchainOuterClass.NativeCallRequest, responseObserver: StreamObserver<BlockchainOuterClass.NativeCallReplyItem>) {
+                responseObserver.onNext(
+                    BlockchainOuterClass.NativeCallReplyItem.newBuilder()
+                        .setId(1)
+                        .setSucceed(false)
+                        .setPayload(ByteString.copyFromUtf8("{\"code\":-32123,\"message\":\"test error\",\"details\":null}"))
+                        .setErrorMessage("test error")
+                        .build()
+                )
+                responseObserver.onCompleted()
+            }
+        })
+
+        val client = JsonRpcGrpcClient(
+            gprc, Chain.ETHEREUM, null, null
+        ).forSelector("test", Selector.empty)
+
+        val act = client.read(JsonRpcRequest("test", emptyList()))
+            .block(Duration.ofSeconds(1))
+
+        act shouldNotBe null
+        act!!.hasError shouldBe true
+        act.error shouldNotBe null
+        with(act.error!!) {
+            code shouldBe -32123
+            message shouldBe "test error"
+            details shouldBe null
+        }
+        act.hasResult shouldBe false
     }
 })

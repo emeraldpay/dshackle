@@ -108,7 +108,27 @@ class JsonRpcGrpcClient(
                 } else {
                     null
                 }
-                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), signature))
+                Mono.just(JsonRpcResponse(bytes, null, null, JsonRpcResponse.NumberId(0), signature))
+            } else if (!resp.payload.isEmpty) {
+                val bytes = resp.payload.toByteArray()
+                try {
+                    val originalError = Global.objectMapper.readValue(bytes, JsonRpcError::class.java)
+                    val signature = if (resp.hasSignature()) {
+                        extractSignature(resp.signature)
+                    } else {
+                        null
+                    }
+                    Mono.just(JsonRpcResponse(null, originalError, null, JsonRpcResponse.NumberId(0), signature))
+                } catch (t: Throwable) {
+                    log.warn("Failed to parse JSON RPC Original Error: ${t.message}")
+                    metrics?.fails?.increment()
+                    Mono.error(
+                        RpcException(
+                            RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                            resp.errorMessage
+                        )
+                    )
+                }
             } else {
                 metrics?.fails?.increment()
                 Mono.error(

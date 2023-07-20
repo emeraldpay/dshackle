@@ -327,7 +327,7 @@ open class WsConnectionImpl(
 
     fun onMessageRpc(msg: ResponseWSParser.WsResponse) {
         val rpcResponse = JsonRpcResponse(
-            msg.value, msg.error, msg.id, null
+            msg.value, msg.error, null, msg.id, null
         )
         val sender = currentRequests.remove(msg.id.asNumber().toInt())
         if (sender == null) {

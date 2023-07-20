@@ -43,7 +43,7 @@ class WsSubscriptionsImpl(
 
         return conn.callRpc(JsonRpcRequest("eth_subscribe", listOf(method), ids.incrementAndGet()))
             .flatMapMany {
-                if (it.hasError()) {
+                if (it.hasError) {
                     log.warn("Failed to establish ETH Subscription: ${it.error?.message}")
                     Mono.error(JsonRpcException(it.id, it.error!!))
                 } else {
