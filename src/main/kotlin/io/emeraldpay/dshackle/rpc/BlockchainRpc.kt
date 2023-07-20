@@ -233,11 +233,6 @@ class BlockchainRpc(
                 .doFinally { sig ->
                     log.info("Closing node status subscription named [$subId] with $sig")
                 }
-                .doOnNext { elem ->
-                    log.debug(
-                        "Emitted next node status to [$subId] with [node: ${elem.nodeId}, chain: ${elem.description.chain.name}, status: ${elem.status.availability.name}, ]"
-                    )
-                }
         }
     }
 
