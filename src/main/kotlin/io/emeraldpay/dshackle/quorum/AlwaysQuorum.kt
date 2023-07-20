@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import java.util.concurrent.ConcurrentLinkedQueue
 
 open class AlwaysQuorum : CallQuorum {
 
@@ -29,8 +28,7 @@ open class AlwaysQuorum : CallQuorum {
     private var result: ByteArray? = null
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
-    private var providedUpstreamId: String? = null
-    private val resolvers: MutableCollection<Upstream> = ConcurrentLinkedQueue()
+    private val resolvers = ArrayList<Upstream>()
 
     override fun init(head: Head) {
     }
@@ -47,21 +45,15 @@ open class AlwaysQuorum : CallQuorum {
         return sig
     }
 
-    override fun getProvidedUpstreamId(): String? {
-        return providedUpstreamId
-    }
-
     override fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream,
-        providedUpstreamId: String?
+        upstream: Upstream
     ): Boolean {
         result = response
         resolved = true
         sig = signature
         resolvers.add(upstream)
-        this.providedUpstreamId = providedUpstreamId
         return true
     }
 
@@ -72,6 +64,7 @@ open class AlwaysQuorum : CallQuorum {
     ) {
         this.rpcError = error.error
         sig = signature
+        resolvers.add(upstream)
     }
 
     override fun getResult(): ByteArray? {
@@ -82,8 +75,7 @@ open class AlwaysQuorum : CallQuorum {
         return rpcError
     }
 
-    override fun getResolvedBy(): List<Upstream> =
-        resolvers.toList()
+    override fun getResolvedBy(): List<Upstream> = resolvers
 
     override fun toString(): String {
         return "Quorum: Accept Any"

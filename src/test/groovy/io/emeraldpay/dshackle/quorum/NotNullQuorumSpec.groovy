@@ -22,10 +22,10 @@ class NotNullQuorumSpec extends Specification {
         def quorum = new NotNullQuorum()
 
         when:
-        def res = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up, "id")
-        def res1 = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up1, "id1")
-        def res2 = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up2, "id2")
-        def res3 = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up, "id")
+        def res = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
+        def res1 = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up1)
+        def res2 = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up2)
+        def res3 = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
         then:
         !res
         !res1
@@ -35,7 +35,6 @@ class NotNullQuorumSpec extends Specification {
         !quorum.isFailed()
         quorum.isResolved()
         quorum.signature == new ResponseSigner.Signature("sig1".bytes, "test", 100)
-        quorum.providedUpstreamId == "id"
     }
 
     def "Failed if all upstreams respond with error"() {
@@ -78,7 +77,7 @@ class NotNullQuorumSpec extends Specification {
         def quorum = new NotNullQuorum()
 
         when:
-        def res = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up, "id")
+        def res = quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
         quorum.record(new JsonRpcException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up1)
         quorum.record(new JsonRpcException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up2)
         quorum.record(new JsonRpcException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up)

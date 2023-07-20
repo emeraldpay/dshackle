@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -35,8 +34,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     private val failed = AtomicReference(false)
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
-    private val resolvers: MutableCollection<Upstream> = ConcurrentLinkedQueue()
-    private var providedUpstreamId: String? = null
+    private val resolvers = ArrayList<Upstream>()
 
     override fun init(head: Head) {
     }
@@ -52,14 +50,12 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     override fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream,
-        providedUpstreamId: String?
+        upstream: Upstream
     ): Boolean {
         val lagging = upstream.getLag()?.run { this > maxLag } ?: true
         if (!lagging) {
             result.set(response)
             sig = signature
-            this.providedUpstreamId = providedUpstreamId
             resolvers.add(upstream)
             return true
         }
@@ -76,14 +72,11 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         if (!lagging && result.get() == null) {
             failed.set(true)
         }
+        resolvers.add(upstream)
     }
 
     override fun getSignature(): ResponseSigner.Signature? {
         return sig
-    }
-
-    override fun getProvidedUpstreamId(): String? {
-        return providedUpstreamId
     }
 
     override fun getResult(): ByteArray {
@@ -94,8 +87,8 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         return rpcError
     }
 
-    override fun getResolvedBy(): Collection<Upstream> =
-        resolvers.toList()
+    override fun getResolvedBy(): Collection<Upstream> = resolvers
+
     override fun toString(): String {
         return "Quorum: late <= $maxLag blocks"
     }

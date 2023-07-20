@@ -40,21 +40,21 @@ class BroadcastQuorumSpec extends Specification {
         !q.isResolved()
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream1, null)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream1)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _, _)
+        1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream2, null)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream2)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _, _)
+        1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
         q.record(new JsonRpcException(1, "Nonce too low"), null, upstream3)
         then:
-        1 * q.recordError(_, _, _, _, _)
+        1 * q.recordError(_, _, _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
     }
@@ -75,18 +75,18 @@ class BroadcastQuorumSpec extends Specification {
         q.record(new JsonRpcException(1, "Internal error"), null, upstream1)
         then:
         !q.isResolved()
-        1 * q.recordError(_, _, _, _, _)
+        1 * q.recordError(_, _, _, _)
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream2, null)
+        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream2)
         then:
         !q.isResolved()
-        1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _, _)
+        1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
         q.record(new JsonRpcException(1, "Nonce too low"), null, upstream3)
         then:
-        1 * q.recordError(_, _, _, _, _)
+        1 * q.recordError(_, _, _, _)
         q.isResolved()
         objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
     }

@@ -23,7 +23,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
-import java.util.concurrent.ConcurrentLinkedQueue
 
 abstract class ValueAwareQuorum<T>(
     val clazz: Class<T>
@@ -31,7 +30,7 @@ abstract class ValueAwareQuorum<T>(
 
     private val log = LoggerFactory.getLogger(ValueAwareQuorum::class.java)
     private var rpcError: JsonRpcError? = null
-    private val resolvers: MutableCollection<Upstream> = ConcurrentLinkedQueue()
+    protected val resolvers = ArrayList<Upstream>()
 
     fun extractValue(response: ByteArray, clazz: Class<T>): T? {
         return Global.objectMapper.readValue(response.inputStream(), clazz)
@@ -40,17 +39,16 @@ abstract class ValueAwareQuorum<T>(
     override fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream,
-        providedUpstreamId: String?
+        upstream: Upstream
     ): Boolean {
         try {
             val value = extractValue(response, clazz)
-            recordValue(response, value, signature, upstream, providedUpstreamId)
+            recordValue(response, value, signature, upstream)
             resolvers.add(upstream)
         } catch (e: RpcException) {
-            recordError(response, e.rpcMessage, signature, upstream, providedUpstreamId)
+            recordError(response, e.rpcMessage, signature, upstream)
         } catch (e: Exception) {
-            recordError(response, e.message, signature, upstream, providedUpstreamId)
+            recordError(response, e.message, signature, upstream)
         }
         return isResolved()
     }
@@ -61,29 +59,26 @@ abstract class ValueAwareQuorum<T>(
         upstream: Upstream
     ) {
         this.rpcError = error.error
-        recordError(null, error.error.message, signature, upstream, null)
+        recordError(null, error.error.message, signature, upstream)
     }
 
     abstract fun recordValue(
         response: ByteArray,
         responseValue: T?,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream,
-        providedUpstreamId: String?
+        upstream: Upstream
     )
 
     abstract fun recordError(
         response: ByteArray?,
         errorMessage: String?,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream,
-        providedUpstreamId: String?
+        upstream: Upstream
     )
 
     override fun getError(): JsonRpcError? {
         return rpcError
     }
 
-    override fun getResolvedBy(): Collection<Upstream> =
-        resolvers.toList()
+    override fun getResolvedBy(): Collection<Upstream> = resolvers
 }

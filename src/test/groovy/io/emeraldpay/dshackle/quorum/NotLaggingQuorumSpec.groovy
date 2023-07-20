@@ -30,7 +30,7 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, null, up, null)
+        quorum.record(value, null, up)
         then:
         1 * up.getLag() >> 0
         quorum.isResolved()
@@ -45,14 +45,13 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up, "test")
+        quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
         then:
         1 * up.getLag() >> 0
         quorum.isResolved()
         !quorum.isFailed()
         quorum.result == value
         quorum.signature == new ResponseSigner.Signature("sig1".bytes, "test", 100)
-        quorum.providedUpstreamId == "test"
     }
 
     def "Resolves if ok lag"() {
@@ -62,7 +61,7 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, null, up, null)
+        quorum.record(value, null, up)
         then:
         1 * up.getLag() >> 1
         quorum.isResolved()
@@ -77,7 +76,7 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, null, up, null)
+        quorum.record(value, null, up)
         then:
         1 * up.getLag() >> 2
         !quorum.isResolved()

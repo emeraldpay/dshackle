@@ -20,6 +20,7 @@ import io.emeraldpay.etherjar.rpc.RpcException
 class JsonRpcException(
     val id: JsonRpcResponse.Id,
     val error: JsonRpcError,
+    val upstreamId: String? = null,
     writableStackTrace: Boolean = true
 ) : Exception(error.message, null, true, writableStackTrace) {
 

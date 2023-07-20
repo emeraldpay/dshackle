@@ -9,7 +9,6 @@ import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 class NotNullQuorum : CallQuorum {
     private var sig: ResponseSigner.Signature? = null
-    private var providedUpstreamId: String? = null
     private var result: ByteArray? = null
     private var rpcError: JsonRpcError? = null
     private val resolvers = ArrayList<Upstream>()
@@ -26,8 +25,7 @@ class NotNullQuorum : CallQuorum {
     override fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream,
-        providedUpstreamId: String?
+        upstream: Upstream
     ): Boolean {
         allFailed = false
         val receivedNull = response.isEmpty() || Global.nullValue.contentEquals(response)
@@ -35,7 +33,6 @@ class NotNullQuorum : CallQuorum {
         if (seenUpstreams.contains(upId) || !receivedNull) {
             sig = signature
             result = response
-            this.providedUpstreamId = providedUpstreamId
             resolvers.add(upstream)
             return true
         }
@@ -50,22 +47,20 @@ class NotNullQuorum : CallQuorum {
                 rpcError = error.error
             } else {
                 result = Global.nullValue
-                resolvers.add(upstream)
             }
             sig = signature
         }
+        resolvers.add(upstream)
         seenUpstreams.add(upId)
     }
 
     override fun getSignature(): ResponseSigner.Signature? = sig
 
-    override fun getProvidedUpstreamId(): String? = providedUpstreamId
-
     override fun getResult(): ByteArray? = result
 
     override fun getError(): JsonRpcError? = rpcError
 
-    override fun getResolvedBy(): Collection<Upstream> = resolvers.toList()
+    override fun getResolvedBy(): Collection<Upstream> = resolvers
 
     override fun toString(): String {
         return "Quorum: Not null"

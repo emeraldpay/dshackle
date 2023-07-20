@@ -28,7 +28,6 @@ import io.emeraldpay.dshackle.commons.LOCAL_READER
 import io.emeraldpay.dshackle.commons.REMOTE_QUORUM_RPC_READER
 import io.emeraldpay.dshackle.commons.SPAN_ERROR
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_ID
-import io.emeraldpay.dshackle.commons.SPAN_RESPONSE_UPSTREAM_ID
 import io.emeraldpay.dshackle.commons.SPAN_STATUS_MESSAGE
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.CallQuorum
@@ -131,9 +130,6 @@ open class NativeCall(
 
     private fun completeSpan(callResult: CallResult, requestCount: Int) {
         val span = tracer.currentSpan()
-        callResult.upstreamId?.let {
-            span?.tag(SPAN_RESPONSE_UPSTREAM_ID, it)
-        }
         if (callResult.isError()) {
             errorSpan(span, callResult.error?.message ?: "Internal error")
         }
@@ -403,9 +399,7 @@ open class NativeCall(
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
                 validateResult(bytes, "remote", ctx)
-                val upId = it.providedUpstreamId
-                    ?: if (it.resolvers.isEmpty()) ctx.upstream.getId() else it.resolvers.first().getId()
-                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, upId, ctx)
+                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, it.resolvedBy?.getId(), ctx)
             }
             .onErrorResume { t ->
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, t, ctx))
@@ -490,10 +484,8 @@ open class NativeCall(
         }
         override fun processResult(result: QuorumRpcReader.Result): ByteArray {
             val bytes = result.value
-            if (bytes.last() == quoteCode) {
-                val suffix = result.resolvers
-                    .map { it.nodeId() }
-                    .first()
+            if (bytes.last() == quoteCode && result.resolvedBy != null) {
+                val suffix = result.resolvedBy.nodeId()
                     .toUByte()
                     .toString(16).padStart(2, padChar = '0').toByteArray()
                 bytes[bytes.lastIndex] = suffix.first()
@@ -598,7 +590,13 @@ open class NativeCall(
 
     open class CallFailure(val id: Int, val reason: Throwable) : Exception("Failed to call $id: ${reason.message}")
 
-    open class CallError(val id: Int, val message: String, val upstreamError: JsonRpcError?, val data: String?) {
+    open class CallError(
+        val id: Int,
+        val message: String,
+        val upstreamError: JsonRpcError?,
+        val data: String?,
+        val upstreamId: String? = null
+    ) {
 
         companion object {
 
@@ -615,7 +613,7 @@ open class NativeCall(
             }
             fun from(t: Throwable): CallError {
                 return when (t) {
-                    is JsonRpcException -> CallError(t.error.code, t.error.message, t.error, getDataAsSting(t.error.details))
+                    is JsonRpcException -> CallError(t.error.code, t.error.message, t.error, getDataAsSting(t.error.details), t.upstreamId)
                     is RpcException -> CallError(t.code, t.rpcMessage, null, getDataAsSting(t.details))
                     is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null, null)
                     else -> {
@@ -641,6 +639,16 @@ open class NativeCall(
         val upstreamId: String?,
         val ctx: ValidCallContext<ParsedCallDetails>?
     ) {
+
+        constructor(
+            id: Int,
+            nonce: Long?,
+            result: ByteArray?,
+            callError: CallError?,
+            signature: ResponseSigner.Signature?,
+            ctx: ValidCallContext<ParsedCallDetails>?
+        ) : this(id, nonce, result, callError, signature, callError?.upstreamId, ctx)
+
         companion object {
             fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamId: String?, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
                 return CallResult(id, nonce, result, null, signature, upstreamId, ctx)
@@ -651,7 +659,7 @@ open class NativeCall(
             }
 
             fun fail(id: Int, nonce: Long?, error: Throwable, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
-                return CallResult(id, nonce, null, CallError.from(error), null, null, ctx)
+                return CallResult(id, nonce, null, CallError.from(error), null, ctx)
             }
         }
 
