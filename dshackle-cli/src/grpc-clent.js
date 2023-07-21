@@ -1,25 +1,9 @@
 const grpc = require("@grpc/grpc-js");
-const path = require('path')
-const protoLoader = require("@grpc/proto-loader");
 const fs = require('fs');
-
-const PROTO_PATH = path.join(__dirname, "../../emerald-grpc/proto/blockchain.proto");
-
-const options = {
-    keepCase: true,
-    longs: String,
-    enums: String,
-    defaults: true,
-    oneofs: true,
-};
-
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, options);
-const emerald = grpc.loadPackageDefinition(packageDefinition).emerald
-
 
 var id = 100
 
-export function connect(url, ca, cert, key) {
+export function connect(url, ca, cert, key, emerald) {
     let credentials = grpc.credentials.createInsecure()
     if (ca || cert || key) {
         console.log("Using TLS")

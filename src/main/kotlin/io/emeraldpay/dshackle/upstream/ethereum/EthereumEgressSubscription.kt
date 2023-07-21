@@ -93,6 +93,7 @@ open class EthereumEgressSubscription(
                         null
                     }
                 }
+                null -> emptyList()
                 else -> throw IllegalArgumentException("Invalid type of address field. Must be string or list of strings")
             }
         } else {
@@ -114,6 +115,7 @@ open class EthereumEgressSubscription(
                         null
                     }
                 }
+                null -> emptyList()
                 else -> throw IllegalArgumentException("Invalid type of topics field. Must be string or list of strings")
             }
         } else {

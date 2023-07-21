@@ -3,13 +3,21 @@ import arg from 'arg';
 import clc from "cli-color";
 import util from "util";
 
-const chains = {
-    CHAIN_BSC__MAINNET: 1006,
-    CHAIN_OPTIMISM__MAINNET: 1005,
-    CHAIN_ARBITRUM__MAINNET: 1004,
-    CHAIN_POLYGON_POS__MAINNET: 1002,
-    CHAIN_ETHEREUM__MAINNET: 100
-}
+const path = require('path')
+const protoLoader = require("@grpc/proto-loader");
+const grpc = require("@grpc/grpc-js");
+
+const options = {
+    keepCase: true,
+    longs: String,
+    enums: String,
+    defaults: true,
+    oneofs: true,
+};
+
+const PROTO_PATH = path.join(__dirname, "../../emerald-grpc/proto/blockchain.proto");
+const packageDefinition = protoLoader.loadSync(PROTO_PATH, options);
+const emerald = grpc.loadPackageDefinition(packageDefinition).emerald
 
 export function cli(args) {
     let opts = parseArgumentsIntoOptions(args);
@@ -18,7 +26,9 @@ export function cli(args) {
         return
     }
 
-    const client = connect(opts.url, opts.ca, opts.cert, opts.key)
+    const chains = mapChains()
+
+    const client = connect(opts.url, opts.ca, opts.cert, opts.key, emerald)
     describe(client, (error, response) => {
         if (error) {
             console.error(clc.red('Connection to ' + opts.url + ' failed:  ' + error.message));
@@ -28,11 +38,11 @@ export function cli(args) {
         if (opts.print) {
             console.log(util.inspect(response, false, null, true /* enable colors */));
         }
-        processDescribe(client, response, opts.testRun)
+        processDescribe(client, response, opts.testRun, chains)
     })
 }
 
-function processDescribe(client, response, testRun) {
+function processDescribe(client, response, testRun, chains) {
     let promises = []
     let statuses = new Map()
 
@@ -58,7 +68,7 @@ function processDescribe(client, response, testRun) {
         }
 
         if (state === 'AVAIL_OK') {
-            promises.push(nativeCall(client, chains[chain], chain))
+            promises.push(nativeCall(client, chains.get(chain), chain))
         } else {
             status.failed = true
         }
@@ -93,6 +103,14 @@ function processDescribe(client, response, testRun) {
             process.exit(1)
         }
     })
+}
+
+function mapChains() {
+    return new Map(
+        emerald.ChainRef.type.value.map(obj => {
+            return [obj.name, obj.number]
+        })
+    )
 }
 
 function printState(chain, status) {
