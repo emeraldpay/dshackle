@@ -26,7 +26,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.hex.HexQuantity
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
 import java.math.BigInteger
@@ -45,10 +44,6 @@ class EthereumLocalReader(
     private val localEnabled: Boolean
 ) : JsonRpcReader {
 
-    companion object {
-        private val log = LoggerFactory.getLogger(EthereumLocalReader::class.java)
-    }
-
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         if (methods.isHardcoded(key.method)) {
             return Mono.just(methods.executeHardcoded(key.method))
@@ -66,7 +61,7 @@ class EthereumLocalReader(
         }
         val common = commonRequests(key)
         if (common != null) {
-            return common.map { JsonRpcResponse(it, null) }
+            return common.map { JsonRpcResponse(it.first, null, it.second) }
         }
         return Mono.empty()
     }
@@ -76,7 +71,7 @@ class EthereumLocalReader(
      * parses JSON into Map. But the purpose of further processing and caching for some of the requests we want
      * to have actual data types.
      */
-    fun commonRequests(key: JsonRpcRequest): Mono<ByteArray>? {
+    fun commonRequests(key: JsonRpcRequest): Mono<Pair<ByteArray, String?>>? {
         val method = key.method
         val params = key.params
         return when {
@@ -92,8 +87,8 @@ class EthereumLocalReader(
                 }
                 reader.txByHashAsCont()
                     .read(hash)
-                    .map { it.json!! }
-                    .switchIfEmpty { Mono.just(nullValue) }
+                    .map { it.data.json!! to it.upstreamId }
+                    .switchIfEmpty { Mono.just(nullValue to null) }
             }
             method == "eth_getBlockByHash" -> {
                 if (params.size != 2) {
@@ -109,7 +104,7 @@ class EthereumLocalReader(
                 if (withTx) {
                     null
                 } else {
-                    reader.blocksByIdAsCont().read(hash).map { it.json!! }
+                    reader.blocksByIdAsCont().read(hash).map { it.data.json!! to it.upstreamId }
                 }
             }
             method == "eth_getBlockByNumber" -> {
@@ -127,13 +122,14 @@ class EthereumLocalReader(
                 }
                 reader.receipts()
                     .read(hash)
-                    .switchIfEmpty { Mono.just(nullValue) }
+                    .map { it.data to it.upstreamId }
+                    .switchIfEmpty { Mono.just(nullValue to null) }
             }
             else -> null
         }
     }
 
-    fun getBlockByNumber(params: List<Any?>): Mono<ByteArray>? {
+    fun getBlockByNumber(params: List<Any?>): Mono<Pair<ByteArray, String?>>? {
         if (params.size != 2 || params[0] == null || params[1] == null) {
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
         }
@@ -174,6 +170,6 @@ class EthereumLocalReader(
         }
 
         return reader.blocksByHeightAsCont()
-            .read(number).map { it.json!! }
+            .read(number).map { it.data.json!! to it.upstreamId }
     }
 }

@@ -19,16 +19,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
-import io.emeraldpay.dshackle.cache.HeightByHashAdding
 import io.emeraldpay.dshackle.commons.CACHE_BLOCK_BY_HASH_READER
 import io.emeraldpay.dshackle.commons.CACHE_BLOCK_BY_HEIGHT_READER
-import io.emeraldpay.dshackle.commons.CACHE_HEIGHT_BY_HASH_READER
 import io.emeraldpay.dshackle.commons.CACHE_RECEIPTS_READER
 import io.emeraldpay.dshackle.commons.CACHE_TX_BY_HASH_READER
 import io.emeraldpay.dshackle.commons.DIRECT_QUORUM_RPC_READER
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.data.SourceContainer
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.CompoundReader
@@ -39,6 +36,7 @@ import io.emeraldpay.dshackle.reader.TransformingReader
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader.Result
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.etherjar.domain.Address
@@ -47,8 +45,8 @@ import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
-import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
+import reactor.core.publisher.Mono
 import java.util.function.Function
 
 /**
@@ -57,19 +55,16 @@ import java.util.function.Function
 open class EthereumCachingReader(
     private val up: Multistream,
     private val caches: Caches,
-    private val callMethodsFactory: Factory<CallMethods>,
+    callMethodsFactory: Factory<CallMethods>,
     private val tracer: Tracer
 ) : Lifecycle {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(EthereumCachingReader::class.java)
-    }
 
     private val objectMapper: ObjectMapper = Global.objectMapper
     private val balanceCache = CurrentBlockCache<Address, Wei>()
     private val directReader = EthereumDirectReader(up, caches, balanceCache, callMethodsFactory, tracer)
 
-    val extractBlock = Function<BlockContainer, BlockJson<TransactionRefJson>> { block ->
+    private val extractBlock = Function<Result<BlockContainer>, BlockJson<TransactionRefJson>> { result ->
+        val block = result.data
         val existing = block.getParsed(BlockJson::class.java)
         if (existing != null) {
             existing.withoutTransactionDetails()
@@ -80,12 +75,9 @@ open class EthereumCachingReader(
         }
     }
 
-    val extractTx = Function<TxContainer, TransactionJsonSnapshot> { tx ->
-        tx.getParsed(TransactionJsonSnapshot::class.java) ?: objectMapper.readValue(tx.json, TransactionJsonSnapshot::class.java)
-    }
-
-    val asRaw = Function<SourceContainer, ByteArray> { tx ->
-        tx.json ?: ByteArray(0)
+    private val extractTx = Function<Result<TxContainer>, TransactionJsonSnapshot> { result ->
+        result.data.getParsed(TransactionJsonSnapshot::class.java)
+            ?: objectMapper.readValue(result.data.json, TransactionJsonSnapshot::class.java)
     }
 
     private val idToBlockHash = Function<BlockId, BlockHash> { id -> BlockHash.from(id.value) }
@@ -95,16 +87,13 @@ open class EthereumCachingReader(
     private val idToTxHash = Function<TxId, TransactionId> { id -> TransactionId.from(id.value) }
 
     private val blocksByIdAsCont = CompoundReader(
-        SpannedReader(caches.getBlocksByHash(), tracer, CACHE_BLOCK_BY_HASH_READER),
+        SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHash()), tracer, CACHE_BLOCK_BY_HASH_READER),
         SpannedReader(RekeyingReader(idToBlockHash, directReader.blockReader), tracer, DIRECT_QUORUM_RPC_READER)
     )
 
-    private val heightByHash =
-        SpannedReader(HeightByHashAdding(caches, blocksByIdAsCont), tracer, CACHE_HEIGHT_BY_HASH_READER)
-
-    fun blocksByHashAsCont(): Reader<BlockHash, BlockContainer> {
+    fun blocksByHashAsCont(): Reader<BlockHash, Result<BlockContainer>> {
         return CompoundReader(
-            SpannedReader(RekeyingReader(blockHashToId, caches.getBlocksByHash()), tracer, CACHE_BLOCK_BY_HASH_READER),
+            SpannedReader(CacheWithUpstreamIdReader(RekeyingReader(blockHashToId, caches.getBlocksByHash())), tracer, CACHE_BLOCK_BY_HASH_READER),
             SpannedReader(directReader.blockReader, tracer, DIRECT_QUORUM_RPC_READER)
         )
     }
@@ -116,20 +105,13 @@ open class EthereumCachingReader(
         )
     }
 
-    fun blocksByIdParsed(): Reader<BlockId, BlockJson<TransactionRefJson>> {
-        return TransformingReader(
-            blocksByIdAsCont(),
-            extractBlock
-        )
-    }
-
-    open fun blocksByIdAsCont(): Reader<BlockId, BlockContainer> {
+    open fun blocksByIdAsCont(): Reader<BlockId, Result<BlockContainer>> {
         return blocksByIdAsCont
     }
 
-    open fun blocksByHeightAsCont(): Reader<Long, BlockContainer> {
+    open fun blocksByHeightAsCont(): Reader<Long, Result<BlockContainer>> {
         return CompoundReader(
-            SpannedReader(caches.getBlocksByHeight(), tracer, CACHE_BLOCK_BY_HEIGHT_READER),
+            SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHeight()), tracer, CACHE_BLOCK_BY_HEIGHT_READER),
             SpannedReader(directReader.blockByHeightReader, tracer, DIRECT_QUORUM_RPC_READER)
         )
     }
@@ -144,40 +126,36 @@ open class EthereumCachingReader(
     open fun txByHash(): Reader<TransactionId, TransactionJsonSnapshot> {
         return TransformingReader(
             CompoundReader(
-                RekeyingReader(txHashToId, caches.getTxByHash()),
+                CacheWithUpstreamIdReader(RekeyingReader(txHashToId, caches.getTxByHash())),
                 directReader.txReader
             ),
             extractTx
         )
     }
 
-    open fun txByHashAsCont(): Reader<TxId, TxContainer> {
+    open fun txByHashAsCont(): Reader<TxId, Result<TxContainer>> {
         return CompoundReader(
-            SpannedReader(caches.getTxByHash(), tracer, CACHE_TX_BY_HASH_READER),
+            CacheWithUpstreamIdReader(SpannedReader(caches.getTxByHash(), tracer, CACHE_TX_BY_HASH_READER)),
             SpannedReader(RekeyingReader(idToTxHash, directReader.txReader), tracer, DIRECT_QUORUM_RPC_READER)
         )
     }
 
-    fun balance(): Reader<Address, Wei> {
+    fun balance(): Reader<Address, Result<Wei>> {
         // TODO include height as part of cache?
         return CompoundReader(
-            balanceCache, directReader.balanceReader
+            CacheWithUpstreamIdReader(balanceCache), directReader.balanceReader
         )
     }
 
-    fun receipts(): Reader<TxId, ByteArray> {
+    fun receipts(): Reader<TxId, Result<ByteArray>> {
         val requested = RekeyingReader(
             { txid: TxId -> TransactionId.from(txid.value) },
             directReader.receiptReader
         )
         return CompoundReader(
-            SpannedReader(caches.getReceipts(), tracer, CACHE_RECEIPTS_READER),
+            CacheWithUpstreamIdReader(SpannedReader(caches.getReceipts(), tracer, CACHE_RECEIPTS_READER)),
             SpannedReader(requested, tracer, DIRECT_QUORUM_RPC_READER)
         )
-    }
-
-    fun heightByHash(): Reader<BlockId, Long> {
-        return heightByHash
     }
 
     override fun isRunning(): Boolean {
@@ -193,5 +171,14 @@ open class EthereumCachingReader(
     }
 
     override fun stop() {
+    }
+
+    private class CacheWithUpstreamIdReader<K, D>(
+        private val reader: Reader<K, D>
+    ) : Reader<K, Result<D>> {
+        override fun read(key: K): Mono<Result<D>> {
+            return reader.read(key)
+                .map { Result(it, null) }
+        }
     }
 }

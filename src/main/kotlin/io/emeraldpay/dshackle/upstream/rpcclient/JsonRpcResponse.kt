@@ -35,6 +35,9 @@ class JsonRpcResponse(
 
     constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
 
+    constructor(result: ByteArray?, error: JsonRpcError?, resolvedBy: String?) :
+        this(result, error, NumberId(0), null, resolvedBy)
+
     companion object {
         private val NULL_VALUE = "null".toByteArray()
 

@@ -48,7 +48,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
@@ -369,13 +368,14 @@ open class NativeCall(
             .flatMap { api ->
                 SpannedReader(api, tracer, LOCAL_READER)
                     .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
-                    .flatMap(JsonRpcResponse::requireResult)
                     .map {
-                        validateResult(it, "local", ctx)
+                        val result = it.getResult()
+                        val upstreamId = it.providedUpstreamId ?: ctx.upstream.getId()
+                        validateResult(result, "local", ctx)
                         if (ctx.nonce != null) {
-                            CallResult.ok(ctx.id, ctx.nonce, it, signer.sign(ctx.nonce, it, ctx.upstream.getId()), ctx.upstream.getId(), ctx)
+                            CallResult.ok(ctx.id, ctx.nonce, result, signer.sign(ctx.nonce, result, upstreamId), upstreamId, ctx)
                         } else {
-                            CallResult.ok(ctx.id, null, it, null, ctx.upstream.getId(), ctx)
+                            CallResult.ok(ctx.id, null, result, null, upstreamId, ctx)
                         }
                     }
             }.switchIfEmpty(

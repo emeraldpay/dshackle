@@ -69,7 +69,9 @@ class EthereumLocalReaderSpec extends Specification {
             _ * blocksByIdAsCont() >> new EmptyReader<>()
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
-                1 * read(101L) >> Mono.just(TestingCommons.blockForEthereum(101L))
+                1 * read(101L) >> Mono.just(
+                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(101L), null)
+                )
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
@@ -81,8 +83,8 @@ class EthereumLocalReaderSpec extends Specification {
         then:
         act != null
         with(act.block()) {
-            it.length > 0
-            with(Global.objectMapper.readValue(it, BlockJson)) {
+            it.first.length > 0
+            with(Global.objectMapper.readValue(it.first, BlockJson)) {
                 number == 101
             }
         }
@@ -95,7 +97,9 @@ class EthereumLocalReaderSpec extends Specification {
             _ * blocksByIdAsCont() >> new EmptyReader<>()
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
-                1 * read(0L) >> Mono.just(TestingCommons.blockForEthereum(0L))
+                1 * read(0L) >> Mono.just(
+                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(0L), null)
+                )
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
@@ -107,8 +111,8 @@ class EthereumLocalReaderSpec extends Specification {
         then:
         act != null
         with(act.block()) {
-            it.length > 0
-            with(Global.objectMapper.readValue(it, BlockJson)) {
+            it.first.length > 0
+            with(Global.objectMapper.readValue(it.first, BlockJson)) {
                 number == 0
             }
         }
@@ -121,7 +125,9 @@ class EthereumLocalReaderSpec extends Specification {
             _ * blocksByIdAsCont() >> new EmptyReader<>()
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
-                1 * read(74735L) >> Mono.just(TestingCommons.blockForEthereum(74735L))
+                1 * read(74735L) >> Mono.just(
+                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(74735L), null)
+                )
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
@@ -133,8 +139,8 @@ class EthereumLocalReaderSpec extends Specification {
         then:
         act != null
         with(act.block()) {
-            it.length > 0
-            with(Global.objectMapper.readValue(it, BlockJson)) {
+            it.first.length > 0
+            with(Global.objectMapper.readValue(it.first, BlockJson)) {
                 number == 74735
             }
         }

@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader
 import reactor.core.publisher.Mono
 import spock.lang.Specification
 
@@ -38,7 +39,8 @@ class ProduceLogsSpec extends Specification {
                 '  }'
 
         def receipts = Mock(Reader) {
-            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >> Mono.just(receipt.getBytes())
+            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >>
+                    Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
         def producer = new ProduceLogs(receipts)
         def update = new ConnectBlockUpdates.Update(
@@ -61,7 +63,8 @@ class ProduceLogsSpec extends Specification {
         String receipt = 'null'
 
         def receipts = Mock(Reader) {
-            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >> Mono.just(receipt.getBytes())
+            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >>
+                    Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
         def producer = new ProduceLogs(receipts)
         def update = new ConnectBlockUpdates.Update(
@@ -107,7 +110,8 @@ class ProduceLogsSpec extends Specification {
                 '  }'
 
         def receipts = Mock(Reader) {
-            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >> Mono.just(receipt.getBytes())
+            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >>
+                    Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
         def producer = new ProduceLogs(receipts)
         def update = new ConnectBlockUpdates.Update(
@@ -153,7 +157,8 @@ class ProduceLogsSpec extends Specification {
                 '  }'
 
         def receipts = Mock(Reader) {
-            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >> Mono.just(receipt.getBytes())
+            1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >>
+                    Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
         def producer = new ProduceLogs(receipts)
         def update = new ConnectBlockUpdates.Update(
@@ -264,7 +269,8 @@ class ProduceLogsSpec extends Specification {
                 '  }'
 
         def receipts = Mock(Reader) {
-            1 * it.read(TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")) >> Mono.just(receipt.getBytes())
+            1 * it.read(TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")) >>
+                    Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
         def producer = new ProduceLogs(receipts)
         def update = new ConnectBlockUpdates.Update(
@@ -343,7 +349,8 @@ class ProduceLogsSpec extends Specification {
                 '  }'
 
         def receipts = Mock(Reader) {
-            1 * it.read(TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")) >> Mono.just(receipt.getBytes())
+            1 * it.read(TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")) >>
+                    Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
         def producer = new ProduceLogs(receipts)
         def update1 = new ConnectBlockUpdates.Update(

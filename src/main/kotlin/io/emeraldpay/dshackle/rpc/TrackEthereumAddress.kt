@@ -121,6 +121,7 @@ class TrackEthereumAddress(
             .balance()
             .read(addr.address)
             .timeout(Defaults.timeout)
+            .map { it.data }
     }
 
     private fun buildResponse(address: TrackedAddress): BlockchainOuterClass.AddressBalance {

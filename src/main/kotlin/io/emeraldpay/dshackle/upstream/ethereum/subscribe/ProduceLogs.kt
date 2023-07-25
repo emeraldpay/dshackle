@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader.Result
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.etherjar.hex.HexData
@@ -31,14 +32,15 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 import java.util.concurrent.TimeUnit
 
 class ProduceLogs(
-    private val receipts: Reader<TxId, ByteArray>
+    private val receipts: Reader<TxId, Result<ByteArray>>
 ) {
 
     companion object {
         private val log = LoggerFactory.getLogger(ProduceLogs::class.java)
     }
 
-    constructor(upstream: EthereumLikeMultistream) : this(upstream.getReader().receipts())
+    constructor(upstream: EthereumLikeMultistream) :
+        this(upstream.getReader().receipts())
 
     private val objectMapper = Global.objectMapper
 
@@ -77,6 +79,7 @@ class ProduceLogs(
                 log.warn("Cannot find receipt for tx ${update.transactionId}")
                 Mono.empty()
             }
+            .map { it.data }
             .flatMapMany { jsonBytes ->
                 // receipt could be a null, like when the original block was replaced, etc.
                 // so just skip it as Flux.empty

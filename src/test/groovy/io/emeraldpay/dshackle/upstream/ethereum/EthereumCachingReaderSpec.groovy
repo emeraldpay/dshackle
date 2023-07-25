@@ -69,7 +69,7 @@ class EthereumDirectReaderSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
-                    block.hash.toHexWithPrefix() == hash1
+                    block.data.hash.toHexWithPrefix() == hash1
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
@@ -138,7 +138,7 @@ class EthereumDirectReaderSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
-                    block.hash.toHexWithPrefix() == hash1
+                    block.data.hash.toHexWithPrefix() == hash1
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
@@ -174,7 +174,7 @@ class EthereumDirectReaderSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
-                    block.hash.toHexWithPrefix() == hash1
+                    block.data.hash.toHexWithPrefix() == hash1
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
@@ -208,7 +208,7 @@ class EthereumDirectReaderSpec extends Specification {
         when:
         def act = reader.receiptReader.read(TransactionId.from(hash1))
             .block(Duration.ofSeconds(1))
-            .with { new String(it) }
+            .with { new String(it.data) }
         then:
         act == '{"blockHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","blockNumber":"0x64","transactionHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","logs":[]}'
     }
@@ -245,7 +245,7 @@ class EthereumDirectReaderSpec extends Specification {
         when:
         def act = reader.receiptReader.read(TransactionId.from(hash1))
                 .block(Duration.ofSeconds(1))
-                .with { new String(it) }
+                .with { new String(it.data) }
         then:
         act == '{"blockHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","blockNumber":"0x64","transactionHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","logs":[]}'
     }
@@ -302,7 +302,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.balanceReader.read(Address.from(address1))
+        def act = reader.balanceReader.read(Address.from(address1)).map {it.data}
         then:
         StepVerifier.create(act)
                 .expectNext(Wei.from("0x100"))
@@ -334,7 +334,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.balanceReader.read(Address.from(address1))
+        def act = reader.balanceReader.read(Address.from(address1)).map {it.data}
         then:
         StepVerifier.create(act)
                 .expectNext(Wei.from("0x100"))
@@ -379,7 +379,7 @@ class EthereumDirectReaderSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
-                    block.hash.toHexWithPrefix() == hash1
+                    block.data.hash.toHexWithPrefix() == hash1
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
@@ -422,7 +422,7 @@ class EthereumDirectReaderSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
-                    block.hash.toHexWithPrefix() == hash1
+                    block.data.hash.toHexWithPrefix() == hash1
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
