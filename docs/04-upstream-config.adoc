@@ -149,6 +149,8 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - bitcoin (bitcoin-testnet)
 - base
 - base-goerli
+- linea
+- linea-goerli
 
 === Roles and Fallback upstream
 

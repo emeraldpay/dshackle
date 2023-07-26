@@ -79,6 +79,8 @@ class Global {
             "polygon-mumbai" to Chain.POLYGON_POS__MUMBAI,
             "base" to Chain.BASE__MAINNET,
             "base-goerli" to Chain.BASE__GOERLI,
+            "linea" to Chain.LINEA__MAINNET,
+            "linea-goerli" to Chain.LINEA__GOERLI,
         )
 
         fun chainById(id: String?): Chain {

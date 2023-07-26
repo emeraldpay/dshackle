@@ -274,6 +274,9 @@ class DefaultEthereumMethods(
 
         Chain.BASE__MAINNET to HardcodedData("\"8453\"", "\"0x2105\""),
         Chain.BASE__GOERLI to HardcodedData("\"84531\"", "\"0x14a33\""),
+
+        Chain.LINEA__MAINNET to HardcodedData("\"59144\"", "\"0xe708\""),
+        Chain.LINEA__GOERLI to HardcodedData("\"59140\"", "\"0xe704\""),
     )
 
     override fun executeHardcoded(method: String): ByteArray {
