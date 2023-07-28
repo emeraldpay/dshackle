@@ -16,17 +16,20 @@
  */
 package io.emeraldpay.dshackle.rpc
 
+import brave.Tracer
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.ChainValue
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.config.spans.ProviderSpanHandler
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Timer
 import org.apache.commons.lang3.RandomStringUtils
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.DependsOn
 import org.springframework.stereotype.Service
@@ -50,7 +53,10 @@ class BlockchainRpc(
     private val estimateFee: EstimateFee,
     private val subscribeNodeStatus: SubscribeNodeStatus,
     @Qualifier("rpcScheduler")
-    private val scheduler: Scheduler
+    private val scheduler: Scheduler,
+    @Autowired(required = false)
+    private val providerSpanHandler: ProviderSpanHandler?,
+    private val tracer: Tracer,
 ) : ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
@@ -96,7 +102,11 @@ class BlockchainRpc(
                     itemMetrics.nativeItemResponseErr.increment()
                 }
             }
-        }.doOnError { failMetric.increment() }
+        }.doOnError {
+            failMetric.increment()
+        }.doFinally {
+            providerSpanHandler?.sendSpans(tracer.currentSpan().context())
+        }
     }
 
     override fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<BlockchainOuterClass.NativeSubscribeReplyItem> {

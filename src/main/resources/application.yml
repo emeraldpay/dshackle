@@ -21,4 +21,3 @@ spring:
 spans:
   collect:
     long-span-threshold: ${LONG_SPAN_THRESHOLD:1000}
-    collect-only-errors: ${ONLY_ERROR_SPANS:true}
