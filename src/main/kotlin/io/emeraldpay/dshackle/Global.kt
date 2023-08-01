@@ -81,6 +81,12 @@ class Global {
             "base-goerli" to Chain.BASE__GOERLI,
             "linea" to Chain.LINEA__MAINNET,
             "linea-goerli" to Chain.LINEA__GOERLI,
+            "fantom" to Chain.FANTOM__MAINNET,
+            "fantom-testnet" to Chain.FANTOM__TESTNET,
+            "gnosis" to Chain.GNOSIS__MAINNET,
+            "gnosis-chiado" to Chain.GNOSIS__CHIADO,
+            "avalanche" to Chain.AVALANCHE__MAINNET,
+            "avalanche-fuji" to Chain.AVALANCHE__FUJI,
         )
 
         fun chainById(id: String?): Chain {

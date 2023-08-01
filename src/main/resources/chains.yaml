@@ -90,3 +90,41 @@ chain-settings:
       lags:
         syncing: 40
         lagging: 20
+    - id: avalanche
+      options:
+        validate-peers: false
+        validate-syncing: false
+      lags:
+        syncing: 10
+        lagging: 5
+    - id: avalanche-fuji
+      options:
+        validate-peers: false
+        validate-syncing: false
+      lags:
+        syncing: 10
+        lagging: 5
+    - id: gnosis
+      options:
+        validate-peers: false
+      lags:
+        syncing: 10
+        lagging: 5
+    - id: gnosis-chiado
+      options:
+        validate-peers: false
+      lags:
+        syncing: 10
+        lagging: 5
+    - id: fantom
+      options:
+        validate-peers: false
+      lags:
+        syncing: 10
+        lagging: 5
+    - id: fantom-testnet
+      options:
+        validate-peers: false
+      lags:
+        syncing: 10
+        lagging: 5

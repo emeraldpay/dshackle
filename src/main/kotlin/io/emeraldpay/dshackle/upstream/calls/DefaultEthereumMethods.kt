@@ -104,6 +104,15 @@ class DefaultEthereumMethods(
 
             Chain.LINEA__MAINNET to HardcodedData("\"59144\"", "\"0xe708\""),
             Chain.LINEA__GOERLI to HardcodedData("\"59140\"", "\"0xe704\""),
+
+            Chain.FANTOM__MAINNET to HardcodedData("\"250\"", "\"0xfa\""),
+            Chain.FANTOM__TESTNET to HardcodedData("\"4002\"", "\"0xfa2\""),
+
+            Chain.GNOSIS__MAINNET to HardcodedData("\"100\"", "\"0x64\""),
+            Chain.GNOSIS__CHIADO to HardcodedData("\"10200\"", "\"0x27d8\""),
+
+            Chain.AVALANCHE__MAINNET to HardcodedData("\"43114\"", "\"0xa86a\""),
+            Chain.AVALANCHE__FUJI to HardcodedData("\"43113\"", "\"0xa869\""),
         )
 
         fun getChainByData(data: HardcodedData) = CHAIN_DATA.entries.find { it.value == data }?.key

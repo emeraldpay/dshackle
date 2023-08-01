@@ -151,6 +151,12 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - base-goerli
 - linea
 - linea-goerli
+- fantom
+- fantom-testnet
+- gnosis
+- gnosis-chiado
+- avalanche
+- avalanche-fuji
 
 === Roles and Fallback upstream
 

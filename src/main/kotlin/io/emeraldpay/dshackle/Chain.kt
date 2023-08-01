@@ -49,6 +49,8 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
     ZKSYNC__MAINNET(1009, "ZKSYNC", "ZkSync Era"),
     BASE__MAINNET(1010, "BASE", "Base"),
     LINEA__MAINNET(1011, "LINEA", "Linea"),
+    GNOSIS__MAINNET(1012, "GNOSIS", "Gnosis"),
+    AVALANCHE__MAINNET(1013, "AVALANCHE", "Avalanche"),
 
     // Testnets
     ETHEREUM__MORDEN(10001, "MORDEN", "Morden Testnet"),
@@ -88,7 +90,10 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
         "Polygon POS Mumbai Testnet"
     ),
     BASE__GOERLI(10014, "BASE_GOERLI", "Base Goerli Testnet"),
-    LINEA__GOERLI(10015, "LINEA_GOERLI", "Linea Goerli Testnet");
+    LINEA__GOERLI(10015, "LINEA_GOERLI", "Linea Goerli Testnet"),
+    FANTOM__TESTNET(10016, "FANTOM_TESTNET", "Fantom Testnet"),
+    GNOSIS__CHIADO(10017, "GNOSIS_CHIADO", "Gnosis Chiado Testnet"),
+    AVALANCHE__FUJI(10018, "AVALANCHE_FUJI", "Avalanche Fuji Testnet");
 
     companion object {
         fun byId(id: Int): Chain {

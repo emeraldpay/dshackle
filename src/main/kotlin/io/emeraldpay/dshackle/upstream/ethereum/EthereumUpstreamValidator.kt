@@ -37,6 +37,7 @@ import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import reactor.kotlin.extra.retry.retryRandomBackoff
 import reactor.util.function.Tuple2
 import java.time.Duration
 import java.util.concurrent.Executors
@@ -93,6 +94,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                     UpstreamAvailability.OK
                 }
             }
+            .doOnError { err -> log.error("Error during syncing validation for ${upstream.getId()}", err) }
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
@@ -118,6 +120,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                     UpstreamAvailability.OK
                 }
             }
+            .doOnError { err -> log.error("Error during peer count validation for ${upstream.getId()}", err) }
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
@@ -203,13 +206,25 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 Mono.fromCallable { log.error("No response for eth_call limit check from ${upstream.getId()}") }
                     .then(Mono.error(TimeoutException("Validation timeout for call limit")))
             )
+            .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
+                log.warn(
+                    "error during validateCallLimit for ${upstream.getId()}, iteration ${ctx.iteration()}",
+                    ctx.exception()
+                )
+            }
             .onErrorReturn(false)
     }
 
     private fun chainId(): Mono<String> {
         return upstream.getIngressReader()
             .read(JsonRpcRequest("eth_chainId", emptyList()))
-            .doOnError { log.error("Error during execution 'eth_chainId' - ${it.message}") }
+            .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
+                log.warn(
+                    "error during chainId retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}",
+                    ctx.exception()
+                )
+            }
+            .doOnError { log.error("Error during execution 'eth_chainId' - ${it.message} for ${upstream.getId()}") }
             .flatMap(JsonRpcResponse::requireResult)
             .map { String(it) }
     }
@@ -217,7 +232,13 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
     private fun netVersion(): Mono<String> {
         return upstream.getIngressReader()
             .read(JsonRpcRequest("net_version", emptyList()))
-            .doOnError { log.error("Error during execution 'net_version' - ${it.message}") }
+            .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
+                log.warn(
+                    "error during netVersion retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}",
+                    ctx.exception()
+                )
+            }
+            .doOnError { log.error("Error during execution 'net_version' - ${it.message} for ${upstream.getId()}") }
             .flatMap(JsonRpcResponse::requireResult)
             .map { String(it) }
     }
