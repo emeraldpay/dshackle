@@ -95,6 +95,10 @@ class IntegrationTest {
                     id = "ganache"
                     nodeId = 1
                     chain = "ethereum"
+                    options = UpstreamsConfig.PartialOptions()
+                        .apply {
+                            validateChain = false
+                        }
                     connection = UpstreamsConfig.EthereumPosConnection().apply {
                         execution = UpstreamsConfig.EthereumConnection().apply {
                             rpc = UpstreamsConfig.HttpEndpoint(

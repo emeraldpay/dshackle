@@ -69,6 +69,44 @@ class DefaultEthereumMethods(
             "debug_traceCallMany",
             "debug_traceTransaction"
         )
+
+        val CHAIN_DATA = mapOf(
+            Chain.ETHEREUM__MAINNET to HardcodedData("\"1\"", "\"0x1\""),
+            Chain.ETHEREUM__RINKEBY to HardcodedData("\"4\"", "\"0x4\""),
+            Chain.ETHEREUM__ROPSTEN to HardcodedData("\"3\"", "\"0x3\""),
+            Chain.ETHEREUM__KOVAN to HardcodedData("\"42\"", "\"0x2a\""),
+            Chain.ETHEREUM__GOERLI to HardcodedData("\"5\"", "\"0x5\""),
+            Chain.ETHEREUM__SEPOLIA to HardcodedData("\"11155111\"", "\"0xaa36a7\""),
+
+            Chain.ETHEREUM_CLASSIC__MAINNET to HardcodedData("\"1\"", "\"0x3d\""),
+
+            Chain.POLYGON_POS__MAINNET to HardcodedData("\"137\"", "\"0x89\""),
+            Chain.POLYGON_POS__MUMBAI to HardcodedData("\"80001\"", "\"0x13881\""),
+
+            Chain.ARBITRUM__MAINNET to HardcodedData("\"42161\"", "\"0xa4b1\""),
+            Chain.ARBITRUM__GOERLI to HardcodedData("\"421613\"", "\"0x66eed\""),
+
+            Chain.OPTIMISM__MAINNET to HardcodedData("\"10\"", "\"0xa\""),
+            Chain.OPTIMISM__GOERLI to HardcodedData("\"420\"", "\"0x1A4\""),
+
+            Chain.ARBITRUM_NOVA__MAINNET to HardcodedData("\"42170\"", "\"0xa4ba\""),
+
+            Chain.POLYGON_ZKEVM__MAINNET to HardcodedData("\"1101\"", "\"0x44d\""),
+            Chain.POLYGON_ZKEVM__TESTNET to HardcodedData("\"1442\"", "\"0x5a2\""),
+
+            Chain.ZKSYNC__MAINNET to HardcodedData("\"324\"", "\"0x144\""),
+            Chain.ZKSYNC__TESTNET to HardcodedData("\"280\"", "\"0x118\""),
+
+            Chain.BSC__MAINNET to HardcodedData("\"56\"", "\"0x38\""),
+
+            Chain.BASE__MAINNET to HardcodedData("\"8453\"", "\"0x2105\""),
+            Chain.BASE__GOERLI to HardcodedData("\"84531\"", "\"0x14a33\""),
+
+            Chain.LINEA__MAINNET to HardcodedData("\"59144\"", "\"0xe708\""),
+            Chain.LINEA__GOERLI to HardcodedData("\"59140\"", "\"0xe704\""),
+        )
+
+        fun getChainByData(data: HardcodedData) = CHAIN_DATA.entries.find { it.value == data }?.key
     }
 
     private val anyResponseMethods = listOf(
@@ -243,48 +281,12 @@ class DefaultEthereumMethods(
 
     data class HardcodedData(val netVersion: String, val chainId: String)
 
-    private val hardcodedData = mapOf(
-        Chain.ETHEREUM__MAINNET to HardcodedData("\"1\"", "\"0x1\""),
-        Chain.ETHEREUM__RINKEBY to HardcodedData("\"4\"", "\"0x4\""),
-        Chain.ETHEREUM__ROPSTEN to HardcodedData("\"3\"", "\"0x3\""),
-        Chain.ETHEREUM__KOVAN to HardcodedData("\"42\"", "\"0x2a\""),
-        Chain.ETHEREUM__GOERLI to HardcodedData("\"5\"", "\"0x5\""),
-        Chain.ETHEREUM__SEPOLIA to HardcodedData("\"11155111\"", "\"0xaa36a7\""),
-
-        Chain.ETHEREUM_CLASSIC__MAINNET to HardcodedData("\"1\"", "\"0x3d\""),
-
-        Chain.POLYGON_POS__MAINNET to HardcodedData("\"137\"", "\"0x89\""),
-        Chain.POLYGON_POS__MUMBAI to HardcodedData("\"80001\"", "\"0x13881\""),
-
-        Chain.ARBITRUM__MAINNET to HardcodedData("\"42161\"", "\"0xa4b1\""),
-        Chain.ARBITRUM__GOERLI to HardcodedData("\"421613\"", "\"0x66eed\""),
-
-        Chain.OPTIMISM__MAINNET to HardcodedData("\"10\"", "\"0xa\""),
-        Chain.OPTIMISM__GOERLI to HardcodedData("\"420\"", "\"0x1A4\""),
-
-        Chain.ARBITRUM_NOVA__MAINNET to HardcodedData("\"42170\"", "\"0xa4ba\""),
-
-        Chain.POLYGON_ZKEVM__MAINNET to HardcodedData("\"1101\"", "\"0x44d\""),
-        Chain.POLYGON_ZKEVM__TESTNET to HardcodedData("\"1442\"", "\"0x5a2\""),
-
-        Chain.ZKSYNC__MAINNET to HardcodedData("\"324\"", "\"0x144\""),
-        Chain.ZKSYNC__TESTNET to HardcodedData("\"280\"", "\"0x118\""),
-
-        Chain.BSC__MAINNET to HardcodedData("\"56\"", "\"0x38\""),
-
-        Chain.BASE__MAINNET to HardcodedData("\"8453\"", "\"0x2105\""),
-        Chain.BASE__GOERLI to HardcodedData("\"84531\"", "\"0x14a33\""),
-
-        Chain.LINEA__MAINNET to HardcodedData("\"59144\"", "\"0xe708\""),
-        Chain.LINEA__GOERLI to HardcodedData("\"59140\"", "\"0xe704\""),
-    )
-
     override fun executeHardcoded(method: String): ByteArray {
         // note that the value is in json representation, i.e. if it's a string it should be with quotes,
         // that's why "\"0x0\"", "\"1\"", etc. But just "true" for a boolean, or "[]" for array.
         val json = when (method) {
-            "net_version" -> hardcodedData.get(chain)?.netVersion ?: throw RpcException(-32602, "Invalid chain")
-            "eth_chainId" -> hardcodedData.get(chain)?.chainId ?: throw RpcException(-32602, "Invalid chain")
+            "net_version" -> CHAIN_DATA.get(chain)?.netVersion ?: throw RpcException(-32602, "Invalid chain")
+            "eth_chainId" -> CHAIN_DATA.get(chain)?.chainId ?: throw RpcException(-32602, "Invalid chain")
 
             "net_peerCount" -> {
                 "\"0x2a\""

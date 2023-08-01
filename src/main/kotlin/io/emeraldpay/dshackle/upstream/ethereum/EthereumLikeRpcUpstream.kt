@@ -45,7 +45,7 @@ open class EthereumLikeRpcUpstream(
     chainConfig: ChainsConfig.ChainConfig,
     skipEnhance: Boolean
 ) : EthereumLikeUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
-    private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(this, getOptions(), chainConfig.callLimitContract)
+    private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(chain, this, getOptions(), chainConfig.callLimitContract)
     private val connector: EthereumConnector = connectorFactory.create(this, validator, chain, skipEnhance)
     private val labelsDetector = EthereumLabelsDetector(this.getIngressReader())
 
@@ -60,6 +60,11 @@ open class EthereumLikeRpcUpstream(
     override fun start() {
         log.info("Configured for ${chain.chainName}")
         connector.start()
+        if (!validator.validateUpstreamSettings()) {
+            connector.stop()
+            log.warn("Upstream ${getId()} couldn't start, invalid upstream settings")
+            return
+        }
         if (getOptions().disableValidation) {
             log.warn("Disable validation for upstream ${this.getId()}")
             this.setLag(0)

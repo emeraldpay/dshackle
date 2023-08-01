@@ -17,11 +17,15 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods.Companion.CHAIN_DATA
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods.Companion.getChainByData
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.Address
@@ -33,17 +37,17 @@ import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
-import reactor.util.function.Tuple3
+import reactor.util.function.Tuple2
 import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
 
 open class EthereumUpstreamValidator @JvmOverloads constructor(
+    private val chain: Chain,
     private val upstream: Upstream,
     private val options: UpstreamsConfig.Options,
     private val callLimitContract: String? = null
 ) {
-    private var callLimitSucceed: Boolean = false
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
         val scheduler =
@@ -55,55 +59,16 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
     open fun validate(): Mono<UpstreamAvailability> {
         return Mono.zip(
             validateSyncing(),
-            validatePeers(),
-            validateCallLimit()
+            validatePeers()
         )
             .map(::resolve)
             .defaultIfEmpty(UpstreamAvailability.UNAVAILABLE)
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
-    fun resolve(results: Tuple3<UpstreamAvailability, UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability {
+    fun resolve(results: Tuple2<UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability {
         val cp = Comparator { avail1: UpstreamAvailability, avail2: UpstreamAvailability -> if (avail1.isBetterTo(avail2)) -1 else 1 }
-        return listOf(results.t1, results.t2, results.t3).sortedWith(cp).last()
-    }
-
-    fun validateCallLimit(): Mono<UpstreamAvailability> {
-        // do not rerun this check after first success because it's more expensive than others
-        if (!options.validateCallLimit || callLimitContract == null || callLimitSucceed) {
-            return Mono.just(UpstreamAvailability.OK)
-        }
-        return upstream.getIngressReader()
-            .read(
-                JsonRpcRequest(
-                    "eth_call",
-                    listOf(
-                        TransactionCallJson(
-                            Address.from(callLimitContract),
-                            // calling contract with param 200_000, meaning it will generate 200k symbols or response
-                            // 30ce0 + metadata — 200_000k
-                            HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030ce0")
-                        ),
-                        "latest"
-                    )
-                )
-            )
-            .flatMap(JsonRpcResponse::requireResult)
-            .doOnError {
-                log.error(
-                    "Error: ${it.message}. Node ${upstream.getId()} is prbably incorrectly configured. " +
-                        "You need to set up your return limit to at least 200000. " +
-                        "Erigon config example: https://github.com/ledgerwatch/erigon/blob/devel/cmd/utils/flags.go#L364. "
-                )
-            }
-            .map { UpstreamAvailability.OK }
-            .timeout(
-                Defaults.timeoutInternal,
-                Mono.fromCallable { log.error("No response for eth_call limit check from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for call limit")))
-            )
-            .doOnSuccess { callLimitSucceed = true }
-            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+        return listOf(results.t1, results.t2).sortedWith(cp).last()
     }
 
     fun validateSyncing(): Mono<UpstreamAvailability> {
@@ -164,5 +129,96 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .flatMap {
                 validate()
             }
+    }
+
+    fun validateUpstreamSettings(): Boolean {
+        return Mono.zip(
+            validateChain(),
+            validateCallLimit()
+        ).map {
+            it.t1 && it.t2
+        }.block() ?: false
+    }
+
+    private fun validateChain(): Mono<Boolean> {
+        if (!options.validateChain) {
+            return Mono.just(true)
+        }
+        return Mono.zip(
+            chainId(),
+            netVersion()
+        )
+            .map {
+                val chainData = CHAIN_DATA[chain] ?: return@map false
+                val isChainValid = chainData.chainId == it.t1 && chainData.netVersion == it.t2
+
+                if (!isChainValid) {
+                    val actualChain = getChainByData(
+                        DefaultEthereumMethods.HardcodedData(it.t2, it.t1)
+                    )?.chainName
+                    log.warn(
+                        "${chain.chainName} is specified for upstream ${upstream.getId()} " +
+                            "but actually it is $actualChain with chainId ${it.t1} and net_version ${it.t2}"
+                    )
+                }
+
+                isChainValid
+            }
+            .onErrorResume {
+                log.error("Error during chain validation", it)
+                Mono.just(false)
+            }
+    }
+
+    private fun validateCallLimit(): Mono<Boolean> {
+        if (!options.validateCallLimit || callLimitContract == null) {
+            return Mono.just(true)
+        }
+        return upstream.getIngressReader()
+            .read(
+                JsonRpcRequest(
+                    "eth_call",
+                    listOf(
+                        TransactionCallJson(
+                            Address.from(callLimitContract),
+                            // calling contract with param 200_000, meaning it will generate 200k symbols or response
+                            // 30ce0 + metadata — 200_000k
+                            HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030ce0")
+                        ),
+                        "latest"
+                    )
+                )
+            )
+            .flatMap(JsonRpcResponse::requireResult)
+            .doOnError {
+                log.warn(
+                    "Error: ${it.message}. Node ${upstream.getId()} is probably incorrectly configured. " +
+                        "You need to set up your return limit to at least 200000. " +
+                        "Erigon config example: https://github.com/ledgerwatch/erigon/blob/devel/cmd/utils/flags.go#L364. "
+                )
+            }
+            .map { true }
+            .timeout(
+                Defaults.timeoutInternal,
+                Mono.fromCallable { log.error("No response for eth_call limit check from ${upstream.getId()}") }
+                    .then(Mono.error(TimeoutException("Validation timeout for call limit")))
+            )
+            .onErrorReturn(false)
+    }
+
+    private fun chainId(): Mono<String> {
+        return upstream.getIngressReader()
+            .read(JsonRpcRequest("eth_chainId", emptyList()))
+            .doOnError { log.error("Error during execution 'eth_chainId' - ${it.message}") }
+            .flatMap(JsonRpcResponse::requireResult)
+            .map { String(it) }
+    }
+
+    private fun netVersion(): Mono<String> {
+        return upstream.getIngressReader()
+            .read(JsonRpcRequest("net_version", emptyList()))
+            .doOnError { log.error("Error during execution 'net_version' - ${it.message}") }
+            .flatMap(JsonRpcResponse::requireResult)
+            .map { String(it) }
     }
 }

@@ -37,7 +37,8 @@ open class UpstreamsConfig {
         val validatePeers: Boolean,
         val minPeers: Int,
         val validateSyncing: Boolean,
-        val validateCallLimit: Boolean
+        val validateCallLimit: Boolean,
+        val validateChain: Boolean
     )
 
     open class PartialOptions {
@@ -61,6 +62,7 @@ open class UpstreamsConfig {
                 field = value
             }
         var validateSyncing: Boolean? = null
+        var validateChain: Boolean? = null
 
         fun merge(overwrites: PartialOptions?): PartialOptions {
             if (overwrites == null) {
@@ -75,6 +77,7 @@ open class UpstreamsConfig {
             copy.validateSyncing = firstNonNull(overwrites.validateSyncing, this.validateSyncing)
             copy.validateCalllimit = firstNonNull(overwrites.validateCalllimit, this.validateCalllimit)
             copy.timeout = firstNonNull(overwrites.timeout, this.timeout)
+            copy.validateChain = firstNonNull(overwrites.validateChain, this.validateChain)
             return copy
         }
 
@@ -87,7 +90,8 @@ open class UpstreamsConfig {
                 firstNonNull(this.validatePeers, true)!!,
                 firstNonNull(this.minPeers, 1)!!,
                 firstNonNull(this.validateSyncing, true)!!,
-                firstNonNull(this.validateCalllimit, true)!!
+                firstNonNull(this.validateCalllimit, true)!!,
+                firstNonNull(this.validateChain, true)!!
             )
 
         companion object {

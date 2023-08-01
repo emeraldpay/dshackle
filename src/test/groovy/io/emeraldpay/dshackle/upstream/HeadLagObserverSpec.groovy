@@ -117,7 +117,7 @@ class HeadLagObserverSpec extends Specification {
 
         TestHeadLagObserver(@NotNull Head master, @NotNull Collection<? extends Upstream> followers) {
             super(master, followers, DistanceExtractor.@Companion::extractPowDistance,
-                    Schedulers.parallel(), Duration.ofNanos(1))
+                    Schedulers.boundedElastic(), Duration.ofNanos(1))
         }
 
         @Override

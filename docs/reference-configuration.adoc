@@ -744,6 +744,11 @@ See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 | `false`
 | Disables all the validations of the upstream. I.e., it turns off `validate-peers` and `validate-syncing` checks if set to `true`.
 
+| `validate-chain`
+| boolean
+| `true`
+| Disables validation of the chain settings of the upstream. Prevent of creating an upstream with incorrect chain if it relates to a node with another chain.
+
 | `validation-interval`
 | number
 | `30`
