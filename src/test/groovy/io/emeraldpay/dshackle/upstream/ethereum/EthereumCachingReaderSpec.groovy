@@ -5,22 +5,17 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.data.DefaultContainer
-import io.emeraldpay.dshackle.quorum.QuorumReader
-import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
-import io.emeraldpay.dshackle.quorum.QuorumRpcReader
+import io.emeraldpay.dshackle.reader.RpcReader
+import io.emeraldpay.dshackle.reader.RpcReaderFactory
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.ApiSource
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
+import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.domain.Wei
-import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import org.apache.commons.collections4.Factory
@@ -47,19 +42,16 @@ class EthereumDirectReaderSpec extends Specification {
             parentHash = BlockHash.from(hash1)
             transactions = []
         }
-        def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _,) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver)
                 )
             }
@@ -77,19 +69,16 @@ class EthereumDirectReaderSpec extends Specification {
 
     def "Produce empty result on non-existing block"() {
         setup:
-        def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(null), null, 1, resolver
                         )
                 )
@@ -113,21 +102,16 @@ class EthereumDirectReaderSpec extends Specification {
             parentHash = BlockHash.from(hash1)
             transactions = []
         }
-        def up = Mock(Multistream) {
-            1 * getApiSource(
-                    new Selector.Builder().withMatcher(new Selector.HeightMatcher(100)).forMethod("eth_getBlockByNumber").build()
-            ) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver
                         )
                 )
@@ -151,19 +135,16 @@ class EthereumDirectReaderSpec extends Specification {
             blockNumber = 100
             blockHash = BlockHash.from(hash1)
         }
-        def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getTransactionByHash", [hash1])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver
                         )
                 )
@@ -187,19 +168,16 @@ class EthereumDirectReaderSpec extends Specification {
             blockNumber = 100
             blockHash = BlockHash.from(hash1)
         }
-        def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getTransactionReceipt", [hash1])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver
                         )
                 )
@@ -220,9 +198,6 @@ class EthereumDirectReaderSpec extends Specification {
             blockNumber = 100
             blockHash = BlockHash.from(hash1)
         }
-        def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
@@ -231,12 +206,12 @@ class EthereumDirectReaderSpec extends Specification {
             1 * cacheReceipt(Caches.Tag.REQUESTED, { DefaultContainer data -> data.txId.toHex() == hash1.substring(2) && data.height == 100 })
         }
         EthereumDirectReader reader = new EthereumDirectReader(
-                up, caches, new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), caches, new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getTransactionReceipt", [hash1])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver
                         )
                 )
@@ -252,19 +227,16 @@ class EthereumDirectReaderSpec extends Specification {
 
     def "Produce empty on non-existing tx"() {
         setup:
-        def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         EthereumDirectReader reader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getTransactionByHash", [hash1])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(null), null, 1, resolver
                         )
                 )
@@ -281,7 +253,6 @@ class EthereumDirectReaderSpec extends Specification {
     def "Reads balance - height is unknown"() {
         setup:
         def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
             1 * getHead() >> Mock(Head) {
                 1 * getCurrentHeight() >> null
             }
@@ -292,10 +263,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getBalance", [address1, "latest"])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes("0x100"), null, 1, resolver
                         )
                 )
@@ -313,7 +284,6 @@ class EthereumDirectReaderSpec extends Specification {
     def "Reads balance - height is known"() {
         setup:
         def up = Mock(Multistream) {
-            1 * getApiSource(_) >> Stub(ApiSource)
             1 * getHead() >> Mock(Head) {
                 1 * getCurrentHeight() >> 11_061_691
             }
@@ -324,10 +294,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getBalance", [address1, "0xa8c9bb"])) >> Mono.just(
-                        new QuorumRpcReader.Result(
+                        new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes("0x100"), null, 1, resolver
                         )
                 )
@@ -352,25 +322,22 @@ class EthereumDirectReaderSpec extends Specification {
             totalDifficulty = BigInteger.ONE
             transactions = []
         }
-        def up = Mock(Multistream) {
-            3 * getApiSource(_) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         def result = Mono.just(
-                new QuorumRpcReader.Result(
+                new RpcReader.Result(
                         Global.objectMapper.writeValueAsBytes(json), null, 1, resolver)
         )
         EthereumDirectReader ethereumDirectReader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        ethereumDirectReader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            2 * create(_, _, _, _) >> Mock(QuorumReader) {
+        ethereumDirectReader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            2 * create(_) >> Mock(RpcReader) {
                 2 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
             }
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> result
             }
         }
@@ -395,25 +362,22 @@ class EthereumDirectReaderSpec extends Specification {
             parentHash = BlockHash.from(hash1)
             transactions = []
         }
-        def up = Mock(Multistream) {
-            3 * getApiSource(_) >> Stub(ApiSource)
-        }
         def calls = Mock(Factory) {
             3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         }
         def result = Mono.just(
-                new QuorumRpcReader.Result(
+                new RpcReader.Result(
                         Global.objectMapper.writeValueAsBytes(json), null, 1, resolver)
         )
         EthereumDirectReader ethereumDirectReader = new EthereumDirectReader(
-                up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        ethereumDirectReader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            2 * create(_, _, _, _) >> Mock(QuorumReader) {
+        ethereumDirectReader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            2 * create(_) >> Mock(RpcReader) {
                 2 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
             }
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >> result
             }
         }
@@ -431,7 +395,6 @@ class EthereumDirectReaderSpec extends Specification {
     def "Reads balance with retries - expects an error within 1 sec"() {
         setup:
         def up = Mock(Multistream) {
-            4 * getApiSource(_) >> Stub(ApiSource)
             1 * getHead() >> Mock(Head) {
                 1 * getCurrentHeight() >> null
             }
@@ -442,8 +405,8 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            4 * create(_, _, _, _) >> Mock(QuorumReader) {
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            4 * create(_) >> Mock(RpcReader) {
                 4 * read(new JsonRpcRequest("eth_getBalance", [address1, "latest"])) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException()),
                          Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]

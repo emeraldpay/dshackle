@@ -25,17 +25,12 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
-import io.emeraldpay.dshackle.quorum.QuorumReader
-import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
-import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.RpcReader
+import io.emeraldpay.dshackle.reader.RpcReaderFactory
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
@@ -132,9 +127,9 @@ class NativeCallSpec extends Specification {
         }
 
         def nativeCall = nativeCall()
-        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"foo\"".bytes, null, 1, ups))
+        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
+                1 * read(_) >> Mono.just(new RpcReader.Result("\"foo\"".bytes, null, 1, ups))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
@@ -153,8 +148,8 @@ class NativeCallSpec extends Specification {
         def quorum = new AlwaysQuorum()
 
         def nativeCall = nativeCall()
-        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * attempts() >> new AtomicInteger(1)
                 1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.empty()
             }
@@ -178,8 +173,8 @@ class NativeCallSpec extends Specification {
         def quorum = new AlwaysQuorum()
 
         def nativeCall = nativeCall()
-        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
+        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
                 1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.error(
                         new JsonRpcException(JsonRpcResponse.Id.from(12), new JsonRpcError(-32123, "Foo Bar", "Foo Bar Baz"), null, true)
                 )
@@ -615,9 +610,9 @@ class NativeCallSpec extends Specification {
             _ * it.observeChains() >> Flux.empty()
         }
         def nativeCall = nativeCall(multistreamHolder)
-        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, ups))
+        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
+                1 * read(_) >> Mono.just(new RpcReader.Result("\"0xab\"".bytes, null, 1, ups))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
@@ -650,9 +645,9 @@ class NativeCallSpec extends Specification {
             _ * it.observeChains() >> Flux.empty()
         }
         def nativeCall = nativeCall(multistreamHolder)
-        nativeCall.quorumReaderFactory = Mock(QuorumReaderFactory) {
-            1 * create(_, _, _, _) >> Mock(QuorumReader) {
-                1 * read(_) >> Mono.just(new QuorumRpcReader.Result("\"0xab\"".bytes, null, 1, ups))
+        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
+                1 * read(_) >> Mono.just(new RpcReader.Result("\"0xab\"".bytes, null, 1, ups))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,

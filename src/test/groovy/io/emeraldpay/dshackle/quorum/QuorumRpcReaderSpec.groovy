@@ -39,6 +39,7 @@ class QuorumRpcReaderSpec extends Specification {
         setup:
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
+            _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             1 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.just(JsonRpcResponse.ok("1"))
@@ -72,6 +73,7 @@ class QuorumRpcReaderSpec extends Specification {
         }
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
+            _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> api
         }
@@ -109,6 +111,7 @@ class QuorumRpcReaderSpec extends Specification {
         }
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
+            _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> api
         }
@@ -136,6 +139,7 @@ class QuorumRpcReaderSpec extends Specification {
         setup:
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
+            _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {
                 2 * read(new JsonRpcRequest("eth_test", [])) >>> [
@@ -168,6 +172,7 @@ class QuorumRpcReaderSpec extends Specification {
         setup:
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
+            _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {
                 2 * read(new JsonRpcRequest("eth_test", [])) >>> [
@@ -236,6 +241,7 @@ class QuorumRpcReaderSpec extends Specification {
         }
         def up = Mock(Upstream) {
             _ * isAvailable() >> true
+            _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> api
         }
@@ -264,6 +270,7 @@ class QuorumRpcReaderSpec extends Specification {
         setup:
         def up = Mock(Upstream) {
             _ * getLag() >> 0
+            _ * getId() >> "id"
             _ * isAvailable() >> true
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {

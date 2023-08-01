@@ -25,15 +25,16 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.Global.Companion.nullValue
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.commons.LOCAL_READER
-import io.emeraldpay.dshackle.commons.REMOTE_QUORUM_RPC_READER
+import io.emeraldpay.dshackle.commons.RPC_READER
 import io.emeraldpay.dshackle.commons.SPAN_ERROR
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_ID
 import io.emeraldpay.dshackle.commons.SPAN_STATUS_MESSAGE
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
-import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
-import io.emeraldpay.dshackle.quorum.QuorumRpcReader
+import io.emeraldpay.dshackle.reader.RpcReader
+import io.emeraldpay.dshackle.reader.RpcReaderFactory
+import io.emeraldpay.dshackle.reader.RpcReaderFactory.RpcReaderData
 import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.ApiSource
@@ -79,7 +80,7 @@ open class NativeCall(
     private val localRouterEnabled = config.cache?.requestsCacheEnabled ?: true
     private val passthrough = config.passthrough
 
-    var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
+    var rpcReaderFactory: RpcReaderFactory = RpcReaderFactory.default()
     private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
 
     companion object {
@@ -391,15 +392,18 @@ open class NativeCall(
         if (!ctx.upstream.getMethods().isCallable(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
-        val reader = quorumReaderFactory.create(ctx.getApis(), ctx.callQuorum, signer, tracer)
+        val reader = rpcReaderFactory.create(
+            RpcReaderData(ctx.upstream, ctx.payload.method, ctx.matcher, ctx.callQuorum, signer, tracer)
+        )
         val counter = reader.attempts()
 
-        return SpannedReader(reader, tracer, REMOTE_QUORUM_RPC_READER)
+        return SpannedReader(reader, tracer, RPC_READER)
             .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
             .map {
                 val bytes = ctx.resultDecorator.processResult(it)
                 validateResult(bytes, "remote", ctx)
-                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, it.resolvedBy?.getId(), ctx)
+                val upId = it.resolvedBy?.getId() ?: ctx.upstream.getId()
+                CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, upId, ctx)
             }
             .onErrorResume { t ->
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, t, ctx))
@@ -470,11 +474,11 @@ open class NativeCall(
     }
 
     interface ResultDecorator {
-        fun processResult(result: QuorumRpcReader.Result): ByteArray
+        fun processResult(result: RpcReader.Result): ByteArray
     }
 
     open class NoneResultDecorator : ResultDecorator {
-        override fun processResult(result: QuorumRpcReader.Result): ByteArray = result.value
+        override fun processResult(result: RpcReader.Result): ByteArray = result.value
     }
 
     open class CreateFilterDecorator : ResultDecorator {
@@ -482,7 +486,7 @@ open class NativeCall(
         companion object {
             const val quoteCode = '"'.code.toByte()
         }
-        override fun processResult(result: QuorumRpcReader.Result): ByteArray {
+        override fun processResult(result: RpcReader.Result): ByteArray {
             val bytes = result.value
             if (bytes.last() == quoteCode && result.resolvedBy != null) {
                 val suffix = result.resolvedBy.nodeId()

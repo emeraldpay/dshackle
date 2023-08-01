@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.upstream.calls
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
-import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.NotNullQuorum
@@ -198,7 +197,6 @@ class DefaultEthereumMethods(
                 when (method) {
                     "eth_getTransactionCount" -> AlwaysQuorum()
                     "eth_getBalance" -> AlwaysQuorum()
-                    "eth_sendRawTransaction" -> BroadcastQuorum()
                     "eth_blockNumber" -> NotLaggingQuorum(0)
                     else -> AlwaysQuorum()
                 }

@@ -20,10 +20,10 @@ import io.emeraldpay.dshackle.commons.API_READER
 import io.emeraldpay.dshackle.commons.SPAN_NO_RESPONSE_MESSAGE
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_API_TYPE
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_UPSTREAM_ID
+import io.emeraldpay.dshackle.reader.RpcReader
 import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -47,9 +47,9 @@ import java.util.function.Function
 class QuorumRpcReader(
     private val apiControl: ApiSource,
     private val quorum: CallQuorum,
-    private val signer: ResponseSigner?,
+    signer: ResponseSigner?,
     private val tracer: Tracer
-) : QuorumReader {
+) : RpcReader(signer) {
 
     companion object {
         private val log = LoggerFactory.getLogger(QuorumRpcReader::class.java)
@@ -158,12 +158,7 @@ class QuorumRpcReader(
     private fun withSignatureAndUpstream(api: Upstream, key: JsonRpcRequest, response: JsonRpcResponse): Function<Mono<ByteArray>, Mono<Tuple2<ByteArray, Optional<ResponseSigner.Signature>>>> {
         return Function { src ->
             src.map {
-                val signature = response.providedSignature
-                    ?: if (key.nonce != null) {
-                        signer?.sign(key.nonce, response.getResult(), api.getId())
-                    } else {
-                        null
-                    }
+                val signature = getSignature(key, response, api.getId())
                 Tuples.of(it, Optional.ofNullable(signature))
             }
         }
@@ -176,14 +171,7 @@ class QuorumRpcReader(
                 // when the call failed with an error we want to notify the quorum because
                 // it may use the error message or other details
                 //
-                val cleanErr: JsonRpcException = when (err) {
-                    is RpcException -> JsonRpcException.from(err)
-                    is JsonRpcException -> err
-                    else -> JsonRpcException(
-                        JsonRpcResponse.NumberId(key.id),
-                        JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}: ${err.message}")
-                    )
-                }
+                val cleanErr: JsonRpcException = getError(key, err)
                 quorum.record(cleanErr, null, api,)
                 // if it's failed after that, then we don't need more calls, stop api source
                 if (quorum.isFailed()) {
@@ -202,8 +190,7 @@ class QuorumRpcReader(
         return Mono.just(quorum).flatMap { q ->
             if (q.isFailed()) {
                 val resolvedBy = resolvedBy()?.getId()
-                val err = q.getError()?.asException(JsonRpcResponse.NumberId(key.id), resolvedBy)
-                    ?: JsonRpcException(JsonRpcResponse.NumberId(key.id), JsonRpcError(-32603, "Unhandled Upstream error"), resolvedBy)
+                val err = handleError(q.getError(), key.id, resolvedBy)
                 log.warn("Quorum is failed. Method ${key.method}, message ${err.message}")
                 Mono.error(err)
             } else {
@@ -229,11 +216,4 @@ class QuorumRpcReader(
             }
         } ?: Mono.error(RpcException(1, "Quorum [$q] is not resolved [isResolved - ${q.isResolved()}]"))
     }
-
-    class Result(
-        val value: ByteArray,
-        val signature: ResponseSigner.Signature?,
-        val quorum: Int,
-        val resolvedBy: Upstream?
-    )
 }

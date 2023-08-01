@@ -10,8 +10,8 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.quorum.QuorumReaderFactory
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.reader.RpcReaderFactory
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -51,7 +51,7 @@ class EthereumDirectReader(
     }
 
     private val objectMapper: ObjectMapper = Global.objectMapper
-    var quorumReaderFactory: QuorumReaderFactory = QuorumReaderFactory.default()
+    var rpcReaderFactory: RpcReaderFactory = RpcReaderFactory.default()
 
     val blockReader: Reader<BlockHash, Result<BlockContainer>>
     val blockByHeightReader: Reader<Long, Result<BlockContainer>>
@@ -183,19 +183,17 @@ class EthereumDirectReader(
         request: JsonRpcRequest,
         matcher: Selector.Matcher = Selector.empty
     ): Mono<Result<ByteArray>> {
-        return Mono.just(quorumReaderFactory)
+        return Mono.just(rpcReaderFactory)
             .map {
+                val requestMatcher = Selector.Builder()
+                    .withMatcher(matcher)
+                    .forMethod(request.method)
+                    .build()
                 it.create(
-                    up.getApiSource(
-                        Selector.Builder()
-                            .withMatcher(matcher)
-                            .forMethod(request.method)
-                            .build()
-                    ),
-                    callMethodsFactory.create().createQuorumFor(request.method),
-                    // we do not use Signer for internal requests because it doesn't make much sense
-                    null,
-                    tracer
+                    RpcReaderFactory.RpcReaderData(
+                        up, request.method, requestMatcher,
+                        callMethodsFactory.create().createQuorumFor(request.method), null, tracer
+                    )
                 )
             }.flatMap {
                 it.read(request)
