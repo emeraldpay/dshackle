@@ -233,7 +233,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             1 * getFlux() >> Flux.never()
         }
         def up = Mock(EthereumMultistream) {
-            1 * getHead(Selector.empty) >> head
+            1 * getEnrichedHead(Selector.empty) >> head
         }
         def connectBlockUpdates = new ConnectBlockUpdates(up, Schedulers.parallel())
 

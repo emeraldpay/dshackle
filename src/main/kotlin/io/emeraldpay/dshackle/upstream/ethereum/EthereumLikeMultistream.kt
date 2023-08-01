@@ -12,6 +12,8 @@ interface EthereumLikeMultistream : Upstream, HasEgressSubscription {
 
     fun getHead(mather: Selector.Matcher): Head
 
+    fun getEnrichedHead(mather: Selector.Matcher): Head
+
     /**
      * Tries to proxy the native subscribe request to the managed upstreams if
      * - any of them matches the matcher criteria

@@ -51,7 +51,7 @@ class ConnectBlockUpdates(
     fun connect() = connect(Selector.empty)
     override fun connect(matcher: Selector.Matcher): Flux<Update> {
         return connected.computeIfAbsent(matcher.describeInternal()) { key ->
-            extract(upstream.getHead(matcher))
+            extract(upstream.getEnrichedHead(matcher))
                 .publishOn(scheduler)
                 .publish()
                 .refCount(1, Duration.ofSeconds(60))

@@ -20,7 +20,9 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
 import io.emeraldpay.dshackle.upstream.EmptyHead
@@ -36,6 +38,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
+import io.emeraldpay.etherjar.domain.BlockHash
 import org.springframework.cloud.sleuth.Tracer
 import org.springframework.util.ConcurrentReferenceHashMap
 import reactor.core.publisher.Flux
@@ -177,6 +180,25 @@ open class EthereumPosMultiStream(
                         }
                     }
             }
+        }
+
+    override fun getEnrichedHead(mather: Selector.Matcher): Head =
+        filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
+            upstreams.filter { mather.matches(it) }
+                .apply {
+                    log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
+                }.let {
+                    val selected = it.map { source -> source.getHead() }
+                    EnrichedMergedHead(
+                        selected, getHead(), headScheduler,
+                        object :
+                            Reader<BlockHash, BlockContainer> {
+                            override fun read(key: BlockHash): Mono<BlockContainer> {
+                                return reader.blocksByHashAsCont().read(key).map { res -> res.data }
+                            }
+                        }
+                    )
+                }
         }
 
     override fun getFeeEstimation(): ChainFees {

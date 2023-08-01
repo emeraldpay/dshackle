@@ -16,24 +16,24 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
-import reactor.retry.Repeat
 import java.time.Duration
 
 class EthereumWsHead(
@@ -101,7 +101,25 @@ class EthereumWsHead(
                         block.totalDifficulty == null
                     )
                 ) {
-                    enhanceRealBlock(block)
+                    EthereumBlockEnricher.enrich(
+                        block.hash,
+                        object :
+                            Reader<BlockHash, BlockContainer> {
+                            override fun read(key: BlockHash): Mono<BlockContainer> {
+                                return api.read(JsonRpcRequest("eth_getBlockByHash", listOf(block.hash.toHex(), false)))
+                                    .flatMap { resp ->
+                                        if (resp.isNull()) {
+                                            Mono.error(SilentException("Received null for block ${block.hash}"))
+                                        } else {
+                                            Mono.just(resp)
+                                        }
+                                    }
+                                    .flatMap(JsonRpcResponse::requireResult)
+                                    .map { BlockContainer.fromEthereumJson(it, upstreamId) }
+                            }
+                        },
+                        headScheduler
+                    )
                 } else {
                     Mono.just(BlockContainer.from(block))
                 }
@@ -111,30 +129,6 @@ class EthereumWsHead(
                 subscribed = false
                 Mono.empty()
             }
-    }
-
-    fun enhanceRealBlock(block: BlockJson<TransactionRefJson>): Mono<BlockContainer> {
-        return Mono.just(block.hash)
-            .flatMap { hash ->
-                api.read(JsonRpcRequest("eth_getBlockByHash", listOf(hash.toHex(), false)))
-                    .flatMap { resp ->
-                        if (resp.isNull()) {
-                            Mono.error(SilentException("Received null for block $hash"))
-                        } else {
-                            Mono.just(resp)
-                        }
-                    }
-                    .flatMap(JsonRpcResponse::requireResult)
-                    .map { BlockContainer.fromEthereumJson(it, upstreamId) }
-                    .subscribeOn(headScheduler)
-                    .timeout(Defaults.timeoutInternal, Mono.empty())
-            }.repeatWhenEmpty { n ->
-                Repeat.times<Any>(5)
-                    .exponentialBackoff(Duration.ofMillis(50), Duration.ofMillis(500))
-                    .apply(n)
-            }
-            .timeout(Defaults.timeout, Mono.empty())
-            .onErrorResume { Mono.empty() }
     }
 
     override fun stop() {

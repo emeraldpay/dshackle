@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.CacheConfig
-import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.EmptyReader
@@ -35,9 +34,12 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry
 import org.apache.commons.lang3.StringUtils
+import org.bouncycastle.jcajce.provider.digest.Keccak
 import reactor.core.scheduler.Schedulers
 
 import java.time.Instant
@@ -125,9 +127,21 @@ class TestingCommons {
         BlockJson block = new BlockJson().tap {
             setNumber(height)
             setParentHash(BlockHash.from("0xc4b01774e426325b50f0c709753ec7cf1f1774439d587dfb91f2a4eeb8179cde"))
-            setHash(BlockHash.from("0xc4b01774e426325b50f0c709753ec7cf1f1774439d587dfb91f2a4eeb8179cde"))
+            setHash(BlockHash.from((new Keccak.Digest256()).digest(height.byteValue())))
             setTotalDifficulty(BigInteger.ONE)
             setTimestamp(predictableTimestamp(height, 14))
+        }
+        return BlockContainer.from(block)
+    }
+
+    static BlockContainer enrichedBlockForEthereum(Long height) {
+        BlockJson block = new BlockJson().tap {
+            setNumber(height)
+            setParentHash(BlockHash.from("0xc4b01774e426325b50f0c709753ec7cf1f1774439d587dfb91f2a4eeb8179cde"))
+            setHash(BlockHash.from((new Keccak.Digest256()).digest(height.byteValue())))
+            setTotalDifficulty(BigInteger.ONE)
+            setTimestamp(predictableTimestamp(height, 14))
+            setTransactions([new TransactionRefJson(TransactionId.from("0x3b23294ade15d39261245e6a3a53c3429a015891c95885b44ded29da2d60b29c"))])
         }
         return BlockContainer.from(block)
     }
