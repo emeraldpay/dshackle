@@ -139,7 +139,8 @@ class DefaultEthereumMethods(
         "eth_getCode",
         "eth_getUncleByBlockHashAndIndex",
         "eth_getLogs",
-        "eth_maxPriorityFeePerGas"
+        "eth_maxPriorityFeePerGas",
+        "eth_getProof"
     )
 
     private val specialMethods = listOf(

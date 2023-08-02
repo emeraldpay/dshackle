@@ -41,6 +41,7 @@ class EthereumCallSelector(
         private val TAG_METHODS = setOf(
             "eth_getBalance",
             "eth_getCode",
+            "eth_getProof",
             "eth_getTransactionCount",
             // no "eth_getStorageAt" because it has different structure, and therefore separate logic
             "eth_call",
