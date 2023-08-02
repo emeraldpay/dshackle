@@ -131,7 +131,7 @@ class JsonRpcHttpClient(
         return Function { resp ->
             resp.flatMap {
                 if (it.hasError()) {
-                    Mono.error(JsonRpcException(it.id, it.error!!, null, false))
+                    Mono.error(JsonRpcUpstreamException(it.id, it.error!!))
                 } else {
                     Mono.just(it)
                 }

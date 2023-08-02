@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcUpstreamException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
@@ -167,7 +168,13 @@ class QuorumRpcReader(
     private fun <T> withErrorResume(api: Upstream, key: JsonRpcRequest): Function<Mono<T>, Mono<T>> {
         return Function { src ->
             src.onErrorResume { err ->
-                log.debug("Error during call upstream ${api.getId()} with method ${key.method}", err)
+                val msgError = "Error during call upstream ${api.getId()} with method ${key.method}"
+                if (err is JsonRpcUpstreamException) {
+                    log.debug(msgError, err)
+                } else {
+                    log.warn(msgError, err)
+                }
+
                 // when the call failed with an error we want to notify the quorum because
                 // it may use the error message or other details
                 //
@@ -175,7 +182,13 @@ class QuorumRpcReader(
                 quorum.record(cleanErr, null, api,)
                 // if it's failed after that, then we don't need more calls, stop api source
                 if (quorum.isFailed()) {
-                    log.debug("Quorum is failed, stop api source. Upstream ${api.getId()}, method ${key.method}")
+                    val msgQuorumFailed = "Quorum is failed, stop api source. Upstream ${api.getId()}, method ${key.method}"
+                    if (cleanErr is JsonRpcUpstreamException) {
+                        log.debug(msgQuorumFailed)
+                    } else {
+                        log.warn(msgQuorumFailed)
+                    }
+
                     apiControl.resolve()
                 } else {
                     log.debug("Received an error, trying to request next upstream")
@@ -194,7 +207,7 @@ class QuorumRpcReader(
                 log.debug("Quorum is failed. Method ${key.method}, message ${err.message}")
                 Mono.error(err)
             } else {
-                log.debug("Did not get any result from upstream. Method [${key.method}] using [$q]")
+                log.warn("Did not get any result from upstream. Method [${key.method}] using [$q]")
                 noResponse(key.method, q)
             }
         }

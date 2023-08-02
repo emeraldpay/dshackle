@@ -31,7 +31,7 @@ data class JsonRpcError(val code: Int, val message: String, val details: Any?) {
     }
 
     fun asException(id: JsonRpcResponse.Id?): JsonRpcException {
-        return JsonRpcException(id ?: JsonRpcResponse.NumberId(-1), this, null, false)
+        return JsonRpcUpstreamException(id ?: JsonRpcResponse.NumberId(-1), this)
     }
 
     fun asException(id: JsonRpcResponse.Id?, upstreamId: String?): JsonRpcException {
