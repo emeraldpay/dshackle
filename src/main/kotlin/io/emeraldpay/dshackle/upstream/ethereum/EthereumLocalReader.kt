@@ -60,6 +60,7 @@ class EthereumLocalReader(
             return Mono.empty()
         }
         val common = commonRequests(key)
+            ?.switchIfEmpty { Mono.just(nullValue to null) }
         if (common != null) {
             return common.map { JsonRpcResponse(it.first, null, it.second) }
         }
@@ -88,7 +89,6 @@ class EthereumLocalReader(
                 reader.txByHashAsCont()
                     .read(hash)
                     .map { it.data.json!! to it.upstreamId }
-                    .switchIfEmpty { Mono.just(nullValue to null) }
             }
             method == "eth_getBlockByHash" -> {
                 if (params.size != 2) {
@@ -123,7 +123,6 @@ class EthereumLocalReader(
                 reader.receipts()
                     .read(hash)
                     .map { it.data to it.upstreamId }
-                    .switchIfEmpty { Mono.just(nullValue to null) }
             }
             else -> null
         }

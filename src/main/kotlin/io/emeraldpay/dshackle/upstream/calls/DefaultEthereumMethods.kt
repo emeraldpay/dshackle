@@ -124,20 +124,20 @@ class DefaultEthereumMethods(
 
     private val possibleNotIndexedMethods = listOf(
         "eth_getTransactionByHash",
-        "eth_getTransactionReceipt"
-    )
-
-    private val firstValueMethods = listOf(
-        "eth_call",
+        "eth_getTransactionReceipt",
         "eth_getBlockTransactionCountByHash",
-        "eth_getUncleCountByBlockHash",
         "eth_getBlockByHash",
         "eth_getBlockByNumber",
         "eth_getTransactionByBlockHashAndIndex",
         "eth_getTransactionByBlockNumberAndIndex",
+        "eth_getUncleByBlockHashAndIndex",
+        "eth_getUncleCountByBlockHash"
+    )
+
+    private val firstValueMethods = listOf(
+        "eth_call",
         "eth_getStorageAt",
         "eth_getCode",
-        "eth_getUncleByBlockHashAndIndex",
         "eth_getLogs",
         "eth_maxPriorityFeePerGas",
         "eth_getProof"
