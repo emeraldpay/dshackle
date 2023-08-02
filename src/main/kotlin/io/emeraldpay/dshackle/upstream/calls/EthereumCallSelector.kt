@@ -142,6 +142,7 @@ class EthereumCallSelector(
     private fun blockSelectorByTag(tag: String, head: Head): Mono<Selector.Matcher> {
         val minHeight: Long? = when (tag) {
             "latest" -> head.getCurrentHeight()
+            "pending" -> null
             "earliest" -> 0L // for earliest it doesn't nothing, we expect to have 0 block
             else -> if (tag.startsWith("0x") || tag.toLongOrNull() != null) {
                 return if (tag.length == 66) { // 32-byte hash is represented as 0x + 64 characters
