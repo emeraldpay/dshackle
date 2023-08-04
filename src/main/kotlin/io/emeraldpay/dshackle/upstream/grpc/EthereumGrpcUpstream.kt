@@ -142,6 +142,7 @@ open class EthereumGrpcUpstream(
         if (changed) {
             updateHandler?.invoke()
         }
+        ethereumSubscriptions.update(conf)
     }
 
     override fun getQuorumByLabel(): QuorumForLabels {

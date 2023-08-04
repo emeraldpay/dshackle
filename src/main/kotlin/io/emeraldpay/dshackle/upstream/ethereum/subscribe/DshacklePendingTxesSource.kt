@@ -52,7 +52,7 @@ class DshacklePendingTxesSource(
     }
 
     fun update(conf: BlockchainOuterClass.DescribeChain) {
-        available = conf.supportedMethodsList.any {
+        available = conf.supportedSubscriptionsList.any {
             it == EthereumEgressSubscription.METHOD_PENDING_TXES
         }
     }
