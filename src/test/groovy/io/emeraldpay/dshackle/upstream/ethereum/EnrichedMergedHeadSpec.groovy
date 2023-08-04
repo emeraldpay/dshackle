@@ -38,7 +38,7 @@ class EnrichedMergedHeadSpec extends Specification {
 
         def api = new ApiReaderMock()
         when:
-        def merged = new EnrichedMergedHead([head1, head2], head3, Schedulers.parallel(), new BlockReader(api))
+        def merged = new EnrichedMergedHead([head1, head2], head3, Schedulers.boundedElastic(), new BlockReader(api))
         merged.start()
 
         then:
@@ -56,7 +56,7 @@ class EnrichedMergedHeadSpec extends Specification {
             _ * getFlux() >> Flux.just(block)
         }
         when:
-        def merge = new EnrichedMergedHead([], head, Schedulers.parallel(), new BlockReader(api))
+        def merge = new EnrichedMergedHead([], head, Schedulers.boundedElastic(), new BlockReader(api))
 
         then:
         StepVerifier.create(merge.getFlux())
@@ -81,7 +81,7 @@ class EnrichedMergedHeadSpec extends Specification {
             _ * getFlux() >> Flux.just(enrichedBlock)
         }
         when:
-        def merge = new EnrichedMergedHead([headSource], headRef, Schedulers.parallel(), new BlockReader(new ApiReaderMock()))
+        def merge = new EnrichedMergedHead([headSource], headRef, Schedulers.boundedElastic(), new BlockReader(new ApiReaderMock()))
         then:
         StepVerifier.create(merge.getFlux())
             .then { merge.start() }
@@ -106,7 +106,7 @@ class EnrichedMergedHeadSpec extends Specification {
             _ * getFlux() >> sourceSink.asFlux()
         }
         when:
-        def merge = new EnrichedMergedHead([headSource], headRef, Schedulers.parallel(), new BlockReader(new ApiReaderMock()))
+        def merge = new EnrichedMergedHead([headSource], headRef, Schedulers.boundedElastic(), new BlockReader(new ApiReaderMock()))
         then:
         StepVerifier.create(merge.getFlux())
             .then { merge.start() }
@@ -133,7 +133,7 @@ class EnrichedMergedHeadSpec extends Specification {
             answer("eth_getBlockByHash", [block.hash.toHexWithPrefix(), false], enrichedBlock.toBlock())
         }
         when:
-        def merge = new EnrichedMergedHead([headSource], headRef, Schedulers.parallel(), new BlockReader(api))
+        def merge = new EnrichedMergedHead([headSource], headRef, Schedulers.boundedElastic(), new BlockReader(api))
         then:
         StepVerifier.create(merge.getFlux())
             .then { merge.start() }
@@ -164,7 +164,7 @@ class EnrichedMergedHeadSpec extends Specification {
     class TestHead extends AbstractHead implements Lifecycle {
 
         TestHead() {
-            super(new MostWorkForkChoice(), Schedulers.parallel(), new BlockValidator.AlwaysValid(), 100_000)
+            super(new MostWorkForkChoice(), Schedulers.boundedElastic(), new BlockValidator.AlwaysValid(), 100_000)
         }
 
         @Override

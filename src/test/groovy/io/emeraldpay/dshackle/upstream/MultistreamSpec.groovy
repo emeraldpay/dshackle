@@ -52,7 +52,7 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
         def up2 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test2", "eth_test3"]))
-        def aggr = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up1, up2], Caches.default(), Schedulers.parallel(), TestingCommons.tracerMock())
+        def aggr = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up1, up2], Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
         when:
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()
@@ -183,7 +183,7 @@ class MultistreamSpec extends Specification {
         def up1 = TestingCommons.upstream("test-1", "internal")
         def up2 = TestingCommons.upstream("test-2", "external")
         def up3 = TestingCommons.upstream("test-3", "external")
-        def multistream = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(), Schedulers.parallel(), TestingCommons.tracerMock())
+        def multistream = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
 
         expect:
         multistream.getHead(new Selector.LabelMatcher("provider", ["internal"])).is(up1.ethereumHeadMock)
@@ -252,7 +252,7 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
         def up2 = new EthereumPosRpcUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
-        def ms = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, new ArrayList<EthereumLikeRpcUpstream>(), Caches.default(), Schedulers.parallel(), TestingCommons.tracerMock())
+        def ms = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, new ArrayList<EthereumLikeRpcUpstream>(), Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
         when:
         ms.onUpstreamChange(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED)
@@ -305,7 +305,7 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
         def up2 = new EthereumPosRpcUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
-        def ms = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, new ArrayList<EthereumLikeRpcUpstream>(), Caches.default(), Schedulers.parallel(), TestingCommons.tracerMock())
+        def ms = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, new ArrayList<EthereumLikeRpcUpstream>(), Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
         def head1 = createBlock(250, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448401b")
         def head2 = createBlock(270, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448402b")
         def head3 = createBlock(100, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448412b")
@@ -340,7 +340,7 @@ class MultistreamSpec extends Specification {
     class TestEthereumPosMultistream extends EthereumPosMultiStream {
 
         TestEthereumPosMultistream(@NotNull Chain chain, @NotNull List<EthereumLikeRpcUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches, Schedulers.parallel(), TestingCommons.tracerMock())
+            super(chain, upstreams, caches, Schedulers.boundedElastic(), TestingCommons.tracerMock())
         }
 
         @NotNull

@@ -37,7 +37,7 @@ class MergedHeadSpec extends Specification {
         }
 
         when:
-        def merged = new MergedHead([head1, head2, head3], new MostWorkForkChoice(), Schedulers.parallel())
+        def merged = new MergedHead([head1, head2, head3], new MostWorkForkChoice(), Schedulers.boundedElastic())
         merged.start()
 
         then:
@@ -46,14 +46,14 @@ class MergedHeadSpec extends Specification {
 
     class TestHead1 extends AbstractHead {
         TestHead1() {
-            super(new MostWorkForkChoice(), Schedulers.parallel(), new BlockValidator.AlwaysValid(), 100_000)
+            super(new MostWorkForkChoice(), Schedulers.boundedElastic(), new BlockValidator.AlwaysValid(), 100_000)
         }
     }
 
     class TestHead2 extends AbstractHead implements Lifecycle {
 
         TestHead2() {
-            super(new MostWorkForkChoice(), Schedulers.parallel(), new BlockValidator.AlwaysValid(), 100_000)
+            super(new MostWorkForkChoice(), Schedulers.boundedElastic(), new BlockValidator.AlwaysValid(), 100_000)
         }
 
         @Override

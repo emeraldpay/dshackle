@@ -113,7 +113,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                     .then(Mono.error(TimeoutException("Validation timeout for Peers")))
             )
             .map { count ->
-                val minPeers = options.minPeers ?: 1
+                val minPeers = options.minPeers
                 if (count < minPeers) {
                     UpstreamAvailability.IMMATURE
                 } else {
@@ -137,9 +137,10 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
     fun validateUpstreamSettings(): Boolean {
         return Mono.zip(
             validateChain(),
-            validateCallLimit()
+            validateCallLimit(),
+            validateOldBlocks()
         ).map {
-            it.t1 && it.t2
+            it.t1 && it.t2 && it.t3
         }.block() ?: false
     }
 
@@ -213,6 +214,35 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 )
             }
             .onErrorReturn(false)
+    }
+
+    private fun validateOldBlocks(): Mono<Boolean> {
+        return EthereumArchiveBlockNumberReader(upstream.getIngressReader())
+            .readArchiveBlock()
+            .flatMap {
+                upstream.getIngressReader()
+                    .read(JsonRpcRequest("eth_getBlockByNumber", listOf(it, false)))
+                    .flatMap(JsonRpcResponse::requireResult)
+            }
+            .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
+                log.warn(
+                    "error during old block retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}",
+                    ctx.exception()
+                )
+            }
+            .map { result ->
+                val receivedResult = result.isNotEmpty() && !Global.nullValue.contentEquals(result)
+                if (!receivedResult) {
+                    log.warn(
+                        "Node ${upstream.getId()} probably is synced incorrectly, it is not possible to get old blocks"
+                    )
+                }
+                true
+            }
+            .onErrorResume {
+                log.warn("Error during old blocks validation", it)
+                Mono.just(true)
+            }
     }
 
     private fun chainId(): Mono<String> {

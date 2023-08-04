@@ -91,7 +91,7 @@ class ConnectLogsSpec extends Specification {
 
     def "Filter is empty"() {
         setup:
-        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.parallel())
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic())
         when:
         def input = Flux.fromIterable([
                 log1, log2, log3, log4
@@ -109,7 +109,7 @@ class ConnectLogsSpec extends Specification {
 
     def "Filter by address"() {
         setup:
-        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.parallel())
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic())
         when:
         def input = Flux.fromIterable([
                 log1, log2
@@ -124,7 +124,7 @@ class ConnectLogsSpec extends Specification {
 
     def "Filter by topic"() {
         setup:
-        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.parallel())
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic())
         when:
         def input = Flux.fromIterable([
                 log1, log2, log3, log4
@@ -141,7 +141,7 @@ class ConnectLogsSpec extends Specification {
 
     def "Filter by address and topic"() {
         setup:
-        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.parallel())
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic())
         when:
         def input = Flux.fromIterable([
                 log1, log2, log3, log4

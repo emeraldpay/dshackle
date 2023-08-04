@@ -48,7 +48,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                 } else if (up instanceof EthereumLikeRpcUpstream) {
                     upstreams[chain] = new EthereumPosMultiStream(
                             chain, [up as EthereumLikeRpcUpstream], Caches.default(),
-                            Schedulers.parallel(), TestingCommons.tracerMock()
+                            Schedulers.boundedElastic(), TestingCommons.tracerMock()
                     )
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
@@ -97,7 +97,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         Head customHead = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumLikeRpcUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches, Schedulers.parallel(), new BraveTracer(null, null, null))
+            super(chain, upstreams, caches, Schedulers.boundedElastic(), new BraveTracer(null, null, null))
         }
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<EthereumLikeRpcUpstream> upstreams) {

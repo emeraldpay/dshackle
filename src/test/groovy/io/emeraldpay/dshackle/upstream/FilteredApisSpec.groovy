@@ -58,8 +58,8 @@ class FilteredApisSpec extends Specification {
                     httpFactory,
                     new MostWorkForkChoice(),
                     BlockValidator.ALWAYS_VALID,
-                    Schedulers.parallel(),
-                    Schedulers.parallel()
+                    Schedulers.boundedElastic(),
+                    Schedulers.boundedElastic()
             )
             new EthereumLikeRpcUpstream(
                     "test",

@@ -40,7 +40,7 @@ class WsConnectionImplRealSpec extends Specification {
                         Chain.ETHEREUM__MAINNET,
                         "ws://localhost:${port}".toURI(),
                         "http://localhost:${port}".toURI(),
-                        Schedulers.parallel()
+                        Schedulers.boundedElastic()
                 )
         ).create(null).getConnection()
     }
@@ -120,7 +120,7 @@ class WsConnectionImplRealSpec extends Specification {
                         Chain.ETHEREUM__MAINNET,
                         "ws://localhost:${port}".toURI(),
                         "http://localhost:${port}".toURI(),
-                        Schedulers.parallel()
+                        Schedulers.boundedElastic()
                 )
         ).create(up).getConnection()
         when:
