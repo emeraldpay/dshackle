@@ -198,7 +198,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 log.warn(
                     "Error: ${it.message}. Node ${upstream.getId()} is probably incorrectly configured. " +
                         "You need to set up your return limit to at least 200000. " +
-                        "Erigon config example: https://github.com/ledgerwatch/erigon/blob/devel/cmd/utils/flags.go#L364. "
+                        "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369 "
                 )
             }
             .map { true }
