@@ -240,7 +240,11 @@ public class BlockJson<T extends TransactionRefJson> implements Serializable {
     }
 
     public HexData getExtraData() {
-        return extraData;
+        if (extraData != null) {
+            return extraData;
+        } else {
+            return HexData.empty();
+        }
     }
 
     public void setExtraData(HexData extraData) {
