@@ -23,7 +23,7 @@ class ProviderSpanHandler(
         .build<String, MutableList<MutableSpan>>()
 
     override fun end(context: TraceContext, span: MutableSpan, cause: Cause): Boolean {
-        if (span.traceId().length > 20) {
+        if (span.traceId().length > 20 && cause == Cause.FINISHED) {
             val key = span.parentId() ?: span.id()
             val spanList = spans.asMap().computeIfAbsent(key) { mutableListOf() }
             spanList.add(span)
