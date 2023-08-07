@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
+import io.emeraldpay.etherjar.hex.HexData
 import reactor.core.publisher.Flux
 
 /**
@@ -43,7 +44,7 @@ class ProduceNewHeads(
                     block.logsBloom,
                     block.miner,
                     block.baseFeePerGas?.amount,
-                    block.extraData,
+                    block.extraData ?: HexData.empty(),
                     block.mixHash,
                     block.nonce,
                     block.receiptsRoot,
