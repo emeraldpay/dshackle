@@ -15,7 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.test.EthereumRpcUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.IngressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
@@ -171,5 +174,24 @@ class EthereumEgressSubscriptionSpec extends Specification {
                 Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
                 Hex32.from("0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925")
         ]
+    }
+
+    def "get available subscriptions"() {
+        when:
+        def up1 = TestingCommons.upstream("test", EthereumConnectorFactory.ConnectorMode.RPC_ONLY)
+        def ethereumSubscribe1 = new EthereumEgressSubscription(TestingCommons.multistream(up1) as EthereumPosMultiStream, Schedulers.boundedElastic(), null)
+        then:
+        ethereumSubscribe1.getAvailableTopics() == []
+        when:
+        def up2 = TestingCommons.upstream("test")
+        def ethereumSubscribe2 = new EthereumEgressSubscription(TestingCommons.multistream(up2) as EthereumPosMultiStream, Schedulers.boundedElastic(), null)
+        then:
+        ethereumSubscribe2.getAvailableTopics().toSet() == [EthereumEgressSubscription.METHOD_LOGS, EthereumEgressSubscription.METHOD_NEW_HEADS].toSet()
+        when:
+        def up3 = TestingCommons.upstream("test")
+        def ethereumSubscribe3 = new EthereumEgressSubscription(TestingCommons.multistream(up2) as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        then:
+        ethereumSubscribe3.getAvailableTopics().toSet() == [EthereumEgressSubscription.METHOD_LOGS, EthereumEgressSubscription.METHOD_NEW_HEADS, EthereumEgressSubscription.METHOD_PENDING_TXES].toSet()
+
     }
 }

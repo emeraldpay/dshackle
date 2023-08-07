@@ -2,5 +2,6 @@ package io.emeraldpay.dshackle.upstream
 
 enum class Capability {
     RPC,
-    BALANCE
+    BALANCE,
+    WS_HEAD
 }

@@ -33,11 +33,7 @@ abstract class EthereumLikeUpstream(
     val chainConfig: ChainsConfig.ChainConfig
 ) : DefaultUpstream(id, hash, options, role, targets, node, chainConfig) {
 
-    private val capabilities = if (options.providesBalance != false) {
-        setOf(Capability.RPC, Capability.BALANCE)
-    } else {
-        setOf(Capability.RPC)
-    }
+    private val capabilities = setOf(Capability.RPC, Capability.BALANCE)
 
     override fun getCapabilities(): Set<Capability> {
         return capabilities

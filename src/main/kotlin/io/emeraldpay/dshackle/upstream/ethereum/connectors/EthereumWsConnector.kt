@@ -45,6 +45,8 @@ class EthereumWsConnector(
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 
+    override fun getConnectorMode() = EthereumConnectorFactory.ConnectorMode.WS_ONLY
+
     override fun start() {
         pool.connect()
         head.start()

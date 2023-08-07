@@ -1,10 +1,10 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectNewHeads
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectSyncing
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
@@ -23,27 +23,23 @@ open class EthereumEgressSubscription(
 
         const val METHOD_NEW_HEADS = "newHeads"
         const val METHOD_LOGS = "logs"
-        const val METHOD_SYNCING = "syncing"
         const val METHOD_PENDING_TXES = "newPendingTransactions"
-    }
-
-    private val availableTopics = listOf(
-        METHOD_NEW_HEADS,
-        METHOD_LOGS,
-        METHOD_SYNCING,
-    ).let {
-        if (pendingTxesSource != null) {
-            it + METHOD_PENDING_TXES
-        } else {
-            it
-        }
     }
 
     private val newHeads = ConnectNewHeads(upstream, scheduler)
     open val logs = ConnectLogs(upstream, scheduler)
-    private val syncing = ConnectSyncing(upstream)
-
-    override fun getAvailableTopics() = availableTopics
+    override fun getAvailableTopics(): List<String> {
+        val subs = if (upstream.getCapabilities().contains(Capability.WS_HEAD)) {
+            listOf(METHOD_NEW_HEADS, METHOD_LOGS)
+        } else {
+            listOf()
+        }
+        return if (pendingTxesSource != null) {
+            subs.plus(METHOD_PENDING_TXES)
+        } else {
+            subs
+        }
+    }
 
     @Suppress("UNCHECKED_CAST")
     override fun subscribe(topic: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> {
@@ -61,9 +57,6 @@ open class EthereumEgressSubscription(
                 return Flux.error(UnsupportedOperationException("Invalid parameter for $topic. Error: ${t.message}"))
             }
             return logs.create(paramsMap.address, paramsMap.topics).connect(matcher)
-        }
-        if (topic == METHOD_SYNCING) {
-            return syncing.connect(matcher)
         }
         if (topic == METHOD_PENDING_TXES) {
             return pendingTxesSource?.connect(matcher) ?: Flux.empty()

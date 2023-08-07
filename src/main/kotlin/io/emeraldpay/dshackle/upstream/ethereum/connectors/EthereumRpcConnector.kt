@@ -26,7 +26,7 @@ import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
 class EthereumRpcConnector(
-    connectorType: ConnectorMode,
+    private val connectorType: ConnectorMode,
     private val directReader: JsonRpcReader,
     wsFactory: EthereumWsConnectionPoolFactory?,
     id: String,
@@ -42,6 +42,8 @@ class EthereumRpcConnector(
     companion object {
         private val log = LoggerFactory.getLogger(EthereumRpcConnector::class.java)
     }
+
+    override fun getConnectorMode() = connectorType
 
     init {
         pool = wsFactory?.create(null)

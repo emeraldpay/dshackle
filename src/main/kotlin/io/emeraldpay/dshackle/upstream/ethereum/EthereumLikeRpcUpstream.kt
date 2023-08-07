@@ -23,12 +23,14 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
+import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumLabelsDetector
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -50,6 +52,16 @@ open class EthereumLikeRpcUpstream(
     private val labelsDetector = EthereumLabelsDetector(this.getIngressReader())
 
     private var validatorSubscription: Disposable? = null
+
+    override fun getCapabilities(): Set<Capability> {
+        return when (connector.getConnectorMode()) {
+            EthereumConnectorFactory.ConnectorMode.WS_ONLY,
+            EthereumConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD,
+            EthereumConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD ->
+                setOf(Capability.RPC, Capability.BALANCE, Capability.WS_HEAD)
+            EthereumConnectorFactory.ConnectorMode.RPC_ONLY -> setOf(Capability.RPC, Capability.BALANCE)
+        }
+    }
 
     override fun setCaches(caches: Caches) {
         if (connector is CachesEnabled) {

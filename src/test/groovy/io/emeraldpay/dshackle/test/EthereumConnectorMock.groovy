@@ -5,15 +5,25 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 
 class EthereumConnectorMock implements EthereumConnector {
     Reader<JsonRpcRequest, JsonRpcResponse> api
     Head head
-    EthereumConnectorMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head) {
+    ConnectorMode mode
+
+    EthereumConnectorMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head, ConnectorMode mode) {
         this.api = api
+        this.mode = mode
         this.head = head
+    }
+
+    @Override
+    ConnectorMode getConnectorMode() {
+        return this.mode
     }
 
     @Override

@@ -13,6 +13,7 @@ class RemoteCapabilities {
                     when {
                         BlockchainOuterClass.Capabilities.CAP_BALANCE == value -> Capability.BALANCE
                         BlockchainOuterClass.Capabilities.CAP_CALLS == value -> Capability.RPC
+                        BlockchainOuterClass.Capabilities.CAP_WS_HEAD == value -> Capability.WS_HEAD
                         else -> null
                     }
                 }.toSet()

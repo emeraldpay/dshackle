@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.*
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
+import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.jetbrains.annotations.NotNull
@@ -49,7 +50,7 @@ class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
     }
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, Map<String, String> labels) {
-        this(id, chain, api, allMethods(), labels)
+        this(id, chain, api, allMethods(), labels, ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD)
     }
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
@@ -61,16 +62,16 @@ class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
     }
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
-        this(id, chain, api, methods, Collections.<String, String>emptyMap())
+        this(id, chain, api, methods, Collections.<String, String>emptyMap(), ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD)
     }
 
-    EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels) {
+    EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels, ConnectorMode mode) {
         super(id, (byte)id.hashCode(), chain,
                 getOpts(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,
                 new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(labels)),
-                new ConnectorFactoryMock(api, new EthereumHeadMock()),
+                new ConnectorFactoryMock(api, new EthereumHeadMock(), mode),
                 ChainConfig.default(),
                 true
         )
