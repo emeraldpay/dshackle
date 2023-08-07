@@ -78,11 +78,6 @@ class ValueAwareQuorumSpec extends Specification {
         }
 
         @Override
-        void init(@NotNull Head head) {
-
-        }
-
-        @Override
         boolean isResolved() {
             return false
         }

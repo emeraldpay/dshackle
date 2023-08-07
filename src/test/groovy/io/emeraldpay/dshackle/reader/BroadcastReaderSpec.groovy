@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.reader
 
+import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
@@ -41,7 +42,7 @@ class BroadcastReaderSpec extends Specification {
                         Mono.just(new JsonRpcResponse(result, null))
             }
         }
-        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, Stub(Tracer))
+        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
         def act = reader.read(new JsonRpcRequest("eth_sendRawTransaction", ["0x1"]))
         then:
@@ -79,7 +80,7 @@ class BroadcastReaderSpec extends Specification {
                 1 * read(new JsonRpcRequest("eth_sendRawTransaction", ["0x1"])) >>
                         Mono.error(new JsonRpcException(1, "too low"))            }
         }
-        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, Stub(Tracer))
+        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
         def act = reader.read(new JsonRpcRequest("eth_sendRawTransaction", ["0x1"]))
         then:
@@ -112,7 +113,7 @@ class BroadcastReaderSpec extends Specification {
             0 * getId() >> "id"
             0 * getIngressReader() >> Mock(Reader)
         }
-        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, Stub(Tracer))
+        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
         def act = reader.read(new JsonRpcRequest("eth_sendRawTransaction", ["0x1"]))
         then:
@@ -150,7 +151,7 @@ class BroadcastReaderSpec extends Specification {
                         Mono.error(new JsonRpcException(1, "too low"))
             }
         }
-        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, Stub(Tracer))
+        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
         def act = reader.read(new JsonRpcRequest("eth_sendRawTransaction", ["0x1"]))
         then:
@@ -176,17 +177,14 @@ class BroadcastReaderSpec extends Specification {
             0 * getId() >> "id"
             0 * getIngressReader() >> Mock(Reader)
         }
-        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, Stub(Tracer))
+        def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
         def act = reader
                 .read(new JsonRpcRequest("eth_sendRawTransaction", ["0x1"]))
                 .switchIfEmpty(Mono.just(new RpcReader.Result(new byte[0], null, 0, null)))
         then:
         StepVerifier.create(act)
-                .expectNextMatches {
-                    it.value == new byte[0]
-                }
-                .expectComplete()
+                .expectErrorMessage("Unhandled Upstream error")
                 .verify(Duration.ofSeconds(3))
     }
 }

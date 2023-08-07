@@ -16,7 +16,6 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
@@ -35,9 +34,6 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
     private val resolvers = ArrayList<Upstream>()
-
-    override fun init(head: Head) {
-    }
 
     override fun isResolved(): Boolean {
         return !isFailed() && result.get() != null

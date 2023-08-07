@@ -29,58 +29,43 @@ class BroadcastQuorumSpec extends Specification {
 
     def "Resolved with first after 3 tries"() {
         setup:
-        def q = Spy(new BroadcastQuorum(3))
+        def q = Spy(new BroadcastQuorum())
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
 
         when:
-        q.init(Stub(Head))
-        then:
-        !q.isResolved()
-
-        when:
         q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream1)
         then:
-        !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
         q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream2)
         then:
-        !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
         q.record(new JsonRpcException(1, "Nonce too low"), null, upstream3)
         then:
         1 * q.recordError(_, _, _, _)
-        q.isResolved()
         objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
     }
 
     def "Remembers first response"() {
         setup:
-        def q = Spy(new BroadcastQuorum(3))
+        def q = Spy(new BroadcastQuorum())
         def upstream1 = Stub(Upstream)
         def upstream2 = Stub(Upstream)
         def upstream3 = Stub(Upstream)
 
         when:
-        q.init(Stub(Head))
-        then:
-        !q.isResolved()
-
-        when:
         q.record(new JsonRpcException(1, "Internal error"), null, upstream1)
         then:
-        !q.isResolved()
         1 * q.recordError(_, _, _, _)
 
         when:
         q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream2)
         then:
-        !q.isResolved()
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
@@ -93,21 +78,11 @@ class BroadcastQuorumSpec extends Specification {
 
     def "Failed if error received 3+ times"() {
         setup:
-        def quorum = new BroadcastQuorum(3)
+        def quorum = new BroadcastQuorum()
         def up = Stub(Upstream)
         when:
         quorum.record(new JsonRpcException(1, "test 1"), null, up)
-        then:
-        !quorum.isFailed()
-        !quorum.isResolved()
-
-        when:
         quorum.record(new JsonRpcException(1, "test 2"), null, up)
-        then:
-        !quorum.isFailed()
-        !quorum.isResolved()
-
-        when:
         quorum.record(new JsonRpcException(1, "test 3"), null, up)
         then:
         quorum.isFailed()

@@ -62,8 +62,8 @@ interface RpcReaderFactory {
 
     class Default : RpcReaderFactory {
         override fun create(data: RpcReaderData): RpcReader {
-            if (data.method == "eth_sendRawTransaction") {
-                return BroadcastReader(data.multistream.getAll(), data.matcher, data.signer, data.tracer)
+            if (data.method == "eth_sendRawTransaction" || data.method == "eth_getTransactionCount") {
+                return BroadcastReader(data.multistream.getAll(), data.matcher, data.signer, data.quorum, data.tracer)
             }
             val apis = data.multistream.getApiSource(data.matcher)
             return QuorumRpcReader(apis, data.quorum, data.signer, data.tracer)

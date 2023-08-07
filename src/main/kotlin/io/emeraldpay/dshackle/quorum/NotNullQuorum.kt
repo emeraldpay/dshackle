@@ -1,7 +1,6 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
@@ -14,9 +13,6 @@ class NotNullQuorum : CallQuorum {
     private val resolvers = ArrayList<Upstream>()
     private var allFailed = true
     private val seenUpstreams = HashSet<String>() // just to prevent calling retry upstreams in FilteredApis
-
-    override fun init(head: Head) {
-    }
 
     override fun isResolved(): Boolean = result != null
 

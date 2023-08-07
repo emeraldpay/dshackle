@@ -16,28 +16,21 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
-open class BroadcastQuorum(
-    val quorum: Int = 3
-) : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
+open class BroadcastQuorum() : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
 
     private var result: ByteArray? = null
     private var txid: String? = null
-    private var calls = 0
     private var sig: ResponseSigner.Signature? = null
 
-    override fun init(head: Head) {
-    }
-
     override fun isResolved(): Boolean {
-        return calls >= quorum && txid != null
+        return result != null
     }
 
     override fun isFailed(): Boolean {
-        return calls >= quorum && getError() != null
+        return result == null
     }
 
     override fun getResult(): ByteArray? {
@@ -54,7 +47,6 @@ open class BroadcastQuorum(
         signature: ResponseSigner.Signature?,
         upstream: Upstream
     ) {
-        calls++
         if (txid == null && responseValue != null) {
             txid = responseValue
             sig = signature
@@ -68,16 +60,10 @@ open class BroadcastQuorum(
         signature: ResponseSigner.Signature?,
         upstream: Upstream
     ) {
-        // can be "message: known transaction: TXID", "Transaction with the same hash was already imported" or "message: Nonce too low"
-        calls++
-        if (result == null) {
-            result = response
-            sig = signature
-        }
         resolvers.add(upstream)
     }
 
     override fun toString(): String {
-        return "Quorum: Broadcast to $quorum upstreams"
+        return "Quorum: Broadcast to upstreams"
     }
 }

@@ -2,14 +2,16 @@ package io.emeraldpay.dshackle.reader
 
 import io.emeraldpay.dshackle.commons.BROADCAST_READER
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_UPSTREAM_ID
+import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -17,6 +19,7 @@ class BroadcastReader(
     private val upstreams: List<Upstream>,
     matcher: Selector.Matcher,
     signer: ResponseSigner?,
+    private val quorum: CallQuorum,
     private val tracer: Tracer
 ) : RpcReader(signer) {
     private val internalMatcher = Selector.MultiMatcher(
@@ -32,60 +35,37 @@ class BroadcastReader(
     }
 
     override fun read(key: JsonRpcRequest): Mono<Result> {
-        return Mono.just(upstreams)
-            .map { ups ->
-                ups.filter { internalMatcher.matches(it) }.map { execute(key, it) }
-            }.flatMap {
-                Mono.zip(it) { responses ->
-                    analyzeResponses(
-                        key,
-                        getJsonRpcResponses(key.method, responses)
+        return Flux.fromIterable(upstreams)
+            .filter { internalMatcher.matches(it) }
+            .flatMap { up ->
+                execute(key, up)
+            }.map {
+                if (it.jsonRpcResponse.hasResult()) {
+                    val sig = getSignature(key, it.jsonRpcResponse, it.upstream.getId())
+                    quorum.record(it.jsonRpcResponse.getResult(), sig, it.upstream)
+                } else {
+                    val err = JsonRpcException(JsonRpcResponse.NumberId(key.id), it.jsonRpcResponse.error!!, it.upstream.getId())
+                    quorum.record(err, null, it.upstream)
+                }
+                quorum
+            }.onErrorResume { err ->
+                log.error("Broadcast error: ${err.message}")
+                Mono.error(handleError(null, 0, null))
+            }.collectList()
+            .flatMap {
+                if (quorum.isResolved()) {
+                    val res = Result(
+                        quorum.getResult()!!,
+                        quorum.getSignature(),
+                        upstreams.size,
+                        quorum.getResolvedBy().first()
                     )
-                }.onErrorResume { err ->
-                    log.error("Broadcast error: ${err.message}")
-                    Mono.error(handleError(null, 0, null))
-                }.flatMap { broadcastResult ->
-                    if (broadcastResult.result != null) {
-                        Mono.just(
-                            Result(broadcastResult.result, broadcastResult.signature, 0, null)
-                        )
-                    } else {
-                        val err = handleError(broadcastResult.error, key.id, null)
-                        Mono.error(err)
-                    }
+                    Mono.just(res)
+                } else {
+                    Mono.error(handleError(quorum.getError(), key.id, null))
                 }
             }
     }
-
-    private fun analyzeResponses(key: JsonRpcRequest, jsonRpcResponses: List<BroadcastResponse>): BroadcastResult {
-        val errors = mutableListOf<JsonRpcError>()
-        jsonRpcResponses.forEach {
-            val response = it.jsonRpcResponse
-            if (response.hasResult()) {
-                val signature = getSignature(key, response, it.upstreamId)
-                return BroadcastResult(response.getResult(), null, signature)
-            } else if (response.hasError()) {
-                errors.add(response.error!!)
-            }
-        }
-
-        val error = errors.takeIf { it.isNotEmpty() }?.get(0)
-
-        return BroadcastResult(error)
-    }
-
-    private fun getJsonRpcResponses(method: String, responses: Array<Any>) =
-        responses
-            .map { response ->
-                (response as BroadcastResponse)
-                    .also { r ->
-                        if (r.jsonRpcResponse.hasResult()) {
-                            log.info(
-                                "Response for $method from upstream ${r.upstreamId}: ${String(r.jsonRpcResponse.getResult())}"
-                            )
-                        }
-                    }
-            }
 
     private fun execute(
         key: JsonRpcRequest,
@@ -95,24 +75,16 @@ class BroadcastReader(
             upstream.getIngressReader(), tracer, BROADCAST_READER, mapOf(SPAN_REQUEST_UPSTREAM_ID to upstream.getId())
         )
             .read(key)
-            .map { BroadcastResponse(it, upstream.getId()) }
+            .map { BroadcastResponse(it, upstream) }
             .onErrorResume {
                 log.warn("Error during execution ${key.method} from upstream ${upstream.getId()} with message -  ${it.message}")
                 Mono.just(
-                    BroadcastResponse(JsonRpcResponse(null, getError(key, it).error), upstream.getId())
+                    BroadcastResponse(JsonRpcResponse(null, getError(key, it).error), upstream)
                 )
             }
 
     private class BroadcastResponse(
         val jsonRpcResponse: JsonRpcResponse,
-        val upstreamId: String
+        val upstream: Upstream
     )
-
-    private class BroadcastResult(
-        val result: ByteArray?,
-        val error: JsonRpcError?,
-        val signature: ResponseSigner.Signature?
-    ) {
-        constructor(error: JsonRpcError?) : this(null, error, null)
-    }
 }

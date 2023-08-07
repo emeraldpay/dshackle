@@ -16,16 +16,12 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 interface CallQuorum {
-
-    fun init(head: Head)
-
     fun isResolved(): Boolean
     fun isFailed(): Boolean
 
