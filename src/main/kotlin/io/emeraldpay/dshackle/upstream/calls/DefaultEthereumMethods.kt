@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.NotNullQuorum
+import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods.HardcodedData.Companion.createHardcodedData
 import io.emeraldpay.etherjar.rpc.RpcException
 
 /**
@@ -70,48 +71,48 @@ class DefaultEthereumMethods(
         )
 
         val CHAIN_DATA = mapOf(
-            Chain.ETHEREUM__MAINNET to HardcodedData("\"1\"", "\"0x1\""),
-            Chain.ETHEREUM__RINKEBY to HardcodedData("\"4\"", "\"0x4\""),
-            Chain.ETHEREUM__ROPSTEN to HardcodedData("\"3\"", "\"0x3\""),
-            Chain.ETHEREUM__KOVAN to HardcodedData("\"42\"", "\"0x2a\""),
-            Chain.ETHEREUM__GOERLI to HardcodedData("\"5\"", "\"0x5\""),
-            Chain.ETHEREUM__SEPOLIA to HardcodedData("\"11155111\"", "\"0xaa36a7\""),
+            Chain.ETHEREUM__MAINNET to createHardcodedData("\"1\"", "\"0x1\""),
+            Chain.ETHEREUM__RINKEBY to createHardcodedData("\"4\"", "\"0x4\""),
+            Chain.ETHEREUM__ROPSTEN to createHardcodedData("\"3\"", "\"0x3\""),
+            Chain.ETHEREUM__KOVAN to createHardcodedData("\"42\"", "\"0x2a\""),
+            Chain.ETHEREUM__GOERLI to createHardcodedData("\"5\"", "\"0x5\""),
+            Chain.ETHEREUM__SEPOLIA to createHardcodedData("\"11155111\"", "\"0xaa36a7\""),
 
-            Chain.ETHEREUM_CLASSIC__MAINNET to HardcodedData("\"1\"", "\"0x3d\""),
+            Chain.ETHEREUM_CLASSIC__MAINNET to createHardcodedData("\"1\"", "\"0x3d\""),
 
-            Chain.POLYGON_POS__MAINNET to HardcodedData("\"137\"", "\"0x89\""),
-            Chain.POLYGON_POS__MUMBAI to HardcodedData("\"80001\"", "\"0x13881\""),
+            Chain.POLYGON_POS__MAINNET to createHardcodedData("\"137\"", "\"0x89\""),
+            Chain.POLYGON_POS__MUMBAI to createHardcodedData("\"80001\"", "\"0x13881\""),
 
-            Chain.ARBITRUM__MAINNET to HardcodedData("\"42161\"", "\"0xa4b1\""),
-            Chain.ARBITRUM__GOERLI to HardcodedData("\"421613\"", "\"0x66eed\""),
+            Chain.ARBITRUM__MAINNET to createHardcodedData("\"42161\"", "\"0xa4b1\""),
+            Chain.ARBITRUM__GOERLI to createHardcodedData("\"421613\"", "\"0x66eed\""),
 
-            Chain.OPTIMISM__MAINNET to HardcodedData("\"10\"", "\"0xa\""),
-            Chain.OPTIMISM__GOERLI to HardcodedData("\"420\"", "\"0x1A4\""),
+            Chain.OPTIMISM__MAINNET to createHardcodedData("\"10\"", "\"0xa\""),
+            Chain.OPTIMISM__GOERLI to createHardcodedData("\"420\"", "\"0x1A4\""),
 
-            Chain.ARBITRUM_NOVA__MAINNET to HardcodedData("\"42170\"", "\"0xa4ba\""),
+            Chain.ARBITRUM_NOVA__MAINNET to createHardcodedData("\"42170\"", "\"0xa4ba\""),
 
-            Chain.POLYGON_ZKEVM__MAINNET to HardcodedData("\"1101\"", "\"0x44d\""),
-            Chain.POLYGON_ZKEVM__TESTNET to HardcodedData("\"1442\"", "\"0x5a2\""),
+            Chain.POLYGON_ZKEVM__MAINNET to createHardcodedData("\"1101\"", "\"0x44d\""),
+            Chain.POLYGON_ZKEVM__TESTNET to createHardcodedData("\"1442\"", "\"0x5a2\""),
 
-            Chain.ZKSYNC__MAINNET to HardcodedData("\"324\"", "\"0x144\""),
-            Chain.ZKSYNC__TESTNET to HardcodedData("\"280\"", "\"0x118\""),
+            Chain.ZKSYNC__MAINNET to createHardcodedData("\"324\"", "\"0x144\""),
+            Chain.ZKSYNC__TESTNET to createHardcodedData("\"280\"", "\"0x118\""),
 
-            Chain.BSC__MAINNET to HardcodedData("\"56\"", "\"0x38\""),
+            Chain.BSC__MAINNET to createHardcodedData("\"56\"", "\"0x38\""),
 
-            Chain.BASE__MAINNET to HardcodedData("\"8453\"", "\"0x2105\""),
-            Chain.BASE__GOERLI to HardcodedData("\"84531\"", "\"0x14a33\""),
+            Chain.BASE__MAINNET to createHardcodedData("\"8453\"", "\"0x2105\""),
+            Chain.BASE__GOERLI to createHardcodedData("\"84531\"", "\"0x14a33\""),
 
-            Chain.LINEA__MAINNET to HardcodedData("\"59144\"", "\"0xe708\""),
-            Chain.LINEA__GOERLI to HardcodedData("\"59140\"", "\"0xe704\""),
+            Chain.LINEA__MAINNET to createHardcodedData("\"59144\"", "\"0xe708\""),
+            Chain.LINEA__GOERLI to createHardcodedData("\"59140\"", "\"0xe704\""),
 
-            Chain.FANTOM__MAINNET to HardcodedData("\"250\"", "\"0xfa\""),
-            Chain.FANTOM__TESTNET to HardcodedData("\"4002\"", "\"0xfa2\""),
+            Chain.FANTOM__MAINNET to createHardcodedData("\"250\"", "\"0xfa\""),
+            Chain.FANTOM__TESTNET to createHardcodedData("\"4002\"", "\"0xfa2\""),
 
-            Chain.GNOSIS__MAINNET to HardcodedData("\"100\"", "\"0x64\""),
-            Chain.GNOSIS__CHIADO to HardcodedData("\"10200\"", "\"0x27d8\""),
+            Chain.GNOSIS__MAINNET to createHardcodedData("\"100\"", "\"0x64\""),
+            Chain.GNOSIS__CHIADO to createHardcodedData("\"10200\"", "\"0x27d8\""),
 
-            Chain.AVALANCHE__MAINNET to HardcodedData("\"43114\"", "\"0xa86a\""),
-            Chain.AVALANCHE__FUJI to HardcodedData("\"43113\"", "\"0xa869\""),
+            Chain.AVALANCHE__MAINNET to createHardcodedData("\"43114\"", "\"0xa86a\""),
+            Chain.AVALANCHE__FUJI to createHardcodedData("\"43113\"", "\"0xa869\""),
         )
 
         fun getChainByData(data: HardcodedData) = CHAIN_DATA.entries.find { it.value == data }?.key
@@ -287,8 +288,6 @@ class DefaultEthereumMethods(
         return hardcodedMethods.contains(method)
     }
 
-    data class HardcodedData(val netVersion: String, val chainId: String)
-
     override fun executeHardcoded(method: String): ByteArray {
         // note that the value is in json representation, i.e. if it's a string it should be with quotes,
         // that's why "\"0x0\"", "\"1\"", etc. But just "true" for a boolean, or "[]" for array.
@@ -347,5 +346,15 @@ class DefaultEthereumMethods(
 
     override fun getSupportedMethods(): Set<String> {
         return allowedMethods.plus(hardcodedMethods).toSortedSet()
+    }
+
+    data class HardcodedData private constructor(
+        val netVersion: String,
+        val chainId: String
+    ) {
+        companion object {
+            fun createHardcodedData(netVersion: String, chainId: String): HardcodedData =
+                HardcodedData(netVersion.lowercase(), chainId.lowercase())
+        }
     }
 }

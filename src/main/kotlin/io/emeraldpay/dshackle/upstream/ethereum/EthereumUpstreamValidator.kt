@@ -158,7 +158,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
 
                 if (!isChainValid) {
                     val actualChain = getChainByData(
-                        DefaultEthereumMethods.HardcodedData(it.t2, it.t1)
+                        DefaultEthereumMethods.HardcodedData.createHardcodedData(it.t2, it.t1)
                     )?.chainName
                     log.warn(
                         "${chain.chainName} is specified for upstream ${upstream.getId()} " +
@@ -194,14 +194,19 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 )
             )
             .flatMap(JsonRpcResponse::requireResult)
-            .doOnError {
-                log.warn(
-                    "Error: ${it.message}. Node ${upstream.getId()} is probably incorrectly configured. " +
-                        "You need to set up your return limit to at least 200000. " +
-                        "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369 "
-                )
-            }
             .map { true }
+            .onErrorResume {
+                if (it.message != null && it.message!!.contains("rpc.returndata.limit")) {
+                    log.warn(
+                        "Error: ${it.message}. Node ${upstream.getId()} is probably incorrectly configured. " +
+                            "You need to set up your return limit to at least 200000. " +
+                            "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369"
+                    )
+                    Mono.just(false)
+                } else {
+                    Mono.error(it)
+                }
+            }
             .timeout(
                 Defaults.timeoutInternal,
                 Mono.fromCallable { log.error("No response for eth_call limit check from ${upstream.getId()}") }
@@ -209,8 +214,8 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             )
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
-                    "error during validateCallLimit for ${upstream.getId()}, iteration ${ctx.iteration()}",
-                    ctx.exception()
+                    "error during validateCallLimit for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
+                        "message ${ctx.exception().message}"
                 )
             }
             .onErrorReturn(false)
@@ -226,8 +231,8 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             }
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
-                    "error during old block retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}",
-                    ctx.exception()
+                    "error during old block retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
+                        "message ${ctx.exception().message}"
                 )
             }
             .map { result ->
@@ -250,8 +255,8 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .read(JsonRpcRequest("eth_chainId", emptyList()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
-                    "error during chainId retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}",
-                    ctx.exception()
+                    "error during chainId retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
+                        "message ${ctx.exception().message}"
                 )
             }
             .doOnError { log.error("Error during execution 'eth_chainId' - ${it.message} for ${upstream.getId()}") }
@@ -264,8 +269,8 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .read(JsonRpcRequest("net_version", emptyList()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
-                    "error during netVersion retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}",
-                    ctx.exception()
+                    "error during netVersion retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
+                        "message ${ctx.exception().message}"
                 )
             }
             .doOnError { log.error("Error during execution 'net_version' - ${it.message} for ${upstream.getId()}") }

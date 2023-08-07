@@ -112,7 +112,11 @@ class JsonRpcHttpClient(
         val startTime = StopWatch()
         return Mono.just(key)
             .map(JsonRpcRequest::toJson)
-            .doOnNext { startTime.start() }
+            .doOnNext {
+                if (!startTime.isStarted) {
+                    startTime.start()
+                }
+            }
             .flatMap(this@JsonRpcHttpClient::execute)
             .doOnNext {
                 if (startTime.isStarted) {
