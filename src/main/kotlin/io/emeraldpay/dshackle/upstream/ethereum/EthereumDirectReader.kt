@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.ThrottledLogger
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -160,6 +161,9 @@ class EthereumDirectReader(
             .retryWhen(Retry.fixedDelay(3, Duration.ofMillis(200)))
             .flatMap { result ->
                 val block = objectMapper.readValue(result.data, BlockJson::class.java) as BlockJson<TransactionRefJson>?
+                if (block?.checkExtraData() == false) {
+                    ThrottledLogger.log(log, "${up.getId()} recieved block with empty extradata from direct reader")
+                }
                 if (block == null) {
                     Mono.empty()
                 } else {

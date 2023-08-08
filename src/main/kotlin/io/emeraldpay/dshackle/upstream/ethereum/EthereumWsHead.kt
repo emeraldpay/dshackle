@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.ThrottledLogger
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.reader.Reader
@@ -89,7 +90,11 @@ class EthereumWsHead(
     fun listenNewHeads(): Flux<BlockContainer> {
         return subscribe()
             .map {
-                Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
+                val block = Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
+                if (!block.checkExtraData() && skipEnhance) {
+                    ThrottledLogger.log(log, "$upstreamId recieved block with empty extradata through ws subscription")
+                }
+                return@map block
             }
             .flatMap { block ->
                 // newHeads returns incomplete blocks, i.e. without some fields and without transaction hashes,
@@ -115,7 +120,13 @@ class EthereumWsHead(
                                         }
                                     }
                                     .flatMap(JsonRpcResponse::requireResult)
-                                    .map { BlockContainer.fromEthereumJson(it, upstreamId) }
+                                    .map {
+                                        val parsedBlock = BlockContainer.fromEthereumJson(it, upstreamId)
+                                        if (parsedBlock.parsed is BlockJson<*> && !parsedBlock.parsed.checkExtraData() && !skipEnhance) {
+                                            ThrottledLogger.log(log, "$upstreamId recieved block with empty extradata from block enrichment")
+                                        }
+                                        return@map parsedBlock
+                                    }
                             }
                         },
                         headScheduler

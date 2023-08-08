@@ -21,8 +21,6 @@ import java.util.Objects;
 @JsonSerialize(using = BlockJsonSerializer.class)
 public class BlockJson<T extends TransactionRefJson> implements Serializable {
 
-    //TODO nonce or sealFields
-
     /**
      * the block number. null when its pending block.
      */
@@ -240,11 +238,11 @@ public class BlockJson<T extends TransactionRefJson> implements Serializable {
     }
 
     public HexData getExtraData() {
-        if (extraData != null) {
-            return extraData;
-        } else {
-            return HexData.empty();
-        }
+        return Objects.requireNonNullElseGet(extraData, HexData::empty);
+    }
+
+    public boolean checkExtraData() {
+        return extraData != null;
     }
 
     public void setExtraData(HexData extraData) {
