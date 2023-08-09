@@ -30,8 +30,8 @@ class JsonRpcError(val code: Int, val message: String, val details: Any?) {
         }
     }
 
-    fun asException(id: JsonRpcResponse.Id?): JsonRpcException {
-        return JsonRpcException(id ?: JsonRpcResponse.NumberId(-1), this)
+    fun asException(id: JsonRpcResponse.Id?, method: String? = null): JsonRpcException {
+        return JsonRpcException(id ?: JsonRpcResponse.NumberId(-1), this, method)
     }
 
     override fun equals(other: Any?): Boolean {

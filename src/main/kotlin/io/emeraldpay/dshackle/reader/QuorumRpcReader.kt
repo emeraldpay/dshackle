@@ -187,7 +187,7 @@ class QuorumRpcReader(
         return Mono.just(quorum).flatMap { q ->
             if (q.isFailed()) {
                 Mono.error<Result>(
-                    q.getError()?.asException(JsonRpcResponse.NumberId(key.id))
+                    q.getError()?.asException(JsonRpcResponse.NumberId(key.id), key.method)
                         ?: JsonRpcException(JsonRpcResponse.NumberId(key.id), JsonRpcError(-32603, "Unhandled Upstream error"))
                 )
             } else {

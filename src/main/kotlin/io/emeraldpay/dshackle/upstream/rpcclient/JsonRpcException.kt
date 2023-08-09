@@ -19,10 +19,12 @@ import io.emeraldpay.etherjar.rpc.RpcException
 
 class JsonRpcException(
     val id: JsonRpcResponse.Id,
-    val error: JsonRpcError
-) : Exception(error.message) {
+    val error: JsonRpcError,
+    val method: String? = null
+) : Exception("${error.message} calling method $method.or") {
 
-    constructor(id: Int, message: String) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message))
+    constructor(id: Int, message: String, method: String? = null) :
+        this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message), method)
 
     companion object {
         fun from(err: RpcException): JsonRpcException {
