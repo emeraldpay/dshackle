@@ -91,6 +91,10 @@ open class EthereumGrpcUpstream(
         block
     }
 
+    override fun getSubscriptionTopics(): List<String> {
+        return subscriptionTopics
+    }
+
     private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
         // head comes without transaction data
         // need to download transactions for the block
@@ -118,6 +122,7 @@ open class EthereumGrpcUpstream(
     )
     private var capabilities: Set<Capability> = emptySet()
     private val buildInfo: BuildInfo = BuildInfo()
+    private var subscriptionTopics = listOf<String>()
 
     private val defaultReader: JsonRpcReader = client.getReader()
     var timeout = Defaults.timeout
@@ -152,7 +157,10 @@ open class EthereumGrpcUpstream(
             capabilities = newCapabilities
         }
         conf.status?.let { status -> onStatus(status, upstreamStatusChanged) }
-        return buildInfoChanged || upstreamStatusChanged
+        val subsChanged = (conf.supportedSubscriptionsList != subscriptionTopics).also {
+            subscriptionTopics = conf.supportedSubscriptionsList
+        }
+        return buildInfoChanged || upstreamStatusChanged || subsChanged
     }
 
     override fun getQuorumByLabel(): QuorumForLabels {

@@ -100,6 +100,15 @@ open class EthereumLikeRpcUpstream(
         return connector.getIngressSubscription()
     }
 
+    override fun getSubscriptionTopics(): List<String> {
+        val subs = if (getCapabilities().contains(Capability.WS_HEAD)) {
+            listOf(EthereumEgressSubscription.METHOD_NEW_HEADS, EthereumEgressSubscription.METHOD_LOGS)
+        } else {
+            listOf()
+        }
+        return getIngressSubscription().getAvailableTopics().plus(subs).toSet().toList()
+    }
+
     override fun getHead(): Head {
         return connector.getHead()
     }

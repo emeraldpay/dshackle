@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.upstream.grpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -94,8 +93,8 @@ open class EthereumPosGrpcUpstream(
     private val buildInfo: BuildInfo = BuildInfo()
 
     private val defaultReader: JsonRpcReader = client.getReader()
-    private val timeout = Defaults.timeout
     private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
+    private var subscriptionTopics = listOf<String>()
 
     override fun start() {
     }
@@ -105,6 +104,10 @@ open class EthereumPosGrpcUpstream(
     }
 
     override fun stop() {
+    }
+
+    override fun getSubscriptionTopics(): List<String> {
+        return subscriptionTopics
     }
 
     override fun getBuildInfo(): BuildInfo {
@@ -119,7 +122,10 @@ open class EthereumPosGrpcUpstream(
             capabilities = newCapabilities
         }
         conf.status?.let { status -> onStatus(status, upstreamStatusChanged) }
-        return buildInfoChanged || upstreamStatusChanged
+        val subsChanged = (conf.supportedSubscriptionsList != subscriptionTopics).also {
+            subscriptionTopics = conf.supportedSubscriptionsList
+        }
+        return buildInfoChanged || upstreamStatusChanged || subsChanged
     }
 
     override fun getQuorumByLabel(): QuorumForLabels {

@@ -107,6 +107,10 @@ abstract class Multistream(
         }
     }
 
+    override fun getSubscriptionTopics(): List<String> {
+        return getEgressSubscription().getAvailableTopics()
+    }
+
     private fun removeUpstreamMeters(upstreamId: String) {
         meters[upstreamId]?.forEach {
             Metrics.globalRegistry.remove(it)
