@@ -27,7 +27,6 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.*
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.jetbrains.annotations.NotNull
@@ -35,7 +34,6 @@ import org.reactivestreams.Publisher
 
 class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
     EthereumHeadMock ethereumHeadMock
-
 
     static CallMethods allMethods() {
         new AggregatedCallMethods([
@@ -50,7 +48,7 @@ class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
     }
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, Map<String, String> labels) {
-        this(id, chain, api, allMethods(), labels, ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD)
+        this(id, chain, api, allMethods(), labels)
     }
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
@@ -62,18 +60,19 @@ class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
     }
 
     EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
-        this(id, chain, api, methods, Collections.<String, String>emptyMap(), ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD)
+        this(id, chain, api, methods, Collections.<String, String>emptyMap())
     }
 
-    EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels, ConnectorMode mode) {
+    EthereumPosRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels) {
         super(id, (byte)id.hashCode(), chain,
                 getOpts(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,
                 new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(labels)),
-                new ConnectorFactoryMock(api, new EthereumHeadMock(), mode),
+                new ConnectorFactoryMock(api, new EthereumHeadMock()),
                 ChainConfig.default(),
-                true
+                true,
+                null
         )
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock
         setLag(0)
@@ -84,11 +83,16 @@ class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
     static Options getOpts() {
         def opt = UpstreamsConfig.PartialOptions.getDefaults()
         opt.setDisableValidation(true)
+        opt.setDisableUpstreamValidation(true)
         return opt.buildOptions()
     }
 
     void nextBlock(BlockContainer block) {
         this.ethereumHeadMock.nextBlock(block)
+    }
+
+    EthereumConnectorMock getConnectorMock() {
+        return this.connector as EthereumConnectorMock
     }
 
     void setBlocks(Publisher<BlockContainer> blocks) {

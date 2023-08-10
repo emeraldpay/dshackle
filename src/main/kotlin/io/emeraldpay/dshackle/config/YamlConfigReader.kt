@@ -24,6 +24,8 @@ import org.yaml.snakeyaml.nodes.ScalarNode
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.Locale
+import kotlin.time.Duration
+import kotlin.time.toJavaDuration
 
 abstract class YamlConfigReader<T> : ConfigReader<T> {
     private val envVariables = EnvVariables()
@@ -90,6 +92,16 @@ abstract class YamlConfigReader<T> : ConfigReader<T> {
         return getValue(mappingNode, key)?.let {
             return@let it.value
         }?.let(envVariables::postProcess)
+    }
+
+    protected fun getValueAsDuration(mappingNode: MappingNode?, key: String): java.time.Duration? {
+        return getValue(mappingNode, key)?.let {
+            return@let if (it.isPlain) {
+                Duration.parse(it.value).toJavaDuration()
+            } else {
+                null
+            }
+        }
     }
 
     protected fun getValueAsInt(mappingNode: MappingNode?, key: String): Int? {

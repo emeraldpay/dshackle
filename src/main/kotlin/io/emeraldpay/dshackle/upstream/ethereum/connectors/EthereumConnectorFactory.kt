@@ -12,6 +12,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFact
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.WS_ONLY
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import reactor.core.scheduler.Scheduler
+import java.time.Duration
 
 open class EthereumConnectorFactory(
     private val connectorType: ConnectorMode,
@@ -20,7 +21,8 @@ open class EthereumConnectorFactory(
     private val forkChoice: ForkChoice,
     private val blockValidator: BlockValidator,
     private val wsConnectionResubscribeScheduler: Scheduler,
-    private val headScheduler: Scheduler
+    private val headScheduler: Scheduler,
+    private val expectedBlockTime: Duration
 ) : ConnectorFactory {
 
     override fun isValid(): Boolean {
@@ -57,7 +59,8 @@ open class EthereumConnectorFactory(
                 blockValidator,
                 skipEnhance,
                 wsConnectionResubscribeScheduler,
-                headScheduler
+                headScheduler,
+                expectedBlockTime
             )
         }
         if (httpFactory == null) {
@@ -72,7 +75,8 @@ open class EthereumConnectorFactory(
             blockValidator,
             skipEnhance,
             wsConnectionResubscribeScheduler,
-            headScheduler
+            headScheduler,
+            expectedBlockTime
         )
     }
 

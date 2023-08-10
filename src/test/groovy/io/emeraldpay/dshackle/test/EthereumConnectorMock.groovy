@@ -9,21 +9,22 @@ import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFact
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import reactor.core.publisher.Flux
 
 class EthereumConnectorMock implements EthereumConnector {
     Reader<JsonRpcRequest, JsonRpcResponse> api
     Head head
-    ConnectorMode mode
+    Flux<Boolean> liveness
 
-    EthereumConnectorMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head, ConnectorMode mode) {
+    EthereumConnectorMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head) {
         this.api = api
-        this.mode = mode
         this.head = head
+        this.liveness = Flux.just(false)
     }
 
     @Override
-    ConnectorMode getConnectorMode() {
-        return this.mode
+    Flux<Boolean> hasLiveSubscriptionHead() {
+        return liveness
     }
 
     @Override

@@ -20,6 +20,8 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import spock.lang.Specification
 
+import java.time.Duration
+
 class ChainsConfigReaderSpec extends Specification {
 
     ChainsConfigReader reader = new ChainsConfigReader(
@@ -39,15 +41,19 @@ class ChainsConfigReaderSpec extends Specification {
         eth.laggingLagSize == 1
         eth.syncingLagSize == 6
         eth.callLimitContract == "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"
+        eth.expectedBlockTime == Duration.ofSeconds(12)
 
         pol.laggingLagSize == 10
         pol.syncingLagSize == 20
+        pol.expectedBlockTime == Duration.ofMillis(2700)
 
         opt.laggingLagSize == 3
         opt.syncingLagSize == 40
         opt.options.validatePeers == false
+        opt.expectedBlockTime == Duration.ofMillis(400)
 
         sep.laggingLagSize == 1
         sep.syncingLagSize == 10
+        sep.expectedBlockTime == Duration.ofSeconds(12)
     }
 }

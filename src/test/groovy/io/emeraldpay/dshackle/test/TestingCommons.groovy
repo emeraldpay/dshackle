@@ -30,7 +30,6 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -61,10 +60,6 @@ class TestingCommons {
 
     static EthereumPosRpcUpstreamMock upstream(String id) {
         return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM__MAINNET, api())
-    }
-
-    static EthereumPosRpcUpstreamMock upstream(String id, ConnectorMode mode) {
-        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM__MAINNET, api(), EthereumPosRpcUpstreamMock.allMethods(), Collections.<String, String>emptyMap(), mode)
     }
 
     static EthereumPosRpcUpstreamMock upstream(String id, String provider) {

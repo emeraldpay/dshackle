@@ -53,6 +53,9 @@ class ChainsConfigReader(
                 rawConfig.laggingLagSize = it
             }
         }
+        getValueAsDuration(node, "expected-block-time")?.let {
+            rawConfig.expectedBlockTime = it
+        }
         getValueAsString(node, "call-validate-contract")?.let {
             rawConfig.callLimitContract = it
         }

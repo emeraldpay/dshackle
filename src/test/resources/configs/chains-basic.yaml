@@ -5,13 +5,16 @@ chain-settings:
     lags:
       syncing: 6
       lagging: 1
+      expected-block-time: 12s
   chains:
     - id: eth
       call-validate-contract: 0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96
+      expected-block-time: 12s
       lags:
         syncing: 6
         lagging: 1
     - id: optimism
+      expected-block-time: 400ms
       lags:
         lagging: 3
     - id: sepolia

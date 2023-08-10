@@ -62,7 +62,8 @@ class EthereumRpcUpstreamMock extends EthereumLikeRpcUpstream {
                 new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
                 new ConnectorFactoryMock(api, new EthereumHeadMock()),
                 ChainsConfig.ChainConfig.default(),
-                false
+                false,
+                null
         )
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock
         setLag(0)

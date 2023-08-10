@@ -59,7 +59,8 @@ class FilteredApisSpec extends Specification {
                     new MostWorkForkChoice(),
                     BlockValidator.ALWAYS_VALID,
                     Schedulers.boundedElastic(),
-                    Schedulers.boundedElastic()
+                    Schedulers.boundedElastic(),
+                    Duration.ofSeconds(12)
             )
             new EthereumLikeRpcUpstream(
                     "test",
@@ -71,7 +72,8 @@ class FilteredApisSpec extends Specification {
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     connectorFactory,
                     ChainsConfig.ChainConfig.default(),
-                    false
+                    false,
+                    null
             )
         }
         def matcher = new Selector.LabelMatcher("test", ["foo"])

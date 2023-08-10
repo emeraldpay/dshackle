@@ -7,12 +7,15 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
+import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
+import java.time.Duration
 
 class EthereumWsConnector(
     wsFactory: EthereumWsConnectionPoolFactory,
@@ -21,13 +24,14 @@ class EthereumWsConnector(
     blockValidator: BlockValidator,
     skipEnhance: Boolean,
     wsConnectionResubscribeScheduler: Scheduler,
-    headScheduler: Scheduler
+    headScheduler: Scheduler,
+    expectedBlockTime: Duration
 ) : EthereumConnector {
     private val pool: WsConnectionPool
     private val reader: JsonRpcReader
     private val head: EthereumWsHead
     private val subscriptions: EthereumIngressSubscription
-
+    private val liveness: HeadLivenessValidator
     init {
         pool = wsFactory.create(upstream)
         reader = JsonRpcWsClient(pool)
@@ -42,11 +46,13 @@ class EthereumWsConnector(
             wsConnectionResubscribeScheduler,
             headScheduler
         )
+        liveness = HeadLivenessValidator(head, expectedBlockTime, headScheduler)
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
     }
 
-    override fun getConnectorMode() = EthereumConnectorFactory.ConnectorMode.WS_ONLY
-
+    override fun hasLiveSubscriptionHead(): Flux<Boolean> {
+        return liveness.getFlux()
+    }
     override fun start() {
         pool.connect()
         head.start()

@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Chain
+import java.time.Duration
 
 data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val currentDefault: RawChainConfig?) {
     companion object {
@@ -9,6 +10,7 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
     }
 
     data class RawChainConfig(
+        var expectedBlockTime: Duration? = null,
         var syncingLagSize: Int? = null,
         var laggingLagSize: Int? = null,
         var callLimitContract: String? = null,
@@ -25,6 +27,7 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
     }
 
     data class ChainConfig(
+        val expectedBlockTime: Duration,
         val syncingLagSize: Int,
         val laggingLagSize: Int,
         val options: UpstreamsConfig.PartialOptions,
@@ -32,7 +35,7 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
     ) {
         companion object {
             @JvmStatic
-            fun default() = ChainConfig(6, 1, UpstreamsConfig.PartialOptions(), null)
+            fun default() = ChainConfig(Duration.ofSeconds(12), 6, 1, UpstreamsConfig.PartialOptions(), null)
         }
     }
 
@@ -45,7 +48,8 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
             laggingLagSize = raw.laggingLagSize ?: default.laggingLagSize ?: panic(),
             syncingLagSize = raw.syncingLagSize ?: default.syncingLagSize ?: panic(),
             options = options,
-            callLimitContract = raw.callLimitContract
+            callLimitContract = raw.callLimitContract,
+            expectedBlockTime = raw.expectedBlockTime ?: default.expectedBlockTime ?: panic(),
         )
     }
 
@@ -61,7 +65,8 @@ data class ChainsConfig(private val chains: Map<Chain, RawChainConfig>, val curr
         syncingLagSize = patch?.syncingLagSize ?: current.syncingLagSize,
         laggingLagSize = patch?.laggingLagSize ?: current.laggingLagSize,
         options = patch?.options ?: current.options,
-        callLimitContract = patch?.callLimitContract ?: current.callLimitContract
+        callLimitContract = patch?.callLimitContract ?: current.callLimitContract,
+        expectedBlockTime = patch?.expectedBlockTime ?: current.expectedBlockTime
     )
 
     private fun merge(

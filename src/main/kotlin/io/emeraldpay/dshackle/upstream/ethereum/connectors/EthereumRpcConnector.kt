@@ -11,6 +11,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
@@ -22,11 +23,12 @@ import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFact
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
 class EthereumRpcConnector(
-    private val connectorType: ConnectorMode,
+    connectorType: ConnectorMode,
     private val directReader: JsonRpcReader,
     wsFactory: EthereumWsConnectionPoolFactory?,
     id: String,
@@ -34,16 +36,20 @@ class EthereumRpcConnector(
     blockValidator: BlockValidator,
     skipEnhance: Boolean,
     wsConnectionResubscribeScheduler: Scheduler,
-    headScheduler: Scheduler
+    headScheduler: Scheduler,
+    expectedBlockTime: Duration
 ) : EthereumConnector, CachesEnabled {
     private val pool: WsConnectionPool?
     private val head: Head
+    private val liveness: HeadLivenessValidator
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumRpcConnector::class.java)
     }
 
-    override fun getConnectorMode() = connectorType
+    override fun hasLiveSubscriptionHead(): Flux<Boolean> {
+        return liveness.getFlux()
+    }
 
     init {
         pool = wsFactory?.create(null)
@@ -93,6 +99,7 @@ class EthereumRpcConnector(
                 )
             }
         }
+        liveness = HeadLivenessValidator(head, expectedBlockTime, headScheduler)
     }
 
     override fun setCaches(caches: Caches) {

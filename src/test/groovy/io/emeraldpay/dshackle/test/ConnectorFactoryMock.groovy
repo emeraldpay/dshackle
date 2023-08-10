@@ -15,16 +15,10 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 class ConnectorFactoryMock implements ConnectorFactory {
     Reader<JsonRpcRequest, JsonRpcResponse> api
     Head head
-    ConnectorMode mode
 
     ConnectorFactoryMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head) {
-        this(api, head, ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD)
-    }
-
-    ConnectorFactoryMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head, ConnectorMode mode) {
         this.api = api
         this.head = head
-        this.mode = mode
     }
 
     boolean isValid() {
@@ -32,6 +26,6 @@ class ConnectorFactoryMock implements ConnectorFactory {
     }
 
     EthereumConnector create(DefaultUpstream upstream, EthereumUpstreamValidator validator, Chain chain, boolean skipEnhance)  {
-        return new EthereumConnectorMock(api, head, this.mode)
+        return new EthereumConnectorMock(api, head)
     }
 }

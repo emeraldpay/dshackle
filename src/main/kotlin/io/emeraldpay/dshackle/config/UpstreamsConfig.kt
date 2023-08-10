@@ -30,6 +30,7 @@ open class UpstreamsConfig {
     var upstreams: MutableList<Upstream<*>> = ArrayList<Upstream<*>>()
 
     data class Options(
+        val disableUpstreamValidation: Boolean,
         val disableValidation: Boolean,
         val validationInterval: Int,
         val timeout: Duration,
@@ -43,6 +44,7 @@ open class UpstreamsConfig {
 
     open class PartialOptions {
         var disableValidation: Boolean? = null
+        var disableUpstreamValidation: Boolean? = null
         var validationInterval: Int? = null
             set(value) {
                 require(value == null || value > 0) {
@@ -78,11 +80,13 @@ open class UpstreamsConfig {
             copy.validateCalllimit = firstNonNull(overwrites.validateCalllimit, this.validateCalllimit)
             copy.timeout = firstNonNull(overwrites.timeout, this.timeout)
             copy.validateChain = firstNonNull(overwrites.validateChain, this.validateChain)
+            copy.disableUpstreamValidation = firstNonNull(overwrites.disableUpstreamValidation, this.disableUpstreamValidation)
             return copy
         }
 
         fun buildOptions(): Options =
             Options(
+                firstNonNull(this.disableUpstreamValidation, false)!!,
                 firstNonNull(this.disableValidation, false)!!,
                 firstNonNull(this.validationInterval, 30)!!,
                 firstNonNull(this.timeout, Defaults.timeout)!!,

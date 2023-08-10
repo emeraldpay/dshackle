@@ -215,7 +215,8 @@ open class ConfiguredUpstreams(
             chain,
             urls,
             NoChoiceWithPriorityForkChoice(conn.upstreamRating, config.id!!),
-            BlockValidator.ALWAYS_VALID
+            BlockValidator.ALWAYS_VALID,
+            chainConf
         )
         val methods = buildMethods(config, chain)
         if (connectorFactory == null) {
@@ -236,7 +237,8 @@ open class ConfiguredUpstreams(
             QuorumForLabels.QuorumItem(1, config.labels),
             connectorFactory,
             chainConf,
-            true
+            true,
+            eventPublisher
         )
         upstream.start()
         if (!upstream.isRunning) return null
@@ -304,7 +306,8 @@ open class ConfiguredUpstreams(
             chain,
             urls,
             MostWorkForkChoice(),
-            EthereumBlockValidator()
+            EthereumBlockValidator(),
+            chainConf
         )
         if (connectorFactory == null) {
             return null
@@ -320,7 +323,8 @@ open class ConfiguredUpstreams(
             QuorumForLabels.QuorumItem(1, config.labels),
             connectorFactory,
             chainConf,
-            false
+            false,
+            eventPublisher
         )
         upstream.start()
         return upstream
@@ -413,7 +417,8 @@ open class ConfiguredUpstreams(
         chain: Chain,
         urls: ArrayList<URI>,
         forkChoice: ForkChoice,
-        blockValidator: BlockValidator
+        blockValidator: BlockValidator,
+        chainsConf: ChainsConfig.ChainConfig
     ): EthereumConnectorFactory? {
         val wsFactoryApi = buildWsFactory(id, chain, conn, urls)
         val httpFactory = buildHttpFactory(conn, urls)
@@ -426,7 +431,8 @@ open class ConfiguredUpstreams(
                 forkChoice,
                 blockValidator,
                 wsConnectionResubscribeScheduler,
-                headScheduler
+                headScheduler,
+                chainsConf.expectedBlockTime
             )
         if (!connectorFactory.isValid()) {
             log.warn("Upstream configuration is invalid (probably no http endpoint)")
