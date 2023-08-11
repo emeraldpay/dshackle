@@ -20,11 +20,13 @@ chain-settings:
         syncing: 6
         lagging: 1
     - id: polygon
+      call-validate-contract: 0x53Daa71B04d589429f6d3DF52db123913B818F23
       expected-block-time: 2.7s
       lags:
         syncing: 20
         lagging: 10
     - id: polygon-mumbai
+      call-validate-contract: 0x53Daa71B04d589429f6d3DF52db123913B818F23
       expected-block-time: 2.7s
       lags:
         syncing: 20
