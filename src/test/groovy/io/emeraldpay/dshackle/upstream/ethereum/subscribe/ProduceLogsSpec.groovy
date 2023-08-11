@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
@@ -42,7 +43,7 @@ class ProduceLogsSpec extends Specification {
             1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >>
                     Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
-        def producer = new ProduceLogs(receipts)
+        def producer = new ProduceLogs(receipts, Chain.ETHEREUM__MAINNET)
         def update = new ConnectBlockUpdates.Update(
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
@@ -66,7 +67,7 @@ class ProduceLogsSpec extends Specification {
             1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >>
                     Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
-        def producer = new ProduceLogs(receipts)
+        def producer = new ProduceLogs(receipts, Chain.ETHEREUM__MAINNET)
         def update = new ConnectBlockUpdates.Update(
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
@@ -113,7 +114,7 @@ class ProduceLogsSpec extends Specification {
             1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >>
                     Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
-        def producer = new ProduceLogs(receipts)
+        def producer = new ProduceLogs(receipts, Chain.ETHEREUM__MAINNET)
         def update = new ConnectBlockUpdates.Update(
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
@@ -160,7 +161,7 @@ class ProduceLogsSpec extends Specification {
             1 * it.read(TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")) >>
                     Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
-        def producer = new ProduceLogs(receipts)
+        def producer = new ProduceLogs(receipts, Chain.ETHEREUM__MAINNET)
         def update = new ConnectBlockUpdates.Update(
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
@@ -272,7 +273,7 @@ class ProduceLogsSpec extends Specification {
             1 * it.read(TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")) >>
                     Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
-        def producer = new ProduceLogs(receipts)
+        def producer = new ProduceLogs(receipts, Chain.ETHEREUM__MAINNET)
         def update = new ConnectBlockUpdates.Update(
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,
@@ -352,7 +353,7 @@ class ProduceLogsSpec extends Specification {
             1 * it.read(TxId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec")) >>
                     Mono.just(new EthereumDirectReader.Result<>(receipt.getBytes(), null))
         }
-        def producer = new ProduceLogs(receipts)
+        def producer = new ProduceLogs(receipts, Chain.ETHEREUM__MAINNET)
         def update1 = new ConnectBlockUpdates.Update(
                 BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da"),
                 13412871,

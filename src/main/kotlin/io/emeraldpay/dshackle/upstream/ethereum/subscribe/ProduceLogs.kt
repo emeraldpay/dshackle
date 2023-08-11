@@ -16,10 +16,12 @@
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import com.google.common.cache.CacheBuilder
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader.Result
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
@@ -32,7 +34,8 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 import java.util.concurrent.TimeUnit
 
 class ProduceLogs(
-    private val receipts: Reader<TxId, Result<ByteArray>>
+    private val receipts: Reader<TxId, Result<ByteArray>>,
+    private val chain: Chain
 ) {
 
     companion object {
@@ -40,7 +43,7 @@ class ProduceLogs(
     }
 
     constructor(upstream: EthereumLikeMultistream) :
-        this(upstream.getReader().receipts())
+        this(upstream.getReader().receipts(), (upstream as Multistream).chain)
 
     private val objectMapper = Global.objectMapper
 
@@ -66,7 +69,10 @@ class ProduceLogs(
     fun produceRemoved(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
         val old = oldMessages.getIfPresent(LogReference(update.blockHash, update.transactionId))
         if (old == null) {
-            log.warn("No old message to produce removal messages for tx ${update.transactionId} at block ${update.blockHash}")
+            log.warn(
+                "No old message to produce removal messages for tx ${update.transactionId} " +
+                    "at block ${update.blockHash} for chain ${chain.chainName}"
+            )
             return Flux.empty()
         }
         return Flux.fromIterable(old)
@@ -76,7 +82,7 @@ class ProduceLogs(
     fun produceAdded(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
         return receipts.read(update.transactionId)
             .switchIfEmpty {
-                log.warn("Cannot find receipt for tx ${update.transactionId}")
+                log.warn("Cannot find receipt for tx ${update.transactionId} for chain ${chain.chainName}")
                 Mono.empty()
             }
             .map { it.data }
@@ -105,7 +111,10 @@ class ProduceLogs(
                     oldMessages.put(LogReference(update.blockHash, update.transactionId), messages)
                     Flux.fromIterable(messages)
                 } catch (t: Throwable) {
-                    log.warn("Invalid Receipt ${update.transactionId}. ${t.javaClass}: ${t.message}")
+                    log.warn(
+                        "Invalid Receipt ${update.transactionId} for chain ${chain.chainName}. " +
+                            "${t.javaClass}: ${t.message}"
+                    )
                     Flux.empty<LogMessage>()
                 }
             }
