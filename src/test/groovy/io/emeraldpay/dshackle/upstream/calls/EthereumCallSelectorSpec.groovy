@@ -341,7 +341,11 @@ class EthereumCallSelectorSpec extends Specification {
 
     def "Get height matcher for getLogs and eth_newFilter method"() {
         setup:
-        def cache = Stub(Caches)
+        def cache = Mock(Caches) { caches ->
+            caches.getLastHeightByHash() >> Mock(HeightByHashMemCache) { memCache ->
+                memCache.read(BlockId.from("0xa29ddfc1b37d0b6d0c4a670fa54778656e890d8bbc1b3a6f7d913bc9eb5e03a1")) >> Mono.just(46208179L)
+            }
+        }
         def callSelector = new EthereumCallSelector(cache)
         def head = Mock(Head) {
             _ * getCurrentHeight() >> 17654321L
@@ -361,6 +365,7 @@ class EthereumCallSelectorSpec extends Specification {
         "eth_getLogs" | '[{"toBlock":"0xfbfe3b"}]' | 16514619L
         "eth_getLogs" | '[{"toBlock":"latest"}]' | 17654321L
         "eth_getLogs" | '[{"toBlock":"earliest"}]' | 0L
+        "eth_getLogs" | '[{"blockHash":"0xa29ddfc1b37d0b6d0c4a670fa54778656e890d8bbc1b3a6f7d913bc9eb5e03a1"}]' | 46208179L
         "eth_newFilter" | '[{"toBlock":"0xfbfe2b", "toBlock":"0xfbfe3b"}]' | 16514619L
         "eth_newFilter" | '[{"toBlock":"0xfbfe3b", "toBlock":"latest"}]' | 17654321L
         "eth_newFilter" | '[{"toBlock":"0xfbfe3b", "toBlock":"earliest"}]' | 0L
