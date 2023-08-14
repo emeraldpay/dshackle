@@ -26,7 +26,7 @@ import reactor.core.publisher.Sinks
 
 class EthereumHeadMock implements Head {
 
-    private Sinks.Many<BlockContainer> bus = Sinks.many().multicast().onBackpressureBuffer()
+    private Sinks.Many<BlockContainer> bus = Sinks.many().multicast().onBackpressureBuffer(10, false)
     private Publisher<BlockContainer> predefined = null
     private BlockContainer latest
     private List<Runnable> handlers = []
@@ -54,7 +54,7 @@ class EthereumHeadMock implements Head {
         if (predefined != null) {
             return Flux.concat(Mono.justOrEmpty(latest), Flux.from(predefined))
         } else {
-            return Flux.concat(Mono.justOrEmpty(latest), bus.asFlux()).distinctUntilChanged()
+            return Flux.concat(Mono.justOrEmpty(latest), bus.asFlux())
         }
     }
 
