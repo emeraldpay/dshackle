@@ -208,6 +208,10 @@ open class Caches(
         return memHeightByHash
     }
 
+    fun getHeightByHash(id: BlockId): Long? {
+        return memHeightByHash.get(id)
+    }
+
     fun getRedisHeightByHash(): HeightByHashCache? {
         return redisHeightByHashCache
     }

@@ -45,6 +45,12 @@ class EthereumFullBlocksReader(
         private val log = LoggerFactory.getLogger(EthereumFullBlocksReader::class.java)
     }
 
+    enum class Mode {
+        Auto,
+        Always,
+        Disabled
+    }
+
     constructor(dataReaders: DataReaders) : this(dataReaders.blockReaderById, dataReaders.blockByHeightReader, dataReaders.txReaderById)
 
     val byHash: Reader<BlockId, BlockContainer> = BlockMerge(blocks, txes)
