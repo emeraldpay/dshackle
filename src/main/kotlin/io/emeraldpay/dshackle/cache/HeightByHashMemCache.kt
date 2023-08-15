@@ -38,6 +38,10 @@ class HeightByHashMemCache(
         return Mono.justOrEmpty(heights.getIfPresent(key))
     }
 
+    fun get(key: BlockId): Long? {
+        return heights.getIfPresent(key)
+    }
+
     fun add(block: BlockContainer) {
         heights.put(block.hash, block.height)
     }

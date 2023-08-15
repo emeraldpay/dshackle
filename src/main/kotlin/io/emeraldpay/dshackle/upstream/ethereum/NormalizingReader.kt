@@ -14,14 +14,19 @@ import reactor.core.publisher.Mono
 import java.util.concurrent.atomic.AtomicReference
 
 class NormalizingReader(
-    head: AtomicReference<Head>,
-    caches: Caches,
+    private val head: AtomicReference<Head>,
+    private val caches: Caches,
     fullBlocksReader: EthereumFullBlocksReader,
 ) : MethodSpecificReader(), DshackleRpcReader {
 
     companion object {
         private val log = LoggerFactory.getLogger(NormalizingReader::class.java)
+
+        private val HEX_REGEX = Regex("^0x[0-9a-fA-F]+$")
     }
+
+    // TODO make configurable, and it supposed to go into the cache config but read from here
+    private val blockInCache = 6
 
     private val blockByHashFull = BlockByHash(fullBlocksReader)
     private val blockByHashAuto = BlockByHashAuto(blockByHashFull)
@@ -31,19 +36,52 @@ class NormalizingReader(
     init {
         register(
             "eth_getBlockByHash",
-            { params -> params.size >= 2 && params[1] == true },
+            { params -> params.size >= 2 && acceptBlock(params[0].toString()) && params[1] == true },
             blockByHashFull
         )
         register(
             "eth_getBlockByNumber",
-            { params -> params.size >= 2 && params[0] is String && params[0].toString().startsWith("0x") && params[1] == true },
+            { params -> params.size >= 2 && params[0] is String && acceptBlock(params[0].toString()) && params[1] == true },
             blockByNumber
         )
         register(
             "eth_getBlockByNumber",
-            { params -> params.size >= 2 && params[0] is String && !params[0].toString().startsWith("0x") && params[1] == true },
+            { params -> params.size >= 2 && params[0] is String && !isBlockOrNumber(params[0].toString()) && acceptBlock(params[0].toString()) && params[1] == true },
             blockByTag
         )
+    }
+
+    fun isBlockOrNumber(id: String): Boolean {
+        return id.matches(HEX_REGEX) && id.length == 66 || id.length <= 18
+    }
+
+    fun acceptHeight(height: Long): Boolean {
+        val current = head.get().getCurrentHeight() ?: return false
+        return height >= current - blockInCache
+    }
+
+    fun acceptBlock(id: String): Boolean {
+        if (id == "latest") {
+            return true
+        }
+        if (!isBlockOrNumber(id)) {
+            return false
+        }
+        val height = if (id.length == 66) {
+            val blockId = try {
+                BlockId.from(id)
+            } catch (t: Throwable) {
+                return false
+            }
+            caches.getHeightByHash(blockId) ?: return false
+        } else {
+            try {
+                HexQuantity.from(id).value.longValueExact()
+            } catch (t: Throwable) {
+                return false
+            }
+        }
+        return acceptHeight(height)
     }
 
     class BlockByHash(private val fullBlocksReader: EthereumFullBlocksReader) : DshackleRpcReader {
