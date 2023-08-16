@@ -344,6 +344,7 @@ class DefaultEthereumMethods(
             "filter" -> filterMethods
             "trace" -> traceMethods
             "debug" -> debugMethods
+            "default" -> getSupportedMethods()
             else -> emptyList()
         }.toSet()
 

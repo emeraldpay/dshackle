@@ -312,6 +312,27 @@ upstreams:
 Such configuration option allows executing method `trace_transaction` and also disables `eth_getBlockByNumber` on that particular upstream.
 If a client requests to execute method `trace_transaction` then it will be scheduled to that upstream (or any upstream with such method enabled).
 
+There are also method groups to more easily manage methods in batches, currently there are several groups:
+
+- https://github.com/p2p-org/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L53[trace]
+- https://github.com/p2p-org/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L65[debug]
+- https://github.com/p2p-org/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L41[filter]
+- default, all methods that are enabled by default
+[source, yaml]
+----
+upstreams:
+  - id: my-node
+    chain: ethereum
+    labels:
+      archive: true
+    method-groups:
+      enabled:
+        - trace
+      disabled:
+        - default
+----
+This config allows you to ONLY enable trace methods and disable everything else.
+
 NOTE: It's especially useful when used together with upstream labels.If an archive upstream has label `archive: true` it's possible to specify that the client wants to execute method `trace_transaction` only on an archive node(s), which has complete historical data for tracing.
 
 ==== eth_subscribe ethereum methods
