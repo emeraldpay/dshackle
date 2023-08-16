@@ -19,7 +19,7 @@ class HeadLivenessValidator(
 
     private fun fallback(): Flux<Boolean> {
         return Flux.defer {
-            log.info("head liveness check broken with timeout in $upstreamId")
+            log.debug("head liveness check broken with timeout in $upstreamId")
             Flux.just(false).concatWith(getFlux()) // emit false and then restart the Flux
         }
     }
@@ -33,7 +33,7 @@ class HeadLivenessValidator(
             if (value) {
                 Pair(acc.first + 1, true)
             } else {
-                log.info("non consecutive blocks in head for $upstreamId")
+                log.debug("non consecutive blocks in head for $upstreamId")
                 Pair(0, false)
             }
         }.flatMap { (count, value) ->
