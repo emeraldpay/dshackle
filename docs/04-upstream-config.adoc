@@ -157,6 +157,13 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - gnosis-chiado
 - avalanche
 - avalanche-fuji
+- aurora
+- aurora-testnet
+- scroll-alphanet
+- mantle
+- mantle-testnet
+- klaytn
+- klaytn-baobab
 
 === Roles and Fallback upstream
 

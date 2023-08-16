@@ -87,6 +87,17 @@ class Global {
             "gnosis-chiado" to Chain.GNOSIS__CHIADO,
             "avalanche" to Chain.AVALANCHE__MAINNET,
             "avalanche-fuji" to Chain.AVALANCHE__FUJI,
+            // "starknet" to Chain.CHAIN_STARKNET__MAINNET,
+            // "starknet-goerli" to Chain.CHAIN_STARKNET__GOERLI,
+            // "starknet-goerli2" to Chain.CHAIN_STARKNET__GOERLI2,
+            "aurora" to Chain.AURORA__MAINNET,
+            "aurora-testnet" to Chain.AURORA__TESTNET,
+            // "scroll" to Chain.CHAIN_SCROLL__MAINNET,
+            "scroll-alphanet" to Chain.SCROLL__ALPHANET,
+            "mantle" to Chain.MANTLE__MAINNET,
+            "mantle-testnet" to Chain.MANTLE__TESTNET,
+            "klaytn" to Chain.KLAYTN__MAINNET,
+            "klaytn-baobab" to Chain.KLAYTN__BAOBAB,
         )
 
         fun chainById(id: String?): Chain {

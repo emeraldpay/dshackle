@@ -115,6 +115,15 @@ class DefaultEthereumMethods(
 
             Chain.AVALANCHE__MAINNET to createHardcodedData("\"43114\"", "\"0xa86a\""),
             Chain.AVALANCHE__FUJI to createHardcodedData("\"43113\"", "\"0xa869\""),
+
+            Chain.AURORA__MAINNET to createHardcodedData("\"1313161554\"", "\"0x4e454152\""),
+            Chain.AURORA__TESTNET to createHardcodedData("\"1313161555\"", "\"0x4e454153\""),
+            // Chain.CHAIN_SCROLL__MAINNET to createHardcodedData(""43114"", ""0xa86a""), doesn't exist now for L2
+            Chain.SCROLL__ALPHANET to createHardcodedData("\"534353\"", "\"0x82751\""),
+            Chain.MANTLE__MAINNET to createHardcodedData("\"5000\"", "\"0x1388\""),
+            Chain.MANTLE__TESTNET to createHardcodedData("\"5001\"", "\"0x1389\""),
+            Chain.KLAYTN__MAINNET to createHardcodedData("\"8217\"", "\"0x2019\""),
+            Chain.KLAYTN__BAOBAB to createHardcodedData("\"1001\"", "\"0x3e9\""),
         )
 
         fun getChainByData(data: HardcodedData) = CHAIN_DATA.entries.find { it.value == data }?.key

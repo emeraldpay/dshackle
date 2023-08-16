@@ -51,6 +51,11 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
     LINEA__MAINNET(1011, "LINEA", "Linea"),
     GNOSIS__MAINNET(1012, "GNOSIS", "Gnosis"),
     AVALANCHE__MAINNET(1013, "AVALANCHE", "Avalanche"),
+    // STARKNET__MAINNET(1014, "STARKNET", "Starknet"),
+    AURORA__MAINNET(1015, "AURORA", "Aurora"),
+    // SCROLL__MAINNET(1016, "SCROLL", "Scroll"),
+    MANTLE__MAINNET(1017, "MANTLE", "Mantle"),
+    KLAYTN__MAINNET(1018, "KLAYTN", "Klaytn"),
 
     // Testnets
     ETHEREUM__MORDEN(10001, "MORDEN", "Morden Testnet"),
@@ -93,7 +98,13 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
     LINEA__GOERLI(10015, "LINEA_GOERLI", "Linea Goerli Testnet"),
     FANTOM__TESTNET(10016, "FANTOM_TESTNET", "Fantom Testnet"),
     GNOSIS__CHIADO(10017, "GNOSIS_CHIADO", "Gnosis Chiado Testnet"),
-    AVALANCHE__FUJI(10018, "AVALANCHE_FUJI", "Avalanche Fuji Testnet");
+    AVALANCHE__FUJI(10018, "AVALANCHE_FUJI", "Avalanche Fuji Testnet"),
+    // STARKNET__GOERLI(10019, "STARKNET_GOERLI", "Starknet Goerli"),
+    // STARKNET__GOERLI2(10020, "STARKNET_GOERLI2", "Starknet Goerli 2"),
+    AURORA__TESTNET(10021, "AURORA_TESTNET", "Aurora Testnet"),
+    SCROLL__ALPHANET(10022, "SCROLL_ALPHANET", "Scroll Alphanet"),
+    MANTLE__TESTNET(10023, "MANTLE_TESTNET", "Mantle Testnet"),
+    KLAYTN__BAOBAB(10024, "KLAYTN_BAOBAB", "Klaytn Baobab");
 
     companion object {
         fun byId(id: Int): Chain {

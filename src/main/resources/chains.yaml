@@ -152,3 +152,53 @@ chain-settings:
       lags:
         syncing: 10
         lagging: 5
+    - id: aurora
+      expected-block-time: 1s
+      options:
+        validate-peers: false
+      lags:
+        syncing: 40
+        lagging: 20
+    - id: aurora-testnet
+      expected-block-time: 1s
+      options:
+        validate-peers: false
+      lags:
+        syncing: 40
+        lagging: 20
+    - id: scroll-alphanet
+      expected-block-time: 3s
+      options:
+        validate-peers: false
+      lags:
+        syncing: 10
+        lagging: 5
+    - id: mantle
+      expected-block-time: 500ms
+      options:
+        validate-peers: false
+      lags:
+        syncing: 40
+        lagging: 20
+    - id: mantle-testnet
+      expected-block-time: 500ms
+      options:
+        validate-peers: false
+      lags:
+        syncing: 40
+        lagging: 20
+    - id: klaytn
+      expected-block-time: 1s
+      options:
+        validate-peers: false
+      lags:
+        syncing: 40
+        lagging: 20
+    - id: klaytn-baobab
+      expected-block-time: 1s
+      options:
+        validate-peers: false
+      lags:
+        syncing: 40
+        lagging: 20
+
