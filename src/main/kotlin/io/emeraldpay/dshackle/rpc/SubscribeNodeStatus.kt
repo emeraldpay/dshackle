@@ -67,7 +67,7 @@ class SubscribeNodeStatus(
         )
 
         // subscribe on head/status updates for just added upstreams
-        val multiStreamUpdates = Flux.merge(
+        val adds = Flux.merge(
             multistreams.all()
                 .map { ms ->
                     ms.subscribeAddedUpstreams()
@@ -92,8 +92,19 @@ class SubscribeNodeStatus(
                         }
                 }
         )
+        val updates = Flux.merge(
+            multistreams.all().map { ms ->
+                ms.subscribeUpdatedUpstreams().map {
+                    NodeStatusResponse.newBuilder()
+                        .setNodeId(it.getId())
+                        .setDescription(buildDescription(ms, it))
+                        .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
+                        .build()
+                }
+            }
+        )
 
-        return Flux.merge(upstreamUpdates, multiStreamUpdates, removals)
+        return Flux.merge(upstreamUpdates, adds, removals, updates)
     }
 
     private fun subscribeUpstreamUpdates(

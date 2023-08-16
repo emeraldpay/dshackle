@@ -171,7 +171,7 @@ class BitcoinGrpcUpstream(
         val upstreamStatusChanged = (upstreamStatus.update(conf) || (newCapabilities != capabilities)).also {
             capabilities = newCapabilities
         }
-        conf.status?.let { status -> onStatus(status, upstreamStatusChanged) }
+        conf.status?.let { status -> onStatus(status) }
         return buildInfoChanged || upstreamStatusChanged
     }
 }

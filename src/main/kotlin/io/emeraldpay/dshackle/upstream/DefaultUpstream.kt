@@ -54,7 +54,7 @@ abstract class DefaultUpstream(
     private val status = AtomicReference(Status(defaultLag, defaultAvail, statusByLag(defaultLag, defaultAvail)))
     private val statusStream = Sinks.many()
         .multicast()
-        .directBestEffort<UpstreamChangeState>()
+        .directBestEffort<UpstreamAvailability>()
 
     init {
         if (id.length < 3 || !id.matches(Regex("[a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9]"))) {
@@ -67,14 +67,9 @@ abstract class DefaultUpstream(
     }
 
     fun onStatus(value: BlockchainOuterClass.ChainStatus) {
-        this.onStatus(value, false)
-    }
-
-    fun onStatus(value: BlockchainOuterClass.ChainStatus, stateChanged: Boolean = false) {
         val available = value.availability
         setStatus(
             if (available != null) UpstreamAvailability.fromGrpc(available.number) else UpstreamAvailability.UNAVAILABLE,
-            stateChanged
         )
     }
 
@@ -83,15 +78,11 @@ abstract class DefaultUpstream(
     }
 
     open fun setStatus(avail: UpstreamAvailability) {
-        this.setStatus(avail, false)
-    }
-
-    open fun setStatus(avail: UpstreamAvailability, stateChanged: Boolean = false) {
         status.updateAndGet { curr ->
             Status(curr.lag, avail, statusByLag(curr.lag, avail))
         }.also {
             statusStream.emitNext(
-                UpstreamChangeState(it.status, stateChanged)
+                it.status
             ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
             log.trace("Status of upstream [$id] changed to [$it], requested change status to [$avail]")
         }
@@ -116,18 +107,7 @@ abstract class DefaultUpstream(
     }
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
-        return statusStream.asFlux()
-            .distinctUntilChanged(
-                { it },
-                { prev, current ->
-                    if (current.stateChanged) {
-                        false
-                    } else {
-                        prev.status == current.status
-                    }
-                }
-            )
-            .map { it.status }
+        return statusStream.asFlux().distinctUntilChanged()
     }
 
     override fun setLag(lag: Long) {
@@ -136,7 +116,7 @@ abstract class DefaultUpstream(
                 Status(nLag, curr.avail, statusByLag(nLag, curr.avail))
             }.also {
                 statusStream.emitNext(
-                    UpstreamChangeState(it.status, false)
+                    it.status
                 ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
                 log.trace("Status of upstream [$id] changed to [$it], requested change lag to [$lag]")
             }
@@ -171,9 +151,4 @@ abstract class DefaultUpstream(
     }
 
     data class Status(val lag: Long?, val avail: UpstreamAvailability, val status: UpstreamAvailability)
-
-    private data class UpstreamChangeState(
-        val status: UpstreamAvailability,
-        val stateChanged: Boolean
-    )
 }

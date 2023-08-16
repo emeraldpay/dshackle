@@ -256,56 +256,6 @@ class EthereumGrpcUpstreamSpec extends Specification {
         h.height == 650247
     }
 
-    def "Send update status if methods were changed"() {
-        setup:
-        def chain = Chain.ETHEREUM__MAINNET
-        def client = mockServer.clientForServer(new BlockchainGrpc.BlockchainImplBase() {
-            @Override
-            void nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {
-            }
-
-            @Override
-            void subscribeHead(Common.Chain request, StreamObserver<BlockchainOuterClass.ChainHead> responseObserver) {
-            }
-        })
-        def upstream = new EthereumGrpcUpstream("test", hash, UpstreamsConfig.UpstreamRole.PRIMARY, chain, client, new JsonRpcGrpcClient(client, chain, metrics), null, ChainsConfig.ChainConfig.default(), Schedulers.boundedElastic())
-        upstream.setLag(0)
-        upstream.setStatus(UpstreamAvailability.OK)
-        when:
-        def statuses = upstream.observeStatus()
-        then:
-        StepVerifier.create(statuses)
-            .then {
-                upstream.update(
-                        describe(["eth_getBlockByHash"]),
-                        BlockchainOuterClass.BuildInfo.newBuilder()
-                                .setVersion(buildInfo.version)
-                                .build(),
-                )
-            }
-            .expectNext(UpstreamAvailability.OK)
-            .then {
-                upstream.update(
-                        describe(["eth_getBlockByHash"]),
-                        BlockchainOuterClass.BuildInfo.newBuilder()
-                                .setVersion(buildInfo.version)
-                                .build(),
-                )
-            }
-            .expectNextCount(0)
-            .then {
-                upstream.update(
-                        describe(["eth_getBlockByHash", "eth_getBlockByHash1"]),
-                        BlockchainOuterClass.BuildInfo.newBuilder()
-                                .setVersion(buildInfo.version)
-                                .build(),
-                )
-            }
-            .expectNext(UpstreamAvailability.OK)
-            .thenCancel()
-            .verify(Duration.ofSeconds(3))
-    }
-
     private BlockchainOuterClass.DescribeChain describe(List<String> methods) {
         return BlockchainOuterClass.DescribeChain.newBuilder()
                 .setStatus(BlockchainOuterClass.ChainStatus.newBuilder().setQuorum(1).setAvailabilityValue(UpstreamAvailability.OK.grpcId))
