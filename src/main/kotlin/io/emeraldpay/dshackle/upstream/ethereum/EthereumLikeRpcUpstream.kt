@@ -53,7 +53,7 @@ open class EthereumLikeRpcUpstream(
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(chain, this, getOptions(), chainConfig.callLimitContract)
     protected val connector: EthereumConnector = connectorFactory.create(this, validator, chain, skipEnhance)
     private val labelsDetector = EthereumLabelsDetector(this.getIngressReader())
-    private var hasLiveSubscriptionHead: AtomicBoolean = AtomicBoolean(false)
+    private var hasLiveSubscriptionHead: AtomicBoolean = AtomicBoolean(true)
 
     private var validatorSubscription: Disposable? = null
 
@@ -88,10 +88,10 @@ open class EthereumLikeRpcUpstream(
             validatorSubscription = validator.start()
                 .subscribe(this::setStatus)
         }
-        connector.hasLiveSubscriptionHead().subscribe {
-            hasLiveSubscriptionHead.set(it)
-            eventPublisher?.publishEvent(UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED))
-        }
+//        connector.hasLiveSubscriptionHead().subscribe {
+//            hasLiveSubscriptionHead.set(it)
+//            eventPublisher?.publishEvent(UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED))
+//        }
         labelsDetector.detectLabels()
             .toStream()
             .forEach {
