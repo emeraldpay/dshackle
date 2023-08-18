@@ -154,7 +154,7 @@ open class EthereumPosGrpcUpstream(
     }
 
     override fun isAvailable(): Boolean {
-        return super.isAvailable() && grpcHead.getCurrent() != null && getQuorumByLabel().getAll().any {
+        return super.isAvailable() && getQuorumByLabel().getAll().any {
             it.quorum > 0
         }
     }

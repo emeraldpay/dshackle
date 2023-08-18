@@ -160,7 +160,6 @@ abstract class Multistream(
                 upstreams.add(upstream)
                 removed.remove(upstream.getId())
                 addHead(upstream)
-                onUpstreamsUpdated()
                 monitorUpstream(upstream)
             }
         }
@@ -175,7 +174,6 @@ abstract class Multistream(
         }.also {
             if (it) {
                 removeHead(id)
-                onUpstreamsUpdated()
                 removeUpstreamMeters(id)
             }
         }
@@ -206,7 +204,6 @@ abstract class Multistream(
         reconfigLock.withLock {
             val upstreams = getAll()
             upstreams.filter { it.isAvailable() }.map { it.getMethods() }.let {
-                // TODO made list of uniq instances, and then if only one, just use it directly
                 callMethods = AggregatedCallMethods(it)
             }
             capabilities = if (upstreams.isEmpty()) {
@@ -406,6 +403,7 @@ abstract class Multistream(
                         addUpstream(event.upstream).takeIf { it }?.let {
                             try {
                                 addedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                                onUpstreamsUpdated()
                                 log.info("Upstream ${event.upstream.getId()} with chain $chain has been added")
                             } catch (e: Sinks.EmissionException) {
                                 log.error("error during event processing $event", e)
@@ -416,6 +414,7 @@ abstract class Multistream(
                         removeUpstream(event.upstream.getId()).takeIf { it }?.let {
                             try {
                                 removedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                                onUpstreamsUpdated()
                                 log.info("Upstream ${event.upstream.getId()} with chain $chain has been removed")
                             } catch (e: Sinks.EmissionException) {
                                 log.error("error during event processing $event", e)
