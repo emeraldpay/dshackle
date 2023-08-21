@@ -9,6 +9,7 @@ const val SPAN_REQUEST_API_TYPE = "request.api.type"
 const val SPAN_REQUEST_UPSTREAM_ID = "request.upstreamId"
 const val SPAN_REQUEST_ID = "request.id"
 const val SPAN_NO_RESPONSE_MESSAGE = "no-response.message"
+const val SPAN_REQUEST_CANCELLED = "cancelled"
 
 const val LOCAL_READER = "localReader"
 const val RPC_READER = "rpcReader"

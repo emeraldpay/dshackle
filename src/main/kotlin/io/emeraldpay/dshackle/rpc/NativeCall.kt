@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.commons.LOCAL_READER
 import io.emeraldpay.dshackle.commons.RPC_READER
 import io.emeraldpay.dshackle.commons.SPAN_ERROR
+import io.emeraldpay.dshackle.commons.SPAN_REQUEST_CANCELLED
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_ID
 import io.emeraldpay.dshackle.commons.SPAN_STATUS_MESSAGE
 import io.emeraldpay.dshackle.config.MainConfig
@@ -125,7 +126,7 @@ open class NativeCall(
                     }
                     .doOnNext { callRes -> completeSpan(callRes, requestCount) }
                     .doOnCancel {
-                        tracer.currentSpan()?.tag(SPAN_STATUS_MESSAGE, "cancel")?.end()
+                        tracer.currentSpan()?.tag(SPAN_STATUS_MESSAGE, SPAN_REQUEST_CANCELLED)?.end()
                     }
                     .contextWrite { ctx -> createTracingReactorContext(ctx, requestCount, requestId, requestSpan) }
             }

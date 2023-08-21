@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.reader
 import io.emeraldpay.dshackle.commons.SPAN_ERROR
 import io.emeraldpay.dshackle.commons.SPAN_READER_NAME
 import io.emeraldpay.dshackle.commons.SPAN_READER_RESULT
+import io.emeraldpay.dshackle.commons.SPAN_REQUEST_CANCELLED
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_INFO
 import io.emeraldpay.dshackle.commons.SPAN_STATUS_MESSAGE
 import io.emeraldpay.dshackle.data.HashId
@@ -39,7 +40,7 @@ class SpannedReader<K, D>(
             }
             .doOnNext { newSpan.end() }
             .doOnCancel {
-                newSpan.tag(SPAN_STATUS_MESSAGE, "cancelled").end()
+                newSpan.tag(SPAN_STATUS_MESSAGE, SPAN_REQUEST_CANCELLED).end()
             }
             .switchIfEmpty {
                 newSpan.tag(SPAN_READER_RESULT, "empty result").end()
