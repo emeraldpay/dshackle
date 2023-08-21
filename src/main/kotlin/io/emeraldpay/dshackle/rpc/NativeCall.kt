@@ -124,6 +124,9 @@ open class NativeCall(
                         )
                     }
                     .doOnNext { callRes -> completeSpan(callRes, requestCount) }
+                    .doOnCancel {
+                        tracer.currentSpan()?.tag(SPAN_STATUS_MESSAGE, "cancel")?.end()
+                    }
                     .contextWrite { ctx -> createTracingReactorContext(ctx, requestCount, requestId, requestSpan) }
             }
     }

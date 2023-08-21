@@ -33,16 +33,16 @@ class SpannedReader<K, D>(
         return reader.read(key)
             .contextWrite { ReactorSleuth.putSpanInScope(tracer, it, newSpan) }
             .doOnError {
-                newSpan.apply {
-                    tag(SPAN_ERROR, "true")
-                    tag(SPAN_STATUS_MESSAGE, it.message)
-                    end()
-                }
+                newSpan.tag(SPAN_ERROR, "true")
+                    .tag(SPAN_STATUS_MESSAGE, it.message)
+                    .end()
             }
             .doOnNext { newSpan.end() }
+            .doOnCancel {
+                newSpan.tag(SPAN_STATUS_MESSAGE, "cancelled").end()
+            }
             .switchIfEmpty {
-                newSpan.tag(SPAN_READER_RESULT, "empty result")
-                newSpan.end()
+                newSpan.tag(SPAN_READER_RESULT, "empty result").end()
                 Mono.empty()
             }
     }
