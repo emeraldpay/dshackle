@@ -56,6 +56,7 @@ open class EthereumLikeRpcUpstream(
     private var hasLiveSubscriptionHead: AtomicBoolean = AtomicBoolean(false)
 
     private var validatorSubscription: Disposable? = null
+    private var livenessSubscription: Disposable? = null
 
     override fun getCapabilities(): Set<Capability> {
         return if (hasLiveSubscriptionHead.get()) {
@@ -88,7 +89,7 @@ open class EthereumLikeRpcUpstream(
             validatorSubscription = validator.start()
                 .subscribe(this::setStatus)
         }
-        connector.hasLiveSubscriptionHead().subscribe {
+        livenessSubscription = connector.hasLiveSubscriptionHead().subscribe {
             hasLiveSubscriptionHead.set(it)
             eventPublisher?.publishEvent(UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED))
         }
@@ -122,6 +123,8 @@ open class EthereumLikeRpcUpstream(
     override fun stop() {
         validatorSubscription?.dispose()
         validatorSubscription = null
+        livenessSubscription?.dispose()
+        livenessSubscription = null
         connector.stop()
     }
 

@@ -96,7 +96,7 @@ zeromq = "org.zeromq:jeromq:0.5.2"
 objgenesis = "org.objenesis:objenesis:3.1"
 
 reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor" }
-reactor-netty = { module = "io.projectreactor.netty:reactor-netty", version = "1.0.24" }
+reactor-netty = { module = "io.projectreactor.netty:reactor-netty", version = "1.0.11" }
 reactor-extra = { module = "io.projectreactor.addons:reactor-extra", version = "3.4.5" }
 reactor-kotlin = { module = "io.projectreactor.kotlin:reactor-kotlin-extensions", version = "1.1.4" }
 reactor-test = { module = "io.projectreactor:reactor-test", version.ref = "reactor" }

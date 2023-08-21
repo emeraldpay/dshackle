@@ -7,9 +7,9 @@ import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
 class HeadLivenessValidator(
-    val head: Head,
-    val expectedBlockTime: Duration,
-    val scheduler: Scheduler,
+    private val head: Head,
+    private val expectedBlockTime: Duration,
+    private val scheduler: Scheduler,
     private val upstreamId: String
 ) {
     companion object {
@@ -17,17 +17,10 @@ class HeadLivenessValidator(
         private val log = LoggerFactory.getLogger(HeadLivenessValidator::class.java)
     }
 
-    private fun fallback(): Flux<Boolean> {
-        return Flux.defer {
-            log.debug("head liveness check broken with timeout in $upstreamId")
-            Flux.just(false).concatWith(getFlux()) // emit false and then restart the Flux
-        }
-    }
-
     fun getFlux(): Flux<Boolean> {
         // first we have moving window of 2 blocks and check that they are consecutive ones
-        return head.getFlux().buffer(2, 1).map {
-            it.last().height - it.first().height == 1L
+        return head.getFlux().map { it.height }.buffer(2, 1).map {
+            it.last() - it.first() == 1L
         }.scan(Pair(0, true)) { acc, value ->
             // then we accumulate consecutive true events, false resets counter
             if (value) {
@@ -44,10 +37,11 @@ class HeadLivenessValidator(
                 !value -> Flux.just(false)
                 else -> Flux.empty()
             }
-            // finally, we timeout after we waited for double the time we needed to emit those blocks
         }.timeout(
             expectedBlockTime.multipliedBy(CHECKED_BLOCKS_UNTIL_LIVE.toLong() * 2),
-            fallback()
-        ).subscribeOn(scheduler)
+            Flux.just(false).doOnNext {
+                log.debug("head liveness check broken with timeout in $upstreamId")
+            }
+        ).repeat().subscribeOn(scheduler)
     }
 }
