@@ -89,11 +89,6 @@ abstract class DefaultUpstream(
     }
 
     private fun statusByLag(lag: Long?, proposed: UpstreamAvailability): UpstreamAvailability {
-        if (options.disableValidation) {
-            // if we specifically told that this upstream should be _always valid_ then skip
-            // the status calculation and trust the proposed value as is
-            return proposed
-        }
         if (lag == null) {
             return UpstreamAvailability.UNAVAILABLE
         }
