@@ -116,6 +116,10 @@ dependencies {
     testImplementation libs.grpc.testing
 
     detektPlugins libs.detekt.formatting
+
+    implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-aarch_64") })
+    implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("linux-x86_64") })
+    implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-x86_64") })
 }
 
 compileKotlin {

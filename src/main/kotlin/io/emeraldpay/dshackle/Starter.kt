@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle
 
+import io.netty.handler.ssl.OpenSsl
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ResourceBanner
 import org.springframework.boot.SpringApplication
@@ -30,6 +31,8 @@ open class Starter
 private val log = LoggerFactory.getLogger(Starter::class.java)
 
 fun main(args: Array<String>) {
+    OpenSsl.ensureAvailability()
+
     Schedulers.enableMetrics()
 
     val maxMemory: Long = Runtime.getRuntime().maxMemory() / (1024 * 1024).toLong()

@@ -89,10 +89,12 @@ open class EthereumLikeRpcUpstream(
             validatorSubscription = validator.start()
                 .subscribe(this::setStatus)
         }
-        livenessSubscription = connector.hasLiveSubscriptionHead().subscribe {
+        livenessSubscription = connector.hasLiveSubscriptionHead().subscribe({
             hasLiveSubscriptionHead.set(it)
             eventPublisher?.publishEvent(UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED))
-        }
+        }, {
+            log.debug("Error while checking live subscription for ${getId()}", it)
+        })
         labelsDetector.detectLabels()
             .toStream()
             .forEach {
