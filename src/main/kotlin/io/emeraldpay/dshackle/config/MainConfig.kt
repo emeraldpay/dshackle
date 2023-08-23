@@ -30,4 +30,5 @@ class MainConfig {
     var signature: SignatureConfig? = null
     var compression: CompressionConfig = CompressionConfig.default()
     var chains: ChainsConfig = ChainsConfig.default()
+    var authorization: AuthorizationConfig = AuthorizationConfig.default()
 }

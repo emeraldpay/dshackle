@@ -40,6 +40,11 @@ open class SchedulersConfig {
         return makePool("grpc-client-channel", 10, monitoringConfig)
     }
 
+    @Bean
+    open fun authScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("auth-scheduler", 4, monitoringConfig)
+    }
+
     private fun makeScheduler(name: String, size: Int, monitoringConfig: MonitoringConfig): Scheduler {
         return Schedulers.fromExecutorService(makePool(name, size, monitoringConfig))
     }

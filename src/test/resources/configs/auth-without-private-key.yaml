@@ -1,0 +1,5 @@
+auth:
+  enabled: true
+  publicKeyOwner: drpc
+  keys:
+    external-public-key: /keys/pub.key

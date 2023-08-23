@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle
 
+import io.emeraldpay.dshackle.config.AuthorizationConfig
 import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.CompressionConfig
@@ -152,5 +153,10 @@ open class Config(
     @Bean
     open fun chainsConfig(mainConfig: MainConfig): ChainsConfig {
         return mainConfig.chains
+    }
+
+    @Bean
+    open fun authorizationConfig(mainConfig: MainConfig): AuthorizationConfig {
+        return mainConfig.authorization
     }
 }

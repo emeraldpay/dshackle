@@ -98,6 +98,8 @@ dependencies {
     implementation libs.caffeine
     implementation libs.javax.annotations
 
+    implementation libs.auth0.jwt
+
     testImplementation libs.cglib.nodep
     testImplementation libs.spockframework.core
     testImplementation libs.grpc.testing

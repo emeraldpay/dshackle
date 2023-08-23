@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle
 
+import io.emeraldpay.dshackle.auth.AuthInterceptor
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerGrpc
 import io.grpc.Codec
@@ -29,8 +30,6 @@ import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import org.springframework.stereotype.Service
@@ -46,9 +45,7 @@ open class GrpcServer(
     private val tlsSetup: TlsSetup,
     private val accessHandler: AccessHandlerGrpc,
     private val grpcServerBraveInterceptor: ServerInterceptor,
-    @Autowired(required = false)
-    @Qualifier("serverSpansInterceptor")
-    private val serverSpansInterceptor: ServerInterceptor?
+    private val authInterceptor: AuthInterceptor
 ) {
     @Value("\${spring.application.max-metadata-size}")
     private var maxMetadataSize: Int = Defaults.maxMetadataSize
@@ -87,9 +84,9 @@ open class GrpcServer(
         }
 
         serverBuilder.intercept(grpcServerBraveInterceptor)
-        serverSpansInterceptor?.let {
-            serverBuilder.intercept(it)
-            log.info("Collect spans from provider is enabled")
+        if (mainConfig.authorization.enabled) {
+            serverBuilder.intercept(authInterceptor)
+            log.info("Token authorization is turned on")
         }
 
         tlsSetup.setupServer("Native gRPC", mainConfig.tls, true)?.let {
