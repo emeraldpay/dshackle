@@ -120,6 +120,7 @@ class DefaultEthereumMethods(
             Chain.AURORA__TESTNET to createHardcodedData("\"1313161555\"", "\"0x4e454153\""),
             // Chain.CHAIN_SCROLL__MAINNET to createHardcodedData(""43114"", ""0xa86a""), doesn't exist now for L2
             Chain.SCROLL__ALPHANET to createHardcodedData("\"534353\"", "\"0x82751\""),
+            Chain.SCROLL__SEPOLIA to createHardcodedData("\"534351\"", "\"0x8274f\""),
             Chain.MANTLE__MAINNET to createHardcodedData("\"5000\"", "\"0x1388\""),
             Chain.MANTLE__TESTNET to createHardcodedData("\"5001\"", "\"0x1389\""),
             Chain.KLAYTN__MAINNET to createHardcodedData("\"8217\"", "\"0x2019\""),

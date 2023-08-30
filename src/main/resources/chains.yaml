@@ -173,6 +173,13 @@ chain-settings:
       lags:
         syncing: 10
         lagging: 5
+    - id: scroll-sepolia
+      expected-block-time: 4s
+      options:
+        validate-peers: false
+      lags:
+        syncing: 10
+        lagging: 5
     - id: mantle
       expected-block-time: 500ms
       options:

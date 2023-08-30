@@ -94,6 +94,7 @@ class Global {
             "aurora-testnet" to Chain.AURORA__TESTNET,
             // "scroll" to Chain.CHAIN_SCROLL__MAINNET,
             "scroll-alphanet" to Chain.SCROLL__ALPHANET,
+            "scroll-sepolia" to Chain.SCROLL__SEPOLIA,
             "mantle" to Chain.MANTLE__MAINNET,
             "mantle-testnet" to Chain.MANTLE__TESTNET,
             "klaytn" to Chain.KLAYTN__MAINNET,

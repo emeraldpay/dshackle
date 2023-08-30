@@ -160,6 +160,7 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - aurora
 - aurora-testnet
 - scroll-alphanet
+- scroll-sepolia
 - mantle
 - mantle-testnet
 - klaytn

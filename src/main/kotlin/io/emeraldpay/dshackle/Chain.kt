@@ -104,7 +104,8 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
     AURORA__TESTNET(10021, "AURORA_TESTNET", "Aurora Testnet"),
     SCROLL__ALPHANET(10022, "SCROLL_ALPHANET", "Scroll Alphanet"),
     MANTLE__TESTNET(10023, "MANTLE_TESTNET", "Mantle Testnet"),
-    KLAYTN__BAOBAB(10024, "KLAYTN_BAOBAB", "Klaytn Baobab");
+    KLAYTN__BAOBAB(10024, "KLAYTN_BAOBAB", "Klaytn Baobab"),
+    SCROLL__SEPOLIA(10022, "SCROLL_SEPOLIA", "Scroll Sepolia");
 
     companion object {
         fun byId(id: Int): Chain {
