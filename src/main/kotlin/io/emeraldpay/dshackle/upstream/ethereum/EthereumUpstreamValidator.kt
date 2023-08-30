@@ -186,8 +186,8 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                         TransactionCallJson(
                             Address.from(callLimitContract),
                             // calling contract with param 200_000, meaning it will generate 200k symbols or response
-                            // 30ce0 + metadata — 200_000k
-                            HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030ce0")
+                            // f4240 + metadata — ~1 million
+                            HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
                         ),
                         "latest"
                     )
@@ -199,7 +199,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 if (it.message != null && it.message!!.contains("rpc.returndata.limit")) {
                     log.warn(
                         "Error: ${it.message}. Node ${upstream.getId()} is probably incorrectly configured. " +
-                            "You need to set up your return limit to at least 200000. " +
+                            "You need to set up your return limit to at least 1_100_000. " +
                             "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369"
                     )
                     Mono.just(false)

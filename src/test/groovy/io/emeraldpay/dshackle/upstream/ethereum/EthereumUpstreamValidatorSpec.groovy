@@ -294,7 +294,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             3 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_call", [new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
-                        HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030ce0")
+                        HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
                 ), "latest"])) >> Mono.just(new JsonRpcResponse("0x00000000000000000000".getBytes(), null))
                 1 * read(new JsonRpcRequest("eth_blockNumber", [])) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
                 1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x10fd2ae", false])) >>
@@ -318,7 +318,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             3 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_call", [new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
-                        HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030ce0")
+                        HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
                 ), "latest"])) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
                 1 * read(new JsonRpcRequest("eth_blockNumber", [])) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
                 1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x10fd2ae", false])) >>
@@ -386,7 +386,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                 1 * read(new JsonRpcRequest("net_version", emptyList())) >> Mono.just(new JsonRpcResponse('"1"'.getBytes(), null))
                 1 * read(new JsonRpcRequest("eth_call", [new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
-                        HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030ce0")
+                        HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
                 ), "latest"])) >> Mono.just(new JsonRpcResponse("0x00000000000000000000".getBytes(), null))
                 1 * read(new JsonRpcRequest("eth_blockNumber", [])) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
                 1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x10fd2ae", false])) >>
@@ -410,7 +410,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                 1 * read(new JsonRpcRequest("net_version", emptyList())) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
                 1 * read(new JsonRpcRequest("eth_call", [new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
-                        HexData.from("0xd8a26e3a0000000000000000000000000000000000000000000000000000000000030ce0")
+                        HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
                 ), "latest"])) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
                 1 * read(new JsonRpcRequest("eth_blockNumber", [])) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
                 1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x10fd2ae", false])) >>
