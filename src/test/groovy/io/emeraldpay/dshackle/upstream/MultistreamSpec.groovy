@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -260,17 +261,17 @@ class MultistreamSpec extends Specification {
         ms.onUpstreamChange(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED)
         )
-        up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_UNAVAILABLE))
-        up2.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
-        up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+        up1.onStatus(status(Common.AvailabilityEnum.AVAIL_UNAVAILABLE))
+        up2.onStatus(status(Common.AvailabilityEnum.AVAIL_OK))
+        up1.onStatus(status(Common.AvailabilityEnum.AVAIL_OK))
         then:
         assert ms.getMethods().supportedMethods == Set.of("eth_test1", "eth_test2", "eth_test3")
         when:
-        up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_SYNCING))
+        up1.onStatus(status(Common.AvailabilityEnum.AVAIL_SYNCING))
         then:
         assert ms.getMethods().supportedMethods == Set.of("eth_test1", "eth_test2")
         when:
-        up1.onStatus(status(BlockchainOuterClass.AvailabilityEnum.AVAIL_OK))
+        up1.onStatus(status(Common.AvailabilityEnum.AVAIL_OK))
         then:
         assert ms.getMethods().supportedMethods == Set.of("eth_test1", "eth_test2", "eth_test3")
     }
@@ -305,7 +306,7 @@ class MultistreamSpec extends Specification {
                 .verify(Duration.ofSeconds(3))
     }
 
-    private BlockchainOuterClass.ChainStatus status(BlockchainOuterClass.AvailabilityEnum status) {
+    private BlockchainOuterClass.ChainStatus status(Common.AvailabilityEnum status) {
         return BlockchainOuterClass.ChainStatus.newBuilder()
                 .setAvailability(status)
                 .build()

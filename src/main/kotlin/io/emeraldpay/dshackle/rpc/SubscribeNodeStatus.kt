@@ -176,6 +176,6 @@ class SubscribeNodeStatus(
 
     private fun buildStatus(status: UpstreamAvailability, height: Long?): NodeStatus.Builder =
         NodeStatus.newBuilder()
-            .setAvailability(BlockchainOuterClass.AvailabilityEnum.forNumber(status.grpcId))
+            .setAvailability(Common.AvailabilityEnum.forNumber(status.grpcId))
             .setCurrentHeight(height ?: 0)
 }

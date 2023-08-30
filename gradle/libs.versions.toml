@@ -77,6 +77,8 @@ micrometer-registry-prometheus = "io.micrometer:micrometer-registry-prometheus:1
 
 mockserver-netty = "org.mock-server:mockserver-netty:5.11.2"
 
+mockito-kotlin = "org.mockito.kotlin:mockito-kotlin:5.1.0"
+
 netty-common = { module = "io.netty:netty-common", version.ref = "netty" }
 netty-transport = { module = "io.netty:netty-transport", version.ref = "netty" }
 netty-handler-core = { module = "io.netty:netty-handler", version.ref = "netty" }

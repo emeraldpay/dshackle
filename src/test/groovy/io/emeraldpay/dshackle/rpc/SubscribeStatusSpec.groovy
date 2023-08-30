@@ -47,7 +47,7 @@ class SubscribeStatusSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectNextMatches {
-                    it.chainValue == Chain.ETHEREUM__MAINNET.id && it.availability == BlockchainOuterClass.AvailabilityEnum.AVAIL_OK
+                    it.chainValue == Chain.ETHEREUM__MAINNET.id && it.availability == Common.AvailabilityEnum.AVAIL_OK
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(3))

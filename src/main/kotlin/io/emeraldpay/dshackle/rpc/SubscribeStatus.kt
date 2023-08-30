@@ -51,7 +51,7 @@ class SubscribeStatus(
 
     fun chainUnavailable(chain: Chain): BlockchainOuterClass.ChainStatus {
         return BlockchainOuterClass.ChainStatus.newBuilder()
-            .setAvailability(BlockchainOuterClass.AvailabilityEnum.AVAIL_UNAVAILABLE)
+            .setAvailability(Common.AvailabilityEnum.AVAIL_UNAVAILABLE)
             .setChain(Common.ChainRef.forNumber(chain.id))
             .setQuorum(0)
             .build()
@@ -66,7 +66,7 @@ class SubscribeStatus(
             0
         }
         return BlockchainOuterClass.ChainStatus.newBuilder()
-            .setAvailability(BlockchainOuterClass.AvailabilityEnum.forNumber(available.grpcId))
+            .setAvailability(Common.AvailabilityEnum.forNumber(available.grpcId))
             .setChain(Common.ChainRef.forNumber(chain.id))
             .setQuorum(quorum)
             .build()

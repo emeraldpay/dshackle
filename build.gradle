@@ -111,6 +111,7 @@ dependencies {
     testImplementation libs.groovy
     testImplementation libs.bundles.testcontainers
     testImplementation libs.bundles.junit
+    testImplementation libs.mockito.kotlin
 
     testImplementation(libs.spring.boot.starter.test) {
         exclude module: 'spring-boot-starter-logging'
