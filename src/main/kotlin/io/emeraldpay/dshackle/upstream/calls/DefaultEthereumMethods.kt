@@ -100,6 +100,7 @@ class DefaultEthereumMethods(
             Chain.ZKSYNC__TESTNET to createHardcodedData("\"280\"", "\"0x118\""),
 
             Chain.BSC__MAINNET to createHardcodedData("\"56\"", "\"0x38\""),
+            Chain.BSC__TESTNET to createHardcodedData("\"97\"", "\"0x61\""),
 
             Chain.BASE__MAINNET to createHardcodedData("\"8453\"", "\"0x2105\""),
             Chain.BASE__GOERLI to createHardcodedData("\"84531\"", "\"0x14a33\""),

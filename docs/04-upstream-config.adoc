@@ -137,6 +137,7 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - optimism
 - optimism-testnet
 - binance (bsc, bnb-smart-chain)
+- bsc-testnet
 - zksync
 - zksync-testnet
 - polygon-zkevm

@@ -55,6 +55,7 @@ class Global {
             "binance" to Chain.BSC__MAINNET,
             "bsc" to Chain.BSC__MAINNET,
             "bnb-smart-chain" to Chain.BSC__MAINNET,
+            "bsc-testnet" to Chain.BSC__TESTNET,
             "etc" to Chain.ETHEREUM_CLASSIC__MAINNET,
             "morden" to Chain.ETHEREUM__MORDEN,
             "kovan" to Chain.ETHEREUM__KOVAN,
