@@ -79,6 +79,7 @@ class DefaultEthereumMethods(
             Chain.ETHEREUM__KOVAN to createHardcodedData("\"42\"", "\"0x2a\""),
             Chain.ETHEREUM__GOERLI to createHardcodedData("\"5\"", "\"0x5\""),
             Chain.ETHEREUM__SEPOLIA to createHardcodedData("\"11155111\"", "\"0xaa36a7\""),
+            Chain.ETHEREUM__HOLESKY to createHardcodedData("\"17000\"", "\"0x4268\""),
 
             Chain.ETHEREUM_CLASSIC__MAINNET to createHardcodedData("\"1\"", "\"0x3d\""),
 

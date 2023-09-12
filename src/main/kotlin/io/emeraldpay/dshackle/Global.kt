@@ -70,6 +70,7 @@ class Global {
             "bitcoin-testnet" to Chain.BITCOIN__TESTNET,
             "sepolia" to Chain.ETHEREUM__SEPOLIA,
             "sepolia-testnet" to Chain.ETHEREUM__SEPOLIA,
+            "ethereum-holesky" to Chain.ETHEREUM__HOLESKY,
             "optimism-testnet" to Chain.OPTIMISM__GOERLI,
             "arbitrum-testnet" to Chain.ARBITRUM__GOERLI,
             "arbitrum-nova" to Chain.ARBITRUM_NOVA__MAINNET,

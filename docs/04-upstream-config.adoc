@@ -147,6 +147,7 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - goerli (goerli-testnet)
 - rinkeby (rinkeby-testnet)
 - ropsten (ropsten-testnet)
+- ethereum-holesky
 - bitcoin (bitcoin-testnet)
 - base
 - base-goerli
