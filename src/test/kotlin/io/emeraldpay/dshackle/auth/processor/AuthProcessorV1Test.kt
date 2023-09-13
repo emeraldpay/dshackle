@@ -22,7 +22,13 @@ import java.security.interfaces.RSAPublicKey
 import java.security.spec.X509EncodedKeySpec
 
 class AuthProcessorV1Test {
-    private val processor = AuthProcessorV1(AuthorizationConfig(true, "drpc", "", ""))
+    private val processor = AuthProcessorV1(
+        AuthorizationConfig(
+            true, "drpc",
+            AuthorizationConfig.ServerConfig.default(),
+            AuthorizationConfig.ClientConfig.default()
+        )
+    )
     private val rsaKeyReader = RsaKeyReader()
     private val privProviderPath = ResourceUtils.getFile("classpath:keys/priv.p8.key").path
     private val publicDrpcPath = ResourceUtils.getFile("classpath:keys/public-drpc.pem").path

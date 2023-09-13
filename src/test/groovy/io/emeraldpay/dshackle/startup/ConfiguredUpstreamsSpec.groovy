@@ -4,12 +4,14 @@ import brave.Tracing
 import brave.grpc.GrpcTracing
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.config.AuthorizationConfig
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.CompressionConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.dshackle.upstream.grpc.auth.GrpcAuthContext
 import org.springframework.context.ApplicationEventPublisher
 import reactor.core.scheduler.Schedulers
 import spock.lang.Specification
@@ -33,6 +35,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Schedulers.boundedElastic(),
                 null,
                 Schedulers.boundedElastic(),
+                AuthorizationConfig.default(),
+                new GrpcAuthContext()
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -65,6 +69,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Schedulers.boundedElastic(),
                 null,
                 Schedulers.boundedElastic(),
+                AuthorizationConfig.default(),
+                new GrpcAuthContext()
         )
         def methods = new UpstreamsConfig.Methods(
                 [
@@ -96,6 +102,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Schedulers.boundedElastic(),
                 null,
                 Schedulers.boundedElastic(),
+                AuthorizationConfig.default(),
+                new GrpcAuthContext()
         )
         expect:
         configurer.getHash(node, src) == expected
@@ -122,6 +130,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Schedulers.boundedElastic(),
                 null,
                 Schedulers.boundedElastic(),
+                AuthorizationConfig.default(),
+                new GrpcAuthContext()
         )
         when:
         def h1 = configurer.getHash(null, "hohoho")
@@ -153,6 +163,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Schedulers.boundedElastic(),
                 null,
                 Schedulers.boundedElastic(),
+                AuthorizationConfig.default(),
+                new GrpcAuthContext()
         )
         def methodsGroup = new UpstreamsConfig.MethodGroups(
                 ["filter"] as Set,

@@ -7,3 +7,9 @@ upstreams:
           ca: /etc/ca.myservice.com.crt
           certificate: /etc/client1.myservice.com.crt
           key: /etc/client1.myservice.com.key
+  - id: remoteTokenAuth
+    connection:
+      grpc:
+        host: "11.12.10.115"
+        token-auth:
+          public-key: /path/to/key.pem

@@ -114,6 +114,7 @@ class UpstreamsConfigReader(
                         connection.port = it
                     }
                     connection.auth = authConfigReader.readClientTls(connConfigNode)
+                    connection.tokenAuth = authConfigReader.readTokenAuth(connConfigNode)
                 } else {
                     log.error("Upstream at #0 has invalid configuration")
                 }

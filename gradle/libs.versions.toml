@@ -128,6 +128,8 @@ brave-instrumentation-grpc = "io.zipkin.brave:brave-instrumentation-grpc:5.15.0"
 
 auth0-jwt = "com.auth0:java-jwt:4.4.0"
 
+mockito-inline = "org.mockito:mockito-inline:4.0.0"
+
 [bundles]
 apache-commons = ["commons-io", "apache-commons-lang3", "apache-commons-collections4"]
 etherjar = ["etherjar-domain", "etherjar-hex", "etherjar-rpc-api", "etherjar-rpc-http", "etherjar-rpc-ws", "etherjar-tx", "etherjar-contract", "etherjar-erc20"]

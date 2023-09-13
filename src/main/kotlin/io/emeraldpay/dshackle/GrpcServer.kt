@@ -84,7 +84,7 @@ open class GrpcServer(
         }
 
         serverBuilder.intercept(grpcServerBraveInterceptor)
-        if (mainConfig.authorization.enabled) {
+        if (mainConfig.authorization.enabled && mainConfig.authorization.hasServerConfig()) {
             serverBuilder.intercept(authInterceptor)
             log.info("Token authorization is turned on")
         }

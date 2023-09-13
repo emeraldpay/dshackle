@@ -28,8 +28,8 @@ class AuthorizationConfigReaderSpec extends Specification {
         def act = AuthorizationConfig.default()
         then:
         !act.enabled
-        act.externalPublicKeyPath == ""
-        act.providerPrivateKeyPath == ""
+        act.serverConfig.externalPublicKeyPath == ""
+        act.serverConfig.providerPrivateKeyPath == ""
     }
 
     def "exceptions if no settings"() {
@@ -48,5 +48,15 @@ class AuthorizationConfigReaderSpec extends Specification {
         "configs/auth-without-key-owner.yaml"   | "Public key owner in not specified"
         "configs/auth-with-wrong-priv-key.yaml" | "There is no such file: classpath:keys/priv-wrong.p8.key"
         "configs/auth-with-wrong-pub-key.yaml"  | "There is no such file: classpath:keys/pub-wrong.key"
+        "configs/auth-without-any-config.yaml"  | "Token auth server settings are not specified"
+    }
+
+    def "client settings is correct"() {
+        setup:
+        def yamlIs = this.class.getClassLoader().getResourceAsStream("configs/auth-with-client-settings.yaml")
+        when:
+        def act = reader.read(yamlIs)
+        then:
+        act.clientConfig == new AuthorizationConfig.ClientConfig("classpath:keys/priv-wrong.p8.key")
     }
 }

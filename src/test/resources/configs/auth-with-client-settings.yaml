@@ -1,0 +1,5 @@
+auth:
+  enabled: true
+  publicKeyOwner: drpc
+  client:
+    private-key: "classpath:keys/priv-wrong.p8.key"

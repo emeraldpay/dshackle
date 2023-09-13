@@ -1,3 +1,5 @@
 auth:
   enabled: true
   publicKeyOwner: drpc
+  server:
+    nothing: true

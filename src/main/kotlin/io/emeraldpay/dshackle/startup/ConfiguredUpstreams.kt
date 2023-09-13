@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.config.AuthorizationConfig
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.CompressionConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -51,6 +52,7 @@ import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreams
+import io.emeraldpay.dshackle.upstream.grpc.auth.GrpcAuthContext
 import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -84,7 +86,9 @@ open class ConfiguredUpstreams(
     @Autowired(required = false)
     private val clientSpansInterceptor: ClientInterceptor?,
     @Qualifier("headScheduler")
-    private val headScheduler: Scheduler
+    private val headScheduler: Scheduler,
+    private val authorizationConfig: AuthorizationConfig,
+    private val grpcAuthContext: GrpcAuthContext
 ) : ApplicationRunner {
     @Value("\${spring.application.max-metadata-size}")
     private var maxMetadataSize: Int = Defaults.maxMetadataSize
@@ -351,6 +355,8 @@ open class ConfiguredUpstreams(
             endpoint.host!!,
             endpoint.port,
             endpoint.auth,
+            endpoint.tokenAuth,
+            authorizationConfig,
             compression,
             fileResolver,
             endpoint.upstreamRating,
@@ -361,7 +367,8 @@ open class ConfiguredUpstreams(
             grpcTracing,
             clientSpansInterceptor,
             maxMetadataSize,
-            headScheduler
+            headScheduler,
+            grpcAuthContext
         ).apply {
             timeout = options.timeout
         }

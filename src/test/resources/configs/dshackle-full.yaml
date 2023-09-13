@@ -14,9 +14,10 @@ tls:
 auth:
   enabled: true
   publicKeyOwner: drpc
-  keys:
-    provider-private-key: "classpath:keys/priv.p8.key"
-    external-public-key: "classpath:keys/public.pem"
+  server:
+    keys:
+      provider-private-key: "classpath:keys/priv.p8.key"
+      external-public-key: "classpath:keys/public.pem"
 
 cache:
   redis:

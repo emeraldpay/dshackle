@@ -22,22 +22,30 @@ import io.emeraldpay.api.proto.BlockchainOuterClass.DescribeResponse
 import io.emeraldpay.api.proto.BlockchainOuterClass.StatusRequest
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.Common.ChainRef.UNRECOGNIZED
+import io.emeraldpay.api.proto.ReactorAuthGrpc
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.AuthConfig
+import io.emeraldpay.dshackle.config.AuthorizationConfig
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.grpc.auth.AuthException
+import io.emeraldpay.dshackle.upstream.grpc.auth.ClientAuthenticationInterceptor
+import io.emeraldpay.dshackle.upstream.grpc.auth.GrpcAuthContext
+import io.emeraldpay.dshackle.upstream.grpc.auth.GrpcUpstreamsAuth
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.grpc.ClientInterceptor
 import io.grpc.Codec
+import io.grpc.Status
+import io.grpc.StatusRuntimeException
 import io.grpc.netty.NettyChannelBuilder
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
@@ -52,6 +60,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 import java.io.IOException
 import java.time.Duration
@@ -66,6 +75,8 @@ class GrpcUpstreams(
     private val host: String,
     private val port: Int,
     private val auth: AuthConfig.ClientTlsAuth? = null,
+    private val tokenAuth: AuthConfig.ClientTokenAuth? = null,
+    private val authorizationConfig: AuthorizationConfig,
     private val compression: Boolean,
     private val fileResolver: FileResolver,
     private val nodeRating: Int,
@@ -76,7 +87,8 @@ class GrpcUpstreams(
     private val grpcTracing: GrpcTracing,
     private val clientSpansInterceptor: ClientInterceptor?,
     private var maxMetadataSize: Int,
-    private val headScheduler: Scheduler
+    private val headScheduler: Scheduler,
+    private val grpcAuthContext: GrpcAuthContext
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -92,7 +104,10 @@ class GrpcUpstreams(
             .maxInboundMessageSize(Defaults.maxMessageSize)
             .maxInboundMetadataSize(maxMetadataSize)
             .enableRetry()
-            .intercept(grpcTracing.newClientInterceptor())
+            .intercept(
+                grpcTracing.newClientInterceptor(),
+                ClientAuthenticationInterceptor(id, grpcAuthContext),
+            )
             .executor(grpcExecutor)
             .maxRetryAttempts(3)
         clientSpansInterceptor?.let {
@@ -108,17 +123,28 @@ class GrpcUpstreams(
             chanelBuilder.usePlaintext()
         }
 
-        var client = ReactorBlockchainGrpc.newReactorStub(chanelBuilder.build())
+        val channel = chanelBuilder.build()
+        var client = ReactorBlockchainGrpc.newReactorStub(channel)
         if (compression) {
             client = client.withCompression(Codec.Gzip().messageEncoding)
         }
         this.client = client
 
+        val grpcUpstreamsAuth =
+            if (tokenAuth != null && authorizationConfig.enabled) {
+                GrpcUpstreamsAuth(
+                    ReactorAuthGrpc.newReactorStub(channel),
+                    authorizationConfig,
+                    grpcAuthContext,
+                    tokenAuth.publicKeyPath!!
+                )
+            } else null
+
         val statusSubscriptions = mutableMapOf<Chain, Disposable>()
 
         return Flux.interval(Duration.ZERO, Duration.ofSeconds(20))
             .flatMap {
-                client.describe(DescribeRequest.newBuilder().build())
+                authAndDescribe(grpcUpstreamsAuth)
             }.onErrorContinue { t, _ ->
                 if (ExceptionUtils.indexOfType(t, IOException::class.java) >= 0) {
                     log.warn("gRPC upstream $host:$port is unavailable. (${t.javaClass}: ${t.message})")
@@ -133,7 +159,7 @@ class GrpcUpstreams(
             }.doOnNext {
                 val sub = statusSubscriptions[it.chain]
                 if (sub == null || sub.isDisposed) {
-                    val subscription = client.subscribeStatus(
+                    val subscription = this.client.subscribeStatus(
                         StatusRequest.newBuilder()
                             .addChains(Common.ChainRef.forNumber(it.chain.id)).build()
                     ).subscribeOn(chainStatusScheduler)
@@ -293,4 +319,43 @@ class GrpcUpstreams(
             }
         }
     }
+
+    private fun authAndDescribe(grpcUpstreamsAuth: GrpcUpstreamsAuth?): Mono<DescribeResponse> {
+        return Mono.justOrEmpty(grpcUpstreamsAuth)
+            .flatMap {
+                if (grpcAuthContext.containsToken(id)) {
+                    Mono.empty()
+                } else {
+                    auth(it)
+                }
+            }
+            .then(
+                describe()
+                    .onErrorResume {
+                        if (it is StatusRuntimeException && it.status.code == Status.Code.UNAUTHENTICATED) {
+                            grpcAuthContext.removeToken(id)
+                            auth(grpcUpstreamsAuth).then(describe())
+                        } else {
+                            Mono.error(it)
+                        }
+                    }
+            )
+    }
+
+    private fun auth(grpcUpstreamsAuth: GrpcUpstreamsAuth?): Mono<Void> {
+        if (grpcUpstreamsAuth == null) {
+            return Mono.empty()
+        }
+        return grpcUpstreamsAuth.auth(id)
+            .flatMap { authRes ->
+                if (!authRes.passed) {
+                    log.warn(authRes.cause)
+                    Mono.error<AuthException>(AuthException(authRes.cause!!))
+                } else {
+                    Mono.empty()
+                }
+            }.then()
+    }
+
+    private fun describe() = this.client.describe(DescribeRequest.newBuilder().build())
 }

@@ -91,22 +91,29 @@ class MainConfigReaderSpec extends Specification {
                 chains == ["ethereum"]
                 options.minPeers == 3
             }
-            upstreams.size() == 3
+            upstreams.size() == 4
             with(upstreams[0]) {
                 id == "remote"
             }
             with(upstreams[1]) {
-                id == "local"
+                id == "remoteTokenAuth"
+                connection instanceof UpstreamsConfig.GrpcConnection
+                with(connection as UpstreamsConfig.GrpcConnection) {
+                    it.tokenAuth.publicKeyPath == "/path/to/key.pem"
+                }
             }
             with(upstreams[2]) {
+                id == "local"
+            }
+            with(upstreams[3]) {
                 id == "infura"
             }
         }
         act.authorization != null
         with(act.authorization) {
             enabled
-            providerPrivateKeyPath == "classpath:keys/priv.p8.key"
-            externalPublicKeyPath == "classpath:keys/public.pem"
+            serverConfig.providerPrivateKeyPath == "classpath:keys/priv.p8.key"
+            serverConfig.externalPublicKeyPath == "classpath:keys/public.pem"
         }
     }
 }

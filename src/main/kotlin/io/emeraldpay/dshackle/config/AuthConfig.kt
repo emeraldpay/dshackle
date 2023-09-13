@@ -39,6 +39,10 @@ class AuthConfig {
         var key: String? = null
     ) : ClientAuth()
 
+    class ClientTokenAuth(
+        var publicKeyPath: String? = null
+    )
+
     /**
      * Example config:
      * ```

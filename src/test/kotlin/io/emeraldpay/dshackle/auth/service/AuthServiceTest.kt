@@ -42,7 +42,14 @@ class AuthServiceTest {
         val tokenWrapper = AuthContext.TokenWrapper(
             "token", Instant.now(), "sessionId"
         )
-        val authService = AuthService(AuthorizationConfig(true, "drpc", "privPath", "pubPath"), rsaKeyReader, factory)
+        val authService = AuthService(
+            AuthorizationConfig(
+                true, "drpc",
+                AuthorizationConfig.ServerConfig("privPath", "pubPath"),
+                AuthorizationConfig.ClientConfig.default()
+            ),
+            rsaKeyReader, factory
+        )
         val pair = KeyReader.Keys(mock(PrivateKey::class.java), mock(PublicKey::class.java))
 
         `when`(rsaKeyReader.getKeyPair("privPath", "pubPath"))
@@ -64,7 +71,14 @@ class AuthServiceTest {
             "token", Instant.now(), "sessionIdNext"
         )
         val pair = KeyReader.Keys(mock(PrivateKey::class.java), mock(PublicKey::class.java))
-        val authService = AuthService(AuthorizationConfig(true, "drpc", "privPath", "pubPath"), rsaKeyReader, factory)
+        val authService = AuthService(
+            AuthorizationConfig(
+                true, "drpc",
+                AuthorizationConfig.ServerConfig("privPath", "pubPath"),
+                AuthorizationConfig.ClientConfig.default()
+            ),
+            rsaKeyReader, factory
+        )
 
         `when`(rsaKeyReader.getKeyPair("privPath", "pubPath")).thenReturn(pair)
         `when`(mockV1Processor.process(pair, token))

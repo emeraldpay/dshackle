@@ -150,6 +150,7 @@ open class UpstreamsConfig {
         var host: String? = null
         var port: Int = 0
         var auth: AuthConfig.ClientTlsAuth? = null
+        var tokenAuth: AuthConfig.ClientTokenAuth? = null
         var upstreamRating: Int = 0
     }
 

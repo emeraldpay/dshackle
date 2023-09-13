@@ -49,6 +49,14 @@ class AuthConfigReader : YamlConfigReader<AuthConfig>() {
         }
     }
 
+    fun readTokenAuth(node: MappingNode?): AuthConfig.ClientTokenAuth? {
+        return getMapping(node, "token-auth")?.let {
+            val auth = AuthConfig.ClientTokenAuth()
+            auth.publicKeyPath = getValueAsString(it, "public-key")
+            auth
+        }
+    }
+
     /**
      * Example config:
      * ```

@@ -27,20 +27,38 @@ class AuthorizationConfigReader : YamlConfigReader<AuthorizationConfig>() {
         val publicKeyOwner = getValueAsString(auth, "publicKeyOwner")
             ?: throw IllegalStateException("Public key owner in not specified")
 
-        val keyPair = getMapping(auth, "keys") ?: throw IllegalStateException("Auth keys is not specified")
-        val privateKey = getValueAsString(keyPair, "provider-private-key")
-            ?: throw IllegalStateException("Private key in not specified")
-        val publicKey = getValueAsString(keyPair, "external-public-key")
-            ?: throw IllegalStateException("External key in not specified")
+        val authServer = getMapping(auth, "server")
+            ?.run {
+                val keyPair = getMapping(this, "keys")
+                    ?: throw IllegalStateException("Auth keys is not specified")
+                val privateKey = getValueAsString(keyPair, "provider-private-key")
+                    ?: throw IllegalStateException("Private key in not specified")
+                val publicKey = getValueAsString(keyPair, "external-public-key")
+                    ?: throw IllegalStateException("External key in not specified")
 
-        if (fileNotExists(privateKey)) {
-            throw IllegalStateException("There is no such file: $privateKey")
-        }
-        if (fileNotExists(publicKey)) {
-            throw IllegalStateException("There is no such file: $publicKey")
+                if (fileNotExists(privateKey)) {
+                    throw IllegalStateException("There is no such file: $privateKey")
+                }
+                if (fileNotExists(publicKey)) {
+                    throw IllegalStateException("There is no such file: $publicKey")
+                }
+                AuthorizationConfig.ServerConfig(privateKey, publicKey)
+            }
+
+        val authClient = getMapping(auth, "client")
+            ?.run {
+                AuthorizationConfig.ClientConfig(getValueAsString(this, "private-key")!!)
+            }
+
+        if (authClient == null && authServer == null) {
+            throw IllegalStateException("Token auth server settings are not specified")
         }
 
-        return AuthorizationConfig(enabled, publicKeyOwner, privateKey, publicKey)
+        return AuthorizationConfig(
+            enabled, publicKeyOwner,
+            authServer ?: AuthorizationConfig.ServerConfig.default(),
+            authClient ?: AuthorizationConfig.ClientConfig.default()
+        )
     }
 
     private fun fileNotExists(path: String): Boolean {
