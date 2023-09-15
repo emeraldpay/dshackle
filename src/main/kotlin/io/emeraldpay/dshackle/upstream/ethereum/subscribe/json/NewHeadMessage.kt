@@ -41,9 +41,11 @@ data class NewHeadMessage(
     @get:JsonSerialize(using = TimestampSerializer::class)
     val timestamp: Instant,
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
-    val difficulty: BigInteger,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val difficulty: BigInteger?,
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
-    val gasLimit: Long,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
+    val gasLimit: Long?,
     @get:JsonSerialize(using = NumberAsHexSerializer::class)
     val gasUsed: Long,
     @get:JsonSerialize(using = HexDataSerializer::class)
