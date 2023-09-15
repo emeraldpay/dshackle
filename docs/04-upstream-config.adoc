@@ -167,6 +167,11 @@ Currently, dshackle supports next chains (should be used as chain names in confi
 - mantle-testnet
 - klaytn
 - klaytn-baobab
+- celo
+- celo-alfajores
+- moonbeam
+- moonriver
+- moonbase-alpha
 
 === Roles and Fallback upstream
 

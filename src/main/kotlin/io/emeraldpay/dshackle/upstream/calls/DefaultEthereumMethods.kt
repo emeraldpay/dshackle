@@ -127,6 +127,13 @@ class DefaultEthereumMethods(
             Chain.MANTLE__TESTNET to createHardcodedData("\"5001\"", "\"0x1389\""),
             Chain.KLAYTN__MAINNET to createHardcodedData("\"8217\"", "\"0x2019\""),
             Chain.KLAYTN__BAOBAB to createHardcodedData("\"1001\"", "\"0x3e9\""),
+
+            Chain.MOONBEAM__MAINNET to createHardcodedData("\"1284\"", "\"0x504\""),
+            Chain.MOONBEAM__MOONRIVER to createHardcodedData("\"1285\"", "\"0x505\""),
+            Chain.MOONBEAM__ALPHA to createHardcodedData("\"1287\"", "\"0x507\""),
+
+            Chain.CELO__MAINNET to createHardcodedData("\"42220\"", "\"0xa4ec\""),
+            Chain.CELO__ALFAJORES to createHardcodedData("\"44787\"", "\"0xaef3\""),
         )
 
         fun getChainByData(data: HardcodedData) = CHAIN_DATA.entries.find { it.value == data }?.key

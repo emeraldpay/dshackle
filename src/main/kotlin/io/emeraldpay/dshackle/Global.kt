@@ -101,6 +101,11 @@ class Global {
             "mantle-testnet" to Chain.MANTLE__TESTNET,
             "klaytn" to Chain.KLAYTN__MAINNET,
             "klaytn-baobab" to Chain.KLAYTN__BAOBAB,
+            "celo" to Chain.CELO__MAINNET,
+            "celo-alfajores" to Chain.CELO__ALFAJORES,
+            "moonriver" to Chain.MOONBEAM__MOONRIVER,
+            "moonbeam" to Chain.MOONBEAM__MAINNET,
+            "moonbase-alpha" to Chain.MOONBEAM__ALPHA
         )
 
         fun chainById(id: String?): Chain {

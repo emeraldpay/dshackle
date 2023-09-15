@@ -56,6 +56,9 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
     // SCROLL__MAINNET(1016, "SCROLL", "Scroll"),
     MANTLE__MAINNET(1017, "MANTLE", "Mantle"),
     KLAYTN__MAINNET(1018, "KLAYTN", "Klaytn"),
+    CELO__MAINNET(1019, "CELO_MAINNET", "Celo"),
+    MOONBEAM__MAINNET(1020, "MOONBEAM_MAINNET", "Moonbeam"),
+    MOONBEAM__MOONRIVER(1021, "MOONBASE_MOONRIVER", "Moonriver"),
 
     // Testnets
     ETHEREUM__MORDEN(10001, "MORDEN", "Morden Testnet"),
@@ -107,8 +110,9 @@ enum class Chain(val id: Int, val chainCode: String, val chainName: String) {
     KLAYTN__BAOBAB(10024, "KLAYTN_BAOBAB", "Klaytn Baobab"),
     SCROLL__SEPOLIA(10025, "SCROLL_SEPOLIA", "Scroll Sepolia"),
     BSC__TESTNET(10026, "BSC_TESTNET", "Binance Smart Chain Testnet"),
-    ETHEREUM__HOLESKY(10027, "ETHEREUM_HOLESKY", "Ethereum Holesky");
-
+    ETHEREUM__HOLESKY(10027, "ETHEREUM_HOLESKY", "Ethereum Holesky"),
+    CELO__ALFAJORES(10028, "CELO_ALFAJORES", "Celo Alfajores"),
+    MOONBEAM__ALPHA(10029, "MOONBEAM_ALPHA", "Moonbase Alpha");
     companion object {
         fun byId(id: Int): Chain {
             for (chain in values()) {
