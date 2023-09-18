@@ -9,7 +9,7 @@ reactive-grpc = "1.2.0"
 spring-boot = "2.6.15"
 spring-security = "5.5.3"
 reactor = "3.4.32"
-netty = "4.1.96.Final"
+netty = "4.1.97.Final"
 netty-tcnative = "2.0.61.Final"
 kotlin = "1.7.20"
 httpcomponents = "4.5.8"
@@ -91,7 +91,7 @@ netty-codec-http2 = { module = "io.netty:netty-codec-http2", version.ref = "nett
 netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }
 netty-tcnative-core = { module = "io.netty:netty-tcnative", version.ref = "netty-tcnative" }
 netty-tcnative-boringssl = { module = "io.netty:netty-tcnative-boringssl-static", version.ref = "netty-tcnative"}
-netty-macos = "io.netty:netty-resolver-dns-native-macos:4.1.96.Final"
+netty-macos =  { module = "io.netty:netty-resolver-dns-native-macos", version.ref = "netty" }
 
 zeromq = "org.zeromq:jeromq:0.5.2"
 
