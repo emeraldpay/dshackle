@@ -14,6 +14,7 @@ import org.springframework.cloud.sleuth.Tracer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import reactor.core.scheduler.Scheduler
+import java.util.concurrent.CopyOnWriteArrayList
 
 @Configuration
 open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) {
@@ -46,7 +47,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
 
         return EthereumMultistream(
             chain,
-            ArrayList(),
+            CopyOnWriteArrayList(),
             cachesFactory.getCaches(chain),
             headScheduler,
             tracer
@@ -63,7 +64,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
 
         return EthereumPosMultiStream(
             chain,
-            ArrayList(),
+            CopyOnWriteArrayList(),
             cachesFactory.getCaches(chain),
             headScheduler,
             tracer

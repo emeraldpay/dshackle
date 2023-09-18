@@ -219,11 +219,13 @@ abstract class Multistream(
                     }
                 }
             }
-            lagObserver?.stop()
-            lagObserver = null
             when {
-                upstreams.size == 1 -> upstreams[0].setLag(0)
-                upstreams.size > 1 -> lagObserver = makeLagObserver()
+                upstreams.size == 1 -> {
+                    lagObserver?.stop()
+                    lagObserver = null
+                    upstreams[0].setLag(0)
+                }
+                upstreams.size > 1 -> if (lagObserver == null) lagObserver = makeLagObserver()
             }
         }
     }
@@ -387,6 +389,7 @@ abstract class Multistream(
         val chain = event.chain
         if (this.chain == chain) {
             eventLock.withLock {
+                log.debug("Processing event $event")
                 when (event.type) {
                     UpstreamChangeEvent.ChangeType.REVALIDATED -> {}
                     UpstreamChangeEvent.ChangeType.UPDATED -> {

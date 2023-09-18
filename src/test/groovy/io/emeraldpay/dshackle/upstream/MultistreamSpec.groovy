@@ -306,6 +306,29 @@ class MultistreamSpec extends Specification {
                 .verify(Duration.ofSeconds(3))
     }
 
+    def "After removing upstreams lag observer is stopped"() {
+        setup:
+        def up1 = TestingCommons.upstream("test-1", "internal")
+        def up2 = TestingCommons.upstream("test-2", "external")
+        def up3 = TestingCommons.upstream("test-3", "external")
+        def multistream = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
+        def observer = multistream.lagObserver
+        multistream.onUpstreamsUpdated()
+
+        expect:
+        multistream.getAll().size() == 3
+        observer.isRunning()
+
+        multistream.getAll().with {
+            remove(0)
+            remove(1)
+        }
+        multistream.getAll().size() == 1
+        multistream.onUpstreamsUpdated()
+        !observer.isRunning()
+        multistream.lagObserver == null
+    }
+
     private BlockchainOuterClass.ChainStatus status(Common.AvailabilityEnum status) {
         return BlockchainOuterClass.ChainStatus.newBuilder()
                 .setAvailability(status)

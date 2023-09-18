@@ -89,11 +89,9 @@ abstract class DefaultUpstream(
     }
 
     private fun statusByLag(lag: Long?, proposed: UpstreamAvailability): UpstreamAvailability {
-        if (lag == null) {
-            return UpstreamAvailability.UNAVAILABLE
-        }
         return if (proposed == UpstreamAvailability.OK) {
             when {
+                lag == null -> proposed
                 lag > chainConfig.syncingLagSize -> UpstreamAvailability.SYNCING
                 lag > chainConfig.laggingLagSize -> UpstreamAvailability.LAGGING
                 else -> proposed

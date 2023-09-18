@@ -107,7 +107,7 @@ open class EthereumPosMultiStream(
     }
 
     override fun makeLagObserver(): HeadLagObserver =
-        EthereumPosHeadLagObserver(head, ArrayList(upstreams), headScheduler).apply {
+        EthereumPosHeadLagObserver(head, upstreams, headScheduler).apply {
             start()
         }
 

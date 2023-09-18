@@ -245,7 +245,10 @@ open class ConfiguredUpstreams(
             eventPublisher
         )
         upstream.start()
-        if (!upstream.isRunning) return null
+        if (!upstream.isRunning) {
+            log.debug("Upstream ${upstream.getId()} is not running, it can't be added")
+            return null
+        }
         return upstream
     }
 

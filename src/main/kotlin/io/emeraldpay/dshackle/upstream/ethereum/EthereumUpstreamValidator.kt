@@ -64,7 +64,10 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
         )
             .map(::resolve)
             .defaultIfEmpty(UpstreamAvailability.UNAVAILABLE)
-            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
+            .onErrorResume {
+                log.error("Error during upstream validation for ${upstream.getId()}", it)
+                Mono.just(UpstreamAvailability.UNAVAILABLE)
+            }
     }
 
     fun resolve(results: Tuple2<UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability {
@@ -131,6 +134,9 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
         ).subscribeOn(scheduler)
             .flatMap {
                 validate()
+            }
+            .doOnNext {
+                log.debug("Status after validation is $it for ${upstream.getId()}")
             }
     }
 
