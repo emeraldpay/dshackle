@@ -19,9 +19,7 @@ package io.emeraldpay.dshackle.rpc
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
-import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -48,28 +46,21 @@ class Describe(
                         .addAllSupportedSubscriptions(chainUpstreams.getEgressSubscription().getAvailableTopics())
                         .setStatus(status)
                         .setCurrentHeight(chainUpstreams.getHead().getCurrentHeight() ?: 0)
-                    chainUpstreams.getAll().let { ups ->
-                        ups.forEach { up ->
-                            val nodes = QuorumForLabels()
-                            if (up is DefaultUpstream) {
-                                nodes.add(up.getQuorumByLabel())
-                            }
-                            nodes.getAll().forEach { node ->
-                                val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()
-                                    .setQuorum(node.quorum)
-                                    .addAllLabels(
-                                        node.labels.entries.map { label ->
-                                            BlockchainOuterClass.Label.newBuilder()
-                                                .setName(label.key)
-                                                .setValue(label.value)
-                                                .build()
-                                        }
-                                    )
-                                chainDescription.addNodes(nodeDetails)
-                            }
-                            capabilities.addAll(up.getCapabilities())
+                    chainUpstreams.getQuorumLabels()
+                        .forEach { node ->
+                            val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()
+                                .setQuorum(node.quorum)
+                                .addAllLabels(
+                                    node.labels.entries.map { label ->
+                                        BlockchainOuterClass.Label.newBuilder()
+                                            .setName(label.key)
+                                            .setValue(label.value)
+                                            .build()
+                                    }
+                                )
+                            chainDescription.addNodes(nodeDetails)
                         }
-                    }
+                    capabilities.addAll(chainUpstreams.getCapabilities())
                     chainDescription.addAllCapabilities(
                         capabilities.map {
                             when (it) {

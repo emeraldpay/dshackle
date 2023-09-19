@@ -81,7 +81,7 @@ class GrpcUpstreamStatusSpec extends Specification {
         )
         act = status.getLabels()
         then:
-        !result
+        result
         act.toList() == [
                 UpstreamsConfig.Labels.fromMap([test1: "bar", test2: "baz"])
         ]
@@ -125,7 +125,7 @@ class GrpcUpstreamStatusSpec extends Specification {
         )
         act = status.getLabels()
         then:
-        !result
+        result
         act.toList() == [
                 UpstreamsConfig.Labels.fromMap([test: "bar", fix: "value"])
         ]

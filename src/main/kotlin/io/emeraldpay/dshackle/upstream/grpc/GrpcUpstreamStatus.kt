@@ -54,10 +54,11 @@ class GrpcUpstreamStatus(
         }
 
         this.nodes.set(updateNodes)
+        val labelsChanged = updateLabels != this.allLabels.get().toList()
         this.allLabels.set(Collections.unmodifiableCollection(updateLabels))
         val changed = conf.supportedMethodsList.toSet() != this.targets?.getSupportedMethods()
         this.targets = DirectCallMethods(conf.supportedMethodsList.toSet())
-        return changed
+        return changed || labelsChanged
     }
 
     fun getLabels(): Collection<UpstreamsConfig.Labels> {

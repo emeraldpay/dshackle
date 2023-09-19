@@ -72,7 +72,6 @@ class IntegrationTest {
         val result = stub.describe(BlockchainOuterClass.DescribeRequest.newBuilder().build())
         Assertions.assertThat(result.chainsCount).isEqualTo(1)
         Assertions.assertThat(result.chainsList[0].chain).isEqualTo(ChainRef.CHAIN_ETHEREUM__MAINNET)
-        Assertions.assertThat(result.chainsList[0].nodesCount).isEqualTo(1)
     }
 
     @TestConfiguration

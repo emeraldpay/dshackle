@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -63,6 +64,7 @@ abstract class Multistream(
     private var cacheSubscription: Disposable? = null
     private val reconfigLock = ReentrantLock()
     private val eventLock = ReentrantLock()
+    @Volatile
     private var callMethods: CallMethods? = null
     private var callMethodsFactory: Factory<CallMethods> = Factory {
         return@Factory callMethods ?: throw FunctorException("Not initialized yet")
@@ -70,7 +72,10 @@ abstract class Multistream(
     private var seq = 0
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
+    @Volatile
     private var capabilities: Set<Capability> = emptySet()
+    @Volatile
+    private var quorumLabels: List<QuorumForLabels.QuorumItem>? = null
     private val removed: MutableMap<String, Upstream> = HashMap()
     private val meters: MutableMap<String, List<Meter.Id>> = HashMap()
     private val addedUpstreams = Sinks.many()
@@ -203,13 +208,14 @@ abstract class Multistream(
     open fun onUpstreamsUpdated() {
         reconfigLock.withLock {
             val upstreams = getAll()
-            upstreams.filter { it.isAvailable() }.map { it.getMethods() }.let {
+            val availableUpstreams = upstreams.filter { it.isAvailable() }
+            availableUpstreams.map { it.getMethods() }.let {
                 callMethods = AggregatedCallMethods(it)
             }
             capabilities = if (upstreams.isEmpty()) {
                 emptySet()
             } else {
-                upstreams.filter { it.isAvailable() }.map { up ->
+                availableUpstreams.map { up ->
                     up.getCapabilities()
                 }.let {
                     if (it.isNotEmpty()) {
@@ -219,6 +225,7 @@ abstract class Multistream(
                     }
                 }
             }
+            quorumLabels = getQuorumLabels(availableUpstreams)
             when {
                 upstreams.size == 1 -> {
                     lagObserver?.stop()
@@ -229,6 +236,18 @@ abstract class Multistream(
             }
         }
     }
+
+    private fun getQuorumLabels(ups: List<Upstream>): List<QuorumForLabels.QuorumItem> {
+        val nodes = QuorumForLabels()
+        ups.forEach { up ->
+            if (up is DefaultUpstream) {
+                nodes.add(up.getQuorumByLabel())
+            }
+        }
+        return nodes.getAll()
+    }
+
+    fun getQuorumLabels(): List<QuorumForLabels.QuorumItem> = quorumLabels ?: emptyList()
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
         val upstreamsFluxes = getAll().map { up ->
@@ -457,9 +476,4 @@ abstract class Multistream(
             return map.values.min()
         }
     }
-
-    data class UpstreamChangeState(
-        val upId: String,
-        val status: UpstreamAvailability
-    )
 }
