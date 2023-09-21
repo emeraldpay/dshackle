@@ -35,6 +35,8 @@ fun main(args: Array<String>) {
 
     Schedulers.enableMetrics()
 
+    HeapDumpCreator.init()
+
     val maxMemory: Long = Runtime.getRuntime().maxMemory() / (1024 * 1024).toLong()
     log.info("Max heap size: {} MB", maxMemory)
 
