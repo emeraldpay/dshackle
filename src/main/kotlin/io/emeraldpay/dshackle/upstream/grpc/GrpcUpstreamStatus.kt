@@ -53,6 +53,10 @@ class GrpcUpstreamStatus(
             updateLabels.add(labels)
         }
 
+        if (updateLabels.isEmpty()) {
+            overrideLabels?.let { updateLabels.add(it) }
+        }
+
         this.nodes.set(updateNodes)
         val labelsChanged = updateLabels != this.allLabels.get().toList()
         this.allLabels.set(Collections.unmodifiableCollection(updateLabels))
