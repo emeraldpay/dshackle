@@ -69,6 +69,7 @@ abstract class Multistream(
     private var callMethodsFactory: Factory<CallMethods> = Factory {
         return@Factory callMethods ?: throw FunctorException("Not initialized yet")
     }
+    private var stopSignal = Sinks.many().multicast().directBestEffort<Boolean>()
     private var seq = 0
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
@@ -256,9 +257,11 @@ abstract class Multistream(
                 up.observeStatus()
             ).map { UpstreamStatus(up, it) }
         }
-        return Flux.merge(upstreamsFluxes)
-            .map(FilterBestAvailability())
-            .distinct()
+        val onShutdown = stopSignal.asFlux().map { UpstreamAvailability.UNAVAILABLE }
+        return Flux.merge(
+            Flux.merge(upstreamsFluxes).map(FilterBestAvailability()).takeUntilOther(stopSignal.asFlux()),
+            onShutdown
+        ).distinct()
     }
 
     override fun isAvailable(): Boolean {
@@ -330,6 +333,7 @@ abstract class Multistream(
             }
         }
         lagObserver?.stop()
+        stopSignal.tryEmitNext(true)
         started = false
     }
 
