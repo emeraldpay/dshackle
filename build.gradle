@@ -1,5 +1,3 @@
-import io.gitlab.arturbosch.detekt.Detekt
-
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -27,7 +25,6 @@ plugins {
     alias(libs.plugins.git)
     alias(libs.plugins.protobuf)
     alias(libs.plugins.ktlint)
-    alias(libs.plugins.detekt)
 }
 
 
@@ -36,8 +33,8 @@ group = 'io.emeraldpay.dshackle'
 version = getVersion()
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_20
+    targetCompatibility = JavaVersion.VERSION_20
 }
 
 repositories {
@@ -119,8 +116,6 @@ dependencies {
     }
     testImplementation libs.grpc.testing
 
-    detektPlugins libs.detekt.formatting
-
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-aarch_64") })
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("linux-x86_64") })
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-x86_64") })
@@ -128,12 +123,12 @@ dependencies {
 
 compileKotlin {
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "20"
     }
 }
 compileTestKotlin {
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "20"
     }
 }
 
@@ -166,7 +161,7 @@ application {
 
 jib {
     from {
-        image = 'openjdk:17'
+        image = 'openjdk:20'
     }
     to {
         // by default publish as:
@@ -301,23 +296,7 @@ jacocoTestReport {
     }
 }
 jacoco {
-    toolVersion = "0.8.7"
-}
-
-detekt {
-    toolVersion = "1.22.0"
-    parallel = false
-    basePath = projectDir
-    debug = false
-    ignoreFailures = true
-}
-
-tasks.withType(Detekt).configureEach {
-    reports {
-        xml.outputLocation.set(file("build/reports/detekt/detekt.xml"))
-        html.outputLocation.set(file("build/reports/detekt/detekt.html"))
-    }
-    jvmTarget = "17"
+    toolVersion = "0.8.9"
 }
 
 static def getVersion() {

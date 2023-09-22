@@ -1,7 +1,7 @@
 [versions]
-detekt = "1.22.0"
+detekt = "1.23.1"
 etherjar = "0.11.1"
-groovy = "3.0.9"
+groovy = "4.0.15"
 protoc = "3.21.7"
 jackson = "2.11.0"
 grpc = "1.57.0"
@@ -11,7 +11,7 @@ spring-security = "5.5.3"
 reactor = "3.4.32"
 netty = "4.1.97.Final"
 netty-tcnative = "2.0.61.Final"
-kotlin = "1.7.20"
+kotlin = "1.9.10"
 httpcomponents = "4.5.8"
 
 [libraries]
@@ -46,7 +46,7 @@ etherjar-tx = { module = "io.emeraldpay.etherjar:etherjar-tx", version.ref = "et
 etherjar-contract = { module = "io.emeraldpay.etherjar:etherjar-contract", version.ref = "etherjar" }
 etherjar-erc20 = { module = "io.emeraldpay.etherjar:etherjar-erc20", version.ref = "etherjar" }
 
-groovy = { module = "org.codehaus.groovy:groovy", version.ref = "groovy" }
+groovy = { module = "org.apache.groovy:groovy", version.ref = "groovy" }
 
 grpc-proto-util = { module = "com.google.protobuf:protobuf-java-util", version.ref = "protoc" }
 grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
@@ -107,7 +107,7 @@ reactor-grpc-stub = "com.salesforce.servicelibs:reactor-grpc-stub:1.2.0"
 
 snake-yaml = "org.yaml:snakeyaml:1.24"
 
-spockframework-core = "org.spockframework:spock-core:2.0-groovy-3.0"
+spockframework-core = "org.spockframework:spock-core:2.3-groovy-4.0"
 
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "spring-boot" }
 spring-security-core = { module = "org.springframework.security:spring-security-core", version.ref = "spring-security" }
