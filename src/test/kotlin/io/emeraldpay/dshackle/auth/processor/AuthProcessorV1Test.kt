@@ -17,9 +17,13 @@ import java.io.StringReader
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.security.KeyFactory
+import java.security.PrivateKey
 import java.security.PublicKey
+import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
+import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
+import java.time.Instant
 
 class AuthProcessorV1Test {
     private val processor = AuthProcessorV1(
@@ -31,12 +35,13 @@ class AuthProcessorV1Test {
     )
     private val rsaKeyReader = RsaKeyReader()
     private val privProviderPath = ResourceUtils.getFile("classpath:keys/priv.p8.key").path
+    private val privDrpcPath = ResourceUtils.getFile("classpath:keys/priv-drpc.p8.key").path
     private val publicDrpcPath = ResourceUtils.getFile("classpath:keys/public-drpc.pem").path
-    private val token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkcnBjIiwiaWF0IjoxNjkyMTg1OTMxLCJ2ZXJzaW9uI" +
-        "joiVjEifQ.BZILN0GQ7JzXGFz-GZIbFTT9E5L-miB4Nga0v4o_cQThk8gbDelBRzEfdsqxCq_ppPr3v_Own8M-vR9yQElx5nEdlI4xe5QAMdIvr3g" +
-        "12fMckydX9IsW4sVQ1kJJY8RrHb-WL-uI0WSWqoMSwf-Psb-UyiEHAjc3oK7fA72lBaGT4waPHOxRBPvezwg7N934vCZvZMAftFfVgmeEtbCeD7bF" +
-        "umEr0uEmkIKPTg4QwP-VMvqoLBYpMiJVzP_Ipg_wRHJ7fUN0BGEPjjMvhQ_6TWByiQUBz1kTMd0Ebf_kEuXFQeiwA-FXHJpWczzh66CbbmmWAWsi" +
-        "ehKw3KPZeBj0oQ"
+    private val token = JWT.create()
+        .withIssuedAt(Instant.now())
+        .withIssuer("drpc")
+        .withClaim(VERSION, AuthVersion.V1.toString())
+        .sign(Algorithm.RSA256(generatePrivateKey(privDrpcPath) as RSAPrivateKey))
     private val keyPair = rsaKeyReader.getKeyPair(privProviderPath, publicDrpcPath)
 
     @Test
@@ -87,5 +92,15 @@ class AuthProcessorV1Test {
         val publicKeySpec = X509EncodedKeySpec(publicPem.content)
 
         return KeyFactory.getInstance("RSA").generatePublic(publicKeySpec)
+    }
+
+    private fun generatePrivateKey(path: String): PrivateKey {
+        val privateKeyReader = StringReader(Files.readString(Paths.get(path)))
+
+        val privatePem = PEMParser(privateKeyReader).readPemObject()
+
+        val privateKeySpec = PKCS8EncodedKeySpec(privatePem.content)
+
+        return KeyFactory.getInstance("RSA").generatePrivate(privateKeySpec)
     }
 }

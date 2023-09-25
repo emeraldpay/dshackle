@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.auth.processor
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier
+import com.auth0.jwt.RegisteredClaims
 import com.auth0.jwt.algorithms.Algorithm
 import io.emeraldpay.dshackle.auth.AuthContext
 import io.emeraldpay.dshackle.auth.service.KeyReader
@@ -13,6 +14,7 @@ import java.security.PublicKey
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 const val SESSION_ID = "sessionId"
@@ -37,6 +39,9 @@ abstract class AuthProcessor(
         try {
             val verifier: JWTVerifier = JWT.require(verifyingAlgorithm(keys.externalPublicKey))
                 .withIssuer(authorizationConfig.publicKeyOwner)
+                .withClaim(RegisteredClaims.ISSUED_AT) { claim, _ ->
+                    claim.asInstant().plus(1, ChronoUnit.MINUTES).isAfter(Instant.now())
+                }
                 .build()
             verifier.verify(token)
         } catch (e: Exception) {

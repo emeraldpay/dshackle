@@ -11,7 +11,8 @@ import org.springframework.stereotype.Service
 class AuthService(
     private val authorizationConfig: AuthorizationConfig,
     private val rsaKeyReader: KeyReader,
-    private val authProcessorResolver: AuthProcessorResolver
+    private val authProcessorResolver: AuthProcessorResolver,
+    private val authContext: AuthContext
 ) {
 
     fun authenticate(token: String): String {
@@ -31,7 +32,7 @@ class AuthService(
             .getAuthProcessor(decodedJwt)
             .process(keys, token)
             .run {
-                AuthContext.putTokenInContext(this)
+                authContext.putSessionInContext(this)
                 this.token
             }
     }

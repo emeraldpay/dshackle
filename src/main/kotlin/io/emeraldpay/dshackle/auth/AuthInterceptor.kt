@@ -13,7 +13,9 @@ const val AUTH_METHOD_NAME = "emerald.Auth/Authenticate"
 const val REFLECT_METHOD_NAME = "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo"
 
 @Component
-class AuthInterceptor : ServerInterceptor {
+class AuthInterceptor(
+    private val authContext: AuthContext
+) : ServerInterceptor {
     private val specialMethods = setOf(AUTH_METHOD_NAME, REFLECT_METHOD_NAME)
 
     override fun <ReqT : Any, RespT : Any> interceptCall(
@@ -26,7 +28,7 @@ class AuthInterceptor : ServerInterceptor {
         )
         val isOrdinaryMethod = !specialMethods.contains(call.methodDescriptor.fullMethodName)
 
-        if (isOrdinaryMethod && (sessionId == null || !AuthContext.sessions.containsKey(sessionId))) {
+        if (isOrdinaryMethod && (sessionId == null || !authContext.containsSession(sessionId))) {
             val cause = if (sessionId == null) "sessionId is not passed" else "Session $sessionId does not exist"
             throw Status.UNAUTHENTICATED
                 .withDescription(cause)

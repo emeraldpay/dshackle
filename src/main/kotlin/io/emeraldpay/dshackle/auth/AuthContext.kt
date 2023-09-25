@@ -1,20 +1,22 @@
 package io.emeraldpay.dshackle.auth
 
+import com.github.benmanes.caffeine.cache.Caffeine
+import org.springframework.stereotype.Component
+import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 
+@Component
 class AuthContext {
+    private val sessions = Caffeine.newBuilder()
+        .expireAfterAccess(Duration.ofDays(1))
+        .build<String, Boolean>()
 
-    companion object {
-        val sessions = ConcurrentHashMap<String, TokenWrapper>()
+    fun putSessionInContext(tokenWrapper: TokenWrapper) {
+        sessions.put(tokenWrapper.sessionId, true)
+    }
 
-        fun putTokenInContext(tokenWrapper: TokenWrapper) {
-            sessions[tokenWrapper.sessionId] = tokenWrapper
-        }
-
-        fun removeToken(sessionId: String) {
-            sessions.remove(sessionId)
-        }
+    fun containsSession(sessionId: String): Boolean {
+        return sessions.asMap()[sessionId] != null
     }
 
     data class TokenWrapper(

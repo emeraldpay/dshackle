@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture
 class AuthServiceTest {
     private val rsaKeyReader = mock(KeyReader::class.java)
     private val mockV1Processor = mock(AuthProcessor::class.java)
+    private val authContext = AuthContext()
     private val factory = AuthProcessorResolver(mockV1Processor)
 
     private val token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkcnBjIiwiaWF0IjoxNjkyMTg1OTMxLCJ2ZXJzaW9uI" +
@@ -31,7 +32,7 @@ class AuthServiceTest {
 
     @Test
     fun `unimplemented error if auth is disabled`() {
-        val authService = AuthService(AuthorizationConfig.default(), rsaKeyReader, factory)
+        val authService = AuthService(AuthorizationConfig.default(), rsaKeyReader, factory, authContext)
 
         val e = assertThrows(StatusException::class.java) { authService.authenticate("") }
         assertEquals("UNIMPLEMENTED: Authentication process is not enabled", e.message)
@@ -48,7 +49,7 @@ class AuthServiceTest {
                 AuthorizationConfig.ServerConfig("privPath", "pubPath"),
                 AuthorizationConfig.ClientConfig.default()
             ),
-            rsaKeyReader, factory
+            rsaKeyReader, factory, authContext
         )
         val pair = KeyReader.Keys(mock(PrivateKey::class.java), mock(PublicKey::class.java))
 
@@ -59,7 +60,7 @@ class AuthServiceTest {
         authService.authenticate(token)
         verify(rsaKeyReader).getKeyPair("privPath", "pubPath")
         verify(mockV1Processor).process(pair, token)
-        assertTrue(AuthContext.sessions.containsKey(tokenWrapper.sessionId))
+        assertTrue(authContext.containsSession(tokenWrapper.sessionId))
     }
 
     @Test
@@ -77,7 +78,7 @@ class AuthServiceTest {
                 AuthorizationConfig.ServerConfig("privPath", "pubPath"),
                 AuthorizationConfig.ClientConfig.default()
             ),
-            rsaKeyReader, factory
+            rsaKeyReader, factory, authContext
         )
 
         `when`(rsaKeyReader.getKeyPair("privPath", "pubPath")).thenReturn(pair)
@@ -93,7 +94,7 @@ class AuthServiceTest {
 
         verify(rsaKeyReader, times(2)).getKeyPair("privPath", "pubPath")
         verify(mockV1Processor, times(2)).process(pair, token)
-        assertTrue(AuthContext.sessions.containsKey(tokenWrapper.sessionId))
-        assertTrue(AuthContext.sessions.containsKey(tokenWrapper1.sessionId))
+        assertTrue(authContext.containsSession(tokenWrapper.sessionId))
+        assertTrue(authContext.containsSession(tokenWrapper1.sessionId))
     }
 }
