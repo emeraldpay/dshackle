@@ -23,7 +23,9 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.BlockValidator
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -38,7 +40,6 @@ import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
 class EthereumWsHead(
-    upstreamId: String,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
     private val api: JsonRpcReader,
@@ -46,7 +47,8 @@ class EthereumWsHead(
     private val skipEnhance: Boolean,
     private val wsConnectionResubscribeScheduler: Scheduler,
     private val headScheduler: Scheduler,
-) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator, headScheduler), Lifecycle {
+    private val upstream: DefaultUpstream
+) : DefaultEthereumHead(upstream.getId(), forkChoice, blockValidator, headScheduler), Lifecycle {
 
     private var connectionId: String? = null
     private var subscribed = false
@@ -89,6 +91,9 @@ class EthereumWsHead(
 
     fun listenNewHeads(): Flux<BlockContainer> {
         return subscribe()
+            .transform {
+                Flux.concat(it.next().doOnNext { upstream.setStatus(UpstreamAvailability.OK) }, it)
+            }
             .map {
                 val block = Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
                 if (!block.checkExtraData() && skipEnhance) {
@@ -137,6 +142,8 @@ class EthereumWsHead(
             }
             .timeout(Duration.ofSeconds(60), Mono.error(RuntimeException("No response from subscribe to newHeads")))
             .onErrorResume {
+                log.error("Error getting heads for $upstreamId - ${it.message}")
+                upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
                 subscribed = false
                 Mono.empty()
             }

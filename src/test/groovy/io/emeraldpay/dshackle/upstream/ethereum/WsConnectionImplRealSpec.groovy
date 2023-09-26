@@ -1,7 +1,9 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
 import io.emeraldpay.dshackle.test.MockWSServer
+import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -13,6 +15,7 @@ import spock.lang.Specification
 import java.time.Duration
 
 class WsConnectionImplRealSpec extends Specification {
+    DefaultUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.api())
 
     static SLEEP = 500
 
@@ -42,7 +45,7 @@ class WsConnectionImplRealSpec extends Specification {
                         "http://localhost:${port}".toURI(),
                         Schedulers.boundedElastic()
                 )
-        ).create(null).getConnection()
+        ).create(upstream).getConnection()
     }
 
     def cleanup() {

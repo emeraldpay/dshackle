@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.MergedHead
@@ -31,7 +32,7 @@ class EthereumRpcConnector(
     connectorType: ConnectorMode,
     private val directReader: JsonRpcReader,
     wsFactory: EthereumWsConnectionPoolFactory?,
-    id: String,
+    upstream: DefaultUpstream,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
     skipEnhance: Boolean,
@@ -39,6 +40,7 @@ class EthereumRpcConnector(
     headScheduler: Scheduler,
     expectedBlockTime: Duration
 ) : EthereumConnector, CachesEnabled {
+    private val id = upstream.getId()
     private val pool: WsConnectionPool?
     private val head: Head
     private val liveness: HeadLivenessValidator
@@ -52,7 +54,7 @@ class EthereumRpcConnector(
     }
 
     init {
-        pool = wsFactory?.create(null)
+        pool = wsFactory?.create(upstream)
 
         head = when (connectorType) {
             RPC_ONLY -> {
@@ -67,14 +69,14 @@ class EthereumRpcConnector(
             RPC_REQUESTS_WITH_MIXED_HEAD -> {
                 val wsHead =
                     EthereumWsHead(
-                        id,
                         AlwaysForkChoice(),
                         blockValidator,
                         getIngressReader(),
                         WsSubscriptionsImpl(pool!!),
                         skipEnhance,
                         wsConnectionResubscribeScheduler,
-                        headScheduler
+                        headScheduler,
+                        upstream
                     )
                 // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
                 val rpcHead =
@@ -91,11 +93,11 @@ class EthereumRpcConnector(
 
             RPC_REQUESTS_WITH_WS_HEAD -> {
                 EthereumWsHead(
-                    id,
                     AlwaysForkChoice(),
                     blockValidator, getIngressReader(),
                     WsSubscriptionsImpl(pool!!), skipEnhance, wsConnectionResubscribeScheduler,
-                    headScheduler
+                    headScheduler,
+                    upstream
                 )
             }
         }

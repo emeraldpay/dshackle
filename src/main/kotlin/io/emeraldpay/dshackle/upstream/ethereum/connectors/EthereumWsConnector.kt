@@ -37,14 +37,14 @@ class EthereumWsConnector(
         reader = JsonRpcWsClient(pool)
         val wsSubscriptions = WsSubscriptionsImpl(pool)
         head = EthereumWsHead(
-            upstream.getId(),
             forkChoice,
             blockValidator,
             reader,
             wsSubscriptions,
             skipEnhance,
             wsConnectionResubscribeScheduler,
-            headScheduler
+            headScheduler,
+            upstream
         )
         liveness = HeadLivenessValidator(head, expectedBlockTime, headScheduler, upstream.getId())
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)

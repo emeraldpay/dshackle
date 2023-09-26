@@ -24,9 +24,9 @@ class EthereumWsConnectionPoolFactory(
     private val ethereumWsConnectionFactory: EthereumWsConnectionFactory
 ) {
 
-    fun create(upstream: DefaultUpstream?): WsConnectionPool {
-        require(upstream == null || upstream.getId() == id) {
-            "Creating instance for different upstream. ${upstream?.getId()} != id"
+    fun create(upstream: DefaultUpstream): WsConnectionPool {
+        require(upstream.getId() == id) {
+            "Creating instance for different upstream. ${upstream.getId()} != id"
         }
         return if (connections > 1) {
             WsConnectionMultiPool(ethereumWsConnectionFactory, upstream, connections)

@@ -70,7 +70,7 @@ open class EthereumConnectorFactory(
             connectorType,
             httpFactory.create(upstream.getId(), chain),
             wsFactory,
-            upstream.getId(),
+            upstream,
             forkChoice,
             blockValidator,
             skipEnhance,

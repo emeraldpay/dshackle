@@ -17,7 +17,9 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.RpcResponseError
@@ -30,6 +32,7 @@ import spock.lang.Specification
 import java.time.Duration
 
 class WsConnectionImplSpec extends Specification {
+    DefaultUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.api())
 
     def "Makes a RPC call"() {
         setup:
@@ -46,7 +49,7 @@ class WsConnectionImplSpec extends Specification {
         )
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null).getConnection() as WsConnectionImpl
+        def ws = wsf.create(upstream).getConnection() as WsConnectionImpl
 
         def tx = new TransactionJson().tap {
             hash = TransactionId.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
@@ -81,7 +84,7 @@ class WsConnectionImplSpec extends Specification {
         )
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null).getConnection()
+        def ws = wsf.create(upstream).getConnection()
 
         apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], null)
 
@@ -114,7 +117,7 @@ class WsConnectionImplSpec extends Specification {
         )
         def apiMock = TestingCommons.api()
         def wsApiMock = apiMock.asWebsocket()
-        def ws = wsf.create(null).getConnection()
+        def ws = wsf.create(upstream).getConnection()
 
         apiMock.answerOnce("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"],
                 new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "test"))

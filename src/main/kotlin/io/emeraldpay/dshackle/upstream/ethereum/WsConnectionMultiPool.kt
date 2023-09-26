@@ -39,7 +39,7 @@ import kotlin.concurrent.write
  */
 class WsConnectionMultiPool(
     private val ethereumWsConnectionFactory: EthereumWsConnectionFactory,
-    private val upstream: DefaultUpstream?,
+    private val upstream: DefaultUpstream,
     private val connections: Int,
 ) : WsConnectionPool {
 
@@ -112,7 +112,7 @@ class WsConnectionMultiPool(
                     current.add(
                         ethereumWsConnectionFactory.createWsConnection(connIndex++) {
                             if (isUnavailable()) {
-                                upstream?.setStatus(UpstreamAvailability.UNAVAILABLE)
+                                upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
                             }
                         }.also {
                             it.connect()

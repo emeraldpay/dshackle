@@ -21,10 +21,10 @@ import reactor.core.publisher.Flux
 
 class WsConnectionSinglePool(
     ethereumWsConnectionFactory: EthereumWsConnectionFactory,
-    private val upstream: DefaultUpstream?,
+    private val upstream: DefaultUpstream,
 ) : WsConnectionPool {
     private val connection = ethereumWsConnectionFactory.createWsConnection {
-        upstream?.setStatus(UpstreamAvailability.UNAVAILABLE)
+        upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
     }
 
     override fun connect() {
