@@ -35,7 +35,7 @@ class AuthRpc(
                     Mono.error(it)
                 } else {
                     val message = "Internal error: ${it.message}"
-                    log.error(message, it)
+                    log.error(message)
                     Mono.error(
                         Status.INTERNAL
                             .withDescription(message)

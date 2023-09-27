@@ -10,6 +10,8 @@ import io.emeraldpay.dshackle.auth.processor.SESSION_ID
 import io.emeraldpay.dshackle.auth.processor.VERSION
 import io.emeraldpay.dshackle.auth.service.RsaKeyReader
 import io.emeraldpay.dshackle.config.AuthorizationConfig
+import io.grpc.Status
+import io.grpc.StatusRuntimeException
 import reactor.core.publisher.Mono
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
@@ -34,7 +36,12 @@ class GrpcUpstreamsAuth(
         ).map {
             verify(it.providerToken, providerId)
         }.onErrorResume {
-            Mono.just(AuthResult(false, "Error during auth - ${it.message}"))
+            if (it is StatusRuntimeException && it.status.code == Status.Code.UNIMPLEMENTED) {
+                Mono.just(AuthResult(true))
+                    .also { grpcAuthContext.putTokenInContext(providerId, SESSION_ID) }
+            } else {
+                Mono.just(AuthResult(false, "Error during auth - ${it.message}"))
+            }
         }
     }
 
