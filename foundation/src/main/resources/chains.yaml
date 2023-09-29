@@ -422,3 +422,37 @@ chain-settings:
           short-names: [cronos-testnet]
           chain-id: 0x152
           grpcId: 10030
+    - id: metis
+      settings:
+        expected-block-time: 1m
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: METIS_MAINNET
+          short-names: [metis]
+          chain-id: 0x440
+          grpcId: 1023
+        - id: goerli
+          code: METIS_GOERLI
+          short-names: [metis-goerli]
+          chain-id: 0x257
+          grpcId: 10031
+    - id: opbnb
+      settings:
+        expected-block-time: 1s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: OPBNB_MAINNET
+          short-names: [opbnb]
+          chain-id: 0xcc
+          grpcId: 1024
+        - id: testnet
+          code: OPBNB_TESTNET
+          short-names: [opbnb-testnet]
+          chain-id: 0x15eb
+          grpcId: 10032
