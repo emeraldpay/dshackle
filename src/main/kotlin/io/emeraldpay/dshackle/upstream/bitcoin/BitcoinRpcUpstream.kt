@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
@@ -33,12 +34,12 @@ open class BitcoinRpcUpstream(
     chain: Chain,
     private val directApi: JsonRpcReader,
     private val head: Head,
-    options: UpstreamsConfig.Options,
+    options: ChainOptions.Options,
     role: UpstreamsConfig.UpstreamRole,
     node: QuorumForLabels.QuorumItem,
     callMethods: CallMethods,
     esploraClient: EsploraClient? = null,
-    chainConfig: ChainsConfig.ChainConfig
+    chainConfig: ChainsConfig.ChainConfig,
 ) : BitcoinUpstream(id, chain, options, role, callMethods, node, esploraClient, chainConfig), Lifecycle {
 
     private var validatorSubscription: Disposable? = null

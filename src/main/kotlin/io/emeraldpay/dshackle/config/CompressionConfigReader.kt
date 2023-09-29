@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.foundation.YamlConfigReader
 import org.yaml.snakeyaml.nodes.MappingNode
 
 class CompressionConfigReader : YamlConfigReader<CompressionConfig>() {

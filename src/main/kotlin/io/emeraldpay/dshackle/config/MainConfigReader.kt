@@ -16,15 +16,18 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.foundation.ChainOptionsReader
+import io.emeraldpay.dshackle.foundation.YamlConfigReader
 import org.yaml.snakeyaml.nodes.MappingNode
 
 class MainConfigReader(
-    fileResolver: FileResolver
+    fileResolver: FileResolver,
 ) : YamlConfigReader<MainConfig>() {
 
     private val authConfigReader = AuthConfigReader()
     private val proxyConfigReader = ProxyConfigReader()
-    private val upstreamsConfigReader = UpstreamsConfigReader(fileResolver)
+    private val optionsReader = ChainOptionsReader()
+    private val upstreamsConfigReader = UpstreamsConfigReader(fileResolver, optionsReader)
     private val cacheConfigReader = CacheConfigReader()
     private val tokensConfigReader = TokensConfigReader()
     private val monitoringConfigReader = MonitoringConfigReader()
@@ -32,7 +35,7 @@ class MainConfigReader(
     private val healthConfigReader = HealthConfigReader()
     private val signatureConfigReader = SignatureConfigReader(fileResolver)
     private val compressionConfigReader = CompressionConfigReader()
-    private val chainsConfigReader = ChainsConfigReader(upstreamsConfigReader)
+    private val chainsConfigReader = ChainsConfigReader(optionsReader)
     private val authorizationConfigReader = AuthorizationConfigReader()
 
     override fun read(input: MappingNode?): MainConfig {

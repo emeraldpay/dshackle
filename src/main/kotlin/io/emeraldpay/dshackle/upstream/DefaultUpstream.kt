@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import org.slf4j.LoggerFactory
@@ -31,21 +32,21 @@ abstract class DefaultUpstream(
     private val hash: Byte,
     defaultLag: Long?,
     defaultAvail: UpstreamAvailability,
-    private val options: UpstreamsConfig.Options,
+    private val options: ChainOptions.Options,
     private val role: UpstreamsConfig.UpstreamRole,
     private val targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?,
-    private val chainConfig: ChainsConfig.ChainConfig
+    private val chainConfig: ChainsConfig.ChainConfig,
 ) : Upstream {
 
     constructor(
         id: String,
         hash: Byte,
-        options: UpstreamsConfig.Options,
+        options: ChainOptions.Options,
         role: UpstreamsConfig.UpstreamRole,
         targets: CallMethods?,
         node: QuorumForLabels.QuorumItem?,
-        chainConfig: ChainsConfig.ChainConfig
+        chainConfig: ChainsConfig.ChainConfig,
     ) :
         this(id, hash, null, UpstreamAvailability.UNAVAILABLE, options, role, targets, node, chainConfig)
 
@@ -82,7 +83,7 @@ abstract class DefaultUpstream(
             Status(curr.lag, avail, statusByLag(curr.lag, avail))
         }.also {
             statusStream.emitNext(
-                it.status
+                it.status,
             ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
             log.trace("Status of upstream [$id] changed to [$it], requested change status to [$avail]")
         }
@@ -96,7 +97,9 @@ abstract class DefaultUpstream(
                 lag > chainConfig.laggingLagSize -> UpstreamAvailability.LAGGING
                 else -> proposed
             }
-        } else proposed
+        } else {
+            proposed
+        }
     }
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
@@ -109,7 +112,7 @@ abstract class DefaultUpstream(
                 Status(nLag, curr.avail, statusByLag(nLag, curr.avail))
             }.also {
                 statusStream.emitNext(
-                    it.status
+                    it.status,
                 ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
                 log.trace("Status of upstream [$id] changed to [$it], requested change lag to [$lag]")
             }
@@ -120,7 +123,7 @@ abstract class DefaultUpstream(
         return this.status.get().lag
     }
 
-    override fun getOptions(): UpstreamsConfig.Options {
+    override fun getOptions(): ChainOptions.Options {
         return options
     }
 

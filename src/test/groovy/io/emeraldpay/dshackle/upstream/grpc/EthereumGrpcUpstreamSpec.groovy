@@ -38,7 +38,6 @@ import io.grpc.stub.StreamObserver
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import reactor.core.scheduler.Schedulers
-import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration

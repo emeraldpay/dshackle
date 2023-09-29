@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.foundation.YamlConfigReader
 import org.yaml.snakeyaml.nodes.MappingNode
 
 class SignatureConfigReader(val fileResolver: FileResolver) : YamlConfigReader<SignatureConfig>() {

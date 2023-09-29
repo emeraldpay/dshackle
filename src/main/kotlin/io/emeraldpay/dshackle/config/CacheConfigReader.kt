@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.foundation.YamlConfigReader
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 

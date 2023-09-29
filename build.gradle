@@ -18,6 +18,7 @@ plugins {
     id 'idea'
     id 'application'
     id 'jacoco'
+    id 'chainsconfig.codegen'
 
     alias(libs.plugins.kotlin)
     alias(libs.plugins.jib)
@@ -119,6 +120,7 @@ dependencies {
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-aarch_64") })
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("linux-x86_64") })
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-x86_64") })
+    implementation 'dshackle:foundation:1.0.0'
 }
 
 compileKotlin {
@@ -224,7 +226,9 @@ protobuf {
 sourceSets {
     main {
         resources.srcDirs += project.buildDir.absolutePath + "/generated/version"
-
+        kotlin {
+            srcDir project.buildDir.absolutePath + "/generated/kotlin"
+        }
         proto {
             srcDir 'emerald-grpc/proto'
         }
@@ -318,3 +322,11 @@ static def getVersion() {
 
     return result.replaceAll(/^v/, '')
 }
+
+ktlint {
+    filter {
+        exclude { element -> element.file.path.contains("generated/") }
+    }
+}
+
+compileKotlin.dependsOn chainscodegen

@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.config
 
+import io.emeraldpay.dshackle.foundation.YamlConfigReader
 import org.slf4j.LoggerFactory
 import org.springframework.util.ResourceUtils
 import org.yaml.snakeyaml.nodes.MappingNode
@@ -55,9 +56,10 @@ class AuthorizationConfigReader : YamlConfigReader<AuthorizationConfig>() {
         }
 
         return AuthorizationConfig(
-            enabled, publicKeyOwner,
+            enabled,
+            publicKeyOwner,
             authServer ?: AuthorizationConfig.ServerConfig.default(),
-            authClient ?: AuthorizationConfig.ClientConfig.default()
+            authClient ?: AuthorizationConfig.ClientConfig.default(),
         )
     }
 

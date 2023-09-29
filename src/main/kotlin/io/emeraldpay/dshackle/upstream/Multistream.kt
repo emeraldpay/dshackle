@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
@@ -64,6 +65,7 @@ abstract class Multistream(
     private var cacheSubscription: Disposable? = null
     private val reconfigLock = ReentrantLock()
     private val eventLock = ReentrantLock()
+
     @Volatile
     private var callMethods: CallMethods? = null
     private var callMethodsFactory: Factory<CallMethods> = Factory {
@@ -73,8 +75,10 @@ abstract class Multistream(
     private var seq = 0
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
+
     @Volatile
     private var capabilities: Set<Capability> = emptySet()
+
     @Volatile
     private var quorumLabels: List<QuorumForLabels.QuorumItem>? = null
     private val removed: MutableMap<String, Upstream> = HashMap()
@@ -94,7 +98,7 @@ abstract class Multistream(
             Metrics.gauge(
                 "$metrics.availability",
                 listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase())),
-                this
+                this,
             ) {
                 upstreams.count { it.getStatus() == status }.toDouble()
             }
@@ -102,7 +106,8 @@ abstract class Multistream(
 
         Metrics.gauge(
             "$metrics.connected",
-            listOf(Tag.of("chain", chain.chainCode)), this
+            listOf(Tag.of("chain", chain.chainCode)),
+            this,
         ) {
             upstreams.size.toDouble()
         }
@@ -254,13 +259,13 @@ abstract class Multistream(
         val upstreamsFluxes = getAll().map { up ->
             Flux.concat(
                 Mono.just(up.getStatus()),
-                up.observeStatus()
+                up.observeStatus(),
             ).map { UpstreamStatus(up, it) }
         }
         val onShutdown = stopSignal.asFlux().map { UpstreamAvailability.UNAVAILABLE }
         return Flux.merge(
             Flux.merge(upstreamsFluxes).map(FilterBestAvailability()).takeUntilOther(stopSignal.asFlux()),
-            onShutdown
+            onShutdown,
         ).distinct()
     }
 
@@ -270,12 +275,15 @@ abstract class Multistream(
 
     override fun getStatus(): UpstreamAvailability {
         val upstreams = getAll()
-        return if (upstreams.isEmpty()) UpstreamAvailability.UNAVAILABLE
-        else upstreams.minOf { it.getStatus() }
+        return if (upstreams.isEmpty()) {
+            UpstreamAvailability.UNAVAILABLE
+        } else {
+            upstreams.minOf { it.getStatus() }
+        }
     }
 
     // TODO options for multistream are useless
-    override fun getOptions(): UpstreamsConfig.Options {
+    override fun getOptions(): ChainOptions.Options {
         throw IllegalStateException("Options are not supported for multistream")
     }
 
@@ -314,7 +322,7 @@ abstract class Multistream(
                 upstream.observeStatus().map { upstream }
                     .takeUntilOther(
                         subscribeRemovedUpstreams()
-                            .filter { it.getId() == upstream.getId() }
+                            .filter { it.getId() == upstream.getId() },
                     )
             }
             .subscribe {

@@ -51,13 +51,13 @@ open class EthereumPosMultiStream(
     val upstreams: MutableList<EthereumLikeUpstream>,
     caches: Caches,
     private val headScheduler: Scheduler,
-    tracer: Tracer
+    tracer: Tracer,
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
     private var head: DynamicMergedHead = DynamicMergedHead(
         PriorityForkChoice(),
         "ETH Pos Multistream of ${chain.chainCode}",
-        headScheduler
+        headScheduler,
     )
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory(), tracer)
@@ -121,7 +121,7 @@ open class EthereumPosMultiStream(
 
     override fun tryProxy(
         matcher: Selector.Matcher,
-        request: BlockchainOuterClass.NativeSubscribeRequest
+        request: BlockchainOuterClass.NativeSubscribeRequest,
     ): Flux<out Any>? =
         upstreams.filter {
             matcher.matches(it)
@@ -173,7 +173,7 @@ open class EthereumPosMultiStream(
                                 selected,
                                 PriorityForkChoice(),
                                 headScheduler,
-                                "ETH head for ${it.map { it.getId() }}"
+                                "ETH head for ${it.map { it.getId() }}",
                             ).apply {
                                 start()
                             }
@@ -190,13 +190,15 @@ open class EthereumPosMultiStream(
                 }.let {
                     val selected = it.map { source -> source.getHead() }
                     EnrichedMergedHead(
-                        selected, getHead(), headScheduler,
+                        selected,
+                        getHead(),
+                        headScheduler,
                         object :
                             Reader<BlockHash, BlockContainer> {
                             override fun read(key: BlockHash): Mono<BlockContainer> {
                                 return reader.blocksByHashAsCont().read(key).map { res -> res.data }
                             }
-                        }
+                        },
                     )
                 }
         }

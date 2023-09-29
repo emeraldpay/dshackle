@@ -88,7 +88,7 @@ class GrpcUpstreams(
     private val clientSpansInterceptor: ClientInterceptor?,
     private var maxMetadataSize: Int,
     private val headScheduler: Scheduler,
-    private val grpcAuthContext: GrpcAuthContext
+    private val grpcAuthContext: GrpcAuthContext,
 ) {
     private val log = LoggerFactory.getLogger(GrpcUpstreams::class.java)
 
@@ -136,9 +136,11 @@ class GrpcUpstreams(
                     ReactorAuthGrpc.newReactorStub(channel),
                     authorizationConfig,
                     grpcAuthContext,
-                    tokenAuth.publicKeyPath!!
+                    tokenAuth.publicKeyPath!!,
                 )
-            } else null
+            } else {
+                null
+            }
 
         val statusSubscriptions = mutableMapOf<Chain, Disposable>()
 
@@ -161,7 +163,7 @@ class GrpcUpstreams(
                 if (sub == null || sub.isDisposed) {
                     val subscription = this.client.subscribeStatus(
                         StatusRequest.newBuilder()
-                            .addChains(Common.ChainRef.forNumber(it.chain.id)).build()
+                            .addChains(Common.ChainRef.forNumber(it.chain.id)).build(),
                     ).subscribeOn(chainStatusScheduler)
                         .subscribe { value ->
                             val chain = Chain.byId(value.chain.number)
@@ -228,7 +230,7 @@ class GrpcUpstreams(
         if (StringUtils.isNotEmpty(auth.key) && StringUtils.isNoneEmpty(auth.certificate)) {
             sslContext.keyManager(
                 fileResolver.resolve(auth.certificate!!).inputStream(),
-                fileResolver.resolve(auth.key!!).inputStream()
+                fileResolver.resolve(auth.key!!).inputStream(),
             )
         } else {
             log.warn("Connect to remote using only CA certificate")
@@ -237,7 +239,8 @@ class GrpcUpstreams(
             ApplicationProtocolConfig.Protocol.ALPN,
             ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
             ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-            "grpc-exp", "h2"
+            "grpc-exp",
+            "h2",
         )
         sslContext.applicationProtocolConfig(alpn)
         return sslContext.build()
@@ -253,8 +256,8 @@ class GrpcUpstreams(
                 client,
                 rpcClient,
                 labels,
-                chainsConfig.resolve(chain),
-                headScheduler
+                chainsConfig.resolve(chain.chainName),
+                headScheduler,
             )
         },
         BlockchainType.EVM_POS to { chain, rpcClient ->
@@ -267,13 +270,13 @@ class GrpcUpstreams(
                 rpcClient,
                 nodeRating,
                 labels,
-                chainsConfig.resolve(chain),
-                headScheduler
+                chainsConfig.resolve(chain.chainName),
+                headScheduler,
             )
         },
         BlockchainType.BITCOIN to { chain, rpcClient ->
-            BitcoinGrpcUpstream(id, role, chain, client, rpcClient, labels, chainsConfig.resolve(chain), headScheduler)
-        }
+            BitcoinGrpcUpstream(id, role, chain, client, rpcClient, labels, chainsConfig.resolve(chain.chainCode), headScheduler)
+        },
     )
 
     private fun getOrCreate(chain: Chain): UpstreamChangeEvent {
@@ -285,7 +288,7 @@ class GrpcUpstreams(
     private fun makeMetrics(chain: Chain): RpcMetrics {
         val metricsTags = listOf(
             Tag.of("upstream", id),
-            Tag.of("chain", chain.chainCode)
+            Tag.of("chain", chain.chainCode),
         )
 
         return RpcMetrics(
@@ -297,14 +300,14 @@ class GrpcUpstreams(
             Counter.builder("upstream.grpc.fail")
                 .description("Number of failures of Dshackle/gRPC requests")
                 .tags(metricsTags)
-                .register(Metrics.globalRegistry)
+                .register(Metrics.globalRegistry),
         )
     }
 
     private fun getOrCreate(
         chain: Chain,
         metrics: RpcMetrics,
-        creator: (chain: Chain, client: JsonRpcGrpcClient) -> DefaultUpstream
+        creator: (chain: Chain, client: JsonRpcGrpcClient) -> DefaultUpstream,
     ): UpstreamChangeEvent {
         lock.withLock {
             val current = known[chain]
@@ -338,7 +341,7 @@ class GrpcUpstreams(
                         } else {
                             Mono.error(it)
                         }
-                    }
+                    },
             )
     }
 

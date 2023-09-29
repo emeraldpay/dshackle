@@ -16,7 +16,8 @@
  */
 package io.emeraldpay.dshackle.config
 
-
+import io.emeraldpay.dshackle.foundation.ChainOptions
+import io.emeraldpay.dshackle.foundation.ChainOptionsReader
 import io.emeraldpay.dshackle.test.TestingCommons
 import spock.lang.Specification
 
@@ -24,7 +25,7 @@ import java.time.Duration
 
 class UpstreamsConfigReaderSpec extends Specification {
 
-    UpstreamsConfigReader reader = new UpstreamsConfigReader(TestingCommons.fileResolver())
+    UpstreamsConfigReader reader = new UpstreamsConfigReader(TestingCommons.fileResolver(), new ChainOptionsReader())
 
     def "Parse standard config"() {
         setup:
@@ -489,8 +490,8 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Merge options for disableValidation"() {
         expect:
-        def a = new UpstreamsConfig.PartialOptions().tap { disableValidation = base }
-        def b = new UpstreamsConfig.PartialOptions().tap { disableValidation = overwrite }
+        def a = new ChainOptions.PartialOptions().tap { disableValidation = base }
+        def b = new ChainOptions.PartialOptions().tap { disableValidation = overwrite }
         def result = a.merge(b).buildOptions()
         result.disableValidation == exp
 
@@ -511,8 +512,8 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Merge options for providesBalance"() {
         expect:
-        def a = new UpstreamsConfig.PartialOptions().tap { providesBalance = base }
-        def b = new UpstreamsConfig.PartialOptions().tap { providesBalance = overwrite }
+        def a = new ChainOptions.PartialOptions().tap { providesBalance = base }
+        def b = new ChainOptions.PartialOptions().tap { providesBalance = overwrite }
         def result = a.merge(b).buildOptions()
         result.providesBalance == exp
 
@@ -533,8 +534,8 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Merge options for validatePeers"() {
         expect:
-        def a = new UpstreamsConfig.PartialOptions().tap { validatePeers = base }
-        def b = new UpstreamsConfig.PartialOptions().tap { validatePeers = overwrite }
+        def a = new ChainOptions.PartialOptions().tap { validatePeers = base }
+        def b = new ChainOptions.PartialOptions().tap { validatePeers = overwrite }
         def result = a.merge(b).buildOptions()
         result.validatePeers == exp
 
@@ -555,8 +556,8 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Merge options for validateSyncing"() {
         expect:
-        def a = new UpstreamsConfig.PartialOptions().tap { validateSyncing = base }
-        def b = new UpstreamsConfig.PartialOptions().tap { validateSyncing = overwrite }
+        def a = new ChainOptions.PartialOptions().tap { validateSyncing = base }
+        def b = new ChainOptions.PartialOptions().tap { validateSyncing = overwrite }
         def result = a.merge(b).buildOptions()
         result.validateSyncing == exp
 
@@ -577,10 +578,10 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Merge options for timeout"() {
         expect:
-        def a = new UpstreamsConfig.PartialOptions().tap {
+        def a = new ChainOptions.PartialOptions().tap {
             timeout = base == null ? null : Duration.ofSeconds(base)
         }
-        def b = new UpstreamsConfig.PartialOptions().tap {
+        def b = new ChainOptions.PartialOptions().tap {
             timeout = overwrite == null ? null : Duration.ofSeconds(overwrite)
         }
         def result = a.merge(b).buildOptions()
@@ -598,8 +599,8 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Merge options for minPeers"() {
         expect:
-        def a = new UpstreamsConfig.PartialOptions().tap { minPeers = base }
-        def b = new UpstreamsConfig.PartialOptions().tap { minPeers = overwrite }
+        def a = new ChainOptions.PartialOptions().tap { minPeers = base }
+        def b = new ChainOptions.PartialOptions().tap { minPeers = overwrite }
         def result = a.merge(b).buildOptions()
         result.minPeers == exp
 
@@ -614,8 +615,8 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Merge options for validationInterval"() {
         expect:
-        def a = new UpstreamsConfig.PartialOptions().tap { validationInterval = base }
-        def b = new UpstreamsConfig.PartialOptions().tap { validationInterval = overwrite }
+        def a = new ChainOptions.PartialOptions().tap { validationInterval = base }
+        def b = new ChainOptions.PartialOptions().tap { validationInterval = overwrite }
         def result = a.merge(b).buildOptions()
         result.validationInterval == exp
 
@@ -630,11 +631,11 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Options with default values"() {
         setup:
-        def partialOptions = new UpstreamsConfig.PartialOptions()
+        def partialOptions = new ChainOptions.PartialOptions()
         when:
         def options = partialOptions.buildOptions()
         then:
-        options == new UpstreamsConfig.Options(
+        options == new ChainOptions.Options(
                 false, false, 30, Duration.ofSeconds(60), null, true, 1, true, true, true
         )
     }

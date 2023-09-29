@@ -25,7 +25,7 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
 
 class GrpcUpstreamStatus(
-    private val overrideLabels: UpstreamsConfig.Labels?
+    private val overrideLabels: UpstreamsConfig.Labels?,
 ) {
     companion object {
         private val log = LoggerFactory.getLogger(GrpcUpstreamStatus::class.java)
@@ -47,7 +47,7 @@ class GrpcUpstreamStatus(
             overrideLabels?.let { labels.putAll(it) }
             val node = QuorumForLabels.QuorumItem(
                 remoteNode.quorum,
-                labels
+                labels,
             )
             updateNodes.add(node)
             updateLabels.add(labels)

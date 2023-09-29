@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.config
+package io.emeraldpay.dshackle.foundation
 
 /**
  * Update configuration value from environment variables. Format: ${ENV_VAR_NAME}

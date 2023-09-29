@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.foundation.YamlConfigReader
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode

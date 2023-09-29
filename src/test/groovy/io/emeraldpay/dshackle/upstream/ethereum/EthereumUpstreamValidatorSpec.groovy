@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 
-import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.ApiReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -43,7 +43,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Resolve to final availability"() {
         setup:
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, Stub(EthereumLikeUpstream), UpstreamsConfig.PartialOptions.getDefaults().buildOptions())
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, Stub(EthereumLikeUpstream), ChainOptions.PartialOptions.getDefaults().buildOptions())
         expect:
         validator.resolve(Tuples.of(sync, peers, call)) == exp
         where:
@@ -61,7 +61,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Doesnt check eth_syncing when disabled"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateSyncing = false
         }.buildOptions()
         def up = Mock(EthereumLikeUpstream)
@@ -76,7 +76,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Syncing is OK when false returned from upstream"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateSyncing = true
         }.buildOptions()
         def up = TestingCommons.upstream(
@@ -94,7 +94,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Execute onSyncingNode with result of eth_syncing"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateSyncing = true
         }.buildOptions()
         def up = Mock(EthereumLikeUpstream) {
@@ -121,7 +121,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Syncing is SYNCING when state returned from upstream"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateSyncing = true
         }.buildOptions()
         def up = TestingCommons.upstream(
@@ -139,7 +139,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Syncing is UNAVAILABLE when error returned from upstream"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateSyncing = true
         }.buildOptions()
         def up = TestingCommons.upstream(
@@ -157,7 +157,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Doesnt validate peers when disabled"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validatePeers = false
             it.minPeers = 10
         }.buildOptions()
@@ -173,7 +173,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Doesnt validate peers when zero peers is expected"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 0
         }.buildOptions()
@@ -189,7 +189,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Peers is IMMATURE when state returned too few peers"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 10
         }.buildOptions()
@@ -208,7 +208,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Peers is OK when state returned exactly min peers"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 10
         }.buildOptions()
@@ -227,7 +227,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Peers is OK when state returned more than enough peers"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 10
         }.buildOptions()
@@ -246,7 +246,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Peers is UNAVAILABLE when state returned error"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validatePeers = true
             it.minPeers = 10
         }.buildOptions()
@@ -265,7 +265,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Doesnt validate chan and callLimit when disabled"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateCalllimit = false
             it.validateChain = false
         }.buildOptions()
@@ -287,7 +287,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Upstream is valid if not error from call limit check"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateChain = false
         }.buildOptions()
         def up = Mock(EthereumLikeRpcUpstream) {
@@ -311,7 +311,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Upstream is not valid if error returned on call limit check"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateChain = false
         }.buildOptions()
         def up = Mock(EthereumLikeRpcUpstream) {
@@ -335,7 +335,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Upstream is valid if chain settings are valid"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateCalllimit = false
         }.buildOptions()
         def up = Mock(EthereumLikeRpcUpstream) {
@@ -357,7 +357,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Upstream is not valid - specified optimism but got ethereum"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().tap {
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateCalllimit = false
         }.buildOptions()
         def up = Mock(EthereumLikeRpcUpstream) {
@@ -379,7 +379,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Upstream is valid if all setting are valid"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().buildOptions()
+        def options = ChainOptions.PartialOptions.getDefaults().buildOptions()
         def up = Mock(EthereumLikeRpcUpstream) {
             5 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_chainId", emptyList())) >> Mono.just(new JsonRpcResponse('"0x1"'.getBytes(), null))
@@ -403,7 +403,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Upstream is not valid if there are errors"() {
         setup:
-        def options = UpstreamsConfig.PartialOptions.getDefaults().buildOptions()
+        def options = ChainOptions.PartialOptions.getDefaults().buildOptions()
         def up = Mock(EthereumLikeRpcUpstream) {
             5 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_chainId", emptyList())) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))

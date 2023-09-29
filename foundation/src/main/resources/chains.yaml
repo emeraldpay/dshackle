@@ -1,0 +1,407 @@
+version: v1
+
+chain-settings:
+  default:
+    expected-block-time: 12s
+    lags:
+      syncing: 6
+      lagging: 1
+  protocols:
+    - id: bitcoin
+      settings:
+        expected-block-time: 10m
+        lags:
+          syncing: 3
+          lagging: 1
+      chains:
+        - id: mainnet
+          chain-id: 0x0
+          short-names: [bitcoin, btc]
+          code: BTC
+          grpcId: 1
+        - id: testnet
+          chain-id: 0x0
+          short-names: [bitcoin-testnet]
+          code: TESTNET_BITCOIN
+          grpcId: 10003
+    - id: ethereum
+      settings:
+        expected-block-time: 12s
+        lags:
+          syncing: 6
+          lagging: 1
+      chains:
+        - id: mainnet
+          chain-id: 0x1
+          short-names: [eth, ethereum, homestead]
+          code: ETH
+          grpcId: 100
+          call-validate-contract: 0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96
+        - id: goerli
+          chain-id: 0x5
+          code: GOERLI
+          grpcId: 10005
+          short-names: [goerli, goerli-testnet]
+          call-validate-contract: 0xCD9303A1F6da2a68f465A579a24cc2Ee5AE2192f
+        - id: ropsten
+          code: ROPSTEN
+          grpcId: 10006
+          chain-id: 0x3
+          short-names: [ropsten, ropsten-testnet]
+        - id: sepolia
+          code: SEPOLIA
+          grpcId: 10008
+          chain-id: 0xaa36a7
+          short-names: [sepolia, sepolia-testnet]
+        - id: holesky
+          code: ETHEREUM_HOLESKY
+          grpcId: 10027
+          chain-id: 0x4268
+          short-names: [holesky, ethereum-holesky]
+    - id: ethereum-classic
+      chains:
+        - id: mainnet
+          short-names: [ethereum-classic, etc]
+          chain-id: 0x3d
+          net-version: 1
+          code: ETC
+          grpcId: 101
+    - id: fantom
+      settings:
+        expected-block-time: 3s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 10
+          lagging: 5
+      chains:
+        - id: mainnet
+          short-names: [fantom]
+          code: FTM
+          grpcId: 102
+          chain-id: 0xfa
+        - id: testnet
+          code: FANTOM_TESTNET
+          grpcId: 10016
+          short-names: [fantom-testnet]
+          chain-id: 0xfa2
+    - id: polygon
+      settings:
+        expected-block-time: 2.7s
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: mainnet
+          call-validate-contract: 0x53Daa71B04d589429f6d3DF52db123913B818F23
+          code: POLYGON
+          grpcId: 1002
+          chain-id: 0x89
+          short-names: [polygon, matic]
+        - id: mumbai
+          call-validate-contract: 0x53Daa71B04d589429f6d3DF52db123913B818F23
+          code: POLYGON_POS_MUMBAI
+          grpcId: 10013
+          chain-id: 0x13881
+          short-names: [polygon-mumbai]
+    - id: arbitrum
+      settings:
+        expected-block-time: 260ms
+        options:
+          validate-peers: false
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: ARBITRUM
+          grpcId: 1004
+          short-names: [arbitrum, arb]
+          chain-id: 0xa4b1
+        - id: goerli
+          code: ARBITRUM_TESTNET
+          grpcId: 10009
+          short-names: [arbitrum-testnet, arbitrum-goerli]
+          chain-id: 0x66eed
+          settings:
+            expected-block-time: 1s
+    - id: optimism
+      settings:
+        expected-block-time: 2s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: OPTIMISM
+          grpcId: 1005
+          short-names: [optimism]
+          chain-id: 0xa
+        - id: goerli
+          code: OPTIMISM_TESTNET
+          grpcId: 10010
+          short-names: [optimism-testnet, optimism-goerli]
+          chain-id: 0x1A4
+    - id: bsc
+      settings:
+        expected-block-time: 3s
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: mainnet
+          code: BSC
+          grpcId: 1006
+          chain-id: 0x38
+          short-names: [bsc, binance, bnb-smart-chain]
+        - id: testnet
+          code: BSC_TESTNET
+          grpcId: 10026
+          short-names: [bsc-testnet]
+          chain-id: 0x61
+    - id: polygon-zkevm
+      settings:
+        expected-block-time: 2.7s
+        options:
+          disable-validation: true
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: POLYGON_ZKEVM
+          grpcId: 1007
+          short-names: [polygon-zkevm]
+          chain-id: 0x44d
+        - id: testnet
+          code: POLYGON_ZKEVM_TESTNET
+          grpcId: 10011
+          short-names: [polygon-zkevm-testnet]
+          chain-id: 0x5a2
+          settings:
+            expected-block-time: 1m
+    - id: arbitrum-nova
+      settings:
+        expected-block-time: 1s
+        options:
+          disable-validation: true
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: ARBITRUM_NOVA
+          grpcId: 1008
+          short-names: [arbitrum-nova]
+          chain-id: 0xa4ba
+    - id: zksync
+      settings:
+        expected-block-time: 5s
+        options:
+          disable-validation: true
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: ZKSYNC
+          grpcId: 1009
+          chain-id: 0x144
+          short-names: [zksync]
+        - id: testnet
+          code: ZKS_TESTNET
+          grpcId: 10012
+          chain-id: 0x118
+          short-names: [zksync-testnet]
+    - id: base
+      settings:
+        expected-block-time: 2s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: BASE
+          grpcId: 1010
+          short-names: [base]
+          chain-id: 0x2105
+        - id: goerli
+          code: BASE_GOERLI
+          grpcId: 10014
+          short-names: [base-goerli]
+          chain-id: 0x14a33
+    - id: linea
+      settings:
+        expected-block-time: 12s
+        lags:
+          syncing: 6
+          lagging: 1
+      chains:
+        - id: mainnet
+          code: LINEA
+          grpcId: 1011
+          short-names: [linea]
+          chain-id: 0xe708
+        - id: goerli
+          code: LINEA_GOERLI
+          grpcId: 10015
+          short-names: [linea-goerli]
+          chain-id: 0xe704
+    - id: gnosis
+      settings:
+        expected-block-time: 6s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 10
+          lagging: 5
+      chains:
+        - id: mainnet
+          code: GNOSIS
+          grpcId: 1012
+          short-names: [gnosis]
+          chain-id: 0x64
+        - id: chiado
+          code: GNOSIS_CHIADO
+          grpcId: 10017
+          short-names: [gnosis-chiado]
+          chain-id: 0x27d8
+    - id: avalanche
+      settings:
+        expected-block-time: 2s
+        options:
+          validate-peers: false
+          validate-syncing: false
+        lags:
+          syncing: 10
+          lagging: 5
+      chains:
+        - id: mainnet
+          code: AVALANCHE
+          grpcId: 1013
+          short-names: [avalanche]
+          chain-id: 0xa86a
+        - id: fuji
+          code: AVALANCHE_FUJI
+          grpcId: 10018
+          short-names: [avalanche-fuji]
+          chain-id: 0xa869
+    - id: aurora
+      settings:
+        expected-block-time: 1s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: AURORA
+          grpcId: 1015
+          short-names: [aurora]
+          chain-id: 0x4e454152
+        - id: testnet
+          code: AURORA_TESTNET
+          grpcId: 10021
+          short-names: [aurora-testnet]
+          chain-id: 0x4e454153
+    - id: mantle
+      settings:
+        expected-block-time: 500ms
+        options:
+          validate-peers: false
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: MANTLE
+          grpcId: 1017
+          short-names: [mantle]
+          chain-id: 0x1388
+        - id: testnet
+          code: MANTLE_TESTNET
+          grpcId: 10023
+          short-names: [mantle-testnet]
+          chain-id: 0x1389
+    - id: klaytn
+      settings:
+        expected-block-time: 1s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: mainnet
+          code: KLAYTN
+          grpcId: 1018
+          short-names: [klaytn]
+          chain-id: 0x2019
+        - id: baobab
+          code: KLAYTN_BAOBAB
+          grpcId: 10024
+          short-names: [klaytn-baobab]
+          chain-id: 0x3e9
+    - id: celo
+      settings:
+        expected-block-time: 5s
+        lags:
+          syncing: 10
+          lagging: 5
+      chains:
+        - id: mainnet
+          code: CELO
+          grpcId: 1019
+          short-names: [celo]
+          chain-id: 0xa4ec
+        - id: alfajores
+          code: CELO_ALFAJORES
+          grpcId: 10028
+          short-names: [celo-alfajores]
+          chain-id: 0xaef3
+    - id: moonbeam
+      settings:
+        expected-block-time: 12s
+        lags:
+          syncing: 6
+          lagging: 1
+      chains:
+        - id: mainnet
+          code: MOONBEAM
+          grpcId: 1020
+          short-names: [moonbeam]
+          chain-id: 0x504
+        - id: moonriver
+          code: MOONRIVER
+          grpcId: 1021
+          short-names: [moonriver]
+          chain-id: 0x505
+        - id: moonbase-alpha
+          code: MOONBEAM_ALPHA
+          grpcId: 10029
+          short-names: [moonbase-alpha]
+          chain-id: 0x507
+    - id: scroll
+      settings:
+        expected-block-time: 3s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 10
+          lagging: 5
+      chains:
+        - id: alphanet
+          code: SCROLL_ALPHANET
+          grpcId: 10022
+          short-names: [scroll-alphanet]
+          chain-id: 0x82751
+        - id: sepolia
+          code: SCROLL_SEPOLIA
+          grpcId: 10025
+          short-names: [scroll-sepolia]
+          chain-id: 0x8274f

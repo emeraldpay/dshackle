@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.config
+package io.emeraldpay.dshackle.foundation
 
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.nodes.CollectionNode
 import org.yaml.snakeyaml.nodes.MappingNode
 import org.yaml.snakeyaml.nodes.Node
+import org.yaml.snakeyaml.nodes.NodeTuple
 import org.yaml.snakeyaml.nodes.ScalarNode
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -43,6 +44,32 @@ abstract class YamlConfigReader<T> : ConfigReader<T> {
     fun readNode(input: InputStream): MappingNode {
         val yaml = Yaml()
         return asMappingNode(yaml.compose(InputStreamReader(input)))
+    }
+
+    fun mergeMappingNode(a: MappingNode?, b: MappingNode?): MappingNode? = when {
+        a == null -> b
+        b == null -> a
+        else -> {
+            val mergedTuples = a.value.toMutableList()
+
+            mergedTuples.addAll(
+                b.value.filter { tupleB ->
+                    mergedTuples.none { it.keyNode.valueAsString() == tupleB.keyNode.valueAsString() } && (tupleB.valueNode is MappingNode || tupleB.valueNode is ScalarNode)
+                },
+            )
+
+            a.value.forEach { tupleA ->
+                b.value.find { it.keyNode.valueAsString() == tupleA.keyNode.valueAsString() }?.let { tupleB ->
+                    if (tupleA.valueNode is MappingNode && tupleB.valueNode is MappingNode) {
+                        mergedTuples[mergedTuples.indexOf(tupleA)] = NodeTuple(tupleA.keyNode, mergeMappingNode(tupleA.valueNode as MappingNode, tupleB.valueNode as MappingNode))
+                    } else if (tupleA.valueNode is ScalarNode && tupleB.valueNode is ScalarNode) {
+                        mergedTuples[mergedTuples.indexOf(tupleA)] = NodeTuple(tupleA.keyNode, tupleB.valueNode)
+                    }
+                }
+            }
+
+            MappingNode(a.tag, mergedTuples, a.flowStyle)
+        }
     }
 
     protected fun hasAny(mappingNode: MappingNode?, key: String): Boolean =
@@ -108,6 +135,16 @@ abstract class YamlConfigReader<T> : ConfigReader<T> {
         return getValue(mappingNode, key)?.let {
             return@let if (it.isPlain) {
                 it.value.toIntOrNull()
+            } else {
+                null
+            }
+        }
+    }
+
+    protected fun getValueAsLong(mappingNode: MappingNode?, key: String): Long? {
+        return getValue(mappingNode, key)?.let {
+            return@let if (it.isPlain) {
+                it.value.toLongOrNull()
             } else {
                 null
             }

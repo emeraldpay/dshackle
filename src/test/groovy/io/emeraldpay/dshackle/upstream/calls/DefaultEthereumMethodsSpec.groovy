@@ -39,9 +39,7 @@ class DefaultEthereumMethodsSpec extends Specification {
         chain                  | id
         Chain.ETHEREUM__MAINNET | '"0x1"'
         Chain.ETHEREUM_CLASSIC__MAINNET | '"0x3d"'
-        Chain.ETHEREUM__KOVAN | '"0x2a"'
         Chain.ETHEREUM__GOERLI | '"0x5"'
-        Chain.ETHEREUM__RINKEBY | '"0x4"'
         Chain.ETHEREUM__ROPSTEN | '"0x3"'
     }
 
@@ -61,7 +59,7 @@ class DefaultEthereumMethodsSpec extends Specification {
         new DefaultEthereumMethods(chain).getSupportedMethods().containsAll(methods)
         where:
         chain          | methods
-        Chain.POLYGON_POS__MAINNET | ["bor_getAuthor",
+        Chain.POLYGON__MAINNET | ["bor_getAuthor",
                                       "bor_getCurrentValidators",
                                       "bor_getCurrentProposer",
                                       "bor_getRootHash",

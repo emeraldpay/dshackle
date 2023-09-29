@@ -18,11 +18,10 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 20
-
-      - name: Upload to Docker
+      - name: Setup gradle
         uses: gradle/gradle-build-action@v2
-        with:
-          arguments: jib -Pdocker=drpcorg
+      - name: Upload to Docker
+        run: make jib
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

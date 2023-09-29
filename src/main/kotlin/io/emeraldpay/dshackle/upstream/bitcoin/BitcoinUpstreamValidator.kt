@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
-import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -30,7 +30,7 @@ import java.util.concurrent.Executors
 
 class BitcoinUpstreamValidator(
     private val api: JsonRpcReader,
-    private val options: UpstreamsConfig.Options
+    private val options: ChainOptions.Options,
 ) {
 
     companion object {

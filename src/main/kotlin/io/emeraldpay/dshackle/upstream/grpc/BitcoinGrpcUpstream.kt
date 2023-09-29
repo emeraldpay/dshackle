@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BuildInfo
 import io.emeraldpay.dshackle.upstream.Capability
@@ -59,9 +60,9 @@ class BitcoinGrpcUpstream(
 ) : BitcoinUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     chain,
-    UpstreamsConfig.PartialOptions.getDefaults().buildOptions(),
+    ChainOptions.PartialOptions.getDefaults().buildOptions(),
     role,
-    chainConfig
+    chainConfig,
 ),
     GrpcUpstream,
     Lifecycle {
@@ -70,8 +71,11 @@ class BitcoinGrpcUpstream(
     private val defaultReader: JsonRpcReader = client.getReader()
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val parentHash =
-            if (value.parentBlockId.isBlank()) null
-            else BlockId.from(value.parentBlockId)
+            if (value.parentBlockId.isBlank()) {
+                null
+            } else {
+                BlockId.from(value.parentBlockId)
+            }
         val block = BlockContainer(
             value.height,
             BlockId.from(value.blockId),
@@ -80,7 +84,7 @@ class BitcoinGrpcUpstream(
             false,
             null,
             null,
-            parentHash
+            parentHash,
         )
         block
     }
@@ -108,8 +112,14 @@ class BitcoinGrpcUpstream(
     }
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
     private val grpcHead = GrpcHead(
-        getId(), chain, this, remote, blockConverter, reloadBlock,
-        MostWorkForkChoice(), headScheduler
+        getId(),
+        chain,
+        this,
+        remote,
+        blockConverter,
+        reloadBlock,
+        MostWorkForkChoice(),
+        headScheduler,
     )
     private val timeout = Defaults.timeout
     private var capabilities: Set<Capability> = emptySet()

@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.BuildInfo
@@ -58,19 +59,22 @@ open class EthereumPosGrpcUpstream(
 ) : EthereumLikeUpstream(
     "${parentId}_${chain.chainCode.lowercase(Locale.getDefault())}",
     hash,
-    UpstreamsConfig.PartialOptions.getDefaults().buildOptions(),
+    ChainOptions.PartialOptions.getDefaults().buildOptions(),
     role,
     null,
     null,
-    chainConfig
+    chainConfig,
 ),
     GrpcUpstream,
     Lifecycle {
 
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val parentHash =
-            if (value.parentBlockId.isBlank()) null
-            else BlockId.from(BlockHash.from("0x" + value.parentBlockId))
+            if (value.parentBlockId.isBlank()) {
+                null
+            } else {
+                BlockId.from(BlockHash.from("0x" + value.parentBlockId))
+            }
         val block = BlockContainer(
             value.height,
             BlockId.from(BlockHash.from("0x" + value.blockId)),
@@ -79,15 +83,21 @@ open class EthereumPosGrpcUpstream(
             false,
             null,
             null,
-            parentHash
+            parentHash,
         )
         block
     }
 
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
     private val grpcHead = GrpcHead(
-        getId(), chain, this, remote, blockConverter, null,
-        NoChoiceWithPriorityForkChoice(nodeRating, parentId), headScheduler
+        getId(),
+        chain,
+        this,
+        remote,
+        blockConverter,
+        null,
+        NoChoiceWithPriorityForkChoice(nodeRating, parentId),
+        headScheduler,
     )
     private var capabilities: Set<Capability> = emptySet()
     private val buildInfo: BuildInfo = BuildInfo()

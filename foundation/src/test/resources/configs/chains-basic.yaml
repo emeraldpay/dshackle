@@ -1,0 +1,18 @@
+version: v1
+
+chain-settings:
+  protocols:
+    - id: fantom
+      settings:
+        expected-block-time: 10s
+        options:
+          validate-peers: true
+        lags:
+          syncing: 11
+          lagging: 4
+      chains:
+        - id: mainnet
+          short-names: [fantom]
+          code: FTA
+          grpcId: 102
+          chain-id: 0xfb

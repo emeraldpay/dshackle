@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import reactor.core.publisher.Flux
@@ -32,7 +33,7 @@ interface Upstream {
      */
     fun getIngressReader(): JsonRpcReader
 
-    fun getOptions(): UpstreamsConfig.Options
+    fun getOptions(): ChainOptions.Options
     fun getRole(): UpstreamsConfig.UpstreamRole
     fun setLag(lag: Long)
     fun getLag(): Long?

@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.jetbrains.annotations.NotNull
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import org.reactivestreams.Publisher
 
 class EthereumRpcUpstreamMock extends EthereumLikeRpcUpstream {
@@ -56,7 +57,7 @@ class EthereumRpcUpstreamMock extends EthereumLikeRpcUpstream {
 
     EthereumRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
         super(id, id.hashCode().byteValue(), chain,
-                UpstreamsConfig.PartialOptions.getDefaults().buildOptions(),
+                ChainOptions.PartialOptions.getDefaults().buildOptions(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,
                 new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),

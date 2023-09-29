@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
@@ -41,14 +42,14 @@ open class EthereumLikeRpcUpstream(
     id: String,
     hash: Byte,
     val chain: Chain,
-    options: UpstreamsConfig.Options,
+    options: ChainOptions.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?,
     connectorFactory: ConnectorFactory,
     chainConfig: ChainsConfig.ChainConfig,
     skipEnhance: Boolean,
-    private val eventPublisher: ApplicationEventPublisher?
+    private val eventPublisher: ApplicationEventPublisher?,
 ) : EthereumLikeUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(chain, this, getOptions(), chainConfig.callLimitContract)
     protected val connector: EthereumConnector = connectorFactory.create(this, validator, chain, skipEnhance)

@@ -20,12 +20,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods.Companion.CHAIN_DATA
-import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods.Companion.getChainByData
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.Address
@@ -46,8 +43,8 @@ import java.util.concurrent.TimeoutException
 open class EthereumUpstreamValidator @JvmOverloads constructor(
     private val chain: Chain,
     private val upstream: Upstream,
-    private val options: UpstreamsConfig.Options,
-    private val callLimitContract: String? = null
+    private val options: ChainOptions.Options,
+    private val callLimitContract: String? = null,
 ) {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
@@ -60,7 +57,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
     open fun validate(): Mono<UpstreamAvailability> {
         return Mono.zip(
             validateSyncing(),
-            validatePeers()
+            validatePeers(),
         )
             .map(::resolve)
             .defaultIfEmpty(UpstreamAvailability.UNAVAILABLE)
@@ -86,7 +83,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .timeout(
                 Defaults.timeoutInternal,
                 Mono.fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for Syncing")))
+                    .then(Mono.error(TimeoutException("Validation timeout for Syncing"))),
             )
             .map {
                 val isSyncing = it.isSyncing
@@ -113,7 +110,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .timeout(
                 Defaults.timeoutInternal,
                 Mono.fromCallable { log.warn("No response for net_peerCount from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for Peers")))
+                    .then(Mono.error(TimeoutException("Validation timeout for Peers"))),
             )
             .map { count ->
                 val minPeers = options.minPeers
@@ -144,7 +141,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
         return Mono.zip(
             validateChain(),
             validateCallLimit(),
-            validateOldBlocks()
+            validateOldBlocks(),
         ).map {
             it.t1 && it.t2 && it.t3
         }.block() ?: false
@@ -156,19 +153,16 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
         }
         return Mono.zip(
             chainId(),
-            netVersion()
+            netVersion(),
         )
             .map {
-                val chainData = CHAIN_DATA[chain] ?: return@map false
-                val isChainValid = chainData.chainId == it.t1 && chainData.netVersion == it.t2
+                val isChainValid = chain.chainId == it.t1 && chain.netVersion.toString() == it.t2
 
                 if (!isChainValid) {
-                    val actualChain = getChainByData(
-                        DefaultEthereumMethods.HardcodedData.createHardcodedData(it.t2, it.t1)
-                    )?.chainName
+                    val actualChain = Global.chainByChainId(it.t1).chainName
                     log.warn(
                         "${chain.chainName} is specified for upstream ${upstream.getId()} " +
-                            "but actually it is $actualChain with chainId ${it.t1} and net_version ${it.t2}"
+                            "but actually it is $actualChain with chainId ${it.t1} and net_version ${it.t2}",
                     )
                 }
 
@@ -193,11 +187,11 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                             Address.from(callLimitContract),
                             // calling contract with param 200_000, meaning it will generate 200k symbols or response
                             // f4240 + metadata — ~1 million
-                            HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
+                            HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240"),
                         ),
-                        "latest"
-                    )
-                )
+                        "latest",
+                    ),
+                ),
             )
             .flatMap(JsonRpcResponse::requireResult)
             .map { true }
@@ -206,7 +200,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                     log.warn(
                         "Error: ${it.message}. Node ${upstream.getId()} is probably incorrectly configured. " +
                             "You need to set up your return limit to at least 1_100_000. " +
-                            "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369"
+                            "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369",
                     )
                     Mono.just(false)
                 } else {
@@ -216,12 +210,12 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .timeout(
                 Defaults.timeoutInternal,
                 Mono.fromCallable { log.error("No response for eth_call limit check from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for call limit")))
+                    .then(Mono.error(TimeoutException("Validation timeout for call limit"))),
             )
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
                     "error during validateCallLimit for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
-                        "message ${ctx.exception().message}"
+                        "message ${ctx.exception().message}",
                 )
             }
             .onErrorReturn(false)
@@ -238,14 +232,14 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
                     "error during old block retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
-                        "message ${ctx.exception().message}"
+                        "message ${ctx.exception().message}",
                 )
             }
             .map { result ->
                 val receivedResult = result.isNotEmpty() && !Global.nullValue.contentEquals(result)
                 if (!receivedResult) {
                     log.warn(
-                        "Node ${upstream.getId()} probably is synced incorrectly, it is not possible to get old blocks"
+                        "Node ${upstream.getId()} probably is synced incorrectly, it is not possible to get old blocks",
                     )
                 }
                 true
@@ -262,12 +256,11 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
                     "error during chainId retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
-                        "message ${ctx.exception().message}"
+                        "message ${ctx.exception().message}",
                 )
             }
             .doOnError { log.error("Error during execution 'eth_chainId' - ${it.message} for ${upstream.getId()}") }
-            .flatMap(JsonRpcResponse::requireResult)
-            .map { String(it) }
+            .flatMap(JsonRpcResponse::requireStringResult)
     }
 
     private fun netVersion(): Mono<String> {
@@ -276,11 +269,10 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
                     "error during netVersion retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
-                        "message ${ctx.exception().message}"
+                        "message ${ctx.exception().message}",
                 )
             }
             .doOnError { log.error("Error during execution 'net_version' - ${it.message} for ${upstream.getId()}") }
-            .flatMap(JsonRpcResponse::requireResult)
-            .map { String(it) }
+            .flatMap(JsonRpcResponse::requireStringResult)
     }
 }

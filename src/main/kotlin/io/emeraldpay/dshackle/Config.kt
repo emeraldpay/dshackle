@@ -49,7 +49,7 @@ import kotlin.system.exitProcess
 @EnableAsync
 open class Config(
     private val env: Environment,
-    private val ctx: ApplicationContext
+    private val ctx: ApplicationContext,
 ) {
 
     companion object {

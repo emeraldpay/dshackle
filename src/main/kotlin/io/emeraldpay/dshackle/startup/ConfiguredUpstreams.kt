@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.config.AuthorizationConfig
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.CompressionConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
@@ -88,7 +89,7 @@ open class ConfiguredUpstreams(
     @Qualifier("headScheduler")
     private val headScheduler: Scheduler,
     private val authorizationConfig: AuthorizationConfig,
-    private val grpcAuthContext: GrpcAuthContext
+    private val grpcAuthContext: GrpcAuthContext,
 ) : ApplicationRunner {
     @Value("\${spring.application.max-metadata-size}")
     private var maxMetadataSize: Int = Defaults.maxMetadataSize
@@ -109,7 +110,7 @@ open class ConfiguredUpstreams(
             }
             log.debug("Start upstream ${up.id}")
             if (up.connection is UpstreamsConfig.GrpcConnection) {
-                val options = up.options ?: UpstreamsConfig.PartialOptions()
+                val options = up.options ?: ChainOptions.PartialOptions()
                 buildGrpcUpstream(up.nodeId, up.cast(UpstreamsConfig.GrpcConnection::class.java), options.buildOptions(), compressionConfig.grpc.clientEnabled)
             } else {
                 val chain = Global.chainById(up.chain)
@@ -117,10 +118,10 @@ open class ConfiguredUpstreams(
                     log.error("Chain is unknown: ${up.chain}")
                     return@forEach
                 }
-                val chainConfig = chainsConfig.resolve(chain)
+                val chainConfig = chainsConfig.resolve(up.chain!!)
                 val options = chainConfig.options
-                    .merge(defaultOptions[chain] ?: UpstreamsConfig.PartialOptions.getDefaults())
-                    .merge(up.options ?: UpstreamsConfig.PartialOptions())
+                    .merge(defaultOptions[chain] ?: ChainOptions.PartialOptions.getDefaults())
+                    .merge(up.options ?: ChainOptions.PartialOptions())
                     .buildOptions()
                 val upstream = when (BlockchainType.from(chain)) {
                     BlockchainType.EVM_POS -> {
@@ -129,7 +130,7 @@ open class ConfiguredUpstreams(
                             up.cast(UpstreamsConfig.EthereumPosConnection::class.java),
                             chain,
                             options,
-                            chainConfig
+                            chainConfig,
                         )
                     }
                     BlockchainType.EVM_POW -> {
@@ -138,7 +139,7 @@ open class ConfiguredUpstreams(
                             up.cast(UpstreamsConfig.EthereumConnection::class.java),
                             chain,
                             options,
-                            chainConfig
+                            chainConfig,
                         )
                     }
                     BlockchainType.BITCOIN -> {
@@ -146,7 +147,7 @@ open class ConfiguredUpstreams(
                             up.cast(UpstreamsConfig.BitcoinConnection::class.java),
                             chain,
                             options,
-                            chainConfig
+                            chainConfig,
                         )
                     }
                 }
@@ -158,8 +159,8 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, UpstreamsConfig.PartialOptions> {
-        val defaultOptions = HashMap<Chain, UpstreamsConfig.PartialOptions>()
+    private fun buildDefaultOptions(config: UpstreamsConfig): HashMap<Chain, ChainOptions.PartialOptions> {
+        val defaultOptions = HashMap<Chain, ChainOptions.PartialOptions>()
         config.defaultOptions.forEach { defaultsConfig ->
             defaultsConfig.chains?.forEach { chainName ->
                 Global.chainById(chainName).let { chain ->
@@ -183,7 +184,7 @@ open class ConfiguredUpstreams(
                 enabled = config.methods?.enabled?.map { it.name }?.toSet() ?: emptySet(),
                 disabled = config.methods?.disabled?.map { it.name }?.toSet() ?: emptySet(),
                 groupsEnabled = config.methodGroups?.enabled ?: emptySet(),
-                groupsDisabled = config.methodGroups?.disabled ?: emptySet()
+                groupsDisabled = config.methodGroups?.disabled ?: emptySet(),
             ).also {
                 config.methods?.enabled?.forEach { m ->
                     if (m.quorum != null) {
@@ -203,8 +204,8 @@ open class ConfiguredUpstreams(
         nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumPosConnection>,
         chain: Chain,
-        options: UpstreamsConfig.Options,
-        chainConf: ChainsConfig.ChainConfig
+        options: ChainOptions.Options,
+        chainConf: ChainsConfig.ChainConfig,
     ): Upstream? {
         val conn = config.connection!!
         val execution = conn.execution
@@ -220,7 +221,7 @@ open class ConfiguredUpstreams(
             urls,
             NoChoiceWithPriorityForkChoice(conn.upstreamRating, config.id!!),
             BlockValidator.ALWAYS_VALID,
-            chainConf
+            chainConf,
         )
         val methods = buildMethods(config, chain)
         if (connectorFactory == null) {
@@ -242,7 +243,7 @@ open class ConfiguredUpstreams(
             connectorFactory,
             chainConf,
             true,
-            eventPublisher
+            eventPublisher,
         )
         upstream.start()
         if (!upstream.isRunning) {
@@ -255,8 +256,8 @@ open class ConfiguredUpstreams(
     private fun buildBitcoinUpstream(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.BitcoinConnection>,
         chain: Chain,
-        options: UpstreamsConfig.Options,
-        chainConf: ChainsConfig.ChainConfig
+        options: ChainOptions.Options,
+        chainConf: ChainsConfig.ChainConfig,
     ): Upstream? {
         val conn = config.connection!!
         val httpFactory = buildHttpFactory(conn)
@@ -289,7 +290,7 @@ open class ConfiguredUpstreams(
             chain, directApi, head,
             options, config.role,
             QuorumForLabels.QuorumItem(1, config.labels),
-            methods, esplora, chainConf
+            methods, esplora, chainConf,
         )
         upstream.start()
         return upstream
@@ -299,8 +300,8 @@ open class ConfiguredUpstreams(
         nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>,
         chain: Chain,
-        options: UpstreamsConfig.Options,
-        chainConf: ChainsConfig.ChainConfig
+        options: ChainOptions.Options,
+        chainConf: ChainsConfig.ChainConfig,
     ): Upstream? {
         val conn = config.connection!!
 
@@ -314,7 +315,7 @@ open class ConfiguredUpstreams(
             urls,
             MostWorkForkChoice(),
             EthereumBlockValidator(),
-            chainConf
+            chainConf,
         )
         if (connectorFactory == null) {
             return null
@@ -331,7 +332,7 @@ open class ConfiguredUpstreams(
             connectorFactory,
             chainConf,
             false,
-            eventPublisher
+            eventPublisher,
         )
         upstream.start()
         return upstream
@@ -340,13 +341,13 @@ open class ConfiguredUpstreams(
     private fun buildGrpcUpstream(
         nodeId: Int?,
         config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
-        options: UpstreamsConfig.Options,
-        compression: Boolean
+        options: ChainOptions.Options,
+        compression: Boolean,
     ) {
         if (!this::grpcUpstreamsScheduler.isInitialized) {
             grpcUpstreamsScheduler = Schedulers.fromExecutorService(
                 Executors.newFixedThreadPool(2),
-                "GrpcUpstreamsStatuses"
+                "GrpcUpstreamsStatuses",
             )
         }
         val endpoint = config.connection!!
@@ -371,7 +372,7 @@ open class ConfiguredUpstreams(
             clientSpansInterceptor,
             maxMetadataSize,
             headScheduler,
-            grpcAuthContext
+            grpcAuthContext,
         ).apply {
             timeout = options.timeout
         }
@@ -399,14 +400,15 @@ open class ConfiguredUpstreams(
         id: String,
         chain: Chain,
         conn: UpstreamsConfig.EthereumConnection,
-        urls: ArrayList<URI>? = null
+        urls: ArrayList<URI>? = null,
     ): EthereumWsConnectionPoolFactory? {
         return conn.ws?.let { endpoint ->
             val wsConnectionFactory = EthereumWsConnectionFactory(
-                id, chain,
+                id,
+                chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
-                headScheduler
+                headScheduler,
             ).apply {
                 config = endpoint
                 basicAuth = endpoint.basicAuth
@@ -414,7 +416,7 @@ open class ConfiguredUpstreams(
             val wsApi = EthereumWsConnectionPoolFactory(
                 id,
                 endpoint.connections,
-                wsConnectionFactory
+                wsConnectionFactory,
             )
             urls?.add(endpoint.url)
             wsApi
@@ -428,7 +430,7 @@ open class ConfiguredUpstreams(
         urls: ArrayList<URI>,
         forkChoice: ForkChoice,
         blockValidator: BlockValidator,
-        chainsConf: ChainsConfig.ChainConfig
+        chainsConf: ChainsConfig.ChainConfig,
     ): EthereumConnectorFactory? {
         val wsFactoryApi = buildWsFactory(id, chain, conn, urls)
         val httpFactory = buildHttpFactory(conn, urls)
@@ -442,7 +444,7 @@ open class ConfiguredUpstreams(
                 blockValidator,
                 wsConnectionResubscribeScheduler,
                 headScheduler,
-                chainsConf.expectedBlockTime
+                chainsConf.expectedBlockTime,
             )
         if (!connectorFactory.isValid()) {
             log.warn("Upstream configuration is invalid (probably no http endpoint)")

@@ -45,13 +45,8 @@ proxy:
       blockchain: ethereum
     - id: etc
       blockchain: ethereum_classic
-    - id: kovan
-      blockchain: kovan
     - id: goerli
       blockchain: goerli
-    - id: rinkeby
-      blockchain: rinkeby
-
 cluster:
   defaults:
     - chains:

@@ -6,10 +6,10 @@ enum class BlockchainType {
     companion object {
 
         val pow = setOf(
-            Chain.ETHEREUM_CLASSIC__MAINNET, Chain.RSK__MAINNET, Chain.ETHEREUM__KOVAN,
-            Chain.ETHEREUM__MORDEN, Chain.ETHEREUM__RINKEBY
+            Chain.ETHEREUM_CLASSIC__MAINNET,
         )
         val bitcoin = setOf(Chain.BITCOIN__MAINNET, Chain.BITCOIN__TESTNET)
+
         @JvmStatic
         fun from(chain: Chain): BlockchainType {
             return if (pow.contains(chain)) {

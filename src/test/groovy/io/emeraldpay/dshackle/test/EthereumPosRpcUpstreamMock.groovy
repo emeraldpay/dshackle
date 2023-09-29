@@ -17,10 +17,9 @@
 package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.config.UpstreamsConfig.Options
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
@@ -31,6 +30,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
+import io.emeraldpay.dshackle.foundation.ChainOptions
 
 class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
     EthereumHeadMock ethereumHeadMock
@@ -80,8 +80,8 @@ class EthereumPosRpcUpstreamMock extends EthereumLikeRpcUpstream {
         start()
     }
 
-    static Options getOpts() {
-        def opt = UpstreamsConfig.PartialOptions.getDefaults()
+    static ChainOptions.Options getOpts() {
+        def opt = ChainOptions.PartialOptions.getDefaults()
         opt.setDisableValidation(true)
         opt.setDisableUpstreamValidation(true)
         return opt.buildOptions()

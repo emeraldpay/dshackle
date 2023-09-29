@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -26,19 +27,19 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 abstract class BitcoinUpstream(
     id: String,
     val chain: Chain,
-    options: UpstreamsConfig.Options,
+    options: ChainOptions.Options,
     role: UpstreamsConfig.UpstreamRole,
     callMethods: CallMethods,
     node: QuorumForLabels.QuorumItem,
     val esploraClient: EsploraClient? = null,
-    chainConfig: ChainsConfig.ChainConfig
+    chainConfig: ChainsConfig.ChainConfig,
 ) : DefaultUpstream(id, 0.toByte(), options, role, callMethods, node, chainConfig) {
 
     constructor(
         id: String,
         chain: Chain,
-        options: UpstreamsConfig.Options,
+        options: ChainOptions.Options,
         role: UpstreamsConfig.UpstreamRole,
-        chainConfig: ChainsConfig.ChainConfig
+        chainConfig: ChainsConfig.ChainConfig,
     ) : this(id, chain, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty(), null, chainConfig)
 }

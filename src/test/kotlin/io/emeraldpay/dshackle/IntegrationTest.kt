@@ -6,6 +6,7 @@ import io.emeraldpay.api.proto.Common.ChainRef
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.config.MainConfigReader
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.github.ganchix.ganache.Account
 import io.github.ganchix.ganache.GanacheContainer
 import io.grpc.BindableService
@@ -43,8 +44,8 @@ class IntegrationTest {
             withAccounts(
                 listOf(
                     Account.builder().privateKey(PRIVATE_KEY_0).balance(BigInteger.valueOf(2000000000000000000)).build(),
-                    Account.builder().privateKey(PRIVATE_KEY_1).balance(BigInteger.valueOf(2000000000000000000)).build()
-                )
+                    Account.builder().privateKey(PRIVATE_KEY_1).balance(BigInteger.valueOf(2000000000000000000)).build(),
+                ),
             )
         }
 
@@ -82,7 +83,7 @@ class IntegrationTest {
             val reader = MainConfigReader(fileResolver)
             val config = reader.read(
                 ResourceUtils.getFile("classpath:integration/dshackle.yaml")
-                    .inputStream()
+                    .inputStream(),
             )!!
             patch(config)
             return config
@@ -94,7 +95,7 @@ class IntegrationTest {
                     id = "ganache"
                     nodeId = 1
                     chain = "ethereum"
-                    options = UpstreamsConfig.PartialOptions()
+                    options = ChainOptions.PartialOptions()
                         .apply {
                             validateChain = false
                         }
@@ -102,12 +103,12 @@ class IntegrationTest {
                         execution = UpstreamsConfig.EthereumConnection().apply {
                             rpc = UpstreamsConfig.HttpEndpoint(
                                 URI.create(
-                                    "http://" + ganacheContainer.getHost() + ":" + ganacheContainer.getMappedPort(8545) + "/"
-                                )
+                                    "http://" + ganacheContainer.getHost() + ":" + ganacheContainer.getMappedPort(8545) + "/",
+                                ),
                             )
                         }
                     }
-                }
+                },
             )
         }
     }

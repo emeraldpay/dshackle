@@ -29,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Retry
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import spock.lang.Specification
 
 import java.time.Duration
@@ -66,7 +67,7 @@ class FilteredApisSpec extends Specification {
                     "test",
                     (byte) 123,
                     Chain.ETHEREUM__MAINNET,
-                    new UpstreamsConfig.PartialOptions().buildOptions(),
+                    new ChainOptions.PartialOptions().buildOptions(),
                     UpstreamsConfig.UpstreamRole.PRIMARY,
                     ethereumTargets,
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),

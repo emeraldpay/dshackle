@@ -1,0 +1,18 @@
+all: build-foundation build-main
+
+build-foundation:
+	cd foundation && ../gradlew build publishToMavenLocal
+
+build-main:
+	./gradlew build
+
+test: build-foundation
+	./gradlew check
+
+
+jib: build-foundation
+	./gradlew jib -Pdocker=drpcorg
+
+clean:
+	./gradlew clean;
+	cd foundation && ../gradlew clean

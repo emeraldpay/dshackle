@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -26,11 +27,11 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 abstract class EthereumLikeUpstream(
     id: String,
     hash: Byte,
-    options: UpstreamsConfig.Options,
+    options: ChainOptions.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?,
-    val chainConfig: ChainsConfig.ChainConfig
+    val chainConfig: ChainsConfig.ChainConfig,
 ) : DefaultUpstream(id, hash, options, role, targets, node, chainConfig) {
 
     private val capabilities = setOf(Capability.RPC, Capability.BALANCE)

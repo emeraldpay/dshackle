@@ -16,108 +16,22 @@
  */
 package io.emeraldpay.dshackle.config
 
-import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
-import org.apache.commons.lang3.ObjectUtils.firstNonNull
 import java.net.URI
-import java.time.Duration
 import java.util.Arrays
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 open class UpstreamsConfig {
-    var defaultOptions: MutableList<DefaultOptions> = ArrayList<DefaultOptions>()
+    var defaultOptions: MutableList<ChainOptions.DefaultOptions> = ArrayList()
     var upstreams: MutableList<Upstream<*>> = ArrayList<Upstream<*>>()
-
-    data class Options(
-        val disableUpstreamValidation: Boolean,
-        val disableValidation: Boolean,
-        val validationInterval: Int,
-        val timeout: Duration,
-        val providesBalance: Boolean?,
-        val validatePeers: Boolean,
-        val minPeers: Int,
-        val validateSyncing: Boolean,
-        val validateCallLimit: Boolean,
-        val validateChain: Boolean
-    )
-
-    open class PartialOptions {
-        var disableValidation: Boolean? = null
-        var disableUpstreamValidation: Boolean? = null
-        var validationInterval: Int? = null
-            set(value) {
-                require(value == null || value > 0) {
-                    "validation-interval must be a positive number: $value"
-                }
-                field = value
-            }
-        var timeout: Duration? = null
-        var providesBalance: Boolean? = null
-        var validatePeers: Boolean? = null
-        var validateCalllimit: Boolean? = null
-        var minPeers: Int? = null
-            set(value) {
-                require(value == null || value >= 0) {
-                    "min-peers must be a positive number: $value"
-                }
-                field = value
-            }
-        var validateSyncing: Boolean? = null
-        var validateChain: Boolean? = null
-
-        fun merge(overwrites: PartialOptions?): PartialOptions {
-            if (overwrites == null) {
-                return this
-            }
-            val copy = PartialOptions()
-            copy.validatePeers = firstNonNull(overwrites.validatePeers, this.validatePeers)
-            copy.minPeers = firstNonNull(overwrites.minPeers, this.minPeers)
-            copy.disableValidation = firstNonNull(overwrites.disableValidation, this.disableValidation)
-            copy.validationInterval = firstNonNull(overwrites.validationInterval, this.validationInterval)
-            copy.providesBalance = firstNonNull(overwrites.providesBalance, this.providesBalance)
-            copy.validateSyncing = firstNonNull(overwrites.validateSyncing, this.validateSyncing)
-            copy.validateCalllimit = firstNonNull(overwrites.validateCalllimit, this.validateCalllimit)
-            copy.timeout = firstNonNull(overwrites.timeout, this.timeout)
-            copy.validateChain = firstNonNull(overwrites.validateChain, this.validateChain)
-            copy.disableUpstreamValidation = firstNonNull(overwrites.disableUpstreamValidation, this.disableUpstreamValidation)
-            return copy
-        }
-
-        fun buildOptions(): Options =
-            Options(
-                firstNonNull(this.disableUpstreamValidation, false)!!,
-                firstNonNull(this.disableValidation, false)!!,
-                firstNonNull(this.validationInterval, 30)!!,
-                firstNonNull(this.timeout, Defaults.timeout)!!,
-                this.providesBalance,
-                firstNonNull(this.validatePeers, true)!!,
-                firstNonNull(this.minPeers, 1)!!,
-                firstNonNull(this.validateSyncing, true)!!,
-                firstNonNull(this.validateCalllimit, true)!!,
-                firstNonNull(this.validateChain, true)!!
-            )
-
-        companion object {
-            @JvmStatic
-            fun getDefaults(): PartialOptions {
-                val options = PartialOptions()
-                options.minPeers = 1
-                return options
-            }
-        }
-    }
-
-    class DefaultOptions : PartialOptions() {
-        var chains: List<String>? = null
-        var options: PartialOptions? = null
-    }
 
     class Upstream<T : UpstreamConnection> {
         var id: String? = null
         var nodeId: Int? = null
         var chain: String? = null
-        var options: PartialOptions? = null
+        var options: ChainOptions.PartialOptions? = null
         var isEnabled = true
         var connection: T? = null
         val labels = Labels()
@@ -137,7 +51,7 @@ open class UpstreamsConfig {
     enum class UpstreamRole {
         PRIMARY,
         SECONDARY,
-        FALLBACK
+        FALLBACK,
     }
 
     open class UpstreamConnection
@@ -185,7 +99,7 @@ open class UpstreamsConfig {
 
     data class BitcoinZeroMq(
         val host: String = "127.0.0.1",
-        val port: Int
+        val port: Int,
     )
 
     class HttpEndpoint(val url: URI) {
@@ -220,7 +134,8 @@ open class UpstreamsConfig {
         ETHEREUM_JSON_RPC("ethereum"),
         BITCOIN_JSON_RPC("bitcoin"),
         DSHACKLE("dshackle", "grpc"),
-        UNKNOWN("unknown");
+        UNKNOWN("unknown"),
+        ;
 
         private val code: Array<out String>
 
@@ -256,6 +171,6 @@ open class UpstreamsConfig {
     class Method(
         val name: String,
         val quorum: String? = null,
-        val static: String? = null
+        val static: String? = null,
     )
 }

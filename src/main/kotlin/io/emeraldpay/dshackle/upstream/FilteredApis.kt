@@ -47,7 +47,7 @@ class FilteredApis(
      * Limit of retries
      */
     private val retryLimit: Long,
-    jitter: Int
+    jitter: Int,
 ) : ApiSource {
     private val internalMatcher: Selector.Matcher
 
@@ -77,13 +77,13 @@ class FilteredApis(
         chain: Chain,
         allUpstreams: List<Upstream>,
         matcher: Selector.Matcher,
-        pos: Int
+        pos: Int,
     ) : this(chain, allUpstreams, matcher, pos, 10, 7)
 
     constructor(
         chain: Chain,
         allUpstreams: List<Upstream>,
-        matcher: Selector.Matcher
+        matcher: Selector.Matcher,
     ) : this(chain, allUpstreams, matcher, 0, 10, 10)
 
     private val delay: Int
@@ -132,7 +132,7 @@ class FilteredApis(
             }
         }
         internalMatcher = Selector.MultiMatcher(
-            listOf(Selector.AvailabilityMatcher(), matcher)
+            listOf(Selector.AvailabilityMatcher(), matcher),
         )
     }
 
@@ -158,7 +158,7 @@ class FilteredApis(
         val n = max(rawn, 1)
         val time = min(
             (n.toDouble().pow(2.0) * delay).roundToLong(),
-            MAX_WAIT_MILLIS
+            MAX_WAIT_MILLIS,
         )
         return Duration.ofMillis(time)
     }

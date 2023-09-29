@@ -61,19 +61,19 @@ class Selector {
                     Collections.unmodifiableCollection(
                         req.andSelector.selectorsList.map {
                             convertToMatcher(
-                                it
+                                it,
                             )
-                        }
-                    )
+                        },
+                    ),
                 )
                 req.hasOrSelector() -> OrMatcher(
                     Collections.unmodifiableCollection(
                         req.orSelector.selectorsList.map {
                             convertToMatcher(
-                                it
+                                it,
                             )
-                        }
-                    )
+                        },
+                    ),
                 )
                 req.hasNotSelector() -> NotMatcher(convertToMatcher(req.notSelector.selector))
                 req.hasExistsSelector() -> ExistsMatcher(req.existsSelector.name)
@@ -138,7 +138,7 @@ class Selector {
     }
 
     data class MultiMatcher(
-        private val matchers: Collection<Matcher>
+        private val matchers: Collection<Matcher>,
     ) : Matcher() {
 
         override fun matchesWithCause(up: Upstream): MatchesResponse {
@@ -147,7 +147,7 @@ class Selector {
                 Success
             } else {
                 MatchesResponse.MultiResponse(
-                    responses.filter { it !is Success }.toSet()
+                    responses.filter { it !is Success }.toSet(),
                 )
             }
         }
@@ -175,7 +175,7 @@ class Selector {
     }
 
     data class MethodMatcher(
-        val method: String
+        val method: String,
     ) : Matcher() {
 
         override fun matchesWithCause(up: Upstream): MatchesResponse =
@@ -202,7 +202,7 @@ class Selector {
                 Success
             } else {
                 MatchesResponse.MultiResponse(
-                    labelsResponses.filter { it !is Success }.toSet()
+                    labelsResponses.filter { it !is Success }.toSet(),
                 )
             }
         }
@@ -243,7 +243,7 @@ class Selector {
 
     class LabelMatcher(
         val name: String,
-        val values: Collection<String>
+        val values: Collection<String>,
     ) : LabelSelectorMatcher() {
 
         override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse {
@@ -254,7 +254,8 @@ class Selector {
                 Success
             } else {
                 MatchesResponse.LabelResponse(
-                    name, values
+                    name,
+                    values,
                 )
             }
         }
@@ -263,7 +264,7 @@ class Selector {
             return BlockchainOuterClass.Selector.newBuilder().setLabelSelector(
                 BlockchainOuterClass.LabelSelector.newBuilder()
                     .setName(name)
-                    .addAllValue(values)
+                    .addAllValue(values),
             ).build()
         }
 
@@ -286,7 +287,7 @@ class Selector {
                 Success
             } else {
                 MatchesResponse.MultiResponse(
-                    responses.filter { it !is Success }.toSet()
+                    responses.filter { it !is Success }.toSet(),
                 )
             }
         }
@@ -295,7 +296,7 @@ class Selector {
             return BlockchainOuterClass.Selector.newBuilder().setOrSelector(
                 BlockchainOuterClass.OrSelector.newBuilder()
                     .addAllSelectors(matchers.map { it.asProto() })
-                    .build()
+                    .build(),
             ).build()
         }
 
@@ -309,7 +310,7 @@ class Selector {
     }
 
     class AndMatcher(
-        val matchers: Collection<LabelSelectorMatcher>
+        val matchers: Collection<LabelSelectorMatcher>,
     ) : LabelSelectorMatcher() {
 
         override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse {
@@ -318,7 +319,7 @@ class Selector {
                 Success
             } else {
                 MatchesResponse.MultiResponse(
-                    responses.filter { it !is Success }.toSet()
+                    responses.filter { it !is Success }.toSet(),
                 )
             }
         }
@@ -327,7 +328,7 @@ class Selector {
             return BlockchainOuterClass.Selector.newBuilder().setAndSelector(
                 BlockchainOuterClass.AndSelector.newBuilder()
                     .addAllSelectors(matchers.map { it.asProto() })
-                    .build()
+                    .build(),
             ).build()
         }
 
@@ -341,7 +342,7 @@ class Selector {
     }
 
     class NotMatcher(
-        val matcher: LabelSelectorMatcher
+        val matcher: LabelSelectorMatcher,
     ) : LabelSelectorMatcher() {
 
         override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse {
@@ -357,7 +358,7 @@ class Selector {
             return BlockchainOuterClass.Selector.newBuilder().setNotSelector(
                 BlockchainOuterClass.NotSelector.newBuilder()
                     .setSelector(matcher.asProto())
-                    .build()
+                    .build(),
             ).build()
         }
 
@@ -371,7 +372,7 @@ class Selector {
     }
 
     class ExistsMatcher(
-        val name: String
+        val name: String,
     ) : LabelSelectorMatcher() {
 
         override fun matchesWithCause(labels: UpstreamsConfig.Labels): MatchesResponse =
@@ -385,7 +386,7 @@ class Selector {
             return BlockchainOuterClass.Selector.newBuilder().setExistsSelector(
                 BlockchainOuterClass.ExistsSelector.newBuilder()
                     .setName(name)
-                    .build()
+                    .build(),
             ).build()
         }
 

@@ -88,14 +88,13 @@ open class BitcoinMultistream(
                 }
             }
         } else {
-            val newHead = MergedHead(sourceUpstreams.map { it.getHead() }, MostWorkForkChoice(), headScheduler).apply {
-            this.start()
-        }
+            val newHead = MergedHead(sourceUpstreams.map { it.getHead() }, MostWorkForkChoice(), headScheduler).apply { this.start() }
             newHead
         }
         onHeadUpdated(head)
         return head
     }
+
     /**
      * Finds an API that executed directly on a remote.
      */

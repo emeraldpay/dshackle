@@ -16,7 +16,7 @@ open class EthereumWsConnectionFactory(
     private val chain: Chain,
     private val uri: URI,
     private val origin: URI,
-    private val scheduler: Scheduler
+    private val scheduler: Scheduler,
 ) {
 
     var basicAuth: AuthConfig.ClientBasicAuth? = null
@@ -27,7 +27,7 @@ open class EthereumWsConnectionFactory(
             Tag.of("index", connIndex.toString()),
             Tag.of("upstream", id),
             // UNSPECIFIED shouldn't happen too
-            Tag.of("chain", chain.chainCode)
+            Tag.of("chain", chain.chainCode),
         )
 
         return RpcMetrics(
@@ -39,7 +39,7 @@ open class EthereumWsConnectionFactory(
             Counter.builder("upstream.ws.fail")
                 .description("Number of failures of WebSocket JSON RPC requests")
                 .tags(metricsTags)
-                .register(Metrics.globalRegistry)
+                .register(Metrics.globalRegistry),
         )
     }
 

@@ -17,16 +17,19 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.FileResolver
+import io.emeraldpay.dshackle.foundation.ChainOptions
+import io.emeraldpay.dshackle.foundation.ChainOptionsReader
+import io.emeraldpay.dshackle.foundation.YamlConfigReader
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 import java.io.InputStream
 import java.net.URI
-import java.time.Duration
 import java.util.Locale
 
 class UpstreamsConfigReader(
-    private val fileResolver: FileResolver
+    private val fileResolver: FileResolver,
+    private val optionsReader: ChainOptionsReader,
 ) : YamlConfigReader<UpstreamsConfig>() {
 
     private val log = LoggerFactory.getLogger(UpstreamsConfigReader::class.java)
@@ -39,28 +42,28 @@ class UpstreamsConfigReader(
         }
     }
 
-    fun readInternal(input: InputStream): UpstreamsConfig? {
+    fun readInternal(input: InputStream): UpstreamsConfig {
         val configNode = readNode(input)
         return readInternal(configNode)
     }
-    fun readInternal(input: MappingNode?): UpstreamsConfig {
+    private fun readInternal(input: MappingNode?): UpstreamsConfig {
         val config = UpstreamsConfig()
 
         getList<MappingNode>(input, "defaults")?.value?.forEach { opts ->
-            val defaultOptions = UpstreamsConfig.DefaultOptions()
+            val defaultOptions = ChainOptions.DefaultOptions()
             config.defaultOptions.add(defaultOptions)
             defaultOptions.chains = getListOfString(opts, "chains")
             getMapping(opts, "options")?.let { values ->
-                defaultOptions.options = readOptions(values)
+                defaultOptions.options = optionsReader.readOptions(values)
             }
         }
 
-        config.upstreams = ArrayList<UpstreamsConfig.Upstream<*>>()
+        config.upstreams = ArrayList()
 
         getValueAsString(input, "include")?.let { path ->
             fileResolver.resolve(path).let { file ->
                 if (file.exists() && file.isFile && file.canRead()) {
-                    readInternal(file.inputStream())?.let {
+                    readInternal(file.inputStream()).let {
                         it.upstreams.forEach { upstream -> config.upstreams.add(upstream) }
                     }
                 } else {
@@ -72,7 +75,7 @@ class UpstreamsConfigReader(
         getListOfString(input, "include")?.forEach { path ->
             fileResolver.resolve(path).let { file ->
                 if (file.exists() && file.isFile && file.canRead()) {
-                    readInternal(file.inputStream())?.let {
+                    readInternal(file.inputStream()).let {
                         it.upstreams.forEach { upstream -> config.upstreams.add(upstream) }
                     }
                 } else {
@@ -222,7 +225,7 @@ class UpstreamsConfigReader(
     private fun <T : UpstreamsConfig.UpstreamConnection> readUpstream(
         config: UpstreamsConfig,
         upNode: MappingNode,
-        connFactory: () -> T
+        connFactory: () -> T,
     ) {
         val upstream = UpstreamsConfig.Upstream<T>()
         readUpstreamCommon(upNode, upstream)
@@ -256,10 +259,10 @@ class UpstreamsConfigReader(
         } ?: true
     }
 
-    internal fun readUpstreamCommon(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
+    private fun readUpstreamCommon(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
         upstream.id = getValueAsString(upNode, "id")
         upstream.nodeId = getValueAsInt(upNode, "node-id")
-        upstream.options = tryReadOptions(upNode)
+        upstream.options = optionsReader.read(upNode)
         upstream.methods = tryReadMethods(upNode)
         upstream.methodGroups = tryReadMethodGroups(upNode)
         getValueAsBool(upNode, "enabled")?.let {
@@ -277,15 +280,15 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun readUpstreamGrpc(
-        upNode: MappingNode
+    private fun readUpstreamGrpc(
+        upNode: MappingNode,
     ) {
         if (hasAny(upNode, "chain")) {
             log.warn("Chain should be not applied to gRPC upstream")
         }
     }
 
-    internal fun readUpstreamStandard(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
+    private fun readUpstreamStandard(upNode: MappingNode, upstream: UpstreamsConfig.Upstream<*>) {
         upstream.chain = getValueAsString(upNode, "chain")
         getValueAsString(upNode, "role")?.let {
             val name = it.trim().let {
@@ -301,80 +304,38 @@ class UpstreamsConfigReader(
         }
     }
 
-    internal fun tryReadOptions(upNode: MappingNode): UpstreamsConfig.PartialOptions? {
-        return if (hasAny(upNode, "options")) {
-            return getMapping(upNode, "options")?.let { values ->
-                readOptions(values)
-            }
-        } else {
-            null
-        }
-    }
-
-    internal fun tryReadMethods(upNode: MappingNode): UpstreamsConfig.Methods? {
+    private fun tryReadMethods(upNode: MappingNode): UpstreamsConfig.Methods? {
         return getMapping(upNode, "methods")?.let { mnode ->
-            val enabled = getList<MappingNode>(mnode, "enabled")?.value?.map { m ->
+            val enabled = getList<MappingNode>(mnode, "enabled")?.value?.mapNotNull { m ->
                 getValueAsString(m, "name")?.let { name ->
                     UpstreamsConfig.Method(
                         name = name,
                         quorum = getValueAsString(m, "quorum"),
-                        static = getValueAsString(m, "static")
+                        static = getValueAsString(m, "static"),
                     )
                 }
-            }?.filterNotNull()?.toSet() ?: emptySet()
-            val disabled = getList<MappingNode>(mnode, "disabled")?.value?.map { m ->
+            }?.toSet() ?: emptySet()
+            val disabled = getList<MappingNode>(mnode, "disabled")?.value?.mapNotNull { m ->
                 getValueAsString(m, "name")?.let { name ->
                     UpstreamsConfig.Method(
-                        name = name
+                        name = name,
                     )
                 }
-            }?.filterNotNull()?.toSet() ?: emptySet()
+            }?.toSet() ?: emptySet()
 
             UpstreamsConfig.Methods(
                 enabled,
-                disabled
+                disabled,
             )
         }
     }
 
-    internal fun tryReadMethodGroups(upNode: MappingNode): UpstreamsConfig.MethodGroups? {
+    private fun tryReadMethodGroups(upNode: MappingNode): UpstreamsConfig.MethodGroups? {
         return getMapping(upNode, "method-groups")?.let {
             UpstreamsConfig.MethodGroups(
                 enabled = getListOfString(it, "enabled")?.toSet() ?: emptySet(),
-                disabled = getListOfString(it, "disabled")?.toSet() ?: emptySet()
+                disabled = getListOfString(it, "disabled")?.toSet() ?: emptySet(),
             )
         }
-    }
-
-    internal fun readOptions(values: MappingNode): UpstreamsConfig.PartialOptions {
-        val options = UpstreamsConfig.PartialOptions()
-        getValueAsBool(values, "validate-peers")?.let {
-            options.validatePeers = it
-        }
-        getValueAsBool(values, "validate-syncing")?.let {
-            options.validateSyncing = it
-        }
-        getValueAsBool(values, "validate-call-limit")?.let {
-            options.validateCalllimit = it
-        }
-        getValueAsBool(values, "validate-chain")?.let {
-            options.validateChain = it
-        }
-        getValueAsInt(values, "min-peers")?.let {
-            options.minPeers = it
-        }
-        getValueAsInt(values, "timeout")?.let {
-            options.timeout = Duration.ofSeconds(it.toLong())
-        }
-        getValueAsBool(values, "disable-validation")?.let {
-            options.disableValidation = it
-        }
-        getValueAsInt(values, "validation-interval")?.let {
-            options.validationInterval = it
-        }
-        getValueAsBool(values, "balance")?.let {
-            options.providesBalance = it
-        }
-        return options
     }
 }
