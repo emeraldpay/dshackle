@@ -424,6 +424,8 @@ chain-settings:
           grpcId: 10030
     - id: metis
       settings:
+        options:
+          validate-peers: false
         expected-block-time: 1m
         lags:
           syncing: 40
