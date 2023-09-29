@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 
 class WebsocketPendingTxes(
-    private val wsSubscriptions: WsSubscriptions
+    private val wsSubscriptions: WsSubscriptions,
 ) : DefaultPendingTxesSource(), SubscriptionConnect<TransactionId> {
 
     companion object {

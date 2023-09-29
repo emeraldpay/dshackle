@@ -10,7 +10,7 @@ class HeadLivenessValidator(
     private val head: Head,
     private val expectedBlockTime: Duration,
     private val scheduler: Scheduler,
-    private val upstreamId: String
+    private val upstreamId: String,
 ) {
     companion object {
         const val CHECKED_BLOCKS_UNTIL_LIVE = 3
@@ -41,7 +41,7 @@ class HeadLivenessValidator(
             expectedBlockTime.multipliedBy(CHECKED_BLOCKS_UNTIL_LIVE.toLong() * 2),
             Flux.just(false).doOnNext {
                 log.debug("head liveness check broken with timeout in $upstreamId")
-            }
+            },
         ).repeat().subscribeOn(scheduler)
     }
 }

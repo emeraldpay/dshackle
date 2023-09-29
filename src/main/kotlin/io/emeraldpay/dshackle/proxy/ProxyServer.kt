@@ -45,7 +45,7 @@ class ProxyServer(
     nativeCall: NativeCall,
     nativeSubscribe: NativeSubscribe,
     private val tlsSetup: TlsSetup,
-    accessHandler: AccessHandlerHttp.HandlerFactory
+    accessHandler: AccessHandlerHttp.HandlerFactory,
 ) {
 
     companion object {
@@ -82,7 +82,9 @@ class ProxyServer(
     private val httpHandler = HttpHandler(config, readRpcJson, writeRpcJson, nativeCall, accessHandler, requestMetrics)
     private val wsHandler: WebsocketHandler? = if (config.websocketEnabled) {
         WebsocketHandler(readRpcJson, writeRpcJson, nativeCall, nativeSubscribe, accessHandler, requestMetrics)
-    } else null
+    } else {
+        null
+    }
 
     fun start() {
         if (!config.enabled) {

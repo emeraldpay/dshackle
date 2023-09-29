@@ -1,7 +1,7 @@
 package io.emeraldpay.dshackle.config
 
 open class CompressionConfig(
-    var grpc: GRPC = GRPC()
+    var grpc: GRPC = GRPC(),
 ) {
     /**
      * Config example:
@@ -16,7 +16,7 @@ open class CompressionConfig(
      */
     class GRPC(
         var serverEnabled: Boolean = true,
-        var clientEnabled: Boolean = true
+        var clientEnabled: Boolean = true,
     )
 
     companion object {

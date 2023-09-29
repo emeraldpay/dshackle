@@ -76,7 +76,7 @@ class BitcoinFees(
         return reader.getTx(txid)
             .switchIfEmpty(
                 Mono.fromCallable { log.warn("No tx $txid") }
-                    .then(Mono.empty())
+                    .then(Mono.empty()),
             )
             .flatMap {
                 extractVOuts(it).let {
@@ -134,7 +134,7 @@ class BitcoinFees(
             BlockchainOuterClass.EstimateFeeResponse.newBuilder()
                 .setBitcoinStd(
                     BlockchainOuterClass.BitcoinStdFees.newBuilder()
-                        .setSatPerKb(fee)
+                        .setSatPerKb(fee),
                 )
                 .build()
         }

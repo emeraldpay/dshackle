@@ -25,7 +25,7 @@ import java.util.function.Function
 
 class EsploraUnspentReader(
     private val esploraClient: EsploraClient,
-    private val head: Head
+    private val head: Head,
 ) : UnspentReader {
 
     companion object {

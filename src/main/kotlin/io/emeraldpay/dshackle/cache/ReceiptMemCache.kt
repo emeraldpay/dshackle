@@ -29,7 +29,7 @@ import reactor.core.publisher.Mono
  */
 open class ReceiptMemCache(
     // how many blocks to keeps in memory
-    val blocks: Int = 6
+    val blocks: Int = 6,
 ) : Reader<TxId, ByteArray> {
 
     companion object {

@@ -20,10 +20,10 @@ class BroadcastReader(
     matcher: Selector.Matcher,
     signer: ResponseSigner?,
     private val quorum: CallQuorum,
-    private val tracer: Tracer
+    private val tracer: Tracer,
 ) : RpcReader(signer) {
     private val internalMatcher = Selector.MultiMatcher(
-        listOf(Selector.AvailabilityMatcher(), matcher)
+        listOf(Selector.AvailabilityMatcher(), matcher),
     )
 
     companion object {
@@ -58,7 +58,7 @@ class BroadcastReader(
                         quorum.getResult()!!,
                         quorum.getSignature(),
                         upstreams.size,
-                        quorum.getResolvedBy().first()
+                        quorum.getResolvedBy().first(),
                     )
                     Mono.just(res)
                 } else {
@@ -69,22 +69,25 @@ class BroadcastReader(
 
     private fun execute(
         key: JsonRpcRequest,
-        upstream: Upstream
+        upstream: Upstream,
     ): Mono<BroadcastResponse> =
         SpannedReader(
-            upstream.getIngressReader(), tracer, BROADCAST_READER, mapOf(SPAN_REQUEST_UPSTREAM_ID to upstream.getId())
+            upstream.getIngressReader(),
+            tracer,
+            BROADCAST_READER,
+            mapOf(SPAN_REQUEST_UPSTREAM_ID to upstream.getId()),
         )
             .read(key)
             .map { BroadcastResponse(it, upstream) }
             .onErrorResume {
                 log.warn("Error during execution ${key.method} from upstream ${upstream.getId()} with message -  ${it.message}")
                 Mono.just(
-                    BroadcastResponse(JsonRpcResponse(null, getError(key, it).error), upstream)
+                    BroadcastResponse(JsonRpcResponse(null, getError(key, it).error), upstream),
                 )
             }
 
     private class BroadcastResponse(
         val jsonRpcResponse: JsonRpcResponse,
-        val upstream: Upstream
+        val upstream: Upstream,
     )
 }

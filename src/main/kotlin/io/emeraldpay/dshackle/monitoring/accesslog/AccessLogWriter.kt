@@ -32,7 +32,7 @@ import javax.annotation.PostConstruct
 
 @Repository
 class AccessLogWriter(
-    @Autowired mainConfig: MainConfig
+    @Autowired mainConfig: MainConfig,
 ) {
 
     companion object {

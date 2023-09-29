@@ -13,7 +13,7 @@ import reactor.core.scheduler.Scheduler
 @Service
 class AuthRpc(
     private val authService: AuthService,
-    private val authScheduler: Scheduler
+    private val authScheduler: Scheduler,
 ) : ReactorAuthGrpc.AuthImplBase() {
 
     companion object {
@@ -39,7 +39,7 @@ class AuthRpc(
                     Mono.error(
                         Status.INTERNAL
                             .withDescription(message)
-                            .asException()
+                            .asException(),
                     )
                 }
             }

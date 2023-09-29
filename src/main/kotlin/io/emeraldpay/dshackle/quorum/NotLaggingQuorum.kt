@@ -46,7 +46,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     override fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ): Boolean {
         val lagging = upstream.getLag()?.run { this > maxLag } ?: true
         if (!lagging) {
@@ -61,7 +61,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     override fun record(
         error: JsonRpcException,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ) {
         this.rpcError = error.error
         val lagging = upstream.getLag()?.run { this > maxLag } ?: true

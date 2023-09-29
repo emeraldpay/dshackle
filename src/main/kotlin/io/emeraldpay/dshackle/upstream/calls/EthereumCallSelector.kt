@@ -31,7 +31,7 @@ import java.util.Objects
  * The implementation is specific for Ethereum.
  */
 class EthereumCallSelector(
-    private val caches: Caches
+    private val caches: Caches,
 ) {
 
     companion object {
@@ -46,18 +46,19 @@ class EthereumCallSelector(
             // no "eth_getStorageAt" because it has different structure, and therefore separate logic
             "eth_call",
             "eth_getRootHash",
-            "bor_getRootHash"
+            "bor_getRootHash",
         )
 
         private val FILTER_OBJECT_METHODS = setOf(
-            "eth_newFilter", "eth_getLogs"
+            "eth_newFilter",
+            "eth_getLogs",
         )
 
         private val GET_BY_HASH_OR_NUMBER_METHODS = setOf(
             "eth_getBlockByHash", "eth_getBlockByNumber", "bor_getSignersAtHash",
             "eth_getTransactionByBlockHashAndIndex", "eth_getTransactionByBlockNumberAndIndex",
             "eth_getBlockTransactionCountByNumber", "bor_getAuthor", "eth_getUncleCountByBlockNumber",
-            "eth_getUncleByBlockNumberAndIndex"
+            "eth_getUncleByBlockNumberAndIndex",
         )
     }
 

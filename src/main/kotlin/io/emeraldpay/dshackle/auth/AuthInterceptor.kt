@@ -14,17 +14,17 @@ const val REFLECT_METHOD_NAME = "grpc.reflection.v1alpha.ServerReflection/Server
 
 @Component
 class AuthInterceptor(
-    private val authContext: AuthContext
+    private val authContext: AuthContext,
 ) : ServerInterceptor {
     private val specialMethods = setOf(AUTH_METHOD_NAME, REFLECT_METHOD_NAME)
 
     override fun <ReqT : Any, RespT : Any> interceptCall(
         call: ServerCall<ReqT, RespT>,
         headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>
+        next: ServerCallHandler<ReqT, RespT>,
     ): ServerCall.Listener<ReqT> {
         val sessionId = headers.get(
-            Metadata.Key.of(SESSION_ID, ASCII_STRING_MARSHALLER)
+            Metadata.Key.of(SESSION_ID, ASCII_STRING_MARSHALLER),
         )
         val isOrdinaryMethod = !specialMethods.contains(call.methodDescriptor.fullMethodName)
 

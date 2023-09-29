@@ -9,6 +9,6 @@ interface KeyReader {
 
     data class Keys(
         val providerPrivateKey: PrivateKey,
-        val externalPublicKey: PublicKey
+        val externalPublicKey: PublicKey,
     )
 }

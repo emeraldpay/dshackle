@@ -30,6 +30,6 @@ interface ChainFees {
         AVG_T50,
         MIN_ALWAYS,
         AVG_MIDDLE,
-        AVG_TOP
+        AVG_TOP,
     }
 }

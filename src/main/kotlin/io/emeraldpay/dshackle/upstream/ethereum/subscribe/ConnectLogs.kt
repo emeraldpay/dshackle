@@ -68,7 +68,7 @@ open class ConnectLogs(
                 val goodTopic = sortedTopics.isEmpty() || (
                     it.topics.isNotEmpty() && sortedTopics.binarySearch(
                         it.topics[0],
-                        TOPIC_COMPARATOR
+                        TOPIC_COMPARATOR,
                     ) >= 0
                     )
                 goodAddress && goodTopic

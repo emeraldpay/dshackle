@@ -23,7 +23,7 @@ import reactor.core.publisher.Flux
 import java.time.Duration
 
 class AggregatedPendingTxes(
-    private val sources: List<PendingTxesSource>
+    private val sources: List<PendingTxesSource>,
 ) : PendingTxesSource {
 
     companion object {
@@ -37,7 +37,7 @@ class AggregatedPendingTxes(
 
     override fun connect(matcher: Selector.Matcher): Flux<TransactionId> {
         return Flux.merge(
-            sources.map { it.connect(matcher) }
+            sources.map { it.connect(matcher) },
         ).filter {
             val res = track.getIfPresent(it)
             if (res == null) {

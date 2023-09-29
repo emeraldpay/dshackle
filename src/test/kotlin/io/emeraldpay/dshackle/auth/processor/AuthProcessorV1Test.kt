@@ -28,10 +28,11 @@ import java.time.Instant
 class AuthProcessorV1Test {
     private val processor = AuthProcessorV1(
         AuthorizationConfig(
-            true, "drpc",
+            true,
+            "drpc",
             AuthorizationConfig.ServerConfig.default(),
-            AuthorizationConfig.ClientConfig.default()
-        )
+            AuthorizationConfig.ClientConfig.default(),
+        ),
     )
     private val rsaKeyReader = RsaKeyReader()
     private val privProviderPath = ResourceUtils.getFile("classpath:keys/priv.p8.key").path
@@ -65,7 +66,7 @@ class AuthProcessorV1Test {
         val e = assertThrows(StatusException::class.java) { processor.process(keyPair, token) }
         assertEquals(
             "INVALID_ARGUMENT: Invalid token: The Token's Signature resulted invalid when verified using the Algorithm: SHA256withRSA",
-            e.message
+            e.message,
         )
     }
 
@@ -80,7 +81,7 @@ class AuthProcessorV1Test {
         val e = assertThrows(StatusException::class.java) { processor.process(keyPair, invalidToken) }
         assertEquals(
             "INVALID_ARGUMENT: Invalid token: The Claim 'iss' value doesn't match the required issuer.",
-            e.message
+            e.message,
         )
     }
 

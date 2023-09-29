@@ -19,11 +19,11 @@ package io.emeraldpay.dshackle.config
 import org.yaml.snakeyaml.error.Mark
 
 open class InvalidConfigException(
-    message: String
+    message: String,
 ) : Exception(message)
 
 class InvalidConfigYamlException(
     filename: String,
     mark: Mark,
-    message: String
+    message: String,
 ) : InvalidConfigException("Invalid YAML configuration $message, at $filename:${mark.line}")

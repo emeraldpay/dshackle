@@ -21,7 +21,8 @@ const val SESSION_ID = "sessionId"
 const val VERSION = "version"
 
 enum class AuthVersion {
-    V1;
+    V1,
+    ;
 
     companion object {
         fun getVersion(version: String) = values().find { it.name == version }
@@ -32,7 +33,7 @@ enum class AuthVersion {
 }
 
 abstract class AuthProcessor(
-    private val authorizationConfig: AuthorizationConfig
+    private val authorizationConfig: AuthorizationConfig,
 ) {
 
     open fun process(keys: KeyReader.Keys, token: String): AuthContext.TokenWrapper {
@@ -60,7 +61,7 @@ abstract class AuthProcessor(
 
 @Component
 open class AuthProcessorV1(
-    authorizationConfig: AuthorizationConfig
+    authorizationConfig: AuthorizationConfig,
 ) : AuthProcessor(authorizationConfig) {
 
     override fun processInternal(privateKey: PrivateKey): AuthContext.TokenWrapper {

@@ -32,7 +32,7 @@ import kotlin.math.min
 abstract class OnTxRedisCache<T>(
     private val redis: RedisReactiveCommands<String, ByteArray>,
     private val chain: Chain,
-    private val valueType: CachesProto.ValueContainer.ValueType
+    private val valueType: CachesProto.ValueContainer.ValueType,
 ) : Reader<TxId, T> {
 
     companion object {

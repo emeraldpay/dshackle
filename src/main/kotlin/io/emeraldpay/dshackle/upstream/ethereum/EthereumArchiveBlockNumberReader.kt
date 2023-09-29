@@ -7,7 +7,7 @@ import io.emeraldpay.etherjar.hex.HexQuantity
 import reactor.core.publisher.Mono
 
 class EthereumArchiveBlockNumberReader(
-    private val reader: JsonRpcReader
+    private val reader: JsonRpcReader,
 ) {
 
     fun readArchiveBlock(): Mono<String> =
@@ -16,7 +16,7 @@ class EthereumArchiveBlockNumberReader(
             .map {
                 HexQuantity
                     .from(
-                        String(it).substring(3, it.size - 1).toLong(radix = 16) - 10_000 // this is definitely archive
+                        String(it).substring(3, it.size - 1).toLong(radix = 16) - 10_000, // this is definitely archive
                     ).toHex()
             }
 }

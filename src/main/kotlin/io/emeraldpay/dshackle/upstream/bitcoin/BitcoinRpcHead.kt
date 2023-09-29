@@ -36,7 +36,7 @@ class BitcoinRpcHead(
     private val api: JsonRpcReader,
     private val extractBlock: ExtractBlock,
     private val interval: Duration = Duration.ofSeconds(15),
-    headScheduler: Scheduler
+    headScheduler: Scheduler,
 ) : Head, AbstractHead(MostWorkForkChoice(), headScheduler, awaitHeadTimeoutMs = 1200_000), Lifecycle {
 
     companion object {

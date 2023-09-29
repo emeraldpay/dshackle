@@ -5,7 +5,8 @@ import java.util.Locale
 class SignatureConfig {
 
     enum class Algorithm {
-        NIST_P256;
+        NIST_P256,
+        ;
 
         fun getCurveName(): String {
             return if (this == NIST_P256) {
@@ -30,6 +31,7 @@ class SignatureConfig {
      * Signature scheme that we should use
      */
     var algorithm: Algorithm = Algorithm.NIST_P256
+
     /**
      * Should we generate signature on this instance if it's not already present
      */

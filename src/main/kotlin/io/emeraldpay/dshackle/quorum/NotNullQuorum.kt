@@ -21,7 +21,7 @@ class NotNullQuorum : CallQuorum {
     override fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ): Boolean {
         allFailed = false
         val receivedNull = response.isEmpty() || Global.nullValue.contentEquals(response)

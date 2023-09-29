@@ -40,6 +40,6 @@ class HealthConfig {
 
     data class ChainConfig(
         val blockchain: Chain,
-        val minAvailable: Int = 1
+        val minAvailable: Int = 1,
     )
 }

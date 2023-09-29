@@ -48,7 +48,7 @@ class HeapDumpCreator {
             val bean = ManagementFactory.newPlatformMXBeanProxy(
                 ManagementFactory.getPlatformMBeanServer(),
                 "com.sun.management:type=HotSpotDiagnostic",
-                HotSpotDiagnosticMXBean::class.java
+                HotSpotDiagnosticMXBean::class.java,
             )
             bean.setVMOption("HeapDumpOnOutOfMemoryError", "true")
             bean.setVMOption("HeapDumpPath", fileName)

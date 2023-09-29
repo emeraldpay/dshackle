@@ -57,7 +57,7 @@ class BlockContainer(
                 parsed = block,
                 transactions = block.transactions?.map { TxId.from(it.hash) } ?: emptyList(),
                 upstreamId = upstreamId,
-                parentHash = parent
+                parentHash = parent,
             )
         }
 
@@ -65,6 +65,7 @@ class BlockContainer(
         fun from(block: BlockJson<*>): BlockContainer {
             return from(block, "unknown")
         }
+
         @JvmStatic
         fun from(block: BlockJson<*>, upstream: String): BlockContainer {
             return from(block, Global.objectMapper.writeValueAsBytes(block), upstream)
@@ -103,7 +104,7 @@ class BlockContainer(
 
     fun copyWithRating(nodeRating: Int): BlockContainer {
         return BlockContainer(
-            height, hash, difficulty, timestamp, full, json, parsed, parentHash, transactions, nodeRating
+            height, hash, difficulty, timestamp, full, json, parsed, parentHash, transactions, nodeRating,
         )
     }
 

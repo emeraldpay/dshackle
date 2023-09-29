@@ -37,7 +37,7 @@ import java.util.function.Consumer
 class EsploraClient(
     private val url: URI,
     basicAuth: AuthConfig.ClientBasicAuth? = null,
-    tlsCAAuth: ByteArray? = null
+    tlsCAAuth: ByteArray? = null,
 ) {
 
     companion object {
@@ -112,8 +112,8 @@ class EsploraClient(
                         EsploraException(
                             "HTTP Code: ${
                             header.status().code()
-                            } for ${url.scheme}://${url.host}${header.fullPath()}"
-                        )
+                            } for ${url.scheme}://${url.host}${header.fullPath()}",
+                        ),
                     )
                 } else {
                     bytes.aggregate().asByteArray()

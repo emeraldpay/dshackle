@@ -24,7 +24,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         callTargetsHolder: CallTargetsHolder,
         @Qualifier("headScheduler")
         headScheduler: Scheduler,
-        tracer: Tracer
+        tracer: Tracer,
     ): List<Multistream> {
         return Chain.values()
             .filterNot { it == Chain.UNSPECIFIED }
@@ -41,7 +41,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         chain: Chain,
         cachesFactory: CachesFactory,
         headScheduler: Scheduler,
-        tracer: Tracer
+        tracer: Tracer,
     ): EthereumMultistream {
         val name = "multi-ethereum-$chain"
 
@@ -50,7 +50,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
             CopyOnWriteArrayList(),
             cachesFactory.getCaches(chain),
             headScheduler,
-            tracer
+            tracer,
         ).also { register(it, name) }
     }
 
@@ -58,7 +58,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         chain: Chain,
         cachesFactory: CachesFactory,
         headScheduler: Scheduler,
-        tracer: Tracer
+        tracer: Tracer,
     ): EthereumPosMultiStream {
         val name = "multi-ethereum-pos-$chain"
 
@@ -67,14 +67,14 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
             CopyOnWriteArrayList(),
             cachesFactory.getCaches(chain),
             headScheduler,
-            tracer
+            tracer,
         ).also { register(it, name) }
     }
 
     open fun bitcoinMultistream(
         chain: Chain,
         cachesFactory: CachesFactory,
-        headScheduler: Scheduler
+        headScheduler: Scheduler,
     ): BitcoinMultistream {
         val name = "multi-bitcoin-$chain"
 
@@ -82,7 +82,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
             chain,
             ArrayList(),
             cachesFactory.getCaches(chain),
-            headScheduler
+            headScheduler,
         ).also { register(it, name) }
     }
 

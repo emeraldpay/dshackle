@@ -76,7 +76,7 @@ class GrpcHead(
                 Mono.just(client),
                 Mono.just(client)
                     .repeat()
-                    .delayElements(Duration.ofSeconds(1))
+                    .delayElements(Duration.ofSeconds(1)),
             )
                 .concatMap({ it.subscribeHead(chainRef) }, 0)
                 .doOnNext {
@@ -103,7 +103,7 @@ class GrpcHead(
             Long.MAX_VALUE,
             Duration.ofMillis(100),
             Duration.ofSeconds(60),
-            true
+            true,
         ) {
             log.debug("Retry grpc head connection ${parent.getId()}")
         }

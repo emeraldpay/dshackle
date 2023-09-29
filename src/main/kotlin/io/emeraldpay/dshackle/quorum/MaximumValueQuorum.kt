@@ -28,7 +28,7 @@ class MaximumValueQuorum : CallQuorum, ValueAwareQuorum<String>(String::class.ja
         response: ByteArray,
         responseValue: String?,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ) {
         val value = responseValue?.let { str ->
             HexQuantity.from(str).value.toLong()
@@ -51,7 +51,7 @@ class MaximumValueQuorum : CallQuorum, ValueAwareQuorum<String>(String::class.ja
         response: ByteArray?,
         errorMessage: String?,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ) {
         if (max == null) {
             resolvers.add(upstream)

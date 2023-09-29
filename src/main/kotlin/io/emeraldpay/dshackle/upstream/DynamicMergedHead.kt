@@ -9,7 +9,7 @@ import reactor.core.scheduler.Scheduler
 open class DynamicMergedHead(
     forkChoice: ForkChoice,
     private val label: String = "",
-    headScheduler: Scheduler
+    headScheduler: Scheduler,
 ) : AbstractHead(forkChoice, headScheduler, upstreamId = label), Lifecycle {
 
     private var subscription: Disposable? = null
@@ -23,7 +23,7 @@ open class DynamicMergedHead(
         super.start()
         subscription?.dispose()
         subscription = super.follow(
-            dynamicFlux.asFlux()
+            dynamicFlux.asFlux(),
         )
     }
 

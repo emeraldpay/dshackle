@@ -25,7 +25,7 @@ class EthereumWsConnector(
     skipEnhance: Boolean,
     wsConnectionResubscribeScheduler: Scheduler,
     headScheduler: Scheduler,
-    expectedBlockTime: Duration
+    expectedBlockTime: Duration,
 ) : EthereumConnector {
     private val pool: WsConnectionPool
     private val reader: JsonRpcReader
@@ -44,7 +44,7 @@ class EthereumWsConnector(
             skipEnhance,
             wsConnectionResubscribeScheduler,
             headScheduler,
-            upstream
+            upstream,
         )
         liveness = HeadLivenessValidator(head, expectedBlockTime, headScheduler, upstream.getId())
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)

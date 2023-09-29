@@ -79,7 +79,7 @@ class ZipkinSSLCustomizer(private val mainConfig: MainConfig) : ZipkinRestTempla
         override fun intercept(
             request: HttpRequest,
             body: ByteArray,
-            execution: ClientHttpRequestExecution
+            execution: ClientHttpRequestExecution,
         ): ClientHttpResponse {
             request.headers.add("Content-Encoding", "gzip")
             val gzipped = ByteArrayOutputStream()

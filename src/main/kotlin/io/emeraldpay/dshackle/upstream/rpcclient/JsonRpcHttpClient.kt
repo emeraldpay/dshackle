@@ -47,7 +47,7 @@ class JsonRpcHttpClient(
     private val target: String,
     private val metrics: RpcMetrics,
     basicAuth: AuthConfig.ClientBasicAuth? = null,
-    tlsCAAuth: ByteArray? = null
+    tlsCAAuth: ByteArray? = null,
 ) : JsonRpcReader {
 
     companion object {
@@ -180,7 +180,7 @@ class JsonRpcHttpClient(
                         JsonRpcResponse.error(
                             RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
                             "HTTP Code: $statusCode",
-                            JsonRpcResponse.NumberId(key.id)
+                            JsonRpcResponse.NumberId(key.id),
                         )
                     }
                 } else {

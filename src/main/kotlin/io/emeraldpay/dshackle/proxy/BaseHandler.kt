@@ -40,7 +40,7 @@ abstract class BaseHandler(
         chain: Chain,
         call: ProxyCall,
         handler: AccessHandlerHttp.RequestHandler,
-        preserveBatchOrder: Boolean = false
+        preserveBatchOrder: Boolean = false,
     ): Publisher<String> {
         // return empty response for empty request
         if (call.items.isEmpty()) {

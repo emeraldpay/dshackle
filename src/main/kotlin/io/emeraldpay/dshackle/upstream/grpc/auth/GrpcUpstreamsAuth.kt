@@ -23,7 +23,7 @@ class GrpcUpstreamsAuth(
     private val authClient: ReactorAuthStub,
     private val authorizationConfig: AuthorizationConfig,
     private val grpcAuthContext: GrpcAuthContext,
-    publicKeyPath: String
+    publicKeyPath: String,
 ) {
     private val rsaKeyReader = RsaKeyReader()
     private val keys = rsaKeyReader.getKeyPair(authorizationConfig.clientConfig.privateKeyPath, publicKeyPath)
@@ -32,7 +32,7 @@ class GrpcUpstreamsAuth(
         return authClient.authenticate(
             AuthOuterClass.AuthRequest.newBuilder()
                 .setToken(generateToken())
-                .build()
+                .build(),
         ).map {
             verify(it.providerToken, providerId)
         }.onErrorResume {
@@ -66,6 +66,6 @@ class GrpcUpstreamsAuth(
 
     data class AuthResult(
         val passed: Boolean,
-        val cause: String? = null
+        val cause: String? = null,
     )
 }

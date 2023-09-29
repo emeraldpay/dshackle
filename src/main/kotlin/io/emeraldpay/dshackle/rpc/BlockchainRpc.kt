@@ -91,12 +91,12 @@ class BlockchainRpc(
                         }
                     }
                     startTime = System.currentTimeMillis()
-                }
+                },
         ).doOnNext { reply ->
             metrics?.getNativeItemMetrics(idsMap[reply.id] ?: "unknown")?.let { itemMetrics ->
                 itemMetrics.nativeItemResponse.record(
                     System.currentTimeMillis() - startTime,
-                    TimeUnit.MILLISECONDS
+                    TimeUnit.MILLISECONDS,
                 )
                 if (!reply.succeed) {
                     itemMetrics.nativeItemResponseErr.increment()
@@ -116,7 +116,7 @@ class BlockchainRpc(
                 .doOnNext {
                     metrics = chainMetrics.get(it.chain)
                     metrics!!.nativeSubscribeMetric.increment()
-                }
+                },
         ).doOnNext {
             metrics?.nativeSubscribeRespMetric?.increment()
         }.doOnError { failMetric.increment() }
@@ -125,7 +125,7 @@ class BlockchainRpc(
     override fun subscribeHead(request: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
         return streamHead.add(
             request
-                .doOnNext { chainMetrics.get(it.type).subscribeHeadMetric.increment() }
+                .doOnNext { chainMetrics.get(it.type).subscribeHeadMetric.increment() },
         ).doOnError { failMetric.increment() }
     }
 
@@ -184,7 +184,7 @@ class BlockchainRpc(
                         .doOnNext {
                             metrics.getBalanceRespMetric.record(
                                 System.currentTimeMillis() - startTime,
-                                TimeUnit.MILLISECONDS
+                                TimeUnit.MILLISECONDS,
                             )
                         }
                 } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
@@ -210,7 +210,7 @@ class BlockchainRpc(
                 estimateFee.estimateFee(it).doFinally {
                     metrics.estimateFeeRespMetric.record(
                         System.currentTimeMillis() - startTime,
-                        TimeUnit.MILLISECONDS
+                        TimeUnit.MILLISECONDS,
                     )
                 }
             }

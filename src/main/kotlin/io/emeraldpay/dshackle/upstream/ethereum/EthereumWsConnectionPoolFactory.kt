@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 class EthereumWsConnectionPoolFactory(
     private val id: String,
     private val connections: Int,
-    private val ethereumWsConnectionFactory: EthereumWsConnectionFactory
+    private val ethereumWsConnectionFactory: EthereumWsConnectionFactory,
 ) {
 
     fun create(upstream: DefaultUpstream): WsConnectionPool {

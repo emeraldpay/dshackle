@@ -36,7 +36,7 @@ class ManagedCallMethods(
     private val enabled: Set<String>,
     disabled: Set<String>,
     groupsEnabled: Set<String>,
-    groupsDisabled: Set<String>
+    groupsDisabled: Set<String>,
 ) : CallMethods {
 
     companion object {
@@ -50,7 +50,7 @@ class ManagedCallMethods(
     private val allGroupEnabled = groupsEnabled.flatMap { delegate.getGroupMethods(it) }
     private val allGroupDisabled = groupsDisabled.flatMap { delegate.getGroupMethods(it) }
     private val allAllowed: Set<String> = Collections.unmodifiableSet(
-        delegated.keys + allGroupEnabled - allGroupDisabled.toSet() + enabled - disabled
+        delegated.keys + allGroupEnabled - allGroupDisabled.toSet() + enabled - disabled,
     )
     private val quorum: MutableMap<String, Factory<CallQuorum>> = HashMap()
     private val staticResponse: MutableMap<String, String> = HashMap()

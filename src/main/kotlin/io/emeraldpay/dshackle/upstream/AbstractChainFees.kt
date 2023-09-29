@@ -12,7 +12,7 @@ import java.util.function.Function
 abstract class AbstractChainFees<F, B, TR, T>(
     private val heightLimit: Int,
     private val upstreams: Multistream,
-    extractTx: (B) -> List<TR>?
+    extractTx: (B) -> List<TR>?,
 ) : ChainFees {
 
     companion object {

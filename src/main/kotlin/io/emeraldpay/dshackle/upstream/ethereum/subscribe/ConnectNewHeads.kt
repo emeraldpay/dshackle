@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class ConnectNewHeads(
     private val upstream: EthereumLikeMultistream,
-    private val scheduler: Scheduler
+    private val scheduler: Scheduler,
 ) : SubscriptionConnect<NewHeadMessage> {
 
     private val connected: MutableMap<String, Flux<NewHeadMessage>> = ConcurrentHashMap()

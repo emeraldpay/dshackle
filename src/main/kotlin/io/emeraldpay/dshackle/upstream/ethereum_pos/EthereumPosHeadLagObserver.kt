@@ -11,7 +11,7 @@ import reactor.core.scheduler.Scheduler
 class EthereumPosHeadLagObserver(
     master: Head,
     followers: Collection<Upstream>,
-    headScheduler: Scheduler
+    headScheduler: Scheduler,
 ) : HeadLagObserver(master, followers, DistanceExtractor::extractPriorityDistance, headScheduler) {
 
     companion object {

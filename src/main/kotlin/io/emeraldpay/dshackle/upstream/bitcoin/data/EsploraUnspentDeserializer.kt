@@ -30,7 +30,7 @@ class EsploraUnspentDeserializer : JsonDeserializer<EsploraUnspent>() {
             node.get("vout").asInt(),
             node.get("value").asLong(),
             Instant.ofEpochSecond(status.get("block_time").asLong()),
-            status.get("block_height").asLong()
+            status.get("block_height").asLong(),
         )
     }
 }

@@ -42,7 +42,7 @@ class ProxyStarter(
     @Autowired private val tlsSetup: TlsSetup,
     @Autowired private val accessHandlerHttp: AccessHandlerHttp,
     // depend on Monitoring, declared here just to ensure it's properly initialized before the Proxy
-    @Autowired private val monitoringSetup: MonitoringSetup
+    @Autowired private val monitoringSetup: MonitoringSetup,
 ) {
 
     companion object {

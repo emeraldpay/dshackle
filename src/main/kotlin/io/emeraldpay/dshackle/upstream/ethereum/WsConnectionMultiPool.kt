@@ -119,7 +119,7 @@ class WsConnectionMultiPool(
                             connectionSubscriptionMap[it.connectionId()] = it.connectionInfoFlux().subscribe { info ->
                                 connectionInfo.emitNext(info) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
                             }
-                        }
+                        },
                     )
                     SCHEDULE_GROW
                 }

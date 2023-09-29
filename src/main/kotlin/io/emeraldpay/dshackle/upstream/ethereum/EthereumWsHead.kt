@@ -47,7 +47,7 @@ class EthereumWsHead(
     private val skipEnhance: Boolean,
     private val wsConnectionResubscribeScheduler: Scheduler,
     private val headScheduler: Scheduler,
-    private val upstream: DefaultUpstream
+    private val upstream: DefaultUpstream,
 ) : DefaultEthereumHead(upstream.getId(), forkChoice, blockValidator, headScheduler), Lifecycle {
 
     private var connectionId: String? = null
@@ -73,7 +73,7 @@ class EthereumWsHead(
         val heads = Flux.merge(
             // get the current block, not just wait for the next update
             getLatestBlock(api),
-            listenNewHeads()
+            listenNewHeads(),
         )
         this.subscription = super.follow(heads)
     }
@@ -134,7 +134,7 @@ class EthereumWsHead(
                                     }
                             }
                         },
-                        headScheduler
+                        headScheduler,
                     )
                 } else {
                     Mono.just(BlockContainer.from(block))

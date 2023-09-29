@@ -22,7 +22,7 @@ class DefaultContainer<T>(
     val blockId: BlockId? = null,
     val height: Long? = null,
     json: ByteArray,
-    parsed: T? = null
+    parsed: T? = null,
 ) : SourceContainer(json, parsed) {
 
     companion object {

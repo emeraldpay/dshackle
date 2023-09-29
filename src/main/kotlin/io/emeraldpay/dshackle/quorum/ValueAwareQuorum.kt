@@ -25,7 +25,7 @@ import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 
 abstract class ValueAwareQuorum<T>(
-    val clazz: Class<T>
+    val clazz: Class<T>,
 ) : CallQuorum {
 
     private val log = LoggerFactory.getLogger(ValueAwareQuorum::class.java)
@@ -39,7 +39,7 @@ abstract class ValueAwareQuorum<T>(
     override fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ): Boolean {
         try {
             val value = extractValue(response, clazz)
@@ -56,7 +56,7 @@ abstract class ValueAwareQuorum<T>(
     override fun record(
         error: JsonRpcException,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ) {
         this.rpcError = error.error
         recordError(null, error.error.message, signature, upstream)
@@ -66,14 +66,14 @@ abstract class ValueAwareQuorum<T>(
         response: ByteArray,
         responseValue: T?,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     )
 
     abstract fun recordError(
         response: ByteArray?,
         errorMessage: String?,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     )
 
     override fun getError(): JsonRpcError? {

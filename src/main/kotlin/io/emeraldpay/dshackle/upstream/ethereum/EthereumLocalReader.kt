@@ -41,7 +41,7 @@ class EthereumLocalReader(
     private val reader: EthereumCachingReader,
     private val methods: CallMethods,
     private val head: Head,
-    private val localEnabled: Boolean
+    private val localEnabled: Boolean,
 ) : JsonRpcReader {
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {

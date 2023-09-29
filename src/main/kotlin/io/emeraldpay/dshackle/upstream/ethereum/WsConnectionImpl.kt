@@ -68,7 +68,7 @@ open class WsConnectionImpl(
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
     private val onDisconnect: () -> Unit,
-    private val scheduler: Scheduler
+    private val scheduler: Scheduler,
 ) : AutoCloseable, WsConnection, Cloneable {
 
     companion object {
@@ -176,7 +176,7 @@ open class WsConnectionImpl(
         val retryInterval = currentBackOff.nextBackOff()
         resetBackoffTask = resetBackoffExecutor.schedule<Unit>({
             currentBackOff = reconnectBackoff.start()
-        }, RESET_BACKOFF_TIMEOUT + retryInterval, TimeUnit.MILLISECONDS)
+        }, RESET_BACKOFF_TIMEOUT + retryInterval, TimeUnit.MILLISECONDS,)
         if (retryInterval == BackOffExecution.STOP) {
             log.warn("Reconnect backoff exhausted. Permanently closing the connection")
             return
@@ -188,7 +188,7 @@ open class WsConnectionImpl(
                 connectInternal()
             },
             retryInterval,
-            TimeUnit.MILLISECONDS
+            TimeUnit.MILLISECONDS,
         )
     }
 
@@ -220,7 +220,7 @@ open class WsConnectionImpl(
                 },
                 { _, t ->
                     log.warn("Failed to process response from $uri. Error: ${t.message}")
-                }
+                },
             )
             .headers { headers ->
                 headers.add(HttpHeaderNames.ORIGIN, origin)
@@ -238,7 +238,7 @@ open class WsConnectionImpl(
                     .handlePing(true)
                     .compress(false)
                     .maxFramePayloadLength(frameSize)
-                    .build()
+                    .build(),
             )
             .uri(uri)
             .handle { inbound, outbound ->
@@ -294,8 +294,8 @@ open class WsConnectionImpl(
         return outbound.send(
             Flux.merge(
                 calls.subscribeOn(scheduler),
-                consumer.then(Mono.empty<ByteBuf>()).subscribeOn(scheduler)
-            )
+                consumer.then(Mono.empty<ByteBuf>()).subscribeOn(scheduler),
+            ),
         )
     }
 
@@ -310,7 +310,10 @@ open class WsConnectionImpl(
 
     private fun onMessageRpc(msg: ResponseWSParser.WsResponse) {
         val rpcResponse = JsonRpcResponse(
-            msg.value, msg.error, msg.id, null
+            msg.value,
+            msg.error,
+            msg.id,
+            null,
         )
         val sender = currentRequests.remove(msg.id.asNumber().toInt())
         if (sender == null) {
@@ -329,7 +332,9 @@ open class WsConnectionImpl(
 
     private fun onMessageSubscription(msg: ResponseWSParser.WsResponse) {
         val subscription = JsonRpcWsMessage(
-            msg.value, msg.error, msg.id.asString(),
+            msg.value,
+            msg.error,
+            msg.id.asString(),
         )
         val status = subscriptionResponses.tryEmitNext(subscription)
         if (status.isFailure) {
@@ -375,10 +380,10 @@ open class WsConnectionImpl(
             JsonRpcResponse.Id.from(originalId),
             JsonRpcError(
                 RpcResponseError.CODE_INTERNAL_ERROR,
-                "Response not received from WebSocket"
+                "Response not received from WebSocket",
             ),
             null,
-            false
+            false,
         )
 
         val failOnDisconnect = Mono.from(disconnects.asFlux())
@@ -388,9 +393,9 @@ open class WsConnectionImpl(
                         JsonRpcResponse.Id.from(originalId),
                         JsonRpcError(
                             RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                            "Disconnected from WebSocket"
-                        )
-                    )
+                            "Disconnected from WebSocket",
+                        ),
+                    ),
                 )
             }
 
@@ -401,7 +406,7 @@ open class WsConnectionImpl(
             .doOnError { rpcMetrics?.fails?.increment() }
             .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
             .switchIfEmpty(
-                Mono.fromCallable { log.warn("No response for ${request.method} ${request.params}") }.then(Mono.error(noResponse))
+                Mono.fromCallable { log.warn("No response for ${request.method} ${request.params}") }.then(Mono.error(noResponse)),
             )
             .doFinally { currentRequests.remove(internalId.toInt()) }
     }

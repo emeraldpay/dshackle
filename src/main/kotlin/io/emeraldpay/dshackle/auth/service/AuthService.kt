@@ -12,7 +12,7 @@ class AuthService(
     private val authorizationConfig: AuthorizationConfig,
     private val rsaKeyReader: KeyReader,
     private val authProcessorResolver: AuthProcessorResolver,
-    private val authContext: AuthContext
+    private val authContext: AuthContext,
 ) {
 
     fun authenticate(token: String): String {
@@ -24,7 +24,7 @@ class AuthService(
 
         val keys = rsaKeyReader.getKeyPair(
             authorizationConfig.serverConfig.providerPrivateKeyPath,
-            authorizationConfig.serverConfig.externalPublicKeyPath
+            authorizationConfig.serverConfig.externalPublicKeyPath,
         )
         val decodedJwt = JWT.decode(token)
 

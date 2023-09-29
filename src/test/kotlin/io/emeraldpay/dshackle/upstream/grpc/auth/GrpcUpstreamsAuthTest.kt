@@ -32,9 +32,10 @@ class GrpcUpstreamsAuthTest {
     private val providerPublicKeyPath = ResourceUtils.getFile("classpath:keys/public.pem").path
     private val grpcAuthContext = GrpcAuthContext()
     private val authConfig = AuthorizationConfig(
-        true, "drpc",
+        true,
+        "drpc",
         AuthorizationConfig.ServerConfig.default(),
-        AuthorizationConfig.ClientConfig(privateKeyPath)
+        AuthorizationConfig.ClientConfig(privateKeyPath),
     )
 
     private val providerPrivateKeyPath = ResourceUtils.getFile("classpath:keys/priv.p8.key").path
@@ -60,8 +61,8 @@ class GrpcUpstreamsAuthTest {
                 Mono.just(
                     AuthOuterClass.AuthResponse.newBuilder()
                         .setProviderToken(token)
-                        .build()
-                )
+                        .build(),
+                ),
             )
 
         val result = grpcAuth.auth(upstreamId)
@@ -90,8 +91,8 @@ class GrpcUpstreamsAuthTest {
                 Mono.just(
                     AuthOuterClass.AuthResponse.newBuilder()
                         .setProviderToken(token)
-                        .build()
-                )
+                        .build(),
+                ),
             )
 
         val result = grpcAuth.auth(providerId)
@@ -100,8 +101,8 @@ class GrpcUpstreamsAuthTest {
             .expectNext(
                 GrpcUpstreamsAuth.AuthResult(
                     false,
-                    "Error during auth - The Token's Signature resulted invalid when verified using the Algorithm: SHA256withRSA"
-                )
+                    "Error during auth - The Token's Signature resulted invalid when verified using the Algorithm: SHA256withRSA",
+                ),
             )
             .then {
                 assertEquals(null, grpcAuthContext.getToken(upstreamId))
@@ -129,15 +130,15 @@ class GrpcUpstreamsAuthTest {
                 Mono.just(
                     AuthOuterClass.AuthResponse.newBuilder()
                         .setProviderToken(token)
-                        .build()
-                )
+                        .build(),
+                ),
             )
             .thenReturn(
                 Mono.just(
                     AuthOuterClass.AuthResponse.newBuilder()
                         .setProviderToken(token1)
-                        .build()
-                )
+                        .build(),
+                ),
             )
 
         grpcAuth.auth(providerId).block()

@@ -135,6 +135,7 @@ open class UpstreamsConfig {
         BITCOIN_JSON_RPC("bitcoin"),
         DSHACKLE("dshackle", "grpc"),
         UNKNOWN("unknown"),
+
         ;
 
         private val code: Array<out String>

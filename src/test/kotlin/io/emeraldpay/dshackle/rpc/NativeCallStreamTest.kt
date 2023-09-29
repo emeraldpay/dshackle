@@ -37,7 +37,7 @@ class NativeCallStreamTest {
         val req = Mono.just(
             NativeCallRequest.newBuilder()
                 .setChunkSize(1000)
-                .build()
+                .build(),
         )
 
         val result = nativeCallStream.nativeCall(req)
@@ -65,7 +65,7 @@ class NativeCallStreamTest {
         val req = Mono.just(
             NativeCallRequest.newBuilder()
                 .setChunkSize(5)
-                .build()
+                .build(),
         )
 
         val chunkResponse: (Int) -> BlockchainOuterClass.NativeCallReplyItem.Builder = { id ->
@@ -82,18 +82,18 @@ class NativeCallStreamTest {
             .expectNext(
                 chunkResponse(15)
                     .setPayload(ByteString.copyFrom("\"0x11".toByteArray()))
-                    .build()
+                    .build(),
             )
             .expectNext(
                 chunkResponse(15)
                     .setPayload(ByteString.copyFrom("26938".toByteArray()))
-                    .build()
+                    .build(),
             )
             .expectNext(
                 chunkResponse(15)
                     .setFinalChunk(true)
                     .setPayload(ByteString.copyFrom("\"".toByteArray()))
-                    .build()
+                    .build(),
             )
             .expectComplete()
             .verify(Duration.ofSeconds(3))
@@ -115,14 +115,14 @@ class NativeCallStreamTest {
         val req = Mono.just(
             NativeCallRequest.newBuilder()
                 .setChunkSize(1000)
-                .build()
+                .build(),
         )
 
         val result = nativeCallStream.nativeCall(req)
 
         StepVerifier.create(result)
             .expectNext(
-                nativeCallResponse
+                nativeCallResponse,
             )
             .expectComplete()
             .verify(Duration.ofSeconds(3))
@@ -145,7 +145,9 @@ class NativeCallStreamTest {
         }
         val nativeCallMock = mock<NativeCall> {
             on { nativeCall(any()) } doReturn Flux.just(
-                nativeCallResponse(1, response), nativeCallResponse(2, response2), nativeCallResponse(3, response3)
+                nativeCallResponse(1, response),
+                nativeCallResponse(2, response2),
+                nativeCallResponse(3, response3),
             ).flatMap {
                 when (it.id) {
                     1 -> Mono.just(it).delayElement(Duration.ofMillis(200))
@@ -158,7 +160,7 @@ class NativeCallStreamTest {
         val req = Mono.just(
             NativeCallRequest.newBuilder()
                 .setSorted(true)
-                .build()
+                .build(),
         )
 
         val result = nativeCallStream.nativeCall(req)

@@ -30,7 +30,7 @@ import reactor.util.function.Tuples
 import java.util.concurrent.atomic.AtomicInteger
 
 open class XpubAddresses(
-    private val addressActiveCheck: AddressActiveCheck
+    private val addressActiveCheck: AddressActiveCheck,
 ) {
 
     companion object {

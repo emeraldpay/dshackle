@@ -29,7 +29,7 @@ class RekeyingReader<K, K1, D>(
     /**
      * Actual reader
      */
-    private val reader: Reader<K1, D>
+    private val reader: Reader<K1, D>,
 ) : Reader<K, D> {
 
     override fun read(key: K): Mono<D> {

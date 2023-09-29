@@ -28,7 +28,7 @@ import reactor.core.publisher.Mono
 
 @Service
 class SubscribeStatus(
-    private val multistreamHolder: MultistreamHolder
+    private val multistreamHolder: MultistreamHolder,
 ) {
 
     fun subscribeStatus(requestMono: Mono<BlockchainOuterClass.StatusRequest>): Flux<BlockchainOuterClass.ChainStatus> {

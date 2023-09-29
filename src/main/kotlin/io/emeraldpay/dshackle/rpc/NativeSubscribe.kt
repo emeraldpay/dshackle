@@ -39,7 +39,7 @@ import reactor.core.publisher.Mono
 @Service
 open class NativeSubscribe(
     @Autowired private val multistreamHolder: MultistreamHolder,
-    @Autowired private val signer: ResponseSigner
+    @Autowired private val signer: ResponseSigner,
 ) {
 
     companion object {
@@ -81,17 +81,17 @@ open class NativeSubscribe(
 
     fun convertToStatus(t: Throwable) = when (t) {
         is SilentException.UnsupportedBlockchain -> StatusException(
-            Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}")
+            Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}"),
         )
 
         is UnsupportedOperationException -> StatusException(
-            Status.UNIMPLEMENTED.withDescription(t.message)
+            Status.UNIMPLEMENTED.withDescription(t.message),
         )
 
         else -> {
             log.warn("Unhandled error", t)
             StatusException(
-                Status.INTERNAL.withDescription(t.message)
+                Status.INTERNAL.withDescription(t.message),
             )
         }
     }
@@ -131,7 +131,7 @@ open class NativeSubscribe(
 
     fun buildSignature(
         nonce: Long,
-        signature: ResponseSigner.Signature
+        signature: ResponseSigner.Signature,
     ): BlockchainOuterClass.NativeCallReplySignature {
         val msg = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
         msg.signature = ByteString.copyFrom(signature.value)
@@ -143,11 +143,13 @@ open class NativeSubscribe(
 
     data class ResponseHolder(
         val response: Any,
-        val nonce: Long?
+        val nonce: Long?,
     ) {
         fun getSource(): String? =
             if (response is HasUpstream) {
                 response.upstreamId.takeIf { it != "unknown" }
-            } else null
+            } else {
+                null
+            }
     }
 }

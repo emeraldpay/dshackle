@@ -43,5 +43,5 @@ data class LogMessage(
     val transactionIndex: Long,
     val removed: Boolean,
     @get:JsonIgnore
-    override val upstreamId: String
+    override val upstreamId: String,
 ) : HasUpstream

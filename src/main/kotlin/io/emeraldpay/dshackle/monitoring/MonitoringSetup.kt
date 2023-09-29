@@ -38,7 +38,7 @@ import javax.annotation.PostConstruct
 
 @Service
 class MonitoringSetup(
-    @Autowired private val monitoringConfig: MonitoringConfig
+    @Autowired private val monitoringConfig: MonitoringConfig,
 ) {
 
     companion object {
@@ -49,15 +49,17 @@ class MonitoringSetup(
     fun setup() {
         val prometheusRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
         Metrics.globalRegistry.add(prometheusRegistry)
-        Metrics.globalRegistry.config().meterFilter(object : MeterFilter {
-            override fun map(id: Meter.Id): Meter.Id {
-                if (id.name.startsWith("jvm") || id.name.startsWith("process") || id.name.startsWith("system")) {
-                    return id
-                } else {
-                    return id.withName("dshackle." + id.name)
+        Metrics.globalRegistry.config().meterFilter(
+            object : MeterFilter {
+                override fun map(id: Meter.Id): Meter.Id {
+                    if (id.name.startsWith("jvm") || id.name.startsWith("process") || id.name.startsWith("system")) {
+                        return id
+                    } else {
+                        return id.withName("dshackle." + id.name)
+                    }
                 }
-            }
-        })
+            },
+        )
 
         if (monitoringConfig.enableJvm) {
             ClassLoaderMetrics().bindTo(Metrics.globalRegistry)
@@ -78,9 +80,9 @@ class MonitoringSetup(
                 val server = HttpServer.create(
                     InetSocketAddress(
                         monitoringConfig.prometheus.host,
-                        monitoringConfig.prometheus.port
+                        monitoringConfig.prometheus.port,
                     ),
-                    0
+                    0,
                 )
                 server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
                     val response = prometheusRegistry.scrape()

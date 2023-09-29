@@ -31,15 +31,15 @@ sealed class MatchesResponse {
 
     data class LabelResponse(
         val name: String,
-        val values: Collection<String>
+        val values: Collection<String>,
     ) : MatchesResponse()
 
     data class NotMatchedResponse(
-        val response: MatchesResponse
+        val response: MatchesResponse,
     ) : MatchesResponse()
 
     data class MultiResponse(
-        private val responses: Set<MatchesResponse>
+        private val responses: Set<MatchesResponse>,
     ) : MatchesResponse() {
         val allResponses = mutableSetOf<MatchesResponse>()
 
@@ -57,26 +57,26 @@ sealed class MatchesResponse {
     }
 
     data class MethodResponse(
-        val method: String
+        val method: String,
     ) : MatchesResponse()
 
     data class ExistsResponse(
-        val name: String
+        val name: String,
     ) : MatchesResponse()
 
     data class CapabilityResponse(
-        val capability: Capability
+        val capability: Capability,
     ) : MatchesResponse()
 
     object GrpcResponse : MatchesResponse()
 
     data class HeightResponse(
         val height: Long,
-        val currentHeight: Long
+        val currentHeight: Long,
     ) : MatchesResponse()
 
     data class SameNodeResponse(
-        val upstreamHash: Byte
+        val upstreamHash: Byte,
     ) : MatchesResponse()
 
     object AvailabilityResponse : MatchesResponse()

@@ -64,7 +64,7 @@ class RLP {
             val totalLength = elements.sumOf { it.size }
             if (totalLength < SIZE_THRESHOLD) {
                 return byteArrayOf((OFFSET_SHORT_LIST + totalLength).toByte()).plus(
-                    elements.reduce { a, b -> a.plus(b) }
+                    elements.reduce { a, b -> a.plus(b) },
                 )
             }
 
@@ -89,7 +89,7 @@ class RLP {
                 (value shr 24 and 0xff).toByte(),
                 (value shr 16 and 0xff).toByte(),
                 (value shr 8 and 0xff).toByte(),
-                (value and 0xff).toByte()
+                (value and 0xff).toByte(),
             )
         }
     }

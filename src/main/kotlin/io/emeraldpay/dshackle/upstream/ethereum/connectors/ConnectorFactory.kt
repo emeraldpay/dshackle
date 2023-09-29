@@ -9,7 +9,7 @@ interface ConnectorFactory {
         upstream: DefaultUpstream,
         validator: EthereumUpstreamValidator,
         chain: Chain,
-        skipEnhance: Boolean
+        skipEnhance: Boolean,
     ): EthereumConnector
 
     fun isValid(): Boolean

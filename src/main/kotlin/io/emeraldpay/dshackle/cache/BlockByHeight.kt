@@ -26,7 +26,7 @@ import reactor.core.publisher.Mono
  */
 open class BlockByHeight(
     private val heights: Reader<Long, BlockId>,
-    private val blocks: Reader<BlockId, BlockContainer>
+    private val blocks: Reader<BlockId, BlockContainer>,
 ) : Reader<Long, BlockContainer> {
 
     companion object {

@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.config
 
 class MonitoringConfig(
     val enabled: Boolean,
-    val prometheus: PrometheusConfig
+    val prometheus: PrometheusConfig,
 ) {
 
     companion object {
@@ -37,7 +37,7 @@ class MonitoringConfig(
         val enabled: Boolean,
         val path: String,
         val host: String,
-        val port: Int
+        val port: Int,
     ) {
         companion object {
             fun default(): PrometheusConfig {

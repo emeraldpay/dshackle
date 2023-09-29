@@ -32,7 +32,7 @@ import reactor.kotlin.core.publisher.cast
 open class BitcoinReader(
     private val upstreams: BitcoinMultistream,
     head: Head,
-    esploraClient: EsploraClient?
+    esploraClient: EsploraClient?,
 ) : Lifecycle {
 
     companion object {

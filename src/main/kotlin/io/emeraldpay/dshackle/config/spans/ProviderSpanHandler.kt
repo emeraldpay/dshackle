@@ -79,6 +79,6 @@ class ProviderSpanHandler(
 
     private data class SpansInfo(
         var exportable: Boolean = false,
-        val spans: MutableList<MutableSpan> = mutableListOf()
+        val spans: MutableList<MutableSpan> = mutableListOf(),
     )
 }

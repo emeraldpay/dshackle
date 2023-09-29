@@ -17,7 +17,7 @@ class SpannedReader<K, D>(
     private val reader: Reader<K, D>,
     private val tracer: Tracer,
     private val name: String,
-    private val additionalParams: Map<String, String> = emptyMap()
+    private val additionalParams: Map<String, String> = emptyMap(),
 ) : Reader<K, D> {
 
     override fun read(key: K): Mono<D> {

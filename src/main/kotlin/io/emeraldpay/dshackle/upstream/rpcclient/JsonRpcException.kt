@@ -21,7 +21,7 @@ open class JsonRpcException(
     val id: JsonRpcResponse.Id,
     val error: JsonRpcError,
     val upstreamId: String? = null,
-    writableStackTrace: Boolean = true
+    writableStackTrace: Boolean = true,
 ) : Exception(error.message, null, true, writableStackTrace) {
 
     constructor(id: Int, message: String) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message))
@@ -36,7 +36,8 @@ open class JsonRpcException(
                 }
             } ?: JsonRpcResponse.NumberId(-4)
             return JsonRpcException(
-                id, JsonRpcError.from(err)
+                id,
+                JsonRpcError.from(err),
             )
         }
     }

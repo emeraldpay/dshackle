@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 open class HeightByHashMemCache(
-    maxSize: Int = 256
+    maxSize: Int = 256,
 ) : Reader<BlockId, Long> {
 
     companion object {

@@ -48,7 +48,7 @@ class JsonRpcGrpcClient(
     class Executor(
         private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val chain: Chain,
-        private val metrics: RpcMetrics?
+        private val metrics: RpcMetrics?,
     ) : JsonRpcReader {
 
         override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
@@ -97,8 +97,8 @@ class JsonRpcGrpcClient(
                     RpcException(
                         resp.errorCode,
                         resp.errorMessage,
-                        if (resp.errorData == null || resp.errorData.isEmpty()) null else resp.errorData
-                    )
+                        if (resp.errorData == null || resp.errorData.isEmpty()) null else resp.errorData,
+                    ),
                 )
             }
 
@@ -108,15 +108,15 @@ class JsonRpcGrpcClient(
                 is StatusRuntimeException -> Mono.error(
                     RpcException(
                         RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                        "Remote status code: ${t.status.code.name}"
-                    )
+                        "Remote status code: ${t.status.code.name}",
+                    ),
                 )
 
                 else -> Mono.error(
                     RpcException(
                         RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
-                        "Other connection error"
-                    )
+                        "Other connection error",
+                    ),
                 )
             }
         }
@@ -128,7 +128,7 @@ class JsonRpcGrpcClient(
             return ResponseSigner.Signature(
                 resp.signature.toByteArray(),
                 resp.upstreamId,
-                resp.keyId
+                resp.keyId,
             )
         }
     }

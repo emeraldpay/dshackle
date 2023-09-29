@@ -34,7 +34,7 @@ class Events {
     abstract class Base(
         val id: UUID,
         val method: String,
-        val channel: Channel
+        val channel: Channel,
     ) {
         val version = "accesslog/v1beta"
         var ts = Instant.now()
@@ -44,7 +44,7 @@ class Events {
         val blockchain: Chain,
         method: String,
         id: UUID,
-        channel: Channel
+        channel: Channel,
     ) : Base(id, method, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -54,7 +54,7 @@ class Events {
         // initial request details
         val request: StreamRequestDetails,
         // index of the current response
-        val index: Int
+        val index: Int,
     ) : ChainBase(blockchain, "SubscribeHead", id, Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -67,7 +67,7 @@ class Events {
         val balanceRequest: BalanceRequest,
         val addressBalance: AddressBalance,
         // index of the current response
-        val index: Int
+        val index: Int,
     ) : ChainBase(blockchain, if (subscribe) "SubscribeBalance" else "GetBalance", id, Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -78,15 +78,15 @@ class Events {
         val txStatusRequest: TxStatusRequest,
         val txStatus: TxStatusResponse,
         // index of the current response
-        val index: Int
+        val index: Int,
     ) : ChainBase(blockchain, "SubscribeTxStatus", id, Channel.GRPC)
 
     data class TxStatusRequest(
-        val txId: String
+        val txId: String,
     )
 
     data class TxStatusResponse(
-        val confirmations: Int
+        val confirmations: Int,
     )
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -113,7 +113,7 @@ class Events {
         val responseBody: String? = null,
         val errorMessage: String? = null,
         val nonce: Long? = null,
-        val signature: String? = null
+        val signature: String? = null,
     ) : ChainBase(blockchain, "NativeCall", id, channel)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -132,14 +132,14 @@ class Events {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class Describe(
         id: UUID,
-        val request: StreamRequestDetails
+        val request: StreamRequestDetails,
     ) : Base(id, "Describe", Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     class Status(
         blockchain: Chain,
         id: UUID,
-        val request: StreamRequestDetails
+        val request: StreamRequestDetails,
     ) : ChainBase(blockchain, "Status", id, Channel.GRPC)
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -147,19 +147,19 @@ class Events {
         blockchain: Chain,
         id: UUID,
         val request: StreamRequestDetails,
-        val estimateFee: EstimateFeeDetails
+        val estimateFee: EstimateFeeDetails,
     ) : ChainBase(blockchain, "EstimateFee", id, Channel.GRPC)
 
     data class StreamRequestDetails(
         val id: UUID,
         val start: Instant,
-        val remote: Remote
+        val remote: Remote,
     )
 
     data class Remote(
         val ips: List<String>,
         val ip: String,
-        val userAgent: String
+        val userAgent: String,
     )
 
     data class NativeCallItemDetails(
@@ -167,38 +167,38 @@ class Events {
         val id: Int,
         val payloadSizeBytes: Long,
         val nonce: Long,
-        val requestParams: String? = null
+        val requestParams: String? = null,
     )
 
     data class NativeCallReplyDetails(
         val id: Int,
         val succeed: Boolean,
         val replySizeBytes: Long,
-        val ts: Instant = Instant.now()
+        val ts: Instant = Instant.now(),
     )
 
     data class NativeSubscribeItemDetails(
         val method: String,
-        val payloadSizeBytes: Long
+        val payloadSizeBytes: Long,
     )
 
     data class NativeSubscribeReplyDetails(
         val replySizeBytes: Long,
-        val ts: Instant = Instant.now()
+        val ts: Instant = Instant.now(),
     )
 
     data class BalanceRequest(
         val asset: String,
-        val addressType: String
+        val addressType: String,
     )
 
     data class AddressBalance(
         val asset: String,
-        val address: String
+        val address: String,
     )
 
     data class EstimateFeeDetails(
         val mode: String,
-        val blocks: Int
+        val blocks: Int,
     )
 }

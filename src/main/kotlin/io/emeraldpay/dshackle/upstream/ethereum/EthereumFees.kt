@@ -62,7 +62,7 @@ abstract class EthereumFees(
                         a.max.coerceAtLeast(b.max),
                         a.priority.coerceAtLeast(b.priority),
                         a.paid.coerceAtLeast(b.paid),
-                        Wei.ZERO
+                        Wei.ZERO,
                     )
                 }
             }

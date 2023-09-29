@@ -25,7 +25,9 @@ data class JsonRpcError(val code: Int, val message: String, val details: Any?) {
         @JvmStatic
         fun from(err: RpcException): JsonRpcError {
             return JsonRpcError(
-                err.code, err.rpcMessage, err.details
+                err.code,
+                err.rpcMessage,
+                err.details,
             )
         }
     }

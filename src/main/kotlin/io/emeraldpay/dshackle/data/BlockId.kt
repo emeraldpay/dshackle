@@ -21,7 +21,7 @@ import io.emeraldpay.etherjar.domain.BlockHash
 import org.bouncycastle.util.encoders.Hex
 
 class BlockId(
-    value: ByteArray
+    value: ByteArray,
 ) : HashId(value) {
 
     companion object {

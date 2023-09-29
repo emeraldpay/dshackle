@@ -31,7 +31,7 @@ import reactor.core.publisher.Mono
 class HeightByHashAdding(
     private val mem: Reader<BlockId, Long>,
     private val redis: HeightByHashCache?,
-    private val upstreamReader: Reader<BlockId, BlockContainer>
+    private val upstreamReader: Reader<BlockId, BlockContainer>,
 ) : Reader<BlockId, Long> {
 
     companion object {
@@ -50,12 +50,12 @@ class HeightByHashAdding(
                     return mem.read(key)
                         .switchIfEmpty(
                             Mono.just(key)
-                                .flatMap { redis.read(it) }
+                                .flatMap { redis.read(it) },
                         )
                         .switchIfEmpty(
                             Mono.just(key)
                                 .flatMap { upstreamReader.read(it) }
-                                .flatMap { redis.add(it).then(Mono.just(it.height)) }
+                                .flatMap { redis.add(it).then(Mono.just(it.height)) },
                         )
                 }
             }
@@ -66,7 +66,7 @@ class HeightByHashAdding(
                         .switchIfEmpty(
                             Mono.just(key)
                                 .flatMap { upstreamReader.read(it) }
-                                .map { it.height }
+                                .map { it.height },
                         )
                 }
             }

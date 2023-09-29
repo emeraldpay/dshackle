@@ -49,7 +49,7 @@ class QuorumRpcReader(
     private val apiControl: ApiSource,
     private val quorum: CallQuorum,
     signer: ResponseSigner?,
-    private val tracer: Tracer
+    private val tracer: Tracer,
 ) : RpcReader(signer) {
 
     companion object {
@@ -142,7 +142,7 @@ class QuorumRpcReader(
         val apiReader = api.getIngressReader()
         val spanParams = mapOf(
             SPAN_REQUEST_API_TYPE to apiReader.javaClass.name,
-            SPAN_REQUEST_UPSTREAM_ID to api.getId()
+            SPAN_REQUEST_UPSTREAM_ID to api.getId(),
         )
         return SpannedReader(apiReader, tracer, API_READER, spanParams)
             .read(key)
@@ -179,7 +179,7 @@ class QuorumRpcReader(
                 // it may use the error message or other details
                 //
                 val cleanErr: JsonRpcException = getError(key, err)
-                quorum.record(cleanErr, null, api,)
+                quorum.record(cleanErr, null, api)
                 // if it's failed after that, then we don't need more calls, stop api source
                 if (quorum.isFailed()) {
                     val msgQuorumFailed = "Quorum is failed, stop api source. Upstream ${api.getId()}, method ${key.method}"
@@ -222,7 +222,7 @@ class QuorumRpcReader(
             val cause = getCause(method) ?: return Mono.empty()
             if (cause.shouldReturnNull) {
                 Mono.just(
-                    Result(Global.nullValue, null, 1, null)
+                    Result(Global.nullValue, null, 1, null),
                 )
             } else {
                 Mono.error(RpcException(1, "No response for method $method. Cause - ${cause.cause}"))

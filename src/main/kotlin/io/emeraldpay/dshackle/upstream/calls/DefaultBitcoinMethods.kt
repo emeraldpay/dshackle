@@ -29,31 +29,37 @@ class DefaultBitcoinMethods : CallMethods {
     private val networkinfo = Global.objectMapper.writeValueAsBytes(
         mapOf(
             "version" to 210100,
-            "subversion" to "/EmeraldDshackle:${Global.version}/"
-        )
+            "subversion" to "/EmeraldDshackle:${Global.version}/",
+        ),
     )
 
     private val freshMethods = listOf(
         "getblock",
-        "gettransaction", "gettxout",
-        "getmemorypool"
+        "gettransaction",
+        "gettxout",
+        "getmemorypool",
     ).sorted()
 
     private val anyResponseMethods = listOf(
-        "getblockhash", "getrawtransaction"
+        "getblockhash",
+        "getrawtransaction",
     ).sorted()
 
     private val headVerifiedMethods = listOf(
-        "getbestblockhash", "getblocknumber", "getblockcount",
-        "listunspent", "getreceivedbyaddress"
+        "getbestblockhash",
+        "getblocknumber",
+        "getblockcount",
+        "listunspent",
+        "getreceivedbyaddress",
     ).sorted()
 
     private val hardcodedMethods = listOf(
-        "getconnectioncount", "getnetworkinfo"
+        "getconnectioncount",
+        "getnetworkinfo",
     ).sorted()
 
     private val broadcastMethods = listOf(
-        "sendrawtransaction"
+        "sendrawtransaction",
     ).sorted()
 
     private val allowedMethods =

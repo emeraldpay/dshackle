@@ -41,7 +41,8 @@ enum class UpstreamAvailability(val grpcId: Int) {
     /**
      * Unavailable node
      */
-    UNAVAILABLE(5);
+    UNAVAILABLE(5),
+    ;
 
     fun isBetterTo(other: UpstreamAvailability): Boolean {
         return other.grpcId > grpcId

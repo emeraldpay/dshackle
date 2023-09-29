@@ -32,7 +32,7 @@ import reactor.core.publisher.Mono
  */
 open class TxRedisCache(
     private val redis: RedisReactiveCommands<String, ByteArray>,
-    private val chain: Chain
+    private val chain: Chain,
 ) : Reader<TxId, TxContainer>,
     OnTxRedisCache<TxContainer>(redis, chain, CachesProto.ValueContainer.ValueType.TX) {
 
@@ -65,7 +65,7 @@ open class TxRedisCache(
             meta.height,
             TxId(meta.hash.toByteArray()),
             BlockId(meta.blockHash.toByteArray()),
-            value.value.toByteArray()
+            value.value.toByteArray(),
         )
     }
 

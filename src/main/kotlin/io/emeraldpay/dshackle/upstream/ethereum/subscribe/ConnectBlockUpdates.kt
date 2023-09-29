@@ -33,7 +33,7 @@ import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
     private val upstream: EthereumLikeMultistream,
-    private val scheduler: Scheduler
+    private val scheduler: Scheduler,
 ) : SubscriptionConnect<ConnectBlockUpdates.Update> {
 
     companion object {
@@ -110,7 +110,7 @@ class ConnectBlockUpdates(
                 prev.height,
                 UpdateType.DROP,
                 it,
-                source
+                source,
             )
         }
     }
@@ -123,7 +123,7 @@ class ConnectBlockUpdates(
                     block.height,
                     UpdateType.NEW,
                     it,
-                    block.upstreamId
+                    block.upstreamId,
                 )
             }
     }
@@ -133,11 +133,11 @@ class ConnectBlockUpdates(
         val blockNumber: Long,
         val type: UpdateType,
         val transactionId: TxId,
-        val upstreamId: String
+        val upstreamId: String,
     )
 
     enum class UpdateType {
         NEW,
-        DROP
+        DROP,
     }
 }

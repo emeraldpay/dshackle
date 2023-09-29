@@ -26,7 +26,7 @@ import reactor.core.publisher.Mono
  * Reader returns first value returned by any of the source readers by checking one by one until one of them returns a non-empty result.
  */
 class CompoundReader<K, D> (
-    private vararg val readers: Reader<K, D>
+    private vararg val readers: Reader<K, D>,
 ) : Reader<K, D> {
 
     companion object {
@@ -43,7 +43,7 @@ class CompoundReader<K, D> (
                     .timeout(Defaults.timeoutInternal, Mono.empty())
                     .doOnError { t -> log.warn("Failed to read from $rdr", t) }
                     .onErrorResume { Mono.empty() }
-            }, 1)
+            }, 1,)
             .next()
     }
 }

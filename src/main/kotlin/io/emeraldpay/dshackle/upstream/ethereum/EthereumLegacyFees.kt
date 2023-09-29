@@ -34,7 +34,7 @@ class EthereumLegacyFees(upstreams: EthereumMultistream, reader: EthereumCaching
         BlockchainOuterClass.EstimateFeeResponse.newBuilder()
             .setEthereumStd(
                 BlockchainOuterClass.EthereumStdFees.newBuilder()
-                    .setFee(it.paid.amount.toString())
+                    .setFee(it.paid.amount.toString()),
             )
             .build()
     }

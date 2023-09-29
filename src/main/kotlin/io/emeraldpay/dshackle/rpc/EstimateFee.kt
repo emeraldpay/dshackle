@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono
 
 @Service
 class EstimateFee(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) {
 
     companion object {
@@ -24,13 +24,13 @@ class EstimateFee(
         val chain = Chain.byId(req.chainValue)
         val up = multistreamHolder.getUpstream(chain) ?: return Mono.error(
             StatusException(
-                Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${req.chainValue}")
-            )
+                Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${req.chainValue}"),
+            ),
         )
         val mode = ChainFees.extractMode(req) ?: return Mono.error(
             StatusException(
-                Status.UNAVAILABLE.withDescription("UNSUPPORTED MODE: ${req.mode.number}")
-            )
+                Status.UNAVAILABLE.withDescription("UNSUPPORTED MODE: ${req.mode.number}"),
+            ),
         )
         return up.getFeeEstimation()
             .estimate(mode, req.blocks)

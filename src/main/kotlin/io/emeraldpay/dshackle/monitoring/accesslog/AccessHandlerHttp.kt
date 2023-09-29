@@ -21,7 +21,7 @@ import kotlin.concurrent.withLock
 @Service
 class AccessHandlerHttp(
     @Autowired private val mainConfig: MainConfig,
-    @Autowired accessLogWriter: AccessLogWriter
+    @Autowired accessLogWriter: AccessLogWriter,
 ) {
 
     companion object {
@@ -111,7 +111,7 @@ class AccessHandlerHttp(
     class StandardWsHandlerFactory(
         private val accessLogWriter: AccessLogWriter,
         private val wsRequest: WebsocketInbound,
-        private val blockchain: Chain
+        private val blockchain: Chain,
     ) : WsHandlerFactory {
 
         override fun call(): RequestHandler {
@@ -125,7 +125,7 @@ class AccessHandlerHttp(
 
     abstract class AbstractRequestHandler(
         private val accessLogWriter: AccessLogWriter,
-        private val channel: Events.Channel
+        private val channel: Events.Channel,
     ) : RequestHandler {
         protected var startTs: Instant? = null
         protected var request: BlockchainOuterClass.NativeCallRequest? = null
@@ -159,7 +159,7 @@ class AccessHandlerHttp(
     class StandardHandler(
         accessLogWriter: AccessLogWriter,
         private val httpRequest: HttpServerRequest,
-        private val blockchain: Chain
+        private val blockchain: Chain,
     ) : RequestHandler, AbstractRequestHandler(accessLogWriter, Events.Channel.JSONRPC) {
 
         override fun close() {
@@ -177,7 +177,7 @@ class AccessHandlerHttp(
     class WsRequestHandler(
         accessLogWriter: AccessLogWriter,
         private val wsRequest: WebsocketInbound,
-        private val blockchain: Chain
+        private val blockchain: Chain,
     ) : RequestHandler, AbstractRequestHandler(accessLogWriter, Events.Channel.WSJSONRPC) {
 
         override fun close() {
@@ -195,7 +195,7 @@ class AccessHandlerHttp(
     class WsSubscriptionHandler(
         private val accessLogWriter: AccessLogWriter,
         private val wsRequest: WebsocketInbound,
-        private val blockchain: Chain
+        private val blockchain: Chain,
     ) : SubscriptionHandler {
 
         private var builder: EventsBuilder.NativeSubscribeHttp? = null

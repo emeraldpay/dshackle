@@ -14,7 +14,7 @@ class NativeCallStream(
 ) {
 
     fun nativeCall(
-        requestMono: Mono<NativeCallRequest>
+        requestMono: Mono<NativeCallRequest>,
     ): Flux<NativeCallReplyItem> {
         return requestMono.flatMapMany { req ->
             nativeCall.nativeCall(Mono.just(req))
@@ -64,6 +64,6 @@ class NativeCallStream(
 
     private data class StreamNativeResult(
         val response: NativeCallReplyItem,
-        val chunkSize: Int
+        val chunkSize: Int,
     )
 }

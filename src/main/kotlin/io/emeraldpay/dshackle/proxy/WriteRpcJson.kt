@@ -103,7 +103,7 @@ open class WriteRpcJson {
             Flux.concat(
                 Mono.just("["),
                 body,
-                Mono.just("]")
+                Mono.just("]"),
             )
         }
     }

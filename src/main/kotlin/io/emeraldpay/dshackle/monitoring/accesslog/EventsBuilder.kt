@@ -66,11 +66,11 @@ class EventsBuilder {
         companion object {
             private val remoteIpHeaders = listOf(
                 "x-real-ip",
-                "x-forwarded-for"
+                "x-forwarded-for",
             )
             private val remoteIpKeys = listOf(
                 Metadata.Key.of("x-real-ip", Metadata.ASCII_STRING_MARSHALLER),
-                Metadata.Key.of("x-forwarded-for", Metadata.ASCII_STRING_MARSHALLER)
+                Metadata.Key.of("x-forwarded-for", Metadata.ASCII_STRING_MARSHALLER),
             )
             private val invalidCharacters = Regex("[\n\t]+")
         }
@@ -78,7 +78,7 @@ class EventsBuilder {
         var requestDetails = Events.StreamRequestDetails(
             UUID.randomUUID(),
             Instant.now(),
-            Events.Remote(emptyList(), "", "")
+            Events.Remote(emptyList(), "", ""),
         )
 
         var chainId: Int = Chain.UNSPECIFIED.id
@@ -107,7 +107,7 @@ class EventsBuilder {
                         aLocal -> 1
                         else -> -1
                     }
-                }
+                },
             ).firstOrNull()
         }
 
@@ -142,8 +142,8 @@ class EventsBuilder {
                     remote = Events.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
-                        userAgent = userAgent
-                    )
+                        userAgent = userAgent,
+                    ),
                 )
         }
 
@@ -161,8 +161,8 @@ class EventsBuilder {
                     remote = Events.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
-                        userAgent = userAgent
-                    )
+                        userAgent = userAgent,
+                    ),
                 )
         }
 
@@ -192,8 +192,8 @@ class EventsBuilder {
                     remote = Events.Remote(
                         ips = ips.map { it.hostAddress },
                         ip = ip,
-                        userAgent = userAgent
-                    )
+                        userAgent = userAgent,
+                    ),
                 )
         }
 
@@ -239,7 +239,7 @@ class EventsBuilder {
                 chain,
                 UUID.randomUUID(),
                 requestDetails,
-                index++
+                index++,
             )
         }
     }
@@ -258,7 +258,7 @@ class EventsBuilder {
         override fun onRequest(msg: BlockchainOuterClass.BalanceRequest) {
             balanceRequest = Events.BalanceRequest(
                 msg.asset.code.uppercase(Locale.getDefault()),
-                msg.address.addrTypeCase.name
+                msg.address.addrTypeCase.name,
             )
         }
 
@@ -275,7 +275,7 @@ class EventsBuilder {
                 requestDetails,
                 balanceRequest!!,
                 addressBalance,
-                index++
+                index++,
             )
         }
     }
@@ -298,7 +298,7 @@ class EventsBuilder {
                 requestDetails,
                 txStatusRequest!!,
                 Events.TxStatusResponse(msg.confirmations),
-                index++
+                index++,
             )
         }
 
@@ -329,8 +329,10 @@ class EventsBuilder {
                         item.nonce,
                         if (accessLogConfig.includeMessages) {
                             if (item.payload != null && !item.payload.isEmpty && item.payload.isValidUtf8) item.payload.toStringUtf8() else ""
-                        } else null
-                    )
+                        } else {
+                            null
+                        },
+                    ),
                 )
             }
         }
@@ -350,16 +352,18 @@ class EventsBuilder {
                 channel = Events.Channel.GRPC,
                 responseBody = if (accessLogConfig.includeMessages) {
                     if (msg.payload != null && !msg.payload.isEmpty && msg.payload.isValidUtf8) msg.payload.toStringUtf8() else ""
-                } else null,
+                } else {
+                    null
+                },
                 errorMessage = if (accessLogConfig.includeMessages) msg.errorMessage else null,
                 signature = Hex.encodeHexString(msg.signature.signature.toByteArray()),
-                nonce = msg.signature.nonce
+                nonce = msg.signature.nonce,
             )
         }
 
         fun onReply(
             reply: io.emeraldpay.dshackle.rpc.NativeCall.CallResult,
-            channel: Events.Channel
+            channel: Events.Channel,
         ): Events.NativeCall {
             val item = items.find { it.id == reply.id }!!
             return Events.NativeCall(
@@ -378,13 +382,15 @@ class EventsBuilder {
                     reply.error?.let {
                         it.upstreamError?.message ?: it.message
                     } ?: ""
-                } else null
+                } else {
+                    null
+                },
             )
         }
     }
 
     class NativeSubscribe(
-        val channel: Events.Channel
+        val channel: Events.Channel,
     ) :
         Base<NativeSubscribe>(),
         RequestReply<Events.NativeSubscribe, BlockchainOuterClass.NativeSubscribeRequest, BlockchainOuterClass.NativeSubscribeReplyItem> {
@@ -399,7 +405,7 @@ class EventsBuilder {
             withChain(msg.chain.number)
             this.item = Events.NativeSubscribeItemDetails(
                 msg.method,
-                msg.payload.size().toLong()
+                msg.payload.size().toLong(),
             )
         }
 
@@ -411,14 +417,14 @@ class EventsBuilder {
                 payloadSizeBytes = msg.payload?.size()?.toLong() ?: 0L,
                 id = UUID.randomUUID(),
                 channel = Events.Channel.GRPC,
-                responseBody = if (accessLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null
+                responseBody = if (accessLogConfig.includeMessages) (msg.payload?.toStringUtf8() ?: "") else null,
             )
         }
     }
 
     class NativeSubscribeHttp(
         val channel: Events.Channel,
-        chain: Chain
+        chain: Chain,
     ) :
         Base<NativeSubscribeHttp>(),
         RequestReply<Events.NativeSubscribe, Pair<String, ByteArray?>, Long> {
@@ -436,7 +442,7 @@ class EventsBuilder {
         override fun onRequest(msg: Pair<String, ByteArray?>) {
             this.item = Events.NativeSubscribeItemDetails(
                 msg.first,
-                msg.second?.size?.toLong() ?: 0L
+                msg.second?.size?.toLong() ?: 0L,
             )
         }
 
@@ -447,7 +453,7 @@ class EventsBuilder {
                 nativeSubscribe = item!!,
                 payloadSizeBytes = msg,
                 id = UUID.randomUUID(),
-                channel = channel
+                channel = channel,
             )
         }
     }
@@ -466,7 +472,7 @@ class EventsBuilder {
         override fun onReply(msg: BlockchainOuterClass.DescribeResponse): Events.Describe {
             return Events.Describe(
                 id = UUID.randomUUID(),
-                request = requestDetails
+                request = requestDetails,
             )
         }
     }
@@ -486,7 +492,7 @@ class EventsBuilder {
             return Events.Status(
                 blockchain = chain,
                 request = requestDetails,
-                id = UUID.randomUUID()
+                id = UUID.randomUUID(),
             )
         }
     }
@@ -515,8 +521,8 @@ class EventsBuilder {
                 id = UUID.randomUUID(),
                 estimateFee = Events.EstimateFeeDetails(
                     mode = mode,
-                    blocks = blocks
-                )
+                    blocks = blocks,
+                ),
             )
         }
     }

@@ -129,7 +129,7 @@ abstract class AbstractHead @JvmOverloads constructor(
     override fun getFlux(): Flux<BlockContainer> {
         return Flux.concat(
             forkChoice.getHead().toMono(),
-            stream.asFlux()
+            stream.asFlux(),
         ).onBackpressureLatest()
     }
 
@@ -169,7 +169,10 @@ abstract class AbstractHead @JvmOverloads constructor(
                         log.warn("No head updates $upstreamId for $delay ms @ ${this.javaClass.simpleName}")
                         onNoHeadUpdates()
                     }
-                }, 180, 30, TimeUnit.SECONDS
+                },
+                180,
+                30,
+                TimeUnit.SECONDS,
             )
         }
     }

@@ -35,7 +35,7 @@ import java.util.Locale
 
 @Service
 class TrackEthereumAddress(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) : TrackAddress {
 
     private val log = LoggerFactory.getLogger(TrackEthereumAddress::class.java)
@@ -111,7 +111,7 @@ class TrackEthereumAddress(
         val addressParsed = Address.from(address.address)
         return TrackedAddress(
             chain,
-            addressParsed
+            addressParsed,
         )
     }
 
@@ -130,7 +130,7 @@ class TrackEthereumAddress(
             .setAsset(
                 Common.Asset.newBuilder()
                     .setChainValue(address.chain.id)
-                    .setCode("ETHER")
+                    .setCode("ETHER"),
             )
             .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.toHex()))
             .build()
@@ -139,7 +139,7 @@ class TrackEthereumAddress(
     class TrackedAddress(
         val chain: Chain,
         val address: Address,
-        val balance: Wei? = null
+        val balance: Wei? = null,
     ) {
         fun withBalance(balance: Wei) = TrackedAddress(chain, address, balance)
     }

@@ -73,6 +73,6 @@ open class ProxyConfig {
         /**
          * Blockchain to dispatch requests
          */
-        val blockchain: Chain
+        val blockchain: Chain,
     )
 }

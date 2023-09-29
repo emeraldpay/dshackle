@@ -4,7 +4,7 @@ data class AuthorizationConfig(
     val enabled: Boolean,
     val publicKeyOwner: String,
     val serverConfig: ServerConfig,
-    val clientConfig: ClientConfig
+    val clientConfig: ClientConfig,
 ) {
 
     fun hasServerConfig() = serverConfig != ServerConfig.default()
@@ -12,15 +12,16 @@ data class AuthorizationConfig(
     companion object {
         @JvmStatic
         fun default() = AuthorizationConfig(
-            false, "",
+            false,
+            "",
             ServerConfig.default(),
-            ClientConfig.default()
+            ClientConfig.default(),
         )
     }
 
     data class ServerConfig(
         val providerPrivateKeyPath: String,
-        val externalPublicKeyPath: String
+        val externalPublicKeyPath: String,
     ) {
         companion object {
             @JvmStatic

@@ -52,14 +52,15 @@ open class SchedulersConfig {
     private fun makePool(name: String, size: Int, monitoringConfig: MonitoringConfig): ExecutorService {
         val pool = Executors.newFixedThreadPool(size, CustomizableThreadFactory("$name-"))
 
-        return if (monitoringConfig.enableExtended)
+        return if (monitoringConfig.enableExtended) {
             ExecutorServiceMetrics.monitor(
                 Metrics.globalRegistry,
                 pool,
                 name,
-                Tag.of("reactor_scheduler_id", "_")
+                Tag.of("reactor_scheduler_id", "_"),
             )
-        else
+        } else {
             pool
+        }
     }
 }

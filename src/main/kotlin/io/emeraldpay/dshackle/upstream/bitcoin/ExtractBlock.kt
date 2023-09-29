@@ -68,7 +68,7 @@ class ExtractBlock {
             json,
             data,
             BlockId.from(parentHash),
-            transactions
+            transactions,
         )
     }
 }

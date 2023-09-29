@@ -95,7 +95,7 @@ open class EthereumLikeRpcUpstream(
             eventPublisher?.publishEvent(UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED))
         }, {
             log.debug("Error while checking live subscription for ${getId()}", it)
-        })
+        },)
         labelsDetector.detectLabels()
             .toStream()
             .forEach {

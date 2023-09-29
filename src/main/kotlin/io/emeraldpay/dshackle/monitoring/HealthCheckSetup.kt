@@ -30,7 +30,7 @@ import javax.annotation.PreDestroy
 @Service
 class HealthCheckSetup(
     @Autowired private val healthConfig: HealthConfig,
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) {
 
     companion object {
@@ -51,9 +51,9 @@ class HealthCheckSetup(
             server = HttpServer.create(
                 InetSocketAddress(
                     healthConfig.host,
-                    healthConfig.port
+                    healthConfig.port,
                 ),
-                0
+                0,
             )
             server.createContext(healthConfig.path) { httpExchange ->
                 val response = if (httpExchange.requestURI.query == "detailed") {
@@ -115,8 +115,12 @@ class HealthCheckSetup(
                     if (avail < required.minAvailable) {
                         chainUnavailable = true
                         listOf("  LACKS MIN AVAILABILITY")
-                    } else emptyList()
-                } else emptyList()
+                    } else {
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
                 val upDetails = ups.map {
                     "  ${it.getId()} ${it.getStatus()} with lag=${it.getLag()}"
                 }
@@ -131,10 +135,12 @@ class HealthCheckSetup(
                 .map {
                     "${it.blockchain.name} UNAVAILABLE"
                 }
-        } else emptyList()
+        } else {
+            emptyList()
+        }
         return Detailed(
             allEnabled && !anyUnavailable,
-            detailsUnavailable + details
+            detailsUnavailable + details,
         )
     }
 
@@ -148,6 +154,6 @@ class HealthCheckSetup(
 
     data class Detailed(
         val ok: Boolean,
-        val details: List<String>
+        val details: List<String>,
     )
 }

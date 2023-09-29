@@ -33,7 +33,7 @@ import java.time.Instant
  */
 class BlocksRedisCache(
     redis: RedisReactiveCommands<String, ByteArray>,
-    chain: Chain
+    chain: Chain,
 ) : Reader<BlockId, BlockContainer>,
     OnBlockRedisCache<BlockContainer>(redis, chain, CachesProto.ValueContainer.ValueType.BLOCK) {
 
@@ -69,7 +69,7 @@ class BlocksRedisCache(
             BlockId.from(meta.parentHash.toByteArray()),
             meta.txHashesList.map {
                 TxId(it.toByteArray())
-            }
+            },
         )
     }
 

@@ -22,6 +22,6 @@ class AuthContext {
     data class TokenWrapper(
         val token: String,
         val issuedAt: Instant,
-        val sessionId: String
+        val sessionId: String,
     )
 }

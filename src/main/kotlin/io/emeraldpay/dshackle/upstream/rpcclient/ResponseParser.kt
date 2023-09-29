@@ -47,8 +47,8 @@ abstract class ResponseParser<T> {
                 return Preparsed(
                     error = JsonRpcError(
                         RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                        "Invalid JSON: not an Object"
-                    )
+                        "Invalid JSON: not an Object",
+                    ),
                 )
             }
             while (parser.nextToken() != JsonToken.END_OBJECT) {
@@ -64,8 +64,8 @@ abstract class ResponseParser<T> {
         return Preparsed(
             error = JsonRpcError(
                 RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                "Invalid JSON structure: never finalized"
-            )
+                "Invalid JSON structure: never finalized",
+            ),
         )
     }
 
@@ -75,8 +75,8 @@ abstract class ResponseParser<T> {
                 return state.copy(
                     error = JsonRpcError(
                         RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                        "Invalid JSON (jsonrpc value)"
-                    )
+                        "Invalid JSON (jsonrpc value)",
+                    ),
                 )
             }
             // just skip the field
@@ -181,7 +181,7 @@ abstract class ResponseParser<T> {
         val nullResult: Boolean = false,
         val error: JsonRpcError? = null,
         val subMethod: String? = null,
-        val subId: String? = null
+        val subId: String? = null,
     ) {
 
         private val isResultSet = result != null || nullResult

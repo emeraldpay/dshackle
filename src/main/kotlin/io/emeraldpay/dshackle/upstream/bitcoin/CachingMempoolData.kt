@@ -32,7 +32,7 @@ import java.util.concurrent.locks.ReentrantLock
 
 open class CachingMempoolData(
     private val upstreams: BitcoinMultistream,
-    private val head: Head
+    private val head: Head,
 ) : Lifecycle {
 
     companion object {

@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class RemoteUnspentReader(
-    val upstreams: BitcoinMultistream
+    val upstreams: BitcoinMultistream,
 ) : UnspentReader {
 
     companion object {
@@ -20,8 +20,8 @@ class RemoteUnspentReader(
     private val selector = Selector.MultiMatcher(
         listOf(
             Selector.GrpcMatcher(),
-            Selector.CapabilityMatcher(Capability.BALANCE)
-        )
+            Selector.CapabilityMatcher(Capability.BALANCE),
+        ),
     )
 
     override fun read(key: Address): Mono<List<SimpleUnspent>> {

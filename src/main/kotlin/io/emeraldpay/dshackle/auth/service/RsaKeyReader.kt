@@ -28,7 +28,7 @@ class RsaKeyReader : KeyReader {
 
         return KeyReader.Keys(
             privateKey,
-            pubKey
+            pubKey,
         )
     }
 }

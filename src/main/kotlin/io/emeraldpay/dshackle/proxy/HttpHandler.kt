@@ -81,7 +81,7 @@ class HttpHandler(
     fun processRequest(
         chain: Chain,
         request: Mono<ByteArray>,
-        handler: AccessHandlerHttp.RequestHandler
+        handler: AccessHandlerHttp.RequestHandler,
     ): Flux<ByteBuf> {
         return request
             .map(readRpcJson)

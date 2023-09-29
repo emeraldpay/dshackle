@@ -36,7 +36,7 @@ abstract class HeadLagObserver(
     private val followers: Collection<Upstream>,
     private val distanceExtractor: Extractor,
     private val lagObserverScheduler: Scheduler,
-    private val throttling: Duration = Duration.ofSeconds(5)
+    private val throttling: Duration = Duration.ofSeconds(5),
 ) : Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)

@@ -72,7 +72,7 @@ open class NativeCall(
     private val multistreamHolder: MultistreamHolder,
     private val signer: ResponseSigner,
     config: MainConfig,
-    private val tracer: Tracer
+    private val tracer: Tracer,
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -87,7 +87,7 @@ open class NativeCall(
     companion object {
         val casting: Map<BlockchainType, Class<out EthereumLikeMultistream>> = mapOf(
             BlockchainType.EVM_POS to EthereumPosMultiStream::class.java,
-            BlockchainType.EVM_POW to EthereumMultistream::class.java
+            BlockchainType.EVM_POW to EthereumMultistream::class.java,
         )
     }
 
@@ -97,7 +97,7 @@ open class NativeCall(
             multistreamHolder.getUpstream(event.chain).let { up ->
                 ethereumCallSelectors.putIfAbsent(
                     event.chain,
-                    EthereumCallSelector(up.caches)
+                    EthereumCallSelector(up.caches),
                 )
             }
         }
@@ -121,7 +121,7 @@ open class NativeCall(
                 return@flatMap result
                     .onErrorResume { err ->
                         Mono.just(
-                            CallResult.fail(id, 0, err, null)
+                            CallResult.fail(id, 0, err, null),
                         )
                     }
                     .doOnNext { callRes -> completeSpan(callRes, requestCount) }
@@ -153,7 +153,7 @@ open class NativeCall(
         ctx: Context,
         requestCount: Int,
         requestId: String,
-        requestSpan: Span?
+        requestSpan: Span?,
     ): Context {
         if (requestCount > 1) {
             val span = tracer.nextSpan(requestSpan)
@@ -167,7 +167,7 @@ open class NativeCall(
 
     private fun processCallContext(
         callContext: CallContext,
-        requestSpan: Span?
+        requestSpan: Span?,
     ): Mono<CallResult> {
         return if (callContext.isValid()) {
             run {
@@ -186,7 +186,7 @@ open class NativeCall(
             val error = callContext.getError()
 
             Mono.just(
-                CallResult(error.id, 0, null, error, null, null, null)
+                CallResult(error.id, 0, null, error, null, null, null),
             )
         }
     }
@@ -222,7 +222,7 @@ open class NativeCall(
 
     fun buildSignature(
         nonce: Long,
-        signature: ResponseSigner.Signature
+        signature: ResponseSigner.Signature,
     ): BlockchainOuterClass.NativeCallReplySignature {
         val msg = BlockchainOuterClass.NativeCallReplySignature.newBuilder()
         msg.signature = ByteString.copyFrom(signature.value)
@@ -278,7 +278,7 @@ open class NativeCall(
 
     fun prepareCall(
         request: BlockchainOuterClass.NativeCallRequest,
-        upstream: Multistream
+        upstream: Multistream,
     ): Flux<CallContext> {
         val chain = Chain.byId(request.chainValue)
         return Flux.fromIterable(request.itemsList)
@@ -291,7 +291,7 @@ open class NativeCall(
         chain: Chain,
         request: BlockchainOuterClass.NativeCallRequest,
         requestItem: BlockchainOuterClass.NativeCallItem,
-        upstream: Multistream
+        upstream: Multistream,
     ): Mono<CallContext> {
         val requestId = requestItem.requestId
         val requestCount = request.itemsCount
@@ -307,11 +307,11 @@ open class NativeCall(
                         requestItem.id,
                         errorMessage,
                         JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage),
-                        null
+                        null,
                     ),
                     requestId,
-                    requestCount
-                )
+                    requestCount,
+                ),
             )
         }
         // for ethereum the actual block needed for the call may be specified in the call parameters
@@ -352,16 +352,17 @@ open class NativeCall(
                 resultDecorator,
                 selector,
                 requestId,
-                requestCount
+                requestCount,
             )
         }
     }
 
     private fun getRequestDecorator(method: String): RequestDecorator =
-        if (method in DefaultEthereumMethods.withFilterIdMethods)
+        if (method in DefaultEthereumMethods.withFilterIdMethods) {
             WithFilterIdDecorator()
-        else
+        } else {
             NoneRequestDecorator()
+        }
 
     private fun getResultDecorator(method: String): ResultDecorator =
         if (method in DefaultEthereumMethods.newFilterMethods) CreateFilterDecorator() else NoneResultDecorator()
@@ -382,7 +383,7 @@ open class NativeCall(
                         }
                     }
             }.switchIfEmpty(
-                Mono.just(ctx).flatMap(this::executeOnRemote)
+                Mono.just(ctx).flatMap(this::executeOnRemote),
             )
             .onErrorResume {
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, it, ctx))
@@ -395,7 +396,7 @@ open class NativeCall(
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
         val reader = rpcReaderFactory.create(
-            RpcReaderData(ctx.upstream, ctx.payload.method, ctx.matcher, ctx.callQuorum, signer, tracer)
+            RpcReaderData(ctx.upstream, ctx.payload.method, ctx.matcher, ctx.callQuorum, signer, tracer),
         )
         val counter = reader.attempts()
 
@@ -414,20 +415,22 @@ open class NativeCall(
                 Mono.fromSupplier {
                     counter.get().let { attempts ->
                         CallResult.fail(
-                            ctx.id, ctx.nonce,
+                            ctx.id,
+                            ctx.nonce,
                             CallError(1, "No response or no available upstream for ${ctx.payload.method}", null, null),
-                            ctx
+                            ctx,
                         ).also {
                             countFailure(attempts, ctx)
                         }
                     }
-                }
+                },
             )
     }
 
     private fun validateResult(bytes: ByteArray, origin: String, ctx: ValidCallContext<ParsedCallDetails>) {
-        if (bytes.isEmpty() || nullValue.contentEquals(bytes))
+        if (bytes.isEmpty() || nullValue.contentEquals(bytes)) {
             log.warn("Empty result from origin $origin, method ${ctx.payload.method}, params ${ctx.payload.params}")
+        }
     }
 
     private fun errorMessage(attempts: Int, method: String): String =
@@ -467,7 +470,7 @@ open class NativeCall(
 
     abstract class CallContext(
         val requestId: String,
-        val requestCount: Int
+        val requestCount: Int,
     ) {
         abstract fun isValid(): Boolean
         abstract fun <T> get(): ValidCallContext<T>
@@ -528,7 +531,7 @@ open class NativeCall(
         val resultDecorator: ResultDecorator,
         val forwardedSelector: BlockchainOuterClass.Selector?,
         requestId: String,
-        requestCount: Int
+        requestCount: Int,
     ) : CallContext(requestId, requestCount) {
 
         constructor(
@@ -539,10 +542,10 @@ open class NativeCall(
             callQuorum: CallQuorum,
             payload: T,
             requestId: String,
-            requestCount: Int
+            requestCount: Int,
         ) : this(
             id, nonce, upstream, matcher, callQuorum, payload,
-            NoneRequestDecorator(), NoneResultDecorator(), null, requestId, requestCount
+            NoneRequestDecorator(), NoneResultDecorator(), null, requestId, requestCount,
         )
 
         override fun isValid(): Boolean {
@@ -562,7 +565,7 @@ open class NativeCall(
         fun <X> withPayload(payload: X): ValidCallContext<X> {
             return ValidCallContext(
                 id, nonce, upstream, matcher, callQuorum, payload,
-                requestDecorator, resultDecorator, forwardedSelector, requestId, requestCount
+                requestDecorator, resultDecorator, forwardedSelector, requestId, requestCount,
             )
         }
 
@@ -577,7 +580,7 @@ open class NativeCall(
     open class InvalidCallContext(
         private val error: CallError,
         requestId: String,
-        requestCount: Int
+        requestCount: Int,
     ) : CallContext(requestId, requestCount) {
         override fun isValid(): Boolean {
             return false
@@ -601,7 +604,7 @@ open class NativeCall(
         val message: String,
         val upstreamError: JsonRpcError?,
         val data: String?,
-        val upstreamId: String? = null
+        val upstreamId: String? = null,
     ) {
 
         companion object {
@@ -643,7 +646,7 @@ open class NativeCall(
         val error: CallError?,
         val signature: ResponseSigner.Signature?,
         val upstreamId: String?,
-        val ctx: ValidCallContext<ParsedCallDetails>?
+        val ctx: ValidCallContext<ParsedCallDetails>?,
     ) {
 
         constructor(
@@ -652,7 +655,7 @@ open class NativeCall(
             result: ByteArray?,
             callError: CallError?,
             signature: ResponseSigner.Signature?,
-            ctx: ValidCallContext<ParsedCallDetails>?
+            ctx: ValidCallContext<ParsedCallDetails>?,
         ) : this(id, nonce, result, callError, signature, callError?.upstreamId, ctx)
 
         companion object {

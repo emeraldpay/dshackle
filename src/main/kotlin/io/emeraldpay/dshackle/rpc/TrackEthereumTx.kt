@@ -48,7 +48,7 @@ import kotlin.math.min
 class TrackEthereumTx(
     private val multistreamHolder: MultistreamHolder,
     @Qualifier("trackTxScheduler")
-    private val scheduler: Scheduler
+    private val scheduler: Scheduler,
 ) : TrackTx {
 
     companion object {
@@ -109,7 +109,7 @@ class TrackEthereumTx(
                 }
             }
             .retryWhen(
-                Retry.fixedDelay(10, Duration.ofSeconds(2))
+                Retry.fixedDelay(10, Duration.ofSeconds(2)),
             )
             .onErrorResume { Mono.empty() }
 
@@ -139,8 +139,8 @@ class TrackEthereumTx(
                         height = block.height,
                         blockTime = block.timestamp,
                         blockTotalDifficulty = block.difficulty,
-                        blockHash = BlockHash(block.hash.value)
-                    )
+                        blockHash = BlockHash(block.hash.value),
+                    ),
                 )
             } else {
                 update(tx)
@@ -180,7 +180,7 @@ class TrackEthereumTx(
             chain,
             Instant.now(),
             TransactionId.from(request.txId),
-            min(max(1, request.confirmationLimit), 100)
+            min(max(1, request.confirmationLimit), 100),
         )
         return details
     }
@@ -189,11 +189,11 @@ class TrackEthereumTx(
         return if (block.number != null && block.totalDifficulty != null) {
             tx.withStatus(
                 blockTotalDifficulty = block.totalDifficulty,
-                blockTime = block.timestamp
+                blockTime = block.timestamp,
             )
         } else {
             tx.withStatus(
-                mined = false
+                mined = false,
             )
         }
     }
@@ -219,7 +219,7 @@ class TrackEthereumTx(
                 height = blockTx.blockNumber,
                 found = true,
                 mined = true,
-                confirmations = 1
+                confirmations = 1,
             )
             upstream.getHead().getFlux().next().map { head ->
                 val height = updated.status.height
@@ -227,7 +227,7 @@ class TrackEthereumTx(
                     updated
                 } else {
                     updated.withStatus(
-                        confirmations = head.height - height + 1
+                        confirmations = head.height - height + 1,
                     )
                 }
             }.doOnError { t ->
@@ -237,8 +237,8 @@ class TrackEthereumTx(
             Mono.just(
                 tx.withStatus(
                     found = true,
-                    mined = false
-                )
+                    mined = false,
+                ),
             )
         }
     }
@@ -256,7 +256,7 @@ class TrackEthereumTx(
                 Common.BlockInfo.newBuilder()
                     .setBlockId(tx.status.blockHash!!.toHex().substring(2))
                     .setTimestamp(tx.status.blockTime!!.toEpochMilli())
-                    .setHeight(tx.status.height!!)
+                    .setHeight(tx.status.height!!),
             )
         }
         return data.build()
@@ -267,19 +267,19 @@ class TrackEthereumTx(
         val since: Instant,
         val txid: TransactionId,
         val maxConfirmations: Int,
-        val status: TxStatus
+        val status: TxStatus,
     ) {
 
         constructor(
             chain: Chain,
             since: Instant,
             txid: TransactionId,
-            maxConfirmations: Int
+            maxConfirmations: Int,
         ) : this(chain, since, txid, maxConfirmations, TxStatus())
 
         fun copy(
             since: Instant = this.since,
-            status: TxStatus = this.status
+            status: TxStatus = this.status,
         ) = TxDetails(chain, since, txid, maxConfirmations, status)
 
         fun withStatus(
@@ -289,7 +289,7 @@ class TrackEthereumTx(
             blockHash: BlockHash? = this.status.blockHash,
             blockTime: Instant? = this.status.blockTime,
             blockTotalDifficulty: BigInteger? = this.status.blockTotalDifficulty,
-            confirmations: Long = this.status.confirmations
+            confirmations: Long = this.status.confirmations,
         ): TxDetails {
             return copy(
                 status = this.status.copy(
@@ -299,8 +299,8 @@ class TrackEthereumTx(
                     blockHash,
                     blockTime,
                     blockTotalDifficulty,
-                    confirmations
-                )
+                    confirmations,
+                ),
             )
         }
 
@@ -344,7 +344,7 @@ class TrackEthereumTx(
         val blockHash: BlockHash? = null,
         val blockTime: Instant? = null,
         val blockTotalDifficulty: BigInteger? = null,
-        val confirmations: Long = 0
+        val confirmations: Long = 0,
     ) {
 
         fun copy(
@@ -354,7 +354,7 @@ class TrackEthereumTx(
             blockHash: BlockHash? = this.blockHash,
             blockTime: Instant? = this.blockTime,
             blockTotalDifficulty: BigInteger? = this.blockTotalDifficulty,
-            confirmation: Long = this.confirmations
+            confirmation: Long = this.confirmations,
         ) = TxStatus(found, height, mined, blockHash, blockTime, blockTotalDifficulty, confirmation)
 
         fun clean() = TxStatus(false, null, false, null, null, null, 0)

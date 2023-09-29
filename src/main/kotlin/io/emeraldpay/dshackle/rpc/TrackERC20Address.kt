@@ -40,7 +40,7 @@ import javax.annotation.PostConstruct
 @Service
 class TrackERC20Address(
     @Autowired private val multistreamHolder: MultistreamHolder,
-    @Autowired private val tokensConfig: TokensConfig
+    @Autowired private val tokensConfig: TokensConfig,
 ) : TrackAddress {
 
     companion object {
@@ -61,7 +61,7 @@ class TrackERC20Address(
             val definition = TokenDefinition(
                 chain,
                 asset,
-                ERC20Token(Address.from(token.address))
+                ERC20Token(Address.from(token.address)),
             )
             tokens[id] = definition
             log.info("Enable ERC20 balance for $chain:$asset")
@@ -134,7 +134,7 @@ class TrackERC20Address(
             .setAsset(
                 Common.Asset.newBuilder()
                     .setChainValue(address.chain.id)
-                    .setCode(address.tokenName.uppercase(Locale.getDefault()))
+                    .setCode(address.tokenName.uppercase(Locale.getDefault())),
             )
             .setAddress(Common.SingleAddress.newBuilder().setAddress(address.address.toHex()))
             .build()
@@ -145,7 +145,7 @@ class TrackERC20Address(
         val address: Address,
         val token: ERC20Token,
         val tokenName: String,
-        val balance: BigInteger? = null
+        val balance: BigInteger? = null,
     ) {
         fun withBalance(balance: BigInteger) = TrackedAddress(chain, address, token, tokenName, balance)
     }

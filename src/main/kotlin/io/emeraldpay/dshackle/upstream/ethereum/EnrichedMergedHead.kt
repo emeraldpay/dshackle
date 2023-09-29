@@ -18,7 +18,7 @@ class EnrichedMergedHead constructor(
     private val sources: Iterable<Head>,
     private val referenceHead: Head,
     private val headScheduler: Scheduler,
-    private val api: Reader<BlockHash, BlockContainer>
+    private val api: Reader<BlockHash, BlockContainer>,
 ) : Head, Lifecycle {
 
     private val enrichedBlocks = CacheBuilder.newBuilder()
@@ -51,7 +51,7 @@ class EnrichedMergedHead constructor(
                         .delayElement(Duration.ofSeconds(1))
                         .flatMap {
                             EthereumBlockEnricher.enrich(BlockHash(block.hash.value), api, headScheduler)
-                        }
+                        },
                 )
             }
         }

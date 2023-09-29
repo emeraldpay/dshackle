@@ -30,7 +30,7 @@ import reactor.core.publisher.Mono
 
 @Service
 class StreamHead(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) {
 
     private val log = LoggerFactory.getLogger(StreamHead::class.java)

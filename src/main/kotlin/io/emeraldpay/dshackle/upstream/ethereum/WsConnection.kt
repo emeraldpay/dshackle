@@ -33,7 +33,7 @@ interface WsConnection : AutoCloseable {
 
     data class ConnectionInfo(
         val connectionId: String,
-        val connectionState: ConnectionState
+        val connectionState: ConnectionState,
     )
 
     enum class ConnectionState {

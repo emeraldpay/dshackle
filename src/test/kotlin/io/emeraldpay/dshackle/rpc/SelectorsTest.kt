@@ -21,42 +21,42 @@ internal class SelectorsTest {
             return Stream.of(
                 Arguments.of(
                     Selector.newBuilder().setLabelSelector(leafLabelSelector).build(),
-                    null
+                    null,
                 ),
                 Arguments.of(
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setLabelSelector(leafLabelSelector).build(),
                     Selector.newBuilder().setShouldBeForwarded(true)
-                        .setLabelSelector(leafLabelSelector).build()
+                        .setLabelSelector(leafLabelSelector).build(),
                 ),
                 Arguments.of(
                     Selector.newBuilder().setOrSelector(OrSelector.newBuilder()).build(),
-                    null
+                    null,
                 ),
                 Arguments.of(
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setOrSelector(OrSelector.newBuilder()).build(),
-                    null
+                    null,
                 ),
                 Arguments.of(
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setOrSelector(
                             OrSelector.newBuilder().addSelectors(
-                                Selector.newBuilder().setLabelSelector(leafLabelSelector)
-                            )
+                                Selector.newBuilder().setLabelSelector(leafLabelSelector),
+                            ),
                         ).build(),
-                    null
+                    null,
                 ),
                 Arguments.of(
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setOrSelector(
                             OrSelector.newBuilder().addSelectors(
                                 Selector.newBuilder().setShouldBeForwarded(true)
-                                    .setLabelSelector(leafLabelSelector)
-                            )
+                                    .setLabelSelector(leafLabelSelector),
+                            ),
                         ).build(),
                     Selector.newBuilder().setShouldBeForwarded(true)
-                        .setLabelSelector(leafLabelSelector).build()
+                        .setLabelSelector(leafLabelSelector).build(),
                 ),
                 Arguments.of(
                     Selector.newBuilder().setShouldBeForwarded(true)
@@ -64,14 +64,14 @@ internal class SelectorsTest {
                             OrSelector.newBuilder()
                                 .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
                                 .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
-                                .addSelectors(Selector.newBuilder().setLabelSelector(leafLabelSelector))
+                                .addSelectors(Selector.newBuilder().setLabelSelector(leafLabelSelector)),
                         ).build(),
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setOrSelector(
                             OrSelector.newBuilder()
                                 .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
-                                .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
-                        ).build()
+                                .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector)),
+                        ).build(),
                 ),
                 Arguments.of(
                     Selector.newBuilder().setShouldBeForwarded(true)
@@ -79,35 +79,35 @@ internal class SelectorsTest {
                             AndSelector.newBuilder()
                                 .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
                                 .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
-                                .addSelectors(Selector.newBuilder().setLabelSelector(leafLabelSelector))
+                                .addSelectors(Selector.newBuilder().setLabelSelector(leafLabelSelector)),
                         ).build(),
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setAndSelector(
                             AndSelector.newBuilder()
                                 .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
-                                .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
-                        ).build()
+                                .addSelectors(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector)),
+                        ).build(),
                 ),
                 Arguments.of(
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setNotSelector(
                             NotSelector.newBuilder()
-                                .setSelector(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
+                                .setSelector(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector)),
                         ).build(),
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setNotSelector(
                             NotSelector.newBuilder()
-                                .setSelector(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector))
-                        ).build()
+                                .setSelector(Selector.newBuilder().setShouldBeForwarded(true).setLabelSelector(leafLabelSelector)),
+                        ).build(),
                 ),
                 Arguments.of(
                     Selector.newBuilder().setShouldBeForwarded(true)
                         .setNotSelector(
                             NotSelector.newBuilder()
-                                .setSelector(Selector.newBuilder().setLabelSelector(leafLabelSelector))
+                                .setSelector(Selector.newBuilder().setLabelSelector(leafLabelSelector)),
                         ).build(),
-                    null
-                )
+                    null,
+                ),
 
             )
         }

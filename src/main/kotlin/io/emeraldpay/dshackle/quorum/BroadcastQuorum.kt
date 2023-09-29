@@ -45,7 +45,7 @@ open class BroadcastQuorum() : CallQuorum, ValueAwareQuorum<String>(String::clas
         response: ByteArray,
         responseValue: String?,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ) {
         if (txid == null && responseValue != null) {
             txid = responseValue
@@ -58,7 +58,7 @@ open class BroadcastQuorum() : CallQuorum, ValueAwareQuorum<String>(String::clas
         response: ByteArray?,
         errorMessage: String?,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ) {
         resolvers.add(upstream)
     }

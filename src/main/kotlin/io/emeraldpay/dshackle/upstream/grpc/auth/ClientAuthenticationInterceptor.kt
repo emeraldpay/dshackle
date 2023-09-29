@@ -11,7 +11,7 @@ import io.grpc.MethodDescriptor
 
 class ClientAuthenticationInterceptor(
     private val upstreamId: String,
-    private val grpcAuthContext: GrpcAuthContext
+    private val grpcAuthContext: GrpcAuthContext,
 ) : ClientInterceptor {
 
     companion object {
@@ -22,7 +22,7 @@ class ClientAuthenticationInterceptor(
     override fun <ReqT, RespT> interceptCall(
         method: MethodDescriptor<ReqT, RespT>,
         callOptions: CallOptions,
-        next: Channel
+        next: Channel,
     ): ClientCall<ReqT, RespT> =
         object : ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(next.newCall(method, callOptions)) {
             override fun start(responseListener: Listener<RespT>, headers: Metadata) {

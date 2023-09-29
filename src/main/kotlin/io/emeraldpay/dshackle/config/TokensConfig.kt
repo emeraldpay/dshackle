@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.etherjar.domain.Address
 
 class TokensConfig(
-    val tokens: List<Token>
+    val tokens: List<Token>,
 ) {
 
     class Token {
@@ -49,6 +49,6 @@ class TokensConfig(
     }
 
     enum class Type {
-        ERC20
+        ERC20,
     }
 }

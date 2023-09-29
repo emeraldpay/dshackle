@@ -44,7 +44,7 @@ class EthereumDirectReader(
     private val caches: Caches,
     private val balanceCache: CurrentBlockCache<Address, Wei>,
     private val callMethodsFactory: Factory<CallMethods>,
-    private val tracer: Tracer
+    private val tracer: Tracer,
 ) {
 
     companion object {
@@ -85,7 +85,7 @@ class EthereumDirectReader(
                             Mono.empty()
                         } else {
                             Mono.just(
-                                Result(TxContainer.from(tx, result.data), result.upstreamId)
+                                Result(TxContainer.from(tx, result.data), result.upstreamId),
                             )
                         }
                     }
@@ -108,7 +108,7 @@ class EthereumDirectReader(
                         if (str.startsWith("\"") && str.endsWith("\"")) {
                             Result(
                                 Wei.from(str.substring(1, str.length - 1)),
-                                it.upstreamId
+                                it.upstreamId,
                             )
                         } else {
                             throw RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Not Wei value")
@@ -138,11 +138,11 @@ class EthereumDirectReader(
                                     blockId = BlockId.from(receipt.blockHash),
                                     height = receipt.blockNumber,
                                     json = result.data,
-                                    parsed = receipt
-                                )
+                                    parsed = receipt,
+                                ),
                             )
                             Mono.just(
-                                result
+                                result,
                             )
                         }
                     }
@@ -154,7 +154,7 @@ class EthereumDirectReader(
     private fun readBlock(
         request: JsonRpcRequest,
         id: String,
-        matcher: Selector.Matcher = Selector.empty
+        matcher: Selector.Matcher = Selector.empty,
     ): Mono<Result<BlockContainer>> {
         return readWithQuorum(request, matcher)
             .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))
@@ -170,8 +170,8 @@ class EthereumDirectReader(
                     Mono.just(
                         Result(
                             BlockContainer.from(block, result.data, "unknown"),
-                            result.upstreamId
-                        )
+                            result.upstreamId,
+                        ),
                     )
                 }
             }
@@ -185,7 +185,7 @@ class EthereumDirectReader(
      */
     private fun readWithQuorum(
         request: JsonRpcRequest,
-        matcher: Selector.Matcher = Selector.empty
+        matcher: Selector.Matcher = Selector.empty,
     ): Mono<Result<ByteArray>> {
         return Mono.just(rpcReaderFactory)
             .map {
@@ -195,9 +195,13 @@ class EthereumDirectReader(
                     .build()
                 it.create(
                     RpcReaderFactory.RpcReaderData(
-                        up, request.method, requestMatcher,
-                        callMethodsFactory.create().createQuorumFor(request.method), null, tracer
-                    )
+                        up,
+                        request.method,
+                        requestMatcher,
+                        callMethodsFactory.create().createQuorumFor(request.method),
+                        null,
+                        tracer,
+                    ),
                 )
             }.flatMap {
                 it.read(request)
@@ -208,6 +212,6 @@ class EthereumDirectReader(
 
     data class Result<T>(
         val data: T,
-        val upstreamId: String?
+        val upstreamId: String?,
     )
 }

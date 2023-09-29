@@ -54,34 +54,34 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
                     throw RpcException(
                         RpcResponseError.CODE_INVALID_REQUEST,
                         "jsonrpc version is not set",
-                        id?.let { JsonRpcResponse.Id.from(it) }
+                        id?.let { JsonRpcResponse.Id.from(it) },
                     )
                 }
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Unsupported JSON RPC version: " + json["jsonrpc"].toString(),
-                    id?.let { JsonRpcResponse.Id.from(it) }
+                    id?.let { JsonRpcResponse.Id.from(it) },
                 )
             }
             if (!(json["method"] != null && json["method"] is String)) {
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Method is not set",
-                    id?.let { JsonRpcResponse.Id.from(it) }
+                    id?.let { JsonRpcResponse.Id.from(it) },
                 )
             }
             if (json.containsKey("params") && json["params"] !is List<*>) {
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Params must be an array",
-                    id?.let { JsonRpcResponse.Id.from(it) }
+                    id?.let { JsonRpcResponse.Id.from(it) },
                 )
             }
             RequestJson<Any>(
                 json["method"].toString(),
                 // params MAY be omitted
                 (json["params"] ?: emptyList<Any>()) as List<*>,
-                id
+                id,
             )
         }
     }

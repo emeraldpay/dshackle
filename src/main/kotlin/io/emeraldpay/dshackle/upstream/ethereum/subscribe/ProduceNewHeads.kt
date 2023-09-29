@@ -26,7 +26,7 @@ import reactor.core.publisher.Flux
  * @see NewHeadMessage
  */
 class ProduceNewHeads(
-    val head: Head
+    val head: Head,
 ) {
 
     fun start(): Flux<NewHeadMessage> {
@@ -52,7 +52,7 @@ class ProduceNewHeads(
                     block.stateRoot,
                     block.transactionsRoot,
                     block.withdrawalsRoot,
-                    it.upstreamId
+                    it.upstreamId,
                 )
             }
     }

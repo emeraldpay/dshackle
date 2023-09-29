@@ -29,7 +29,7 @@ import reactor.core.publisher.Mono
  */
 open class TxMemCache(
     // usually there is 100-150 tx per block on Ethereum, we keep data for about 32 blocks by default
-    private val maxSize: Int = 125 * 32
+    private val maxSize: Int = 125 * 32,
 ) : Reader<TxId, TxContainer> {
 
     companion object {

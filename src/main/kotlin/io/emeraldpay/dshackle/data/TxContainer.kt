@@ -25,7 +25,7 @@ class TxContainer(
     val hash: TxId,
     val blockId: BlockId?,
     json: ByteArray?,
-    parsed: Any? = null
+    parsed: Any? = null,
 ) : SourceContainer(json, parsed) {
 
     companion object {
@@ -46,7 +46,7 @@ class TxContainer(
                 TxId.from(tx.hash),
                 tx.blockHash?.let { BlockId.from(it) },
                 raw,
-                tx
+                tx,
             )
         }
 
@@ -56,7 +56,7 @@ class TxContainer(
                 TxId.from(tx.hash),
                 tx.blockHash?.let { BlockId.from(it) },
                 raw,
-                tx
+                tx,
             )
         }
     }

@@ -111,7 +111,7 @@ class WebsocketHandler(
         blockchain: Chain,
         control: MutableMap<String, Sinks.One<Boolean>>,
         requests: Flux<RequestJson<Any>>,
-        eventHandlerFactory: AccessHandlerHttp.WsHandlerFactory
+        eventHandlerFactory: AccessHandlerHttp.WsHandlerFactory,
     ): Flux<String> {
         return requests.flatMap { call ->
             val method = call.method
@@ -126,7 +126,7 @@ class WebsocketHandler(
                             // TODO ineffective to encode the params each time just to get size, ideally should get a reference to the original JSON bytes
                             // but it doesn't happen very ofter, only on initial subscribe only for logs with filter
                             Pair(mp.first, mp.second?.let { Global.objectMapper.writeValueAsBytes(it) })
-                        }
+                        },
                     )
                     val currentControl = Sinks.one<Boolean>()
                     control[subscriptionId] = currentControl
@@ -165,9 +165,9 @@ class WebsocketHandler(
                                 .setId(0)
                                 .setMethod("eth_unsubscribe")
                                 .setPayload(ByteString.copyFromUtf8("[\"$id\"]"))
-                                .build()
+                                .build(),
                         )
-                        .build()
+                        .build(),
                 )
 
                 val p = control.remove(id.toString())
@@ -216,6 +216,6 @@ class WebsocketHandler(
 
     data class WsSubscriptionData(
         val result: Any?,
-        val subscription: String
+        val subscription: String,
     )
 }

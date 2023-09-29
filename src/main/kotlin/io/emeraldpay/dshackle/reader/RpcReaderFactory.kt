@@ -26,7 +26,7 @@ abstract class RpcReader(
             is JsonRpcException -> err
             else -> JsonRpcException(
                 JsonRpcResponse.NumberId(key.id),
-                JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}: ${err.message}")
+                JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass}: ${err.message}"),
             )
         }
 
@@ -46,7 +46,7 @@ abstract class RpcReader(
         val value: ByteArray,
         val signature: ResponseSigner.Signature?,
         val quorum: Int,
-        val resolvedBy: Upstream?
+        val resolvedBy: Upstream?,
     )
 }
 
@@ -76,6 +76,6 @@ interface RpcReaderFactory {
         val matcher: Selector.Matcher,
         val quorum: CallQuorum,
         val signer: ResponseSigner?,
-        val tracer: Tracer
+        val tracer: Tracer,
     )
 }

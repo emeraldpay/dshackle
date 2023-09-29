@@ -56,7 +56,7 @@ open class EthereumCachingReader(
     private val up: Multistream,
     private val caches: Caches,
     callMethodsFactory: Factory<CallMethods>,
-    private val tracer: Tracer
+    private val tracer: Tracer,
 ) : Lifecycle {
 
     private val objectMapper: ObjectMapper = Global.objectMapper
@@ -88,20 +88,20 @@ open class EthereumCachingReader(
 
     private val blocksByIdAsCont = CompoundReader(
         SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHash()), tracer, CACHE_BLOCK_BY_HASH_READER),
-        SpannedReader(RekeyingReader(idToBlockHash, directReader.blockReader), tracer, DIRECT_QUORUM_RPC_READER)
+        SpannedReader(RekeyingReader(idToBlockHash, directReader.blockReader), tracer, DIRECT_QUORUM_RPC_READER),
     )
 
     fun blocksByHashAsCont(): Reader<BlockHash, Result<BlockContainer>> {
         return CompoundReader(
             SpannedReader(CacheWithUpstreamIdReader(RekeyingReader(blockHashToId, caches.getBlocksByHash())), tracer, CACHE_BLOCK_BY_HASH_READER),
-            SpannedReader(directReader.blockReader, tracer, DIRECT_QUORUM_RPC_READER)
+            SpannedReader(directReader.blockReader, tracer, DIRECT_QUORUM_RPC_READER),
         )
     }
 
     fun blocksByHashParsed(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
         return TransformingReader(
             blocksByHashAsCont(),
-            extractBlock
+            extractBlock,
         )
     }
 
@@ -112,14 +112,14 @@ open class EthereumCachingReader(
     open fun blocksByHeightAsCont(): Reader<Long, Result<BlockContainer>> {
         return CompoundReader(
             SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHeight()), tracer, CACHE_BLOCK_BY_HEIGHT_READER),
-            SpannedReader(directReader.blockByHeightReader, tracer, DIRECT_QUORUM_RPC_READER)
+            SpannedReader(directReader.blockByHeightReader, tracer, DIRECT_QUORUM_RPC_READER),
         )
     }
 
     open fun blocksByHeightParsed(): Reader<Long, BlockJson<TransactionRefJson>> {
         return TransformingReader(
             blocksByHeightAsCont(),
-            extractBlock
+            extractBlock,
         )
     }
 
@@ -127,34 +127,35 @@ open class EthereumCachingReader(
         return TransformingReader(
             CompoundReader(
                 CacheWithUpstreamIdReader(RekeyingReader(txHashToId, caches.getTxByHash())),
-                directReader.txReader
+                directReader.txReader,
             ),
-            extractTx
+            extractTx,
         )
     }
 
     open fun txByHashAsCont(): Reader<TxId, Result<TxContainer>> {
         return CompoundReader(
             CacheWithUpstreamIdReader(SpannedReader(caches.getTxByHash(), tracer, CACHE_TX_BY_HASH_READER)),
-            SpannedReader(RekeyingReader(idToTxHash, directReader.txReader), tracer, DIRECT_QUORUM_RPC_READER)
+            SpannedReader(RekeyingReader(idToTxHash, directReader.txReader), tracer, DIRECT_QUORUM_RPC_READER),
         )
     }
 
     fun balance(): Reader<Address, Result<Wei>> {
         // TODO include height as part of cache?
         return CompoundReader(
-            CacheWithUpstreamIdReader(balanceCache), directReader.balanceReader
+            CacheWithUpstreamIdReader(balanceCache),
+            directReader.balanceReader,
         )
     }
 
     fun receipts(): Reader<TxId, Result<ByteArray>> {
         val requested = RekeyingReader(
             { txid: TxId -> TransactionId.from(txid.value) },
-            directReader.receiptReader
+            directReader.receiptReader,
         )
         return CompoundReader(
             CacheWithUpstreamIdReader(SpannedReader(caches.getReceipts(), tracer, CACHE_RECEIPTS_READER)),
-            SpannedReader(requested, tracer, DIRECT_QUORUM_RPC_READER)
+            SpannedReader(requested, tracer, DIRECT_QUORUM_RPC_READER),
         )
     }
 
@@ -174,7 +175,7 @@ open class EthereumCachingReader(
     }
 
     private class CacheWithUpstreamIdReader<K, D>(
-        private val reader: Reader<K, D>
+        private val reader: Reader<K, D>,
     ) : Reader<K, Result<D>> {
         override fun read(key: K): Mono<Result<D>> {
             return reader.read(key)

@@ -28,7 +28,7 @@ import reactor.core.publisher.Mono
 @Service
 class Describe(
     @Autowired private val multistreamHolder: MultistreamHolder,
-    @Autowired private val subscribeStatus: SubscribeStatus
+    @Autowired private val subscribeStatus: SubscribeStatus,
 ) {
 
     fun describe(requestMono: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
@@ -56,7 +56,7 @@ class Describe(
                                             .setName(label.key)
                                             .setValue(label.value)
                                             .build()
-                                    }
+                                    },
                                 )
                             chainDescription.addNodes(nodeDetails)
                         }
@@ -68,7 +68,7 @@ class Describe(
                                 Capability.BALANCE -> BlockchainOuterClass.Capabilities.CAP_BALANCE
                                 Capability.WS_HEAD -> BlockchainOuterClass.Capabilities.CAP_WS_HEAD
                             }
-                        }
+                        },
                     )
                     resp.addChains(chainDescription.build())
                 }

@@ -38,7 +38,7 @@ class EthereumRpcConnector(
     skipEnhance: Boolean,
     wsConnectionResubscribeScheduler: Scheduler,
     headScheduler: Scheduler,
-    expectedBlockTime: Duration
+    expectedBlockTime: Duration,
 ) : EthereumConnector, CachesEnabled {
     private val id = upstream.getId()
     private val pool: WsConnectionPool?
@@ -76,7 +76,7 @@ class EthereumRpcConnector(
                         skipEnhance,
                         wsConnectionResubscribeScheduler,
                         headScheduler,
-                        upstream
+                        upstream,
                     )
                 // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
                 val rpcHead =
@@ -86,7 +86,7 @@ class EthereumRpcConnector(
                         id,
                         blockValidator,
                         headScheduler,
-                        Duration.ofSeconds(30)
+                        Duration.ofSeconds(30),
                     )
                 MergedHead(listOf(rpcHead, wsHead), forkChoice, headScheduler, "Merged for $id")
             }
@@ -94,10 +94,13 @@ class EthereumRpcConnector(
             RPC_REQUESTS_WITH_WS_HEAD -> {
                 EthereumWsHead(
                     AlwaysForkChoice(),
-                    blockValidator, getIngressReader(),
-                    WsSubscriptionsImpl(pool!!), skipEnhance, wsConnectionResubscribeScheduler,
+                    blockValidator,
+                    getIngressReader(),
+                    WsSubscriptionsImpl(pool!!),
+                    skipEnhance,
+                    wsConnectionResubscribeScheduler,
                     headScheduler,
-                    upstream
+                    upstream,
                 )
             }
         }

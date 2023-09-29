@@ -36,6 +36,8 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Check
         run: make test
+        env:
+          CI: true
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1

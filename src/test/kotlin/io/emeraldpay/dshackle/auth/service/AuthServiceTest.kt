@@ -41,15 +41,20 @@ class AuthServiceTest {
     @Test
     fun `auth is successful`() {
         val tokenWrapper = AuthContext.TokenWrapper(
-            "token", Instant.now(), "sessionId"
+            "token",
+            Instant.now(),
+            "sessionId",
         )
         val authService = AuthService(
             AuthorizationConfig(
-                true, "drpc",
+                true,
+                "drpc",
                 AuthorizationConfig.ServerConfig("privPath", "pubPath"),
-                AuthorizationConfig.ClientConfig.default()
+                AuthorizationConfig.ClientConfig.default(),
             ),
-            rsaKeyReader, factory, authContext
+            rsaKeyReader,
+            factory,
+            authContext,
         )
         val pair = KeyReader.Keys(mock(PrivateKey::class.java), mock(PublicKey::class.java))
 
@@ -66,19 +71,26 @@ class AuthServiceTest {
     @Test
     fun `parallel try to auth is successful`() {
         val tokenWrapper = AuthContext.TokenWrapper(
-            "token", Instant.now(), "sessionId"
+            "token",
+            Instant.now(),
+            "sessionId",
         )
         val tokenWrapper1 = AuthContext.TokenWrapper(
-            "token", Instant.now(), "sessionIdNext"
+            "token",
+            Instant.now(),
+            "sessionIdNext",
         )
         val pair = KeyReader.Keys(mock(PrivateKey::class.java), mock(PublicKey::class.java))
         val authService = AuthService(
             AuthorizationConfig(
-                true, "drpc",
+                true,
+                "drpc",
                 AuthorizationConfig.ServerConfig("privPath", "pubPath"),
-                AuthorizationConfig.ClientConfig.default()
+                AuthorizationConfig.ClientConfig.default(),
             ),
-            rsaKeyReader, factory, authContext
+            rsaKeyReader,
+            factory,
+            authContext,
         )
 
         `when`(rsaKeyReader.getKeyPair("privPath", "pubPath")).thenReturn(pair)
@@ -89,7 +101,8 @@ class AuthServiceTest {
         val task = Runnable { authService.authenticate(token) }
 
         CompletableFuture.allOf(
-            CompletableFuture.runAsync(task), CompletableFuture.runAsync(task)
+            CompletableFuture.runAsync(task),
+            CompletableFuture.runAsync(task),
         ).join()
 
         verify(rsaKeyReader, times(2)).getKeyPair("privPath", "pubPath")

@@ -44,7 +44,7 @@ open class AlwaysQuorum : CallQuorum {
     override fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ): Boolean {
         result = response
         resolved = true
@@ -56,7 +56,7 @@ open class AlwaysQuorum : CallQuorum {
     override fun record(
         error: JsonRpcException,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ) {
         this.rpcError = error.error
         sig = signature

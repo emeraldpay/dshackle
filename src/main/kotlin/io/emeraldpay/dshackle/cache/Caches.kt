@@ -40,7 +40,7 @@ open class Caches(
     private val redisTxsByHash: TxRedisCache?,
     private val redisReceipts: ReceiptRedisCache?,
     private val redisHeightByHashCache: HeightByHashRedisCache?,
-    private val cacheEnabled: Boolean
+    private val cacheEnabled: Boolean,
 ) {
 
     companion object {
@@ -153,7 +153,7 @@ open class Caches(
                             Flux.fromIterable(transactions)
                                 .doOnNext { memTxsByHash.add(it) }
                                 .flatMap { redisTxsByHash.add(it, block) }
-                                .then()
+                                .then(),
                         )
                     }
                 }
@@ -224,7 +224,7 @@ open class Caches(
         /**
          * Data requested by client
          */
-        REQUESTED
+        REQUESTED,
     }
 
     class Builder {
@@ -298,7 +298,7 @@ open class Caches(
             }
             return Caches(
                 blocksByHash!!, blocksByHeight!!, txsByHash!!, receipts!!,
-                redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache, cacheEnabled
+                redisBlocksByHash, redisTxsByHash, redisReceiptCache, redisHeightByHashCache, cacheEnabled,
             )
         }
     }

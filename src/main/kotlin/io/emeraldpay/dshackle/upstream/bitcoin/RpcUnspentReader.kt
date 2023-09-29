@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 class RpcUnspentReader(
-    private val upstreams: BitcoinMultistream
+    private val upstreams: BitcoinMultistream,
 ) : UnspentReader {
 
     companion object {

@@ -33,7 +33,7 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
                 Type.RPC,
                 state.id!!,
                 if (state.nullResult) NULL_RESULT else state.result,
-                state.error
+                state.error,
             )
         }
         if (state.isSubReady) {
@@ -41,7 +41,7 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
                 Type.SUBSCRIPTION,
                 JsonRpcResponse.Id.from(state.subId!!),
                 if (state.nullResult) NULL_RESULT else state.result,
-                state.error
+                state.error,
             )
         }
         throw IllegalStateException("State is not ready")
@@ -103,6 +103,6 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
         val type: Type,
         val id: JsonRpcResponse.Id,
         val value: ByteArray?,
-        val error: JsonRpcError?
+        val error: JsonRpcError?,
     )
 }

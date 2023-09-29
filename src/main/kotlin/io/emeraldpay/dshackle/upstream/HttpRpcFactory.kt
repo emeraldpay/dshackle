@@ -13,14 +13,14 @@ import io.micrometer.core.instrument.Timer
 open class HttpRpcFactory(
     private val url: String,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
-    private val tls: ByteArray?
+    private val tls: ByteArray?,
 ) : HttpFactory {
     override fun create(id: String?, chain: Chain): JsonRpcReader {
         val metricsTags = listOf(
             // "unknown" is not supposed to happen
             Tag.of("upstream", id ?: "unknown"),
             // UNSPECIFIED shouldn't happen too
-            Tag.of("chain", chain.chainCode)
+            Tag.of("chain", chain.chainCode),
         )
         val metrics = RpcMetrics(
             Timer.builder("upstream.rpc.conn")
@@ -31,13 +31,13 @@ open class HttpRpcFactory(
             Counter.builder("upstream.rpc.fail")
                 .description("Number of failures of HTTP JSON RPC requests")
                 .tags(metricsTags)
-                .register(Metrics.globalRegistry)
+                .register(Metrics.globalRegistry),
         )
         return JsonRpcHttpClient(
             url,
             metrics,
             basicAuth,
-            tls
+            tls,
         )
     }
 }

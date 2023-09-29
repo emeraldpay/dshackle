@@ -15,7 +15,7 @@ import reactor.core.scheduler.Scheduler
 open class EthereumEgressSubscription(
     val upstream: EthereumLikeMultistream,
     val scheduler: Scheduler,
-    val pendingTxesSource: PendingTxesSource?
+    val pendingTxesSource: PendingTxesSource?,
 ) : EgressSubscription {
 
     companion object {
@@ -66,7 +66,7 @@ open class EthereumEgressSubscription(
 
     data class LogsRequest(
         val address: List<Address>,
-        val topics: List<Hex32>
+        val topics: List<Hex32>,
     )
 
     fun readLogsRequest(params: Map<String, Any?>): LogsRequest {

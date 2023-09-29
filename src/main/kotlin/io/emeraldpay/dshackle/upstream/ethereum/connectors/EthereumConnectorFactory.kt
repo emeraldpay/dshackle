@@ -22,7 +22,7 @@ open class EthereumConnectorFactory(
     private val blockValidator: BlockValidator,
     private val wsConnectionResubscribeScheduler: Scheduler,
     private val headScheduler: Scheduler,
-    private val expectedBlockTime: Duration
+    private val expectedBlockTime: Duration,
 ) : ConnectorFactory {
 
     override fun isValid(): Boolean {
@@ -49,7 +49,7 @@ open class EthereumConnectorFactory(
         upstream: DefaultUpstream,
         validator: EthereumUpstreamValidator,
         chain: Chain,
-        skipEnhance: Boolean
+        skipEnhance: Boolean,
     ): EthereumConnector {
         if (wsFactory != null && connectorType == WS_ONLY) {
             return EthereumWsConnector(
@@ -60,7 +60,7 @@ open class EthereumConnectorFactory(
                 skipEnhance,
                 wsConnectionResubscribeScheduler,
                 headScheduler,
-                expectedBlockTime
+                expectedBlockTime,
             )
         }
         if (httpFactory == null) {
@@ -76,7 +76,7 @@ open class EthereumConnectorFactory(
             skipEnhance,
             wsConnectionResubscribeScheduler,
             headScheduler,
-            expectedBlockTime
+            expectedBlockTime,
         )
     }
 
@@ -84,7 +84,8 @@ open class EthereumConnectorFactory(
         WS_ONLY,
         RPC_ONLY,
         RPC_REQUESTS_WITH_MIXED_HEAD,
-        RPC_REQUESTS_WITH_WS_HEAD;
+        RPC_REQUESTS_WITH_WS_HEAD,
+        ;
 
         companion object {
             val values = values().map { it.name }.toSet()

@@ -25,12 +25,13 @@ class NoResponseSpanExportable : SpanExportable {
 @Component
 class LongResponseSpanExportable(
     @Value("\${spans.collect.long-span-threshold}")
-    private val longSpanThreshold: Long? = null
+    private val longSpanThreshold: Long? = null,
 ) : SpanExportable {
 
     override fun isExportable(span: MutableSpan): Boolean {
         return MILLISECONDS.convert(
-            span.finishTimestamp() - span.startTimestamp(), MICROSECONDS
+            span.finishTimestamp() - span.startTimestamp(),
+            MICROSECONDS,
         ) >= longSpanThreshold!!
     }
 }

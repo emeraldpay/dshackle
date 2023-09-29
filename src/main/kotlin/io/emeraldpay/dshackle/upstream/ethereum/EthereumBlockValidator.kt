@@ -38,7 +38,7 @@ class EthereumBlockValidator : BlockValidator {
             "extraData",
             "mixHash",
             "nonce",
-            "baseFeePerGas"
+            "baseFeePerGas",
         )
 
         private val log = LoggerFactory.getLogger(EthereumBlockValidator::class.java)
@@ -67,9 +67,13 @@ class EthereumBlockValidator : BlockValidator {
                 it to text
             }
         }.associate {
-            it.first to if (NUMBER_ELEMENTS.contains(it.first)) encodeBigInt(fromHexStringI(it.second)) else encode(
-                fromHexString(it.second)
-            )
+            it.first to if (NUMBER_ELEMENTS.contains(it.first)) {
+                encodeBigInt(fromHexStringI(it.second))
+            } else {
+                encode(
+                    fromHexString(it.second),
+                )
+            }
         }
 
     private fun validateHash(blockHash: BlockId, rlpEncoded: Map<String, ByteArray>): Boolean {
@@ -90,7 +94,7 @@ class EthereumBlockValidator : BlockValidator {
         val encoded = encodeList(
             ELEMENTS.filterNot { it in listOf("nonce", "mixHash") }
                 .mapNotNull { rlpEncoded[it] }
-                .toList()
+                .toList(),
         )
         val headerHash = sha3(encoded)
         val seed = Keccak.Digest512().digest(headerHash.plus(nonce.asUint64()))
@@ -107,7 +111,7 @@ class EthereumBlockValidator : BlockValidator {
                         "Block number {} not valid for {}. Must be greater than {}",
                         it.number,
                         it.hash,
-                        cur.number
+                        cur.number,
                     )
                 }
 
@@ -117,7 +121,7 @@ class EthereumBlockValidator : BlockValidator {
                         "Block timestamp {} not valid for {}. Must be greater than {}",
                         it.timestamp,
                         it.hash,
-                        cur.timestamp
+                        cur.timestamp,
                     )
                 }
 
@@ -127,7 +131,7 @@ class EthereumBlockValidator : BlockValidator {
                     curNumber = cur.number,
                     blockTotalDifficulty = it.totalDifficulty,
                     blockNumber = it.number,
-                    blockHash = it.hash.toHex()
+                    blockHash = it.hash.toHex(),
                 )
             } ?: false
         } ?: true
@@ -138,14 +142,14 @@ class EthereumBlockValidator : BlockValidator {
         curNumber: Long,
         blockTotalDifficulty: BigInteger,
         blockNumber: Long,
-        blockHash: String
+        blockHash: String,
     ): Boolean {
         if (blockTotalDifficulty < curTotalDifficulty) {
             log.warn(
                 "Block totalDifficulty {} not valid for {}. Must be greater than {}",
                 blockTotalDifficulty,
                 blockHash,
-                curTotalDifficulty
+                curTotalDifficulty,
             )
             return false
         }
@@ -165,7 +169,7 @@ class EthereumBlockValidator : BlockValidator {
                 blockTotalDifficulty,
                 blockHash,
                 min.toBigInteger(),
-                max.toBigInteger()
+                max.toBigInteger(),
             )
         }
         return valid

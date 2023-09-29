@@ -32,7 +32,7 @@ import kotlin.math.min
 abstract class OnBlockRedisCache<T>(
     private val redis: RedisReactiveCommands<String, ByteArray>,
     private val chain: Chain,
-    private val valueType: ValueContainer.ValueType
+    private val valueType: ValueContainer.ValueType,
 ) : Reader<BlockId, T> {
 
     companion object {

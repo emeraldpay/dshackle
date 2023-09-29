@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class SubscribeNodeStatus(
-    private val multistreams: CurrentMultistreamHolder
+    private val multistreams: CurrentMultistreamHolder,
 ) {
 
     companion object {
@@ -38,7 +38,7 @@ class SubscribeNodeStatus(
                         knownUpstreams[up.getId()] = Sinks.many().multicast().directBestEffort()
                         subscribeUpstreamUpdates(ms, up, knownUpstreams[up.getId()]!!)
                     }
-                }
+                },
         )
         // stop removed upstreams update fluxes
         val removals = Flux.merge(
@@ -57,13 +57,13 @@ class SubscribeNodeStatus(
                                 .setStatus(
                                     buildStatus(
                                         UpstreamAvailability.UNAVAILABLE,
-                                        up.getHead().getCurrentHeight()
-                                    )
+                                        up.getHead().getCurrentHeight(),
+                                    ),
                                 )
                                 .build()
                         }
                     }
-                }
+                },
         )
 
         // subscribe on head/status updates for just added upstreams
@@ -85,12 +85,12 @@ class SubscribeNodeStatus(
                                         .setNodeId(it.getId())
                                         .setDescription(buildDescription(ms, it))
                                         .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
-                                        .build()
+                                        .build(),
                                 ),
-                                subscribeUpstreamUpdates(ms, it, knownUpstreams[it.getId()]!!)
+                                subscribeUpstreamUpdates(ms, it, knownUpstreams[it.getId()]!!),
                             )
                         }
-                }
+                },
         )
         val updates = Flux.merge(
             multistreams.all().map { ms ->
@@ -101,7 +101,7 @@ class SubscribeNodeStatus(
                         .setStatus(buildStatus(it.getStatus(), it.getHead().getCurrentHeight()))
                         .build()
                 }
-            }
+            },
         )
 
         return Flux.merge(upstreamUpdates, adds, removals, updates)
@@ -110,7 +110,7 @@ class SubscribeNodeStatus(
     private fun subscribeUpstreamUpdates(
         ms: Multistream,
         upstream: Upstream,
-        cancel: Sinks.Many<Boolean>
+        cancel: Sinks.Many<Boolean>,
     ): Flux<NodeStatusResponse> {
         val heads = upstream.getHead().getFlux()
             .takeUntilOther(cancel.asFlux())
@@ -121,7 +121,7 @@ class SubscribeNodeStatus(
                         NodeDescription.newBuilder()
                             .setNodeId(upstream.nodeId().toInt())
                             .setChain(Common.ChainRef.forNumber(ms.chain.id))
-                            .build()
+                            .build(),
                     )
                     .setNodeId(upstream.getId())
                     .setStatus(buildStatus(upstream.getStatus(), block.height))
@@ -141,7 +141,7 @@ class SubscribeNodeStatus(
                 .setNodeId(upstream.getId())
                 .setDescription(buildDescription(ms, upstream))
                 .setStatus(buildStatus(upstream.getStatus(), upstream.getHead().getCurrentHeight()))
-                .build()
+                .build(),
         )
         return Flux.concat(currentState, Flux.merge(statuses, heads))
     }
@@ -159,10 +159,10 @@ class SubscribeNodeStatus(
                                     .setName(it.key)
                                     .setValue(it.value)
                                     .build()
-                            }
+                            },
                         )
                         .build()
-                }
+                },
             )
             .addAllSupportedSubscriptions(up.getSubscriptionTopics())
             .addAllSupportedMethods(up.getMethods().getSupportedMethods())

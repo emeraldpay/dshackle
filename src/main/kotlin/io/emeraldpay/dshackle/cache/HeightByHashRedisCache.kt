@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit
  */
 class HeightByHashRedisCache(
     private val redis: RedisReactiveCommands<String, ByteArray>,
-    private val chain: Chain
+    private val chain: Chain,
 ) : Reader<BlockId, Long>, HeightByHashCache {
 
     companion object {

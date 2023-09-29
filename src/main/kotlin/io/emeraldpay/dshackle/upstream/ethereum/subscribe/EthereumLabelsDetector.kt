@@ -11,13 +11,13 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 class EthereumLabelsDetector(
-    private val reader: JsonRpcReader
+    private val reader: JsonRpcReader,
 ) {
 
     fun detectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
             detectNodeType(),
-            detectArchiveNode()
+            detectArchiveNode(),
         )
     }
 
@@ -45,8 +45,8 @@ class EthereumLabelsDetector(
                 reader.read(
                     JsonRpcRequest(
                         "eth_getBalance",
-                        listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it)
-                    )
+                        listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it),
+                    ),
                 )
             }
             .flatMap(JsonRpcResponse::requireResult)

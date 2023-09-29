@@ -17,7 +17,7 @@ class SharedFluxHolder<T>(
      * I.e., if there is a few calls because of a thread-race only one is kept.
      * But once it's completed a new one may be created if requested.
      */
-    private val provider: () -> Flux<T>
+    private val provider: () -> Flux<T>,
 ) {
 
     companion object {
@@ -41,7 +41,7 @@ class SharedFluxHolder<T>(
             provider.invoke()
                 .share()
                 .doFinally { onClose(id) },
-            id
+            id,
         )
         lock.write {
             if (current != null) {

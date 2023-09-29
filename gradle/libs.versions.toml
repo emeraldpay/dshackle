@@ -151,5 +151,5 @@ jib = { id = "com.google.cloud.tools.jib", version = "2.7.1" }
 spring = { id = "org.springframework.boot", version = "2.6.0" }
 git = { id = "com.palantir.git-version", version = "0.12.3" }
 protobuf = { id = "com.google.protobuf", version = "0.9.1" }
-ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "10.2.0" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "11.6.0" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

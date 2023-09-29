@@ -36,7 +36,7 @@ import kotlin.math.min
 
 @Service
 class TrackBitcoinTx(
-    @Autowired private val multistreamHolder: MultistreamHolder
+    @Autowired private val multistreamHolder: MultistreamHolder,
 ) : TrackTx {
 
     companion object {
@@ -91,7 +91,7 @@ class TrackBitcoinTx(
                     true,
                     status.blockHash,
                     ExtractBlock.getTime(block),
-                    ExtractBlock.getDifficulty(block)
+                    ExtractBlock.getDifficulty(block),
                 )
             }.flatMapMany { tx ->
                 withConfirmations(upstream, tx)
@@ -154,7 +154,7 @@ class TrackBitcoinTx(
                 Common.BlockInfo.newBuilder()
                     .setBlockId(tx.blockHash!!.substring(2))
                     .setTimestamp(tx.blockTime!!.toEpochMilli())
-                    .setHeight(tx.height!!)
+                    .setHeight(tx.height!!),
             )
         }
         return data.build()
@@ -168,7 +168,7 @@ class TrackBitcoinTx(
         val blockHash: String? = null,
         val blockTime: Instant? = null,
         val blockTotalDifficulty: BigInteger? = null,
-        val confirmations: Long = 0
+        val confirmations: Long = 0,
     ) {
 
         fun withHead(headHeight: Long) =

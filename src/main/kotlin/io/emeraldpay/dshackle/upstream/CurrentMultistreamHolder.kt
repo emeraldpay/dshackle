@@ -23,7 +23,7 @@ import javax.annotation.PreDestroy
 
 @Component
 open class CurrentMultistreamHolder(
-    multistreams: List<Multistream>
+    multistreams: List<Multistream>,
 ) : MultistreamHolder {
 
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)

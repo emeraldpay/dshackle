@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 
 class EthereumWsIngressSubscription(
-    conn: WsSubscriptions
+    conn: WsSubscriptions,
 ) : IngressSubscription, EthereumIngressSubscription {
 
     private val pendingTxes = WebsocketPendingTxes(conn)

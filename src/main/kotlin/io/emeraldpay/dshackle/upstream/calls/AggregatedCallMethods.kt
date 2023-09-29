@@ -23,7 +23,7 @@ import java.util.Collections
  * Aggregation over several parent configuration. It dispatches call to a first delegate that supports it.
  */
 class AggregatedCallMethods(
-    private val delegates: Collection<CallMethods>
+    private val delegates: Collection<CallMethods>,
 ) : CallMethods {
 
     private val allMethods: Set<String>

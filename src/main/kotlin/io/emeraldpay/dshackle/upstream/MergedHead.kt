@@ -28,7 +28,7 @@ class MergedHead @JvmOverloads constructor(
     private val sources: Iterable<Head>,
     forkChoice: ForkChoice,
     headScheduler: Scheduler,
-    private val label: String = ""
+    private val label: String = "",
 ) : AbstractHead(forkChoice, headScheduler, upstreamId = label), Lifecycle, CachesEnabled {
 
     private var subscription: Disposable? = null
@@ -48,7 +48,7 @@ class MergedHead @JvmOverloads constructor(
         subscription = super.follow(
             Flux.merge(sources.map { it.getFlux() }).doOnNext {
                 log.debug("New MERGED $label head $it")
-            }
+            },
         )
     }
 

@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit
 
 class ProduceLogs(
     private val receipts: Reader<TxId, Result<ByteArray>>,
-    private val chain: Chain
+    private val chain: Chain,
 ) {
 
     companion object {
@@ -71,7 +71,7 @@ class ProduceLogs(
         if (old == null) {
             log.warn(
                 "No old message to produce removal messages for tx ${update.transactionId} " +
-                    "at block ${update.blockHash} for chain ${chain.chainName}"
+                    "at block ${update.blockHash} for chain ${chain.chainName}",
             )
             return Flux.empty()
         }
@@ -104,7 +104,7 @@ class ProduceLogs(
                                 txlog.transactionHash,
                                 txlog.transactionIndex,
                                 false,
-                                update.upstreamId
+                                update.upstreamId,
 
                             )
                         }
@@ -113,7 +113,7 @@ class ProduceLogs(
                 } catch (t: Throwable) {
                     log.warn(
                         "Invalid Receipt ${update.transactionId} for chain ${chain.chainName}. " +
-                            "${t.javaClass}: ${t.message}"
+                            "${t.javaClass}: ${t.message}",
                     )
                     Flux.empty<LogMessage>()
                 }
@@ -122,6 +122,6 @@ class ProduceLogs(
 
     private data class LogReference(
         val block: BlockId,
-        val tx: TxId
+        val tx: TxId,
     )
 }

@@ -21,7 +21,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionJson
 import org.bouncycastle.util.encoders.Hex
 
 class TxId(
-    value: ByteArray
+    value: ByteArray,
 ) : HashId(value) {
 
     companion object {

@@ -31,7 +31,7 @@ abstract class DefaultPendingTxesSource : SubscriptionConnect<TransactionId>, Pe
         .backoffOnError(Duration.ofMillis(100), 1.5, Duration.ofSeconds(60))
         .build()
     private val holder = SharedFluxHolder<TransactionId>(
-        connectionSource::connect
+        connectionSource::connect,
     )
 
     override fun connect(matcher: Selector.Matcher): Flux<TransactionId> {

@@ -30,7 +30,7 @@ import java.security.cert.CertificateFactory
 
 @Service
 open class TlsSetup(
-    @Autowired val fileResolver: FileResolver
+    @Autowired val fileResolver: FileResolver,
 ) {
 
     companion object {
@@ -70,12 +70,12 @@ open class TlsSetup(
             val sslContextBuilder = if (grpc) {
                 GrpcSslContexts.forServer(
                     fileResolver.resolve(config.certificate!!),
-                    fileResolver.resolve(config.key!!)
+                    fileResolver.resolve(config.key!!),
                 )
             } else {
                 SslContextBuilder.forServer(
                     fileResolver.resolve(config.certificate!!),
-                    fileResolver.resolve(config.key!!)
+                    fileResolver.resolve(config.key!!),
                 )
             }
             if (config.clientCAs.isNotEmpty()) {
@@ -89,7 +89,7 @@ open class TlsSetup(
                             file.inputStream().use {
                                 cf.generateCertificate(it) as java.security.cert.X509Certificate
                             }
-                        }
+                        },
                 )
                 if (config.clientRequire != null && config.clientRequire!!) {
                     sslContextBuilder.clientAuth(ClientAuth.REQUIRE)

@@ -45,7 +45,7 @@ open class GrpcServer(
     private val tlsSetup: TlsSetup,
     private val accessHandler: AccessHandlerGrpc,
     private val grpcServerBraveInterceptor: ServerInterceptor,
-    private val authInterceptor: AuthInterceptor
+    private val authInterceptor: AuthInterceptor,
 ) {
     @Value("\${spring.application.max-metadata-size}")
     private var maxMetadataSize: Int = Defaults.maxMetadataSize
@@ -58,7 +58,7 @@ open class GrpcServer(
         override fun <ReqT : Any, RespT : Any> interceptCall(
             call: ServerCall<ReqT, RespT>,
             headers: io.grpc.Metadata,
-            next: ServerCallHandler<ReqT, RespT>
+            next: ServerCallHandler<ReqT, RespT>,
         ): ServerCall.Listener<ReqT> {
             call.setCompression(Codec.Gzip().messageEncoding)
             return next.startCall(call, headers)
@@ -102,15 +102,16 @@ open class GrpcServer(
         val pool = Executors.newFixedThreadPool(20, CustomizableThreadFactory("fixed-grpc-"))
 
         serverBuilder.executor(
-            if (mainConfig.monitoring.enableExtended)
+            if (mainConfig.monitoring.enableExtended) {
                 ExecutorServiceMetrics.monitor(
                     Metrics.globalRegistry,
                     pool,
                     "fixed-grpc-executor",
-                    Tag.of("reactor_scheduler_id", "_")
+                    Tag.of("reactor_scheduler_id", "_"),
                 )
-            else
+            } else {
                 pool
+            },
         )
 
         val server = serverBuilder.build()

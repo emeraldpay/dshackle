@@ -15,7 +15,7 @@ class UpstreamsMatchesResponse {
             "eth_getTransactionByBlockHashAndIndex",
             "eth_getTransactionByBlockNumberAndIndex",
             "eth_getUncleByBlockHashAndIndex",
-            "eth_getUncleByBlockNumberAndIndex"
+            "eth_getUncleByBlockNumberAndIndex",
         )
     }
 
@@ -69,12 +69,12 @@ class UpstreamsMatchesResponse {
 
     data class NotMatchesCause(
         val shouldReturnNull: Boolean,
-        val cause: String? = null
+        val cause: String? = null,
     )
 
     private class UpstreamNotMatchedResponse(
         val upstreamId: String,
-        val matchesResponse: MatchesResponse
+        val matchesResponse: MatchesResponse,
     ) {
         val matchesResponses: Set<MatchesResponse> = when (matchesResponse) {
             is MultiResponse -> matchesResponse.allResponses

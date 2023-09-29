@@ -43,6 +43,6 @@ interface WsSubscriptions {
 
     data class SubscribeData(
         val data: Flux<ByteArray>,
-        val connectionId: String
+        val connectionId: String,
     )
 }

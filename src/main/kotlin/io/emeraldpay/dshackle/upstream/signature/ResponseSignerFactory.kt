@@ -22,7 +22,7 @@ import java.security.spec.PKCS8EncodedKeySpec
 
 @Repository
 open class ResponseSignerFactory(
-    @Autowired private val config: SignatureConfig
+    @Autowired private val config: SignatureConfig,
 ) : FactoryBean<ResponseSigner> {
 
     companion object {

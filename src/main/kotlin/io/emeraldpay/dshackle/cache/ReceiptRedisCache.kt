@@ -24,7 +24,7 @@ import reactor.core.publisher.Mono
 
 open class ReceiptRedisCache(
     redis: RedisReactiveCommands<String, ByteArray>,
-    chain: Chain
+    chain: Chain,
 ) : OnTxRedisCache<ByteArray>(redis, chain, CachesProto.ValueContainer.ValueType.TX_RECEIPT) {
 
     override fun deserializeValue(value: CachesProto.ValueContainer): ByteArray {

@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 class NoChoiceWithPriorityForkChoice(
     private val nodeRating: Int,
-    private val upstreamId: String
+    private val upstreamId: String,
 ) : ForkChoice {
     private val head = AtomicReference<BlockContainer>(null)
     private val seenBlocks = CacheBuilder.newBuilder()

@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 open class AddressActiveCheck(
-    private val esploraClient: EsploraClient
+    private val esploraClient: EsploraClient,
 ) {
 
     companion object {

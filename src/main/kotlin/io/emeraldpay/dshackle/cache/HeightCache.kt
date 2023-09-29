@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono
  * Memory cache for blocks heights, keeps mapping height->hash.
  */
 open class HeightCache(
-    maxSize: Int = 512
+    maxSize: Int = 512,
 ) : Reader<Long, BlockId> {
 
     private val heights = Caffeine.newBuilder()

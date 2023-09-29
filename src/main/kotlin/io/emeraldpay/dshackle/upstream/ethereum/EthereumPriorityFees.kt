@@ -38,7 +38,7 @@ class EthereumPriorityFees(upstreams: Multistream, reader: EthereumCachingReader
                     BlockchainOuterClass.EthereumExtFees.newBuilder()
                         .setMax(it.max.amount.toString())
                         .setPriority(it.priority.amount.toString())
-                        .setExpect(it.paid.amount.toString())
+                        .setExpect(it.paid.amount.toString()),
                 )
                 .build()
         }

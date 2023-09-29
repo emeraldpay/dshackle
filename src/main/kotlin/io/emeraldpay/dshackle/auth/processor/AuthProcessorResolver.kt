@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class AuthProcessorResolver(
-    private val authProcessorV1: AuthProcessor
+    private val authProcessorV1: AuthProcessor,
 ) {
 
     companion object {

@@ -28,13 +28,13 @@ interface CallQuorum {
     fun record(
         response: ByteArray,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     ): Boolean
 
     fun record(
         error: JsonRpcException,
         signature: ResponseSigner.Signature?,
-        upstream: Upstream
+        upstream: Upstream,
     )
     fun getSignature(): ResponseSigner.Signature?
 
