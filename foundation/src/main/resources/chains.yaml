@@ -44,11 +44,6 @@ chain-settings:
           grpcId: 10005
           short-names: [goerli, goerli-testnet]
           call-validate-contract: 0xCD9303A1F6da2a68f465A579a24cc2Ee5AE2192f
-        - id: ropsten
-          code: ROPSTEN
-          grpcId: 10006
-          chain-id: 0x3
-          short-names: [ropsten, ropsten-testnet]
         - id: sepolia
           code: SEPOLIA
           grpcId: 10008
@@ -408,3 +403,22 @@ chain-settings:
           grpcId: 10025
           short-names: [scroll-sepolia]
           chain-id: 0x8274f
+    - id: cronos
+      settings:
+        expected-block-time: 5s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 10
+          lagging: 5
+      chains:
+        - id: mainnet
+          code: CRONOS_MAINNET
+          short-names: [cronos]
+          chain-id: 0x19
+          grpcId: 1022
+        - id: testnet
+          code: CRONOS_TESTNET
+          short-names: [cronos-testnet]
+          chain-id: 0x152
+          grpcId: 10030
