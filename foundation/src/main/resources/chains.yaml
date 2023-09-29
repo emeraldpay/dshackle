@@ -34,7 +34,7 @@ chain-settings:
       chains:
         - id: mainnet
           chain-id: 0x1
-          short-names: [eth, ethereum, homestead]
+          short-names: [ethereum, eth, homestead]
           code: ETH
           grpcId: 100
           call-validate-contract: 0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96
