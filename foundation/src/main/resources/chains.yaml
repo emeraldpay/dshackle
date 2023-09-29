@@ -10,6 +10,7 @@ chain-settings:
     - id: bitcoin
       settings:
         expected-block-time: 10m
+        disabled: true
         lags:
           syncing: 3
           lagging: 1
@@ -59,6 +60,8 @@ chain-settings:
           chain-id: 0x4268
           short-names: [holesky, ethereum-holesky]
     - id: ethereum-classic
+      settings:
+        disabled: true
       chains:
         - id: mainnet
           short-names: [ethereum-classic, etc]
