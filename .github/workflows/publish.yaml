@@ -39,10 +39,10 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 20
-      - name: Build zip
+      - name: Setup gradle
         uses: gradle/gradle-build-action@v2
-        with:
-          arguments: distZip
+      - name: Build zip
+        run: make distZip
       - name: Upload Release
         id: upload-release-asset
         uses: svenstaro/upload-release-action@v1-release
