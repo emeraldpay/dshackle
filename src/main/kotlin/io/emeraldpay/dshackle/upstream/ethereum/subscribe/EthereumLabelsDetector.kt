@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.readValue
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global.Companion.objectMapper
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumArchiveBlockNumberReader
@@ -12,7 +13,9 @@ import reactor.core.publisher.Mono
 
 class EthereumLabelsDetector(
     private val reader: JsonRpcReader,
+    private val chain: Chain,
 ) {
+    private val blockNumberReader = EthereumArchiveBlockNumberReader(reader)
 
     fun detectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
@@ -39,19 +42,21 @@ class EthereumLabelsDetector(
     }
 
     private fun detectArchiveNode(): Mono<Pair<String, String>> {
-        return EthereumArchiveBlockNumberReader(reader)
-            .readArchiveBlock()
-            .flatMap {
-                reader.read(
-                    JsonRpcRequest(
-                        "eth_getBalance",
-                        listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it),
-                    ),
-                )
-            }
-            .flatMap(JsonRpcResponse::requireResult)
+        return Mono.zip(
+            blockNumberReader.readEarliestBlock(chain).flatMap { haveBalance(it) },
+            blockNumberReader.readArchiveBlock().flatMap { haveBalance(it) },
+        )
             .map { "archive" to "true" }
             .onErrorResume { Mono.empty() }
+    }
+
+    private fun haveBalance(blockNumber: String): Mono<ByteArray> {
+        return reader.read(
+            JsonRpcRequest(
+                "eth_getBalance",
+                listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", blockNumber),
+            ),
+        ).flatMap(JsonRpcResponse::requireResult)
     }
 
     private fun nodeType(nodeType: String): String? {

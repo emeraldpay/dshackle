@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.ApiReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -23,9 +24,10 @@ class EthereumLabelsDetectorSpec extends Specification {
                     answer("web3_clientVersion", [], response)
                     answer("eth_blockNumber", [], "0x10df3e5")
                     answer("eth_getBalance", ["0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x10dccd5"], "")
+                    answer("eth_getBalance", ["0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x2710"], "")
                 }
         )
-        def detector = new EthereumLabelsDetector(up.getIngressReader())
+        def detector = new EthereumLabelsDetector(up.getIngressReader(), Chain.ETHEREUM__MAINNET)
 
         when:
         def act = detector.detectLabels()
@@ -55,9 +57,11 @@ class EthereumLabelsDetectorSpec extends Specification {
                         Mono.just(new JsonRpcResponse("\"0x10df3e5\"".getBytes(), null))
                 1 * read(new JsonRpcRequest("eth_getBalance", ["0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x10dccd5"])) >>
                         Mono.error(new RuntimeException())
+                1 * read(new JsonRpcRequest("eth_getBalance", ["0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", "0x2710"])) >>
+                        Mono.just(new JsonRpcResponse("".getBytes(), null))
             }
         }
-        def detector = new EthereumLabelsDetector(up.getIngressReader())
+        def detector = new EthereumLabelsDetector(up.getIngressReader(), Chain.ETHEREUM__MAINNET)
         when:
         def act = detector.detectLabels()
         then:

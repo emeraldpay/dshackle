@@ -53,7 +53,7 @@ open class EthereumLikeRpcUpstream(
 ) : EthereumLikeUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(chain, this, getOptions(), chainConfig.callLimitContract)
     protected val connector: EthereumConnector = connectorFactory.create(this, validator, chain, skipEnhance)
-    private val labelsDetector = EthereumLabelsDetector(this.getIngressReader())
+    private val labelsDetector = EthereumLabelsDetector(this.getIngressReader(), chain)
     private var hasLiveSubscriptionHead: AtomicBoolean = AtomicBoolean(false)
 
     private var validatorSubscription: Disposable? = null
