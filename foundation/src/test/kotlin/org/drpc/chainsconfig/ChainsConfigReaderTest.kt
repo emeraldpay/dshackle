@@ -15,7 +15,7 @@ internal class ChainsConfigReaderTest {
         assertEquals(arb.chainId, "0x66eed")
         assertEquals(arb.expectedBlockTime.seconds, 1L)
         assertEquals(arb.options.validatePeers, false)
-        assertEquals(arb.id, "goerli")
+        assertEquals(arb.id, "Goerli")
 
         val ethc = config.resolve("ethereum-classic")
         assertEquals(ethc.chainId, "0x3d")

@@ -8,50 +8,60 @@ chain-settings:
       lagging: 1
   protocols:
     - id: bitcoin
+      label: Bitcoin
       settings:
+        currency: BTC
         expected-block-time: 10m
         disabled: true
         lags:
           syncing: 3
           lagging: 1
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           chain-id: 0x0
           short-names: [bitcoin, btc]
           code: BTC
           grpcId: 1
-        - id: testnet
+        - id: Testnet
+          priority: 1
           chain-id: 0x0
           short-names: [bitcoin-testnet]
           code: TESTNET_BITCOIN
           grpcId: 10003
     - id: ethereum
+      label: Ethereum
       settings:
+        currency: ETH
         expected-block-time: 12s
         lags:
           syncing: 6
           lagging: 1
       chains:
-        - id: mainnet
+        - id: Mainnet
           chain-id: 0x1
           short-names: [ethereum, eth, homestead]
           code: ETH
           grpcId: 100
+          priority: 100
           call-validate-contract: 0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96
-        - id: goerli
+        - id: Goerli
           chain-id: 0x5
           code: GOERLI
           grpcId: 10005
+          priority: 1
           short-names: [goerli, goerli-testnet]
           call-validate-contract: 0xCD9303A1F6da2a68f465A579a24cc2Ee5AE2192f
-        - id: sepolia
+        - id: Sepolia
           code: SEPOLIA
           grpcId: 10008
+          priority: 10
           chain-id: 0xaa36a7
           short-names: [sepolia, sepolia-testnet]
-        - id: holesky
+        - id: Holesky
           code: ETHEREUM_HOLESKY
           grpcId: 10027
+          priority: 5
           chain-id: 0x4268
           short-names: [holesky, ethereum-holesky]
     - id: ethereum-classic
@@ -65,7 +75,9 @@ chain-settings:
           code: ETC
           grpcId: 101
     - id: fantom
+      label: Fantom
       settings:
+        currency: FTM
         expected-block-time: 3s
         options:
           validate-peers: false
@@ -73,37 +85,45 @@ chain-settings:
           syncing: 10
           lagging: 5
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           short-names: [fantom]
           code: FTM
           grpcId: 102
           chain-id: 0xfa
-        - id: testnet
+        - id: Testnet
+          priority: 1
           code: FANTOM_TESTNET
           grpcId: 10016
           short-names: [fantom-testnet]
           chain-id: 0xfa2
     - id: polygon
+      label: Polygon
       settings:
+        currency: MATIC
         expected-block-time: 2.7s
         lags:
           syncing: 20
           lagging: 10
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           call-validate-contract: 0x53Daa71B04d589429f6d3DF52db123913B818F23
           code: POLYGON
           grpcId: 1002
           chain-id: 0x89
           short-names: [polygon, matic]
-        - id: mumbai
+        - id: Mumbai
+          priority: 1
           call-validate-contract: 0x53Daa71B04d589429f6d3DF52db123913B818F23
           code: POLYGON_POS_MUMBAI
           grpcId: 10013
           chain-id: 0x13881
           short-names: [polygon-mumbai]
     - id: arbitrum
+      label: Arbitrum One
       settings:
+        currency: ETH
         expected-block-time: 260ms
         options:
           validate-peers: false
@@ -111,20 +131,23 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: ARBITRUM
           grpcId: 1004
           short-names: [arbitrum, arb]
           chain-id: 0xa4b1
-        - id: goerli
+        - id: Goerli
+          priority: 1
           code: ARBITRUM_TESTNET
           grpcId: 10009
           short-names: [arbitrum-testnet, arbitrum-goerli]
           chain-id: 0x66eed
           settings:
             expected-block-time: 1s
-    - id: optimism
+    - id: Optimism
       settings:
+        currency: ETH
         expected-block-time: 2s
         options:
           validate-peers: false
@@ -132,35 +155,43 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: OPTIMISM
           grpcId: 1005
           short-names: [optimism]
           chain-id: 0xa
-        - id: goerli
+        - id: Goerli
+          priority: 1
           code: OPTIMISM_TESTNET
           grpcId: 10010
           short-names: [optimism-testnet, optimism-goerli]
           chain-id: 0x1A4
     - id: bsc
+      label: BNB Smart Chain
       settings:
+        currency: BNB
         expected-block-time: 3s
         lags:
           syncing: 20
           lagging: 10
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: BSC
           grpcId: 1006
           chain-id: 0x38
           short-names: [bsc, binance, bnb-smart-chain]
-        - id: testnet
+        - id: Testnet
+          priority: 1
           code: BSC_TESTNET
           grpcId: 10026
           short-names: [bsc-testnet]
           chain-id: 0x61
     - id: polygon-zkevm
+      label: Polygon zkEVM
       settings:
+        currency: ETH
         expected-block-time: 2.7s
         options:
           disable-validation: true
@@ -168,12 +199,14 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: POLYGON_ZKEVM
           grpcId: 1007
           short-names: [polygon-zkevm]
           chain-id: 0x44d
-        - id: testnet
+        - id: Testnet
+          priority: 1
           code: POLYGON_ZKEVM_TESTNET
           grpcId: 10011
           short-names: [polygon-zkevm-testnet]
@@ -181,7 +214,9 @@ chain-settings:
           settings:
             expected-block-time: 1m
     - id: arbitrum-nova
+      label: Arbitrum Nova
       settings:
+        currency: ETH
         expected-block-time: 1s
         options:
           disable-validation: true
@@ -189,13 +224,15 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
           code: ARBITRUM_NOVA
           grpcId: 1008
           short-names: [arbitrum-nova]
           chain-id: 0xa4ba
     - id: zksync
+      label: zkSync Era
       settings:
+        currency: ETH
         expected-block-time: 5s
         options:
           disable-validation: true
@@ -203,18 +240,22 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: ZKSYNC
           grpcId: 1009
           chain-id: 0x144
           short-names: [zksync]
-        - id: testnet
+        - id: Testnet
+          priority: 1
           code: ZKS_TESTNET
           grpcId: 10012
           chain-id: 0x118
           short-names: [zksync-testnet]
     - id: base
+      label: Base
       settings:
+        currency: ETH
         expected-block-time: 2s
         options:
           validate-peers: false
@@ -222,35 +263,43 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: BASE
           grpcId: 1010
           short-names: [base]
           chain-id: 0x2105
-        - id: goerli
+        - id: Goerli
+          priority: 1
           code: BASE_GOERLI
           grpcId: 10014
           short-names: [base-goerli]
           chain-id: 0x14a33
     - id: linea
+      label: Linea
       settings:
+        currency: ETH
         expected-block-time: 12s
         lags:
           syncing: 6
           lagging: 1
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: LINEA
           grpcId: 1011
           short-names: [linea]
           chain-id: 0xe708
-        - id: goerli
+        - id: Goerli
+          priority: 1
           code: LINEA_GOERLI
           grpcId: 10015
           short-names: [linea-goerli]
           chain-id: 0xe704
     - id: gnosis
+      label: Gnosis
       settings:
+        currency: GNO
         expected-block-time: 6s
         options:
           validate-peers: false
@@ -258,18 +307,22 @@ chain-settings:
           syncing: 10
           lagging: 5
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: GNOSIS
           grpcId: 1012
           short-names: [gnosis]
           chain-id: 0x64
-        - id: chiado
+        - id: Chiado
+          priority: 1
           code: GNOSIS_CHIADO
           grpcId: 10017
           short-names: [gnosis-chiado]
           chain-id: 0x27d8
     - id: avalanche
+      label: Avalanche
       settings:
+        currency: AVX
         expected-block-time: 2s
         options:
           validate-peers: false
@@ -278,18 +331,22 @@ chain-settings:
           syncing: 10
           lagging: 5
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: AVALANCHE
           grpcId: 1013
           short-names: [avalanche]
           chain-id: 0xa86a
-        - id: fuji
+        - id: Fuji
+          priority: 1
           code: AVALANCHE_FUJI
           grpcId: 10018
           short-names: [avalanche-fuji]
           chain-id: 0xa869
     - id: aurora
+      label: Aurora
       settings:
+        currency: AURORA
         expected-block-time: 1s
         options:
           validate-peers: false
@@ -297,18 +354,22 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: AURORA
           grpcId: 1015
           short-names: [aurora]
           chain-id: 0x4e454152
-        - id: testnet
+        - id: Testnet
+          priority: 1
           code: AURORA_TESTNET
           grpcId: 10021
           short-names: [aurora-testnet]
           chain-id: 0x4e454153
     - id: mantle
+      label: Mantle
       settings:
+        currency: ETH
         expected-block-time: 500ms
         options:
           validate-peers: false
@@ -316,18 +377,22 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: MANTLE
           grpcId: 1017
           short-names: [mantle]
           chain-id: 0x1388
-        - id: testnet
+        - id: Testnet
+          priority: 1
           code: MANTLE_TESTNET
           grpcId: 10023
           short-names: [mantle-testnet]
           chain-id: 0x1389
     - id: klaytn
+      label: Klaytn
       settings:
+        currency: KLAY
         expected-block-time: 1s
         options:
           validate-peers: false
@@ -335,57 +400,70 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: KLAYTN
           grpcId: 1018
           short-names: [klaytn]
           chain-id: 0x2019
-        - id: baobab
+        - id: Baobab
+          priority: 1
           code: KLAYTN_BAOBAB
           grpcId: 10024
           short-names: [klaytn-baobab]
           chain-id: 0x3e9
     - id: celo
+      label: Celo
       settings:
+        currency: CELO
         expected-block-time: 5s
         lags:
           syncing: 10
           lagging: 5
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: CELO
           grpcId: 1019
           short-names: [celo]
           chain-id: 0xa4ec
-        - id: alfajores
+        - id: Alfajores
+          priority: 1
           code: CELO_ALFAJORES
           grpcId: 10028
           short-names: [celo-alfajores]
           chain-id: 0xaef3
     - id: moonbeam
+      label: Moonbeam
       settings:
+        currency: GLMR
         expected-block-time: 12s
         lags:
           syncing: 6
           lagging: 1
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: MOONBEAM
           grpcId: 1020
           short-names: [moonbeam]
           chain-id: 0x504
-        - id: moonriver
+        - id: Moonriver
+          priority: 50
           code: MOONRIVER
           grpcId: 1021
           short-names: [moonriver]
           chain-id: 0x505
-        - id: moonbase-alpha
+        - id: Moonbase Alpha
+          priority: 1
           code: MOONBEAM_ALPHA
           grpcId: 10029
           short-names: [moonbase-alpha]
           chain-id: 0x507
     - id: scroll
+      label: Scroll
       settings:
+        currency: ETH
         expected-block-time: 3s
         options:
           validate-peers: false
@@ -393,18 +471,22 @@ chain-settings:
           syncing: 10
           lagging: 5
       chains:
-        - id: alphanet
+        - id: Alphanet
+          priority: 1
           code: SCROLL_ALPHANET
           grpcId: 10022
           short-names: [scroll-alphanet]
           chain-id: 0x82751
-        - id: sepolia
+        - id: Sepolia
+          priority: 10
           code: SCROLL_SEPOLIA
           grpcId: 10025
           short-names: [scroll-sepolia]
           chain-id: 0x8274f
     - id: cronos
+      label: Cronos
       settings:
+        currency: CRO
         expected-block-time: 5s
         options:
           validate-peers: false
@@ -412,18 +494,22 @@ chain-settings:
           syncing: 10
           lagging: 5
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: CRONOS_MAINNET
           short-names: [cronos]
           chain-id: 0x19
           grpcId: 1022
-        - id: testnet
+        - id: Testnet
+          priority: 1
           code: CRONOS_TESTNET
           short-names: [cronos-testnet]
           chain-id: 0x152
           grpcId: 10030
     - id: metis
+      label: Metis
       settings:
+        currency: METIS
         options:
           validate-peers: false
         expected-block-time: 1m
@@ -432,28 +518,34 @@ chain-settings:
           lagging: 20
       chains:
         - id: mainnet
+          priority: 100
           code: METIS_MAINNET
           short-names: [metis]
           chain-id: 0x440
           grpcId: 1023
         - id: goerli
+          priority: 1
           code: METIS_GOERLI
           short-names: [metis-goerli]
           chain-id: 0x257
           grpcId: 10031
     - id: opbnb
+      label: opBNB
       settings:
+        currency: BNB
         expected-block-time: 1s
         lags:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
+          priority: 100
           code: OPBNB_MAINNET
           short-names: [opbnb]
           chain-id: 0xcc
           grpcId: 1024
-        - id: testnet
+        - id: Testnet
+          priority: 1
           code: OPBNB_TESTNET
           short-names: [opbnb-testnet]
           chain-id: 0x15eb
