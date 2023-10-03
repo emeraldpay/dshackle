@@ -54,7 +54,7 @@ class Global {
 
         fun chainByChainId(id: String): Chain {
             return Chain.values().find { chain ->
-                chain.chainId == id
+                chain.chainId.lowercase() == id.lowercase()
             } ?: Chain.UNSPECIFIED
         }
 

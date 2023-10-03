@@ -166,7 +166,7 @@ chain-settings:
           code: OPTIMISM_TESTNET
           grpcId: 10010
           short-names: [optimism-testnet, optimism-goerli]
-          chain-id: 0x1A4
+          chain-id: 0x1a4
     - id: bsc
       label: BNB Smart Chain
       settings:
