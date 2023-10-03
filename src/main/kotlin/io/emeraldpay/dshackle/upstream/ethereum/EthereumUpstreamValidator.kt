@@ -156,7 +156,8 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             netVersion(),
         )
             .map {
-                val isChainValid = chain.chainId == it.t1 && chain.netVersion.toString() == it.t2
+                val isChainValid = chain.chainId.lowercase() == it.t1.lowercase() &&
+                    chain.netVersion.toString() == it.t2
 
                 if (!isChainValid) {
                     val actualChain = Global.chainByChainId(it.t1).chainName
