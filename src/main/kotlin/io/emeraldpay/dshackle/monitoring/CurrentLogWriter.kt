@@ -41,24 +41,21 @@ abstract class CurrentLogWriter<T>(
             }
 
             is LogTargetConfig.File -> {
+                val metrics = createMetrics()
                 val file = Path.of(targetConfig.filename)
                 log.info("Writing $category to $file")
                 requireNotNull(fileOptions)
                 logWriter = FileLogWriter<T>(
                     file, serializer,
                     startSleep = fileOptions.startSleep, flushSleep = fileOptions.flushSleep,
-                    batchLimit = fileOptions.batchLimit
+                    batchLimit = fileOptions.batchLimit,
+                    metrics = metrics
                 )
                 logWriter.start()
             }
 
             is LogTargetConfig.Socket -> {
-                val metrics = if (Global.metricsExtended) {
-                    LogMetrics.Enabled(category.name.lowercase(Locale.getDefault()))
-                } else {
-                    LogMetrics.None()
-                }
-
+                val metrics = createMetrics()
                 log.info("Sending $category to ${targetConfig.host}:${targetConfig.port}")
                 val encoding = when (targetConfig.encoding) {
                     LogTargetConfig.Encoding.NEW_LINE -> LogEncodingNewLine()
@@ -73,6 +70,12 @@ abstract class CurrentLogWriter<T>(
                 )
             }
         }
+    }
+
+    private fun createMetrics() = if (Global.metricsExtended) {
+        LogMetrics.Enabled(category.name.lowercase(Locale.getDefault()))
+    } else {
+        LogMetrics.None()
     }
 
     data class FileOptions(

@@ -50,6 +50,10 @@ abstract class BufferingLogWriter<T>(
     }
     private val queue = QueuePublisher<T>(queueLimit, onError = onQueueError)
 
+    init {
+        metrics.queue = queue
+    }
+
     override fun submit(event: T) {
         metrics.produced()
         queue.offer(event)
