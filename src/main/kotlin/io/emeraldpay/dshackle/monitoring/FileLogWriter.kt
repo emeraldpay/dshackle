@@ -30,8 +30,9 @@ class FileLogWriter<T>(
     serializer: (T) -> ByteArray?,
     private val startSleep: Duration,
     private val flushSleep: Duration,
-    private val batchLimit: Int = 5000
-) : LogWriter<T>, BufferingLogWriter<T>(serializer, LogEncodingNewLine(), queueLimit = batchLimit) {
+    private val batchLimit: Int = 5000,
+    metrics: LogMetrics = LogMetrics.None(),
+) : LogWriter<T>, BufferingLogWriter<T>(serializer, LogEncodingNewLine(), queueLimit = batchLimit, metrics = metrics) {
 
     companion object {
         private val log = LoggerFactory.getLogger(FileLogWriter::class.java)
