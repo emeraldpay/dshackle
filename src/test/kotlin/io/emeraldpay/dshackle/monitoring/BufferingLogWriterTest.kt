@@ -1,15 +1,12 @@
 package io.emeraldpay.dshackle.monitoring
 
 import io.kotest.core.spec.style.ShouldSpec
-import io.kotest.matchers.optional.bePresent
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNot
-import reactor.test.StepVerifier
+import io.kotest.matchers.shouldNotBe
 import java.lang.RuntimeException
 import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.time.Duration
 
 class BufferingLogWriterTest : ShouldSpec({
 
@@ -31,11 +28,10 @@ class BufferingLogWriterTest : ShouldSpec({
 
         writer.submit("test")
 
-        StepVerifier.create(writer.readFromQueue())
-            .expectNext("test")
-            .then { writer.stop() }
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+        val next = writer.next(10)
+
+        next shouldHaveSize 1
+        next[0] shouldBe "test"
     }
 
     should("Accept and produce and encoded event") {
@@ -44,23 +40,21 @@ class BufferingLogWriterTest : ShouldSpec({
         writer.submit("test")
         writer.submit("test2")
 
-        StepVerifier.create(writer.readEncodedFromQueue().map { StandardCharsets.UTF_8.decode(it).toString() })
-            .expectNext("test\n")
-            .expectNext("test2\n")
-            .then { writer.stop() }
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+        val next = writer.next(10)
+        next shouldHaveSize 2
+        MonitoringTestCommons.bufferToString(writer.encode(next[0])!!) shouldBe "test\n"
+        MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test2\n"
     }
 
     should("Ignore serializer errors") {
         val writer = TempImpl(10, MonitoringTestCommons.failSerializer)
 
-        val fail = writer.toByteBuffer("fail")
-        fail shouldNot bePresent()
+        val fail = writer.encode("fail")
+        fail shouldBe null
 
-        val test = writer.toByteBuffer("test")
-        test should bePresent()
-        StandardCharsets.UTF_8.decode(test.get()).toString() shouldBe "test\n"
+        val test = writer.encode("test")
+        test shouldNotBe null
+        MonitoringTestCommons.bufferToString(test!!) shouldBe "test\n"
     }
 
     should("Produce ignoring serializer errors") {
@@ -69,14 +63,9 @@ class BufferingLogWriterTest : ShouldSpec({
         writer.submit("fail")
         writer.submit("test")
 
-        StepVerifier.create(
-            writer.readEncodedFromQueue()
-                .map { StandardCharsets.UTF_8.decode(it).toString() }
-        )
-            .expectNext("test\n")
-            .then { writer.stop() }
-            .expectComplete()
-            .verify(Duration.ofSeconds(3))
+        val next = writer.next(10)
+        writer.encode(next[0]) shouldBe null
+        MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test\n"
     }
 
     should("Ignore encoding errors") {
@@ -92,12 +81,12 @@ class BufferingLogWriterTest : ShouldSpec({
             }
         )
 
-        val fail = writer.toByteBuffer("fail")
-        fail shouldNot bePresent()
+        val fail = writer.encode("fail")
+        fail shouldBe null
 
-        val test = writer.toByteBuffer("test")
-        test should bePresent()
-        StandardCharsets.UTF_8.decode(test.get()).toString() shouldBe "test"
+        val test = writer.encode("test")
+        test shouldNotBe null
+        MonitoringTestCommons.bufferToString(test!!) shouldBe "test"
     }
 
     should("Produce ignoring encoder errors") {
@@ -116,13 +105,29 @@ class BufferingLogWriterTest : ShouldSpec({
         writer.submit("fail")
         writer.submit("test")
 
-        StepVerifier.create(
-            writer.readEncodedFromQueue()
-                .map { StandardCharsets.UTF_8.decode(it).toString() }
-        )
-            .expectNext("test")
-            .then { writer.stop() }
-            .expectComplete()
-            .verify(Duration.ofSeconds(3))
+        val next = writer.next(10)
+        writer.encode(next[0]) shouldBe null
+        MonitoringTestCommons.bufferToString(writer.encode(next[1])!!) shouldBe "test"
+    }
+
+    should("Return unprocessed events") {
+        val writer = TempImpl(10)
+
+        writer.submit("test-1")
+        writer.submit("test-2")
+        writer.submit("test-3")
+        writer.submit("test-4")
+        writer.submit("test-5")
+
+        val next = writer.next(10)
+
+        next shouldHaveSize 5
+        writer.returnBack(2, next)
+
+        val next2 = writer.next(10)
+        next2 shouldHaveSize 3
+        MonitoringTestCommons.bufferToString(writer.encode(next2[0])!!) shouldBe "test-3\n"
+        MonitoringTestCommons.bufferToString(writer.encode(next2[1])!!) shouldBe "test-4\n"
+        MonitoringTestCommons.bufferToString(writer.encode(next2[2])!!) shouldBe "test-5\n"
     }
 })

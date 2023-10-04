@@ -15,21 +15,21 @@
  */
 package io.emeraldpay.dshackle.monitoring
 
-import io.emeraldpay.dshackle.commons.QueuePublisher
+import io.emeraldpay.dshackle.commons.DataQueue
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.Metrics
 
 interface LogMetrics {
 
-    var queue: QueuePublisher<*>?
+    var queue: DataQueue<*>?
 
     fun produced()
     fun collected()
     fun dropped()
 
     class Enabled(category: String) : LogMetrics {
-        override var queue: QueuePublisher<*>? = null
+        override var queue: DataQueue<*>? = null
 
         private val produced = Counter.builder("monitoringLogs_produce")
             .description("Log events produced by Dshackle")
@@ -66,7 +66,7 @@ interface LogMetrics {
 
     class None : LogMetrics {
 
-        override var queue: QueuePublisher<*>? = null
+        override var queue: DataQueue<*>? = null
 
         override fun produced() {
         }

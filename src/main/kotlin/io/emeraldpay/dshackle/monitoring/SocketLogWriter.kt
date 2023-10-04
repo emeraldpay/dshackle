@@ -20,9 +20,6 @@ import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.commons.RateLimitedAction
 import org.slf4j.LoggerFactory
 import org.springframework.util.backoff.ExponentialBackOff
-import reactor.core.Disposable
-import reactor.core.publisher.Flux
-import reactor.core.scheduler.Schedulers
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.channels.SocketChannel
@@ -30,7 +27,6 @@ import java.time.Duration
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Send the logs to via a TCP socket. I.e., just push events encoded as JSON to the socket.
@@ -43,7 +39,7 @@ class SocketLogWriter<T>(
     serializer: LogSerializer<T>?,
     encoding: LogEncoding,
     private val metrics: LogMetrics = LogMetrics.None(),
-    private val bufferSize: Int? = null,
+    bufferSize: Int? = null,
 ) : LogWriter<T>, BufferingLogWriter<T>(serializer, encoding, metrics = metrics, queueLimit = bufferSize ?: DEFAULT_BUFFER_SIZE) {
 
     companion object {
@@ -52,8 +48,8 @@ class SocketLogWriter<T>(
         private const val DEFAULT_BUFFER_SIZE: Int = 5000
     }
 
+    private val stopped = AtomicBoolean(true)
     private val reconnecting = Semaphore(1)
-    private var currentSink = AtomicReference<Disposable?>(null)
     private val shouldConnect = AtomicBoolean(false)
     private val closeSlow = RateLimitedAction(Duration.ofSeconds(15))
     private val backOffConfig = ExponentialBackOff(100, 2.0)
@@ -67,10 +63,11 @@ class SocketLogWriter<T>(
         }
         onFull = {
             closeSlow.execute {
-                log.warn("Closing slow connection to $remoteId. Closed: ${currentSink.get()?.isDisposed}")
+                log.warn("Closing slow connection to $remoteId")
                 reconnect()
             }
         }
+        stopped.set(false)
         shouldConnect.set(true)
         reconnect()
     }
@@ -92,78 +89,88 @@ class SocketLogWriter<T>(
         }
     }
 
-    private fun setProducingFlux(send: Disposable?) {
-        currentSink.updateAndGet { prev ->
-            if (prev != null && prev != send) {
-                prev.dispose()
-            }
-            send
-        }
-    }
-
     private fun reconnect() {
-        setProducingFlux(connect())
+        val thread = connect() ?: return
+        thread.start()
     }
 
-    private fun connect(): Disposable? {
+    private fun connect(): Thread? {
         if (!shouldConnect.get()) {
             return null
         }
 
-        try {
-            // it uses a plain TCP NIO Socket implementation instead of a Reactor TCP Client because (a) it's much easier
-            // to control in this simple situation and (b) because there is not backpressure in this case so a reactive way
-            // has no advantage
-            val socket = SocketChannel.open(InetSocketAddress(host, port))
-            log.info("Connected to logs server $remoteId")
-            return Flux.from(readEncodedFromQueue())
-                .map {
-                    try {
-                        socket.write(it)
-                    } catch (t: IOException) {
-                        // usually it's a connection issue, i.e., a "broken pipe".
-                        // anyway, we just propagate it which closes the socket, etc.
-                        throw SilentException(t.message ?: t.javaClass.name)
+        val runnable = Runnable {
+            var socket: SocketChannel? = null
+            try {
+                // it uses a plain TCP NIO Socket implementation instead of a Reactor TCP Client because (a) it's much easier
+                // to control in this simple situation and (b) because there is no backpressure in this case so a reactive way
+                // has no advantage
+                socket = SocketChannel.open(InetSocketAddress(host, port))
+                log.info("Connected to logs server $remoteId")
+                sendToConnectedSocket(socket)
+            } catch (t: Throwable) {
+                log.error("Failed to connect to $remoteId", t)
+                // schedule a reconnection if needed
+                mayReconnect()
+            } finally {
+                socket?.close()
+            }
+        }
+        return Thread(runnable, "SocketLogWriter $remoteId").also {
+            it.isDaemon = true
+        }
+    }
+
+    private fun sendToConnectedSocket(socket: SocketChannel) {
+        var sentFirst = false
+
+        while (shouldConnect.get() && !stopped.get()) {
+            val toSend = next(100)
+            if (toSend.isEmpty()) {
+                Thread.sleep(25)
+                continue
+            }
+            var pos = 0
+            try {
+                toSend
+                    .forEach {
+                        if (stopped.get()) {
+                            log.debug("Stopping socket write to $remoteId")
+                            returnBack(pos, toSend)
+                            return
+                        }
+                        try {
+                            pos++
+                            val encoded = encode(it) ?: return@forEach
+                            socket.write(encoded)
+                            metrics.collected()
+                            if (!sentFirst) {
+                                sentFirst = true
+                                backOff = backOffConfig.start()
+                            }
+                        } catch (t: IOException) {
+                            // usually it's a connection issue, i.e., a "broken pipe".
+                            // anyway, we just propagate it which closes the socket, etc.
+                            throw SilentException(t.message ?: t.javaClass.name)
+                        }
                     }
-                }
-                .switchOnFirst { t, u ->
-                    if (t.isOnNext) {
-                        backOff = backOffConfig.start()
-                    }
-                    u
-                }
-                .doOnNext { metrics.collected() }
-                .doOnError { t -> log.warn("Failed to write to $remoteId. ${t.message}") }
-                .doFinally {
-                    log.info("Disconnected from logs server $remoteId / ${it.name}")
-                    try {
-                        socket.close()
-                    } catch (t: Throwable) {
-                        log.debug("Failed to close connection to $remoteId")
-                    }
-                    // schedule a reconnection if needed
-                    mayReconnect()
-                }
-                .subscribeOn(Schedulers.boundedElastic())
-                .subscribe()
-        } catch (t: Throwable) {
-            log.error("Failed to connect to $remoteId", t)
-            // schedule a reconnection if needed
-            mayReconnect()
-            return null
+            } catch (t: Throwable) {
+                log.warn("Failed to write to $remoteId. ${t.message}")
+                returnBack(pos, toSend)
+                // schedule a reconnection if needed
+                mayReconnect()
+                break
+            }
         }
     }
 
     override fun stop() {
         shouldConnect.set(false)
-        currentSink.updateAndGet { prev ->
-            prev?.dispose()
-            null
-        }
+        stopped.set(true)
         super.stop()
     }
 
     override fun isRunning(): Boolean {
-        return currentSink.get()?.isDisposed == false
+        return !stopped.get()
     }
 }

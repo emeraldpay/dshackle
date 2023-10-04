@@ -6,14 +6,16 @@ import org.slf4j.LoggerFactory
 import java.nio.BufferOverflowException
 import java.nio.ByteBuffer
 
-class LogJsonSerializer<T> : LogSerializer<T> {
+class LogJsonSerializer<T>(
+    initialBuffer: Int = 1024
+) : LogSerializer<T> {
 
     companion object {
         private val log = LoggerFactory.getLogger(LogJsonSerializer::class.java)
     }
 
     private val objectMapper = Global.objectMapper
-    private var allocateSize = 1024
+    private var allocateSize = initialBuffer
 
     override fun apply(t: T): ByteBuffer {
         val buffer = ByteBuffer.allocateDirect(allocateSize)

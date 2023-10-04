@@ -71,6 +71,11 @@ class FileLogWriter<T>(
         }
 
         try {
+            val items = next(batchLimit)
+            if (items.isEmpty()) {
+                return true
+            }
+
             val channel = try {
                 FileChannel.open(file, StandardOpenOption.WRITE, StandardOpenOption.APPEND, StandardOpenOption.CREATE)
             } catch (t: Throwable) {
@@ -81,19 +86,18 @@ class FileLogWriter<T>(
             }
 
             return channel.use { wrt ->
+                var pos = 0
                 try {
-                    super.readEncodedFromQueue()
-                        .map {
-                            wrt.write(it)
-                            true
+                    items
+                        .forEach {
+                            pos++
+                            val encoded = encode(it) ?: return@forEach
+                            wrt.write(encoded)
                         }
-                        .take(size().coerceAtMost(batchLimit).toLong())
-                        .take(batchTime)
-                        // complete writes in this thread _blocking_
-                        .blockLast()
                     true
                 } catch (t: Throwable) {
                     errors.execute { log.warn("Failed to write to the log", t) }
+                    returnBack(pos, items)
                     false
                 }
             }
