@@ -26,12 +26,16 @@ class LogEncodingPrefix : LogEncoding {
 
     companion object {
         private val log = LoggerFactory.getLogger(LogEncodingPrefix::class.java)
+
+        private const val PREFIX_LENGTH = 4
     }
 
-    override fun write(bytes: ByteArray): ByteBuffer {
-        val wrt = ByteBuffer.allocateDirect(bytes.size + 4)
-        wrt.putInt(bytes.size)
-        wrt.put(bytes)
+    override fun write(bytes: ByteBuffer): ByteBuffer {
+        val size = bytes.limit()
+        val wrt = ByteBuffer.allocateDirect(size + PREFIX_LENGTH)
+        wrt.putInt(size)
+        wrt.put(PREFIX_LENGTH, bytes, 0, size)
+        wrt.position(size + PREFIX_LENGTH)
         return wrt.flip()
     }
 }

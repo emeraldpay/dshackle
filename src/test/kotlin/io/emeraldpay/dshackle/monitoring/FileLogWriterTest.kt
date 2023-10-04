@@ -19,12 +19,8 @@ class FileLogWriterTest : ShouldSpec({
         val accessLog = dir.resolve("log.jsonl")
         println("Write log to $accessLog")
 
-        val serializer: (Any) -> ByteArray? = {
-            Global.objectMapper.writeValueAsBytes(it)
-        }
-
         val logWriter = FileLogWriter(
-            accessLog, serializer, Duration.ofMillis(1000), Duration.ofMillis(1000), 100
+            accessLog, LogJsonSerializer<AccessRecord.Status>(), Duration.ofMillis(1000), Duration.ofMillis(1000), 100
         )
 
         val event = AccessRecord.Status(

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.KotlinModule
 import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.monitoring.MonitoringContext
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
@@ -94,6 +95,7 @@ class Global {
             objectMapper.registerModule(module)
             objectMapper.registerModule(Jdk8Module())
             objectMapper.registerModule(JavaTimeModule())
+            objectMapper.registerModule(KotlinModule.Builder().build())
             objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             objectMapper
                 .setDateFormat(SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm:ss.SSS"))

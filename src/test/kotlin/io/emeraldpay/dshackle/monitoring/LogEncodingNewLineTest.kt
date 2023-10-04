@@ -2,15 +2,15 @@ package io.emeraldpay.dshackle.monitoring
 
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.shouldBe
-import java.nio.charset.StandardCharsets
+import java.nio.ByteBuffer
 
 class LogEncodingNewLineTest : ShouldSpec({
 
     should("Write a line") {
         val encoding = LogEncodingNewLine()
 
-        val act = encoding.write("Hello World!".toByteArray())
+        val act = encoding.write(ByteBuffer.wrap("Hello World!".toByteArray()))
 
-        StandardCharsets.UTF_8.decode(act).toString() shouldBe "Hello World!\n"
+        MonitoringTestCommons.bufferToString(act) shouldBe "Hello World!\n"
     }
 })

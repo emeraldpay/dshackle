@@ -24,7 +24,7 @@ import java.util.Locale
 
 abstract class CurrentLogWriter<T>(
     private val category: Category,
-    private val serializer: (T) -> ByteArray?,
+    private val serializer: LogSerializer<T>?,
     private val fileOptions: FileOptions? = null
 ) {
 

@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.Channel
 import io.emeraldpay.dshackle.monitoring.CurrentLogWriter
+import io.emeraldpay.dshackle.monitoring.LogJsonSerializer
 import io.emeraldpay.dshackle.monitoring.record.RequestRecord
 import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.rpcclient.LoggingJsonRpcReader
@@ -33,7 +34,7 @@ import javax.annotation.PreDestroy
 open class CurrentRequestLogWriter(
     @Autowired mainConfig: MainConfig,
 ) : RequestLogWriter, CurrentLogWriter<RequestRecord.BlockchainRequest>(
-    Category.REQUEST, serializer,
+    Category.REQUEST, LogJsonSerializer(),
     FileOptions(startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP, batchLimit = WRITE_BATCH_LIMIT)
 ) {
 
@@ -43,10 +44,6 @@ open class CurrentRequestLogWriter(
         private const val WRITE_BATCH_LIMIT = 5000
         private val FLUSH_SLEEP = Duration.ofMillis(250L)
         private val START_SLEEP = Duration.ofMillis(1000L)
-
-        private val serializer: (RequestRecord.BlockchainRequest) -> ByteArray? = { next ->
-            Global.objectMapper.writeValueAsBytes(next)
-        }
     }
 
     private val config = mainConfig.requestLogConfig

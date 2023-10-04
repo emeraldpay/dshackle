@@ -8,8 +8,7 @@ import java.time.Duration
 
 class CurrentLogWriterTest : ShouldSpec({
 
-    val serializer = { it: String -> it.toByteArray() }
-    class TestImpl(fileOptions: FileOptions? = null) : CurrentLogWriter<String>(Category.REQUEST, serializer, fileOptions)
+    class TestImpl(fileOptions: FileOptions? = null) : CurrentLogWriter<String>(Category.REQUEST, MonitoringTestCommons.defaultSerializer, fileOptions)
 
     should("Create file logger") {
         val current = TestImpl(CurrentLogWriter.FileOptions(Duration.ofSeconds(1), Duration.ofSeconds(1), 100))

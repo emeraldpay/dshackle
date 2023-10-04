@@ -5,92 +5,63 @@ import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
-import reactor.core.publisher.Flux
-import reactor.test.StepVerifier
-import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-class QueuePublisherTest : ShouldSpec({
+class DataQueueTest : ShouldSpec({
 
     should("Produce current items") {
-        val queue = QueuePublisher<Int>(100)
+        val queue = DataQueue<Int>(100)
 
-        StepVerifier.create(queue)
-            .then {
-                queue.offer(1)
-                queue.offer(2)
-            }
-            .expectNext(1)
-            .expectNext(2)
-            .then {
-                queue.offer(3)
-            }
-            .expectNext(3)
-            .then {
-                queue.offer(4)
-            }
-            .expectNext(4)
-            .then {
-                queue.close()
-            }
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+        queue.offer(1)
+        queue.offer(2)
+
+        queue.request(1) shouldBe listOf(1)
+        queue.request(1) shouldBe listOf(2)
+
+        queue.offer(3)
+        queue.request(1) shouldBe listOf(3)
+
+        queue.offer(4)
+        queue.request(1) shouldBe listOf(4)
+
+        queue.close()
     }
 
     should("Produce queued items") {
-        val queue = QueuePublisher<Int>(100)
+        val queue = DataQueue<Int>(100)
         queue.offer(1)
         queue.offer(2)
         queue.offer(3)
 
-        StepVerifier.create(queue)
-            .expectNext(1)
-            .expectNext(2)
-            .expectNext(3)
-            .then {
-                queue.close()
-            }
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+        queue.request(10) shouldBe listOf(1, 2, 3)
     }
 
     should("Produce queued items and continue with fresh") {
-        val queue = QueuePublisher<Int>(100)
+        val queue = DataQueue<Int>(100)
         queue.offer(1)
         queue.offer(2)
         queue.offer(3)
 
-        StepVerifier.create(queue)
-            .expectNext(1)
-            .expectNext(2)
-            .expectNext(3)
-            .then {
-                queue.offer(4)
-            }
-            .expectNext(4)
-            .then {
-                queue.close()
-            }
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+        queue.request(10) shouldBe listOf(1, 2, 3)
+
+        queue.offer(4)
+        queue.request(10) shouldBe listOf(4)
     }
 
     should("Produce nothing when closed") {
-        val queue = QueuePublisher<Int>(100)
+        val queue = DataQueue<Int>(100)
         queue.offer(1)
         queue.offer(2)
         queue.offer(3)
         queue.close()
 
-        StepVerifier.create(queue)
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+        queue.request(10) shouldBe emptyList()
     }
 
     should("Have zero size when closed") {
-        val queue = QueuePublisher<Int>(100)
+        val queue = DataQueue<Int>(100)
         (1..5).forEach { i ->
             queue.offer(i)
         }
@@ -103,54 +74,20 @@ class QueuePublisherTest : ShouldSpec({
         queue.size shouldBe 0
     }
 
-    should("Produce items within a timeframe") {
-        val queue = QueuePublisher<Int>(100)
-        val t = Thread {
-            (1..10).forEach { i ->
-                queue.offer(i)
-                Thread.sleep(100)
-            }
-        }
-
-        val flux = Flux.from(queue)
-            .take(Duration.ofMillis(350))
-
-        StepVerifier.create(flux)
-            .then { t.start() }
-            .expectNext(1)
-            .expectNext(2)
-            .expectNext(3)
-            .expectNext(4)
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
-    }
-
     should("Produce X requested items") {
-        val queue = QueuePublisher<Int>(100)
-        val t = Thread {
-            (1..10).forEach { i ->
-                queue.offer(i)
-                Thread.sleep(100)
-            }
+        val queue = DataQueue<Int>(100)
+        (1..10).forEach { i ->
+            queue.offer(i)
         }
 
-        val flux = Flux.from(queue)
-            .take(5)
-
-        StepVerifier.create(flux)
-            .then { t.start() }
-            .expectNext(1)
-            .expectNext(2)
-            .expectNext(3)
-            .expectNext(4)
-            .expectNext(5)
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+        queue.request(5) shouldBe listOf(1, 2, 3, 4, 5)
+        queue.request(3) shouldBe listOf(6, 7, 8)
+        queue.request(2) shouldBe listOf(9, 10)
     }
 
     should("Call onError when full") {
         val count = AtomicInteger(0)
-        val queue = QueuePublisher<Int>(3, onError = { count.incrementAndGet() })
+        val queue = DataQueue<Int>(3, onError = { count.incrementAndGet() })
         val offers = mutableListOf<Boolean>()
         (1..5).forEach { i ->
             offers.add(queue.offer(i))
@@ -163,7 +100,7 @@ class QueuePublisherTest : ShouldSpec({
 
     should("Call onError when closed") {
         val count = AtomicInteger(0)
-        val queue = QueuePublisher<Int>(3, onError = { count.incrementAndGet() })
+        val queue = DataQueue<Int>(3, onError = { count.incrementAndGet() })
         val offers = mutableListOf<Boolean>()
         (1..2).forEach { i ->
             offers.add(queue.offer(i))
@@ -179,7 +116,7 @@ class QueuePublisherTest : ShouldSpec({
     }
 
     should("Work with multiple threads") {
-        val queue = QueuePublisher<Int>(100)
+        val queue = DataQueue<Int>(100)
         val executor = Executors.newFixedThreadPool(6)
         executor.execute {
             (0 until 5).forEach { i ->
@@ -209,10 +146,16 @@ class QueuePublisherTest : ShouldSpec({
         val list1 = mutableListOf<Int>()
         val list2 = mutableListOf<Int>()
         executor.execute {
-            Flux.from(queue).take(10).subscribe(list1::add)
+            repeat(15) {
+                queue.request(1).forEach(list1::add)
+                Thread.sleep(7)
+            }
         }
         executor.execute {
-            Flux.from(queue).take(10).subscribe(list2::add)
+            repeat(15) { _ ->
+                queue.request(1).forEach(list2::add)
+                Thread.sleep(11)
+            }
         }
 
         executor.shutdown()
