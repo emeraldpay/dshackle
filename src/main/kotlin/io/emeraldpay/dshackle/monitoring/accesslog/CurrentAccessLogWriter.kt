@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.monitoring.accesslog
 
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.CurrentLogWriter
+import io.emeraldpay.dshackle.monitoring.LogJsonSerializer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Repository
@@ -29,7 +29,7 @@ import javax.annotation.PreDestroy
 class CurrentAccessLogWriter(
     @Autowired mainConfig: MainConfig
 ) : CurrentLogWriter<Any>(
-    Category.ACCESS, serializer,
+    Category.ACCESS, LogJsonSerializer(),
     FileOptions(startSleep = START_SLEEP, flushSleep = FLUSH_SLEEP, batchLimit = WRITE_BATCH_LIMIT)
 ) {
 
@@ -38,7 +38,6 @@ class CurrentAccessLogWriter(
         private const val WRITE_BATCH_LIMIT = 5000
         private val FLUSH_SLEEP = Duration.ofMillis(250L)
         private val START_SLEEP = Duration.ofMillis(1000L)
-        private val serializer: (Any) -> ByteArray? = { next -> Global.objectMapper.writeValueAsBytes(next) }
     }
 
     private val config = mainConfig.accessLogConfig

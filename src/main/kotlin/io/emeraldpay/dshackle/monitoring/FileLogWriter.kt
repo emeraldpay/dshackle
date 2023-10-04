@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 
 class FileLogWriter<T>(
     private val file: Path,
-    serializer: (T) -> ByteArray?,
+    serializer: LogSerializer<T>?,
     private val startSleep: Duration,
     private val flushSleep: Duration,
     private val batchLimit: Int = 5000,

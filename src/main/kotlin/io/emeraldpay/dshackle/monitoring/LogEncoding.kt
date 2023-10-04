@@ -19,5 +19,5 @@ import java.nio.ByteBuffer
 
 interface LogEncoding {
 
-    fun write(bytes: ByteArray): ByteBuffer
+    fun write(bytes: ByteBuffer): ByteBuffer
 }

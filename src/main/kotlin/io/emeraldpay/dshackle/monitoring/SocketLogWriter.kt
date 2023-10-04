@@ -40,7 +40,7 @@ class SocketLogWriter<T>(
     val host: String,
     val port: Int,
     category: CurrentLogWriter.Category,
-    serializer: (T) -> ByteArray?,
+    serializer: LogSerializer<T>?,
     encoding: LogEncoding,
     private val metrics: LogMetrics = LogMetrics.None(),
     private val bufferSize: Int? = null,

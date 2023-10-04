@@ -13,10 +13,9 @@ import java.time.Duration
 
 class BufferingLogWriterTest : ShouldSpec({
 
-    val defaultSerializer = { x: String -> x.toByteArray() }
     class TempImpl(
         queueLimit: Int,
-        serializer: (String) -> ByteArray? = defaultSerializer,
+        serializer: LogSerializer<String> = MonitoringTestCommons.defaultSerializer,
         encoding: LogEncoding = LogEncodingNewLine(),
     ) : BufferingLogWriter<String>(
         serializer = serializer,
@@ -54,12 +53,7 @@ class BufferingLogWriterTest : ShouldSpec({
     }
 
     should("Ignore serializer errors") {
-        val writer = TempImpl(10, serializer = {
-            if (it == "fail") {
-                throw RuntimeException()
-            }
-            it.toByteArray()
-        })
+        val writer = TempImpl(10, MonitoringTestCommons.failSerializer)
 
         val fail = writer.toByteBuffer("fail")
         fail shouldNot bePresent()
@@ -70,12 +64,7 @@ class BufferingLogWriterTest : ShouldSpec({
     }
 
     should("Produce ignoring serializer errors") {
-        val writer = TempImpl(10, serializer = {
-            if (it == "fail") {
-                throw RuntimeException()
-            }
-            it.toByteArray()
-        })
+        val writer = TempImpl(10, serializer = MonitoringTestCommons.failSerializer)
 
         writer.submit("fail")
         writer.submit("test")
@@ -94,11 +83,11 @@ class BufferingLogWriterTest : ShouldSpec({
         val writer = TempImpl(
             10,
             encoding = object : LogEncoding {
-                override fun write(bytes: ByteArray): ByteBuffer {
-                    if ("fail" == String(bytes)) {
+                override fun write(bytes: ByteBuffer): ByteBuffer {
+                    if ("fail" == String(bytes.array())) {
                         throw RuntimeException()
                     }
-                    return ByteBuffer.wrap(bytes)
+                    return bytes
                 }
             }
         )
@@ -115,11 +104,11 @@ class BufferingLogWriterTest : ShouldSpec({
         val writer = TempImpl(
             10,
             encoding = object : LogEncoding {
-                override fun write(bytes: ByteArray): ByteBuffer {
-                    if ("fail" == String(bytes)) {
+                override fun write(bytes: ByteBuffer): ByteBuffer {
+                    if ("fail" == String(bytes.array())) {
                         throw RuntimeException()
                     }
-                    return ByteBuffer.wrap(bytes)
+                    return bytes
                 }
             }
         )

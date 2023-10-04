@@ -12,8 +12,6 @@ import java.util.concurrent.TimeUnit
 
 class SocketLogWriterTest : ShouldSpec({
 
-    val serializer = { x: String -> x.toByteArray() }
-
     class MockServer(
         val port: Int,
         val expectMessages: Int,
@@ -70,7 +68,7 @@ class SocketLogWriterTest : ShouldSpec({
         server.launch()
         server.awaitLaunch(Duration.ofSeconds(5))
 
-        val writer = SocketLogWriter("localhost", port, CurrentLogWriter.Category.REQUEST, serializer, LogEncodingNewLine())
+        val writer = SocketLogWriter("localhost", port, CurrentLogWriter.Category.REQUEST, MonitoringTestCommons.defaultSerializer, LogEncodingNewLine())
         writer.start()
         writer.submit("Hello World!")
 
@@ -94,7 +92,7 @@ class SocketLogWriterTest : ShouldSpec({
             server2.launch()
         }.start()
 
-        val writer = SocketLogWriter("localhost", port, CurrentLogWriter.Category.REQUEST, serializer, LogEncodingNewLine())
+        val writer = SocketLogWriter("localhost", port, CurrentLogWriter.Category.REQUEST, MonitoringTestCommons.defaultSerializer, LogEncodingNewLine())
         println("Starting...")
         writer.start()
 

@@ -24,7 +24,7 @@ import java.time.Duration
 import java.util.Optional
 
 abstract class BufferingLogWriter<T>(
-    private val serializer: (T) -> ByteArray?,
+    private val serializer: LogSerializer<T>?,
     val encoding: LogEncoding,
     val queueLimit: Int = 4096,
     private val metrics: LogMetrics = LogMetrics.None(),
@@ -76,7 +76,7 @@ abstract class BufferingLogWriter<T>(
 
     fun toByteBuffer(event: T): Optional<ByteBuffer> {
         val line = try {
-            serializer(event)
+            serializer?.apply(event)
         } catch (t: Throwable) {
             errors.execute {
                 log.warn("Failed to serialize event: ${t.message}")

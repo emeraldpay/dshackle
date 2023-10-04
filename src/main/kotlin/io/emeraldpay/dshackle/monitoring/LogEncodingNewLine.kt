@@ -24,9 +24,11 @@ class LogEncodingNewLine : LogEncoding {
 
     private val NL = "\n".toByteArray().first()
 
-    override fun write(bytes: ByteArray): ByteBuffer {
-        val wrt = ByteBuffer.allocateDirect(bytes.size + 1)
-        wrt.put(bytes)
+    override fun write(bytes: ByteBuffer): ByteBuffer {
+        val size = bytes.limit()
+        val wrt = ByteBuffer.allocateDirect(size + 1)
+        wrt.put(0, bytes, 0, size)
+        wrt.position(size)
         wrt.put(NL)
         return wrt.flip()
     }
