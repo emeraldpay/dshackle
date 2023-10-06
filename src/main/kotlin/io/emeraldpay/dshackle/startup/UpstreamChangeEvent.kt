@@ -24,7 +24,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 /**
  * An update event to the list of currently available upstreams.
  */
-class UpstreamChangeEvent(
+data class UpstreamChangeEvent(
     /**
      * Target blockchain
      */

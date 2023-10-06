@@ -9,11 +9,13 @@ import reactor.core.scheduler.Scheduler
 open class DynamicMergedHead(
     forkChoice: ForkChoice,
     private val label: String = "",
-    headScheduler: Scheduler,
+    private val headScheduler: Scheduler,
 ) : AbstractHead(forkChoice, headScheduler, upstreamId = label), Lifecycle {
 
     private var subscription: Disposable? = null
-    private val dynamicFlux: DynamicMergeFlux<String, BlockContainer> = DynamicMergeFlux(headScheduler)
+
+    @Volatile
+    private var dynamicFlux: DynamicMergeFlux<String, BlockContainer> = DynamicMergeFlux(headScheduler)
 
     override fun isRunning(): Boolean {
         return subscription != null
@@ -30,6 +32,7 @@ open class DynamicMergedHead(
     override fun stop() {
         super.stop()
         dynamicFlux.stop()
+        dynamicFlux = DynamicMergeFlux(headScheduler)
         subscription?.dispose()
         subscription = null
     }

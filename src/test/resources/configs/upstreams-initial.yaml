@@ -1,0 +1,35 @@
+cluster:
+  upstreams:
+    - id: local1
+      chain: ethereum
+      labels:
+        provider: provider1
+      connection:
+        ethereum-pos:
+          execution:
+            rpc:
+              url: "http://localhost"
+            ws:
+              url: "ws://localhost"
+    - id: local2
+      chain: ethereum
+      labels:
+        provider: provider1
+      connection:
+        ethereum-pos:
+          execution:
+            rpc:
+              url: "http://localhost"
+            ws:
+              url: "ws://localhost"
+    - id: local3
+      chain: polygon
+      labels:
+        provider: provider1
+      connection:
+        ethereum-pos:
+          execution:
+            rpc:
+              url: "http://localhost"
+            ws:
+              url: "ws://localhost"

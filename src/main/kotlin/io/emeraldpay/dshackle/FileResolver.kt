@@ -35,4 +35,6 @@ open class FileResolver(
         }
         return File(baseDir, path)
     }
+
+    fun file() = baseDir
 }

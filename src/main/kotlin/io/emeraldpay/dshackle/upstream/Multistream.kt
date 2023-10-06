@@ -81,7 +81,6 @@ abstract class Multistream(
 
     @Volatile
     private var quorumLabels: List<QuorumForLabels.QuorumItem>? = null
-    private val removed: MutableMap<String, Upstream> = HashMap()
     private val meters: MutableMap<String, List<Meter.Id>> = HashMap()
     private val addedUpstreams = Sinks.many()
         .multicast()
@@ -169,7 +168,6 @@ abstract class Multistream(
         }.also {
             if (it) {
                 upstreams.add(upstream)
-                removed.remove(upstream.getId())
                 addHead(upstream)
                 monitorUpstream(upstream)
             }
@@ -179,7 +177,7 @@ abstract class Multistream(
         upstreams.removeIf { up ->
             (up.getId() == id).also {
                 if (it) {
-                    removed[id] = up
+                    up.stop()
                 }
             }
         }.also {
@@ -392,17 +390,17 @@ abstract class Multistream(
         } catch (e: Exception) {
             log.warn("Head processing error: ${e.javaClass} ${e.message}")
         }
-        val statuses = upstreams.asSequence().plus(removed.values).map { it.getStatus() }
+        val statuses = upstreams.asSequence().map { it.getStatus() }
             .groupBy { it }
             .map { "${it.key.name}/${it.value.size}" }
             .joinToString(",")
-        val lag = upstreams.plus(removed.values).joinToString(", ") {
+        val lag = upstreams.joinToString(", ") {
             // by default, when no lag is available it uses Long.MAX_VALUE, and it doesn't make sense to print
             // status with such value. use NA (as Not Available) instead
             val value = it.getLag()
             value?.toString() ?: "NA"
         }
-        val weak = upstreams.plus(removed.values)
+        val weak = upstreams
             .filter { it.getStatus() != UpstreamAvailability.OK }
             .joinToString(", ") { it.getId() }
 

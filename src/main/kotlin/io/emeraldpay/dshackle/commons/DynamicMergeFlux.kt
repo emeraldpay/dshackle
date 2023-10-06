@@ -28,6 +28,7 @@ class DynamicMergeFlux<K : Any, T>(private val scheduler: Scheduler) {
 
     fun stop() {
         sources.forEach { (_, d) -> d.dispose() }
+        sources.clear()
         merge.emitComplete { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
     }
 

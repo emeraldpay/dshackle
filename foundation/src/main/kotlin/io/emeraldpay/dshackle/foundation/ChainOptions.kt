@@ -16,12 +16,23 @@ class ChainOptions {
         val validateChain: Boolean,
     )
 
-    open class DefaultOptions : PartialOptions() {
-        var chains: List<String>? = null
+    data class DefaultOptions(
+        var chains: List<String>? = null,
         var options: PartialOptions? = null
-    }
+    )
 
-    open class PartialOptions {
+    data class PartialOptions(
+        var disableValidation: Boolean? = null,
+        var disableUpstreamValidation: Boolean? = null,
+        var validationInterval: Int? = null,
+        var timeout: Duration? = null,
+        var providesBalance: Boolean? = null,
+        var validatePeers: Boolean? = null,
+        var validateCalllimit: Boolean? = null,
+        var minPeers: Int? = null,
+        var validateSyncing: Boolean? = null,
+        var validateChain: Boolean? = null
+    ) {
         companion object {
             @JvmStatic
             fun getDefaults(): PartialOptions {
@@ -30,29 +41,6 @@ class ChainOptions {
                 return options
             }
         }
-
-        var disableValidation: Boolean? = null
-        var disableUpstreamValidation: Boolean? = null
-        var validationInterval: Int? = null
-            set(value) {
-                require(value == null || value > 0) {
-                    "validation-interval must be a positive number: $value"
-                }
-                field = value
-            }
-        var timeout: Duration? = null
-        var providesBalance: Boolean? = null
-        var validatePeers: Boolean? = null
-        var validateCalllimit: Boolean? = null
-        var minPeers: Int? = null
-            set(value) {
-                require(value == null || value >= 0) {
-                    "min-peers must be a positive number: $value"
-                }
-                field = value
-            }
-        var validateSyncing: Boolean? = null
-        var validateChain: Boolean? = null
 
         fun merge(overwrites: PartialOptions?): PartialOptions {
             if (overwrites == null) {

@@ -23,21 +23,23 @@ import java.util.Arrays
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
-open class UpstreamsConfig {
-    var defaultOptions: MutableList<ChainOptions.DefaultOptions> = ArrayList()
-    var upstreams: MutableList<Upstream<*>> = ArrayList<Upstream<*>>()
+data class UpstreamsConfig(
+    var defaultOptions: MutableList<ChainOptions.DefaultOptions> = ArrayList(),
+    var upstreams: MutableList<Upstream<*>> = ArrayList(),
+) {
 
-    class Upstream<T : UpstreamConnection> {
-        var id: String? = null
-        var nodeId: Int? = null
-        var chain: String? = null
-        var options: ChainOptions.PartialOptions? = null
-        var isEnabled = true
-        var connection: T? = null
-        val labels = Labels()
-        var methods: Methods? = null
-        var methodGroups: MethodGroups? = null
-        var role: UpstreamRole = UpstreamRole.PRIMARY
+    data class Upstream<T : UpstreamConnection>(
+        var id: String? = null,
+        var nodeId: Int? = null,
+        var chain: String? = null,
+        var options: ChainOptions.PartialOptions? = null,
+        var isEnabled: Boolean = true,
+        var connection: T? = null,
+        val labels: Labels = Labels(),
+        var methods: Methods? = null,
+        var methodGroups: MethodGroups? = null,
+        var role: UpstreamRole = UpstreamRole.PRIMARY,
+    ) {
 
         @Suppress("UNCHECKED_CAST")
         fun <Z : UpstreamConnection> cast(type: Class<Z>): Upstream<Z> {
@@ -56,9 +58,9 @@ open class UpstreamsConfig {
 
     open class UpstreamConnection
 
-    open class RpcConnection : UpstreamConnection() {
-        var rpc: HttpEndpoint? = null
-    }
+    open class RpcConnection(
+        open var rpc: HttpEndpoint? = null,
+    ) : UpstreamConnection()
 
     class GrpcConnection : UpstreamConnection() {
         var host: String? = null
@@ -68,9 +70,11 @@ open class UpstreamsConfig {
         var upstreamRating: Int = 0
     }
 
-    class EthereumConnection : RpcConnection() {
-        var ws: WsEndpoint? = null
-        var connectorMode: String? = null
+    data class EthereumConnection(
+        override var rpc: HttpEndpoint? = null,
+        var ws: WsEndpoint? = null,
+        var connectorMode: String? = null,
+    ) : RpcConnection(rpc) {
 
         fun resolveMode(): ConnectorMode {
             return if (connectorMode == null) {
@@ -87,27 +91,28 @@ open class UpstreamsConfig {
         }
     }
 
-    class BitcoinConnection : RpcConnection() {
-        var esplora: HttpEndpoint? = null
-        var zeroMq: BitcoinZeroMq? = null
-    }
+    data class BitcoinConnection(
+        override var rpc: HttpEndpoint? = null,
+        var esplora: HttpEndpoint? = null,
+        var zeroMq: BitcoinZeroMq? = null,
+    ) : RpcConnection()
 
-    class EthereumPosConnection : UpstreamConnection() {
-        var execution: EthereumConnection? = null
-        var upstreamRating: Int = 0
-    }
+    data class EthereumPosConnection(
+        var execution: EthereumConnection? = null,
+        var upstreamRating: Int = 0,
+    ) : UpstreamConnection()
 
     data class BitcoinZeroMq(
         val host: String = "127.0.0.1",
         val port: Int,
     )
 
-    class HttpEndpoint(val url: URI) {
+    data class HttpEndpoint(val url: URI) {
         var basicAuth: AuthConfig.ClientBasicAuth? = null
         var tls: AuthConfig.ClientTlsAuth? = null
     }
 
-    class WsEndpoint(val url: URI) {
+    data class WsEndpoint(val url: URI) {
         var origin: URI? = null
         var basicAuth: AuthConfig.ClientBasicAuth? = null
         var frameSize: Int? = null
@@ -159,17 +164,17 @@ open class UpstreamsConfig {
         }
     }
 
-    class Methods(
+    data class Methods(
         val enabled: Set<Method>,
         val disabled: Set<Method>,
     )
 
-    class MethodGroups(
+    data class MethodGroups(
         val enabled: Set<String>,
         val disabled: Set<String>,
     )
 
-    class Method(
+    data class Method(
         val name: String,
         val quorum: String? = null,
         val static: String? = null,

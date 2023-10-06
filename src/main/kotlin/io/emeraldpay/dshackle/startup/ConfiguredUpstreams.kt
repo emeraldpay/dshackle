@@ -102,6 +102,10 @@ open class ConfiguredUpstreams(
 
     override fun run(args: ApplicationArguments) {
         log.debug("Starting upstreams")
+        processUpstreams(this.config)
+    }
+
+    fun processUpstreams(config: UpstreamsConfig) {
         val defaultOptions = buildDefaultOptions(config)
         config.upstreams.parallelStream().forEach { up ->
             if (!up.isEnabled) {
@@ -239,7 +243,7 @@ open class ConfiguredUpstreams(
             options,
             config.role,
             methods,
-            QuorumForLabels.QuorumItem(1, config.labels),
+            QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(config.labels)),
             connectorFactory,
             chainConf,
             true,
@@ -289,7 +293,7 @@ open class ConfiguredUpstreams(
                 ?: "bitcoin-${seq.getAndIncrement()}",
             chain, directApi, head,
             options, config.role,
-            QuorumForLabels.QuorumItem(1, config.labels),
+            QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(config.labels)),
             methods, esplora, chainConf,
         )
         upstream.start()
@@ -328,7 +332,7 @@ open class ConfiguredUpstreams(
             chain,
             options, config.role,
             methods,
-            QuorumForLabels.QuorumItem(1, config.labels),
+            QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(config.labels)),
             connectorFactory,
             chainConf,
             false,

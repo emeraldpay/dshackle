@@ -25,7 +25,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def callTargetsHolder = new CallTargetsHolder()
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
-                Stub(UpstreamsConfig),
+                new UpstreamsConfig(),
                 Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
@@ -59,7 +59,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def callTargetsHolder = new CallTargetsHolder()
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
-                Stub(UpstreamsConfig),
+                new UpstreamsConfig(),
                 Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
@@ -92,7 +92,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def callTargetsHolder = new CallTargetsHolder()
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
-                Stub(UpstreamsConfig),
+                new UpstreamsConfig(),
                 Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
@@ -120,7 +120,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def callTargetsHolder = new CallTargetsHolder()
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
-                Stub(UpstreamsConfig),
+                new UpstreamsConfig(),
                 Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
@@ -153,7 +153,7 @@ class ConfiguredUpstreamsSpec extends Specification {
         def callTargetsHolder = new CallTargetsHolder()
         def configurer = new ConfiguredUpstreams(
                 Stub(FileResolver),
-                Stub(UpstreamsConfig),
+                new UpstreamsConfig(),
                 Stub(CompressionConfig),
                 callTargetsHolder,
                 Mock(ApplicationEventPublisher),
