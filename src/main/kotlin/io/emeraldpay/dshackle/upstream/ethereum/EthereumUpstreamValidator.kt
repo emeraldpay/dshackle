@@ -23,6 +23,9 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_VALID
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.Address
@@ -137,19 +140,26 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             }
     }
 
-    fun validateUpstreamSettings(): Boolean {
+    fun validateUpstreamSettingsOnStartup(): ValidateUpstreamSettingsResult {
+        return validateUpstreamSettings().block() ?: UPSTREAM_FATAL_SETTINGS_ERROR
+    }
+
+    fun validateUpstreamSettings(): Mono<ValidateUpstreamSettingsResult> {
+        if (options.disableUpstreamValidation) {
+            return Mono.just(UPSTREAM_VALID)
+        }
         return Mono.zip(
             validateChain(),
             validateCallLimit(),
             validateOldBlocks(),
         ).map {
-            it.t1 && it.t2 && it.t3
-        }.block() ?: false
+            listOf(it.t1, it.t2, it.t3).sorted().last()
+        }
     }
 
-    private fun validateChain(): Mono<Boolean> {
+    private fun validateChain(): Mono<ValidateUpstreamSettingsResult> {
         if (!options.validateChain) {
-            return Mono.just(true)
+            return Mono.just(UPSTREAM_VALID)
         }
         return Mono.zip(
             chainId(),
@@ -167,17 +177,21 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                     )
                 }
 
-                isChainValid
+                if (isChainValid) {
+                    UPSTREAM_VALID
+                } else {
+                    UPSTREAM_FATAL_SETTINGS_ERROR
+                }
             }
             .onErrorResume {
                 log.error("Error during chain validation", it)
-                Mono.just(false)
+                Mono.just(UPSTREAM_SETTINGS_ERROR)
             }
     }
 
-    private fun validateCallLimit(): Mono<Boolean> {
+    private fun validateCallLimit(): Mono<ValidateUpstreamSettingsResult> {
         if (!options.validateCallLimit || callLimitContract == null) {
-            return Mono.just(true)
+            return Mono.just(UPSTREAM_VALID)
         }
         return upstream.getIngressReader()
             .read(
@@ -195,7 +209,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 ),
             )
             .flatMap(JsonRpcResponse::requireResult)
-            .map { true }
+            .map { UPSTREAM_VALID }
             .onErrorResume {
                 if (it.message != null && it.message!!.contains("rpc.returndata.limit")) {
                     log.warn(
@@ -203,7 +217,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                             "You need to set up your return limit to at least 1_100_000. " +
                             "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369",
                     )
-                    Mono.just(false)
+                    Mono.just(UPSTREAM_FATAL_SETTINGS_ERROR)
                 } else {
                     Mono.error(it)
                 }
@@ -219,10 +233,10 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                         "message ${ctx.exception().message}",
                 )
             }
-            .onErrorReturn(false)
+            .onErrorReturn(UPSTREAM_SETTINGS_ERROR)
     }
 
-    private fun validateOldBlocks(): Mono<Boolean> {
+    private fun validateOldBlocks(): Mono<ValidateUpstreamSettingsResult> {
         return EthereumArchiveBlockNumberReader(upstream.getIngressReader())
             .readArchiveBlock()
             .flatMap {
@@ -243,11 +257,11 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                         "Node ${upstream.getId()} probably is synced incorrectly, it is not possible to get old blocks",
                     )
                 }
-                true
+                UPSTREAM_VALID
             }
             .onErrorResume {
                 log.warn("Error during old blocks validation", it)
-                Mono.just(true)
+                Mono.just(UPSTREAM_VALID)
             }
     }
 
@@ -275,5 +289,11 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             }
             .doOnError { log.error("Error during execution 'net_version' - ${it.message} for ${upstream.getId()}") }
             .flatMap(JsonRpcResponse::requireStringResult)
+    }
+
+    enum class ValidateUpstreamSettingsResult {
+        UPSTREAM_VALID,
+        UPSTREAM_SETTINGS_ERROR,
+        UPSTREAM_FATAL_SETTINGS_ERROR,
     }
 }

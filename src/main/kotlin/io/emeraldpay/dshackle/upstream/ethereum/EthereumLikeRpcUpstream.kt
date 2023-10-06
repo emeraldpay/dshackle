@@ -30,12 +30,17 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_VALID
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumLabelsDetector
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
+import reactor.core.publisher.Flux
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 
 open class EthereumLikeRpcUpstream(
@@ -58,6 +63,7 @@ open class EthereumLikeRpcUpstream(
 
     private var validatorSubscription: Disposable? = null
     private var livenessSubscription: Disposable? = null
+    private var validationSettingsSubscription: Disposable? = null
 
     override fun getCapabilities(): Set<Capability> {
         return if (hasLiveSubscriptionHead.get()) {
@@ -76,11 +82,53 @@ open class EthereumLikeRpcUpstream(
     override fun start() {
         log.info("Configured for ${chain.chainName}")
         connector.start()
-        if (!getOptions().disableUpstreamValidation && !validator.validateUpstreamSettings()) {
-            connector.stop()
-            log.warn("Upstream ${getId()} couldn't start, invalid upstream settings")
-            return
+        val validSettingsResult = validator.validateUpstreamSettingsOnStartup()
+        when (validSettingsResult) {
+            UPSTREAM_FATAL_SETTINGS_ERROR -> {
+                connector.stop()
+                log.warn("Upstream ${getId()} couldn't start, invalid upstream settings")
+                return
+            }
+            UPSTREAM_SETTINGS_ERROR -> {
+                validateUpstreamSettings()
+            }
+            else -> {
+                upstreamStart()
+                labelsDetector.detectLabels()
+                    .toStream()
+                    .forEach { updateLabels(it) }
+            }
         }
+    }
+
+    private fun validateUpstreamSettings() {
+        validationSettingsSubscription = Flux.interval(
+            Duration.ofSeconds(10),
+            Duration.ofSeconds(20),
+        ).flatMap {
+            validator.validateUpstreamSettings()
+        }.subscribe {
+            when (it) {
+                UPSTREAM_FATAL_SETTINGS_ERROR -> {
+                    connector.stop()
+                    log.warn("Upstream ${getId()} couldn't start, invalid upstream settings")
+                    disposeValidationSettingsSubscription()
+                }
+                UPSTREAM_VALID -> {
+                    upstreamStart()
+                    labelsDetector.detectLabels()
+                        .subscribe { label -> updateLabels(label) }
+                    eventPublisher?.publishEvent(UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.ADDED))
+                    disposeValidationSettingsSubscription()
+                }
+                else -> {
+                    log.warn("Continue validation of upstream ${getId()}")
+                }
+            }
+        }
+    }
+
+    private fun upstreamStart() {
         if (getOptions().disableValidation) {
             log.warn("Disable validation for upstream ${this.getId()}")
             this.setLag(0)
@@ -96,14 +144,13 @@ open class EthereumLikeRpcUpstream(
         }, {
             log.debug("Error while checking live subscription for ${getId()}", it)
         },)
-        labelsDetector.detectLabels()
-            .toStream()
-            .forEach {
-                log.info("Detected label ${it.first} with value ${it.second} for upstream ${getId()}")
-                node?.labels?.let { labels ->
-                    labels[it.first] = it.second
-                }
-            }
+    }
+
+    private fun updateLabels(label: Pair<String, String>) {
+        log.info("Detected label ${label.first} with value ${label.second} for upstream ${getId()}")
+        node?.labels?.let { labels ->
+            labels[label.first] = label.second
+        }
     }
 
     override fun getIngressSubscription(): EthereumIngressSubscription {
@@ -128,11 +175,12 @@ open class EthereumLikeRpcUpstream(
         validatorSubscription = null
         livenessSubscription?.dispose()
         livenessSubscription = null
+        disposeValidationSettingsSubscription()
         connector.stop()
     }
 
     override fun isRunning(): Boolean {
-        return connector.isRunning()
+        return connector.isRunning() && validationSettingsSubscription == null
     }
 
     override fun getIngressReader(): JsonRpcReader {
@@ -149,5 +197,10 @@ open class EthereumLikeRpcUpstream(
             throw ClassCastException("Cannot cast ${this.javaClass} to $selfType")
         }
         return this as T
+    }
+
+    private fun disposeValidationSettingsSubscription() {
+        validationSettingsSubscription?.dispose()
+        validationSettingsSubscription = null
     }
 }
