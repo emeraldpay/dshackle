@@ -32,7 +32,6 @@ chain-settings:
     - id: ethereum
       label: Ethereum
       settings:
-        currency: ETH
         expected-block-time: 12s
         lags:
           syncing: 6
@@ -77,7 +76,6 @@ chain-settings:
     - id: fantom
       label: Fantom
       settings:
-        currency: FTM
         expected-block-time: 3s
         options:
           validate-peers: false
@@ -100,7 +98,6 @@ chain-settings:
     - id: polygon
       label: Polygon
       settings:
-        currency: MATIC
         expected-block-time: 2.7s
         lags:
           syncing: 20
@@ -123,7 +120,6 @@ chain-settings:
     - id: arbitrum
       label: Arbitrum One
       settings:
-        currency: ETH
         expected-block-time: 260ms
         options:
           validate-peers: false
@@ -148,7 +144,6 @@ chain-settings:
     - id: optimism
       label: Optimism
       settings:
-        currency: ETH
         expected-block-time: 2s
         options:
           validate-peers: false
@@ -171,7 +166,6 @@ chain-settings:
     - id: bsc
       label: BNB Smart Chain
       settings:
-        currency: BNB
         expected-block-time: 3s
         lags:
           syncing: 20
@@ -192,7 +186,6 @@ chain-settings:
     - id: polygon-zkevm
       label: Polygon zkEVM
       settings:
-        currency: ETH
         expected-block-time: 2.7s
         options:
           disable-validation: true
@@ -217,7 +210,6 @@ chain-settings:
     - id: arbitrum-nova
       label: Arbitrum Nova
       settings:
-        currency: ETH
         expected-block-time: 1s
         options:
           disable-validation: true
@@ -233,7 +225,6 @@ chain-settings:
     - id: zksync
       label: zkSync Era
       settings:
-        currency: ETH
         expected-block-time: 5s
         options:
           disable-validation: true
@@ -256,7 +247,6 @@ chain-settings:
     - id: base
       label: Base
       settings:
-        currency: ETH
         expected-block-time: 2s
         options:
           validate-peers: false
@@ -279,7 +269,6 @@ chain-settings:
     - id: linea
       label: Linea
       settings:
-        currency: ETH
         expected-block-time: 12s
         lags:
           syncing: 6
@@ -300,7 +289,6 @@ chain-settings:
     - id: gnosis
       label: Gnosis
       settings:
-        currency: GNO
         expected-block-time: 6s
         options:
           validate-peers: false
@@ -323,7 +311,6 @@ chain-settings:
     - id: avalanche
       label: Avalanche
       settings:
-        currency: AVX
         expected-block-time: 2s
         options:
           validate-peers: false
@@ -347,7 +334,6 @@ chain-settings:
     - id: aurora
       label: Aurora
       settings:
-        currency: AURORA
         expected-block-time: 1s
         options:
           validate-peers: false
@@ -370,7 +356,6 @@ chain-settings:
     - id: mantle
       label: Mantle
       settings:
-        currency: ETH
         expected-block-time: 500ms
         options:
           validate-peers: false
@@ -393,7 +378,6 @@ chain-settings:
     - id: klaytn
       label: Klaytn
       settings:
-        currency: KLAY
         expected-block-time: 1s
         options:
           validate-peers: false
@@ -416,7 +400,6 @@ chain-settings:
     - id: celo
       label: Celo
       settings:
-        currency: CELO
         expected-block-time: 5s
         lags:
           syncing: 10
@@ -437,7 +420,6 @@ chain-settings:
     - id: moonbeam
       label: Moonbeam
       settings:
-        currency: GLMR
         expected-block-time: 12s
         lags:
           syncing: 6
@@ -464,7 +446,6 @@ chain-settings:
     - id: scroll
       label: Scroll
       settings:
-        currency: ETH
         expected-block-time: 3s
         options:
           validate-peers: false
@@ -487,7 +468,6 @@ chain-settings:
     - id: cronos
       label: Cronos
       settings:
-        currency: CRO
         expected-block-time: 5s
         options:
           validate-peers: false
@@ -510,7 +490,6 @@ chain-settings:
     - id: metis
       label: Metis
       settings:
-        currency: METIS
         options:
           validate-peers: false
         expected-block-time: 1m
@@ -533,7 +512,6 @@ chain-settings:
     - id: opbnb
       label: opBNB
       settings:
-        currency: BNB
         expected-block-time: 1s
         lags:
           syncing: 40
@@ -554,7 +532,6 @@ chain-settings:
     - id: kava
       label: Kava
       settings:
-        currency: KAVA
         expected-block-time: 6s
         options:
           validate-peers: false
