@@ -145,7 +145,8 @@ chain-settings:
           chain-id: 0x66eed
           settings:
             expected-block-time: 1s
-    - id: Optimism
+    - id: optimism
+      label: Optimism
       settings:
         currency: ETH
         expected-block-time: 2s
@@ -166,7 +167,7 @@ chain-settings:
           code: OPTIMISM_TESTNET
           grpcId: 10010
           short-names: [optimism-testnet, optimism-goerli]
-          chain-id: 0x1a4
+          chain-id: 0x1A4
     - id: bsc
       label: BNB Smart Chain
       settings:
@@ -517,13 +518,13 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
-        - id: mainnet
+        - id: Mainnet
           priority: 100
           code: METIS_MAINNET
           short-names: [metis]
           chain-id: 0x440
           grpcId: 1023
-        - id: goerli
+        - id: Goerli
           priority: 1
           code: METIS_GOERLI
           short-names: [metis-goerli]
