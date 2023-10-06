@@ -551,3 +551,26 @@ chain-settings:
           short-names: [opbnb-testnet]
           chain-id: 0x15eb
           grpcId: 10032
+    - id: kava
+      label: Kava
+      settings:
+        currency: KAVA
+        expected-block-time: 6s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: KAVA_MAINNET
+          short-names: [kava]
+          chain-id: 0x8ae
+          grpcId: 1025
+        - id: Testnet
+          priority: 10
+          code: KAVA_TESTNET
+          short-names: [kava-testnet]
+          chain-id: 0x8ad
+          grpcId: 10033
