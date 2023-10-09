@@ -100,7 +100,7 @@ class IntegrationTest {
                             validateChain = false
                         }
                     connection = UpstreamsConfig.EthereumPosConnection().apply {
-                        execution = UpstreamsConfig.EthereumConnection().apply {
+                        execution = UpstreamsConfig.RpcConnection().apply {
                             rpc = UpstreamsConfig.HttpEndpoint(
                                 URI.create(
                                     "http://" + ganacheContainer.getHost() + ":" + ganacheContainer.getMappedPort(8545) + "/",

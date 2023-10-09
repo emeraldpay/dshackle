@@ -28,6 +28,8 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
+import io.emeraldpay.dshackle.upstream.generic.GenericHead
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -48,7 +50,8 @@ class EthereumWsHead(
     private val wsConnectionResubscribeScheduler: Scheduler,
     private val headScheduler: Scheduler,
     private val upstream: DefaultUpstream,
-) : DefaultEthereumHead(upstream.getId(), forkChoice, blockValidator, headScheduler), Lifecycle {
+    chainSpecific: ChainSpecific,
+) : GenericHead(upstream.getId(), forkChoice, blockValidator, headScheduler, chainSpecific), Lifecycle {
 
     private var connectionId: String? = null
     private var subscribed = false

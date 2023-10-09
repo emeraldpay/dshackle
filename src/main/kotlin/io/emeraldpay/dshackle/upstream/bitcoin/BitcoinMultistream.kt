@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.ChainFees
+import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.EmptyEgressSubscription
 import io.emeraldpay.dshackle.upstream.EmptyHead
@@ -153,7 +154,7 @@ open class BitcoinMultistream(
     }
 
     override fun makeLagObserver(): HeadLagObserver {
-        return BitcoinHeadLagObserver(head, sourceUpstreams, headScheduler)
+        return HeadLagObserver(head, sourceUpstreams, DistanceExtractor::extractPowDistance, headScheduler, 3)
     }
 
     override fun start() {

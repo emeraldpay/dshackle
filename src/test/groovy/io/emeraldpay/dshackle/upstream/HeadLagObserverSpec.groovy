@@ -74,7 +74,8 @@ class HeadLagObserverSpec extends Specification {
         1 * up2.setLag(1)
         1 * up2.setLag(0)
 
-        HeadLagObserver observer = new TestHeadLagObserver(master, [up1, up2])
+        HeadLagObserver observer = new HeadLagObserver(master, [up1, up2], DistanceExtractor.@Companion::extractPowDistance,
+                Schedulers.boundedElastic(), 11, Duration.ofNanos(1))
         when:
         def act = observer.subscription().take(Duration.ofMillis(5000))
 
@@ -88,7 +89,8 @@ class HeadLagObserverSpec extends Specification {
     def "Probes until there is no difference"() {
         setup:
         Head master = Mock()
-        HeadLagObserver observer = new TestHeadLagObserver(master, [])
+        HeadLagObserver observer = new HeadLagObserver(master, [], DistanceExtractor.@Companion::extractPowDistance,
+                Schedulers.boundedElastic(), 11, Duration.ofNanos(1))
         Upstream up = Mock()
 
         def blocks = [100, 101, 102].collect { i ->
@@ -111,18 +113,5 @@ class HeadLagObserverSpec extends Specification {
                 .expectNext(Tuples.of(1L, up))
                 .expectNext(Tuples.of(0L, up))
                 .verifyComplete()
-    }
-
-    class TestHeadLagObserver extends HeadLagObserver {
-
-        TestHeadLagObserver(@NotNull Head master, @NotNull Collection<? extends Upstream> followers) {
-            super(master, followers, DistanceExtractor.@Companion::extractPowDistance,
-                    Schedulers.boundedElastic(), Duration.ofNanos(1))
-        }
-
-        @Override
-        long forkDistance(@NotNull BlockContainer top, @NotNull BlockContainer curr) {
-            return 11
-        }
     }
 }

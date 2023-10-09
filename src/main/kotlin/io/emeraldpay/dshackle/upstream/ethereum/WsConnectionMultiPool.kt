@@ -38,7 +38,7 @@ import kotlin.concurrent.write
  * By default, it adds a new connection every 5 second until it reaches the target number.
  */
 class WsConnectionMultiPool(
-    private val ethereumWsConnectionFactory: EthereumWsConnectionFactory,
+    private val wsConnectionFactory: WsConnectionFactory,
     private val upstream: DefaultUpstream,
     private val connections: Int,
 ) : WsConnectionPool {
@@ -110,7 +110,7 @@ class WsConnectionMultiPool(
                     SCHEDULE_FULL
                 } else {
                     current.add(
-                        ethereumWsConnectionFactory.createWsConnection(connIndex++) {
+                        wsConnectionFactory.createWsConnection(connIndex++) {
                             if (isUnavailable()) {
                                 upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
                             }

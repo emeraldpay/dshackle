@@ -36,10 +36,10 @@ class WsConnectionImplSpec extends Specification {
 
     def "Makes a RPC call"() {
         setup:
-        def wsf = new EthereumWsConnectionPoolFactory(
+        def wsf = new WsConnectionPoolFactory(
                 "test",
                 1,
-                new EthereumWsConnectionFactory(
+                new WsConnectionFactory(
                         "test",
                         Chain.ETHEREUM__MAINNET,
                         new URI("http://localhost"),
@@ -71,10 +71,10 @@ class WsConnectionImplSpec extends Specification {
 
     def "Makes a RPC call - return null"() {
         setup:
-        def wsf = new EthereumWsConnectionPoolFactory(
+        def wsf = new WsConnectionPoolFactory(
                 "test",
                 1,
-                new EthereumWsConnectionFactory(
+                new WsConnectionFactory(
                         "test",
                         Chain.ETHEREUM__MAINNET,
                         new URI("http://localhost"),
@@ -104,10 +104,10 @@ class WsConnectionImplSpec extends Specification {
 
     def "Makes a RPC call - return error"() {
         setup:
-        def wsf = new EthereumWsConnectionPoolFactory(
+        def wsf = new WsConnectionPoolFactory(
                 "test",
                 1,
-                new EthereumWsConnectionFactory(
+                new WsConnectionFactory(
                         "test",
                         Chain.ETHEREUM__MAINNET,
                         new URI("http://localhost"),

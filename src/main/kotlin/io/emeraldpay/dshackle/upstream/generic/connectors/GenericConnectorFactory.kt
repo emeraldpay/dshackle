@@ -1,22 +1,22 @@
-package io.emeraldpay.dshackle.upstream.ethereum.connectors
+package io.emeraldpay.dshackle.upstream.generic.connectors
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.HttpFactory
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.RPC_ONLY
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.WS_ONLY
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.emeraldpay.dshackle.upstream.generic.ChainSpecificRegistry
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_ONLY
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.WS_ONLY
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
-open class EthereumConnectorFactory(
+open class GenericConnectorFactory(
     private val connectorType: ConnectorMode,
-    private val wsFactory: EthereumWsConnectionPoolFactory?,
+    private val wsFactory: WsConnectionPoolFactory?,
     private val httpFactory: HttpFactory?,
     private val forkChoice: ForkChoice,
     private val blockValidator: BlockValidator,
@@ -47,12 +47,12 @@ open class EthereumConnectorFactory(
 
     override fun create(
         upstream: DefaultUpstream,
-        validator: EthereumUpstreamValidator,
         chain: Chain,
         skipEnhance: Boolean,
-    ): EthereumConnector {
+    ): GenericConnector {
+        val specific = ChainSpecificRegistry.resolve(chain)
         if (wsFactory != null && connectorType == WS_ONLY) {
-            return EthereumWsConnector(
+            return GenericWsConnector(
                 wsFactory,
                 upstream,
                 forkChoice,
@@ -61,12 +61,13 @@ open class EthereumConnectorFactory(
                 wsConnectionResubscribeScheduler,
                 headScheduler,
                 expectedBlockTime,
+                specific,
             )
         }
         if (httpFactory == null) {
             throw java.lang.IllegalArgumentException("Can't create rpc connector if no http factory set")
         }
-        return EthereumRpcConnector(
+        return GenericRpcConnector(
             connectorType,
             httpFactory.create(upstream.getId(), chain),
             wsFactory,
@@ -77,6 +78,7 @@ open class EthereumConnectorFactory(
             wsConnectionResubscribeScheduler,
             headScheduler,
             expectedBlockTime,
+            specific,
         )
     }
 
@@ -88,7 +90,7 @@ open class EthereumConnectorFactory(
         ;
 
         companion object {
-            val values = values().map { it.name }.toSet()
+            val values = entries.map { it.name }.toSet()
             fun parse(value: String): ConnectorMode {
                 val upper = value.uppercase()
                 if (!values.contains(upper)) {

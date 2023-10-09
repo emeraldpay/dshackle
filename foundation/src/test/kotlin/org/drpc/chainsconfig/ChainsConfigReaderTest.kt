@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.config.ChainsConfigReader
 import io.emeraldpay.dshackle.foundation.ChainOptionsReader
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.math.BigInteger
 
 internal class ChainsConfigReaderTest {
 
@@ -19,7 +20,7 @@ internal class ChainsConfigReaderTest {
 
         val ethc = config.resolve("ethereum-classic")
         assertEquals(ethc.chainId, "0x3d")
-        assertEquals(ethc.netVersion, 1)
+        assertEquals(ethc.netVersion, BigInteger.valueOf(1))
         assertEquals(ethc.code, "ETC")
         assertEquals(ethc.grpcId, 101)
         assertEquals(ethc.expectedBlockTime.seconds, 12)
@@ -39,6 +40,6 @@ internal class ChainsConfigReaderTest {
         assertEquals(config.laggingLagSize, 4)
         assertEquals(config.code, "FTA")
         assertEquals(config.grpcId, 102)
-        assertEquals(config.netVersion, 251)
+        assertEquals(config.netVersion, BigInteger.valueOf(251))
     }
 }

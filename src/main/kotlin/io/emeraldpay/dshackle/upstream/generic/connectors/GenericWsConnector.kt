@@ -1,24 +1,25 @@
-package io.emeraldpay.dshackle.upstream.ethereum.connectors
+package io.emeraldpay.dshackle.upstream.generic.connectors
 
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
-class EthereumWsConnector(
-    wsFactory: EthereumWsConnectionPoolFactory,
+class GenericWsConnector(
+    wsFactory: WsConnectionPoolFactory,
     upstream: DefaultUpstream,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
@@ -26,7 +27,8 @@ class EthereumWsConnector(
     wsConnectionResubscribeScheduler: Scheduler,
     headScheduler: Scheduler,
     expectedBlockTime: Duration,
-) : EthereumConnector {
+    chainSpecific: ChainSpecific,
+) : GenericConnector {
     private val pool: WsConnectionPool
     private val reader: JsonRpcReader
     private val head: EthereumWsHead
@@ -45,6 +47,7 @@ class EthereumWsConnector(
             wsConnectionResubscribeScheduler,
             headScheduler,
             upstream,
+            chainSpecific,
         )
         liveness = HeadLivenessValidator(head, expectedBlockTime, headScheduler, upstream.getId())
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)

@@ -33,9 +33,9 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_VALID
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.ConnectorFactory
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumLabelsDetector
+import io.emeraldpay.dshackle.upstream.generic.connectors.ConnectorFactory
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -57,7 +57,7 @@ open class EthereumLikeRpcUpstream(
     private val eventPublisher: ApplicationEventPublisher?,
 ) : EthereumLikeUpstream(id, hash, options, role, targets, node, chainConfig), Lifecycle, Upstream, CachesEnabled {
     private val validator: EthereumUpstreamValidator = EthereumUpstreamValidator(chain, this, getOptions(), chainConfig.callLimitContract)
-    protected val connector: EthereumConnector = connectorFactory.create(this, validator, chain, skipEnhance)
+    protected val connector: GenericConnector = connectorFactory.create(this, chain, skipEnhance)
     private val labelsDetector = EthereumLabelsDetector(this.getIngressReader(), chain)
     private var hasLiveSubscriptionHead: AtomicBoolean = AtomicBoolean(false)
 

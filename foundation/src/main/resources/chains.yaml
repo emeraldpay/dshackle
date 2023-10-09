@@ -551,3 +551,30 @@ chain-settings:
           short-names: [kava-testnet]
           chain-id: 0x8ad
           grpcId: 10033
+    - id: starknet
+      label: StarkNet
+      settings:
+        currency: ETH
+        expected-block-time: 20s
+        lags:
+          syncing: 5
+          lagging: 1
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: STARKNET_MAINNET
+          short-names: [starknet]
+          chain-id: 0x534e5f4d41494e
+          grpcId: 1014
+        - id: Testnet
+          priority: 2
+          code: STARKNET_TESTNET
+          short-names: [starknet-testnet]
+          chain-id: 0x534e5f474f45524c49
+          grpcId: 10019
+        - id: Testnet 2
+          priority: 1
+          code: STARKNET_TESTNET2
+          short-names: [starknet-testnet2]
+          chain-id: 0x534e5f474f45524c4932
+          grpcId: 10020

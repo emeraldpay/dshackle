@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.BlockValidator
+import io.emeraldpay.dshackle.upstream.generic.GenericHead
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
@@ -30,9 +31,9 @@ import spock.lang.Specification
 
 import java.time.Instant
 
-class DefaultEthereumHeadSpec extends Specification {
+class GenericHeadSpec extends Specification {
 
-    DefaultEthereumHead head = new DefaultEthereumHead("upstream", new MostWorkForkChoice(), BlockValidator.ALWAYS_VALID, Schedulers.boundedElastic())
+    GenericHead head = new GenericHead("upstream", new MostWorkForkChoice(), BlockValidator.ALWAYS_VALID, Schedulers.boundedElastic(), EthereumChainSpecific.INSTANCE)
     ObjectMapper objectMapper = Global.objectMapper
     BlockHash parent = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915210")
 

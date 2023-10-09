@@ -11,7 +11,7 @@ import io.micrometer.core.instrument.Timer
 import reactor.core.scheduler.Scheduler
 import java.net.URI
 
-open class EthereumWsConnectionFactory(
+open class WsConnectionFactory(
     private val id: String,
     private val chain: Chain,
     private val uri: URI,

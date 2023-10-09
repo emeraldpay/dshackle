@@ -17,7 +17,7 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode
 import java.net.URI
 import java.util.Arrays
 import java.util.Locale
@@ -58,23 +58,11 @@ data class UpstreamsConfig(
 
     open class UpstreamConnection
 
-    open class RpcConnection(
-        open var rpc: HttpEndpoint? = null,
-    ) : UpstreamConnection()
-
-    class GrpcConnection : UpstreamConnection() {
-        var host: String? = null
-        var port: Int = 0
-        var auth: AuthConfig.ClientTlsAuth? = null
-        var tokenAuth: AuthConfig.ClientTokenAuth? = null
-        var upstreamRating: Int = 0
-    }
-
-    data class EthereumConnection(
-        override var rpc: HttpEndpoint? = null,
+    data class RpcConnection(
+        var rpc: HttpEndpoint? = null,
         var ws: WsEndpoint? = null,
         var connectorMode: String? = null,
-    ) : RpcConnection(rpc) {
+    ) : UpstreamConnection() {
 
         fun resolveMode(): ConnectorMode {
             return if (connectorMode == null) {
@@ -91,14 +79,22 @@ data class UpstreamsConfig(
         }
     }
 
+    class GrpcConnection : UpstreamConnection() {
+        var host: String? = null
+        var port: Int = 0
+        var auth: AuthConfig.ClientTlsAuth? = null
+        var tokenAuth: AuthConfig.ClientTokenAuth? = null
+        var upstreamRating: Int = 0
+    }
+
     data class BitcoinConnection(
-        override var rpc: HttpEndpoint? = null,
+        var rpc: HttpEndpoint? = null,
         var esplora: HttpEndpoint? = null,
         var zeroMq: BitcoinZeroMq? = null,
-    ) : RpcConnection()
+    ) : UpstreamConnection()
 
     data class EthereumPosConnection(
-        var execution: EthereumConnection? = null,
+        var execution: RpcConnection? = null,
         var upstreamRating: Int = 0,
     ) : UpstreamConnection()
 

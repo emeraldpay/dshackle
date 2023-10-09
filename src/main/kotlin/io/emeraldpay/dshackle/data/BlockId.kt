@@ -47,7 +47,12 @@ class BlockId(
             } else {
                 id
             }
-            val bytes = Hex.decode(clean)
+            val even = if (clean.length % 2 != 0) {
+                "0$clean"
+            } else {
+                clean
+            }
+            val bytes = Hex.decode(even)
             return BlockId(bytes)
         }
     }

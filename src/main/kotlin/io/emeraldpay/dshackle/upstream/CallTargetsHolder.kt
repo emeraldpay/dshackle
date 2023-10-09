@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
+import io.emeraldpay.dshackle.upstream.calls.DefaultStarknetMethods
 import org.springframework.stereotype.Component
 
 @Component
@@ -20,7 +21,7 @@ class CallTargetsHolder {
             BlockchainType.EVM_POW -> DefaultEthereumMethods(chain)
             BlockchainType.BITCOIN -> DefaultBitcoinMethods()
             BlockchainType.EVM_POS -> DefaultEthereumMethods(chain)
-            else -> throw IllegalStateException("Unsupported chain: $chain")
+            BlockchainType.STARKNET -> DefaultStarknetMethods(chain)
         }
         callTargets[chain] = created
         return created

@@ -86,9 +86,13 @@ class UpstreamsConfigReader(
 
         getList<MappingNode>(input, "upstreams")?.value?.forEach { upNode ->
             val connNode = getMapping(upNode, "connection")
-            if (hasAny(connNode, "ethereum")) {
+            if (hasAny(connNode, "generic")) {
                 readUpstream(config, upNode) {
-                    readEthereumConnection(getMapping(connNode, "ethereum")!!)
+                    readRpcConnection(getMapping(connNode, "generic")!!)
+                }
+            } else if (hasAny(connNode, "ethereum")) {
+                readUpstream(config, upNode) {
+                    readRpcConnection(getMapping(connNode, "ethereum")!!)
                 }
             } else if (hasAny(connNode, "bitcoin")) {
                 readUpstream(config, upNode) {
@@ -175,7 +179,7 @@ class UpstreamsConfigReader(
     private fun readEthereumPosConnection(connConfigNode: MappingNode): UpstreamsConfig.EthereumPosConnection {
         val connection = UpstreamsConfig.EthereumPosConnection()
         getMapping(connConfigNode, "execution")?.let {
-            connection.execution = readEthereumConnection(it)
+            connection.execution = readRpcConnection(it)
         }
         getValueAsInt(connConfigNode, "upstream-rating")?.let {
             connection.upstreamRating = it
@@ -183,8 +187,8 @@ class UpstreamsConfigReader(
         return connection
     }
 
-    private fun readEthereumConnection(connConfigNode: MappingNode): UpstreamsConfig.EthereumConnection {
-        val connection = UpstreamsConfig.EthereumConnection()
+    private fun readRpcConnection(connConfigNode: MappingNode): UpstreamsConfig.RpcConnection {
+        val connection = UpstreamsConfig.RpcConnection()
             .apply { rpc = readRpcConfig(connConfigNode) }
 
         getValueAsString(connConfigNode, "connector-mode")?.let {

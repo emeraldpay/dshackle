@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
@@ -25,14 +25,15 @@ import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
-class EthereumRpcHead(
+class GenericRpcHead(
     private val api: JsonRpcReader,
     forkChoice: ForkChoice,
     upstreamId: String,
     blockValidator: BlockValidator,
     private val headScheduler: Scheduler,
+    private val chainSpecific: ChainSpecific,
     private val interval: Duration = Duration.ofSeconds(10),
-) : DefaultEthereumHead(upstreamId, forkChoice, blockValidator, headScheduler), Lifecycle {
+) : GenericHead(upstreamId, forkChoice, blockValidator, headScheduler, chainSpecific), Lifecycle {
 
     private var refreshSubscription: Disposable? = null
     private var isSyncing = false

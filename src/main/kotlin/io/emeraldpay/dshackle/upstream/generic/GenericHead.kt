@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.ethereum
+package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
@@ -22,24 +22,22 @@ import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 
-open class DefaultEthereumHead(
+open class GenericHead(
     protected val upstreamId: String,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
     private val headScheduler: Scheduler,
+    private val chainSpecific: ChainSpecific,
 ) : Head, AbstractHead(forkChoice, headScheduler, blockValidator, 60_000, upstreamId) {
 
     fun getLatestBlock(api: JsonRpcReader): Mono<BlockContainer> {
-        return api.read(JsonRpcRequest("eth_getBlockByNumber", listOf("latest", false)))
+        return api.read(chainSpecific.latestBlockRequest())
             .subscribeOn(headScheduler)
             .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
-            .map {
-                BlockContainer.fromEthereumJson(it.getResult(), upstreamId)
-            }
+            .map { chainSpecific.parseBlock(it, upstreamId) }
             .onErrorResume { err ->
                 log.error("Failed to fetch latest block: ${err.message} $upstreamId", err)
                 Mono.empty()

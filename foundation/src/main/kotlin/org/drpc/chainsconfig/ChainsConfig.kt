@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.foundation.ChainOptions
+import java.math.BigInteger
 import java.time.Duration
 
 data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<ChainsConfig.ChainConfig> {
@@ -22,7 +23,7 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
         val laggingLagSize: Int,
         val options: ChainOptions.PartialOptions,
         val chainId: String,
-        val netVersion: Long,
+        val netVersion: BigInteger,
         val grpcId: Int,
         val code: String,
         val shortNames: List<String>,
@@ -38,7 +39,7 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
                 1,
                 ChainOptions.PartialOptions(),
                 "0x0",
-                0,
+                BigInteger.ZERO,
                 0,
                 "UNKNOWN",
                 emptyList(),

@@ -1,4 +1,4 @@
-package io.emeraldpay.dshackle.upstream.ethereum.connectors
+package io.emeraldpay.dshackle.upstream.generic.connectors
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
@@ -9,29 +9,30 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcHead
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
+import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.RPC_ONLY
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode.WS_ONLY
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
+import io.emeraldpay.dshackle.upstream.generic.GenericRpcHead
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_ONLY
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.WS_ONLY
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
-class EthereumRpcConnector(
+class GenericRpcConnector(
     connectorType: ConnectorMode,
     private val directReader: JsonRpcReader,
-    wsFactory: EthereumWsConnectionPoolFactory?,
+    wsFactory: WsConnectionPoolFactory?,
     upstream: DefaultUpstream,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
@@ -39,14 +40,15 @@ class EthereumRpcConnector(
     wsConnectionResubscribeScheduler: Scheduler,
     headScheduler: Scheduler,
     expectedBlockTime: Duration,
-) : EthereumConnector, CachesEnabled {
+    chainSpecific: ChainSpecific,
+) : GenericConnector, CachesEnabled {
     private val id = upstream.getId()
     private val pool: WsConnectionPool?
     private val head: Head
     private val liveness: HeadLivenessValidator
 
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumRpcConnector::class.java)
+        private val log = LoggerFactory.getLogger(GenericRpcConnector::class.java)
     }
 
     override fun hasLiveSubscriptionHead(): Flux<Boolean> {
@@ -59,7 +61,7 @@ class EthereumRpcConnector(
         head = when (connectorType) {
             RPC_ONLY -> {
                 log.warn("Setting up connector for $id upstream with RPC-only access, less effective than WS+RPC")
-                EthereumRpcHead(getIngressReader(), forkChoice, id, blockValidator, headScheduler)
+                GenericRpcHead(getIngressReader(), forkChoice, id, blockValidator, headScheduler, chainSpecific)
             }
 
             WS_ONLY -> {
@@ -77,15 +79,17 @@ class EthereumRpcConnector(
                         wsConnectionResubscribeScheduler,
                         headScheduler,
                         upstream,
+                        chainSpecific,
                     )
                 // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
                 val rpcHead =
-                    EthereumRpcHead(
+                    GenericRpcHead(
                         getIngressReader(),
                         AlwaysForkChoice(),
                         id,
                         blockValidator,
                         headScheduler,
+                        chainSpecific,
                         Duration.ofSeconds(30),
                     )
                 MergedHead(listOf(rpcHead, wsHead), forkChoice, headScheduler, "Merged for $id")
@@ -101,6 +105,7 @@ class EthereumRpcConnector(
                     wsConnectionResubscribeScheduler,
                     headScheduler,
                     upstream,
+                    chainSpecific,
                 )
             }
         }

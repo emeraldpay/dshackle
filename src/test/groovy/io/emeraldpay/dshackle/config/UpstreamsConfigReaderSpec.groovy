@@ -45,8 +45,8 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "local"
             chain == "ethereum"
-            connection instanceof UpstreamsConfig.EthereumConnection
-            with((UpstreamsConfig.EthereumConnection)connection) {
+            connection instanceof UpstreamsConfig.RpcConnection
+            with((UpstreamsConfig.RpcConnection)connection) {
                 rpc != null
                 rpc.url == new URI("http://localhost:8545")
                 ws != null
@@ -61,8 +61,8 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(1)) {
             id == "infura"
             chain == "ethereum"
-            connection instanceof UpstreamsConfig.EthereumConnection
-            with((UpstreamsConfig.EthereumConnection)connection) {
+            connection instanceof UpstreamsConfig.RpcConnection
+            with((UpstreamsConfig.RpcConnection)connection) {
                 rpc.url == new URI("https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2")
                 rpc.basicAuth != null
                 with((AuthConfig.ClientBasicAuth) rpc.basicAuth) {
@@ -86,8 +86,8 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "local"
             chain == "ethereum"
-            connection instanceof UpstreamsConfig.EthereumConnection
-            with((UpstreamsConfig.EthereumConnection) connection) {
+            connection instanceof UpstreamsConfig.RpcConnection
+            with((UpstreamsConfig.RpcConnection) connection) {
                 rpc == null
                 ws != null
                 ws.url == new URI("ws://localhost:8546")
@@ -111,8 +111,8 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "local"
             chain == "ethereum"
-            connection instanceof UpstreamsConfig.EthereumConnection
-            with((UpstreamsConfig.EthereumConnection) connection) {
+            connection instanceof UpstreamsConfig.RpcConnection
+            with((UpstreamsConfig.RpcConnection) connection) {
                 rpc == null
                 ws != null
                 ws.url == new URI("ws://localhost:8546")
@@ -278,8 +278,8 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "local"
             chain == "ethereum"
-            connection instanceof UpstreamsConfig.EthereumConnection
-            with((UpstreamsConfig.EthereumConnection)connection) {
+            connection instanceof UpstreamsConfig.RpcConnection
+            with((UpstreamsConfig.RpcConnection)connection) {
                 rpc != null
                 rpc.url == new URI("http://localhost:8545")
                 ws == null
@@ -345,14 +345,14 @@ class UpstreamsConfigReaderSpec extends Specification {
 
     def "Invalidate wrong ids"() {
         expect:
-        !reader.isValid(new UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>(id: id))
+        !reader.isValid(new UpstreamsConfig.Upstream<UpstreamsConfig.RpcConnection>(id: id))
         where:
         id << ["", null, "a", "ab", "!ab", "foo bar", "foo@bar", "123test", "_test", "test/test"]
     }
 
     def "Accept good ids"() {
         expect:
-        reader.isValid(new UpstreamsConfig.Upstream<UpstreamsConfig.EthereumConnection>(id: id))
+        reader.isValid(new UpstreamsConfig.Upstream<UpstreamsConfig.RpcConnection>(id: id))
         where:
         id << ["test", "test_test", "test-test", "test123", "test1test", "foo_bar_12"]
     }
@@ -477,8 +477,8 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "local"
             chain == "ethereum"
-            connection instanceof UpstreamsConfig.EthereumConnection
-            with((UpstreamsConfig.EthereumConnection) connection) {
+            connection instanceof UpstreamsConfig.RpcConnection
+            with((UpstreamsConfig.RpcConnection) connection) {
                 rpc != null
                 rpc.url == new URI("https://localhost:8546")
                 ws != null

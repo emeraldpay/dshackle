@@ -29,7 +29,7 @@ class WsConnectionMultiPoolSpec extends Specification {
             1 * it.connectionInfoFlux() >> Flux.empty()
         }
         def up = Mock(DefaultUpstream)
-        def factory = Mock(EthereumWsConnectionFactory)
+        def factory = Mock(WsConnectionFactory)
         def pool = new WsConnectionMultiPool(factory, up, 3)
         pool.scheduler = Stub(ScheduledExecutorService)
 
@@ -53,7 +53,7 @@ class WsConnectionMultiPoolSpec extends Specification {
             1 * it.connectionInfoFlux() >> Flux.empty()
         }
         def up = Mock(DefaultUpstream)
-        def factory = Mock(EthereumWsConnectionFactory)
+        def factory = Mock(WsConnectionFactory)
         def pool = new WsConnectionMultiPool(factory, up, 3)
         pool.scheduler = Stub(ScheduledExecutorService)
 
@@ -106,7 +106,7 @@ class WsConnectionMultiPoolSpec extends Specification {
             1 * it.connectionInfoFlux() >> Flux.empty()
         }
         def up = Mock(DefaultUpstream)
-        def factory = Mock(EthereumWsConnectionFactory)
+        def factory = Mock(WsConnectionFactory)
         def pool = new WsConnectionMultiPool(factory, up, 3)
         pool.scheduler = Stub(ScheduledExecutorService)
 

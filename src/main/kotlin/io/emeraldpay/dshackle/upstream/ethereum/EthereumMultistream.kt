@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ChainFees
+import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.EmptyHead
@@ -145,9 +146,10 @@ open class EthereumMultistream(
         head.removeHead(upstreamId)
     }
 
-    override fun makeLagObserver(): HeadLagObserver {
-        return EthereumHeadLagObserver(head, upstreams as Collection<Upstream>, headScheduler)
-    }
+    override fun makeLagObserver(): HeadLagObserver =
+        HeadLagObserver(head, upstreams, DistanceExtractor::extractPowDistance, headScheduler, 6).apply {
+            start()
+        }
 
     override fun isRunning(): Boolean {
         return super.isRunning() || reader.isRunning()

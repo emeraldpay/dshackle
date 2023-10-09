@@ -20,10 +20,10 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import reactor.core.publisher.Flux
 
 class WsConnectionSinglePool(
-    ethereumWsConnectionFactory: EthereumWsConnectionFactory,
+    wsConnectionFactory: WsConnectionFactory,
     private val upstream: DefaultUpstream,
 ) : WsConnectionPool {
-    private val connection = ethereumWsConnectionFactory.createWsConnection {
+    private val connection = wsConnectionFactory.createWsConnection {
         upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
     }
 

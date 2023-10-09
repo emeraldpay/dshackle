@@ -18,10 +18,10 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 
-class EthereumWsConnectionPoolFactory(
+class WsConnectionPoolFactory(
     private val id: String,
     private val connections: Int,
-    private val ethereumWsConnectionFactory: EthereumWsConnectionFactory,
+    private val wsConnectionFactory: WsConnectionFactory,
 ) {
 
     fun create(upstream: DefaultUpstream): WsConnectionPool {
@@ -29,9 +29,9 @@ class EthereumWsConnectionPoolFactory(
             "Creating instance for different upstream. ${upstream.getId()} != id"
         }
         return if (connections > 1) {
-            WsConnectionMultiPool(ethereumWsConnectionFactory, upstream, connections)
+            WsConnectionMultiPool(wsConnectionFactory, upstream, connections)
         } else {
-            WsConnectionSinglePool(ethereumWsConnectionFactory, upstream)
+            WsConnectionSinglePool(wsConnectionFactory, upstream)
         }
     }
 }

@@ -4,19 +4,17 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnector
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory
-import io.emeraldpay.dshackle.upstream.ethereum.connectors.EthereumConnectorFactory.ConnectorMode
+import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Flux
 
-class EthereumConnectorMock implements EthereumConnector {
+class GenericConnectorMock implements GenericConnector {
     Reader<JsonRpcRequest, JsonRpcResponse> api
     Head head
     Flux<Boolean> liveness
 
-    EthereumConnectorMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head) {
+    GenericConnectorMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head) {
         this.api = api
         this.head = head
         this.liveness = Flux.just(false)

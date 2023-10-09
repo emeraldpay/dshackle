@@ -8,6 +8,7 @@ import org.yaml.snakeyaml.nodes.MappingNode
 import org.yaml.snakeyaml.nodes.NodeTuple
 import org.yaml.snakeyaml.nodes.ScalarNode
 import org.yaml.snakeyaml.nodes.Tag
+import java.math.BigInteger
 
 class ChainsConfigReader(
     private val chainsOptionsReader: ChainOptionsReader,
@@ -74,7 +75,7 @@ class ChainsConfigReader(
             ?: throw IllegalArgumentException("undefined code for $blockchain")
         val grpcId = getValueAsInt(node, "grpcId")
             ?: throw IllegalArgumentException("undefined code for $blockchain")
-        val netVersion = getValueAsLong(node, "net-version") ?: chainId.drop(2).toLong(radix = 16)
+        val netVersion = getValueAsLong(node, "net-version")?.toBigInteger() ?: BigInteger(chainId.drop(2), 16)
         val shortNames = getListOfString(node, "short-names")
             ?: throw IllegalArgumentException("undefined shortnames for $blockchain")
         return ChainsConfig.ChainConfig(

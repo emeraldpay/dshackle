@@ -35,10 +35,10 @@ class WsConnectionImplRealSpec extends Specification {
         server = new MockWSServer(port)
         server.start()
         Thread.sleep(SLEEP)
-        conn = new EthereumWsConnectionPoolFactory(
+        conn = new WsConnectionPoolFactory(
                 "test",
                 1,
-                new EthereumWsConnectionFactory(
+                new WsConnectionFactory(
                         "test",
                         Chain.ETHEREUM__MAINNET,
                         "ws://localhost:${port}".toURI(),
@@ -115,10 +115,10 @@ class WsConnectionImplRealSpec extends Specification {
         def up = Mock(DefaultUpstream) {
             _ * getId() >> "test"
         }
-        conn = new EthereumWsConnectionPoolFactory(
+        conn = new WsConnectionPoolFactory(
                 "test",
                 1,
-                new EthereumWsConnectionFactory(
+                new WsConnectionFactory(
                         "test",
                         Chain.ETHEREUM__MAINNET,
                         "ws://localhost:${port}".toURI(),
