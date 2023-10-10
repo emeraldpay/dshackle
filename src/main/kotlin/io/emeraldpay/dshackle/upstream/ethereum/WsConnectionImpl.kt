@@ -187,6 +187,9 @@ open class WsConnectionImpl(
 
     private fun connectInternal() {
         log.info("Connecting to WebSocket: $uri")
+        require(uri.isAbsolute) {
+            "Invalid WebSocket URI: $uri"
+        }
         connection?.dispose()
         connection = HttpClient
             // It maybe not necessary but it seems it sometimes tries to reuse the same connection which was broken before
