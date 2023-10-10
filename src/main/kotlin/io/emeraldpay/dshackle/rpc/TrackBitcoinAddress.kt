@@ -78,7 +78,7 @@ class TrackBitcoinAddress(
         multistreamHolder.observeChains().subscribe { chain ->
             multistreamHolder.getUpstream(chain)?.let { mup ->
                 val available = mup.getAll().any { up ->
-                    !up.isGrpc() && up.getCapabilities().contains(Capability.BALANCE)
+                    up.getCapabilities().contains(Capability.BALANCE)
                 }
                 setBalanceAvailability(chain, available)
             }
