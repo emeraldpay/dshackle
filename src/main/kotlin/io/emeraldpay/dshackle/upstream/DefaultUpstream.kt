@@ -86,6 +86,12 @@ abstract class DefaultUpstream(
             throw IllegalArgumentException("Invalid upstream id: $id")
         }
 
+        if (options.disableValidation) {
+            // if we specifically told that this upstream should be _always valid_ start with this state,
+            // but note it could be updated later (ex. provided by gRPC upstream)
+            this.setStatus(UpstreamAvailability.OK)
+        }
+
         forkWatch.register(this)
             .subscribeOn(Schedulers.boundedElastic())
             .subscribe {
