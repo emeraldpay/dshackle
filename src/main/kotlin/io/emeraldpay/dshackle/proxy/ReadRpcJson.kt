@@ -70,7 +70,9 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
                     id?.let { JsonRpcResponse.Id.from(it) }
                 )
             }
-            if (json.containsKey("params") && json["params"] !is List<*>) {
+            // `params` MAY be omitted or set as `null`. It could be an object also, but we don't support it.
+            // See https://www.jsonrpc.org/specification#parameter_structures
+            if (json.containsKey("params") && (json["params"] !is List<*> && json["params"] != null)) {
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Params must be an array",
