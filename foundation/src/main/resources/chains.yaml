@@ -578,3 +578,17 @@ chain-settings:
           short-names: [starknet-testnet2]
           chain-id: 0x534e5f474f45524c4932
           grpcId: 10020
+    - id: immutable-zkevm
+      label: Immutable zkEVM
+      settings:
+        expected-block-time: 2s
+        lags:
+          syncing: 5
+          lagging: 1
+      chains:
+        - id: Testnet
+          priority: 1
+          code: IMMUTABLE_ZKEVM_TESTNET
+          short-names: [immutable-zkevm-testnet]
+          chain-id: 0x34a0
+          grpcId: 10034
