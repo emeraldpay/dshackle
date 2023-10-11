@@ -16,7 +16,7 @@ jib: build-foundation
 jib-docker: build-foundation
 	./gradlew jibDockerBuild -Pdocker=drpcorg
 
-disZip: build-foundation
+distZip: build-foundation
 	./gradlew disZip
 
 clean:
