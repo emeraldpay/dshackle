@@ -130,7 +130,8 @@ class JsonRpcHttpClient(
         return Function { resp ->
             resp.flatMap {
                 if (it.hasError()) {
-                    Mono.error(JsonRpcException(it.id, it.error!!))
+                    val statusCode = if (it.httpCode == 200) null else it.httpCode
+                    Mono.error(JsonRpcException(it.id, it.error!!, statusCode))
                 } else {
                     Mono.just(it)
                 }
@@ -166,7 +167,7 @@ class JsonRpcHttpClient(
                 val parsed = parser.parse(it.t2)
                 val statusCode = it.t1
                 if (statusCode != 200) {
-                    if (parsed.hasError() && parsed.error!!.code != RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE) {
+                    val result = if (parsed.hasError() && parsed.error!!.code != RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE) {
                         // extracted the error details from the HTTP Body
                         parsed
                     } else {
@@ -178,6 +179,7 @@ class JsonRpcHttpClient(
                             JsonRpcResponse.NumberId(key.id)
                         )
                     }
+                    result.copyWithHttpCode(statusCode)
                 } else {
                     parsed
                 }

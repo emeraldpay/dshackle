@@ -33,4 +33,9 @@ interface ApiSource : Publisher<Upstream> {
      * Must be called before actual use, it spins off control flow of the API Source
      */
     fun request(tries: Int)
+
+    /**
+     * Exclude upstream from the current list of upstreams
+     */
+    fun exclude(upstream: Upstream)
 }

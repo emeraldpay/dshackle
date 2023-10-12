@@ -26,6 +26,7 @@ class JsonRpcResponse(
     val error: JsonRpcError?,
     val id: Id,
 
+    val httpCode: Int? = null,
     /**
      * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
      */
@@ -116,11 +117,15 @@ class JsonRpcResponse(
     }
 
     fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, providedSignature)
+        return JsonRpcResponse(result, error, id, httpCode, providedSignature)
     }
 
     fun copyWithSignature(signature: ResponseSigner.Signature): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, signature)
+        return JsonRpcResponse(result, error, id, httpCode, signature)
+    }
+
+    fun copyWithHttpCode(httpCode: Int): JsonRpcResponse {
+        return JsonRpcResponse(result, error, id, httpCode, providedSignature)
     }
 
     override fun equals(other: Any?): Boolean {

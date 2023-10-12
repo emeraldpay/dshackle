@@ -1,7 +1,9 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.shouldBe
@@ -15,6 +17,24 @@ class AlwaysQuorumTest : ShouldSpec({
         val upstream = mockk<Upstream>()
 
         quorum.record(JsonRpcException(1, "test"), null, upstream)
+
+        quorum.isFailed() shouldBe true
+        quorum.isResolved() shouldBe false
+        quorum.getError() shouldNotBe null
+        quorum.getError()?.message shouldBe "test"
+    }
+
+    should("Don't fail immediately if conn error received") {
+        val quorum = AlwaysQuorum()
+        val upstream = mockk<Upstream>()
+
+        quorum.record(JsonRpcException(JsonRpcResponse.NumberId(1), JsonRpcError(-32000, "test"), 429), null, upstream)
+
+        quorum.isFailed() shouldBe false
+        quorum.isResolved() shouldBe false
+        quorum.getError() shouldBe null
+
+        quorum.close()
 
         quorum.isFailed() shouldBe true
         quorum.isResolved() shouldBe false

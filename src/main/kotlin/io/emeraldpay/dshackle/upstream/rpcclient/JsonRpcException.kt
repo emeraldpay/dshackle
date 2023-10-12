@@ -19,7 +19,8 @@ import io.emeraldpay.etherjar.rpc.RpcException
 
 class JsonRpcException(
     val id: JsonRpcResponse.Id,
-    val error: JsonRpcError
+    val error: JsonRpcError,
+    val statusCode: Int? = null
 ) : Exception(error.message) {
 
     constructor(id: Int, message: String) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message))

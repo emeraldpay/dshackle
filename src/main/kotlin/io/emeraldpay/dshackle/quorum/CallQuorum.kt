@@ -24,6 +24,36 @@ import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 interface CallQuorum {
 
+    companion object {
+        fun isConnectionUnavailable(error: JsonRpcException): Boolean {
+            //
+            // The problem is that some servers respond with 4xx/5xx in normal cases telling that the input data
+            // cannot be processed (ex. transaction is known already), in addition to the error message in the JSON RPC body.
+            // Such kind of error must be provided to the user, it's _the response_.
+            //
+            // Others, like Infura, may answer with 429. And it's not the final answer. So we don't record this error.
+            //
+            // Here is a workaround to catch commons HTTP errors, like `429 Too Many Requests` which mean a connection error
+            // that may be ignored if there is another upstream that provides a valid response.
+            //
+            // 401 - Unauthorized
+            // 429 - Too Many Requests
+            // 502 - Bad Gateway
+            // 503 - Service Unavailable
+            // 504 - Gateway Timeout
+            //
+            // See https://github.com/emeraldpay/dshackle/issues/251 also
+            //
+            return error.statusCode != null && (error.statusCode == 429 || error.statusCode == 401 || error.statusCode in 502..504)
+        }
+    }
+
+    /**
+     * Called when the reader is done with processing, which may happen because of exhaustion of available upstreams.
+     * That is the last moment when Quorum may decide if it's resolved or failed.
+     */
+    fun close() {}
+
     fun init(head: Head)
     fun setTotalUpstreams(total: Int)
 
