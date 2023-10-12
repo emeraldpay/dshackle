@@ -465,6 +465,12 @@ chain-settings:
           grpcId: 10025
           short-names: [scroll-sepolia]
           chain-id: 0x8274f
+        - id: Mainnet
+          priority: 100
+          code: SCROLL_MAINNET
+          grpcId: 1016
+          short-names: [ scroll ]
+          chain-id: 0x82750
     - id: cronos
       label: Cronos
       settings:
