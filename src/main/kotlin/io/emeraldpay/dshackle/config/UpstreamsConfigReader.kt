@@ -48,6 +48,7 @@ class UpstreamsConfigReader(
     }
     private fun readInternal(input: MappingNode?): UpstreamsConfig {
         val config = UpstreamsConfig()
+        knownNodeIds.clear()
 
         getList<MappingNode>(input, "defaults")?.value?.forEach { opts ->
             val defaultOptions = ChainOptions.DefaultOptions()
