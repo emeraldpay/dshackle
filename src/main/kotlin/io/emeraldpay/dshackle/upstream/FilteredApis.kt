@@ -89,6 +89,8 @@ class FilteredApis(
     private val secondaryUpstreams: List<Upstream>
     private val standardWithFallback: List<Upstream>
 
+    private val excluded = mutableSetOf<Upstream>()
+
     private var started = false
     private val control = Sinks.many().unicast().onBackpressureBuffer<Boolean>()
 
@@ -181,7 +183,7 @@ class FilteredApis(
                 .doFinally { metrics[chain]?.tried?.record(count.toDouble()) }
         }
 
-        result.filter { up -> up.isAvailable() && matcher.matches(up) }
+        result.filter { up -> !excluded.contains(up) && up.isAvailable() && matcher.matches(up) }
             .zipWith(control.asFlux())
             .map { it.t1 }
             .doOnSubscribe {
@@ -203,6 +205,10 @@ class FilteredApis(
         repeat(tries) {
             control.tryEmitNext(true)
         }
+    }
+
+    override fun exclude(upstream: Upstream) {
+        excluded.add(upstream)
     }
 
     override fun toString(): String {

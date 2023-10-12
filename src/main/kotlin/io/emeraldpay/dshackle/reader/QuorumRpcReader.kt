@@ -73,6 +73,7 @@ class QuorumRpcReader(
         val defaultResult: Mono<Result> = setupDefaultResult(key)
 
         return Flux.from(apiControl)
+            .doOnComplete(quorum::close)
             .transform(execute(key, retrySpec))
             .next()
             // if last call resulted in error it's still possible that request was resolved correctly. ex. for BroadcastQuorum
@@ -155,32 +156,40 @@ class QuorumRpcReader(
 
     fun <T> withErrorResume(api: Upstream, key: JsonRpcRequest): Function<Mono<T>, Mono<T>> {
         return Function { src ->
-            src.onErrorResume { err ->
-                // when the call failed with an error we want to notify the quorum because
-                // it may use the error message or other details
-                //
-                val cleanErr: JsonRpcException = when (err) {
-                    is RpcException -> JsonRpcException.from(err)
-                    is JsonRpcException -> err
-                    else -> {
-                        // if that happened something is really wrong, all errors must be caught and be provided as RpcException
-                        log.error("Internal error propagate to the caller", err)
-                        JsonRpcException(
-                            JsonRpcResponse.NumberId(key.id),
-                            JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass} ${err.message}")
-                        )
-                    }
-                }
-                quorum.record(cleanErr, null, api)
-                // if it's failed after that, then we don't need more calls, stop api source
-                if (quorum.isFailed()) {
-                    apiControl.resolve()
-                } else {
-                    apiControl.request(1)
-                }
-                Mono.empty()
+            src.onErrorResume { err -> handleError<T>(err, key, api) }
+        }
+    }
+
+    fun <T> handleError(err: Throwable, key: JsonRpcRequest, api: Upstream): Mono<T> {
+        // when the call failed with an error we want to notify the quorum because
+        // it may use the error message or other details
+        val cleanErr: JsonRpcException = when (err) {
+            is RpcException -> JsonRpcException.from(err)
+            is JsonRpcException -> err
+            else -> {
+                // if that happened something is really wrong, all errors must be caught and be provided as RpcException
+                log.error("Internal error propagate to the caller", err)
+                JsonRpcException(
+                    JsonRpcResponse.NumberId(key.id),
+                    JsonRpcError(-32603, "Unhandled internal error: ${err.javaClass} ${err.message}")
+                )
             }
         }
+        if (CallQuorum.isConnectionUnavailable(cleanErr)) {
+            // If the upstream is temporary unavailable we should try to go with other upstreams when they are available
+            // Note that the error may not be fully recorded in this case, because of the special handler in AlwaysQuorum
+            // that ignores this kind of error
+            apiControl.exclude(api)
+        }
+        quorum.record(cleanErr, null, api)
+
+        // if it's failed after that, then we don't need more calls, stop api source
+        if (quorum.isFailed()) {
+            apiControl.resolve()
+        } else {
+            apiControl.request(1)
+        }
+        return Mono.empty()
     }
 
     fun setupDefaultResult(key: JsonRpcRequest): Mono<Result> {

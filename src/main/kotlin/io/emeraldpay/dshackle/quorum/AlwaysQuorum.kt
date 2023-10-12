@@ -27,6 +27,7 @@ open class AlwaysQuorum : CallQuorum {
     private var resolved = false
     private var result: ByteArray? = null
     private var rpcError: JsonRpcError? = null
+    private var tempRpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
 
     override fun init(head: Head) {
@@ -55,6 +56,11 @@ open class AlwaysQuorum : CallQuorum {
     }
 
     override fun record(error: JsonRpcException, signature: ResponseSigner.Signature?, upstream: Upstream) {
+        if (CallQuorum.isConnectionUnavailable(error)) {
+            // keep the connection error but don't use it until all upstreams are exhausted
+            tempRpcError = error.error
+            return
+        }
         this.rpcError = error.error
         sig = signature
     }
@@ -65,6 +71,12 @@ open class AlwaysQuorum : CallQuorum {
 
     override fun getError(): JsonRpcError? {
         return rpcError
+    }
+
+    override fun close() {
+        if (result == null && tempRpcError != null && rpcError == null) {
+            rpcError = tempRpcError
+        }
     }
 
     override fun toString(): String {
