@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
+import io.emeraldpay.dshackle.upstream.rpcclient.WithHttpStatus
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -54,6 +55,9 @@ class EthereumWsUpstream(
         val wsSubscriptions = WsSubscriptionsImpl(pool)
         head = EthereumWsHead(chain, getIngressReader(), wsSubscriptions)
         subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
+        if (directReader is WithHttpStatus) {
+            directReader.onHttpError = this.watchHttpCodes
+        }
     }
 
     override fun getHead(): Head {

@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 import io.emeraldpay.dshackle.reader.StandardRpcReader
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
+import java.util.function.Consumer
 
 /**
  * An aggregating JSON RPC Client that wraps two actual readers, a Primary and a Secondary.
@@ -11,10 +12,25 @@ import reactor.core.publisher.Mono
 class JsonRpcSwitchClient(
     private val primary: StandardRpcReader,
     private val secondary: StandardRpcReader,
-) : StandardRpcReader {
+) : StandardRpcReader, WithHttpStatus {
 
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcSwitchClient::class.java)
+    }
+
+    override var onHttpError: Consumer<Int>? = null
+
+    init {
+        if (primary is WithHttpStatus) {
+            primary.onHttpError = Consumer { code ->
+                onHttpError?.accept(code)
+            }
+        }
+        if (secondary is WithHttpStatus) {
+            secondary.onHttpError = Consumer { code ->
+                onHttpError?.accept(code)
+            }
+        }
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {

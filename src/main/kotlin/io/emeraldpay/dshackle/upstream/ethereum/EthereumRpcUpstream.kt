@@ -13,6 +13,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
+import io.emeraldpay.dshackle.upstream.rpcclient.WithHttpStatus
 import org.slf4j.LoggerFactory
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
@@ -50,6 +51,12 @@ open class EthereumRpcUpstream(
 
     private val head: Head = this.createHead()
     private var validatorSubscription: Disposable? = null
+
+    init {
+        if (directReader is WithHttpStatus) {
+            directReader.onHttpError = this.watchHttpCodes
+        }
+    }
 
     override fun setCaches(caches: Caches) {
         if (head is CachesEnabled) {

@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.api.Chain
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import org.springframework.context.Lifecycle
@@ -26,8 +27,11 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Schedulers
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import java.util.function.Consumer
 
 abstract class DefaultUpstream(
     private val id: String,
@@ -100,6 +104,25 @@ abstract class DefaultUpstream(
             }
     }
 
+    //
+    // Can be used to temporarily disable the upstream until the specified time.
+    // For example if it produces an error indicating there is too many requests.
+    private val temporaryDisable = AtomicReference<Instant?>(null)
+
+    val watchHttpCodes = Consumer<Int> { code ->
+        if (CallQuorum.isConnectionUnavailable(code)) {
+            val pause = Instant.now() + Duration.ofMinutes(1)
+            temporaryDisable.updateAndGet { prev ->
+                if (prev == null || prev < pause) {
+                    pause
+                } else {
+                    prev
+                }
+            }
+            statusStream.tryEmitNext(UpstreamAvailability.UNAVAILABLE)
+        }
+    }
+
     override fun isAvailable(): Boolean {
         return getStatus() == UpstreamAvailability.OK
     }
@@ -113,6 +136,9 @@ abstract class DefaultUpstream(
     }
 
     override fun getStatus(): UpstreamAvailability {
+        if (temporaryDisable.get()?.isAfter(Instant.now()) == true) {
+            return UpstreamAvailability.UNAVAILABLE
+        }
         if (forked.get()) {
             return UpstreamAvailability.IMMATURE
         }

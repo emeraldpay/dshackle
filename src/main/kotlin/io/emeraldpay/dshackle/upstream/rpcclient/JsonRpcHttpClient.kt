@@ -47,7 +47,7 @@ class JsonRpcHttpClient(
     private val metrics: RpcMetrics,
     basicAuth: AuthConfig.ClientBasicAuth? = null,
     tlsCAAuth: ByteArray? = null
-) : StandardRpcReader {
+) : StandardRpcReader, WithHttpStatus {
 
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcHttpClient::class.java)
@@ -55,6 +55,8 @@ class JsonRpcHttpClient(
 
     private val parser = ResponseRpcParser()
     private val httpClient: HttpClient
+
+    override var onHttpError: Consumer<Int>? = null
 
     init {
         var build = HttpClient.create()
@@ -131,6 +133,10 @@ class JsonRpcHttpClient(
             resp.flatMap {
                 if (it.hasError()) {
                     val statusCode = if (it.httpCode == 200) null else it.httpCode
+                    if (statusCode != null) {
+                        println("Error code $statusCode")
+                        onHttpError?.accept(statusCode)
+                    }
                     Mono.error(JsonRpcException(it.id, it.error!!, statusCode))
                 } else {
                     Mono.just(it)
