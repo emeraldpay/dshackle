@@ -25,7 +25,8 @@ import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 interface CallQuorum {
 
     companion object {
-        fun isConnectionUnavailable(error: JsonRpcException): Boolean {
+
+        fun isConnectionUnavailable(statusCode: Int): Boolean {
             //
             // The problem is that some servers respond with 4xx/5xx in normal cases telling that the input data
             // cannot be processed (ex. transaction is known already), in addition to the error message in the JSON RPC body.
@@ -44,7 +45,11 @@ interface CallQuorum {
             //
             // See https://github.com/emeraldpay/dshackle/issues/251 also
             //
-            return error.statusCode != null && (error.statusCode == 429 || error.statusCode == 401 || error.statusCode in 502..504)
+            return statusCode == 429 || statusCode == 401 || statusCode in 502..504
+        }
+
+        fun isConnectionUnavailable(error: JsonRpcException): Boolean {
+            return error.statusCode != null && isConnectionUnavailable(error.statusCode)
         }
     }
 
