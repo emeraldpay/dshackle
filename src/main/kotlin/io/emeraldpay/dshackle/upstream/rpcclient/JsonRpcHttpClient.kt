@@ -134,7 +134,6 @@ class JsonRpcHttpClient(
                 if (it.hasError()) {
                     val statusCode = if (it.httpCode == 200) null else it.httpCode
                     if (statusCode != null) {
-                        println("Error code $statusCode")
                         onHttpError?.accept(statusCode)
                     }
                     Mono.error(JsonRpcException(it.id, it.error!!, statusCode))
