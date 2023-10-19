@@ -13,7 +13,6 @@ chain-settings:
       settings:
         currency: BTC
         expected-block-time: 10m
-        disabled: true
         lags:
           syncing: 3
           lagging: 1
@@ -625,3 +624,18 @@ chain-settings:
           short-names: [immutable-zkevm-testnet]
           chain-id: 0x34a0
           grpcId: 10034
+    - id: astar
+      label: Astar zkEVM
+      type: eth
+      settings:
+        expected-block-time: 2s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: zKatana
+          priority: 1
+          code: ASTAR_ZKATANA
+          short-names: [ astar-zkatana ]
+          chain-id: 0x133e40
+          grpcId: 10035
