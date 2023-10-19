@@ -9,6 +9,7 @@ chain-settings:
   protocols:
     - id: bitcoin
       label: Bitcoin
+      type: bitcoin
       settings:
         currency: BTC
         expected-block-time: 10m
@@ -31,6 +32,7 @@ chain-settings:
           grpcId: 10003
     - id: ethereum
       label: Ethereum
+      type: eth
       settings:
         expected-block-time: 12s
         lags:
@@ -64,6 +66,7 @@ chain-settings:
           chain-id: 0x4268
           short-names: [holesky, ethereum-holesky]
     - id: ethereum-classic
+      type: eth
       settings:
         disabled: true
       chains:
@@ -75,6 +78,7 @@ chain-settings:
           grpcId: 101
     - id: fantom
       label: Fantom
+      type: eth
       settings:
         expected-block-time: 3s
         options:
@@ -97,6 +101,7 @@ chain-settings:
           chain-id: 0xfa2
     - id: polygon
       label: Polygon
+      type: eth
       settings:
         expected-block-time: 2.7s
         lags:
@@ -119,6 +124,7 @@ chain-settings:
           short-names: [polygon-mumbai]
     - id: arbitrum
       label: Arbitrum One
+      type: eth
       settings:
         expected-block-time: 260ms
         options:
@@ -143,6 +149,7 @@ chain-settings:
             expected-block-time: 1s
     - id: optimism
       label: Optimism
+      type: eth
       settings:
         expected-block-time: 2s
         options:
@@ -165,6 +172,7 @@ chain-settings:
           chain-id: 0x1A4
     - id: bsc
       label: BNB Smart Chain
+      type: eth
       settings:
         expected-block-time: 3s
         lags:
@@ -185,6 +193,7 @@ chain-settings:
           chain-id: 0x61
     - id: polygon-zkevm
       label: Polygon zkEVM
+      type: eth
       settings:
         expected-block-time: 2.7s
         options:
@@ -209,6 +218,7 @@ chain-settings:
             expected-block-time: 1m
     - id: arbitrum-nova
       label: Arbitrum Nova
+      type: eth
       settings:
         expected-block-time: 1s
         options:
@@ -224,6 +234,7 @@ chain-settings:
           chain-id: 0xa4ba
     - id: zksync
       label: zkSync Era
+      type: eth
       settings:
         expected-block-time: 5s
         options:
@@ -246,6 +257,7 @@ chain-settings:
           short-names: [zksync-testnet]
     - id: base
       label: Base
+      type: eth
       settings:
         expected-block-time: 2s
         options:
@@ -268,6 +280,7 @@ chain-settings:
           chain-id: 0x14a33
     - id: linea
       label: Linea
+      type: eth
       settings:
         expected-block-time: 12s
         lags:
@@ -288,6 +301,7 @@ chain-settings:
           chain-id: 0xe704
     - id: gnosis
       label: Gnosis
+      type: eth
       settings:
         expected-block-time: 6s
         options:
@@ -310,6 +324,7 @@ chain-settings:
           chain-id: 0x27d8
     - id: avalanche
       label: Avalanche
+      type: eth
       settings:
         expected-block-time: 2s
         options:
@@ -333,6 +348,7 @@ chain-settings:
           chain-id: 0xa869
     - id: aurora
       label: Aurora
+      type: eth
       settings:
         expected-block-time: 1s
         options:
@@ -355,6 +371,7 @@ chain-settings:
           chain-id: 0x4e454153
     - id: mantle
       label: Mantle
+      type: eth
       settings:
         expected-block-time: 500ms
         options:
@@ -377,6 +394,7 @@ chain-settings:
           chain-id: 0x1389
     - id: klaytn
       label: Klaytn
+      type: eth
       settings:
         expected-block-time: 1s
         options:
@@ -399,6 +417,7 @@ chain-settings:
           chain-id: 0x3e9
     - id: celo
       label: Celo
+      type: eth
       settings:
         expected-block-time: 5s
         lags:
@@ -419,6 +438,7 @@ chain-settings:
           chain-id: 0xaef3
     - id: moonbeam
       label: Moonbeam
+      type: eth
       settings:
         expected-block-time: 12s
         lags:
@@ -445,6 +465,7 @@ chain-settings:
           chain-id: 0x507
     - id: scroll
       label: Scroll
+      type: eth
       settings:
         expected-block-time: 3s
         options:
@@ -473,6 +494,7 @@ chain-settings:
           chain-id: 0x82750
     - id: cronos
       label: Cronos
+      type: eth
       settings:
         expected-block-time: 5s
         options:
@@ -495,6 +517,7 @@ chain-settings:
           grpcId: 10030
     - id: metis
       label: Metis
+      type: eth
       settings:
         options:
           validate-peers: false
@@ -517,6 +540,7 @@ chain-settings:
           grpcId: 10031
     - id: opbnb
       label: opBNB
+      type: eth
       settings:
         expected-block-time: 1s
         lags:
@@ -537,6 +561,7 @@ chain-settings:
           grpcId: 10032
     - id: kava
       label: Kava
+      type: eth
       settings:
         expected-block-time: 6s
         options:
@@ -559,6 +584,7 @@ chain-settings:
           grpcId: 10033
     - id: starknet
       label: StarkNet
+      type: starknet
       settings:
         currency: ETH
         expected-block-time: 20s
@@ -586,6 +612,7 @@ chain-settings:
           grpcId: 10020
     - id: immutable-zkevm
       label: Immutable zkEVM
+      type: eth
       settings:
         expected-block-time: 2s
         lags:
