@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
-import io.emeraldpay.dshackle.upstream.ChainFees
+import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
 import io.emeraldpay.dshackle.upstream.EgressSubscription
@@ -29,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.Selector.Matcher
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import reactor.core.publisher.Mono
@@ -82,8 +83,20 @@ open class GenericMultistream(
             start()
         }
 
+    override fun getCachingReader(): CachingReader? {
+        return null
+    }
+
+    override fun getHead(mather: Matcher): Head {
+        return getHead()
+    }
+
     override fun getHead(): Head {
         return head
+    }
+
+    override fun getEnrichedHead(mather: Matcher): Head {
+        return getHead()
     }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
@@ -104,9 +117,5 @@ open class GenericMultistream(
 
     override fun getEgressSubscription(): EgressSubscription {
         return EmptyEgressSubscription()
-    }
-
-    override fun getFeeEstimation(): ChainFees {
-        throw NotImplementedError()
     }
 }

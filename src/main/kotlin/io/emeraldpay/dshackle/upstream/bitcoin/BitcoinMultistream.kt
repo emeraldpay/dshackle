@@ -19,7 +19,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.JsonRpcReader
-import io.emeraldpay.dshackle.upstream.ChainFees
+import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.EmptyEgressSubscription
@@ -30,6 +30,7 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Selector.Matcher
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
@@ -49,7 +50,6 @@ open class BitcoinMultistream(
     private var reader = BitcoinReader(this, head, esplora)
     private var addressActiveCheck: AddressActiveCheck? = null
     private var xpubAddresses: XpubAddresses? = null
-    private val feeEstimation = BitcoinFees(this, reader, 6)
     private var callRouter: LocalCallRouter = LocalCallRouter(DefaultBitcoinMethods(), reader)
 
     override fun init() {
@@ -63,10 +63,6 @@ open class BitcoinMultistream(
         get() {
             return sourceUpstreams
         }
-
-    override fun getFeeEstimation(): ChainFees {
-        return feeEstimation
-    }
 
     open fun getXpubAddresses(): XpubAddresses? {
         return xpubAddresses
@@ -133,6 +129,10 @@ open class BitcoinMultistream(
         return head
     }
 
+    override fun getEnrichedHead(mather: Matcher): Head {
+        TODO("Not yet implemented")
+    }
+
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return sourceUpstreams.flatMap { it.getLabels() }
     }
@@ -155,6 +155,14 @@ open class BitcoinMultistream(
 
     override fun makeLagObserver(): HeadLagObserver {
         return HeadLagObserver(head, sourceUpstreams, DistanceExtractor::extractPowDistance, headScheduler, 3)
+    }
+
+    override fun getCachingReader(): CachingReader? {
+        return null
+    }
+
+    override fun getHead(mather: Matcher): Head {
+        return getHead()
     }
 
     override fun start() {

@@ -22,7 +22,6 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.ChainValue
-import io.emeraldpay.dshackle.SilentException
 import io.emeraldpay.dshackle.config.spans.ProviderSpanHandler
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
@@ -36,7 +35,6 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
-import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -46,11 +44,8 @@ class BlockchainRpc(
     private val nativeCallStream: NativeCallStream,
     private val nativeSubscribe: NativeSubscribe,
     private val streamHead: StreamHead,
-    private val trackTx: List<TrackTx>,
-    private val trackAddress: List<TrackAddress>,
     private val describe: Describe,
     private val subscribeStatus: SubscribeStatus,
-    private val estimateFee: EstimateFee,
     private val subscribeNodeStatus: SubscribeNodeStatus,
     @Qualifier("rpcScheduler")
     private val scheduler: Scheduler,
@@ -127,97 +122,6 @@ class BlockchainRpc(
             request
                 .doOnNext { chainMetrics.get(it.type).subscribeHeadMetric.increment() },
         ).doOnError { failMetric.increment() }
-    }
-
-    override fun subscribeTxStatus(requestMono: Mono<BlockchainOuterClass.TxStatusRequest>): Flux<BlockchainOuterClass.TxStatus> {
-        return requestMono.subscribeOn(scheduler).flatMapMany { request ->
-            val chain = Chain.byId(request.chainValue)
-            val metrics = chainMetrics.get(chain)
-            metrics.subscribeTxMetric.increment()
-            try {
-                trackTx.find { it.isSupported(chain) }?.let { track ->
-                    track.subscribe(request)
-                        .doOnNext { metrics.subscribeHeadRespMetric.increment() }
-                        .doOnError { failMetric.increment() }
-                } ?: Flux.error(SilentException.UnsupportedBlockchain(chain))
-            } catch (t: Throwable) {
-                log.error("Internal error during Tx Subscription", t)
-                failMetric.increment()
-                Flux.error(IllegalStateException("Internal Error"))
-            }
-        }
-    }
-
-    override fun subscribeBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return requestMono.subscribeOn(scheduler).flatMapMany { request ->
-            val chain = Chain.byId(request.asset.chainValue)
-            val metrics = chainMetrics.get(chain)
-            metrics.subscribeBalanceMetric.increment()
-            val asset = request.asset.code.lowercase(Locale.getDefault())
-            try {
-                trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
-                    track.subscribe(request)
-                        .doOnNext { metrics.subscribeBalanceRespMetric.increment() }
-                        .doOnError { failMetric.increment() }
-                } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
-                    .doOnSubscribe {
-                        log.error("Balance for $chain:$asset is not supported")
-                    }
-            } catch (t: Throwable) {
-                log.error("Internal error during Balance Subscription", t)
-                failMetric.increment()
-                Flux.error(IllegalStateException("Internal Error"))
-            }
-        }
-    }
-
-    override fun getBalance(requestMono: Mono<BlockchainOuterClass.BalanceRequest>): Flux<BlockchainOuterClass.AddressBalance> {
-        return requestMono.subscribeOn(scheduler).flatMapMany { request ->
-            val chain = Chain.byId(request.asset.chainValue)
-            val metrics = chainMetrics.get(chain)
-            metrics.getBalanceMetric.increment()
-            val asset = request.asset.code.lowercase(Locale.getDefault())
-            val startTime = System.currentTimeMillis()
-            try {
-                trackAddress.find { it.isSupported(chain, asset) }?.let { track ->
-                    track.getBalance(request)
-                        .doOnNext {
-                            metrics.getBalanceRespMetric.record(
-                                System.currentTimeMillis() - startTime,
-                                TimeUnit.MILLISECONDS,
-                            )
-                        }
-                } ?: Flux.error<BlockchainOuterClass.AddressBalance>(SilentException.UnsupportedBlockchain(chain))
-                    .doOnSubscribe {
-                        log.error("Balance for $chain:$asset is not supported")
-                    }
-            } catch (t: Throwable) {
-                log.error("Internal error during Balance Request", t)
-                failMetric.increment()
-                Flux.error<BlockchainOuterClass.AddressBalance>(IllegalStateException("Internal Error"))
-            }
-        }
-    }
-
-    override fun estimateFee(request: Mono<BlockchainOuterClass.EstimateFeeRequest>): Mono<BlockchainOuterClass.EstimateFeeResponse> {
-        return request
-            .subscribeOn(scheduler)
-            .flatMap {
-                val chain = Chain.byId(it.chainValue)
-                val metrics = chainMetrics.get(chain)
-                metrics.estimateFeeMetric.increment()
-                val startTime = System.currentTimeMillis()
-                estimateFee.estimateFee(it).doFinally {
-                    metrics.estimateFeeRespMetric.record(
-                        System.currentTimeMillis() - startTime,
-                        TimeUnit.MILLISECONDS,
-                    )
-                }
-            }
-            .doOnError { t ->
-                log.error("Internal error during Fee Estimation", t)
-                failMetric.increment()
-            }
     }
 
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {

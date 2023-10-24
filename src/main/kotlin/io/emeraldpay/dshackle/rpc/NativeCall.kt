@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.BlockchainType.EVM_POS
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.Global.Companion.nullValue
@@ -44,9 +45,6 @@ import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -84,17 +82,10 @@ open class NativeCall(
     var rpcReaderFactory: RpcReaderFactory = RpcReaderFactory.default()
     private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
 
-    companion object {
-        val casting: Map<BlockchainType, Class<out EthereumLikeMultistream>> = mapOf(
-            BlockchainType.EVM_POS to EthereumPosMultiStream::class.java,
-            BlockchainType.EVM_POW to EthereumMultistream::class.java,
-        )
-    }
-
     @EventListener
     fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
-        casting[BlockchainType.from(event.chain)]?.let { cast ->
-            multistreamHolder.getUpstream(event.chain).let { up ->
+        multistreamHolder.getUpstream(event.chain).let { up ->
+            if (BlockchainType.from(up.chain) == EVM_POS) {
                 ethereumCallSelectors.putIfAbsent(
                     event.chain,
                     EthereumCallSelector(up.caches),

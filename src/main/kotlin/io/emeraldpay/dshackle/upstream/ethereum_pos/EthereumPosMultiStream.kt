@@ -23,7 +23,6 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
 import io.emeraldpay.dshackle.upstream.EmptyHead
@@ -53,7 +52,7 @@ open class EthereumPosMultiStream(
     caches: Caches,
     private val headScheduler: Scheduler,
     tracer: Tracer,
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
 
     private var head: DynamicMergedHead = DynamicMergedHead(
         PriorityForkChoice(),
@@ -63,7 +62,6 @@ open class EthereumPosMultiStream(
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory(), tracer)
     private var subscribe = EthereumEgressSubscription(this, headScheduler, NoPendingTxes())
-    private val feeEstimation = EthereumPriorityFees(this, reader, 256)
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, ConcurrentReferenceHashMap.ReferenceType.WEAK)
 
@@ -112,7 +110,7 @@ open class EthereumPosMultiStream(
             start()
         }
 
-    override fun getReader(): EthereumCachingReader {
+    override fun getCachingReader(): EthereumCachingReader {
         return reader
     }
 
@@ -120,7 +118,7 @@ open class EthereumPosMultiStream(
         return head
     }
 
-    override fun tryProxy(
+    override fun tryProxySubscribe(
         matcher: Selector.Matcher,
         request: BlockchainOuterClass.NativeSubscribeRequest,
     ): Flux<out Any>? =
@@ -203,10 +201,6 @@ open class EthereumPosMultiStream(
                     )
                 }
         }
-
-    override fun getFeeEstimation(): ChainFees {
-        return feeEstimation
-    }
 
     override fun onUpstreamsUpdated() {
         super.onUpstreamsUpdated()

@@ -23,7 +23,6 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.ChainFees
 import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
 import io.emeraldpay.dshackle.upstream.EgressSubscription
@@ -55,7 +54,7 @@ open class EthereumMultistream(
     caches: Caches,
     private val headScheduler: Scheduler,
     tracer: Tracer,
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
+) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
 
     private var head: DynamicMergedHead = DynamicMergedHead(
         PriorityForkChoice(),
@@ -68,29 +67,6 @@ open class EthereumMultistream(
 
     private val reader: EthereumCachingReader = EthereumCachingReader(this, this.caches, getMethodsFactory(), tracer)
     private var subscribe = EthereumEgressSubscription(this, headScheduler, NoPendingTxes())
-
-    private val supportsEIP1559set = setOf(
-        Chain.ETHEREUM__MAINNET,
-        Chain.ETHEREUM__GOERLI,
-        Chain.ETHEREUM__SEPOLIA,
-        Chain.ARBITRUM__MAINNET,
-        Chain.OPTIMISM__MAINNET,
-        Chain.ARBITRUM__GOERLI,
-        Chain.OPTIMISM__GOERLI,
-        Chain.POLYGON_ZKEVM__MAINNET,
-        Chain.POLYGON_ZKEVM__TESTNET,
-        Chain.ZKSYNC__MAINNET,
-        Chain.ZKSYNC__TESTNET,
-        Chain.ARBITRUM_NOVA__MAINNET,
-    )
-
-    private val supportsEIP1559 = supportsEIP1559set.contains(chain)
-
-    private val feeEstimation = if (supportsEIP1559) {
-        EthereumPriorityFees(this, reader, 256)
-    } else {
-        EthereumLegacyFees(this, reader, 256)
-    }
 
     init {
         this.init()
@@ -155,7 +131,7 @@ open class EthereumMultistream(
         return super.isRunning() || reader.isRunning()
     }
 
-    override fun getReader(): EthereumCachingReader {
+    override fun getCachingReader(): EthereumCachingReader {
         return reader
     }
 
@@ -163,7 +139,7 @@ open class EthereumMultistream(
         return head
     }
 
-    override fun tryProxy(
+    override fun tryProxySubscribe(
         matcher: Selector.Matcher,
         request: BlockchainOuterClass.NativeSubscribeRequest,
     ): Flux<out Any>? =
@@ -236,8 +212,4 @@ open class EthereumMultistream(
                     )
                 }
         }
-
-    override fun getFeeEstimation(): ChainFees {
-        return feeEstimation
-    }
 }

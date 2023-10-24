@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Connects/reconnects to the upstream to produce NewHeads messages
  */
 class ConnectNewHeads(
-    private val upstream: EthereumLikeMultistream,
+    private val upstream: Multistream,
     private val scheduler: Scheduler,
 ) : SubscriptionConnect<NewHeadMessage> {
 

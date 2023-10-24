@@ -43,7 +43,7 @@ class NativeSubscribeSpec extends Specification {
             1 * it.subscribe("newHeads", null, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
         def up = Mock(EthereumPosMultiStream) {
-            1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> null
+            1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> null
             1 * it.getEgressSubscription() >> subscribe
         }
 
@@ -82,7 +82,7 @@ class NativeSubscribeSpec extends Specification {
             }, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
         def up = Mock(EthereumPosMultiStream) {
-            1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> null
+            1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> null
             1 * it.getEgressSubscription() >> subscribe
         }
 
@@ -105,7 +105,7 @@ class NativeSubscribeSpec extends Specification {
                 .setMethod("newHeads")
                 .build()
         def up = Mock(EthereumPosMultiStream) {
-            1 * it.tryProxy(_ as Selector.AnyLabelMatcher, call) >> Flux.just("{}")
+            1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> Flux.just("{}")
             0 * it.getEgressSubscription()
         }
 

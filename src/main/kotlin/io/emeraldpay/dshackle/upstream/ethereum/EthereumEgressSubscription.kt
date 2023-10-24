@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.EgressSubscription
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectNewHeads
@@ -13,7 +14,7 @@ import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 
 open class EthereumEgressSubscription(
-    val upstream: EthereumLikeMultistream,
+    val upstream: Multistream,
     val scheduler: Scheduler,
     val pendingTxesSource: PendingTxesSource?,
 ) : EgressSubscription {

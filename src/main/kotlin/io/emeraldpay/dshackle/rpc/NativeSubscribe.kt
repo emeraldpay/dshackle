@@ -22,9 +22,9 @@ import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.HasUpstream
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.grpc.Status
@@ -67,9 +67,9 @@ open class NativeSubscribe(
         /**
          * Try to proxy request subscription directly to the upstream dshackle instance.
          * If not possible - performs subscription logic on the current instance
-         * @see EthereumLikeMultistream.tryProxy
+         * @see EthereumLikeMultistream.tryProxySubscribe
          */
-        val publisher = getUpstream(chain).tryProxy(matcher, request) ?: run {
+        val publisher = getUpstream(chain).tryProxySubscribe(matcher, request) ?: run {
             val method = request.method
             val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
                 objectMapper.readValue(it.newInput(), Map::class.java)
@@ -103,8 +103,8 @@ open class NativeSubscribe(
                 log.error("Error during subscription to $method, chain $chain, params $params", it)
             }
 
-    private fun getUpstream(chain: Chain): EthereumLikeMultistream =
-        multistreamHolder.getUpstream(chain).let { it as EthereumLikeMultistream }
+    private fun getUpstream(chain: Chain): Multistream =
+        multistreamHolder.getUpstream(chain)
 
     fun convertToProto(holder: ResponseHolder): NativeSubscribeReplyItem {
         if (holder.response is NativeSubscribeReplyItem) {

@@ -109,11 +109,11 @@ class MultistreamHolderMock implements MultistreamHolder {
         }
 
         @Override
-        EthereumCachingReader getReader() {
+        EthereumCachingReader getCachingReader() {
             if (customReader != null) {
                 return customReader
             }
-            return super.getReader()
+            return super.getCachingReader()
         }
 
         @Override

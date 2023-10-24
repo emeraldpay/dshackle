@@ -19,9 +19,9 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeMultistream
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
@@ -32,7 +32,7 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 class ConnectBlockUpdates(
-    private val upstream: EthereumLikeMultistream,
+    private val upstream: Multistream,
     private val scheduler: Scheduler,
 ) : SubscriptionConnect<ConnectBlockUpdates.Update> {
 

@@ -218,7 +218,7 @@ class MultistreamSpec extends Specification {
         def multiStream = new TestEthereumPosMultistream(Chain.ETHEREUM__MAINNET, [up1, up2], Caches.default())
 
         when:
-        def act = multiStream.tryProxy(new Selector.LabelMatcher("provider", ["internal"]), call)
+        def act = multiStream.tryProxySubscribe(new Selector.LabelMatcher("provider", ["internal"]), call)
 
         then:
         StepVerifier.create(act)
@@ -243,7 +243,7 @@ class MultistreamSpec extends Specification {
         def multiStream = new TestEthereumPosMultistream(Chain.ETHEREUM__MAINNET, [up2], Caches.default())
 
         when:
-        def act = multiStream.tryProxy(new Selector.LabelMatcher("provider", ["internal"]), call)
+        def act = multiStream.tryProxySubscribe(new Selector.LabelMatcher("provider", ["internal"]), call)
 
         then:
         !act
@@ -354,11 +354,6 @@ class MultistreamSpec extends Specification {
 
         public <T extends Upstream> T cast(Class<T> selfType) {
             return this
-        }
-
-        @Override
-        ChainFees getFeeEstimation() {
-            return null
         }
 
         @Override

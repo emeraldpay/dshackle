@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
@@ -197,8 +198,6 @@ abstract class Multistream(
         }
         return FilteredApis(chain, upstreams, matcher, i)
     }
-
-    abstract fun getFeeEstimation(): ChainFees
 
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
@@ -474,6 +473,14 @@ abstract class Multistream(
         updateUpstreams.asFlux()
 
     abstract fun makeLagObserver(): HeadLagObserver
+
+    open fun tryProxySubscribe(matcher: Selector.Matcher, request: BlockchainOuterClass.NativeSubscribeRequest): Flux<out Any>? = null
+
+    abstract fun getCachingReader(): CachingReader?
+
+    abstract fun getHead(mather: Selector.Matcher): Head
+
+    abstract fun getEnrichedHead(mather: Selector.Matcher): Head
 
     // --------------------------------------------------------------------------------------------------------
 

@@ -33,6 +33,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.reader.RekeyingReader
 import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.reader.TransformingReader
+import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -57,7 +58,7 @@ open class EthereumCachingReader(
     private val caches: Caches,
     callMethodsFactory: Factory<CallMethods>,
     private val tracer: Tracer,
-) : Lifecycle {
+) : Lifecycle, CachingReader {
 
     private val objectMapper: ObjectMapper = Global.objectMapper
     private val balanceCache = CurrentBlockCache<Address, Wei>()
