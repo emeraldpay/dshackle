@@ -22,9 +22,12 @@ open class JsonRpcException(
     val error: JsonRpcError,
     val upstreamId: String? = null,
     writableStackTrace: Boolean = true,
-) : Exception(error.message, null, true, writableStackTrace) {
+    cause: Throwable? = null,
+) : Exception(error.message, cause, true, writableStackTrace) {
 
     constructor(id: Int, message: String) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message))
+
+    constructor(id: Int, message: String, cause: Throwable) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message), cause = cause)
 
     companion object {
         fun from(err: RpcException): JsonRpcException {

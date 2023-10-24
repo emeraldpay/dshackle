@@ -273,7 +273,7 @@ open class WsConnectionImpl(
                     }
                     onMessage(msg)
                 } catch (t: Throwable) {
-                    log.warn("Failed to process WS message. ${t.javaClass}: ${t.message}. Message: ${String(it)}")
+                    log.warn("Failed to process WS message", t)
                     Mono.empty()
                 }
             }

@@ -25,7 +25,6 @@ import io.netty.handler.codec.http.HttpHeaders
 import io.netty.handler.ssl.SslContextBuilder
 import io.netty.resolver.DefaultAddressResolverGroup
 import org.apache.commons.lang3.time.StopWatch
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.netty.http.client.HttpClient
 import reactor.netty.resources.ConnectionProvider
@@ -50,18 +49,15 @@ class JsonRpcHttpClient(
     tlsCAAuth: ByteArray? = null,
 ) : JsonRpcReader {
 
-    companion object {
-        private val log = LoggerFactory.getLogger(JsonRpcHttpClient::class.java)
-    }
-
     private val parser = ResponseRpcParser()
     private val httpClient: HttpClient
 
     init {
         val connectionProvider = ConnectionProvider.builder("dshackleConnectionPool")
-            .maxConnections(1000)
-            .pendingAcquireMaxCount(5000)
+            .maxConnections(1500)
+            .pendingAcquireMaxCount(10000)
             .build()
+
         var build = HttpClient.create(connectionProvider)
             .compress(true)
             .resolver(DefaultAddressResolverGroup.INSTANCE)
@@ -152,7 +148,7 @@ class JsonRpcHttpClient(
                 val err = when (t) {
                     is RpcException -> JsonRpcException.from(t)
                     is JsonRpcException -> t
-                    else -> JsonRpcException(key.id, t.message ?: t.javaClass.name)
+                    else -> JsonRpcException(key.id, t.message ?: t.javaClass.name, cause = t)
                 }
                 // here we're measure the internal errors, not upstream errors
                 metrics.fails.increment()
