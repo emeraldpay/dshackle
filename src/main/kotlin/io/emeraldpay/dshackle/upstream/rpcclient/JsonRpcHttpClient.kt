@@ -16,9 +16,10 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.config.AuthConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.JsonRpcHttpReader
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.micrometer.core.instrument.Metrics
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.handler.codec.http.HttpHeaders
@@ -47,7 +48,7 @@ class JsonRpcHttpClient(
     private val metrics: RpcMetrics,
     basicAuth: AuthConfig.ClientBasicAuth? = null,
     tlsCAAuth: ByteArray? = null,
-) : JsonRpcReader {
+) : JsonRpcHttpReader {
 
     private val parser = ResponseRpcParser()
     private val httpClient: HttpClient
@@ -102,6 +103,11 @@ class JsonRpcHttpClient(
                 Tuples.of(statusCode, it)
             }
         }.single()
+    }
+
+    override fun onStop() {
+        Metrics.globalRegistry.remove(metrics.timer)
+        Metrics.globalRegistry.remove(metrics.fails)
     }
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {

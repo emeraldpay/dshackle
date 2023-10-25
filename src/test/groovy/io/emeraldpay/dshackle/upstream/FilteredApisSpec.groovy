@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.reader.JsonRpcHttpReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -51,7 +52,7 @@ class FilteredApisSpec extends Specification {
                 [test: "baz"]
         ].collect {
             def httpFactory = Mock(HttpFactory) {
-                create(_, _) >> TestingCommons.api().tap { it.id = "${i++}" }
+                create(_, _) >> Stub(JsonRpcHttpReader)
             }
             def connectorFactory = new GenericConnectorFactory(
                     GenericConnectorFactory.ConnectorMode.RPC_ONLY,

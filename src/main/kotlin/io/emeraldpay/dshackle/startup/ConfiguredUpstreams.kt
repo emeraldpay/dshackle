@@ -38,7 +38,6 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig.HttpEndpoint
 import io.emeraldpay.dshackle.config.UpstreamsConfig.RpcConnection
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
-import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.Head
@@ -343,7 +342,7 @@ open class ConfiguredUpstreams(
             log.warn("Upstream doesn't have API configuration")
             return null
         }
-        val directApi: JsonRpcReader = httpFactory.create(config.id, chain)
+        val directApi = httpFactory.create(config.id, chain)
         val esplora = conn.esplora?.let { endpoint ->
             val tls = endpoint.tls?.let { tls ->
                 tls.ca?.let { ca ->

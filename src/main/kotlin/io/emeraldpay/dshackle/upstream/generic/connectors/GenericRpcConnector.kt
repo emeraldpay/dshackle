@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.generic.connectors
 
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
+import io.emeraldpay.dshackle.reader.JsonRpcHttpReader
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -31,7 +32,7 @@ import java.time.Duration
 
 class GenericRpcConnector(
     connectorType: ConnectorMode,
-    private val directReader: JsonRpcReader,
+    private val directReader: JsonRpcHttpReader,
     wsFactory: WsConnectionPoolFactory?,
     upstream: DefaultUpstream,
     forkChoice: ForkChoice,
@@ -137,6 +138,7 @@ class GenericRpcConnector(
             head.stop()
         }
         pool?.close()
+        directReader.onStop()
     }
 
     override fun getIngressReader(): JsonRpcReader {

@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Metrics
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
@@ -32,7 +33,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 
 abstract class AbstractHead @JvmOverloads constructor(
@@ -57,14 +57,24 @@ abstract class AbstractHead @JvmOverloads constructor(
     private var future: Future<*>? = null
     private val delayed = AtomicBoolean(false)
 
+    private val metrics = mutableSetOf<Meter>()
+
     init {
         val className = this.javaClass.simpleName
         Gauge.builder("stuck_head", delayed) {
             if (it.get()) 1.0 else 0.0
-        }.tag("upstream", upstreamId).tag("class", className).register(Metrics.globalRegistry)
+        }
+            .tag("upstream", upstreamId)
+            .tag("class", className)
+            .register(Metrics.globalRegistry)
+            .also { metrics.add(it) }
         Gauge.builder("current_head", forkChoice) {
             it.getHead()?.height?.toDouble() ?: 0.0
-        }.tag("upstream", upstreamId).tag("class", className).register(Metrics.globalRegistry)
+        }
+            .tag("upstream", upstreamId)
+            .tag("class", className)
+            .register(Metrics.globalRegistry)
+            .also { metrics.add(it) }
     }
 
     fun follow(source: Flux<BlockContainer>): Disposable {
@@ -147,6 +157,7 @@ abstract class AbstractHead @JvmOverloads constructor(
             it.cancel(true)
         }
         future = null
+        metrics.forEach { Metrics.globalRegistry.remove(it) }
     }
 
     protected open fun onNoHeadUpdates() {
@@ -175,11 +186,5 @@ abstract class AbstractHead @JvmOverloads constructor(
                 TimeUnit.SECONDS,
             )
         }
-    }
-
-    private fun toHeadCountMetric(counter: AtomicInteger, status: String) {
-        Gauge.builder("head_count", counter) {
-            it.get().toDouble()
-        }.tag("class", this.javaClass.simpleName).tag("status", status).register(Metrics.globalRegistry)
     }
 }

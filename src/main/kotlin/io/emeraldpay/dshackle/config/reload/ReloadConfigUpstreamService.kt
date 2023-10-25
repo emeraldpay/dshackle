@@ -10,7 +10,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 
 @Component
-class ReloadConfigUpstreamService(
+open class ReloadConfigUpstreamService(
     private val eventPublisher: ApplicationEventPublisher,
     private val multistreamHolder: CurrentMultistreamHolder,
     private val configuredUpstreams: ConfiguredUpstreams,

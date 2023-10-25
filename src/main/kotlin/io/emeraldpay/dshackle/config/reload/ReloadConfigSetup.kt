@@ -43,9 +43,11 @@ class ReloadConfigSetup(
             try {
                 log.info("Reloading config...")
 
-                reloadConfig()
-
-                log.info("Config is reloaded")
+                if (reloadConfig()) {
+                    log.info("Config is reloaded")
+                } else {
+                    log.info("There is nothing to reload, config is the same")
+                }
             } finally {
                 reloadLock.unlock()
             }
@@ -54,9 +56,13 @@ class ReloadConfigSetup(
         }
     }
 
-    private fun reloadConfig() {
+    private fun reloadConfig(): Boolean {
         val newUpstreamsConfig = reloadConfigService.readUpstreamsConfig()
         val currentUpstreamsConfig = reloadConfigService.currentUpstreamsConfig()
+
+        if (newUpstreamsConfig == currentUpstreamsConfig) {
+            return false
+        }
 
         val chainsToReload = analyzeDefaultOptions(
             currentUpstreamsConfig.defaultOptions,
@@ -76,6 +82,8 @@ class ReloadConfigSetup(
         reloadConfigUpstreamService.reloadUpstreams(chainsToReload, upstreamsToRemove, upstreamsToAdd, newUpstreamsConfig)
 
         reloadConfigService.updateUpstreamsConfig(newUpstreamsConfig)
+
+        return true
     }
 
     private fun analyzeUpstreams(

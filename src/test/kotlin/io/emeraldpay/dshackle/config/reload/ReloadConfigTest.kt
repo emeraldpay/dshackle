@@ -17,8 +17,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentCaptor
+import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -99,7 +101,7 @@ class ReloadConfigTest {
     }
 
     @Test
-    fun `stop multistream of there are no upstreams left`() {
+    fun `stop multistream if there are no upstreams left`() {
         val up1 = upstream("local1")
         val up2 = upstream("local2")
         val up3 = upstream("local3")
@@ -152,6 +154,25 @@ class ReloadConfigTest {
             UpstreamChangeEvent(ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.REMOVED),
             captor.allValues[1],
         )
+    }
+
+    @Test
+    fun `reload the same config cause to nothing`() {
+        val initialConfigFile = ResourceUtils.getFile("classpath:configs/upstreams-initial.yaml")
+        val initialConfig = upstreamsConfigReader.read(initialConfigFile.inputStream())!!
+        mainConfig.upstreams = initialConfig
+
+        val reloadConfigUpstreamService = mock<ReloadConfigUpstreamService>()
+
+        val reloadConfig = ReloadConfigSetup(reloadConfigService, reloadConfigUpstreamService)
+
+        whenever(config.getConfigPath()).thenReturn(initialConfigFile)
+
+        reloadConfig.handle(Signal("HUP"))
+
+        verify(reloadConfigUpstreamService, never()).reloadUpstreams(any(), any(), any(), any())
+
+        assertEquals(initialConfig, mainConfig.upstreams)
     }
 
     private fun upstream(id: String): Upstream =
