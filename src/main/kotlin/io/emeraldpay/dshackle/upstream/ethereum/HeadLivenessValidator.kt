@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.ThrottledLogger
 import io.emeraldpay.dshackle.upstream.Head
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -26,7 +27,11 @@ class HeadLivenessValidator(
             if (value) {
                 Pair(acc.first + 1, true)
             } else {
-                log.debug("non consecutive blocks in head for $upstreamId")
+                if (log.isDebugEnabled) {
+                    log.debug("non consecutive blocks in head for $upstreamId")
+                } else {
+                    ThrottledLogger.log(log, "non consecutive blocks in head for $upstreamId")
+                }
                 Pair(0, false)
             }
         }.flatMap { (count, value) ->
@@ -40,7 +45,11 @@ class HeadLivenessValidator(
         }.timeout(
             expectedBlockTime.multipliedBy(CHECKED_BLOCKS_UNTIL_LIVE.toLong() * 2),
             Flux.just(false).doOnNext {
-                log.debug("head liveness check broken with timeout in $upstreamId")
+                if (log.isDebugEnabled) {
+                    log.debug("head liveness check broken with timeout in $upstreamId")
+                } else {
+                    ThrottledLogger.log(log, "head liveness check broken with timeout in $upstreamId")
+                }
             },
         ).repeat().subscribeOn(scheduler)
     }

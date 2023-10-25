@@ -628,7 +628,7 @@ chain-settings:
       label: Astar zkEVM
       type: eth
       settings:
-        expected-block-time: 2s
+        expected-block-time: 1m
         options:
           validate-peers: false
         lags:

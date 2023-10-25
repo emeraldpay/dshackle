@@ -8,7 +8,7 @@ class ThrottledLogger {
     companion object {
 
         private val cache = Caffeine.newBuilder()
-            .expireAfterWrite(Duration.ofMinutes(1))
+            .expireAfterWrite(Duration.ofMinutes(20))
             .build<String, Boolean>()
 
         fun log(log: Logger, msg: String) {
