@@ -30,9 +30,8 @@ class AuthInterceptor(
 
         if (isOrdinaryMethod && (sessionId == null || !authContext.containsSession(sessionId))) {
             val cause = if (sessionId == null) "sessionId is not passed" else "Session $sessionId does not exist"
-            throw Status.UNAUTHENTICATED
-                .withDescription(cause)
-                .asException()
+            call.close(Status.UNAUTHENTICATED.withDescription(cause), Metadata())
+            return object : ServerCall.Listener<ReqT>() {}
         }
 
         return next.startCall(call, headers)
