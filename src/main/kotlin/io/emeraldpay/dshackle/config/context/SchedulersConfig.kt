@@ -31,6 +31,11 @@ open class SchedulersConfig {
     }
 
     @Bean
+    open fun wsScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("ws-scheduler", 4, monitoringConfig)
+    }
+
+    @Bean
     open fun wsConnectionResubscribeScheduler(monitoringConfig: MonitoringConfig): Scheduler {
         return makeScheduler("ws-connection-resubscribe-scheduler", 2, monitoringConfig)
     }

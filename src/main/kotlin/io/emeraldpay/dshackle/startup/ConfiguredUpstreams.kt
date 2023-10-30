@@ -98,6 +98,8 @@ open class ConfiguredUpstreams(
     private val clientSpansInterceptor: ClientInterceptor?,
     @Qualifier("headScheduler")
     private val headScheduler: Scheduler,
+    @Qualifier("wsScheduler")
+    private val wsScheduler: Scheduler,
     private val authorizationConfig: AuthorizationConfig,
     private val grpcAuthContext: GrpcAuthContext,
 ) : ApplicationRunner {
@@ -482,7 +484,7 @@ open class ConfiguredUpstreams(
                 chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
-                headScheduler,
+                wsScheduler,
             ).apply {
                 config = endpoint
                 basicAuth = endpoint.basicAuth
