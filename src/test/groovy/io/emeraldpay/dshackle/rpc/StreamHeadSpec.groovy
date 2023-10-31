@@ -16,17 +16,15 @@
  */
 package io.emeraldpay.dshackle.rpc
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
+import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
+import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
@@ -39,11 +37,9 @@ import java.time.Instant
 
 class StreamHeadSpec extends Specification {
 
-    ObjectMapper objectMapper = Global.objectMapper
-
     def "Errors on unavailable chain"() {
         setup:
-        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, Stub(EthereumLikeRpcUpstream))
+        def upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, Stub(GenericUpstream))
         def streamHead = new StreamHead(upstreams)
         when:
         def flux = streamHead.add(
@@ -80,7 +76,7 @@ class StreamHeadSpec extends Specification {
                 .build()
         }
 
-        def upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def upstream = new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.api())
         def upstreams = new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, upstream)
         def streamHead = new StreamHead(upstreams)
         when:

@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
@@ -38,7 +38,7 @@ class ConnectBlockUpdatesSpec extends Specification {
 
     def "Extracts updates"() {
         setup:
-        def connectBlockUpdates = new ConnectBlockUpdates(Stub(EthereumMultistream), Schedulers.boundedElastic())
+        def connectBlockUpdates = new ConnectBlockUpdates(Stub(GenericMultistream), Schedulers.boundedElastic())
         def block = BlockContainer.from(new BlockJson<TransactionRefJson>().tap {
             hash = BlockHash.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
             number = 13412871
@@ -72,7 +72,7 @@ class ConnectBlockUpdatesSpec extends Specification {
 
     def "Produce DROP updates for replaced block"() {
         setup:
-        def connectBlockUpdates = new ConnectBlockUpdates(Stub(EthereumMultistream), Schedulers.boundedElastic())
+        def connectBlockUpdates = new ConnectBlockUpdates(Stub(GenericMultistream), Schedulers.boundedElastic())
         def block = BlockContainer.from(new BlockJson<TransactionRefJson>().tap {
             hash = BlockHash.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
             number = 13412871
@@ -106,7 +106,7 @@ class ConnectBlockUpdatesSpec extends Specification {
 
     def "Gets prev version if available"() {
         setup:
-        def connectBlockUpdates = new ConnectBlockUpdates(Stub(EthereumMultistream), Schedulers.boundedElastic())
+        def connectBlockUpdates = new ConnectBlockUpdates(Stub(GenericMultistream), Schedulers.boundedElastic())
         def block1 = BlockContainer.from(new BlockJson<TransactionRefJson>().tap {
             hash = BlockHash.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
             number = 13412871
@@ -170,7 +170,7 @@ class ConnectBlockUpdatesSpec extends Specification {
 
     def "Marks old txes as dropped before producing a new version of same block"() {
         setup:
-        def connectBlockUpdates = new ConnectBlockUpdates(Stub(EthereumMultistream), Schedulers.boundedElastic())
+        def connectBlockUpdates = new ConnectBlockUpdates(Stub(GenericMultistream), Schedulers.boundedElastic())
         def block1 = BlockContainer.from(new BlockJson<TransactionRefJson>().tap {
             hash = BlockHash.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
             number = 13412871
@@ -232,7 +232,7 @@ class ConnectBlockUpdatesSpec extends Specification {
         def head = Mock(Head) {
             1 * getFlux() >> Flux.never()
         }
-        def up = Mock(EthereumMultistream) {
+        def up = Mock(GenericMultistream) {
             1 * getEnrichedHead(Selector.empty) >> head
         }
         def connectBlockUpdates = new ConnectBlockUpdates(up, Schedulers.boundedElastic())

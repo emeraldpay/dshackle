@@ -28,10 +28,10 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
+import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.etherjar.domain.TransactionId
@@ -54,44 +54,49 @@ class TestingCommons {
         return new TracerMock(null, null, null)
     }
 
-    static EthereumPosRpcUpstreamMock upstream() {
-        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api())
+    static GenericUpstreamMock upstream() {
+        return new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, api())
     }
 
-    static EthereumPosRpcUpstreamMock upstream(String id) {
-        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM__MAINNET, api())
+    static GenericUpstreamMock upstream(String id) {
+        return new GenericUpstreamMock(id, Chain.ETHEREUM__MAINNET, api())
     }
 
-    static EthereumPosRpcUpstreamMock upstream(String id, String provider) {
-        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM__MAINNET, api(), Collections.singletonMap("provider", provider))
+    static GenericUpstreamMock upstream(String id, String provider) {
+        return new GenericUpstreamMock(id, Chain.ETHEREUM__MAINNET, api(), Collections.singletonMap("provider", provider))
     }
 
-    static EthereumPosRpcUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        return new EthereumPosRpcUpstreamMock(id, Chain.ETHEREUM__MAINNET, api)
+    static GenericUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {
+        return new GenericUpstreamMock(id, Chain.ETHEREUM__MAINNET, api)
     }
 
-    static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
-        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api)
+    static GenericUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
+        return new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, api)
     }
 
-    static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, String method) {
+    static GenericUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, String method) {
         return upstream(api, [method])
     }
 
-    static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, List<String> methods) {
-        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api, new DirectCallMethods(methods))
+    static GenericUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, List<String> methods) {
+        return new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, api, new DirectCallMethods(methods))
     }
 
-    static EthereumPosRpcUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods callMethods) {
-        return new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, api, callMethods)
+    static GenericUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods callMethods) {
+        return new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, api, callMethods)
     }
 
     static Multistream multistream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
         return multistream(upstream(api))
     }
 
-    static Multistream multistream(EthereumPosRpcUpstreamMock up) {
-        return new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up], Caches.default(), Schedulers.boundedElastic(), tracerMock()).tap {
+    static Multistream multistream(GenericUpstreamMock up) {
+        return new GenericMultistream(Chain.ETHEREUM__MAINNET, [up], Caches.default(),
+                Schedulers.boundedElastic(),
+                EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(tracerMock()),
+                EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()),
+        ).tap {
             start()
         }
     }
@@ -112,11 +117,17 @@ class TestingCommons {
     }
 
     static Multistream multistreamWithoutUpstreams(Chain chain) {
-        return new EthereumPosMultiStream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic(), tracerMock())
+        return new GenericMultistream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic(),
+                EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(tracerMock()),
+                EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
     }
 
     static Multistream multistreamClassicWithoutUpstreams(Chain chain) {
-        return new EthereumMultistream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic(), tracerMock())
+        return new GenericMultistream(chain, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic(),
+                EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(tracerMock()),
+                EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
     }
 
     static FileResolver fileResolver() {

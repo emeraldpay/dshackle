@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
+import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import io.emeraldpay.dshackle.upstream.signature.NoSigner
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
@@ -42,7 +42,7 @@ class NativeSubscribeSpec extends Specification {
         def subscribe = Mock(EthereumEgressSubscription) {
             1 * it.subscribe("newHeads", null, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
-        def up = Mock(EthereumPosMultiStream) {
+        def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> null
             1 * it.getEgressSubscription() >> subscribe
         }
@@ -81,7 +81,7 @@ class NativeSubscribeSpec extends Specification {
                 ok
             }, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
         }
-        def up = Mock(EthereumPosMultiStream) {
+        def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> null
             1 * it.getEgressSubscription() >> subscribe
         }
@@ -104,7 +104,7 @@ class NativeSubscribeSpec extends Specification {
                 .setChainValue(Chain.ETHEREUM__MAINNET.id)
                 .setMethod("newHeads")
                 .build()
-        def up = Mock(EthereumPosMultiStream) {
+        def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> Flux.just("{}")
             0 * it.getEgressSubscription()
         }

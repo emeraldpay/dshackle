@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
@@ -74,7 +75,7 @@ class GenericWsConnector(
         return reader
     }
 
-    override fun getIngressSubscription(): EthereumIngressSubscription {
+    override fun getIngressSubscription(): IngressSubscription {
         return subscriptions
     }
 

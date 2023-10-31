@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.generic
 
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -24,24 +25,42 @@ import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
 import io.emeraldpay.dshackle.upstream.EgressSubscription
-import io.emeraldpay.dshackle.upstream.EmptyEgressSubscription
+import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Selector.Matcher
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
+import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
+import org.springframework.util.ConcurrentReferenceHashMap
+import org.springframework.util.ConcurrentReferenceHashMap.ReferenceType.WEAK
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 
-@Suppress("UNCHECKED_CAST")
 open class GenericMultistream(
     chain: Chain,
-    val upstreams: MutableList<GenericUpstream>,
+    private val upstreams: MutableList<Upstream>,
     caches: Caches,
     private val headScheduler: Scheduler,
-) : Multistream(chain, upstreams as MutableList<Upstream>, caches) {
+    cachingReaderBuilder: CachingReaderBuilder,
+    private val localReaderBuilder: LocalReaderBuilder,
+    private val subscriptionBuilder: SubscriptionBuilder,
+) : Multistream(chain, caches) {
+
+    private val cachingReader = cachingReaderBuilder(this, caches, getMethodsFactory())
+
+    override fun getUpstreams(): MutableList<out Upstream> {
+        return upstreams
+    }
+
+    override fun addUpstreamInternal(u: Upstream) {
+        upstreams.add(u as GenericUpstream)
+    }
 
     private var head: DynamicMergedHead = DynamicMergedHead(
         PriorityForkChoice(),
@@ -53,6 +72,8 @@ open class GenericMultistream(
         this.init()
     }
 
+    private var subscription: EgressSubscription = subscriptionBuilder(this)
+
     override fun init() {
         if (upstreams.size > 0) {
             upstreams.forEach { addHead(it) }
@@ -60,10 +81,20 @@ open class GenericMultistream(
         super.init()
     }
 
+    private val filteredHeads: MutableMap<String, Head> =
+        ConcurrentReferenceHashMap(16, WEAK)
+
     override fun start() {
         super.start()
         head.start()
         onHeadUpdated(head)
+        cachingReader.start()
+    }
+
+    override fun stop() {
+        super.stop()
+        cachingReader.stop()
+        filteredHeads.clear()
     }
 
     override fun addHead(upstream: Upstream) {
@@ -78,17 +109,45 @@ open class GenericMultistream(
         head.removeHead(upstreamId)
     }
 
+    override fun isRunning(): Boolean {
+        return super.isRunning() || cachingReader.isRunning()
+    }
+
     override fun makeLagObserver(): HeadLagObserver =
         HeadLagObserver(head, upstreams, DistanceExtractor::extractPriorityDistance, headScheduler, 6).apply {
             start()
         }
 
     override fun getCachingReader(): CachingReader? {
-        return null
+        return cachingReader
     }
 
     override fun getHead(mather: Matcher): Head {
-        return getHead()
+        if (mather == Selector.empty || mather == Selector.anyLabel) {
+            return head
+        } else {
+            return filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
+                upstreams.filter { mather.matches(it) }
+                    .apply {
+                        log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
+                    }
+                    .let {
+                        val selected = it.map { it.getHead() }
+                        when (it.size) {
+                            0 -> EmptyHead()
+                            1 -> selected.first()
+                            else -> MergedHead(
+                                selected,
+                                PriorityForkChoice(),
+                                headScheduler,
+                                "Head for ${it.map { it.getId() }}",
+                            ).apply {
+                                start()
+                            }
+                        }
+                    }
+            }
+        }
     }
 
     override fun getHead(): Head {
@@ -111,11 +170,32 @@ open class GenericMultistream(
         return this as T
     }
 
-    override fun getLocalReader(localEnabled: Boolean): Mono<JsonRpcReader> {
-        return Mono.just(LocalReader(getMethods()))
+    override fun getLocalReader(): Mono<JsonRpcReader> {
+        return localReaderBuilder(cachingReader, getMethods(), getHead())
     }
 
     override fun getEgressSubscription(): EgressSubscription {
-        return EmptyEgressSubscription()
+        return subscription
     }
+
+    override fun onUpstreamsUpdated() {
+        super.onUpstreamsUpdated()
+        subscription = subscriptionBuilder(this)
+    }
+
+    override fun tryProxySubscribe(
+        matcher: Matcher,
+        request: BlockchainOuterClass.NativeSubscribeRequest,
+    ): Flux<out Any>? =
+        upstreams.filter {
+            matcher.matches(it)
+        }.takeIf { ups ->
+            ups.size == 1 && ups.all { it.isGrpc() }
+        }?.map {
+            it as GrpcUpstream
+        }?.map {
+            it.proxySubscribe(request)
+        }?.let {
+            Flux.merge(it)
+        }
 }

@@ -17,23 +17,22 @@
 package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.config.ChainsConfig
+import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.*
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
+import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.jetbrains.annotations.NotNull
-import io.emeraldpay.dshackle.foundation.ChainOptions
 import org.reactivestreams.Publisher
+import io.emeraldpay.dshackle.foundation.ChainOptions
 
-class EthereumRpcUpstreamMock extends EthereumLikeRpcUpstream {
+class GenericUpstreamMock extends GenericUpstream {
     EthereumHeadMock ethereumHeadMock
-
 
     static CallMethods allMethods() {
         new AggregatedCallMethods([
@@ -43,28 +42,40 @@ class EthereumRpcUpstreamMock extends EthereumLikeRpcUpstream {
         ])
     }
 
-    EthereumRpcUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    GenericUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
         this(chain, api, allMethods())
     }
 
-    EthereumRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, Map<String, String> labels) {
+        this(id, chain, api, allMethods(), labels)
+    }
+
+    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
         this(id, chain, api, allMethods())
     }
 
-    EthereumRpcUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
+    GenericUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
         this("test", chain, api, methods)
     }
 
-    EthereumRpcUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
-        super(id, id.hashCode().byteValue(), chain,
-                ChainOptions.PartialOptions.getDefaults().buildOptions(),
+    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
+        this(id, chain, api, methods, Collections.<String, String>emptyMap())
+    }
+
+    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels) {
+        super(id,
+                chain,
+                (byte)id.hashCode(),
+                getOpts(),
                 UpstreamsConfig.UpstreamRole.PRIMARY,
                 methods,
-                new QuorumForLabels.QuorumItem(1, new UpstreamsConfig.Labels()),
+                new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(labels)),
+                ChainConfig.default(),
                 new ConnectorFactoryMock(api, new EthereumHeadMock()),
-                ChainsConfig.ChainConfig.default(),
-                false,
-                null
+                null,
+                io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&validator,
+                io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&labelDetector,
+                io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&subscriptionTopics,
         )
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock
         setLag(0)
@@ -72,8 +83,19 @@ class EthereumRpcUpstreamMock extends EthereumLikeRpcUpstream {
         start()
     }
 
+    static ChainOptions.Options getOpts() {
+        def opt = ChainOptions.PartialOptions.getDefaults()
+        opt.setDisableValidation(true)
+        opt.setDisableUpstreamValidation(true)
+        return opt.buildOptions()
+    }
+
     void nextBlock(BlockContainer block) {
         this.ethereumHeadMock.nextBlock(block)
+    }
+
+    GenericConnectorMock getConnectorMock() {
+        return this.connector as GenericConnectorMock
     }
 
     void setBlocks(Publisher<BlockContainer> blocks) {

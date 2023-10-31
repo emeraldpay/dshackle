@@ -2,16 +2,12 @@ package io.emeraldpay.dshackle.config.context
 
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
-import io.emeraldpay.dshackle.BlockchainType.EVM_POS
-import io.emeraldpay.dshackle.BlockchainType.EVM_POW
-import io.emeraldpay.dshackle.BlockchainType.STARKNET
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
+import io.emeraldpay.dshackle.upstream.generic.ChainSpecificRegistry
 import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory
@@ -31,14 +27,13 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         headScheduler: Scheduler,
         tracer: Tracer,
     ): List<Multistream> {
-        return Chain.values()
+        return Chain.entries
             .filterNot { it == Chain.UNSPECIFIED }
             .map { chain ->
-                when (BlockchainType.from(chain)) {
-                    EVM_POS -> ethereumPosMultistream(chain, cachesFactory, headScheduler, tracer)
-                    EVM_POW -> ethereumMultistream(chain, cachesFactory, headScheduler, tracer)
-                    BITCOIN -> bitcoinMultistream(chain, cachesFactory, headScheduler)
-                    STARKNET -> genericMultistream(chain, cachesFactory, headScheduler)
+                if (BlockchainType.from(chain) == BITCOIN) {
+                    bitcoinMultistream(chain, cachesFactory, headScheduler)
+                } else {
+                    genericMultistream(chain, cachesFactory, headScheduler, tracer)
                 }
             }
     }
@@ -47,47 +42,18 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         chain: Chain,
         cachesFactory: CachesFactory,
         headScheduler: Scheduler,
+        tracer: Tracer,
     ): Multistream {
         val name = "multi-$chain"
+        val cs = ChainSpecificRegistry.resolve(chain)
         return GenericMultistream(
             chain,
             CopyOnWriteArrayList(),
             cachesFactory.getCaches(chain),
             headScheduler,
-        ).also { register(it, name) }
-    }
-
-    private fun ethereumMultistream(
-        chain: Chain,
-        cachesFactory: CachesFactory,
-        headScheduler: Scheduler,
-        tracer: Tracer,
-    ): EthereumMultistream {
-        val name = "multi-ethereum-$chain"
-
-        return EthereumMultistream(
-            chain,
-            CopyOnWriteArrayList(),
-            cachesFactory.getCaches(chain),
-            headScheduler,
-            tracer,
-        ).also { register(it, name) }
-    }
-
-    open fun ethereumPosMultistream(
-        chain: Chain,
-        cachesFactory: CachesFactory,
-        headScheduler: Scheduler,
-        tracer: Tracer,
-    ): EthereumPosMultiStream {
-        val name = "multi-ethereum-pos-$chain"
-
-        return EthereumPosMultiStream(
-            chain,
-            CopyOnWriteArrayList(),
-            cachesFactory.getCaches(chain),
-            headScheduler,
-            tracer,
+            cs.makeCachingReaderBuilder(tracer),
+            cs::localReaderBuilder,
+            cs.subscriptionBuilder(headScheduler),
         ).also { register(it, name) }
     }
 

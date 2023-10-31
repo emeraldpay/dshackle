@@ -54,7 +54,7 @@ class NativeCallSpec extends Specification {
 
     ObjectMapper objectMapper = Global.objectMapper
 
-    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null, Boolean enableCache = true, Boolean passthrough = false) {
+    def nativeCall(MultistreamHolder upstreams = null, ResponseSigner signer = null, Boolean passthrough = false) {
 
         if (upstreams == null) {
             upstreams = Stub(MultistreamHolder)
@@ -65,7 +65,6 @@ class NativeCallSpec extends Specification {
 
         def config = new MainConfig()
         def cacheConfig = new CacheConfig()
-        cacheConfig.requestsCacheEnabled = enableCache
         config.cache = cacheConfig
         config.passthrough = passthrough
 
@@ -77,7 +76,7 @@ class NativeCallSpec extends Specification {
             1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.just(new JsonRpcResponse("1".bytes, null))
         }
         def upstream = Mock(Multistream) {
-            1 * getLocalReader(_) >> Mono.just(routedApi)
+            1 * getLocalReader() >> Mono.just(routedApi)
         }
 
         def nativeCall = nativeCall()
@@ -98,7 +97,7 @@ class NativeCallSpec extends Specification {
             1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.error(new RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Test message"))
         }
         def upstream = Mock(Multistream) {
-            1 * getLocalReader(_) >> Mono.just(routedApi)
+            1 * getLocalReader() >> Mono.just(routedApi)
         }
 
         def nativeCall = nativeCall()

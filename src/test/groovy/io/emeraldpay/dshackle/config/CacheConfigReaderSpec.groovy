@@ -47,14 +47,4 @@ class CacheConfigReaderSpec extends Specification {
         //later may be not null if we support something else besides Redis
         act == null
     }
-
-    def "Local read disabled"() {
-        setup:
-        def config = this.class.getClassLoader().getResourceAsStream("cache-local-router-disabled.yaml")
-        when:
-        def act = reader.read(config)
-
-        then:
-        !act.requestsCacheEnabled
-    }
 }

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global.Companion.objectMapper
 import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumArchiveBlockNumberReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -14,10 +15,10 @@ import reactor.core.publisher.Mono
 class EthereumLabelsDetector(
     private val reader: JsonRpcReader,
     private val chain: Chain,
-) {
+) : LabelsDetector {
     private val blockNumberReader = EthereumArchiveBlockNumberReader(reader)
 
-    fun detectLabels(): Flux<Pair<String, String>> {
+    override fun detectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
             detectNodeType(),
             detectArchiveNode(),

@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
@@ -28,7 +29,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
 
     def "read empty logs request"() {
         setup:
-        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         when:
         def act = ethereumSubscribe.readLogsRequest([:])
 
@@ -39,7 +40,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
 
     def "read single address logs request"() {
         setup:
-        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         when:
         def act = ethereumSubscribe.readLogsRequest([
                 address: "0x829bd824b016326a401d083b33d092293333a830"
@@ -64,7 +65,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
 
     def "ignores invalid address for logs request"() {
         setup:
-        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         when:
         def act = ethereumSubscribe.readLogsRequest([
                 address: "829bd824b016326a401d083b33d092293333a830"
@@ -77,7 +78,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
 
     def "read multi address logs request"() {
         setup:
-        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         when:
         def act = ethereumSubscribe.readLogsRequest([
                 address: ["0x829bd824b016326a401d083b33d092293333a830", "0x401d083b33d092293333a83829bd824b016326a0"]
@@ -93,7 +94,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
 
     def "read single topic logs request"() {
         setup:
-        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         when:
         def act = ethereumSubscribe.readLogsRequest([
                 topics: "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
@@ -118,7 +119,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
 
     def "read invalid topic for request"() {
         setup:
-        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         when:
         def act = ethereumSubscribe.readLogsRequest([
                 topics: [
@@ -136,7 +137,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
 
     def "read multi topic logs request"() {
         setup:
-        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         when:
         def act = ethereumSubscribe.readLogsRequest([
                 topics: [
@@ -155,7 +156,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
 
     def "read full logs request"() {
         setup:
-        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         when:
         def act = ethereumSubscribe.readLogsRequest([
                 address: "0x298d492e8c1d909d3f63bc4a36c66c64acb3d695",
@@ -180,7 +181,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
         def up1 = TestingCommons.upstream("test")
         up1.getConnectorMock().setLiveness(Flux.just(false))
 
-        def ethereumSubscribe1 = new EthereumEgressSubscription(TestingCommons.multistream(up1) as EthereumPosMultiStream, Schedulers.boundedElastic(), null)
+        def ethereumSubscribe1 = new EthereumEgressSubscription(TestingCommons.multistream(up1) as GenericMultistream, Schedulers.boundedElastic(), null)
         then:
         ethereumSubscribe1.getAvailableTopics() == []
         when:
@@ -188,7 +189,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
         up2.getConnectorMock().setLiveness(Flux.just(true))
         up2.stop()
         up2.start()
-        def ethereumSubscribe2 = new EthereumEgressSubscription(TestingCommons.multistream(up2) as EthereumPosMultiStream, Schedulers.boundedElastic(), null)
+        def ethereumSubscribe2 = new EthereumEgressSubscription(TestingCommons.multistream(up2) as GenericMultistream, Schedulers.boundedElastic(), null)
         then:
         ethereumSubscribe2.getAvailableTopics().toSet() == [EthereumEgressSubscription.METHOD_LOGS, EthereumEgressSubscription.METHOD_NEW_HEADS].toSet()
         when:
@@ -196,7 +197,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
         up3.getConnectorMock().setLiveness(Flux.just(true))
         up3.stop()
         up3.start()
-        def ethereumSubscribe3 = new EthereumEgressSubscription(TestingCommons.multistream(up3) as EthereumPosMultiStream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        def ethereumSubscribe3 = new EthereumEgressSubscription(TestingCommons.multistream(up3) as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         then:
         ethereumSubscribe3.getAvailableTopics().toSet() == [EthereumEgressSubscription.METHOD_LOGS, EthereumEgressSubscription.METHOD_NEW_HEADS, EthereumEgressSubscription.METHOD_PENDING_TXES].toSet()
 

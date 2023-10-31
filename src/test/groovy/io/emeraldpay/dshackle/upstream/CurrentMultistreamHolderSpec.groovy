@@ -17,8 +17,7 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
-import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
-import io.emeraldpay.dshackle.test.EthereumRpcUpstreamMock
+import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import spock.lang.Specification
 
@@ -27,7 +26,7 @@ class CurrentMultistreamHolderSpec extends Specification {
     def "add upstream"() {
         setup:
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
-        def up = new EthereumPosRpcUpstreamMock("test", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up = new GenericUpstreamMock("test", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
         current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up, UpstreamChangeEvent.ChangeType.ADDED))
         then:
@@ -38,9 +37,9 @@ class CurrentMultistreamHolderSpec extends Specification {
     def "add multiple upstreams"() {
         setup:
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
-        def up2 = new EthereumRpcUpstreamMock("test2", Chain.ETHEREUM_CLASSIC__MAINNET, TestingCommons.api())
-        def up3 = new EthereumPosRpcUpstreamMock("test3", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up2 = new GenericUpstreamMock("test2", Chain.ETHEREUM_CLASSIC__MAINNET, TestingCommons.api())
+        def up3 = new GenericUpstreamMock("test3", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
         current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
         current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED))
@@ -55,10 +54,10 @@ class CurrentMultistreamHolderSpec extends Specification {
     def "remove upstream"() {
         setup:
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
-        def up2 = new EthereumRpcUpstreamMock("test2", Chain.ETHEREUM_CLASSIC__MAINNET, TestingCommons.api())
-        def up3 = new EthereumPosRpcUpstreamMock("test3", Chain.ETHEREUM__MAINNET, TestingCommons.api())
-        def up1_del = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up2 = new GenericUpstreamMock("test2", Chain.ETHEREUM_CLASSIC__MAINNET, TestingCommons.api())
+        def up3 = new GenericUpstreamMock("test3", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up1_del = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
         current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
         current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED))
@@ -73,7 +72,7 @@ class CurrentMultistreamHolderSpec extends Specification {
     def "available after adding"() {
         setup:
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
+        def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
 
         when:
         def act = current.isAvailable(Chain.ETHEREUM__MAINNET)

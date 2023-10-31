@@ -51,9 +51,11 @@ import kotlin.concurrent.withLock
  */
 abstract class Multistream(
     val chain: Chain,
-    private val upstreams: MutableList<Upstream>,
     val caches: Caches,
 ) : Upstream, Lifecycle, HasEgressSubscription {
+
+    abstract fun getUpstreams(): MutableList<out Upstream>
+    abstract fun addUpstreamInternal(u: Upstream)
 
     companion object {
         private const val metrics = "upstreams"
@@ -93,30 +95,6 @@ abstract class Multistream(
         .multicast()
         .directBestEffort<Upstream>()
 
-    init {
-        UpstreamAvailability.values().forEach { status ->
-            Metrics.gauge(
-                "$metrics.availability",
-                listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase())),
-                this,
-            ) {
-                upstreams.count { it.getStatus() == status }.toDouble()
-            }
-        }
-
-        Metrics.gauge(
-            "$metrics.connected",
-            listOf(Tag.of("chain", chain.chainCode)),
-            this,
-        ) {
-            upstreams.size.toDouble()
-        }
-
-        upstreams.forEach { up ->
-            monitorUpstream(up)
-        }
-    }
-
     override fun getSubscriptionTopics(): List<String> {
         return getEgressSubscription().getAvailableTopics()
     }
@@ -153,29 +131,49 @@ abstract class Multistream(
         onUpstreamsUpdated()
     }
 
+    init {
+        UpstreamAvailability.entries.forEach { status ->
+            Metrics.gauge(
+                "$metrics.availability",
+                listOf(Tag.of("chain", chain.chainCode), Tag.of("status", status.name.lowercase())),
+                this,
+            ) {
+                getAll().count { it.getStatus() == status }.toDouble()
+            }
+        }
+
+        Metrics.gauge(
+            "$metrics.connected",
+            listOf(Tag.of("chain", chain.chainCode)),
+            this,
+        ) {
+            getAll().size.toDouble()
+        }
+    }
+
     /**
      * Get list of all underlying upstreams
      */
     open fun getAll(): List<Upstream> {
-        return upstreams
+        return getUpstreams()
     }
 
     /**
      * Add an upstream
      */
     fun addUpstream(upstream: Upstream): Boolean =
-        upstreams.none {
+        getUpstreams().none {
             it.getId() == upstream.getId()
         }.also {
             if (it) {
-                upstreams.add(upstream)
+                addUpstreamInternal(upstream)
                 addHead(upstream)
                 monitorUpstream(upstream)
             }
         }
 
     fun removeUpstream(id: String): Boolean =
-        upstreams.removeIf { up ->
+        getUpstreams().removeIf { up ->
             (up.getId() == id).also {
                 if (it) {
                     up.stop()
@@ -196,13 +194,13 @@ abstract class Multistream(
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
         }
-        return FilteredApis(chain, upstreams, matcher, i)
+        return FilteredApis(chain, getUpstreams(), matcher, i)
     }
 
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
      */
-    abstract fun getLocalReader(localEnabled: Boolean): Mono<JsonRpcReader>
+    abstract fun getLocalReader(): Mono<JsonRpcReader>
 
     override fun getIngressReader(): JsonRpcReader {
         throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
@@ -235,6 +233,7 @@ abstract class Multistream(
                     lagObserver = null
                     upstreams[0].setLag(0)
                 }
+
                 upstreams.size > 1 -> if (lagObserver == null) lagObserver = makeLagObserver()
             }
         }
@@ -389,17 +388,17 @@ abstract class Multistream(
         } catch (e: Exception) {
             log.warn("Head processing error: ${e.javaClass} ${e.message}")
         }
-        val statuses = upstreams.asSequence().map { it.getStatus() }
+        val statuses = getUpstreams().asSequence().map { it.getStatus() }
             .groupBy { it }
             .map { "${it.key.name}/${it.value.size}" }
             .joinToString(",")
-        val lag = upstreams.joinToString(", ") {
+        val lag = getUpstreams().joinToString(", ") {
             // by default, when no lag is available it uses Long.MAX_VALUE, and it doesn't make sense to print
             // status with such value. use NA (as Not Available) instead
             val value = it.getLag()
             value?.toString() ?: "NA"
         }
-        val weak = upstreams
+        val weak = getUpstreams()
             .filter { it.getStatus() != UpstreamAvailability.OK }
             .joinToString(", ") { it.getId() }
 
@@ -424,6 +423,7 @@ abstract class Multistream(
                         onUpstreamsUpdated()
                         updateUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
                     }
+
                     UpstreamChangeEvent.ChangeType.ADDED -> {
                         if (!started) {
                             start()
@@ -441,6 +441,7 @@ abstract class Multistream(
                             }
                         }
                     }
+
                     UpstreamChangeEvent.ChangeType.REMOVED -> {
                         removeUpstream(event.upstream.getId()).takeIf { it }?.let {
                             try {
@@ -458,10 +459,10 @@ abstract class Multistream(
     }
 
     fun haveUpstreams(): Boolean =
-        upstreams.isNotEmpty()
+        getUpstreams().isNotEmpty()
 
     fun hasMatchingUpstream(matcher: Selector.LabelSelectorMatcher): Boolean {
-        return upstreams.any { matcher.matches(it) }
+        return getUpstreams().any { matcher.matches(it) }
     }
 
     fun subscribeAddedUpstreams(): Flux<Upstream> =
@@ -469,12 +470,16 @@ abstract class Multistream(
 
     fun subscribeRemovedUpstreams(): Flux<Upstream> =
         removedUpstreams.asFlux()
+
     fun subscribeUpdatedUpstreams(): Flux<Upstream> =
         updateUpstreams.asFlux()
 
     abstract fun makeLagObserver(): HeadLagObserver
 
-    open fun tryProxySubscribe(matcher: Selector.Matcher, request: BlockchainOuterClass.NativeSubscribeRequest): Flux<out Any>? = null
+    open fun tryProxySubscribe(
+        matcher: Selector.Matcher,
+        request: BlockchainOuterClass.NativeSubscribeRequest,
+    ): Flux<out Any>? = null
 
     abstract fun getCachingReader(): CachingReader?
 

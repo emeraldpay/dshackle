@@ -16,21 +16,13 @@
 package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.foundation.YamlConfigReader
-import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.nodes.MappingNode
 
 class CacheConfigReader : YamlConfigReader<CacheConfig>() {
 
-    companion object {
-        private val log = LoggerFactory.getLogger(CacheConfigReader::class.java)
-    }
-
     override fun read(input: MappingNode?): CacheConfig? {
         return getMapping(input, "cache")?.let { node ->
             val config = CacheConfig()
-            getValueAsBool(node, "requests-cache-enabled")?.let {
-                config.requestsCacheEnabled = it
-            }
             getMapping(node, "redis")?.let { redisNode ->
                 val redis = CacheConfig.Redis()
                 val enabled = getValueAsBool(redisNode, "enabled") ?: true
@@ -50,7 +42,7 @@ class CacheConfigReader : YamlConfigReader<CacheConfig>() {
                     config.redis = redis
                 }
             }
-            if (config.redis == null && config.requestsCacheEnabled) {
+            if (config.redis == null) {
                 return null
             }
             config

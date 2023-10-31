@@ -30,8 +30,7 @@ class EthereumLocalReaderSpec extends Specification {
                         TestingCommons.tracerMock()
                 ),
                 methods,
-                new EmptyHead(),
-                true
+                new EmptyHead()
         )
         when:
         def act = router.read(new JsonRpcRequest("eth_coinbase", [])).block(Duration.ofSeconds(1))
@@ -50,8 +49,7 @@ class EthereumLocalReaderSpec extends Specification {
                         TestingCommons.tracerMock()
                 ),
                 methods,
-                new EmptyHead(),
-                true
+                new EmptyHead()
         )
         when:
         def act = router.read(new JsonRpcRequest("eth_getTransactionByHash", ["test"], 10))
@@ -75,7 +73,7 @@ class EthereumLocalReaderSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
-        def router = new EthereumLocalReader(reader, methods, head, true)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["latest", false])
@@ -103,7 +101,7 @@ class EthereumLocalReaderSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
-        def router = new EthereumLocalReader(reader, methods, head, true)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["earliest", false])
@@ -131,7 +129,7 @@ class EthereumLocalReaderSpec extends Specification {
             }
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
-        def router = new EthereumLocalReader(reader, methods, head, true)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["0x123ef", false])
@@ -155,7 +153,7 @@ class EthereumLocalReaderSpec extends Specification {
             _ * blocksByHeightAsCont() >> new EmptyReader<>()
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
-        def router = new EthereumLocalReader(reader, methods, head, true)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["0x0", true])

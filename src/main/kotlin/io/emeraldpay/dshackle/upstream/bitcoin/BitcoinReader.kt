@@ -44,7 +44,7 @@ open class BitcoinReader(
 
     private val unspentReader: UnspentReader = if (esploraClient != null) {
         EsploraUnspentReader(esploraClient, head)
-    } else if (upstreams.upstreams.any { it.isGrpc() && it.getCapabilities().contains(Capability.BALANCE) }) {
+    } else if (upstreams.getUpstreams().any { it.isGrpc() && it.getCapabilities().contains(Capability.BALANCE) }) {
         RemoteUnspentReader(upstreams)
     } else {
         RpcUnspentReader(upstreams)

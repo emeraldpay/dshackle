@@ -33,7 +33,10 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
     ) {
         companion object {
             @JvmStatic
-            fun default() = ChainConfig(
+            fun default() = defaultWithContract(null)
+
+            @JvmStatic
+            fun defaultWithContract(callLimitContract: String?) = ChainConfig(
                 Duration.ofSeconds(12),
                 6,
                 1,
@@ -43,11 +46,14 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
                 0,
                 "UNKNOWN",
                 emptyList(),
-                null,
+                callLimitContract,
                 "undefined",
                 "undefined",
             )
         }
+
+
+
     }
 
     fun resolve(chain: String): ChainConfig {

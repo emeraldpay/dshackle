@@ -20,12 +20,12 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_VALID
+import io.emeraldpay.dshackle.upstream.UpstreamValidator
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.etherjar.domain.Address
@@ -47,8 +47,8 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
     private val chain: Chain,
     private val upstream: Upstream,
     private val options: ChainOptions.Options,
-    private val callLimitContract: String? = null,
-) {
+    private val config: ChainConfig,
+) : UpstreamValidator {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
         val scheduler =
@@ -127,7 +127,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
-    fun start(): Flux<UpstreamAvailability> {
+    override fun start(): Flux<UpstreamAvailability> {
         return Flux.interval(
             Duration.ZERO,
             Duration.ofSeconds(options.validationInterval.toLong()),
@@ -140,13 +140,9 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             }
     }
 
-    fun validateUpstreamSettingsOnStartup(): ValidateUpstreamSettingsResult {
-        return validateUpstreamSettings().block() ?: UPSTREAM_FATAL_SETTINGS_ERROR
-    }
-
-    fun validateUpstreamSettings(): Mono<ValidateUpstreamSettingsResult> {
+    override fun validateUpstreamSettings(): Mono<ValidateUpstreamSettingsResult> {
         if (options.disableUpstreamValidation) {
-            return Mono.just(UPSTREAM_VALID)
+            return Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
         }
         return Mono.zip(
             validateChain(),
@@ -159,7 +155,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
 
     private fun validateChain(): Mono<ValidateUpstreamSettingsResult> {
         if (!options.validateChain) {
-            return Mono.just(UPSTREAM_VALID)
+            return Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
         }
         return Mono.zip(
             chainId(),
@@ -178,20 +174,20 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 }
 
                 if (isChainValid) {
-                    UPSTREAM_VALID
+                    ValidateUpstreamSettingsResult.UPSTREAM_VALID
                 } else {
-                    UPSTREAM_FATAL_SETTINGS_ERROR
+                    ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
                 }
             }
             .onErrorResume {
                 log.error("Error during chain validation", it)
-                Mono.just(UPSTREAM_SETTINGS_ERROR)
+                Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR)
             }
     }
 
     private fun validateCallLimit(): Mono<ValidateUpstreamSettingsResult> {
-        if (!options.validateCallLimit || callLimitContract == null) {
-            return Mono.just(UPSTREAM_VALID)
+        if (!options.validateCallLimit || config.callLimitContract == null) {
+            return Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
         }
         return upstream.getIngressReader()
             .read(
@@ -199,7 +195,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                     "eth_call",
                     listOf(
                         TransactionCallJson(
-                            Address.from(callLimitContract),
+                            Address.from(config.callLimitContract),
                             // calling contract with param 200_000, meaning it will generate 200k symbols or response
                             // f4240 + metadata — ~1 million
                             HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240"),
@@ -209,7 +205,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 ),
             )
             .flatMap(JsonRpcResponse::requireResult)
-            .map { UPSTREAM_VALID }
+            .map { ValidateUpstreamSettingsResult.UPSTREAM_VALID }
             .onErrorResume {
                 if (it.message != null && it.message!!.contains("rpc.returndata.limit")) {
                     log.warn(
@@ -217,7 +213,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                             "You need to set up your return limit to at least 1_100_000. " +
                             "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369",
                     )
-                    Mono.just(UPSTREAM_FATAL_SETTINGS_ERROR)
+                    Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR)
                 } else {
                     Mono.error(it)
                 }
@@ -233,7 +229,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                         "message ${ctx.exception().message}",
                 )
             }
-            .onErrorReturn(UPSTREAM_SETTINGS_ERROR)
+            .onErrorReturn(ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR)
     }
 
     private fun validateOldBlocks(): Mono<ValidateUpstreamSettingsResult> {
@@ -257,11 +253,11 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                         "Node ${upstream.getId()} probably is synced incorrectly, it is not possible to get old blocks",
                     )
                 }
-                UPSTREAM_VALID
+                ValidateUpstreamSettingsResult.UPSTREAM_VALID
             }
             .onErrorResume {
                 log.warn("Error during old blocks validation", it)
-                Mono.just(UPSTREAM_VALID)
+                Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
             }
     }
 
@@ -289,11 +285,5 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             }
             .doOnError { log.error("Error during execution 'net_version' - ${it.message} for ${upstream.getId()}") }
             .flatMap(JsonRpcResponse::requireStringResult)
-    }
-
-    enum class ValidateUpstreamSettingsResult {
-        UPSTREAM_VALID,
-        UPSTREAM_SETTINGS_ERROR,
-        UPSTREAM_FATAL_SETTINGS_ERROR,
     }
 }

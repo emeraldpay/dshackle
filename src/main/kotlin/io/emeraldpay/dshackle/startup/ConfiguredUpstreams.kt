@@ -20,9 +20,7 @@ import brave.grpc.GrpcTracing
 import com.google.common.annotations.VisibleForTesting
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
-import io.emeraldpay.dshackle.BlockchainType.EVM_POS
-import io.emeraldpay.dshackle.BlockchainType.EVM_POW
-import io.emeraldpay.dshackle.BlockchainType.STARKNET
+import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
@@ -52,13 +50,12 @@ import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.bitcoin.ZMQServer
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumBlockValidator
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionFactory
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
+import io.emeraldpay.dshackle.upstream.generic.ChainSpecificRegistry
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
@@ -75,6 +72,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
+import java.lang.IllegalStateException
 import java.net.URI
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -138,24 +136,6 @@ open class ConfiguredUpstreams(
                     .merge(up.options ?: ChainOptions.PartialOptions())
                     .buildOptions()
                 val upstream = when (BlockchainType.from(chain)) {
-                    EVM_POS -> {
-                        buildEthereumPosUpstream(
-                            up.nodeId,
-                            up.cast(EthereumPosConnection::class.java),
-                            chain,
-                            options,
-                            chainConfig,
-                        )
-                    }
-                    EVM_POW -> {
-                        buildEthereumUpstream(
-                            up.nodeId,
-                            up.cast(RpcConnection::class.java),
-                            chain,
-                            options,
-                            chainConfig,
-                        )
-                    }
                     BITCOIN -> {
                         buildBitcoinUpstream(
                             up.cast(BitcoinConnection::class.java),
@@ -165,13 +145,29 @@ open class ConfiguredUpstreams(
                         )
                     }
 
-                    STARKNET -> {
-                        buildStarknetUpstream(
+                    ETHEREUM -> {
+                        val posConn = up.cast(EthereumPosConnection::class.java)
+
+                        buildGenericUpstream(
                             up.nodeId,
-                            up.cast(RpcConnection::class.java),
+                            up,
+                            posConn.connection?.execution ?: throw IllegalStateException("Empty execution config"),
                             chain,
                             options,
                             chainConfig,
+                            posConn.connection?.upstreamRating ?: 0,
+                        )
+                    }
+
+                    else -> {
+                        buildGenericUpstream(
+                            up.nodeId,
+                            up,
+                            up.connection as RpcConnection,
+                            chain,
+                            options,
+                            chainConfig,
+                            0,
                         )
                     }
                 }
@@ -224,31 +220,30 @@ open class ConfiguredUpstreams(
         }
     }
 
-    private fun buildStarknetUpstream(
+    private fun buildGenericUpstream(
         nodeId: Int?,
-        config: UpstreamsConfig.Upstream<RpcConnection>,
+        config: UpstreamsConfig.Upstream<*>,
+        connection: RpcConnection,
         chain: Chain,
         options: Options,
         chainConfig: ChainConfig,
+        nodeRating: Int,
     ): Upstream? {
         if (config.connection == null) {
             log.warn("Upstream doesn't have connection configuration")
             return null
         }
 
-        val connection = config.connection!!
+        val cs = ChainSpecificRegistry.resolve(chain)
 
         val connectorFactory = buildConnectorFactory(
             config.id!!,
             connection,
             chain,
-            NoChoiceWithPriorityForkChoice(0, config.id!!),
+            NoChoiceWithPriorityForkChoice(nodeRating, config.id!!),
             BlockValidator.ALWAYS_VALID,
             chainConfig,
-        )
-        if (connectorFactory == null) {
-            return null
-        }
+        ) ?: return null
 
         val methods = buildMethods(config, chain)
 
@@ -268,60 +263,11 @@ open class ConfiguredUpstreams(
             chainConfig,
             connectorFactory,
             eventPublisher,
+            cs::validator,
+            cs::labelDetector,
+            cs::subscriptionTopics,
         )
 
-        upstream.start()
-        if (!upstream.isRunning) {
-            log.debug("Upstream ${upstream.getId()} is not running, it can't be added")
-            return null
-        }
-        return upstream
-    }
-
-    private fun buildEthereumPosUpstream(
-        nodeId: Int?,
-        config: UpstreamsConfig.Upstream<EthereumPosConnection>,
-        chain: Chain,
-        options: Options,
-        chainConf: ChainConfig,
-    ): Upstream? {
-        val conn = config.connection!!
-        val execution = conn.execution
-        if (execution == null) {
-            log.warn("Upstream doesn't have execution layer configuration")
-            return null
-        }
-        val urls = ArrayList<URI>()
-        val connectorFactory = buildConnectorFactory(
-            config.id!!,
-            execution,
-            chain,
-            NoChoiceWithPriorityForkChoice(conn.upstreamRating, config.id!!),
-            BlockValidator.ALWAYS_VALID,
-            chainConf,
-        )
-        val methods = buildMethods(config, chain)
-        if (connectorFactory == null) {
-            return null
-        }
-
-        val hashUrl = conn.execution!!.let {
-            if (it.connectorMode == RPC_REQUESTS_WITH_MIXED_HEAD.name) it.rpc?.url ?: it.ws?.url else it.ws?.url ?: it.rpc?.url
-        }
-        val hash = getHash(nodeId, hashUrl!!)
-        val upstream = EthereumLikeRpcUpstream(
-            config.id!!,
-            hash,
-            chain,
-            options,
-            config.role,
-            methods,
-            QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(config.labels)),
-            connectorFactory,
-            chainConf,
-            true,
-            eventPublisher,
-        )
         upstream.start()
         if (!upstream.isRunning) {
             log.debug("Upstream ${upstream.getId()} is not running, it can't be added")
@@ -368,45 +314,6 @@ open class ConfiguredUpstreams(
             options, config.role,
             QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(config.labels)),
             methods, esplora, chainConf,
-        )
-        upstream.start()
-        return upstream
-    }
-
-    private fun buildEthereumUpstream(
-        nodeId: Int?,
-        config: UpstreamsConfig.Upstream<RpcConnection>,
-        chain: Chain,
-        options: Options,
-        chainConf: ChainConfig,
-    ): Upstream? {
-        val conn = config.connection!!
-        val methods = buildMethods(config, chain)
-
-        val connectorFactory = buildConnectorFactory(
-            config.id!!,
-            conn,
-            chain,
-            MostWorkForkChoice(),
-            EthereumBlockValidator(),
-            chainConf,
-        )
-        if (connectorFactory == null) {
-            return null
-        }
-
-        val hashUrl = if (conn.connectorMode == RPC_REQUESTS_WITH_MIXED_HEAD.name) conn.rpc?.url ?: conn.ws?.url else conn.ws?.url ?: conn.rpc?.url
-        val upstream = EthereumLikeRpcUpstream(
-            config.id!!,
-            getHash(nodeId, hashUrl!!),
-            chain,
-            options, config.role,
-            methods,
-            QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(config.labels)),
-            connectorFactory,
-            chainConf,
-            false,
-            eventPublisher,
         )
         upstream.start()
         return upstream
@@ -460,13 +367,13 @@ open class ConfiguredUpstreams(
 
     private fun buildHttpFactory(conn: HttpEndpoint?, urls: ArrayList<URI>? = null): HttpRpcFactory? {
         return conn?.let { endpoint ->
-            val tls = conn?.tls?.let { tls ->
+            val tls = conn.tls?.let { tls ->
                 tls.ca?.let { ca ->
                     fileResolver.resolve(ca).readBytes()
                 }
             }
             urls?.add(endpoint.url)
-            HttpRpcFactory(endpoint.url.toString(), conn?.basicAuth, tls)
+            HttpRpcFactory(endpoint.url.toString(), conn.basicAuth, tls)
         }
     }
 

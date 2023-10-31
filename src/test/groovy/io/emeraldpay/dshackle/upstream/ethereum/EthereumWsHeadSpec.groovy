@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
+import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -41,7 +41,7 @@ import java.time.temporal.ChronoUnit
 class EthereumWsHeadSpec extends Specification {
 
     BlockHash parent = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
-    DefaultUpstream upstream = new EthereumPosRpcUpstreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.api())
+    DefaultUpstream upstream = new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.api())
 
     def "Fetch block"() {
         setup:

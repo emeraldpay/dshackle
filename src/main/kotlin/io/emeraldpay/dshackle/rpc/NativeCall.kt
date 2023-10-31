@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.BlockchainType
-import io.emeraldpay.dshackle.BlockchainType.EVM_POS
+import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.Global.Companion.nullValue
@@ -76,7 +76,6 @@ open class NativeCall(
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
     private val objectMapper: ObjectMapper = Global.objectMapper
 
-    private val localRouterEnabled = config.cache?.requestsCacheEnabled ?: true
     private val passthrough = config.passthrough
 
     var rpcReaderFactory: RpcReaderFactory = RpcReaderFactory.default()
@@ -85,7 +84,7 @@ open class NativeCall(
     @EventListener
     fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
         multistreamHolder.getUpstream(event.chain).let { up ->
-            if (BlockchainType.from(up.chain) == EVM_POS) {
+            if (BlockchainType.from(up.chain) == ETHEREUM) {
                 ethereumCallSelectors.putIfAbsent(
                     event.chain,
                     EthereumCallSelector(up.caches),
@@ -307,7 +306,7 @@ open class NativeCall(
         }
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
-            if (BlockchainType.from(upstream.chain) == BlockchainType.EVM_POS || BlockchainType.from(upstream.chain) == BlockchainType.EVM_POW) {
+            if (BlockchainType.from(upstream.chain) == ETHEREUM) {
                 ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead(), passthrough)
             } else {
                 null
@@ -359,7 +358,7 @@ open class NativeCall(
         if (method in DefaultEthereumMethods.newFilterMethods) CreateFilterDecorator() else NoneResultDecorator()
 
     fun fetch(ctx: ValidCallContext<ParsedCallDetails>): Mono<CallResult> {
-        return ctx.upstream.getLocalReader(localRouterEnabled)
+        return ctx.upstream.getLocalReader()
             .flatMap { api ->
                 SpannedReader(api, tracer, LOCAL_READER)
                     .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))

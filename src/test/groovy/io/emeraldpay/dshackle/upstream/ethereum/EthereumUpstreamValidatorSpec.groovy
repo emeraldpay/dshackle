@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.RpcResponseError
@@ -37,16 +38,20 @@ import java.time.Duration
 import static io.emeraldpay.dshackle.Chain.ETHEREUM__MAINNET
 import static io.emeraldpay.dshackle.Chain.OPTIMISM__MAINNET
 import static io.emeraldpay.dshackle.upstream.UpstreamAvailability.*
-import static io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
-import static io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
-import static io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator.ValidateUpstreamSettingsResult.UPSTREAM_VALID
+import static io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+import static io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
+import static io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_VALID
 import static java.util.Collections.emptyList
+import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 
 class EthereumUpstreamValidatorSpec extends Specification {
 
+    def conf = ChainConfig.defaultWithContract("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
+
     def "Resolve to final availability"() {
         setup:
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, Stub(EthereumLikeUpstream), ChainOptions.PartialOptions.getDefaults().buildOptions())
+
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, Stub(Upstream), ChainOptions.PartialOptions.getDefaults().buildOptions(), conf)
         expect:
         validator.resolve(Tuples.of(sync, peers)) == exp
         where:
@@ -67,8 +72,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateSyncing = false
         }.buildOptions()
-        def up = Mock(EthereumLikeUpstream)
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def up = Mock(Upstream)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validateSyncing().block(Duration.ofSeconds(1))
@@ -87,7 +92,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                     answer("eth_syncing", [], false)
                 }
         )
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validateSyncing().block(Duration.ofSeconds(1))
@@ -100,7 +105,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateSyncing = true
         }.buildOptions()
-        def up = Mock(EthereumLikeUpstream) {
+        def up = Mock(Upstream) {
             2 * getIngressReader() >> Mock(Reader) { reader ->
                 2 * reader.read(_) >>> [
                         Mono.just(new JsonRpcResponse('true'.getBytes(), null)),
@@ -112,7 +117,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                 1 * head.onSyncingNode(false)
             }
         }
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validateSyncing().block(Duration.ofSeconds(1))
@@ -132,7 +137,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                     answer("eth_syncing", [], [startingBlock: 100, currentBlock: 50])
                 }
         )
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validateSyncing().block(Duration.ofSeconds(1))
@@ -150,7 +155,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                     answer("eth_syncing", [], new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unavailable"))
                 }
         )
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validateSyncing().block(Duration.ofSeconds(1))
@@ -164,8 +169,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validatePeers = false
             it.minPeers = 10
         }.buildOptions()
-        def up = Mock(EthereumLikeUpstream)
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def up = Mock(Upstream)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
@@ -180,8 +185,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validatePeers = true
             it.minPeers = 0
         }.buildOptions()
-        def up = Mock(EthereumLikeUpstream)
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def up = Mock(Upstream)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
@@ -201,7 +206,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                     answer("net_peerCount", [], "0x5")
                 }
         )
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
@@ -220,7 +225,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                     answer("net_peerCount", [], "0xa")
                 }
         )
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
@@ -239,7 +244,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                     answer("net_peerCount", [], "0xff")
                 }
         )
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
@@ -258,7 +263,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                     answer("net_peerCount", [], new RpcResponseError(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unavailable"))
                 }
         )
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validatePeers().block(Duration.ofSeconds(1))
@@ -272,7 +277,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validateCalllimit = false
             it.validateChain = false
         }.buildOptions()
-        def up = Mock(EthereumLikeUpstream) {
+        def up = Mock(Upstream) {
             2 * getIngressReader() >>
                     Mock(Reader) {
                         1 * read(new JsonRpcRequest("eth_blockNumber", [])) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
@@ -280,7 +285,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                                 Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
                     }
         }
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options)
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
 
         when:
         def act = validator.validateUpstreamSettingsOnStartup()
@@ -293,7 +298,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateChain = false
         }.buildOptions()
-        def up = Mock(EthereumLikeRpcUpstream) {
+        def up = Mock(Upstream) {
             3 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_call", [new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
@@ -304,8 +309,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
                         Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
             }
         }
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
-
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
+//"0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96
         when:
         def act = validator.validateUpstreamSettingsOnStartup()
         then:
@@ -317,7 +322,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateChain = false
         }.buildOptions()
-        def up = Mock(EthereumLikeRpcUpstream) {
+        def up = Mock(Upstream) {
             3 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_call", [new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
@@ -328,8 +333,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
                         Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
             }
         }
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
-
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
+// "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"
         when:
         def act = validator.validateUpstreamSettingsOnStartup()
         then:
@@ -341,7 +346,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateCalllimit = false
         }.buildOptions()
-        def up = Mock(EthereumLikeRpcUpstream) {
+        def up = Mock(Upstream) {
             4 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_chainId", emptyList())) >> Mono.just(new JsonRpcResponse('"0x1"'.getBytes(), null))
                 1 * read(new JsonRpcRequest("net_version", emptyList())) >> Mono.just(new JsonRpcResponse('"1"'.getBytes(), null))
@@ -350,8 +355,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
                         Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
             }
         }
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
-
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
+// "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"
         when:
         def act = validator.validateUpstreamSettingsOnStartup()
         then:
@@ -363,7 +368,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateCalllimit = false
         }.buildOptions()
-        def up = Mock(EthereumLikeRpcUpstream) {
+        def up = Mock(Upstream) {
             4 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_chainId", emptyList())) >> Mono.just(new JsonRpcResponse('"0x1"'.getBytes(), null))
                 1 * read(new JsonRpcRequest("net_version", emptyList())) >> Mono.just(new JsonRpcResponse('"1"'.getBytes(), null))
@@ -372,8 +377,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
                         Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
             }
         }
-        def validator = new EthereumUpstreamValidator(OPTIMISM__MAINNET, up, options, "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
-
+        def validator = new EthereumUpstreamValidator(OPTIMISM__MAINNET, up, options, conf)
+// "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"
         when:
         def act = validator.validateUpstreamSettingsOnStartup()
         then:
@@ -383,7 +388,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
     def "Upstream is valid if all setting are valid"() {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().buildOptions()
-        def up = Mock(EthereumLikeRpcUpstream) {
+        def up = Mock(Upstream) {
             5 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_chainId", emptyList())) >> Mono.just(new JsonRpcResponse('"0x1"'.getBytes(), null))
                 1 * read(new JsonRpcRequest("net_version", emptyList())) >> Mono.just(new JsonRpcResponse('"1"'.getBytes(), null))
@@ -396,8 +401,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
                         Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
             }
         }
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
-
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
+// "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"
         when:
         def act = validator.validateUpstreamSettingsOnStartup()
         then:
@@ -407,7 +412,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
     def "Upstream is not valid if there are errors"() {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().buildOptions()
-        def up = Mock(EthereumLikeRpcUpstream) {
+        def up = Mock(Upstream) {
             5 * getIngressReader() >> Mock(Reader) {
                 1 * read(new JsonRpcRequest("eth_chainId", emptyList())) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
                 1 * read(new JsonRpcRequest("net_version", emptyList())) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
@@ -420,8 +425,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
                         Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
             }
         }
-        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96")
-
+        def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
+// "0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"
         when:
         def act = validator.validateUpstreamSettingsOnStartup()
         then:

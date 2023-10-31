@@ -2,7 +2,7 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -47,7 +47,7 @@ class GenericConnectorMock implements GenericConnector {
     }
 
     @Override
-    EthereumIngressSubscription getIngressSubscription() {
+    IngressSubscription getIngressSubscription() {
         return NoEthereumIngressSubscription.DEFAULT
     }
 }

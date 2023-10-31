@@ -43,7 +43,7 @@ open class BitcoinMultistream(
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
     caches: Caches,
     private val headScheduler: Scheduler,
-) : Multistream(chain, sourceUpstreams as MutableList<Upstream>, caches), Lifecycle {
+) : Multistream(chain, caches), Lifecycle {
 
     private var head: Head = EmptyHead()
     private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
@@ -51,6 +51,13 @@ open class BitcoinMultistream(
     private var addressActiveCheck: AddressActiveCheck? = null
     private var xpubAddresses: XpubAddresses? = null
     private var callRouter: LocalCallRouter = LocalCallRouter(DefaultBitcoinMethods(), reader)
+    override fun getUpstreams(): MutableList<out Upstream> {
+        return sourceUpstreams
+    }
+
+    override fun addUpstreamInternal(u: Upstream) {
+        sourceUpstreams.add(u as BitcoinUpstream)
+    }
 
     override fun init() {
         if (sourceUpstreams.size > 0) {
@@ -58,11 +65,6 @@ open class BitcoinMultistream(
         }
         super.init()
     }
-
-    open val upstreams: List<BitcoinUpstream>
-        get() {
-            return sourceUpstreams
-        }
 
     open fun getXpubAddresses(): XpubAddresses? {
         return xpubAddresses
@@ -103,7 +105,7 @@ open class BitcoinMultistream(
             .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
-    override fun getLocalReader(localEnabled: Boolean): Mono<JsonRpcReader> {
+    override fun getLocalReader(): Mono<JsonRpcReader> {
         return Mono.just(callRouter)
     }
 
@@ -146,7 +148,7 @@ open class BitcoinMultistream(
     }
 
     override fun getEgressSubscription(): EgressSubscription {
-        return EmptyEgressSubscription()
+        return EmptyEgressSubscription
     }
 
     override fun isRunning(): Boolean {

@@ -18,9 +18,8 @@ class CallTargetsHolder {
 
     private fun setupDefaultMethods(chain: Chain): CallMethods {
         val created = when (BlockchainType.from(chain)) {
-            BlockchainType.EVM_POW -> DefaultEthereumMethods(chain)
             BlockchainType.BITCOIN -> DefaultBitcoinMethods()
-            BlockchainType.EVM_POS -> DefaultEthereumMethods(chain)
+            BlockchainType.ETHEREUM -> DefaultEthereumMethods(chain)
             BlockchainType.STARKNET -> DefaultStarknetMethods(chain)
         }
         callTargets[chain] = created

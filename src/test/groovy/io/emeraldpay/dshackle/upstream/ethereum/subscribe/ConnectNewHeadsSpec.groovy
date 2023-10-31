@@ -3,7 +3,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumMultistream
+import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
@@ -18,7 +18,7 @@ class ConnectNewHeadsSpec extends Specification {
                     TestingCommons.blockForEthereum(100)
             ])
         }
-        def up = Mock(EthereumMultistream) {
+        def up = Mock(GenericMultistream) {
             1 * getHead(Selector.empty) >> head
         }
         ConnectNewHeads connectNewHeads = new ConnectNewHeads(up, Schedulers.boundedElastic())

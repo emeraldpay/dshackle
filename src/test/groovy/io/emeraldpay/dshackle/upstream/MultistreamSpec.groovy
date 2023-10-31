@@ -25,15 +25,17 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
-import io.emeraldpay.dshackle.test.EthereumPosRpcUpstreamMock
+import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLikeRpcUpstream
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumPosMultiStream
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
+import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
+import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.dshackle.upstream.grpc.EthereumPosGrpcUpstream
+import io.emeraldpay.dshackle.upstream.grpc.GenericGrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.jetbrains.annotations.NotNull
@@ -51,9 +53,13 @@ class MultistreamSpec extends Specification {
 
     def "Aggregates methods"() {
         setup:
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
-        def up2 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test2", "eth_test3"]))
-        def aggr = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up1, up2], Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
+        def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
+        def up2 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test2", "eth_test3"]))
+        def aggr = new GenericMultistream(Chain.ETHEREUM__MAINNET, [up1, up2], Caches.default(),
+                Schedulers.boundedElastic(),
+                EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
+                EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         when:
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()
@@ -184,7 +190,11 @@ class MultistreamSpec extends Specification {
         def up1 = TestingCommons.upstream("test-1", "internal")
         def up2 = TestingCommons.upstream("test-2", "external")
         def up3 = TestingCommons.upstream("test-3", "external")
-        def multistream = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
+        def multistream = new GenericMultistream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(),
+                Schedulers.boundedElastic(),
+                EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
+                EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
 
         expect:
         multistream.getHead(new Selector.LabelMatcher("provider", ["internal"])).is(up1.ethereumHeadMock)
@@ -205,14 +215,14 @@ class MultistreamSpec extends Specification {
                 .setMethod("newHeads")
                 .build()
 
-        def up1 = Mock(EthereumPosGrpcUpstream) {
+        def up1 = Mock(GenericGrpcUpstream) {
             1 * isGrpc() >> true
-            1 * getId() >> "internal"
+            _ * getId() >> "internal"
             1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "internal"))]
             1 * proxySubscribe(call) >> Flux.just("{}")
         }
-        def up2 = Mock(EthereumPosGrpcUpstream) {
-            1 * getId() >> "external"
+        def up2 = Mock(GenericUpstream) {
+            _ * getId() >> "external"
             1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "external"))]
         }
         def multiStream = new TestEthereumPosMultistream(Chain.ETHEREUM__MAINNET, [up1, up2], Caches.default())
@@ -235,9 +245,9 @@ class MultistreamSpec extends Specification {
                 .setMethod("newHeads")
                 .build()
 
-        def up2 = Mock(EthereumPosGrpcUpstream) {
+        def up2 = Mock(GenericUpstream) {
             1 * isGrpc() >> false
-            1 * getId() >> "2"
+            _ * getId() >> "2"
             1 * getLabels() >> [UpstreamsConfig.Labels.fromMap(Collections.singletonMap("provider", "internal"))]
         }
         def multiStream = new TestEthereumPosMultistream(Chain.ETHEREUM__MAINNET, [up2], Caches.default())
@@ -251,9 +261,13 @@ class MultistreamSpec extends Specification {
 
     def "Change ms methods based on upstream availability"() {
         setup:
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
-        def up2 = new EthereumPosRpcUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
-        def ms = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, new ArrayList<EthereumLikeRpcUpstream>(), Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
+        def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
+        def up2 = new GenericUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
+        def ms = new GenericMultistream(Chain.ETHEREUM__MAINNET, new ArrayList<GenericMultistream>(), Caches.default(),
+                Schedulers.boundedElastic(),
+                EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
+                EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         when:
         ms.onUpstreamChange(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED)
@@ -278,9 +292,13 @@ class MultistreamSpec extends Specification {
 
     def "Filter older blocks on multistream head"() {
         setup:
-        def up1 = new EthereumPosRpcUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
-        def up2 = new EthereumPosRpcUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
-        def ms = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, new ArrayList<EthereumLikeRpcUpstream>(), Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
+        def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
+        def up2 = new GenericUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
+        def ms = new GenericMultistream(Chain.ETHEREUM__MAINNET, new ArrayList<GenericMultistream>(), Caches.default(),
+                Schedulers.boundedElastic(),
+                EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
+                EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         def head1 = createBlock(250, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448401b")
         def head2 = createBlock(270, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448402b")
         def head3 = createBlock(100, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448412b")
@@ -311,7 +329,11 @@ class MultistreamSpec extends Specification {
         def up1 = TestingCommons.upstream("test-1", "internal")
         def up2 = TestingCommons.upstream("test-2", "external")
         def up3 = TestingCommons.upstream("test-3", "external")
-        def multistream = new EthereumPosMultiStream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(), Schedulers.boundedElastic(), TestingCommons.tracerMock())
+        def multistream = new GenericMultistream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(),
+                Schedulers.boundedElastic(),
+                EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
+                EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         def observer = multistream.lagObserver
         multistream.onUpstreamsUpdated()
 
@@ -335,15 +357,19 @@ class MultistreamSpec extends Specification {
                 .build()
     }
 
-    class TestEthereumPosMultistream extends EthereumPosMultiStream {
+    class TestEthereumPosMultistream extends GenericMultistream {
 
-        TestEthereumPosMultistream(@NotNull Chain chain, @NotNull List<EthereumLikeRpcUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches, Schedulers.boundedElastic(), TestingCommons.tracerMock())
+        TestEthereumPosMultistream(@NotNull Chain chain, @NotNull List<GenericUpstream> upstreams, @NotNull Caches caches) {
+            super(chain, upstreams, caches,
+                    Schedulers.boundedElastic(),
+                    EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
+                    EthereumChainSpecific.INSTANCE.&localReaderBuilder,
+                    StarknetChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         }
 
         @NotNull
         @Override
-        Mono<Reader<JsonRpcRequest, JsonRpcResponse>> getLocalReader(boolean localEnabled) {
+        Mono<Reader<JsonRpcRequest, JsonRpcResponse>> getLocalReader() {
             return null
         }
 

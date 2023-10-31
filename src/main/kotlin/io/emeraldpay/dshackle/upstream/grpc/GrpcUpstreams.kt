@@ -25,6 +25,7 @@ import io.emeraldpay.api.proto.Common.ChainRef.UNRECOGNIZED
 import io.emeraldpay.api.proto.ReactorAuthGrpc
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.BlockchainType.BITCOIN
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.FileResolver
@@ -34,7 +35,6 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
-import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.grpc.auth.AuthException
 import io.emeraldpay.dshackle.upstream.grpc.auth.ClientAuthenticationInterceptor
@@ -246,42 +246,37 @@ class GrpcUpstreams(
         return sslContext.build()
     }
 
-    private val creators: Map<BlockchainType, (chain: Chain, client: JsonRpcGrpcClient) -> DefaultUpstream> = mapOf(
-        BlockchainType.EVM_POW to { chain, rpcClient ->
-            EthereumGrpcUpstream(
-                id,
-                hash,
-                role,
-                chain,
-                client,
-                rpcClient,
-                labels,
-                chainsConfig.resolve(chain.chainName),
-                headScheduler,
-            )
-        },
-        BlockchainType.EVM_POS to { chain, rpcClient ->
-            EthereumPosGrpcUpstream(
-                id,
-                hash,
-                role,
-                chain,
-                client,
-                rpcClient,
-                nodeRating,
-                labels,
-                chainsConfig.resolve(chain.chainName),
-                headScheduler,
-            )
-        },
-        BlockchainType.BITCOIN to { chain, rpcClient ->
-            BitcoinGrpcUpstream(id, role, chain, client, rpcClient, labels, chainsConfig.resolve(chain.chainCode), headScheduler)
-        },
-    )
-
     private fun getOrCreate(chain: Chain): UpstreamChangeEvent {
         val metrics = makeMetrics(chain)
-        val creator = creators.getValue(BlockchainType.from(chain))
+        val creator = if (BlockchainType.from(chain) != BITCOIN) {
+            { ch: Chain, rpcClient: JsonRpcGrpcClient ->
+                GenericGrpcUpstream(
+                    id,
+                    hash,
+                    role,
+                    ch,
+                    client,
+                    rpcClient,
+                    nodeRating,
+                    labels,
+                    chainsConfig.resolve(chain.chainName),
+                    headScheduler,
+                )
+            }
+        } else {
+            { ch: Chain, rpcClient: JsonRpcGrpcClient ->
+                BitcoinGrpcUpstream(
+                    id,
+                    role,
+                    chain,
+                    client,
+                    rpcClient,
+                    labels,
+                    chainsConfig.resolve(chain.chainCode),
+                    headScheduler,
+                )
+            }
+        }
         return getOrCreate(chain, metrics, creator)
     }
 
@@ -315,7 +310,7 @@ class GrpcUpstreams(
                 val rpcClient = JsonRpcGrpcClient(client, chain, metrics)
                 val created = creator(chain, rpcClient)
                 known[chain] = created
-                if (created is Lifecycle) created.start()
+                created.start()
                 UpstreamChangeEvent(chain, created, UpstreamChangeEvent.ChangeType.ADDED)
             } else {
                 UpstreamChangeEvent(chain, current, UpstreamChangeEvent.ChangeType.REVALIDATED)

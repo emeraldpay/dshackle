@@ -22,7 +22,7 @@ interface EgressSubscription {
     fun subscribe(topic: String, params: Any?, matcher: Selector.Matcher): Flux<out Any>
 }
 
-class EmptyEgressSubscription : EgressSubscription {
+object EmptyEgressSubscription : EgressSubscription {
     override fun getAvailableTopics(): List<String> {
         return emptyList()
     }
