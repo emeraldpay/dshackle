@@ -1,6 +1,5 @@
 package io.emeraldpay.dshackle.config.context
 
-import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.CachesFactory
@@ -30,7 +29,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         return Chain.entries
             .filterNot { it == Chain.UNSPECIFIED }
             .map { chain ->
-                if (BlockchainType.from(chain) == BITCOIN) {
+                if (chain.type == BITCOIN) {
                     bitcoinMultistream(chain, cachesFactory, headScheduler)
                 } else {
                     genericMultistream(chain, cachesFactory, headScheduler, tracer)

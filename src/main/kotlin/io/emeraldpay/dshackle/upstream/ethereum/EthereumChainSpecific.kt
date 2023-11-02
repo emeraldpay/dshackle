@@ -22,17 +22,22 @@ import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
 import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 
 object EthereumChainSpecific : ChainSpecific {
-    override fun parseBlock(data: JsonRpcResponse, upstreamId: String): BlockContainer {
-        return BlockContainer.fromEthereumJson(data.getResult(), upstreamId)
+    override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
+        return BlockContainer.fromEthereumJson(data, upstreamId)
+    }
+
+    override fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer {
+        return parseBlock(data, upstreamId)
     }
 
     override fun latestBlockRequest() = JsonRpcRequest("eth_getBlockByNumber", listOf("latest", false))
+    override fun listenNewHeadsRequest(): JsonRpcRequest = JsonRpcRequest("eth_subscribe", listOf("newHeads"))
+
     override fun localReaderBuilder(
         cachingReader: CachingReader,
         methods: CallMethods,

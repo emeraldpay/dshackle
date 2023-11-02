@@ -23,7 +23,7 @@ class ConnectorFactoryMock implements ConnectorFactory {
         return true
     }
 
-    GenericConnector create(DefaultUpstream upstream, Chain chain, boolean skipEnhance)  {
+    GenericConnector create(DefaultUpstream upstream, Chain chain)  {
         return new GenericConnectorMock(api, head)
     }
 }

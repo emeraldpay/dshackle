@@ -30,6 +30,7 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
         val callLimitContract: String?,
         val id: String,
         val blockchain: String,
+        val type: String
     ) {
         companion object {
             @JvmStatic
@@ -49,6 +50,7 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
                 callLimitContract,
                 "undefined",
                 "undefined",
+                "unknown"
             )
         }
 

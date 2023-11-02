@@ -20,7 +20,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class WsSubscriptionsImpl(
@@ -31,9 +30,7 @@ class WsSubscriptionsImpl(
         private val log = LoggerFactory.getLogger(WsSubscriptionsImpl::class.java)
     }
 
-    private val ids = AtomicLong(1)
-
-    override fun subscribe(method: String): WsSubscriptions.SubscribeData {
+    override fun subscribe(request: JsonRpcRequest): WsSubscriptions.SubscribeData {
         val subscriptionId = AtomicReference("")
         val conn = wsPool.getConnection()
         val messages = conn.getSubscribeResponses()
@@ -41,10 +38,10 @@ class WsSubscriptionsImpl(
             .filter { it.result != null } // should never happen
             .map { it.result!! }
 
-        val messageFlux = conn.callRpc(JsonRpcRequest("eth_subscribe", listOf(method), ids.incrementAndGet()))
+        val messageFlux = conn.callRpc(request)
             .flatMapMany {
                 if (it.hasError()) {
-                    log.warn("Failed to establish ETH Subscription: ${it.error?.message}")
+                    log.warn("Failed to establish subscription: ${it.error?.message}")
                     Mono.error(JsonRpcException(it.id, it.error!!))
                 } else {
                     subscriptionId.set(it.getResultAsProcessedString())

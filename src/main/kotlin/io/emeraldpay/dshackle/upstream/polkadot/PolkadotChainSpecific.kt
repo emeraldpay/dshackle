@@ -1,4 +1,4 @@
-package io.emeraldpay.dshackle.upstream.starknet
+package io.emeraldpay.dshackle.upstream.polkadot
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -30,34 +30,39 @@ import reactor.core.scheduler.Scheduler
 import java.math.BigInteger
 import java.time.Instant
 
-object StarknetChainSpecific : ChainSpecific {
+object PolkadotChainSpecific : ChainSpecific {
     override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
-        val block = Global.objectMapper.readValue(data, StarknetBlock::class.java)
+        val response = Global.objectMapper.readValue(data, PolkadotBlockResponse::class.java)
 
-        return BlockContainer(
-            height = block.number,
-            hash = BlockId.from(block.hash),
-            difficulty = BigInteger.ZERO,
-            timestamp = block.timestamp,
-            full = false,
-            json = data,
-            parsed = block,
-            transactions = emptyList(),
-            upstreamId = upstreamId,
-            parentHash = BlockId.from(block.parent),
-        )
+        return makeBlock(response.block.header, data, upstreamId)
     }
 
     override fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer {
-        throw NotImplementedError()
+        val header = Global.objectMapper.readValue(data, PolkadotHeader::class.java)
+
+        return makeBlock(header, data, upstreamId)
+    }
+
+    private fun makeBlock(header: PolkadotHeader, data: ByteArray, upstreamId: String): BlockContainer {
+        return BlockContainer(
+            height = header.number.substring(2).toLong(16),
+            hash = BlockId.from(header.parentHash), // todo
+            difficulty = BigInteger.ZERO,
+            timestamp = Instant.EPOCH,
+            full = false,
+            json = data,
+            parsed = header,
+            transactions = emptyList(),
+            upstreamId = upstreamId,
+            parentHash = BlockId.from(header.parentHash),
+        )
     }
 
     override fun latestBlockRequest(): JsonRpcRequest =
-        JsonRpcRequest("starknet_getBlockWithTxHashes", listOf("latest"))
+        JsonRpcRequest("chain_getBlock", listOf())
 
-    override fun listenNewHeadsRequest(): JsonRpcRequest {
-        throw NotImplementedError()
-    }
+    override fun listenNewHeadsRequest(): JsonRpcRequest =
+        JsonRpcRequest("chain_subscribeNewHeads", listOf())
 
     override fun localReaderBuilder(
         cachingReader: CachingReader,
@@ -94,9 +99,24 @@ object StarknetChainSpecific : ChainSpecific {
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class StarknetBlock(
-    @JsonProperty("block_hash") var hash: String,
-    @JsonProperty("block_number") var number: Long,
-    @JsonProperty("timestamp") var timestamp: Instant,
-    @JsonProperty("parent_hash") var parent: String,
+data class PolkadotBlockResponse(
+    @JsonProperty("block") var block: PolkadotBlock,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class PolkadotBlock(
+    @JsonProperty("header") var header: PolkadotHeader,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class PolkadotHeader(
+    @JsonProperty("parentHash") var parentHash: String,
+    @JsonProperty("number") var number: String,
+    @JsonProperty("stateRoot") var stateRoot: String,
+    @JsonProperty("extrinsicsRoot") var extrinsicsRoot: String,
+    @JsonProperty("digest") var digest: PolkadotDigest,
+)
+
+data class PolkadotDigest(
+    @JsonProperty("logs") var logs: List<String>,
 )

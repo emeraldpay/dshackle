@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.TransactionId
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -33,7 +34,7 @@ class WebsocketPendingTxes(
     }
 
     override fun createConnection(): Flux<TransactionId> {
-        return wsSubscriptions.subscribe(EthereumEgressSubscription.METHOD_PENDING_TXES)
+        return wsSubscriptions.subscribe(JsonRpcRequest("eth_subscribe", listOf(EthereumEgressSubscription.METHOD_PENDING_TXES)))
             .data
             .timeout(Duration.ofSeconds(60), Mono.empty())
             .map {

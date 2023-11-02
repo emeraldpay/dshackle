@@ -3,6 +3,7 @@ version: v1
 chain-settings:
   protocols:
     - id: fantom
+      type: eth
       settings:
         expected-block-time: 10s
         options:

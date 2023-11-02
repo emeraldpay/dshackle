@@ -45,7 +45,7 @@ class WsSubscriptionsImplSpec extends Specification {
         def ws = new WsSubscriptionsImpl(pool)
 
         when:
-        def act = ws.subscribe("foo_bar")
+        def act = ws.subscribe(new JsonRpcRequest("eth_subscribe", ["foo_bar"]))
             .data
             .map { new String(it) }
             .take(3)
@@ -83,7 +83,7 @@ class WsSubscriptionsImplSpec extends Specification {
         def ws = new WsSubscriptionsImpl(pool)
 
         when:
-        def act = ws.subscribe("foo_bar")
+        def act = ws.subscribe(new JsonRpcRequest("eth_subscribe", ["foo_bar"]))
                 .data
                 .map { new String(it) }
                 .take(3)

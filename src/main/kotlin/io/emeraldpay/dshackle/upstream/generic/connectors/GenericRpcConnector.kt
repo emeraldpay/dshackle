@@ -10,7 +10,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumWsHead
+import io.emeraldpay.dshackle.upstream.ethereum.GenericWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
@@ -37,7 +37,6 @@ class GenericRpcConnector(
     upstream: DefaultUpstream,
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
-    skipEnhance: Boolean,
     wsConnectionResubscribeScheduler: Scheduler,
     headScheduler: Scheduler,
     expectedBlockTime: Duration,
@@ -71,12 +70,11 @@ class GenericRpcConnector(
 
             RPC_REQUESTS_WITH_MIXED_HEAD -> {
                 val wsHead =
-                    EthereumWsHead(
+                    GenericWsHead(
                         AlwaysForkChoice(),
                         blockValidator,
                         getIngressReader(),
                         WsSubscriptionsImpl(pool!!),
-                        skipEnhance,
                         wsConnectionResubscribeScheduler,
                         headScheduler,
                         upstream,
@@ -97,12 +95,11 @@ class GenericRpcConnector(
             }
 
             RPC_REQUESTS_WITH_WS_HEAD -> {
-                EthereumWsHead(
+                GenericWsHead(
                     AlwaysForkChoice(),
                     blockValidator,
                     getIngressReader(),
                     WsSubscriptionsImpl(pool!!),
-                    skipEnhance,
                     wsConnectionResubscribeScheduler,
                     headScheduler,
                     upstream,

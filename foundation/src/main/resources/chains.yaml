@@ -641,3 +641,26 @@ chain-settings:
           short-names: [ astar-zkatana ]
           chain-id: 0x133e40
           grpcId: 10035
+    - id: vara
+      label: varanet
+      type: polkadot
+      settings:
+        expected-block-time: 3s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 10
+          lagging: 5
+      chains:
+        - id: Mainnet
+          priority: 1
+          code: VARA_MAINNET
+          short-names: [ vara ]
+          chain-id: 0x0
+          grpcId: 1027
+        - id: Testnet
+          priority: 1
+          code: VARA_TESTMET
+          short-names: [ vara-testnet ]
+          chain-id: 0x0
+          grpcId: 10036

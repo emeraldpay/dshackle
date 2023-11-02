@@ -57,7 +57,7 @@ open class NativeSubscribe(
 
     fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<ResponseHolder> {
         val chain = Chain.byId(request.chainValue)
-        if (BlockchainType.from(chain) != BlockchainType.ETHEREUM) {
+        if (chain.type != BlockchainType.ETHEREUM) {
             return Mono.error(UnsupportedOperationException("Native subscribe is not supported for ${chain.chainCode}"))
         }
 

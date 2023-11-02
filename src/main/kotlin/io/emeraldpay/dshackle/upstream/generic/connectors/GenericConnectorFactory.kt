@@ -48,7 +48,6 @@ open class GenericConnectorFactory(
     override fun create(
         upstream: DefaultUpstream,
         chain: Chain,
-        skipEnhance: Boolean,
     ): GenericConnector {
         val specific = ChainSpecificRegistry.resolve(chain)
         if (wsFactory != null && connectorType == WS_ONLY) {
@@ -57,7 +56,6 @@ open class GenericConnectorFactory(
                 upstream,
                 forkChoice,
                 blockValidator,
-                skipEnhance,
                 wsConnectionResubscribeScheduler,
                 headScheduler,
                 expectedBlockTime,
@@ -74,7 +72,6 @@ open class GenericConnectorFactory(
             upstream,
             forkChoice,
             blockValidator,
-            skipEnhance,
             wsConnectionResubscribeScheduler,
             headScheduler,
             expectedBlockTime,

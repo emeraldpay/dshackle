@@ -43,7 +43,7 @@ class StreamHead(
                 .getFlux()
                 .map { asProto(chain, it!!) }
                 .onErrorContinue { t, _ ->
-                    log.warn("Head subscription error: ${t.message}")
+                    log.warn("Head subscription error", t)
                 }
         }
     }

@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.startup
 
 import brave.grpc.GrpcTracing
 import com.google.common.annotations.VisibleForTesting
-import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
 import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.Chain
@@ -135,7 +134,7 @@ open class ConfiguredUpstreams(
                     .merge(defaultOptions[chain] ?: ChainOptions.PartialOptions.getDefaults())
                     .merge(up.options ?: ChainOptions.PartialOptions())
                     .buildOptions()
-                val upstream = when (BlockchainType.from(chain)) {
+                val upstream = when (chain.type) {
                     BITCOIN -> {
                         buildBitcoinUpstream(
                             up.cast(BitcoinConnection::class.java),

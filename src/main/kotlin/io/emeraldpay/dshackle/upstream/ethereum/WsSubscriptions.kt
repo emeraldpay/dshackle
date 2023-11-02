@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import reactor.core.publisher.Flux
 
 /**
@@ -37,7 +38,7 @@ interface WsSubscriptions {
     /**
      * Subscribe on remote
      */
-    fun subscribe(method: String): SubscribeData
+    fun subscribe(request: JsonRpcRequest): SubscribeData
 
     fun connectionInfoFlux(): Flux<WsConnection.ConnectionInfo>
 

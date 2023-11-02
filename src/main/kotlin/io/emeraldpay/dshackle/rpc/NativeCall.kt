@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
@@ -84,7 +83,7 @@ open class NativeCall(
     @EventListener
     fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
         multistreamHolder.getUpstream(event.chain).let { up ->
-            if (BlockchainType.from(up.chain) == ETHEREUM) {
+            if (up.chain.type == ETHEREUM) {
                 ethereumCallSelectors.putIfAbsent(
                     event.chain,
                     EthereumCallSelector(up.caches),
@@ -306,7 +305,7 @@ open class NativeCall(
         }
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
-            if (BlockchainType.from(upstream.chain) == ETHEREUM) {
+            if (upstream.chain.type == ETHEREUM) {
                 ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead(), passthrough)
             } else {
                 null

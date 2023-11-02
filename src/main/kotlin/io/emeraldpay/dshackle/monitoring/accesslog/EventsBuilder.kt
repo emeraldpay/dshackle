@@ -32,7 +32,6 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.time.Duration
 import java.time.Instant
-import java.util.Locale
 import java.util.UUID
 
 class EventsBuilder {
@@ -244,69 +243,6 @@ class EventsBuilder {
         }
     }
 
-    class SubscribeBalance(val subscribe: Boolean) :
-        Base<SubscribeBalance>(),
-        RequestReply<Events.SubscribeBalance, BlockchainOuterClass.BalanceRequest, BlockchainOuterClass.AddressBalance> {
-
-        private var index = 0
-        private var balanceRequest: Events.BalanceRequest? = null
-
-        override fun getT(): SubscribeBalance {
-            return this
-        }
-
-        override fun onRequest(msg: BlockchainOuterClass.BalanceRequest) {
-            balanceRequest = Events.BalanceRequest(
-                msg.asset.code.uppercase(Locale.getDefault()),
-                msg.address.addrTypeCase.name,
-            )
-        }
-
-        override fun onReply(msg: BlockchainOuterClass.AddressBalance): Events.SubscribeBalance {
-            if (balanceRequest == null) {
-                throw IllegalStateException("Request is not initialized")
-            }
-            val addressBalance = Events.AddressBalance(msg.asset.code, msg.address.address)
-            val chain = Chain.byId(msg.asset.chain.number)
-            return Events.SubscribeBalance(
-                chain,
-                UUID.randomUUID(),
-                subscribe,
-                requestDetails,
-                balanceRequest!!,
-                addressBalance,
-                index++,
-            )
-        }
-    }
-
-    class TxStatus :
-        Base<TxStatus>(),
-        RequestReply<Events.TxStatus, BlockchainOuterClass.TxStatusRequest, BlockchainOuterClass.TxStatus> {
-        private var index = 0
-        private var txStatusRequest: Events.TxStatusRequest? = null
-
-        override fun onRequest(msg: BlockchainOuterClass.TxStatusRequest) {
-            this.txStatusRequest = Events.TxStatusRequest(msg.txId)
-            withChain(msg.chainValue)
-        }
-
-        override fun onReply(msg: BlockchainOuterClass.TxStatus): Events.TxStatus {
-            return Events.TxStatus(
-                chain,
-                UUID.randomUUID(),
-                requestDetails,
-                txStatusRequest!!,
-                Events.TxStatusResponse(msg.confirmations),
-                index++,
-            )
-        }
-
-        override fun getT(): TxStatus {
-            return this
-        }
-    }
-
     class NativeCall(private val startTs: Instant) :
         Base<NativeCall>(),
         RequestReply<Events.NativeCall, BlockchainOuterClass.NativeCallRequest, BlockchainOuterClass.NativeCallReplyItem> {
@@ -493,36 +429,6 @@ class EventsBuilder {
                 blockchain = chain,
                 request = requestDetails,
                 id = UUID.randomUUID(),
-            )
-        }
-    }
-
-    class EstimateFee :
-        Base<EstimateFee>(),
-        RequestReply<Events.EstimateFee, BlockchainOuterClass.EstimateFeeRequest, BlockchainOuterClass.EstimateFeeResponse> {
-
-        private var mode: String = "UNKNOWN"
-        private var blocks: Int = 0
-
-        override fun getT(): EstimateFee {
-            return this
-        }
-
-        override fun onRequest(msg: BlockchainOuterClass.EstimateFeeRequest) {
-            this.chain = Chain.byId(msg.chain.number)
-            this.mode = msg.mode.name
-            this.blocks = msg.blocks
-        }
-
-        override fun onReply(msg: BlockchainOuterClass.EstimateFeeResponse): Events.EstimateFee {
-            return Events.EstimateFee(
-                blockchain = chain,
-                request = requestDetails,
-                id = UUID.randomUUID(),
-                estimateFee = Events.EstimateFeeDetails(
-                    mode = mode,
-                    blocks = blocks,
-                ),
             )
         }
     }

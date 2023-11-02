@@ -24,7 +24,6 @@ import io.emeraldpay.api.proto.Common
 import io.emeraldpay.api.proto.Common.ChainRef.UNRECOGNIZED
 import io.emeraldpay.api.proto.ReactorAuthGrpc
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
-import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Defaults
@@ -248,7 +247,7 @@ class GrpcUpstreams(
 
     private fun getOrCreate(chain: Chain): UpstreamChangeEvent {
         val metrics = makeMetrics(chain)
-        val creator = if (BlockchainType.from(chain) != BITCOIN) {
+        val creator = if (chain.type != BITCOIN) {
             { ch: Chain, rpcClient: JsonRpcGrpcClient ->
                 GenericGrpcUpstream(
                     id,

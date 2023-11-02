@@ -43,14 +43,10 @@ class AccessHandlerGrpc(
     ): ServerCall.Listener<ReqT> {
         return when (val method = call.methodDescriptor.bareMethodName) {
             "SubscribeHead" -> processSubscribeHead(call, headers, next)
-            "SubscribeBalance" -> processSubscribeBalance(call, headers, next, true)
-            "SubscribeTxStatus" -> processSubscribeTxStatus(call, headers, next)
-            "GetBalance" -> processSubscribeBalance(call, headers, next, false)
             "NativeCall" -> processNativeCall(call, headers, next)
             "NativeSubscribe" -> processNativeSubscribe(call, headers, next)
             "Describe" -> processDescribe(call, headers, next)
             "SubscribeStatus" -> processStatus(call, headers, next)
-            "EstimateFee" -> processEstimateFee(call, headers, next)
             else -> {
                 log.warn("unsupported method `{}`", method)
                 next.startCall(call, headers)
@@ -87,35 +83,6 @@ class AccessHandlerGrpc(
             headers,
             next,
             EventsBuilder.SubscribeHead() as EventsBuilder.RequestReply<*, ReqT, RespT>,
-        )
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun <ReqT : Any, RespT : Any> processSubscribeBalance(
-        call: ServerCall<ReqT, RespT>,
-        headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>,
-        subscribe: Boolean,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call,
-            headers,
-            next,
-            EventsBuilder.SubscribeBalance(subscribe) as EventsBuilder.RequestReply<*, ReqT, RespT>,
-        )
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun <ReqT : Any, RespT : Any> processSubscribeTxStatus(
-        call: ServerCall<ReqT, RespT>,
-        headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call,
-            headers,
-            next,
-            EventsBuilder.TxStatus() as EventsBuilder.RequestReply<*, ReqT, RespT>,
         )
     }
 
@@ -172,20 +139,6 @@ class AccessHandlerGrpc(
             headers,
             next,
             EventsBuilder.Status() as EventsBuilder.RequestReply<*, ReqT, RespT>,
-        )
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun <ReqT : Any, RespT : Any> processEstimateFee(
-        call: ServerCall<ReqT, RespT>,
-        headers: Metadata,
-        next: ServerCallHandler<ReqT, RespT>,
-    ): ServerCall.Listener<ReqT> {
-        return process(
-            call,
-            headers,
-            next,
-            EventsBuilder.EstimateFee() as EventsBuilder.RequestReply<*, ReqT, RespT>,
         )
     }
 

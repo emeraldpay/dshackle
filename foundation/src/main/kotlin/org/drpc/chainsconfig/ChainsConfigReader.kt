@@ -23,6 +23,8 @@ class ChainsConfigReader(
                 protocols.value.fold(emptyMap()) { acc, protocol ->
                     val blockchain = getValueAsString(protocol, "id")
                         ?: throw IllegalArgumentException("Blockchain id is not defined")
+                    val type = getValueAsString(protocol, "type")
+                        ?: throw IllegalArgumentException("undefined type for $blockchain")
                     val settings = mergeMappingNode(default, getMapping(protocol, "settings"))
                     acc.plus(
                         getList<MappingNode>(protocol, "chains")?.let { chains ->
@@ -37,6 +39,10 @@ class ChainsConfigReader(
                                             NodeTuple(
                                                 ScalarNode(Tag.STR, "blockchain", null, null, DumperOptions.ScalarStyle.LITERAL),
                                                 ScalarNode(Tag.STR, blockchain, null, null, DumperOptions.ScalarStyle.LITERAL),
+                                            ),
+                                            NodeTuple(
+                                                ScalarNode(Tag.STR, "type", null, null, DumperOptions.ScalarStyle.LITERAL),
+                                                ScalarNode(Tag.STR, type, null, null, DumperOptions.ScalarStyle.LITERAL),
                                             ),
                                         ),
                                         chain.flowStyle,
@@ -78,6 +84,8 @@ class ChainsConfigReader(
         val netVersion = getValueAsLong(node, "net-version")?.toBigInteger() ?: BigInteger(chainId.drop(2), 16)
         val shortNames = getListOfString(node, "short-names")
             ?: throw IllegalArgumentException("undefined shortnames for $blockchain")
+        val type = getValueAsString(node, "type")
+            ?: throw IllegalArgumentException("undefined type for $blockchain")
         return ChainsConfig.ChainConfig(
             expectedBlockTime = expectedBlockTime,
             syncingLagSize = lags.first,
@@ -91,6 +99,7 @@ class ChainsConfigReader(
             shortNames = shortNames,
             id = id,
             blockchain = blockchain,
+            type = type
         )
     }
 

@@ -1,7 +1,6 @@
 package io.emeraldpay.dshackle.upstream.starknet
 
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -23,7 +22,7 @@ val example = """
 class StarknetChainSpecificTest {
     @Test
     fun parseResponse() {
-        val result = StarknetChainSpecific.parseBlock(JsonRpcResponse.ok(example), "1")
+        val result = StarknetChainSpecific.parseBlock(example.toByteArray(), "1")
 
         Assertions.assertThat(result.height).isEqualTo(304789)
         Assertions.assertThat(result.hash).isEqualTo(BlockId.from("046fa6638dc7fae06cece980ce4195436a79ef314ca49d99e0cef552d6f13c4e"))

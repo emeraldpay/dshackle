@@ -42,7 +42,7 @@ class MultistreamHolderMock implements MultistreamHolder {
 
     Multistream addUpstream(@NotNull Chain chain, @NotNull Upstream up) {
         if (!upstreams.containsKey(chain)) {
-            if (BlockchainType.from(chain) == BlockchainType.ETHEREUM) {
+            if (chain.type == BlockchainType.ETHEREUM) {
                 if (up instanceof GenericMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof GenericUpstream) {
@@ -57,7 +57,7 @@ class MultistreamHolderMock implements MultistreamHolder {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
                 upstreams[chain].start()
-            } else if (BlockchainType.from(chain) == BlockchainType.BITCOIN) {
+            } else if (chain.type == BlockchainType.BITCOIN) {
                 if (up instanceof BitcoinMultistream) {
                     upstreams[chain] = up
                 } else if (up instanceof BitcoinRpcUpstream) {

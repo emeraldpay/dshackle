@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
@@ -38,7 +39,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-class EthereumWsHeadSpec extends Specification {
+class GenericWsHeadSpec extends Specification {
 
     BlockHash parent = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
     DefaultUpstream upstream = new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.api())
@@ -50,38 +51,29 @@ class EthereumWsHeadSpec extends Specification {
         block.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
         block.parentHash = parent
         block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
-        block.transactions = [
-                new TransactionRefJson(TransactionId.from("0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8")),
-                new TransactionRefJson(TransactionId.from("0xebe8f22a55a9e26892a8545b93cbb2bfa4fd81c3184e50e5cf6276025bb42b93"))
-        ]
         block.uncles = []
         block.totalDifficulty = BigInteger.ONE
 
-        def headBlock = block.copy().tap {
-            it.transactions = null
-        }.with {
+        def headBlock = block.copy().with {
             Global.objectMapper.writeValueAsBytes(it)
         }
 
         def apiMock = TestingCommons.api()
-        apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], block)
 
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> Flux.empty()
         }
 
-        def head = new EthereumWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, false, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
 
+        def res = BlockContainer.from(block)
         when:
         def act = head.listenNewHeads().blockFirst()
 
         then:
-        act == BlockContainer.from(block)
-        act.transactions.size() == 2
-        act.transactions[0].toHexWithPrefix() == "0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8"
-        act.transactions[1].toHexWithPrefix() == "0xebe8f22a55a9e26892a8545b93cbb2bfa4fd81c3184e50e5cf6276025bb42b93"
+        act == res
 
-        1 * ws.subscribe("newHeads") >> new WsSubscriptions.SubscribeData(
+        1 * ws.subscribe(_) >> new WsSubscriptions.SubscribeData(
                 Flux.fromIterable([headBlock]), "id"
         )
     }
@@ -99,19 +91,17 @@ class EthereumWsHeadSpec extends Specification {
         }
 
         def apiMock = TestingCommons.api()
-        apiMock.answerOnce("eth_getBlockByHash", ["0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8", false], null)
-        apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
 
         def connectionInfoSink = Sinks.many().multicast().directBestEffort()
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
-            2 * subscribe("newHeads") >>> [
+            2 * subscribe(_) >>> [
                     new WsSubscriptions.SubscribeData(Flux.error(new RuntimeException()), "id"),
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id")
             ]
         }
 
-        def head = new EthereumWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
 
         when:
         def act = head.getFlux()
@@ -159,13 +149,13 @@ class EthereumWsHeadSpec extends Specification {
 
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
-            2 * subscribe("newHeads") >>> [
+            2 * subscribe(_) >>> [
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id")
             ]
         }
 
-        def head = new EthereumWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
 
         when:
         def act = head.getFlux()
@@ -200,12 +190,12 @@ class EthereumWsHeadSpec extends Specification {
 
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
-            1 * subscribe("newHeads") >>> [
+            1 * subscribe(_) >>> [
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
             ]
         }
 
-        def head = new EthereumWsHead( new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead( new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
 
         when:
         def act = head.getFlux()
@@ -239,12 +229,12 @@ class EthereumWsHeadSpec extends Specification {
 
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
-            1 * subscribe("newHeads") >>> [
+            1 * subscribe(_) >>> [
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
             ]
         }
 
-        def head = new EthereumWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
 
         when:
         def act = head.getFlux()
@@ -291,13 +281,13 @@ class EthereumWsHeadSpec extends Specification {
 
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
-            2 * subscribe("newHeads") >>> [
+            2 * subscribe(_) >>> [
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id"),
             ]
         }
 
-        def head = new EthereumWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, true, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
 
         when:
         def act = head.getFlux()

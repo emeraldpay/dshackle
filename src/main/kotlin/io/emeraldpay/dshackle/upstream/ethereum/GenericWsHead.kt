@@ -16,41 +16,32 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.ThrottledLogger
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
-import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericHead
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicInteger
 
-class EthereumWsHead(
+class GenericWsHead(
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
     private val api: JsonRpcReader,
     private val wsSubscriptions: WsSubscriptions,
-    private val skipEnhance: Boolean,
     private val wsConnectionResubscribeScheduler: Scheduler,
-    private val headScheduler: Scheduler,
+    headScheduler: Scheduler,
     private val upstream: DefaultUpstream,
-    chainSpecific: ChainSpecific,
+    private val chainSpecific: ChainSpecific,
 ) : GenericHead(upstream.getId(), forkChoice, blockValidator, headScheduler, chainSpecific), Lifecycle {
 
     private var connectionId: String? = null
@@ -98,50 +89,7 @@ class EthereumWsHead(
                 Flux.concat(it.next().doOnNext { upstream.setStatus(UpstreamAvailability.OK) }, it)
             }
             .map {
-                val block = Global.objectMapper.readValue(it, BlockJson::class.java) as BlockJson<TransactionRefJson>
-                if (!block.checkExtraData() && skipEnhance) {
-                    ThrottledLogger.log(log, "$upstreamId recieved block with empty extradata through ws subscription")
-                }
-                return@map block
-            }
-            .flatMap { block ->
-                // newHeads returns incomplete blocks, i.e. without some fields and without transaction hashes,
-                // so we need to fetch the full block data
-                if (!skipEnhance && (
-                    block.difficulty == null ||
-                        block.transactions == null ||
-                        block.transactions.isEmpty() ||
-                        block.totalDifficulty == null
-                    )
-                ) {
-                    EthereumBlockEnricher.enrich(
-                        block.hash,
-                        object :
-                            Reader<BlockHash, BlockContainer> {
-                            override fun read(key: BlockHash): Mono<BlockContainer> {
-                                return api.read(JsonRpcRequest("eth_getBlockByHash", listOf(block.hash.toHex(), false)))
-                                    .flatMap { resp ->
-                                        if (resp.isNull()) {
-                                            Mono.error(SilentException("Received null for block ${block.hash}"))
-                                        } else {
-                                            Mono.just(resp)
-                                        }
-                                    }
-                                    .flatMap(JsonRpcResponse::requireResult)
-                                    .map {
-                                        val parsedBlock = BlockContainer.fromEthereumJson(it, upstreamId)
-                                        if (parsedBlock.parsed is BlockJson<*> && !parsedBlock.parsed.checkExtraData() && !skipEnhance) {
-                                            ThrottledLogger.log(log, "$upstreamId recieved block with empty extradata from block enrichment")
-                                        }
-                                        return@map parsedBlock
-                                    }
-                            }
-                        },
-                        headScheduler,
-                    )
-                } else {
-                    Mono.just(BlockContainer.from(block))
-                }
+                chainSpecific.parseHeader(it, "unknown")
             }
             .timeout(Duration.ofSeconds(60), Mono.error(RuntimeException("No response from subscribe to newHeads")))
             .onErrorResume {
@@ -158,9 +106,11 @@ class EthereumWsHead(
         noHeadUpdatesSink.tryEmitComplete()
     }
 
+    private val ids = AtomicInteger(1)
+
     private fun subscribe(): Flux<ByteArray> {
         return try {
-            wsSubscriptions.subscribe("newHeads")
+            wsSubscriptions.subscribe(chainSpecific.listenNewHeadsRequest().copy(id = ids.getAndIncrement()))
                 .also {
                     connectionId = it.connectionId
                     if (!connected) {

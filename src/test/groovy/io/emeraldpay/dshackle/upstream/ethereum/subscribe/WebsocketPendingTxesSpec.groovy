@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import reactor.core.publisher.Flux
@@ -40,7 +41,7 @@ class WebsocketPendingTxesSpec extends Specification {
                 .collectList().block(Duration.ofSeconds(1))
 
         then:
-        1 * ws.subscribe("newPendingTransactions") >> new WsSubscriptions.SubscribeData(
+        1 * ws.subscribe(new JsonRpcRequest("eth_subscribe", ["newPendingTransactions"])) >> new WsSubscriptions.SubscribeData(
                 Flux.fromIterable(responses), "id"
         )
         txes.collect {it.toHex() } == [

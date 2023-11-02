@@ -1,7 +1,10 @@
 package io.emeraldpay.dshackle.upstream.generic
 
-import io.emeraldpay.dshackle.BlockchainType
+import io.emeraldpay.dshackle.BlockchainType.BITCOIN
+import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
+import io.emeraldpay.dshackle.BlockchainType.POLKADOT
 import io.emeraldpay.dshackle.BlockchainType.STARKNET
+import io.emeraldpay.dshackle.BlockchainType.UNKNOWN
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
@@ -17,8 +20,8 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
+import io.emeraldpay.dshackle.upstream.polkadot.PolkadotChainSpecific
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific
 import org.apache.commons.collections4.Factory
 import org.springframework.cloud.sleuth.Tracer
@@ -30,9 +33,13 @@ typealias LocalReaderBuilder = (CachingReader, CallMethods, Head) -> Mono<JsonRp
 typealias CachingReaderBuilder = (Multistream, Caches, Factory<CallMethods>) -> CachingReader
 
 interface ChainSpecific {
-    fun parseBlock(data: JsonRpcResponse, upstreamId: String): BlockContainer
+    fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer
+
+    fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer
 
     fun latestBlockRequest(): JsonRpcRequest
+
+    fun listenNewHeadsRequest(): JsonRpcRequest
 
     fun localReaderBuilder(cachingReader: CachingReader, methods: CallMethods, head: Head): Mono<JsonRpcReader>
 
@@ -51,9 +58,12 @@ object ChainSpecificRegistry {
 
     @JvmStatic
     fun resolve(chain: Chain): ChainSpecific {
-        if (BlockchainType.from(chain) == STARKNET) {
-            return StarknetChainSpecific
+        return when (chain.type) {
+            ETHEREUM -> EthereumChainSpecific
+            STARKNET -> StarknetChainSpecific
+            POLKADOT -> PolkadotChainSpecific
+            BITCOIN -> throw IllegalArgumentException("bitcoin should use custom streams implementation")
+            UNKNOWN -> throw IllegalArgumentException("unknown chain")
         }
-        return EthereumChainSpecific
     }
 }

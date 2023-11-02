@@ -7,7 +7,6 @@ interface ConnectorFactory {
     fun create(
         upstream: DefaultUpstream,
         chain: Chain,
-        skipEnhance: Boolean,
     ): GenericConnector
 
     fun isValid(): Boolean

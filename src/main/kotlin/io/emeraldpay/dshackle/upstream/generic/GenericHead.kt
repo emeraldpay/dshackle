@@ -37,7 +37,9 @@ open class GenericHead(
         return api.read(chainSpecific.latestBlockRequest())
             .subscribeOn(headScheduler)
             .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
-            .map { chainSpecific.parseBlock(it, upstreamId) }
+            .map {
+                chainSpecific.parseBlock(it.getResult(), upstreamId)
+            }
             .onErrorResume { err ->
                 log.error("Failed to fetch latest block: ${err.message} $upstreamId", err)
                 Mono.empty()

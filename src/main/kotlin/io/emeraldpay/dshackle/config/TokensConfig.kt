@@ -41,7 +41,7 @@ class TokensConfig(
                 type == null -> type
                 address.isNullOrBlank() -> "address"
                 blockchain != null &&
-                    (BlockchainType.from(blockchain!!) == BlockchainType.ETHEREUM) &&
+                    (blockchain!!.type == BlockchainType.ETHEREUM) &&
                     !Address.isValidAddress(address) -> "address"
                 else -> null
             }
