@@ -27,6 +27,17 @@ import io.emeraldpay.etherjar.rpc.RpcException
  */
 class DefaultPolkadotMethods : CallMethods {
 
+    companion object {
+        val subs = setOf(
+            Pair("subscribe_newHead", "unsubscribe_newHead"),
+            Pair("chain_subscribeAllHeads", "chain_unsubscribeAllHeads"),
+            Pair("chain_subscribeFinalizedHeads", "chain_unsubscribeFinalizedHeads"),
+            Pair("chain_subscribeNewHeads", "chain_unsubscribeNewHeads"),
+            Pair("chain_subscribeRuntimeVersion", "chain_unsubscribeNewHeads"),
+            Pair("chain_subscribeRuntimeVersion", "chain_unsubscribeRuntimeVersion"),
+        )
+    }
+
     private val all = setOf(
         "author_pendingExtrinsics",
         "author_removeExtrinsic",
@@ -37,16 +48,6 @@ class DefaultPolkadotMethods : CallMethods {
         "chain_getHead",
         "chain_getHeader",
         "chain_getRuntimeVersion",
-        "chain_subscribeAllHeads",
-        "chain_subscribeFinalizedHeads",
-        "chain_subscribeNewHeads",
-        "chain_subscribeRuntimeVersion",
-        "chain_unsubscribeAllHeads",
-        "chain_unsubscribeFinalisedHeads",
-        "chain_unsubscribeFinalizedHeads",
-        "chain_unsubscribeNewHead",
-        "chain_unsubscribeNewHeads",
-        "chain_unsubscribeRuntimeVersion",
         "childstate_getKeys",
         "childstate_getKeysPaged",
         "childstate_getKeysPagedAt",
@@ -87,9 +88,7 @@ class DefaultPolkadotMethods : CallMethods {
         "state_queryStorageAt",
         "state_traceBlock",
         "state_trieMigrationStatus",
-        "subscribe_newHead",
         "system_chain",
-        "unsubscribe_newHead",
     )
 
     private val add = setOf(

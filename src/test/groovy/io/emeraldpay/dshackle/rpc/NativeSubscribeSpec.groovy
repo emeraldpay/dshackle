@@ -45,6 +45,7 @@ class NativeSubscribeSpec extends Specification {
         def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> null
             1 * it.getEgressSubscription() >> subscribe
+            1 * it.getSubscriptionTopics() >> ["newHeads"]
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)
@@ -84,6 +85,7 @@ class NativeSubscribeSpec extends Specification {
         def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> null
             1 * it.getEgressSubscription() >> subscribe
+            1 * it.getSubscriptionTopics() >> ["logs"]
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)
@@ -107,6 +109,7 @@ class NativeSubscribeSpec extends Specification {
         def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> Flux.just("{}")
             0 * it.getEgressSubscription()
+            1 * it.getSubscriptionTopics() >> ["newHeads"]
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)

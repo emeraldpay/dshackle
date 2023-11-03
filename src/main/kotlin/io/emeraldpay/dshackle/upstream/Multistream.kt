@@ -52,7 +52,7 @@ import kotlin.concurrent.withLock
 abstract class Multistream(
     val chain: Chain,
     val caches: Caches,
-) : Upstream, Lifecycle, HasEgressSubscription {
+) : Upstream, Lifecycle {
 
     abstract fun getUpstreams(): MutableList<out Upstream>
     abstract fun addUpstreamInternal(u: Upstream)
@@ -498,4 +498,6 @@ abstract class Multistream(
             return map.values.min()
         }
     }
+
+    abstract fun getEgressSubscription(): EgressSubscription
 }

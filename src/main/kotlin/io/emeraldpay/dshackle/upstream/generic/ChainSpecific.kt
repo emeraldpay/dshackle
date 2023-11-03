@@ -14,12 +14,14 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
+import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotChainSpecific
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific
@@ -52,6 +54,8 @@ interface ChainSpecific {
     fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector?
 
     fun subscriptionTopics(upstream: GenericUpstream): List<String>
+
+    fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription
 }
 
 object ChainSpecificRegistry {

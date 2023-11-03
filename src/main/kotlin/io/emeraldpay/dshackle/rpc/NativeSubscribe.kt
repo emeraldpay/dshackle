@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.rpc
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeReplyItem
-import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
@@ -57,8 +56,11 @@ open class NativeSubscribe(
 
     fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<ResponseHolder> {
         val chain = Chain.byId(request.chainValue)
-        if (chain.type != BlockchainType.ETHEREUM) {
-            return Mono.error(UnsupportedOperationException("Native subscribe is not supported for ${chain.chainCode}"))
+
+        val multistream = getUpstream(chain)
+
+        if (!multistream.getSubscriptionTopics().contains(request.method)) {
+            return Mono.error(UnsupportedOperationException("subscribe ${request.method} is not supported for ${chain.chainCode}"))
         }
 
         val nonce = request.nonce.takeIf { it != 0L }
@@ -69,7 +71,7 @@ open class NativeSubscribe(
          * If not possible - performs subscription logic on the current instance
          * @see EthereumLikeMultistream.tryProxySubscribe
          */
-        val publisher = getUpstream(chain).tryProxySubscribe(matcher, request) ?: run {
+        val publisher = multistream.tryProxySubscribe(matcher, request) ?: run {
             val method = request.method
             val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
                 objectMapper.readValue(it.newInput(), Map::class.java)
@@ -110,7 +112,13 @@ open class NativeSubscribe(
         if (holder.response is NativeSubscribeReplyItem) {
             return holder.response
         }
-        val result = objectMapper.writeValueAsBytes(holder.response)
+
+        val result = if (holder.response is ByteArray) {
+            holder.response
+        } else {
+            objectMapper.writeValueAsBytes(holder.response)
+        }
+
         val builder = NativeSubscribeReplyItem.newBuilder()
             .setPayload(ByteString.copyFrom(result))
 

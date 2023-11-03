@@ -18,17 +18,12 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.etherjar.domain.TransactionId
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import java.time.Duration
 
 class AggregatedPendingTxes(
     private val sources: List<PendingTxesSource>,
 ) : PendingTxesSource {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(AggregatedPendingTxes::class.java)
-    }
 
     private val track = Caffeine.newBuilder()
         .expireAfterWrite(Duration.ofSeconds(30))

@@ -5,13 +5,11 @@ import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.GenericWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
@@ -32,7 +30,7 @@ class GenericWsConnector(
     private val pool: WsConnectionPool
     private val reader: JsonRpcReader
     private val head: GenericWsHead
-    private val subscriptions: EthereumIngressSubscription
+    private val subscriptions: IngressSubscription
     private val liveness: HeadLivenessValidator
     init {
         pool = wsFactory.create(upstream)
@@ -49,7 +47,7 @@ class GenericWsConnector(
             chainSpecific,
         )
         liveness = HeadLivenessValidator(head, expectedBlockTime, headScheduler, upstream.getId())
-        subscriptions = EthereumWsIngressSubscription(wsSubscriptions)
+        subscriptions = chainSpecific.makeIngressSubscription(wsSubscriptions)
     }
 
     override fun hasLiveSubscriptionHead(): Flux<Boolean> {

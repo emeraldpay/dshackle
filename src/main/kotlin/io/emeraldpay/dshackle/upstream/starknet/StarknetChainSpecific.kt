@@ -13,12 +13,15 @@ import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.EmptyEgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.NoIngressSubscription
 import io.emeraldpay.dshackle.upstream.NoopCachingReader
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
 import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
@@ -90,6 +93,10 @@ object StarknetChainSpecific : ChainSpecific {
 
     override fun subscriptionTopics(upstream: GenericUpstream): List<String> {
         return emptyList()
+    }
+
+    override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
+        return NoIngressSubscription()
     }
 }
 

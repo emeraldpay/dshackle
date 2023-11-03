@@ -9,6 +9,7 @@ import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -16,6 +17,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumLabelsDetector
+import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
@@ -90,5 +92,9 @@ object EthereumChainSpecific : ChainSpecific {
             listOf()
         }
         return upstream.getIngressSubscription().getAvailableTopics().plus(subs).toSet().toList()
+    }
+
+    override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
+        return EthereumWsIngressSubscription(ws)
     }
 }

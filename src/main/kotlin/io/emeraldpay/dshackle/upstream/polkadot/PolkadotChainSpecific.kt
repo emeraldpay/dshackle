@@ -11,14 +11,15 @@ import io.emeraldpay.dshackle.foundation.ChainOptions.Options
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.EgressSubscription
-import io.emeraldpay.dshackle.upstream.EmptyEgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.NoopCachingReader
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
 import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
@@ -73,7 +74,7 @@ object PolkadotChainSpecific : ChainSpecific {
     }
 
     override fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription {
-        return { _ -> EmptyEgressSubscription }
+        return { ms -> PolkadotEgressSubscription(ms, headScheduler) }
     }
 
     override fun makeCachingReaderBuilder(tracer: Tracer): CachingReaderBuilder {
@@ -95,6 +96,10 @@ object PolkadotChainSpecific : ChainSpecific {
 
     override fun subscriptionTopics(upstream: GenericUpstream): List<String> {
         return emptyList()
+    }
+
+    override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
+        return PolkadotIngressSubscription(ws)
     }
 }
 
