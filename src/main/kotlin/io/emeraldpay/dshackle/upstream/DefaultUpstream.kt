@@ -56,6 +56,9 @@ abstract class DefaultUpstream(
     private val statusStream = Sinks.many()
         .multicast()
         .directBestEffort<UpstreamAvailability>()
+    protected val stateStream: Sinks.Many<Boolean> = Sinks.many()
+        .multicast()
+        .directBestEffort()
 
     init {
         if (id.length < 3 || !id.matches(Regex("[a-zA-Z][a-zA-Z0-9_-]+[a-zA-Z0-9]"))) {
@@ -104,6 +107,10 @@ abstract class DefaultUpstream(
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
         return statusStream.asFlux().distinctUntilChanged()
+    }
+
+    override fun observeState(): Flux<Boolean> {
+        return stateStream.asFlux()
     }
 
     override fun setLag(lag: Long) {

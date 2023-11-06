@@ -25,6 +25,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -165,7 +166,7 @@ open class GenericUpstream(
         }
         livenessSubscription = connector.hasLiveSubscriptionHead().subscribe({
             hasLiveSubscriptionHead.set(it)
-            eventPublisher?.publishEvent(UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED))
+            stateStream.emitNext(true) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
         }, {
             log.debug("Error while checking live subscription for ${getId()}", it)
         },)
@@ -197,5 +198,5 @@ open class GenericUpstream(
         return connector.getIngressSubscription()
     }
 
-    override fun isRunning() = connector.isRunning()
+    override fun isRunning() = connector.isRunning() && validationSettingsSubscription == null
 }

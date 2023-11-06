@@ -43,4 +43,6 @@ interface Head {
     fun stop()
 
     fun onSyncingNode(isSyncing: Boolean)
+
+    fun headLiveness(): Flux<Boolean>
 }

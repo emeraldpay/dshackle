@@ -19,8 +19,9 @@ class HeadLivenessValidator(
     }
 
     fun getFlux(): Flux<Boolean> {
+        val headLiveness = head.headLiveness()
         // first we have moving window of 2 blocks and check that they are consecutive ones
-        return head.getFlux().map { it.height }.buffer(2, 1).map {
+        val headFlux = head.getFlux().map { it.height }.buffer(2, 1).map {
             it.last() - it.first() == 1L
         }.scan(Pair(0, true)) { acc, value ->
             // then we accumulate consecutive true events, false resets counter
@@ -52,5 +53,7 @@ class HeadLivenessValidator(
                 }
             },
         ).repeat().subscribeOn(scheduler)
+
+        return Flux.merge(headFlux, headLiveness)
     }
 }

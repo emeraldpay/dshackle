@@ -16,8 +16,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.upstream.DefaultUpstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import org.springframework.util.backoff.BackOffExecution
 import org.springframework.util.backoff.ExponentialBackOff
 import reactor.core.Disposable
@@ -39,7 +37,6 @@ import kotlin.concurrent.write
  */
 class WsConnectionMultiPool(
     private val wsConnectionFactory: WsConnectionFactory,
-    private val upstream: DefaultUpstream,
     private val connections: Int,
 ) : WsConnectionPool {
 
@@ -110,16 +107,14 @@ class WsConnectionMultiPool(
                     SCHEDULE_FULL
                 } else {
                     current.add(
-                        wsConnectionFactory.createWsConnection(connIndex++) {
-                            if (isUnavailable()) {
-                                upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
-                            }
-                        }.also {
-                            it.connect()
-                            connectionSubscriptionMap[it.connectionId()] = it.connectionInfoFlux().subscribe { info ->
-                                connectionInfo.emitNext(info) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-                            }
-                        },
+                        wsConnectionFactory.createWsConnection(connIndex++)
+                            .also {
+                                it.connect()
+                                connectionSubscriptionMap[it.connectionId()] = it.connectionInfoFlux()
+                                    .subscribe { info ->
+                                        connectionInfo.emitNext(info) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                                    }
+                            },
                     )
                     SCHEDULE_GROW
                 }

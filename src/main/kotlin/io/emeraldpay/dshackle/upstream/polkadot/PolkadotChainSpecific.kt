@@ -65,6 +65,9 @@ object PolkadotChainSpecific : ChainSpecific {
     override fun listenNewHeadsRequest(): JsonRpcRequest =
         JsonRpcRequest("chain_subscribeNewHeads", listOf())
 
+    override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest =
+        JsonRpcRequest("chain_unsubscribeNewHeads", listOf(subId))
+
     override fun localReaderBuilder(
         cachingReader: CachingReader,
         methods: CallMethods,

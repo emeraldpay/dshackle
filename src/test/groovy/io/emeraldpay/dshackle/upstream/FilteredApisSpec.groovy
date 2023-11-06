@@ -64,6 +64,7 @@ class FilteredApisSpec extends Specification {
                     BlockValidator.ALWAYS_VALID,
                     Schedulers.boundedElastic(),
                     Schedulers.boundedElastic(),
+                    Schedulers.boundedElastic(),
                     Duration.ofSeconds(12)
             )
             new GenericUpstream(

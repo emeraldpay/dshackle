@@ -39,6 +39,8 @@ object EthereumChainSpecific : ChainSpecific {
 
     override fun latestBlockRequest() = JsonRpcRequest("eth_getBlockByNumber", listOf("latest", false))
     override fun listenNewHeadsRequest(): JsonRpcRequest = JsonRpcRequest("eth_subscribe", listOf("newHeads"))
+    override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest =
+        JsonRpcRequest("eth_unsubscribe", listOf(subId))
 
     override fun localReaderBuilder(
         cachingReader: CachingReader,

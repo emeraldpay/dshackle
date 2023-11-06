@@ -26,6 +26,7 @@ interface Upstream : Lifecycle {
     fun isAvailable(): Boolean
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
+    fun observeState(): Flux<Boolean>
     fun getHead(): Head
 
     /**

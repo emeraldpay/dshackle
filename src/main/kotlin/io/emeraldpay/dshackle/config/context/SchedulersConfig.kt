@@ -36,6 +36,16 @@ open class SchedulersConfig {
     }
 
     @Bean
+    open fun wsScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("ws-scheduler", 4, monitoringConfig)
+    }
+
+    @Bean
+    open fun headLivenessScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("head-liveness-scheduler", 4, monitoringConfig)
+    }
+
+    @Bean
     open fun grpcChannelExecutor(monitoringConfig: MonitoringConfig): Executor {
         return makePool("grpc-client-channel", 10, monitoringConfig)
     }

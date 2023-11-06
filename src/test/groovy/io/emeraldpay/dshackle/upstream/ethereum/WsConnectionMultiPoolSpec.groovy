@@ -30,14 +30,14 @@ class WsConnectionMultiPoolSpec extends Specification {
         }
         def up = Mock(DefaultUpstream)
         def factory = Mock(WsConnectionFactory)
-        def pool = new WsConnectionMultiPool(factory, up, 3)
+        def pool = new WsConnectionMultiPool(factory, 3)
         pool.scheduler = Stub(ScheduledExecutorService)
 
         when:
         pool.connect()
 
         then:
-        1 * factory.createWsConnection(0, _) >> conn
+        1 * factory.createWsConnection(0) >> conn
         1 * conn.connect()
     }
 
@@ -54,14 +54,14 @@ class WsConnectionMultiPoolSpec extends Specification {
         }
         def up = Mock(DefaultUpstream)
         def factory = Mock(WsConnectionFactory)
-        def pool = new WsConnectionMultiPool(factory, up, 3)
+        def pool = new WsConnectionMultiPool(factory, 3)
         pool.scheduler = Stub(ScheduledExecutorService)
 
         when:
         pool.connect()
 
         then:
-        1 * factory.createWsConnection(0, _) >> conn1
+        1 * factory.createWsConnection(0) >> conn1
         1 * conn1.connect()
 
         when:
@@ -69,7 +69,7 @@ class WsConnectionMultiPoolSpec extends Specification {
 
         then:
         1 * conn1.isConnected() >> true
-        1 * factory.createWsConnection(1, _) >> conn2
+        1 * factory.createWsConnection(1) >> conn2
         1 * conn2.connect()
 
         when:
@@ -78,7 +78,7 @@ class WsConnectionMultiPoolSpec extends Specification {
         then:
         1 * conn1.isConnected() >> true
         1 * conn2.isConnected() >> true
-        1 * factory.createWsConnection(2, _) >> conn3
+        1 * factory.createWsConnection(2) >> conn3
         1 * conn3.connect()
 
         when:
@@ -88,7 +88,7 @@ class WsConnectionMultiPoolSpec extends Specification {
         1 * conn1.isConnected() >> true
         1 * conn2.isConnected() >> true
         1 * conn3.isConnected() >> true
-        0 * factory.createWsConnection(_, _)
+        0 * factory.createWsConnection(_)
     }
 
     def "recreate connection after failure"() {
@@ -107,7 +107,7 @@ class WsConnectionMultiPoolSpec extends Specification {
         }
         def up = Mock(DefaultUpstream)
         def factory = Mock(WsConnectionFactory)
-        def pool = new WsConnectionMultiPool(factory, up, 3)
+        def pool = new WsConnectionMultiPool(factory, 3)
         pool.scheduler = Stub(ScheduledExecutorService)
 
         when: "initial fill"
@@ -119,9 +119,9 @@ class WsConnectionMultiPoolSpec extends Specification {
         _ * conn1.isConnected() >> true
         _ * conn2.isConnected() >> true
         _ * conn3.isConnected() >> true
-        1 * factory.createWsConnection(0, _) >> conn1
-        1 * factory.createWsConnection(1, _) >> conn2
-        1 * factory.createWsConnection(2, _) >> conn3
+        1 * factory.createWsConnection(0) >> conn1
+        1 * factory.createWsConnection(1) >> conn2
+        1 * factory.createWsConnection(2) >> conn3
         1 * conn1.connect()
         1 * conn2.connect()
         1 * conn3.connect()
@@ -133,7 +133,7 @@ class WsConnectionMultiPoolSpec extends Specification {
         1 * conn1.isConnected() >> true
         1 * conn2.isConnected() >> true
         1 * conn3.isConnected() >> true
-        0 * factory.createWsConnection(_, _)
+        0 * factory.createWsConnection(_)
 
         when: "one failed"
         pool.connect()
@@ -142,7 +142,7 @@ class WsConnectionMultiPoolSpec extends Specification {
         (1.._) * conn1.isConnected() >> true
         (1.._) * conn2.isConnected() >> false
         (1.._) * conn3.isConnected() >> true
-        0 * factory.createWsConnection(_, _) // doesn't create immediately, but schedules it for the next adjust
+        0 * factory.createWsConnection(_) // doesn't create immediately, but schedules it for the next adjust
         1 * conn2.close()
 
         when: "needs one more"
@@ -151,7 +151,7 @@ class WsConnectionMultiPoolSpec extends Specification {
         then:
         1 * conn1.isConnected() >> true
         1 * conn3.isConnected() >> true
-        1 * factory.createWsConnection(3, _) >> conn4
+        1 * factory.createWsConnection(3) >> conn4
         1 * conn4.connect()
     }
 }

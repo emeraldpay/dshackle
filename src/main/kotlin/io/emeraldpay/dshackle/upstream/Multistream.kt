@@ -265,6 +265,10 @@ abstract class Multistream(
         ).distinct()
     }
 
+    override fun observeState(): Flux<Boolean> {
+        return Flux.empty()
+    }
+
     override fun isAvailable(): Boolean {
         return getAll().any { it.isAvailable() }
     }
@@ -315,10 +319,14 @@ abstract class Multistream(
             .distinctUntilChanged {
                 it.getId()
             }.flatMap { upstream ->
-                upstream.observeStatus().map { upstream }
+                val statusStream = upstream.observeStatus().map { upstream }
+                val stateStream = upstream.observeState().map { upstream }
+                Flux.merge(stateStream, statusStream)
                     .takeUntilOther(
                         subscribeRemovedUpstreams()
-                            .filter { it.getId() == upstream.getId() },
+                            .filter {
+                                it.getId() == upstream.getId()
+                            },
                     )
             }
             .subscribe {

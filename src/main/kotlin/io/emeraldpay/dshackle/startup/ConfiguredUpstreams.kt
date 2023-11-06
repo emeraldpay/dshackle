@@ -71,7 +71,6 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
-import java.lang.IllegalStateException
 import java.net.URI
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -95,6 +94,8 @@ open class ConfiguredUpstreams(
     private val clientSpansInterceptor: ClientInterceptor?,
     @Qualifier("headScheduler")
     private val headScheduler: Scheduler,
+    private val wsScheduler: Scheduler,
+    private val headLivenessScheduler: Scheduler,
     private val authorizationConfig: AuthorizationConfig,
     private val grpcAuthContext: GrpcAuthContext,
 ) : ApplicationRunner {
@@ -258,7 +259,7 @@ open class ConfiguredUpstreams(
             options,
             config.role,
             methods,
-            QuorumForLabels.QuorumItem(1, config.labels),
+            QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(config.labels)),
             chainConfig,
             connectorFactory,
             eventPublisher,
@@ -388,7 +389,7 @@ open class ConfiguredUpstreams(
                 chain,
                 endpoint.url,
                 endpoint.origin ?: URI("http://localhost"),
-                headScheduler,
+                wsScheduler,
             ).apply {
                 config = endpoint
                 basicAuth = endpoint.basicAuth
@@ -424,6 +425,7 @@ open class ConfiguredUpstreams(
                 blockValidator,
                 wsConnectionResubscribeScheduler,
                 headScheduler,
+                headLivenessScheduler,
                 chainsConf.expectedBlockTime,
             )
         if (!connectorFactory.isValid()) {

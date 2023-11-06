@@ -5,7 +5,6 @@ import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.MockWSServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
@@ -108,33 +107,6 @@ class WsConnectionImplRealSpec extends Specification {
             .then { server.stop() }
             .expectError()
             .verify(Duration.ofSeconds(1))
-    }
-
-    def "Gets UNAVAIL status right after disconnect"() {
-        setup:
-        def up = Mock(DefaultUpstream) {
-            _ * getId() >> "test"
-        }
-        conn = new WsConnectionPoolFactory(
-                "test",
-                1,
-                new WsConnectionFactory(
-                        "test",
-                        Chain.ETHEREUM__MAINNET,
-                        "ws://localhost:${port}".toURI(),
-                        "http://localhost:${port}".toURI(),
-                        Schedulers.boundedElastic()
-                )
-        ).create(up).getConnection()
-        when:
-        conn.connect()
-        conn.reconnectIntervalSeconds = 10
-        Thread.sleep(SLEEP)
-        server.stop()
-        Thread.sleep(100)
-
-        then:
-        1 * up.setStatus(UpstreamAvailability.UNAVAILABLE)
     }
 
     def "Try to connects to server until it's available"() {

@@ -67,7 +67,6 @@ open class WsConnectionImpl(
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
     private val rpcMetrics: RpcMetrics?,
-    private val onDisconnect: () -> Unit,
     private val scheduler: Scheduler,
 ) : AutoCloseable, WsConnection, Cloneable {
 
@@ -198,7 +197,6 @@ open class WsConnectionImpl(
         connection = HttpClient.create()
             .resolver(DefaultAddressResolverGroup.INSTANCE)
             .doOnDisconnected {
-                onDisconnect()
                 disconnects.tryEmitNext(Instant.now())
                 log.info("Disconnected from $uri")
                 if (keepConnection) {

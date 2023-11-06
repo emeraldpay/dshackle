@@ -24,6 +24,7 @@ class GenericWsConnector(
     blockValidator: BlockValidator,
     wsConnectionResubscribeScheduler: Scheduler,
     headScheduler: Scheduler,
+    headLivenessScheduler: Scheduler,
     expectedBlockTime: Duration,
     chainSpecific: ChainSpecific,
 ) : GenericConnector {
@@ -46,12 +47,12 @@ class GenericWsConnector(
             upstream,
             chainSpecific,
         )
-        liveness = HeadLivenessValidator(head, expectedBlockTime, headScheduler, upstream.getId())
+        liveness = HeadLivenessValidator(head, expectedBlockTime, headLivenessScheduler, upstream.getId())
         subscriptions = chainSpecific.makeIngressSubscription(wsSubscriptions)
     }
 
     override fun hasLiveSubscriptionHead(): Flux<Boolean> {
-        return liveness.getFlux()
+        return liveness.getFlux().distinctUntilChanged()
     }
     override fun start() {
         pool.connect()

@@ -43,8 +43,8 @@ open class WsConnectionFactory(
         )
     }
 
-    open fun createWsConnection(connIndex: Int = 0, onDisconnect: () -> Unit): WsConnection =
-        WsConnectionImpl(uri, origin, basicAuth, metrics(connIndex), onDisconnect, scheduler).also { ws ->
+    open fun createWsConnection(connIndex: Int = 0): WsConnection =
+        WsConnectionImpl(uri, origin, basicAuth, metrics(connIndex), scheduler).also { ws ->
             config?.frameSize?.let {
                 ws.frameSize = it
             }

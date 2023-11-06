@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericHead
@@ -32,6 +31,7 @@ import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 class GenericWsHead(
     forkChoice: ForkChoice,
@@ -40,7 +40,7 @@ class GenericWsHead(
     private val wsSubscriptions: WsSubscriptions,
     private val wsConnectionResubscribeScheduler: Scheduler,
     headScheduler: Scheduler,
-    private val upstream: DefaultUpstream,
+    upstream: DefaultUpstream,
     private val chainSpecific: ChainSpecific,
 ) : GenericHead(upstream.getId(), forkChoice, blockValidator, headScheduler, chainSpecific), Lifecycle {
 
@@ -51,6 +51,9 @@ class GenericWsHead(
 
     private var subscription: Disposable? = null
     private val noHeadUpdatesSink = Sinks.many().multicast().directBestEffort<Boolean>()
+    private val headLivenessSink = Sinks.many().multicast().directBestEffort<Boolean>()
+
+    private var subscriptionId = AtomicReference("")
 
     init {
         registerHeadResubscribeFlux()
@@ -85,18 +88,14 @@ class GenericWsHead(
 
     fun listenNewHeads(): Flux<BlockContainer> {
         return subscribe()
-            .transform {
-                Flux.concat(it.next().doOnNext { upstream.setStatus(UpstreamAvailability.OK) }, it)
-            }
             .map {
                 chainSpecific.parseHeader(it, "unknown")
             }
             .timeout(Duration.ofSeconds(60), Mono.error(RuntimeException("No response from subscribe to newHeads")))
             .onErrorResume {
                 log.error("Error getting heads for $upstreamId - ${it.message}")
-                upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
                 subscribed = false
-                Mono.empty()
+                unsubscribe()
             }
     }
 
@@ -106,6 +105,19 @@ class GenericWsHead(
         noHeadUpdatesSink.tryEmitComplete()
     }
 
+    override fun headLiveness(): Flux<Boolean> = headLivenessSink.asFlux()
+
+    private fun unsubscribe(): Mono<BlockContainer> {
+        return wsSubscriptions.unsubscribe(chainSpecific.unsubscribeNewHeadsRequest(subscriptionId.get()).copy(id = ids.getAndIncrement()))
+            .flatMap { it.requireResult() }
+            .doOnNext { log.warn("{} has just unsubscribed from newHeads", upstreamId) }
+            .onErrorResume {
+                log.error("{} couldn't unsubscribe from newHeads", upstreamId, it)
+                Mono.empty()
+            }
+            .then(Mono.empty())
+    }
+
     private val ids = AtomicInteger(1)
 
     private fun subscribe(): Flux<ByteArray> {
@@ -113,6 +125,7 @@ class GenericWsHead(
             wsSubscriptions.subscribe(chainSpecific.listenNewHeadsRequest().copy(id = ids.getAndIncrement()))
                 .also {
                     connectionId = it.connectionId
+                    subscriptionId = it.subId
                     if (!connected) {
                         connected = true
                     }
@@ -126,6 +139,7 @@ class GenericWsHead(
         val connectionStates = wsSubscriptions.connectionInfoFlux()
             .map {
                 if (it.connectionId == connectionId && it.connectionState == WsConnection.ConnectionState.DISCONNECTED) {
+                    headLivenessSink.emitNext(false) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
                     subscribed = false
                     connected = false
                     connectionId = null

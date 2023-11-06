@@ -15,17 +15,12 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.upstream.DefaultUpstream
-import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import reactor.core.publisher.Flux
 
 class WsConnectionSinglePool(
     wsConnectionFactory: WsConnectionFactory,
-    private val upstream: DefaultUpstream,
 ) : WsConnectionPool {
-    private val connection = wsConnectionFactory.createWsConnection {
-        upstream.setStatus(UpstreamAvailability.UNAVAILABLE)
-    }
+    private val connection = wsConnectionFactory.createWsConnection()
 
     override fun connect() {
         if (!connection.isConnected) {

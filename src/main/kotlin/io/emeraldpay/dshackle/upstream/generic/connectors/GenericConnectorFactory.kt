@@ -22,6 +22,7 @@ open class GenericConnectorFactory(
     private val blockValidator: BlockValidator,
     private val wsConnectionResubscribeScheduler: Scheduler,
     private val headScheduler: Scheduler,
+    private val headLivenessScheduler: Scheduler,
     private val expectedBlockTime: Duration,
 ) : ConnectorFactory {
 
@@ -58,6 +59,7 @@ open class GenericConnectorFactory(
                 blockValidator,
                 wsConnectionResubscribeScheduler,
                 headScheduler,
+                headLivenessScheduler,
                 expectedBlockTime,
                 specific,
             )
@@ -74,6 +76,7 @@ open class GenericConnectorFactory(
             blockValidator,
             wsConnectionResubscribeScheduler,
             headScheduler,
+            headLivenessScheduler,
             expectedBlockTime,
             specific,
         )

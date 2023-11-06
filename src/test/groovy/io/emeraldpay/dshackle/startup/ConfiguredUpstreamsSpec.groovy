@@ -35,6 +35,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Schedulers.boundedElastic(),
                 null,
                 Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
                 AuthorizationConfig.default(),
                 new GrpcAuthContext()
         )
@@ -69,6 +71,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Schedulers.boundedElastic(),
                 null,
                 Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
                 AuthorizationConfig.default(),
                 new GrpcAuthContext()
         )
@@ -102,6 +106,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 Schedulers.boundedElastic(),
                 null,
                 Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
                 AuthorizationConfig.default(),
                 new GrpcAuthContext()
         )
@@ -129,6 +135,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 GrpcTracing.create(Tracing.newBuilder().build()),
                 Schedulers.boundedElastic(),
                 null,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
                 Schedulers.boundedElastic(),
                 AuthorizationConfig.default(),
                 new GrpcAuthContext()
@@ -162,6 +170,8 @@ class ConfiguredUpstreamsSpec extends Specification {
                 GrpcTracing.create(Tracing.newBuilder().build()),
                 Schedulers.boundedElastic(),
                 null,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
                 Schedulers.boundedElastic(),
                 AuthorizationConfig.default(),
                 new GrpcAuthContext()

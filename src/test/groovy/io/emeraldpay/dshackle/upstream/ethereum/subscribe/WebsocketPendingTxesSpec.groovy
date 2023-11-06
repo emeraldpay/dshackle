@@ -22,6 +22,7 @@ import reactor.core.publisher.Flux
 import spock.lang.Specification
 
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicReference
 
 class WebsocketPendingTxesSpec extends Specification {
 
@@ -42,7 +43,7 @@ class WebsocketPendingTxesSpec extends Specification {
 
         then:
         1 * ws.subscribe(new JsonRpcRequest("eth_subscribe", ["newPendingTransactions"])) >> new WsSubscriptions.SubscribeData(
-                Flux.fromIterable(responses), "id"
+                Flux.fromIterable(responses), "id", new AtomicReference<String>("")
         )
         txes.collect {it.toHex() } == [
                 "0xa61bab14fc9720ea8725622688c2f964666d7c2afdae38af7dad53f12f242d5c",

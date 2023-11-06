@@ -91,4 +91,6 @@ class EnrichedMergedHead constructor(
     }
 
     override fun onSyncingNode(isSyncing: Boolean) {}
+
+    override fun headLiveness(): Flux<Boolean> = Flux.empty()
 }

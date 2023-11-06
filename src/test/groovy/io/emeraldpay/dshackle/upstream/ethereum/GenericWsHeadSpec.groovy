@@ -24,10 +24,10 @@ import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
@@ -38,6 +38,7 @@ import spock.lang.Specification
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.atomic.AtomicReference
 
 class GenericWsHeadSpec extends Specification {
 
@@ -74,7 +75,7 @@ class GenericWsHeadSpec extends Specification {
         act == res
 
         1 * ws.subscribe(_) >> new WsSubscriptions.SubscribeData(
-                Flux.fromIterable([headBlock]), "id"
+                Flux.fromIterable([headBlock]), "id", new AtomicReference<String>("")
         )
     }
 
@@ -96,8 +97,8 @@ class GenericWsHeadSpec extends Specification {
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             2 * subscribe(_) >>> [
-                    new WsSubscriptions.SubscribeData(Flux.error(new RuntimeException()), "id"),
-                    new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id")
+                    new WsSubscriptions.SubscribeData(Flux.error(new RuntimeException()), "id", new AtomicReference<String>("")),
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id", new AtomicReference<String>(""))
             ]
         }
 
@@ -150,8 +151,8 @@ class GenericWsHeadSpec extends Specification {
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             2 * subscribe(_) >>> [
-                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
-                    new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id")
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id", new AtomicReference<String>("")),
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id", new AtomicReference<String>(""))
             ]
         }
 
@@ -191,7 +192,7 @@ class GenericWsHeadSpec extends Specification {
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             1 * subscribe(_) >>> [
-                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id", new AtomicReference<String>("")),
             ]
         }
 
@@ -230,7 +231,7 @@ class GenericWsHeadSpec extends Specification {
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             1 * subscribe(_) >>> [
-                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id", new AtomicReference<String>("")),
             ]
         }
 
@@ -282,8 +283,8 @@ class GenericWsHeadSpec extends Specification {
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             2 * subscribe(_) >>> [
-                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id"),
-                    new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id"),
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([firstHeadBlock]), "id", new AtomicReference<String>("")),
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id", new AtomicReference<String>("")),
             ]
         }
 
@@ -313,6 +314,76 @@ class GenericWsHeadSpec extends Specification {
                     head.onNoHeadUpdates()
                 }
                 .expectNext(BlockContainer.from(secondBlock))
+                .thenCancel()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Unsubscribe if there is an error during subscription"() {
+        setup:
+        def block = new BlockJson<TransactionRefJson>()
+        block.number = 100
+        block.hash = BlockHash.from("0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200")
+        block.parentHash = parent
+        block.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        block.uncles = []
+        block.totalDifficulty = BigInteger.ONE
+
+        def apiMock = TestingCommons.api()
+        def subId = "subId"
+        def ws = Mock(WsSubscriptions) {
+            1 * it.connectionInfoFlux() >> Flux.empty()
+            1 * it.subscribe(_) >> new WsSubscriptions.SubscribeData(
+                    Flux.error(new RuntimeException()), "id", new AtomicReference<String>(subId)
+            )
+            1 * it.unsubscribe(new JsonRpcRequest("eth_unsubscribe", List.of(subId), 2, null, null)) >>
+                    Mono.just(new JsonRpcResponse("".bytes, null))
+        }
+
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+
+        when:
+        def act = head.listenNewHeads()
+
+        then:
+        StepVerifier.create(act)
+            .expectComplete()
+            .verify(Duration.ofSeconds(1))
+    }
+
+    def "If there is ws disconnect then head must emit false its liveness state"() {
+        setup:
+        def secondBlock = new BlockJson<TransactionRefJson>()
+        secondBlock.parentHash = parent
+        secondBlock.timestamp = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        secondBlock.number = 105
+        secondBlock.hash = BlockHash.from("0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8")
+
+        def secondHeadBlock = secondBlock.with {
+            Global.objectMapper.writeValueAsBytes(it)
+        }
+
+        def apiMock = TestingCommons.api()
+
+        def connectionInfoSink = Sinks.many().multicast().directBestEffort()
+        def ws = Mock(WsSubscriptions) {
+            1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
+            1 * subscribe(_) >>> [
+                    new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id", new AtomicReference<String>(""))
+            ]
+        }
+
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+
+        when:
+        head.start()
+        def liveness = head.headLiveness()
+
+        then:
+        StepVerifier.create(liveness)
+                .then {
+                    connectionInfoSink.tryEmitNext(new WsConnection.ConnectionInfo("id", WsConnection.ConnectionState.DISCONNECTED))
+                }
+                .expectNext(false)
                 .thenCancel()
                 .verify(Duration.ofSeconds(1))
     }

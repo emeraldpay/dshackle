@@ -62,6 +62,10 @@ object StarknetChainSpecific : ChainSpecific {
         throw NotImplementedError()
     }
 
+    override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest {
+        throw NotImplementedError()
+    }
+
     override fun localReaderBuilder(
         cachingReader: CachingReader,
         methods: CallMethods,

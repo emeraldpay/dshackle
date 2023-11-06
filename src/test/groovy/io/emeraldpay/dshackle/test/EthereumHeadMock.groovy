@@ -82,4 +82,9 @@ class EthereumHeadMock implements Head {
     void onSyncingNode(boolean isSyncing) {
 
     }
+
+    @Override
+    Flux<Boolean> headLiveness() {
+        return Flux.empty()
+    }
 }

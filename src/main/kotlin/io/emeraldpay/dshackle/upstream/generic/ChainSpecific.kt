@@ -43,6 +43,8 @@ interface ChainSpecific {
 
     fun listenNewHeadsRequest(): JsonRpcRequest
 
+    fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest
+
     fun localReaderBuilder(cachingReader: CachingReader, methods: CallMethods, head: Head): Mono<JsonRpcReader>
 
     fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription

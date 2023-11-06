@@ -168,6 +168,10 @@ abstract class AbstractHead @JvmOverloads constructor(
         // NOOP
     }
 
+    override fun headLiveness(): Flux<Boolean> {
+        return Flux.empty()
+    }
+
     override fun start() {
         stopping = false
         log.debug("Start ${this.javaClass.simpleName} $upstreamId")
