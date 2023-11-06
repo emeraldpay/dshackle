@@ -7,6 +7,7 @@ import io.emeraldpay.dshackle.BlockchainType.EVM_POW
 import io.emeraldpay.dshackle.BlockchainType.STARKNET
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.CachesFactory
+import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
@@ -30,13 +31,14 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         @Qualifier("headScheduler")
         headScheduler: Scheduler,
         tracer: Tracer,
+        indexConfig: IndexConfig,
     ): List<Multistream> {
         return Chain.values()
             .filterNot { it == Chain.UNSPECIFIED }
             .map { chain ->
                 when (BlockchainType.from(chain)) {
-                    EVM_POS -> ethereumPosMultistream(chain, cachesFactory, headScheduler, tracer)
-                    EVM_POW -> ethereumMultistream(chain, cachesFactory, headScheduler, tracer)
+                    EVM_POS -> ethereumPosMultistream(chain, cachesFactory, headScheduler, tracer, indexConfig.getByChain(chain))
+                    EVM_POW -> ethereumMultistream(chain, cachesFactory, headScheduler, tracer, indexConfig.getByChain(chain))
                     BITCOIN -> bitcoinMultistream(chain, cachesFactory, headScheduler)
                     STARKNET -> genericMultistream(chain, cachesFactory, headScheduler)
                 }
@@ -62,6 +64,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         cachesFactory: CachesFactory,
         headScheduler: Scheduler,
         tracer: Tracer,
+        estimateLogsCountConfig: IndexConfig.Index? = null,
     ): EthereumMultistream {
         val name = "multi-ethereum-$chain"
 
@@ -71,6 +74,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
             cachesFactory.getCaches(chain),
             headScheduler,
             tracer,
+            estimateLogsCountConfig,
         ).also { register(it, name) }
     }
 
@@ -79,6 +83,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         cachesFactory: CachesFactory,
         headScheduler: Scheduler,
         tracer: Tracer,
+        estimateLogsCountConfig: IndexConfig.Index? = null,
     ): EthereumPosMultiStream {
         val name = "multi-ethereum-pos-$chain"
 
@@ -88,6 +93,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
             cachesFactory.getCaches(chain),
             headScheduler,
             tracer,
+            estimateLogsCountConfig,
         ).also { register(it, name) }
     }
 

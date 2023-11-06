@@ -16,10 +16,13 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.grpc.Status
+import io.grpc.StatusException
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.reader.Reader
@@ -35,6 +38,7 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.Oracle
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
@@ -55,6 +59,7 @@ open class EthereumMultistream(
     caches: Caches,
     private val headScheduler: Scheduler,
     tracer: Tracer,
+    estimateLogsCountConfig: IndexConfig.Index? = null,
 ) : Multistream(chain, upstreams as MutableList<Upstream>, caches), EthereumLikeMultistream {
 
     private var head: DynamicMergedHead = DynamicMergedHead(
@@ -90,6 +95,10 @@ open class EthereumMultistream(
         EthereumPriorityFees(this, reader, 256)
     } else {
         EthereumLegacyFees(this, reader, 256)
+    }
+
+    private val logsEstimation: Oracle? = estimateLogsCountConfig?.let {
+        Oracle(estimateLogsCountConfig.store, estimateLogsCountConfig.limit ?: 0L)
     }
 
     init {
@@ -239,5 +248,13 @@ open class EthereumMultistream(
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation
+    }
+
+    override fun estimateLogsCount(request: BlockchainOuterClass.EstimateLogsCountRequest): Mono<BlockchainOuterClass.EstimateLogsCountResponse> {
+        return if (logsEstimation == null) {
+            Mono.error(StatusException(Status.UNAVAILABLE.withDescription("Index is not available")))
+        } else {
+            Mono.just(logsEstimation.estimate(request))
+        }
     }
 }

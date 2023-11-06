@@ -51,6 +51,7 @@ class BlockchainRpc(
     private val describe: Describe,
     private val subscribeStatus: SubscribeStatus,
     private val estimateFee: EstimateFee,
+    private val estimateLogsCount: EstimateLogsCount,
     private val subscribeNodeStatus: SubscribeNodeStatus,
     @Qualifier("rpcScheduler")
     private val scheduler: Scheduler,
@@ -220,6 +221,28 @@ class BlockchainRpc(
             }
     }
 
+    override fun estimateLogsCount(request: Mono<BlockchainOuterClass.EstimateLogsCountRequest>): Mono<BlockchainOuterClass.EstimateLogsCountResponse> {
+        return request
+            .subscribeOn(scheduler)
+            .flatMap {
+                val chain = Chain.byId(it.chainValue)
+                val metrics = chainMetrics.get(chain)
+                metrics.estimateLogsCountMetric.increment()
+                val startTime = System.currentTimeMillis()
+                estimateLogsCount.estimateLogsCount(it).doFinally {
+                    metrics.estimateLogsCountRespMetric.record(
+                        System.currentTimeMillis() - startTime,
+                        TimeUnit.MILLISECONDS,
+                    )
+                }
+            }
+            .doOnError { t->
+                log.error("Internal error during Logs Count Estimation", t)
+                failMetric.increment()
+            }
+            
+    }
+
     override fun describe(request: Mono<BlockchainOuterClass.DescribeRequest>): Mono<BlockchainOuterClass.DescribeResponse> {
         describeMetric.increment()
         return describe.describe(request)
@@ -294,6 +317,15 @@ class BlockchainRpc(
             .register(Metrics.globalRegistry)
         val estimateFeeRespMetric = Timer.builder("request.grpc.response")
             .tag("type", "estimateFee")
+            .tag("chain", chain.chainCode)
+            .publishPercentileHistogram()
+            .register(Metrics.globalRegistry)
+        val estimateLogsCountMetric = Counter.builder("request.grpc.request")
+            .tag("type", "estimateLogsCount")
+            .tag("chain", chain.chainCode)
+            .register(Metrics.globalRegistry)
+        val estimateLogsCountRespMetric = Timer.builder("request.grpc.response")
+            .tag("type", "estimateLogsCount")
             .tag("chain", chain.chainCode)
             .publishPercentileHistogram()
             .register(Metrics.globalRegistry)

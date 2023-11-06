@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -66,6 +67,10 @@ open class BitcoinMultistream(
 
     override fun getFeeEstimation(): ChainFees {
         return feeEstimation
+    }
+
+    override fun estimateLogsCount(request: BlockchainOuterClass.EstimateLogsCountRequest): Mono<BlockchainOuterClass.EstimateLogsCountResponse> {
+        throw NotImplementedError()
     }
 
     open fun getXpubAddresses(): XpubAddresses? {

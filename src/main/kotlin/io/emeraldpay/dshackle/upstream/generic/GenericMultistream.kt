@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.generic
 
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
@@ -107,6 +108,10 @@ open class GenericMultistream(
     }
 
     override fun getFeeEstimation(): ChainFees {
+        throw NotImplementedError()
+    }
+
+    override fun estimateLogsCount(request: BlockchainOuterClass.EstimateLogsCountRequest): Mono<BlockchainOuterClass.EstimateLogsCountResponse> {
         throw NotImplementedError()
     }
 }

@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
@@ -199,6 +200,8 @@ abstract class Multistream(
     }
 
     abstract fun getFeeEstimation(): ChainFees
+
+    abstract fun estimateLogsCount(request: BlockchainOuterClass.EstimateLogsCountRequest): Mono<BlockchainOuterClass.EstimateLogsCountResponse>
 
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
