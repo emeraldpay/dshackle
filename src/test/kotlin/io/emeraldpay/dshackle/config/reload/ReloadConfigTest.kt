@@ -16,15 +16,12 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.ArgumentCaptor
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
-import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.util.ResourceUtils
 import sun.misc.Signal
 import java.io.File
@@ -38,7 +35,6 @@ class ReloadConfigTest {
 
     private val config = mock<Config>()
     private val reloadConfigService = ReloadConfigService(config, fileResolver, mainConfig)
-    private val applicationEventPublisher = mock<ApplicationEventPublisher>()
     private val configuredUpstreams = mock<ConfiguredUpstreams>()
 
     @BeforeEach
@@ -66,7 +62,6 @@ class ReloadConfigTest {
             on { getUpstream(POLYGON__MAINNET) } doReturn msPoly
         }
         val reloadConfigUpstreamService = ReloadConfigUpstreamService(
-            applicationEventPublisher,
             currentMultistreamHolder,
             configuredUpstreams,
         )
@@ -79,8 +74,8 @@ class ReloadConfigTest {
 
         reloadConfig.handle(Signal("HUP"))
 
-        val captor = ArgumentCaptor.forClass(UpstreamChangeEvent::class.java)
-        verify(applicationEventPublisher, times(2)).publishEvent(captor.capture())
+        verify(msEth).processUpstreamsEvents(UpstreamChangeEvent(ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.REMOVED))
+        verify(msPoly).processUpstreamsEvents(UpstreamChangeEvent(POLYGON__MAINNET, up3, UpstreamChangeEvent.ChangeType.REMOVED))
         verify(configuredUpstreams).processUpstreams(
             UpstreamsConfig(
                 newConfig.defaultOptions,
@@ -90,14 +85,6 @@ class ReloadConfigTest {
 
         assertEquals(3, mainConfig.upstreams!!.upstreams.size)
         assertEquals(newConfig, mainConfig.upstreams)
-        assertEquals(
-            UpstreamChangeEvent(ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.REMOVED),
-            captor.allValues[0],
-        )
-        assertEquals(
-            UpstreamChangeEvent(POLYGON__MAINNET, up3, UpstreamChangeEvent.ChangeType.REMOVED),
-            captor.allValues[1],
-        )
     }
 
     @Test
@@ -123,7 +110,6 @@ class ReloadConfigTest {
             on { getUpstream(POLYGON__MAINNET) } doReturn msPoly
         }
         val reloadConfigUpstreamService = ReloadConfigUpstreamService(
-            applicationEventPublisher,
             currentMultistreamHolder,
             configuredUpstreams,
         )
@@ -135,8 +121,8 @@ class ReloadConfigTest {
 
         reloadConfig.handle(Signal("HUP"))
 
-        val captor = ArgumentCaptor.forClass(UpstreamChangeEvent::class.java)
-        verify(applicationEventPublisher, times(2)).publishEvent(captor.capture())
+        verify(msEth).processUpstreamsEvents(UpstreamChangeEvent(ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.REMOVED))
+        verify(msEth).processUpstreamsEvents(UpstreamChangeEvent(ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.REMOVED))
         verify(configuredUpstreams).processUpstreams(
             UpstreamsConfig(
                 newConfig.defaultOptions,
@@ -146,14 +132,6 @@ class ReloadConfigTest {
         verify(msEth).stop()
         assertEquals(1, mainConfig.upstreams!!.upstreams.size)
         assertEquals(newConfig, mainConfig.upstreams)
-        assertEquals(
-            UpstreamChangeEvent(ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.REMOVED),
-            captor.allValues[0],
-        )
-        assertEquals(
-            UpstreamChangeEvent(ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.REMOVED),
-            captor.allValues[1],
-        )
     }
 
     @Test

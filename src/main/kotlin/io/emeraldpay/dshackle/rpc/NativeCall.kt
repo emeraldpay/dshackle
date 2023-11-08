@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.Global.Companion.nullValue
@@ -37,13 +36,11 @@ import io.emeraldpay.dshackle.reader.RpcReader
 import io.emeraldpay.dshackle.reader.RpcReaderFactory
 import io.emeraldpay.dshackle.reader.RpcReaderFactory.RpcReaderData
 import io.emeraldpay.dshackle.reader.SpannedReader
-import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -56,13 +53,11 @@ import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Span
 import org.springframework.cloud.sleuth.Tracer
 import org.springframework.cloud.sleuth.instrument.reactor.ReactorSleuth
-import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 import reactor.util.context.Context
-import java.util.EnumMap
 
 @Service
 open class NativeCall(
@@ -78,19 +73,6 @@ open class NativeCall(
     private val passthrough = config.passthrough
 
     var rpcReaderFactory: RpcReaderFactory = RpcReaderFactory.default()
-    private val ethereumCallSelectors = EnumMap<Chain, EthereumCallSelector>(Chain::class.java)
-
-    @EventListener
-    fun onUpstreamChangeEvent(event: UpstreamChangeEvent) {
-        multistreamHolder.getUpstream(event.chain).let { up ->
-            if (up.chain.type == ETHEREUM) {
-                ethereumCallSelectors.putIfAbsent(
-                    event.chain,
-                    EthereumCallSelector(up.caches),
-                )
-            }
-        }
-    }
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return nativeCallResult(requestMono)
@@ -305,11 +287,7 @@ open class NativeCall(
         }
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
-            if (upstream.chain.type == ETHEREUM) {
-                ethereumCallSelectors[chain]?.getMatcher(method, params, upstream.getHead(), passthrough)
-            } else {
-                null
-            } ?: Mono.empty()
+            upstream.callSelector?.getMatcher(method, params, upstream.getHead(), passthrough) ?: Mono.empty()
         return callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
             val matcher = Selector.Builder()
                 .withMatcher(csm)

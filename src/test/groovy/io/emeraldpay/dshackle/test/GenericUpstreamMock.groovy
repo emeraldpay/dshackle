@@ -72,7 +72,6 @@ class GenericUpstreamMock extends GenericUpstream {
                 new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(labels)),
                 ChainConfig.default(),
                 new ConnectorFactoryMock(api, new EthereumHeadMock()),
-                null,
                 io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&validator,
                 io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&labelDetector,
                 io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&subscriptionTopics,

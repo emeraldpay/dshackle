@@ -77,7 +77,6 @@ class FilteredApisSpec extends Specification {
                     new QuorumForLabels.QuorumItem(1, UpstreamsConfig.Labels.fromMap(it)),
                     ChainsConfig.ChainConfig.default(),
                     connectorFactory,
-                    null,
                     cs.&validator,
                     cs.&labelDetector,
                     cs.&subscriptionTopics,

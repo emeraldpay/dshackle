@@ -28,7 +28,7 @@ class CurrentMultistreamHolderSpec extends Specification {
         def current = new CurrentMultistreamHolder(TestingCommons.defaultMultistreams())
         def up = new GenericUpstreamMock("test", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
-        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up, UpstreamChangeEvent.ChangeType.ADDED))
         then:
         current.getAvailable() == [Chain.ETHEREUM__MAINNET]
         current.getUpstream(Chain.ETHEREUM__MAINNET).getAll()[0] == up
@@ -41,10 +41,10 @@ class CurrentMultistreamHolderSpec extends Specification {
         def up2 = new GenericUpstreamMock("test2", Chain.ETHEREUM_CLASSIC__MAINNET, TestingCommons.api())
         def up3 = new GenericUpstreamMock("test3", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
-        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
         then:
         current.getAvailable().toSet() == [Chain.ETHEREUM__MAINNET, Chain.ETHEREUM_CLASSIC__MAINNET].toSet()
         current.getUpstream(Chain.ETHEREUM__MAINNET).getAll().toSet() == [up1, up3].toSet()
@@ -59,10 +59,10 @@ class CurrentMultistreamHolderSpec extends Specification {
         def up3 = new GenericUpstreamMock("test3", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         def up1_del = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api())
         when:
-        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
-        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1_del, UpstreamChangeEvent.ChangeType.REMOVED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM_CLASSIC__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM_CLASSIC__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1_del, UpstreamChangeEvent.ChangeType.REMOVED))
         then:
         current.getAvailable().toSet() == [Chain.ETHEREUM__MAINNET, Chain.ETHEREUM_CLASSIC__MAINNET].toSet()
         current.getUpstream(Chain.ETHEREUM__MAINNET).getAll().toSet() == [up3].toSet()
@@ -80,7 +80,7 @@ class CurrentMultistreamHolderSpec extends Specification {
         !act
 
         when:
-        current.getUpstream(Chain.ETHEREUM__MAINNET).onUpstreamChange(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
+        current.getUpstream(Chain.ETHEREUM__MAINNET).processUpstreamsEvents(new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED))
         act = current.isAvailable(Chain.ETHEREUM__MAINNET)
 
         then:

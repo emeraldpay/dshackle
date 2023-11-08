@@ -55,7 +55,7 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
         def up2 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test2", "eth_test3"]))
-        def aggr = new GenericMultistream(Chain.ETHEREUM__MAINNET, [up1, up2], Caches.default(),
+        def aggr = new GenericMultistream(Chain.ETHEREUM__MAINNET, Schedulers.immediate(), null, [up1, up2], Caches.default(),
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
@@ -190,7 +190,7 @@ class MultistreamSpec extends Specification {
         def up1 = TestingCommons.upstream("test-1", "internal")
         def up2 = TestingCommons.upstream("test-2", "external")
         def up3 = TestingCommons.upstream("test-3", "external")
-        def multistream = new GenericMultistream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(),
+        def multistream = new GenericMultistream(Chain.ETHEREUM__MAINNET, Schedulers.immediate(), null, [up1, up2, up3], Caches.default(),
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
@@ -263,16 +263,16 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
         def up2 = new GenericUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
-        def ms = new GenericMultistream(Chain.ETHEREUM__MAINNET, new ArrayList<GenericMultistream>(), Caches.default(),
+        def ms = new GenericMultistream(Chain.ETHEREUM__MAINNET, Schedulers.immediate(), null, new ArrayList<GenericMultistream>(), Caches.default(),
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
                 EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         when:
-        ms.onUpstreamChange(
+        ms.processUpstreamsEvents(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED)
         )
-        ms.onUpstreamChange(
+        ms.processUpstreamsEvents(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED)
         )
         up1.onStatus(status(Common.AvailabilityEnum.AVAIL_UNAVAILABLE))
@@ -294,7 +294,7 @@ class MultistreamSpec extends Specification {
         setup:
         def up1 = new GenericUpstreamMock("test1", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2", "eth_test3"]))
         def up2 = new GenericUpstreamMock("test2", Chain.ETHEREUM__MAINNET, TestingCommons.api(), new DirectCallMethods(["eth_test1", "eth_test2"]))
-        def ms = new GenericMultistream(Chain.ETHEREUM__MAINNET, new ArrayList<GenericMultistream>(), Caches.default(),
+        def ms = new GenericMultistream(Chain.ETHEREUM__MAINNET, Schedulers.immediate(), null, new ArrayList<GenericMultistream>(), Caches.default(),
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
@@ -303,10 +303,10 @@ class MultistreamSpec extends Specification {
         def head2 = createBlock(270, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448402b")
         def head3 = createBlock(100, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448412b")
         when:
-        ms.onUpstreamChange(
+        ms.processUpstreamsEvents(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED)
         )
-        ms.onUpstreamChange(
+        ms.processUpstreamsEvents(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED)
         )
         def head = ms.getHead()
@@ -329,25 +329,32 @@ class MultistreamSpec extends Specification {
         def up1 = TestingCommons.upstream("test-1", "internal")
         def up2 = TestingCommons.upstream("test-2", "external")
         def up3 = TestingCommons.upstream("test-3", "external")
-        def multistream = new GenericMultistream(Chain.ETHEREUM__MAINNET, [up1, up2, up3], Caches.default(),
+        def multistream = new GenericMultistream(Chain.ETHEREUM__MAINNET, Schedulers.immediate(), null, new ArrayList<Upstream>(), Caches.default(),
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
                 EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
-        def observer = multistream.lagObserver
-        multistream.onUpstreamsUpdated()
+        multistream.processUpstreamsEvents(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED)
+        )
+        multistream.processUpstreamsEvents(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.ADDED)
+        )
+        multistream.processUpstreamsEvents(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up3, UpstreamChangeEvent.ChangeType.ADDED)
+        )
 
         expect:
         multistream.getAll().size() == 3
-        observer.isRunning()
+        multistream.lagObserver.isRunning()
 
-        multistream.getAll().with {
-            remove(0)
-            remove(1)
-        }
+        multistream.processUpstreamsEvents(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.REMOVED)
+        )
+        multistream.processUpstreamsEvents(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up2, UpstreamChangeEvent.ChangeType.REMOVED)
+        )
         multistream.getAll().size() == 1
-        multistream.onUpstreamsUpdated()
-        !observer.isRunning()
         multistream.lagObserver == null
     }
 
@@ -360,7 +367,7 @@ class MultistreamSpec extends Specification {
     class TestEthereumPosMultistream extends GenericMultistream {
 
         TestEthereumPosMultistream(@NotNull Chain chain, @NotNull List<GenericUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches,
+            super(chain, Schedulers.immediate(), null, upstreams, caches,
                     Schedulers.boundedElastic(),
                     EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                     EthereumChainSpecific.INSTANCE.&localReaderBuilder,
@@ -380,11 +387,6 @@ class MultistreamSpec extends Specification {
 
         public <T extends Upstream> T cast(Class<T> selfType) {
             return this
-        }
-
-        @Override
-        void init() {
-
         }
     }
 

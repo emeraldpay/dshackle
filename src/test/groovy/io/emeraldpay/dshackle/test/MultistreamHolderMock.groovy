@@ -47,12 +47,13 @@ class MultistreamHolderMock implements MultistreamHolder {
                     upstreams[chain] = up
                 } else if (up instanceof GenericUpstream) {
                     upstreams[chain] = new GenericMultistream(
-                            chain, [up as GenericUpstream], Caches.default(),
+                            chain, Schedulers.immediate(), null, new ArrayList<Upstream>(), Caches.default(),
                             Schedulers.boundedElastic(),
                             EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                             EthereumChainSpecific.INSTANCE.&localReaderBuilder,
                             io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic())
                     )
+                    upstreams[chain].addUpstream(up)
                 } else {
                     throw new IllegalArgumentException("Unsupported upstream type ${up.class}")
                 }
@@ -100,7 +101,7 @@ class MultistreamHolderMock implements MultistreamHolder {
         Head customHead = null
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<GenericUpstream> upstreams, @NotNull Caches caches) {
-            super(chain, upstreams, caches, Schedulers.boundedElastic(),
+            super(chain, Schedulers.immediate(), null, upstreams, caches, Schedulers.boundedElastic(),
                     EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(new BraveTracer(null, null, null)),
                     EthereumChainSpecific.INSTANCE.&localReaderBuilder,
                     EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))

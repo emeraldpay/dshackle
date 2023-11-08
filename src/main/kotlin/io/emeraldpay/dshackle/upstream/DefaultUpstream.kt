@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -56,7 +57,7 @@ abstract class DefaultUpstream(
     private val statusStream = Sinks.many()
         .multicast()
         .directBestEffort<UpstreamAvailability>()
-    protected val stateStream: Sinks.Many<Boolean> = Sinks.many()
+    protected val stateEventStream: Sinks.Many<UpstreamChangeEvent> = Sinks.many()
         .multicast()
         .directBestEffort()
 
@@ -109,8 +110,8 @@ abstract class DefaultUpstream(
         return statusStream.asFlux().distinctUntilChanged()
     }
 
-    override fun observeState(): Flux<Boolean> {
-        return stateStream.asFlux()
+    override fun observeState(): Flux<UpstreamChangeEvent> {
+        return stateEventStream.asFlux()
     }
 
     override fun setLag(lag: Long) {

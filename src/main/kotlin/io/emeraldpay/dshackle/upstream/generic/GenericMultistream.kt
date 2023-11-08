@@ -34,6 +34,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Selector.Matcher
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
 import org.springframework.util.ConcurrentReferenceHashMap
@@ -44,13 +45,15 @@ import reactor.core.scheduler.Scheduler
 
 open class GenericMultistream(
     chain: Chain,
+    multistreamEventsScheduler: Scheduler,
+    callSelector: CallSelector?,
     private val upstreams: MutableList<Upstream>,
     caches: Caches,
     private val headScheduler: Scheduler,
     cachingReaderBuilder: CachingReaderBuilder,
     private val localReaderBuilder: LocalReaderBuilder,
     private val subscriptionBuilder: SubscriptionBuilder,
-) : Multistream(chain, caches) {
+) : Multistream(chain, caches, callSelector, multistreamEventsScheduler) {
 
     private val cachingReader = cachingReaderBuilder(this, caches, getMethodsFactory())
 
@@ -68,18 +71,7 @@ open class GenericMultistream(
         headScheduler,
     )
 
-    init {
-        this.init()
-    }
-
     private var subscription: EgressSubscription = subscriptionBuilder(this)
-
-    override fun init() {
-        if (upstreams.size > 0) {
-            upstreams.forEach { addHead(it) }
-        }
-        super.init()
-    }
 
     private val filteredHeads: MutableMap<String, Head> =
         ConcurrentReferenceHashMap(16, WEAK)

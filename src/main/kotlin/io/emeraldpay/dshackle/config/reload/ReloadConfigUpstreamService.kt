@@ -6,12 +6,10 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 
 @Component
 open class ReloadConfigUpstreamService(
-    private val eventPublisher: ApplicationEventPublisher,
     private val multistreamHolder: CurrentMultistreamHolder,
     private val configuredUpstreams: ConfiguredUpstreams,
 ) {
@@ -44,19 +42,19 @@ open class ReloadConfigUpstreamService(
 
         chainsToReload.forEach {
             usedChains.add(it)
-            multistreamHolder.getUpstream(it)
-                .getAll()
+            val ms = multistreamHolder.getUpstream(it)
+            ms.getAll()
                 .forEach { up ->
-                    eventPublisher.publishEvent(UpstreamChangeEvent(it, up, UpstreamChangeEvent.ChangeType.REMOVED))
+                    ms.processUpstreamsEvents(UpstreamChangeEvent(it, up, UpstreamChangeEvent.ChangeType.REMOVED))
                 }
         }
         upstreamsToRemove.forEach { pair ->
             usedChains.add(pair.second)
-            multistreamHolder.getUpstream(pair.second)
-                .getAll()
+            val ms = multistreamHolder.getUpstream(pair.second)
+            ms.getAll()
                 .find { pair.first == it.getId() }
-                ?.let {
-                    eventPublisher.publishEvent(UpstreamChangeEvent(pair.second, it, UpstreamChangeEvent.ChangeType.REMOVED))
+                ?.let { up ->
+                    ms.processUpstreamsEvents(UpstreamChangeEvent(pair.second, up, UpstreamChangeEvent.ChangeType.REMOVED))
                 }
         }
 

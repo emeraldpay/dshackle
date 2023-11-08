@@ -28,11 +28,13 @@ import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.reader.RpcReader
 import io.emeraldpay.dshackle.reader.RpcReaderFactory
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -601,9 +603,10 @@ class NativeCallSpec extends Specification {
                 new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 [] as Set, [] as Set, ["filter"] as Set, [] as Set
         )
-        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream(
-                TestingCommons.api(), methods
-        ))
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, new ArrayList<GenericUpstream>())
+        multistream.processUpstreamsEvents(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, TestingCommons.upstream(TestingCommons.api(), methods), UpstreamChangeEvent.ChangeType.ADDED)
+        )
         multistream.customHead = Mock(Head)
         def multistreamHolder = Mock(MultistreamHolder) {
             _ * it.observeChains() >> Flux.empty()
@@ -636,9 +639,10 @@ class NativeCallSpec extends Specification {
                 new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 [] as Set, [] as Set, ["filter"] as Set, [] as Set
         )
-        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream(
-                TestingCommons.api(), methods
-        ))
+        def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, new ArrayList<GenericUpstream>())
+        multistream.processUpstreamsEvents(
+                new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, TestingCommons.upstream(TestingCommons.api(), methods), UpstreamChangeEvent.ChangeType.ADDED)
+        )
         multistream.customHead = Mock(Head)
         def multistreamHolder = Mock(MultistreamHolder) {
             _ * it.observeChains() >> Flux.empty()

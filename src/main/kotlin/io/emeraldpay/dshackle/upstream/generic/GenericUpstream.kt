@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.generic.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -39,7 +38,6 @@ open class GenericUpstream(
     private val node: QuorumForLabels.QuorumItem?,
     chainConfig: ChainsConfig.ChainConfig,
     connectorFactory: ConnectorFactory,
-    private val eventPublisher: ApplicationEventPublisher?,
     validatorBuilder: UpstreamValidatorBuilder,
     labelsDetectorBuilder: LabelsDetectorBuilder,
     private val subscriptionTopics: (GenericUpstream) -> List<String>,
@@ -132,13 +130,9 @@ open class GenericUpstream(
 
                     ValidateUpstreamSettingsResult.UPSTREAM_VALID -> {
                         upstreamStart()
-                        eventPublisher?.publishEvent(
-                            UpstreamChangeEvent(
-                                chain,
-                                this,
-                                UpstreamChangeEvent.ChangeType.ADDED,
-                            ),
-                        )
+                        stateEventStream.emitNext(
+                            UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.ADDED),
+                        ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
                         disposeValidationSettingsSubscription()
                     }
 
@@ -166,7 +160,9 @@ open class GenericUpstream(
         }
         livenessSubscription = connector.hasLiveSubscriptionHead().subscribe({
             hasLiveSubscriptionHead.set(it)
-            stateStream.emitNext(true) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+            stateEventStream.emitNext(
+                UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED),
+            ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
         }, {
             log.debug("Error while checking live subscription for ${getId()}", it)
         },)

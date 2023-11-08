@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import reactor.core.publisher.Flux
 
@@ -26,7 +27,7 @@ interface Upstream : Lifecycle {
     fun isAvailable(): Boolean
     fun getStatus(): UpstreamAvailability
     fun observeStatus(): Flux<UpstreamAvailability>
-    fun observeState(): Flux<Boolean>
+    fun observeState(): Flux<UpstreamChangeEvent>
     fun getHead(): Head
 
     /**

@@ -31,6 +31,11 @@ open class SchedulersConfig {
     }
 
     @Bean
+    open fun multistreamEventsScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("events-scheduler", 4, monitoringConfig)
+    }
+
+    @Bean
     open fun wsConnectionResubscribeScheduler(monitoringConfig: MonitoringConfig): Scheduler {
         return makeScheduler("ws-connection-resubscribe-scheduler", 2, monitoringConfig)
     }

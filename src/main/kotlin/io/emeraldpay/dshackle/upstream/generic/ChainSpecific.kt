@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotChainSpecific
@@ -58,6 +59,8 @@ interface ChainSpecific {
     fun subscriptionTopics(upstream: GenericUpstream): List<String>
 
     fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription
+
+    fun callSelector(caches: Caches): CallSelector?
 }
 
 object ChainSpecificRegistry {

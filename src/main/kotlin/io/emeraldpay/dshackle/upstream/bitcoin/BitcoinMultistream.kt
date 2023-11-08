@@ -40,10 +40,11 @@ import reactor.core.scheduler.Scheduler
 @Suppress("UNCHECKED_CAST")
 open class BitcoinMultistream(
     chain: Chain,
+    multistreamEventsScheduler: Scheduler,
     private val sourceUpstreams: MutableList<BitcoinUpstream>,
     caches: Caches,
     private val headScheduler: Scheduler,
-) : Multistream(chain, caches), Lifecycle {
+) : Multistream(chain, caches, null, multistreamEventsScheduler), Lifecycle {
 
     private var head: Head = EmptyHead()
     private var esplora = sourceUpstreams.find { it.esploraClient != null }?.esploraClient
@@ -57,13 +58,6 @@ open class BitcoinMultistream(
 
     override fun addUpstreamInternal(u: Upstream) {
         sourceUpstreams.add(u as BitcoinUpstream)
-    }
-
-    override fun init() {
-        if (sourceUpstreams.size > 0) {
-            head = updateHead()
-        }
-        super.init()
     }
 
     open fun getXpubAddresses(): XpubAddresses? {

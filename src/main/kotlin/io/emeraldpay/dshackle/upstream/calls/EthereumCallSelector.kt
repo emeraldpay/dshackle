@@ -32,7 +32,7 @@ import java.util.Objects
  */
 class EthereumCallSelector(
     private val caches: Caches,
-) {
+) : CallSelector {
 
     companion object {
         private val log = LoggerFactory.getLogger(EthereumCallSelector::class.java)
@@ -68,7 +68,7 @@ class EthereumCallSelector(
      * @param method JSON RPC name
      * @param params JSON-encoded list of parameters for the method
      */
-    fun getMatcher(method: String, params: String, head: Head, passthrough: Boolean): Mono<Selector.Matcher> {
+    override fun getMatcher(method: String, params: String, head: Head, passthrough: Boolean): Mono<Selector.Matcher> {
         if (method in DefaultEthereumMethods.withFilterIdMethods) {
             return sameUpstreamMatcher(params)
         } else if (!passthrough) { // passthrough indicates we should match only labels

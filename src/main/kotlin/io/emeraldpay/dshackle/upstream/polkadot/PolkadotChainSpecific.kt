@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
@@ -19,6 +20,7 @@ import io.emeraldpay.dshackle.upstream.NoopCachingReader
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
 import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
@@ -103,6 +105,10 @@ object PolkadotChainSpecific : ChainSpecific {
 
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
         return PolkadotIngressSubscription(ws)
+    }
+
+    override fun callSelector(caches: Caches): CallSelector? {
+        return null
     }
 }
 
