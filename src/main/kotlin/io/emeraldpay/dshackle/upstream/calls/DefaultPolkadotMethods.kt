@@ -29,12 +29,11 @@ class DefaultPolkadotMethods : CallMethods {
 
     companion object {
         val subs = setOf(
-            Pair("subscribe_newHead", "unsubscribe_newHead"),
-            Pair("chain_subscribeAllHeads", "chain_unsubscribeAllHeads"),
-            Pair("chain_subscribeFinalizedHeads", "chain_unsubscribeFinalizedHeads"),
-            Pair("chain_subscribeNewHeads", "chain_unsubscribeNewHeads"),
-            Pair("chain_subscribeRuntimeVersion", "chain_unsubscribeNewHeads"),
-            Pair("chain_subscribeRuntimeVersion", "chain_unsubscribeRuntimeVersion"),
+            "subscribe_newHead" to "unsubscribe_newHead",
+            "chain_subscribeAllHeads" to "chain_unsubscribeAllHeads",
+            "chain_subscribeFinalizedHeads" to "chain_unsubscribeFinalizedHeads",
+            "chain_subscribeNewHeads" to "chain_unsubscribeNewHeads",
+            "chain_subscribeRuntimeVersion" to "chain_unsubscribeRuntimeVersion",
         )
     }
 

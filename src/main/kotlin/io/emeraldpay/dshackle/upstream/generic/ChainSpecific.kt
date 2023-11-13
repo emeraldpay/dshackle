@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream.generic
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
 import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.BlockchainType.POLKADOT
+import io.emeraldpay.dshackle.BlockchainType.SOLANA
 import io.emeraldpay.dshackle.BlockchainType.STARKNET
 import io.emeraldpay.dshackle.BlockchainType.UNKNOWN
 import io.emeraldpay.dshackle.Chain
@@ -25,6 +26,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotChainSpecific
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.solana.SolanaChainSpecific
 import io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific
 import org.apache.commons.collections4.Factory
 import org.springframework.cloud.sleuth.Tracer
@@ -36,11 +38,9 @@ typealias LocalReaderBuilder = (CachingReader, CallMethods, Head) -> Mono<JsonRp
 typealias CachingReaderBuilder = (Multistream, Caches, Factory<CallMethods>) -> CachingReader
 
 interface ChainSpecific {
-    fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer
-
     fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer
 
-    fun latestBlockRequest(): JsonRpcRequest
+    fun getLatestBlock(api: JsonRpcReader, upstreamId: String): Mono<BlockContainer>
 
     fun listenNewHeadsRequest(): JsonRpcRequest
 
@@ -56,8 +56,6 @@ interface ChainSpecific {
 
     fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector?
 
-    fun subscriptionTopics(upstream: GenericUpstream): List<String>
-
     fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription
 
     fun callSelector(caches: Caches): CallSelector?
@@ -71,6 +69,7 @@ object ChainSpecificRegistry {
             ETHEREUM -> EthereumChainSpecific
             STARKNET -> StarknetChainSpecific
             POLKADOT -> PolkadotChainSpecific
+            SOLANA -> SolanaChainSpecific
             BITCOIN -> throw IllegalArgumentException("bitcoin should use custom streams implementation")
             UNKNOWN -> throw IllegalArgumentException("unknown chain")
         }

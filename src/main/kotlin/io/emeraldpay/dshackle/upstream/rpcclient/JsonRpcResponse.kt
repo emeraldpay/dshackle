@@ -97,7 +97,10 @@ class JsonRpcResponse(
         if (str.startsWith("\"") && str.endsWith("\"")) {
             return str.substring(1, str.length - 1)
         }
-        throw IllegalStateException("Not as JS string")
+        if (str.all { it.isDigit() }) {
+            return str
+        }
+        throw IllegalStateException("Not as JS string - [$str]")
     }
 
     fun requireResult(): Mono<ByteArray> {

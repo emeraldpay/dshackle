@@ -21,5 +21,5 @@ package io.emeraldpay.dshackle.upstream
 interface IngressSubscription {
 
     fun getAvailableTopics(): List<String>
-    fun <T> get(topic: String): SubscriptionConnect<T>?
+    fun <T> get(topic: String, params: Any?): SubscriptionConnect<T>?
 }

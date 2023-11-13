@@ -7,7 +7,6 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.CachingReader
-import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
@@ -23,15 +22,15 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumLabelsDetector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
+import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
-import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 
-object EthereumChainSpecific : ChainSpecific {
+object EthereumChainSpecific : AbstractPollChainSpecific() {
     override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
         return BlockContainer.fromEthereumJson(data, upstreamId)
     }
@@ -58,6 +57,7 @@ object EthereumChainSpecific : ChainSpecific {
             val pendingTxes: PendingTxesSource = (ms.getAll())
                 .filter { it is GenericUpstream }
                 .map { it as GenericUpstream }
+                .filter { it.getIngressSubscription() is EthereumIngressSubscription }
                 .mapNotNull {
                     (it.getIngressSubscription() as EthereumIngressSubscription).getPendingTxes()
                 }.let {
@@ -88,15 +88,6 @@ object EthereumChainSpecific : ChainSpecific {
 
     override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector? {
         return EthereumLabelsDetector(reader, chain)
-    }
-
-    override fun subscriptionTopics(upstream: GenericUpstream): List<String> {
-        val subs = if (upstream.getCapabilities().contains(Capability.WS_HEAD)) {
-            listOf(EthereumEgressSubscription.METHOD_NEW_HEADS, EthereumEgressSubscription.METHOD_LOGS)
-        } else {
-            listOf()
-        }
-        return upstream.getIngressSubscription().getAvailableTopics().plus(subs).toSet().toList()
     }
 
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {

@@ -40,7 +40,6 @@ open class GenericUpstream(
     connectorFactory: ConnectorFactory,
     validatorBuilder: UpstreamValidatorBuilder,
     labelsDetectorBuilder: LabelsDetectorBuilder,
-    private val subscriptionTopics: (GenericUpstream) -> List<String>,
 ) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig), Lifecycle {
 
     private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig)
@@ -62,10 +61,6 @@ open class GenericUpstream(
 
     override fun getLabels(): Collection<Labels> {
         return node?.let { listOf(it.labels) } ?: emptyList()
-    }
-
-    override fun getSubscriptionTopics(): List<String> {
-        return subscriptionTopics(this)
     }
 
     // outdated, looks like applicable only for bitcoin and our ws_head trick

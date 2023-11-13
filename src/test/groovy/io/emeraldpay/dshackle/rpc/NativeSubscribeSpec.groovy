@@ -41,11 +41,11 @@ class NativeSubscribeSpec extends Specification {
 
         def subscribe = Mock(EthereumEgressSubscription) {
             1 * it.subscribe("newHeads", null, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
+            1 * it.getAvailableTopics() >> ["newHeads"]
         }
         def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> null
-            1 * it.getEgressSubscription() >> subscribe
-            1 * it.getSubscriptionTopics() >> ["newHeads"]
+            2 * it.getEgressSubscription() >> subscribe
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)
@@ -81,11 +81,11 @@ class NativeSubscribeSpec extends Specification {
                 println("ok: $ok")
                 ok
             }, _ as Selector.AnyLabelMatcher) >> Flux.just("{}")
+            1 * it.getAvailableTopics() >> ["logs"]
         }
         def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> null
-            1 * it.getEgressSubscription() >> subscribe
-            1 * it.getSubscriptionTopics() >> ["logs"]
+            2 * it.getEgressSubscription() >> subscribe
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)
@@ -106,10 +106,14 @@ class NativeSubscribeSpec extends Specification {
                 .setChainValue(Chain.ETHEREUM__MAINNET.id)
                 .setMethod("newHeads")
                 .build()
+
+        def subscribe = Mock(EthereumEgressSubscription) {
+            1 * it.getAvailableTopics() >> ["newHeads"]
+        }
+
         def up = Mock(GenericMultistream) {
             1 * it.tryProxySubscribe(_ as Selector.AnyLabelMatcher, call) >> Flux.just("{}")
-            0 * it.getEgressSubscription()
-            1 * it.getSubscriptionTopics() >> ["newHeads"]
+            1 * it.getEgressSubscription() >> subscribe
         }
 
         def nativeSubscribe = new NativeSubscribe(new MultistreamHolderMock(Chain.ETHEREUM__MAINNET, up), signer)

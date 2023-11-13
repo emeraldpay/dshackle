@@ -102,9 +102,6 @@ open class GenericGrpcUpstream(
 
     private val defaultReader: JsonRpcReader = client.getReader()
 
-    // private val ethereumSubscriptions = EthereumDshackleIngressSubscription(chain, remote)
-    private var subscriptionTopics = listOf<String>()
-
     override fun start() {
     }
 
@@ -113,10 +110,6 @@ open class GenericGrpcUpstream(
     }
 
     override fun stop() {
-    }
-
-    override fun getSubscriptionTopics(): List<String> {
-        return subscriptionTopics
     }
 
     override fun getBuildInfo(): BuildInfo {
@@ -130,11 +123,8 @@ open class GenericGrpcUpstream(
         val upstreamStatusChanged = (upstreamStatus.update(conf) || (newCapabilities != capabilities)).also {
             capabilities = newCapabilities
         }
-        val subsChanged = (conf.supportedSubscriptionsList != subscriptionTopics).also {
-            subscriptionTopics = conf.supportedSubscriptionsList
-        }
         conf.status?.let { status -> onStatus(status) }
-        return buildInfoChanged || upstreamStatusChanged || subsChanged
+        return buildInfoChanged || upstreamStatusChanged
     }
 
     override fun getQuorumByLabel(): QuorumForLabels {

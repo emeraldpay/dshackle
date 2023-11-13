@@ -59,10 +59,6 @@ open class BitcoinRpcUpstream(
         return directApi
     }
 
-    override fun getSubscriptionTopics(): List<String> {
-        return listOf()
-    }
-
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return listOf(UpstreamsConfig.Labels())
     }

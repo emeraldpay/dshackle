@@ -85,7 +85,6 @@ open class GenericUpstreamCreator(
             connectorFactory,
             cs::validator,
             cs::labelDetector,
-            cs::subscriptionTopics,
         )
 
         upstream.start()

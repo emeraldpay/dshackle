@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
@@ -20,11 +19,12 @@ import io.emeraldpay.dshackle.upstream.NoopCachingReader
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
-import io.emeraldpay.dshackle.upstream.calls.CallSelector
+import io.emeraldpay.dshackle.upstream.calls.DefaultPolkadotMethods
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
+import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
-import io.emeraldpay.dshackle.upstream.generic.ChainSpecific
-import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
+import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
+import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
 import io.emeraldpay.dshackle.upstream.generic.LocalReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import org.springframework.cloud.sleuth.Tracer
@@ -33,7 +33,7 @@ import reactor.core.scheduler.Scheduler
 import java.math.BigInteger
 import java.time.Instant
 
-object PolkadotChainSpecific : ChainSpecific {
+object PolkadotChainSpecific : AbstractPollChainSpecific() {
     override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
         val response = Global.objectMapper.readValue(data, PolkadotBlockResponse::class.java)
 
@@ -79,7 +79,7 @@ object PolkadotChainSpecific : ChainSpecific {
     }
 
     override fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription {
-        return { ms -> PolkadotEgressSubscription(ms, headScheduler) }
+        return { ms -> GenericEgressSubscription(ms, headScheduler, DefaultPolkadotMethods.subs.map { it.first }) }
     }
 
     override fun makeCachingReaderBuilder(tracer: Tracer): CachingReaderBuilder {
@@ -99,16 +99,8 @@ object PolkadotChainSpecific : ChainSpecific {
         return null
     }
 
-    override fun subscriptionTopics(upstream: GenericUpstream): List<String> {
-        return emptyList()
-    }
-
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
-        return PolkadotIngressSubscription(ws)
-    }
-
-    override fun callSelector(caches: Caches): CallSelector? {
-        return null
+        return GenericIngressSubscription(ws)
     }
 }
 

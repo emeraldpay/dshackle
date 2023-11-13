@@ -89,10 +89,6 @@ class BitcoinGrpcUpstream(
         block
     }
 
-    override fun getSubscriptionTopics(): List<String> {
-        return listOf()
-    }
-
     private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
         // head comes without transaction data
         // need to download transactions for the block

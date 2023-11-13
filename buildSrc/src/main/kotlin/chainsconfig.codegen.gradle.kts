@@ -117,6 +117,7 @@ open class CodeGen(private val config: ChainsConfig) {
             "bitcoin" -> "BlockchainType.BITCOIN"
             "starknet" -> "BlockchainType.STARKNET"
             "polkadot" -> "BlockchainType.POLKADOT"
+            "solana" -> "BlockchainType.SOLANA"
             else -> throw IllegalArgumentException("unknown blockchain type $type")
         }
     }

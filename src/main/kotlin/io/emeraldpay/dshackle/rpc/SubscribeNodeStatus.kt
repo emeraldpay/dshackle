@@ -164,7 +164,6 @@ class SubscribeNodeStatus(
                         .build()
                 },
             )
-            .addAllSupportedSubscriptions(up.getSubscriptionTopics())
             .addAllSupportedMethods(up.getMethods().getSupportedMethods())
         (up as? GrpcUpstream)?.let {
             it.getBuildInfo().version?.let { version ->

@@ -93,7 +93,7 @@ class GenericWsHead(
             }
             .timeout(Duration.ofSeconds(60), Mono.error(RuntimeException("No response from subscribe to newHeads")))
             .onErrorResume {
-                log.error("Error getting heads for $upstreamId - ${it.message}")
+                log.error("Error getting heads for $upstreamId", it)
                 subscribed = false
                 unsubscribe()
             }

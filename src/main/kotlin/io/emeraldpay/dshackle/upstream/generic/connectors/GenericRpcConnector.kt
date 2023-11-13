@@ -10,11 +10,12 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.NoIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.GenericWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
-import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
+import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
@@ -41,10 +42,12 @@ class GenericRpcConnector(
     headScheduler: Scheduler,
     headLivenessScheduler: Scheduler,
     expectedBlockTime: Duration,
-    chainSpecific: ChainSpecific,
+    private val chainSpecific: ChainSpecific,
 ) : GenericConnector, CachesEnabled {
     private val id = upstream.getId()
     private val pool: WsConnectionPool?
+    private val wsSubs: WsSubscriptions?
+    private val ingressSubscription: IngressSubscription?
     private val head: Head
     private val liveness: HeadLivenessValidator
 
@@ -58,6 +61,8 @@ class GenericRpcConnector(
 
     init {
         pool = wsFactory?.create(upstream)
+        wsSubs = pool?.let { WsSubscriptionsImpl(it) }
+        ingressSubscription = wsSubs?.let { chainSpecific.makeIngressSubscription(it) }
 
         head = when (connectorType) {
             RPC_ONLY -> {
@@ -83,7 +88,7 @@ class GenericRpcConnector(
                         AlwaysForkChoice(),
                         blockValidator,
                         getIngressReader(),
-                        WsSubscriptionsImpl(pool!!),
+                        wsSubs!!,
                         wsConnectionResubscribeScheduler,
                         headScheduler,
                         upstream,
@@ -108,7 +113,7 @@ class GenericRpcConnector(
                     AlwaysForkChoice(),
                     blockValidator,
                     getIngressReader(),
-                    WsSubscriptionsImpl(pool!!),
+                    wsSubs!!,
                     wsConnectionResubscribeScheduler,
                     headScheduler,
                     upstream,
@@ -152,7 +157,7 @@ class GenericRpcConnector(
     }
 
     override fun getIngressSubscription(): IngressSubscription {
-        return NoEthereumIngressSubscription.DEFAULT
+        return ingressSubscription ?: NoIngressSubscription()
     }
 
     override fun getHead(): Head {

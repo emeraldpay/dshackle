@@ -32,7 +32,7 @@ class EthereumWsIngressSubscription(
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T> get(topic: String): SubscriptionConnect<T>? {
+    override fun <T> get(topic: String, params: Any?): SubscriptionConnect<T>? {
         if (topic == EthereumEgressSubscription.METHOD_PENDING_TXES) {
             return pendingTxes as SubscriptionConnect<T>
         }

@@ -1,4 +1,4 @@
-package io.emeraldpay.dshackle.upstream.polkadot
+package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
@@ -8,28 +8,39 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
 
-class PolkadotIngressSubscription(val conn: WsSubscriptions) : IngressSubscription {
+class GenericIngressSubscription(val conn: WsSubscriptions) : IngressSubscription {
     override fun getAvailableTopics(): List<String> {
         return emptyList() // not used now
     }
 
+    private val holders = ConcurrentHashMap<Pair<String, Any?>, SubscriptionConnect<out Any>>()
+
     @Suppress("UNCHECKED_CAST")
-    override fun <T> get(topic: String): SubscriptionConnect<T> {
-        return PolkaConnect(conn, topic) as SubscriptionConnect<T>
+    override fun <T> get(topic: String, params: Any?): SubscriptionConnect<T> {
+        return holders.computeIfAbsent(topic to params, { key -> GenericSubscriptionConnect(conn, key.first, key.second) }) as SubscriptionConnect<T>
     }
 }
 
-class PolkaConnect(
+class GenericSubscriptionConnect(
     val conn: WsSubscriptions,
     val topic: String,
+    val params: Any?,
 ) : GenericPersistentConnect() {
 
     @Suppress("UNCHECKED_CAST")
     override fun createConnection(): Flux<Any> {
-        return conn.subscribe(JsonRpcRequest(topic, listOf()))
+        return conn.subscribe(JsonRpcRequest(topic, getParams(params)))
             .data
             .timeout(Duration.ofSeconds(60), Mono.empty())
             .onErrorResume { Mono.empty() } as Flux<Any>
+    }
+
+    private fun getParams(params: Any?): List<Any?> {
+        if (params == null) {
+            return listOf()
+        }
+        return params as List<Any?>
     }
 }

@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
 import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.BlockchainType.POLKADOT
+import io.emeraldpay.dshackle.BlockchainType.SOLANA
 import io.emeraldpay.dshackle.BlockchainType.STARKNET
 import io.emeraldpay.dshackle.BlockchainType.UNKNOWN
 import io.emeraldpay.dshackle.Chain
@@ -27,6 +28,7 @@ class CallTargetsHolder {
             ETHEREUM -> DefaultEthereumMethods(chain)
             STARKNET -> DefaultStarknetMethods(chain)
             POLKADOT -> DefaultPolkadotMethods()
+            SOLANA -> DefaultSolanaMethods()
             UNKNOWN -> throw IllegalArgumentException("unknown chain")
         }
         callTargets[chain] = created

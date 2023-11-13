@@ -94,7 +94,7 @@ abstract class Multistream(
         .multicast()
         .directBestEffort<UpstreamChangeEvent>()
 
-    override fun getSubscriptionTopics(): List<String> {
+    fun getSubscriptionTopics(): List<String> {
         return getEgressSubscription().getAvailableTopics()
     }
 

@@ -41,7 +41,6 @@ interface Upstream : Lifecycle {
     fun getLag(): Long?
     fun getLabels(): Collection<UpstreamsConfig.Labels>
     fun getMethods(): CallMethods
-    fun getSubscriptionTopics(): List<String>
     fun getId(): String
     fun getCapabilities(): Set<Capability>
     fun isGrpc(): Boolean

@@ -664,3 +664,26 @@ chain-settings:
           short-names: [ vara-testnet ]
           chain-id: 0x0
           grpcId: 10036
+    - id: solana
+      label: solana
+      type: solana
+      settings:
+        expected-block-time: 1s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Mainnet
+          priority: 1
+          code: SOLANA_MAINNET
+          short-names: [ solana ]
+          chain-id: 0x0
+          grpcId: 1028
+        - id: Testnet
+          priority: 1
+          code: SOLANA_TESTMET
+          short-names: [ solana-testnet ]
+          chain-id: 0x0
+          grpcId: 10037

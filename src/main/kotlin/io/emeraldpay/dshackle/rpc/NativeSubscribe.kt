@@ -74,7 +74,12 @@ open class NativeSubscribe(
         val publisher = multistream.tryProxySubscribe(matcher, request) ?: run {
             val method = request.method
             val params: Any? = request.payload?.takeIf { !it.isEmpty }?.let {
-                objectMapper.readValue(it.newInput(), Map::class.java)
+                val raw = it.toStringUtf8()
+                if (raw.startsWith("{")) {
+                    objectMapper.readValue(it.newInput(), Map::class.java)
+                } else {
+                    objectMapper.readValue(it.newInput(), List::class.java)
+                }
             }
             subscribe(chain, method, params, matcher)
         }

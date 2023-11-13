@@ -25,7 +25,7 @@ open class NoIngressSubscription : IngressSubscription {
         return listOf()
     }
 
-    override fun <T> get(topic: String): SubscriptionConnect<T>? {
+    override fun <T> get(topic: String, params: Any?): SubscriptionConnect<T>? {
         return null
     }
 }

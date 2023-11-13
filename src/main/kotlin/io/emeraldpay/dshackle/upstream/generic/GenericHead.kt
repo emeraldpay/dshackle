@@ -34,12 +34,9 @@ open class GenericHead(
 ) : Head, AbstractHead(forkChoice, headScheduler, blockValidator, 60_000, upstreamId) {
 
     fun getLatestBlock(api: JsonRpcReader): Mono<BlockContainer> {
-        return api.read(chainSpecific.latestBlockRequest())
+        return chainSpecific.getLatestBlock(api, upstreamId)
             .subscribeOn(headScheduler)
             .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))
-            .map {
-                chainSpecific.parseBlock(it.getResult(), upstreamId)
-            }
             .onErrorResume { err ->
                 log.error("Failed to fetch latest block: ${err.message} $upstreamId", err)
                 Mono.empty()
