@@ -74,10 +74,9 @@ class ReloadConfigSetup(
         )
 
         val upstreamsToRemove = upstreamsAnalyzeData.removed
-            .plus(upstreamsAnalyzeData.reloaded)
             .filterNot { chainsToReload.contains(it.second) }
+            .toSet()
         val upstreamsToAdd = upstreamsAnalyzeData.added
-            .plus(upstreamsAnalyzeData.reloaded.map { it.first })
 
         reloadConfigUpstreamService.reloadUpstreams(chainsToReload, upstreamsToRemove, upstreamsToAdd, newUpstreamsConfig)
 
@@ -107,9 +106,12 @@ class ReloadConfigSetup(
             }
         }
 
-        val added = newUpstreamsMap.minus(currentUpstreamsMap.keys).mapTo(mutableSetOf()) { it.key.first }
+        val added = newUpstreamsMap
+            .minus(currentUpstreamsMap.keys)
+            .mapTo(mutableSetOf()) { it.key }
+            .plus(reloaded)
 
-        return UpstreamAnalyzeData(added, removed, reloaded)
+        return UpstreamAnalyzeData(added, removed.plus(reloaded))
     }
 
     private fun analyzeDefaultOptions(
@@ -158,8 +160,7 @@ class ReloadConfigSetup(
     }
 
     private data class UpstreamAnalyzeData(
-        val added: Set<String> = emptySet(),
+        val added: Set<Pair<String, Chain>> = emptySet(),
         val removed: Set<Pair<String, Chain>> = emptySet(),
-        val reloaded: Set<Pair<String, Chain>> = emptySet(),
     )
 }

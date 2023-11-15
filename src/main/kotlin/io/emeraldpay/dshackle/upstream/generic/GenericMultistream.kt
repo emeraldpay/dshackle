@@ -106,10 +106,6 @@ open class GenericMultistream(
         head.removeHead(upstreamId)
     }
 
-    override fun isRunning(): Boolean {
-        return super.isRunning() || cachingReader.isRunning()
-    }
-
     override fun makeLagObserver(): HeadLagObserver =
         HeadLagObserver(head, upstreams, DistanceExtractor::extractPriorityDistance, headScheduler, 6).apply {
             start()

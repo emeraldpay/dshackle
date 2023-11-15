@@ -16,27 +16,30 @@ open class ReloadConfigUpstreamService(
 
     fun reloadUpstreams(
         chainsToReload: Set<Chain>,
-        upstreamsToRemove: List<Pair<String, Chain>>,
-        upstreamsToAdd: Set<String>,
+        upstreamsToRemove: Set<Pair<String, Chain>>,
+        upstreamsToAdd: Set<Pair<String, Chain>>,
         newUpstreamsConfig: UpstreamsConfig,
     ) {
         val usedChains = removeUpstreams(chainsToReload, upstreamsToRemove)
 
-        addUpstreams(newUpstreamsConfig, chainsToReload, upstreamsToAdd)
+        addUpstreams(newUpstreamsConfig, chainsToReload, upstreamsToAdd.map { it.first }.toSet())
 
-        usedChains.forEach {
-            multistreamHolder.getUpstream(it)
-                .run {
-                    if (!this.haveUpstreams() && this.isRunning()) {
+        usedChains.forEach { chain ->
+            val upstreamsToRemovePerChain = upstreamsToRemove.filter { it.second == chain }
+            val upstreamsToAddPerChain = upstreamsToAdd.filter { it.second == chain }
+
+            if (upstreamsToAddPerChain.isEmpty() && upstreamsToRemovePerChain.isNotEmpty()) {
+                multistreamHolder.getUpstream(chain)
+                    .run {
                         this.stop()
                     }
-                }
+            }
         }
     }
 
     private fun removeUpstreams(
         chainsToReload: Set<Chain>,
-        upstreamsToRemove: List<Pair<String, Chain>>,
+        upstreamsToRemove: Set<Pair<String, Chain>>,
     ): Set<Chain> {
         val usedChains = mutableSetOf<Chain>()
 
