@@ -87,7 +87,7 @@ class FilteredApisSpec extends Specification {
             it.setStatus(UpstreamAvailability.OK)
         }
         when:
-        def iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 0, 1, 0)
+        def iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 0, 0)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -98,7 +98,7 @@ class FilteredApisSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
 
         when:
-        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 1, 0)
+        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 0)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -109,7 +109,7 @@ class FilteredApisSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
 
         when:
-        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 2, 0)
+        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 2)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -119,73 +119,11 @@ class FilteredApisSpec extends Specification {
                 .expectNext(upstreams[2])
                 .expectNext(upstreams[3])
                 .expectNext(upstreams[0])
+                .expectNext(upstreams[2])
+                .expectNext(upstreams[3])
+                .expectNext(upstreams[0])
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
-    }
-
-    def "Exponential backoff"() {
-        setup:
-        def apis = new FilteredApis(Chain.ETHEREUM__MAINNET, [], Selector.empty, 0, 1, 0)
-        expect:
-        wait == apis.waitDuration(n).toMillis() as Integer
-        where:
-        n  | wait
-        0  | 100
-        1  | 100
-        2  | 400
-        3  | 900
-        4  | 1600
-        5  | 2500
-        6  | 3600
-        7  | 4900
-        8  | 5000
-        9  | 5000
-        10 | 5000
-        -1 | 100
-    }
-
-    @Retry
-    def "Backoff uses jitter"() {
-        setup:
-        def apis = new FilteredApis(Chain.ETHEREUM__MAINNET, [], Selector.empty, 0, 1, 20)
-        when:
-        def act = apis.waitDuration(1).toMillis()
-        println act
-        then:
-        act >= 80
-        act <= 120
-        act != 100
-
-        when:
-        act = apis.waitDuration(3).toMillis()
-        println act
-        then:
-        act >= 900 - 9 * 20
-        act <= 900 + 9 * 20
-        act != 900
-    }
-
-    def "Makes pause between batches"() {
-        when:
-        def api1 = TestingCommons.api()
-        def api2 = TestingCommons.api()
-        def up1 = TestingCommons.upstream(api1)
-        def up2 = TestingCommons.upstream(api2)
-        then:
-        StepVerifier.withVirtualTime({
-            def apis = new FilteredApis(Chain.ETHEREUM__MAINNET, [up1, up2], Selector.empty, 0, 4, 0)
-            apis.request(10)
-            return apis
-        })
-                .expectNext(up1, up2).as("Batch 1")
-                .expectNoEvent(Duration.ofMillis(100)).as("Wait 1")
-                .expectNext(up1, up2).as("Batch 2")
-                .expectNoEvent(Duration.ofMillis(400)).as("Wait 2")
-                .expectNext(up1, up2).as("Batch 3")
-                .expectNoEvent(Duration.ofMillis(900)).as("Wait 3")
-                .expectNext(up1, up2).as("Batch 4")
-                .expectComplete()
-                .verify(Duration.ofSeconds(10))
     }
 
     def "Starts with right position"() {
@@ -197,7 +135,7 @@ class FilteredApisSpec extends Specification {
             TestingCommons.upstream(it)
         }
         when:
-        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 1, 0)
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 0)
         act.request(10)
         then:
         StepVerifier.create(act)
@@ -216,7 +154,7 @@ class FilteredApisSpec extends Specification {
             TestingCommons.upstream(it)
         }
         when:
-        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 1, 0)
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 0)
         act.request(3)
         then:
         StepVerifier.create(act)
@@ -275,17 +213,13 @@ class FilteredApisSpec extends Specification {
         when:
         def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + fallback + standard,
-                Selector.empty, 0, 3, 0)
+                Selector.empty, 0, 1)
         act.request(10)
         then:
         StepVerifier.create(act)
                 .expectNext(standard[0], standard[1]).as("Initial requests")
-
                 .expectNext(standard[0], standard[1]).as("Retry with standard")
                 .expectNext(fallback[0]).as("Retry with fallback")
-
-                .expectNext(standard[0], standard[1]).as("Second retry with standard")
-                .expectNext(fallback[0]).as("Second retry with fallback")
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))
     }
@@ -315,7 +249,7 @@ class FilteredApisSpec extends Specification {
         when:
         def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + fallback + standard + secondary,
-                Selector.empty, 0, 3, 0)
+                Selector.empty, 0, 2)
         act.request(11)
         then:
         StepVerifier.create(act)
@@ -352,7 +286,7 @@ class FilteredApisSpec extends Specification {
         when:
         def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + lagging + ok,
-                Selector.empty, 0, 2, 0)
+                Selector.empty, 0, 1)
         act.request(4)
         then:
         StepVerifier.create(act)

@@ -32,30 +32,20 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.roundToLong
-import kotlin.random.Random
 
 class FilteredApis(
     val chain: Chain,
     private val allUpstreams: List<Upstream>,
-    private val matcher: Selector.Matcher,
+    matcher: Selector.Matcher,
     private val pos: Int,
-    /**
-     * Limit of retries
-     */
-    private val retryLimit: Long,
-    jitter: Int,
+    private val retries: Int,
 ) : ApiSource {
     private val internalMatcher: Selector.Matcher
 
     companion object {
         private val log = LoggerFactory.getLogger(FilteredApis::class.java)
 
-        private const val DEFAULT_DELAY_STEP = 100
-        private const val MAX_WAIT_MILLIS = 5000L
+        private const val DEFAULT_RETRY_LIMIT = 3
 
         private const val metricsCode = "select"
 
@@ -78,17 +68,24 @@ class FilteredApis(
         allUpstreams: List<Upstream>,
         matcher: Selector.Matcher,
         pos: Int,
-    ) : this(chain, allUpstreams, matcher, pos, 10, 7)
+    ) : this(chain, allUpstreams, matcher, pos, DEFAULT_RETRY_LIMIT)
 
     constructor(
         chain: Chain,
         allUpstreams: List<Upstream>,
         matcher: Selector.Matcher,
-    ) : this(chain, allUpstreams, matcher, 0, 10, 10)
+    ) : this(chain, allUpstreams, matcher, 0, DEFAULT_RETRY_LIMIT)
 
-    private val delay: Int
-    private val primaryUpstreams: List<Upstream>
-    private val secondaryUpstreams: List<Upstream>
+    private val primaryUpstreams: List<Upstream> = allUpstreams.filter {
+        it.getRole() == UpstreamsConfig.UpstreamRole.PRIMARY
+    }.let {
+        startFrom(it, pos)
+    }
+    private val secondaryUpstreams: List<Upstream> = allUpstreams.filter {
+        it.getRole() == UpstreamsConfig.UpstreamRole.SECONDARY
+    }.let {
+        startFrom(it, pos)
+    }
     private val standardWithFallback: List<Upstream>
 
     private val counter: AtomicInteger = AtomicInteger(0)
@@ -98,22 +95,6 @@ class FilteredApis(
     private var upstreamsMatchesResponse: UpstreamsMatchesResponse? = UpstreamsMatchesResponse()
 
     init {
-        delay = if (jitter > 0) {
-            Random.nextInt(DEFAULT_DELAY_STEP - jitter, DEFAULT_DELAY_STEP + jitter)
-        } else {
-            DEFAULT_DELAY_STEP
-        }
-
-        primaryUpstreams = allUpstreams.filter {
-            it.getRole() == UpstreamsConfig.UpstreamRole.PRIMARY
-        }.let {
-            startFrom(it, pos)
-        }
-        secondaryUpstreams = allUpstreams.filter {
-            it.getRole() == UpstreamsConfig.UpstreamRole.SECONDARY
-        }.let {
-            startFrom(it, pos)
-        }
         val fallbackUpstreams = allUpstreams.filter {
             it.getRole() == UpstreamsConfig.UpstreamRole.FALLBACK
         }.let {
@@ -154,29 +135,20 @@ class FilteredApis(
         }
     }
 
-    fun waitDuration(rawn: Long): Duration {
-        val n = max(rawn, 1)
-        val time = min(
-            (n.toDouble().pow(2.0) * delay).roundToLong(),
-            MAX_WAIT_MILLIS,
-        )
-        return Duration.ofMillis(time)
-    }
-
     override fun subscribe(subscriber: Subscriber<in Upstream>) {
         // initially try only standard upstreams
         val first = Flux.fromIterable(primaryUpstreams.sortedBy { it.getStatus().grpcId })
         val second = Flux.fromIterable(secondaryUpstreams.sortedBy { it.getStatus().grpcId })
         // if all failed, try both standard and fallback upstreams, repeating in cycle
-        val retries = (0 until (retryLimit - 1)).map { r ->
-            Flux.fromIterable(standardWithFallback.sortedBy { it.getStatus().grpcId })
-                // add a delay to let upstream to restore if it's a temp failure
-                // but delay only start of the check, not between upstreams
-                // i.e. if all upstreams failed -> wait -> check all without waiting in between
-                .delaySubscription(waitDuration(r + 1))
+        val retries = (0 until this.retries).map {
+            val retryDelay = (it + 1) * 30
+            Flux.fromIterable(
+                standardWithFallback.sortedBy { up -> up.getStatus().grpcId },
+            ).delaySubscription(Duration.ofMillis(retryDelay.toLong()))
         }.let { Flux.concat(it) }
 
-        var result = Flux.concat(first, second, retries).take(Duration.ofSeconds(3))
+        val size = primaryUpstreams.size + secondaryUpstreams.size + standardWithFallback.size * this.retries
+        var result = Flux.concat(first, second, retries).take(size.toLong(), false)
 
         if (Global.metricsExtended) {
             var count = 0
