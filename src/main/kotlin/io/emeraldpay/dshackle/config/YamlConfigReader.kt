@@ -117,7 +117,9 @@ abstract class YamlConfigReader {
             ?.let { key ->
                 getValue(mappingNode, key)?.let {
                     if (it.isPlain) {
-                        it.value.toIntOrNull()
+                        it.value
+                            .let(envVariables::postProcess)
+                            .toIntOrNull()
                     } else {
                         null
                     }
@@ -131,7 +133,9 @@ abstract class YamlConfigReader {
             ?.let { key ->
                 getValue(mappingNode, key)?.let {
                     if (it.isPlain) {
-                        it.value.lowercase(Locale.getDefault()) == "true"
+                        it.value
+                            .let(envVariables::postProcess)
+                            .lowercase(Locale.getDefault()) == "true"
                     } else {
                         null
                     }

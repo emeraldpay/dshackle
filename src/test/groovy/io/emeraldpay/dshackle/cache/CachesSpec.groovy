@@ -15,14 +15,13 @@
  */
 package io.emeraldpay.dshackle.cache
 
-import com.fasterxml.jackson.databind.ObjectMapper
+
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -44,7 +43,7 @@ class CachesSpec extends Specification {
     def "Evict txes if block updated"() {
         setup:
         TxMemCache txCache = Mock()
-        HeightCache heightCache = Mock()
+        HeightMemCache heightCache = Mock()
         BlocksMemCache blocksCache = Mock()
         def caches = Caches.newBuilder()
                 .setTxByHash(txCache)
@@ -86,7 +85,7 @@ class CachesSpec extends Specification {
     def "Evict txes if block updated - when block not cached"() {
         setup:
         TxMemCache txCache = Mock()
-        HeightCache heightCache = Mock()
+        HeightMemCache heightCache = Mock()
         BlocksMemCache blocksCache = Mock()
         def caches = Caches.newBuilder()
                 .setTxByHash(txCache)
@@ -126,7 +125,7 @@ class CachesSpec extends Specification {
     def "Do not cache txes of a requested block if it's just id"() {
         setup:
         TxMemCache txCache = Mock()
-        HeightCache heightCache = Mock()
+        HeightMemCache heightCache = Mock()
         BlocksMemCache blocksCache = Mock()
         def caches = Caches.newBuilder()
                 .setTxByHash(txCache)
@@ -176,7 +175,7 @@ class CachesSpec extends Specification {
 
 
         TxMemCache txCache = Mock()
-        HeightCache heightCache = Mock()
+        HeightMemCache heightCache = Mock()
         BlocksMemCache blocksCache = Mock() {
             _ * add(block)
             _ * read(block.hash) >> Mono.just(block)
@@ -216,7 +215,7 @@ class CachesSpec extends Specification {
             BlockContainer.from(block)
         }
         TxMemCache txCache = Mock()
-        HeightCache heightCache = Mock()
+        HeightMemCache heightCache = Mock()
         BlocksMemCache blocksCache = Mock()
         TxRedisCache txRedisCache = Mock()
         def caches = Caches.newBuilder()

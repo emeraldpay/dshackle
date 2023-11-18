@@ -15,10 +15,8 @@
  */
 package io.emeraldpay.dshackle.cache
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.Global
+
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.rpc.json.BlockJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
@@ -26,7 +24,7 @@ import spock.lang.Specification
 
 import java.time.Instant
 
-class HeightCacheSpec extends Specification {
+class HeightMemCacheSpec extends Specification {
 
     String hash1 = "0xd3f34def3c56ba4e701540d15edaff9acd2a1c968a7ff83b3300ab5dfd5f6aab"
     String hash2 = "0x4aabdaff9acd2f30d15e00ab5dfd5f6c56ba4ea1c968a7ff8d3f34de70153b33"
@@ -35,7 +33,7 @@ class HeightCacheSpec extends Specification {
 
     def "Add and read"() {
         setup:
-        def cache = new HeightCache()
+        def cache = new HeightMemCache()
 
         when:
         [hash1, hash2, hash3, hash4].eachWithIndex { String hash, int i ->
@@ -60,7 +58,7 @@ class HeightCacheSpec extends Specification {
 
     def "Keeps only configured amount"() {
         setup:
-        def cache = new HeightCache(3)
+        def cache = new HeightMemCache(3)
         [hash1]
 
         when:

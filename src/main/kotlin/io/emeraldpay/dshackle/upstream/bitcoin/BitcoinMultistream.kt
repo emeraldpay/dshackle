@@ -60,6 +60,7 @@ open class BitcoinMultistream(
         HardcodedReader(callMethods),
         NormalizingReader(CompoundReader(BitcoinCacheReader(caches), ingressReader))
     )
+
     open var dataReaders = DataReaders(reader, head)
     open var unspentReader: UnspentReader = CurrentUnspentReader(this, esplora)
     private var addressActiveCheck: AddressActiveCheck? = null

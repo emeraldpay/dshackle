@@ -309,8 +309,8 @@ class EthereumFullBlocksReaderTest : ShouldSpec({
             }
 
             val txes = TxMemCache().also {
-                it.add(TxContainer.from(tx1.toByteArray()))
-                it.add(TxContainer.from(tx2.toByteArray()))
+                it.add(TxContainer.fromEthereumJson(tx1.toByteArray()))
+                it.add(TxContainer.fromEthereumJson(tx2.toByteArray()))
             }
             val blocks = BlocksMemCache().also {
                 it.add(BlockContainer.fromEthereumJson(blockJson.toByteArray()))

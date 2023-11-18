@@ -20,6 +20,7 @@ import io.emeraldpay.api.BlockchainType
 import io.emeraldpay.api.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.cache.CachesFactory
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.monitoring.Channel
 import io.emeraldpay.dshackle.monitoring.requestlog.CurrentRequestLogWriter
@@ -28,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.ForkWatchFactory
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinCacheUpdate
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinZMQHead
@@ -39,6 +41,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqSubscriptionS
 import io.emeraldpay.dshackle.upstream.bitcoin.subscribe.BitcoinZmqTopic
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.CacheUpdate
 import io.emeraldpay.dshackle.upstream.ethereum.ConnectionMetrics
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumRpcUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstream
@@ -70,6 +73,7 @@ open class ConfiguredUpstreams(
     @Autowired private val fileResolver: FileResolver,
     @Autowired private val config: UpstreamsConfig,
     @Autowired private val currentRequestLogWriter: CurrentRequestLogWriter,
+    @Autowired private val cachesFactory: CachesFactory,
 ) {
 
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
@@ -162,6 +166,8 @@ open class ConfiguredUpstreams(
         val conn = config.connection!!
         val directApi: StandardRpcReader? = buildHttpClient(config)?.let {
             currentRequestLogWriter.wrap(it, id, Channel.JSONRPC)
+        }?.let {
+            BitcoinCacheUpdate(cachesFactory.getCaches(chain), it)
         }
         if (directApi == null) {
             log.warn("Upstream doesn't have API configuration")
@@ -260,7 +266,9 @@ open class ConfiguredUpstreams(
                 }
                 EthereumRpcUpstream(
                     id,
-                    chain, forkWatchFactory.create(chain), directReader, wsPool,
+                    chain, forkWatchFactory.create(chain),
+                    CacheUpdate(cachesFactory.getCaches(chain), directReader),
+                    wsPool,
                     options, config.role,
                     QuorumForLabels.QuorumItem(1, config.labels),
                     methods
@@ -279,7 +287,9 @@ open class ConfiguredUpstreams(
                 )
                 EthereumWsUpstream(
                     id,
-                    chain, forkWatchFactory.create(chain), directReader, wsPool,
+                    chain, forkWatchFactory.create(chain),
+                    CacheUpdate(cachesFactory.getCaches(chain), directReader),
+                    wsPool,
                     options, config.role,
                     QuorumForLabels.QuorumItem(1, config.labels),
                     methods
@@ -294,7 +304,9 @@ open class ConfiguredUpstreams(
             }
             EthereumRpcUpstream(
                 id,
-                chain, forkWatchFactory.create(chain), directReader, null,
+                chain, forkWatchFactory.create(chain),
+                CacheUpdate(cachesFactory.getCaches(chain), directReader),
+                null,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods
@@ -305,7 +317,9 @@ open class ConfiguredUpstreams(
             }
             EthereumWsUpstream(
                 id,
-                chain, forkWatchFactory.create(chain), directReader, wsPool,
+                chain, forkWatchFactory.create(chain),
+                CacheUpdate(cachesFactory.getCaches(chain), directReader),
+                wsPool,
                 options, config.role,
                 QuorumForLabels.QuorumItem(1, config.labels),
                 methods

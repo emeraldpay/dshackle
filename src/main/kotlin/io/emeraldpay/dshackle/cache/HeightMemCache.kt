@@ -24,7 +24,7 @@ import reactor.core.publisher.Mono
 /**
  * Memory cache for blocks heights, keeps mapping height->hash.
  */
-open class HeightCache(
+open class HeightMemCache(
     maxSize: Int = 512
 ) : Reader<Long, BlockId> {
 
