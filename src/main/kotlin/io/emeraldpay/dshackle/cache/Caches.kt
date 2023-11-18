@@ -34,7 +34,7 @@ import reactor.core.publisher.Mono
 
 open class Caches(
     private val memBlocksByHash: BlocksMemCache,
-    private val blocksByHeight: HeightCache,
+    private val blocksByHeight: HeightMemCache,
     private val memTxsByHash: TxMemCache,
     private val memReceipts: ReceiptMemCache,
     private val redisBlocksByHash: BlocksRedisCache?,
@@ -230,7 +230,7 @@ open class Caches(
 
     class Builder {
         private var blocksByHash: BlocksMemCache? = null
-        private var blocksByHeight: HeightCache? = null
+        private var blocksByHeight: HeightMemCache? = null
         private var txsByHash: TxMemCache? = null
         private var receipts: ReceiptMemCache? = null
         private var redisBlocksByHash: BlocksRedisCache? = null
@@ -249,7 +249,7 @@ open class Caches(
             return this
         }
 
-        fun setBlockByHeight(cache: HeightCache): Builder {
+        fun setBlockByHeight(cache: HeightMemCache): Builder {
             blocksByHeight = cache
             return this
         }
@@ -289,7 +289,7 @@ open class Caches(
                 blocksByHash = BlocksMemCache()
             }
             if (blocksByHeight == null) {
-                blocksByHeight = HeightCache()
+                blocksByHeight = HeightMemCache()
             }
             if (txsByHash == null) {
                 txsByHash = TxMemCache()

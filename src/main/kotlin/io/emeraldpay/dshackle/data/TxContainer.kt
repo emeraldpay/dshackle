@@ -29,7 +29,7 @@ class TxContainer(
 
     companion object {
         @JvmStatic
-        fun from(raw: ByteArray): TxContainer {
+        fun fromEthereumJson(raw: ByteArray): TxContainer {
             val tx = Global.objectMapper.readValue(raw, TransactionJson::class.java)
             return from(tx, raw)
         }
