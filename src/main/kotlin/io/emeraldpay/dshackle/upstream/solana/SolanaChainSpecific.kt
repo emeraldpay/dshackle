@@ -17,6 +17,7 @@ import io.emeraldpay.dshackle.upstream.generic.AbstractChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 import java.math.BigInteger
@@ -24,25 +25,45 @@ import java.time.Instant
 
 object SolanaChainSpecific : AbstractChainSpecific() {
 
+    private val log = LoggerFactory.getLogger(SolanaChainSpecific::class.java)
+
     override fun getLatestBlock(api: JsonRpcReader, upstreamId: String): Mono<BlockContainer> {
-        return api.read(JsonRpcRequest("getLatestBlockhash", listOf())).flatMap {
-            val response = Global.objectMapper.readValue(it.getResult(), SolanaLatest::class.java)
+        return api.read(JsonRpcRequest("getSlot", listOf())).flatMap {
+            val slot = it.getResultAsProcessedString().toLong()
             api.read(
                 JsonRpcRequest(
-                    "getBlock",
+                    "getBlocks",
                     listOf(
-                        response.context.slot,
-                        mapOf(
-                            "showRewards" to false,
-                            "transactionDetails" to "none",
-                            "maxSupportedTransactionVersion" to 0,
-                        ),
+                        slot - 10,
+                        slot,
                     ),
                 ),
-            ).map {
-                val raw = it.getResult()
-                val block = Global.objectMapper.readValue(it.getResult(), SolanaBlock::class.java)
-                makeBlock(raw, block, upstreamId)
+            ).flatMap {
+                val response = Global.objectMapper.readValue(it.getResult(), LongArray::class.java)
+                if (response == null || response.isEmpty()) {
+                    Mono.empty()
+                } else {
+                    api.read(
+                        JsonRpcRequest(
+                            "getBlock",
+                            listOf(
+                                response.max(),
+                                mapOf(
+                                    "showRewards" to false,
+                                    "transactionDetails" to "none",
+                                    "maxSupportedTransactionVersion" to 0,
+                                ),
+                            ),
+                        ),
+                    ).map {
+                        val raw = it.getResult()
+                        val block = Global.objectMapper.readValue(it.getResult(), SolanaBlock::class.java)
+                        makeBlock(raw, block, upstreamId)
+                    }.onErrorResume {
+                        log.debug("error during getting last solana block - ${it.message}")
+                        Mono.empty()
+                    }
+                }
             }
         }
     }
@@ -96,11 +117,6 @@ object SolanaChainSpecific : AbstractChainSpecific() {
         return { ms -> GenericEgressSubscription(ms, headScheduler, DefaultSolanaMethods.subs.map { it.first }) }
     }
 }
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-data class SolanaLatest(
-    @JsonProperty("context") var context: SolanaContext,
-)
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SolanaWrapper(
