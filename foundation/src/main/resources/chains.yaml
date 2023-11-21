@@ -548,6 +548,8 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 1s
+        options:
+          validate-peers: false
         lags:
           syncing: 400
           lagging: 200
