@@ -35,16 +35,17 @@ class EthereumLabelsDetectorSpec extends Specification {
         StepVerifier.create(act)
             .expectNext(
                     new Pair<String, String>("client_type", clientType),
+                    new Pair<String, String>("client_version", version),
                     new Pair<String, String>("archive", "true")
             )
             .expectComplete()
             .verify(Duration.ofSeconds(1))
         where:
-        response                                                | clientType
-        "Nethermind/v1.19.3+e8ac1da4/linux-x64/dotnet7.0.8"     | "nethermind"
-        "Geth/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"     | "geth"
-        "Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"   | "erigon"
-        "Bor/v0.4.0/linux-amd64/go1.19.10"                      | "bor"
+        response                                                | clientType      |  version
+        "Nethermind/v1.19.3+e8ac1da4/linux-x64/dotnet7.0.8"     | "nethermind"    |  "v1.19.3+e8ac1da4"
+        "Geth/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"     | "geth"          |  "v1.12.0-stable-e501b3b0"
+        "Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"   | "erigon"        |  "v1.12.0-stable-e501b3b0"
+        "Bor/v0.4.0/linux-amd64/go1.19.10"                      | "bor"           |  "v0.4.0"
     }
 
     def "No any label"() {

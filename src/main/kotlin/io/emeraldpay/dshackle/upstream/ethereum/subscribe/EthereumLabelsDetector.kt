@@ -9,6 +9,7 @@ import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumArchiveBlockNumberReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
@@ -18,6 +19,10 @@ class EthereumLabelsDetector(
 ) : LabelsDetector {
     private val blockNumberReader = EthereumArchiveBlockNumberReader(reader)
 
+    companion object {
+        private val log = LoggerFactory.getLogger(EthereumLabelsDetector::class.java)
+    }
+
     override fun detectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
             detectNodeType(),
@@ -25,21 +30,25 @@ class EthereumLabelsDetector(
         )
     }
 
-    private fun detectNodeType(): Mono<Pair<String, String>?> {
+    private fun detectNodeType(): Flux<Pair<String, String>?> {
         return reader
             .read(JsonRpcRequest("web3_clientVersion", listOf()))
             .flatMap(JsonRpcResponse::requireResult)
-            .mapNotNull {
-                val node = objectMapper.readValue<JsonNode>(it)
+            .map { objectMapper.readValue<JsonNode>(it) }
+            .flatMapMany { node ->
+                val labels = mutableListOf<Pair<String, String>>()
                 if (node.isTextual) {
-                    nodeType(node.textValue())?.run {
-                        "client_type" to this
+                    clientType(node.textValue())?.let {
+                        labels.add("client_type" to it)
                     }
-                } else {
-                    null
+                    clientVersion(node.textValue())?.let {
+                        labels.add("client_version" to it)
+                    }
                 }
+
+                Flux.fromIterable(labels)
             }
-            .onErrorResume { Mono.empty() }
+            .onErrorResume { Flux.empty() }
     }
 
     private fun detectArchiveNode(): Mono<Pair<String, String>> {
@@ -60,16 +69,26 @@ class EthereumLabelsDetector(
         ).flatMap(JsonRpcResponse::requireResult)
     }
 
-    private fun nodeType(nodeType: String): String? {
-        return if (nodeType.contains("erigon", true)) {
+    private fun clientVersion(client: String): String? {
+        val firstSlash = client.indexOf("/")
+        val secondSlash = client.indexOf("/", firstSlash + 1)
+        if (firstSlash == -1 || secondSlash == -1 || secondSlash < firstSlash) {
+            return null
+        }
+        return client.substring(firstSlash + 1, secondSlash)
+    }
+
+    private fun clientType(client: String): String? {
+        return if (client.contains("erigon", true)) {
             "erigon"
-        } else if (nodeType.contains("geth", true)) {
+        } else if (client.contains("geth", true)) {
             "geth"
-        } else if (nodeType.contains("bor", true)) {
+        } else if (client.contains("bor", true)) {
             "bor"
-        } else if (nodeType.contains("nethermind", true)) {
+        } else if (client.contains("nethermind", true)) {
             "nethermind"
         } else {
+            log.debug("Unknown client type: {}", client)
             null
         }
     }
