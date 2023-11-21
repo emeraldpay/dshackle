@@ -70,7 +70,7 @@ class NativeCallSpec extends Specification {
         config.cache = cacheConfig
         config.passthrough = passthrough
 
-        new NativeCall(upstreams, signer, config, Stub(Tracer))
+        new NativeCall(upstreams, signer, config, Stub(Tracer), Stub(ErrorCorrector))
     }
 
     def "Tries router first"() {
