@@ -142,7 +142,15 @@ abstract class DefaultUpstream(
         if (forked.get()) {
             return UpstreamAvailability.IMMATURE
         }
-        return status.get().status
+        val value = status.get().status
+        if (value == UpstreamAvailability.UNAVAILABLE || value == UpstreamAvailability.SYNCING) {
+            return value
+        }
+        // if height is 0, then it's definitely on OK, probably just started with syncing
+        if (this.getHead().getCurrentHeight() == 0L) {
+            return UpstreamAvailability.SYNCING
+        }
+        return value
     }
 
     open fun setStatus(status: UpstreamAvailability) {
@@ -158,13 +166,21 @@ abstract class DefaultUpstream(
             // the status calculation and trust the proposed value as is
             return proposed
         }
-        return if (proposed == UpstreamAvailability.OK) {
-            when {
-                lag > 6 -> UpstreamAvailability.SYNCING
-                lag > 1 -> UpstreamAvailability.LAGGING
-                else -> proposed
+        return when {
+            proposed == UpstreamAvailability.OK -> {
+                // make sure it's actually usable
+                when {
+                    lag > 6 -> UpstreamAvailability.SYNCING
+                    lag > 1 -> UpstreamAvailability.LAGGING
+                    else -> proposed
+                }
             }
-        } else proposed
+            proposed == UpstreamAvailability.LAGGING && lag > 6 -> {
+                // to large lag, mark as syncing
+                UpstreamAvailability.SYNCING
+            }
+            else -> proposed
+        }
     }
 
     val availabilityByForks: Flux<UpstreamAvailability>
