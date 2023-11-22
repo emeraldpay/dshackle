@@ -26,7 +26,7 @@ class CacheUpdate(
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         return delegate.read(key)
             .doOnNext {
-                if (it.hasResult()) {
+                if (it.hasResult() && !it.isNull()) {
                     try {
                         cacheResponse(key, it)
                     } catch (t: Throwable) {
