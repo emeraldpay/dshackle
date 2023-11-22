@@ -65,7 +65,6 @@ open class NativeCall(
     private val signer: ResponseSigner,
     config: MainConfig,
     private val tracer: Tracer,
-    private val errorCorrector: ErrorCorrector,
 ) {
 
     private val log = LoggerFactory.getLogger(NativeCall::class.java)
@@ -174,12 +173,11 @@ open class NativeCall(
             .setSucceed(!it.isError())
             .setId(it.id)
         if (it.isError()) {
-            it.error?.let { _ ->
-                val fixedError = errorCorrector.correctError(it)
-                result.setErrorMessage(fixedError.message)
-                    .setErrorCode(fixedError.id)
+            it.error?.let { error ->
+                result.setErrorMessage(error.message)
+                    .setItemErrorCode(error.id)
 
-                fixedError.data?.let { data ->
+                error.data?.let { data ->
                     result.setErrorData(data)
                 }
             }
