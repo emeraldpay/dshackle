@@ -23,16 +23,23 @@ class EthereumUpstreamCreator(
         options: ChainOptions.Options,
         chainConf: ChainsConfig.ChainConfig,
     ): Upstream? {
-        val posConn = upstreamsConfig.cast(UpstreamsConfig.EthereumPosConnection::class.java)
+        var rating = 0
+        val connection = if (upstreamsConfig.connection is UpstreamsConfig.EthereumPosConnection) {
+            val posConn = upstreamsConfig.cast(UpstreamsConfig.EthereumPosConnection::class.java)
+            rating = posConn.connection?.upstreamRating ?: 0
+            posConn.connection?.execution
+        } else {
+            upstreamsConfig.cast(UpstreamsConfig.RpcConnection::class.java).connection
+        }
 
         return buildGenericUpstream(
             upstreamsConfig.nodeId,
             upstreamsConfig,
-            posConn.connection?.execution ?: throw IllegalStateException("Empty execution config"),
+            connection ?: throw IllegalStateException("Empty execution config"),
             chain,
             options,
             chainConf,
-            posConn.connection?.upstreamRating ?: 0,
+            rating,
         )
     }
 }

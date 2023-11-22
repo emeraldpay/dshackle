@@ -2,7 +2,7 @@
 
 Dshackle is built using/based on:
 
-- Java Virtual Machine, Java 8+
+- Java Virtual Machine, Java 20+
 - Kotlin
 - Spring Framework, Boot and Reactor
 

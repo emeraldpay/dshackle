@@ -11,16 +11,6 @@ immediately evicted from the caches.
 
 Dshackle keeps latest blocks in memory (by default 64 blocks)
 
-=== Disable all caching and cache related optimisations
-Sometimes you may need to disable all caching and optimisations and just send all requests to remote upstreams as is.
-
-.Disable cache config (dshackle.yaml)
-[source, yaml]
-----
-cache:
-  requests-cache-enabled: false
-----
-
 === Redis cache
 
 Dshackle can optionally cache blocks and transactions in Redis cache. The values are cached up to 1 hour, but

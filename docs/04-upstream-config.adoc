@@ -12,10 +12,9 @@ Those protocols can be configures with additional security, TLS and authenticati
 
 === Notes on upstream configuration
 
-==== Ethereum
+==== Generic
 
-- Most of Ethereum nodes support WebSocket connection, in addition to the JSON RPC.
-If it's available on your node, it's suggested to configure both JSON RPC and WebSocket connection
+- Most common way to connect upstream. Supported for Ethereum, Starknet, Solana and Varanet upstreams. It uses rpc and ws connection to provide access via jsonprc calls.
 
 ==== Ethereum PoS
 
@@ -40,15 +39,6 @@ Run it with `-reindex` option, or set `txindex=1` in the config.
 version: v1
 
 cluster:
-  defaults:
-  - chains:
-      - ethereum
-    options:
-      min-peers: 10
-  - chains:
-      - kovan
-    options:
-      min-peers: 2
   upstreams:
     - id: us-nodes
       node-id: 1
@@ -64,7 +54,7 @@ cluster:
             ca: ca.crt
             certificate: client.crt
             key: client.p8.key
-    - id: infura-eth
+    - id: drpc-eth
       node-id: 2
       chain: ethereum
       role: fallback
@@ -76,25 +66,18 @@ cluster:
         ethereum-pos:
             execution:
               rpc:
-                url: "https://mainnet.infura.io/v3/${INFURA_USER}"
-                basic-auth:
-                  username: ${INFURA_USER}
-                  password: ${INFURA_PASSWD}
+                url: "https://lb.drpc.org/ogrpc?network=ethereum&dkey=${DRPC_KEY}"
               ws:
-                url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-                basic-auth:
-                  username: ${INFURA_USER}
-                  password: ${INFURA_PASSWD}
-    - id: ethereum-pos
+                url: "wss://lb.drpc.org/ogws?network=ethereum&dkey=${DRPC_KEY}"
+    - id: solana
       node-id: 3
-      chain: ropsten
+      chain: solana
       connection:
-        ethereum-pos:
-            execution:
-              rpc:
-                url: ${ROPSTEN_NODE_RPC_URL}
-              ws:
-                url: ${ROPSTEN_NODE_WS_URL}
+        generic:
+          rpc:
+            url: ${SOLANA_NODE_RPC_URL}
+          ws:
+            url: ${SOLANA_NODE_WS_URL}
 ----
 
 There are two main segments for upstreams configuration:
@@ -104,17 +87,15 @@ There are two main segments for upstreams configuration:
 
 In the example above we have:
 
-- default configuration for _Ethereum Mainnet_ which accepts upstream as valid when it not in fast synchronization mode and has at least 10 peers.For _Kovan Testnet_ nodes the requirements are much relieved
-- as upstreams it has 2 configurations
+* as upstreams it has 2 configurations - for ethereum and solana
 * balancer connects to another Dshackle/another machine by using gRPC protocol
 ** accepts (i.e. proxies) any blockchain available on that remote
 ** verifies TLS certificate of the server
 ** uses client certificate for authentication, i.e. remote server is accepting only clients authenticated by a certificate
-* connects to Infura provided _Ethereum Mainnet_
+* connects to DRPC provided _Ethereum Mainnet_
 ** as a _fallback_ upstream, which means that it's used only if `us-nodes` fails
-** configuration is using placeholders for `${INFURA_USER}` and `${INFURA_PASSWD}` which will be replaced with corresponding environment variables values
-** uses Basic Authentication to authenticate requests on Infura
-** label `[provider: infura]` is set for that particular upstream, which can be selected during a request.For example for some requests you may want to use nodes with that label only, i.e. _"send that tx to infura nodes only"_, or _"read only from archive node, with label [archive: true]"_
+** configuration is using placeholders for `${DRPC_KEY}` which will be replaced with corresponding environment variables values
+** label `[provider: drpc]` is set for that particular upstream, which can be selected during a request.For example for some requests you may want to use nodes with that label only, i.e. _"send that tx to drpc nodes only"_, or _"read only from archive node, with label [archive: true]"_
 ** upstream validation (peers, sync status, etc) is disabled for that particular upstream
 
 === Nodes
@@ -127,51 +108,58 @@ In the example above we have:
 
 Currently, dshackle supports next chains (should be used as chain names in config):
 
-- ethereum (eth)
-- ethereum-classic (etc)
-- polygon (matic)
-- polygon-mumbai
-- arbitrum (arb)
-- arbitrum-testnet
-- arbitrum-nova
-- optimism
-- optimism-testnet
-- binance (bsc, bnb-smart-chain)
-- bsc-testnet
-- zksync
-- zksync-testnet
-- polygon-zkevm
-- polygon-zkevm-testnet
-- morden
-- kovan (kovan-testnet)
-- goerli (goerli-testnet)
-- rinkeby (rinkeby-testnet)
-- ropsten (ropsten-testnet)
-- ethereum-holesky
-- bitcoin (bitcoin-testnet)
-- base
-- base-goerli
-- linea
-- linea-goerli
-- fantom
-- fantom-testnet
-- gnosis
-- gnosis-chiado
-- avalanche
-- avalanche-fuji
-- aurora
-- aurora-testnet
-- scroll-alphanet
-- scroll-sepolia
-- mantle
-- mantle-testnet
-- klaytn
-- klaytn-baobab
-- celo
-- celo-alfajores
-- moonbeam
-- moonriver
-- moonbase-alpha
+* ethereum
+** ethereum (eth)
+** ethereum-classic (etc)
+** polygon (matic)
+** polygon-mumbai
+** arbitrum (arb)
+** arbitrum-testnet
+** arbitrum-nova
+** optimism
+** optimism-testnet
+** optimism-sepolia
+** binance (bsc, bnb-smart-chain)
+** bsc-testnet
+** zksync
+** zksync-testnet
+** polygon-zkevm
+** polygon-zkevm-testnet
+** morden
+** kovan (kovan-testnet)
+** goerli (goerli-testnet)
+** rinkeby (rinkeby-testnet)
+** ropsten (ropsten-testnet)
+** ethereum-holesky
+** bitcoin (bitcoin-testnet)
+** base
+** base-goerli
+** linea
+** linea-goerli
+** fantom
+** fantom-testnet
+** gnosis
+** gnosis-chiado
+** avalanche
+** avalanche-fuji
+** aurora
+** aurora-testnet
+** scroll-alphanet
+** scroll-sepolia
+** mantle
+** mantle-testnet
+** klaytn
+** klaytn-baobab
+** celo
+** celo-alfajores
+** moonbeam
+** moonriver
+** moonbase-alpha
+* starknet
+* varanet
+* solana
+
+All supported blockchains are listed link:/foundation/src/main/resources/chains.yaml[here]. Feel free to contribute new chains.
 
 === Roles and Fallback upstream
 

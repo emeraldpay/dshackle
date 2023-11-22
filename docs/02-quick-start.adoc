@@ -33,7 +33,7 @@ proxy:
       blockchain: kovan
 cluster:
   upstreams: # <4>
-    - id: infura-eth
+    - id: drpc-eth
       chain: ethereum # <5>
       method-groups:
        enabled:
@@ -41,9 +41,9 @@ cluster:
       connection:
         ethereum:
           rpc: # <6>
-            url: "https://mainnet.infura.io/v3/${INFURA_USER}" # <7>
+            url: "https://lb.drpc.org/ogrpc?network=ethereum&dkey=${DRPC_KEY}" # <7>
           ws: # <8>
-            url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
+            url: "wss://lb.drpc.org/ogws?network=ethereum&dkey=${DRPC_KEY}"
     - id: local-eth # <9>
       chain: ethereum
       connection:
@@ -68,32 +68,32 @@ cluster:
 <4> sets up 2 upstreams
 <5> one for Ethereum Mainnet, using
 <6> HTTP and
-<7> `${INFURA_USER}` value is provided through environment variable
-<8> in addition to HTTPS is uses Websocket protocol to connect to Infura, used to subscribe to updates
+<7> `${DRPC_KEY}` value is provided through environment variable
+<8> in addition to HTTPS is uses Websocket protocol to connect to DRPC, used to subscribe to updates
 <9> setup another upstream for Ethereum Mainnet
 <10> which connects to a node in the internal networks, without any authentication at this case
 <11> and another for Bitcoin
 <12> with Basic Auth for bitcoin node connection
 
 The configuration above sets up the Dshackle to provide a fault-tolerant access to Bitcoin and Ethereum blockchain.
-And for Ethereum, at this particular example, it uses a Round Robin Load Balancing over the Infura and the local node.
+And for Ethereum, at this particular example, it uses a Round Robin Load Balancing over the DRPC and the local node.
 
 See detailed link:reference-configuration.adoc[Configuration Reference]
 
 ==== Run as docker
 
-Official Docker image you can find at: https://hub.docker.com/r/emeraldpay/dshackle[emeraldpay/dshackle]
+Official Docker image you can find at: https://hub.docker.com/r/p2p-org/dshackle[p2p-org/dshackle]
 
-.Setup Infura username
+.Setup DRPC key
 [source,bash]
 ----
-export INFURA_USER=...
+export DRPC_KEY=...
 ----
 
 .Run Dshackle
 [source,bash,subs="attributes"]
 ----
-docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle:{version-short}
+docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "DRPC_KEY=$DRPC_KEY" p2p-org/dshackle:{version-short}
 ----
 
 ==== Access using JSON RPC
@@ -120,7 +120,7 @@ curl --request POST \
 .Connect and listen for new blocks on Ethereum Mainnet
 [source,bash]
 ----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeHead
+grpcurl -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeHead
 ----
 
 `type: 100` specifies the blockchain id, and 100 means Ethereum Mainnet.
@@ -147,36 +147,5 @@ grpcurl -import-path ./proto/ -proto blockchain.proto -d "{\"type\": 100}" -plai
 
 The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet.
 It's one of the services provided by Dshackle, in addition to standard methods provided by RPC JSON of underlying nodes.
-
-.You can also subscribe to balances changes of the balance on an address:
-[source,bash]
-----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d '{"asset": {"chain": "100", "code": "ether"}, "address": {"address_single": {"address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"}}}' -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeBalance
-----
-
-.and see how balance of the contract responsible for Wrapped Ether is changing:
-----
-{
-  "asset": {
-    "chain": "CHAIN_ETHEREUM",
-    "code": "ETHER"
-  },
-  "address": {
-    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
-  },
-  "balance": "2410941696896999943701015"
-}
-{
-  "asset": {
-    "chain": "CHAIN_ETHEREUM",
-    "code": "ETHER"
-  },
-  "address": {
-    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
-  },
-  "balance": "2410930748488073834320430"
-}
-...
-----
 
 See other enhanced methods in the link:07-methods.adoc[Documentation for Enhanced Methods]

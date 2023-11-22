@@ -1,4 +1,4 @@
-= Emerald Dshackle
+= Dshackle
 :imagesdir: docs/assets
 ifdef::env-github[]
 :imagesdir: https://raw.githubusercontent.com/emeraldpay/dshackle/master/docs/assets
@@ -6,22 +6,21 @@ endif::[]
 :version: 0.12.0
 :version-short: 0.12
 
-image:https://github.com/emeraldpay/dshackle/workflows/Tests/badge.svg["Unit Tests"]
-image:https://codecov.io/gh/emeraldpay/dshackle/branch/master/graph/badge.svg["Coverage",link="https://codecov.io/gh/emeraldpay/dshackle"]
-image:https://img.shields.io/docker/pulls/emeraldpay/dshackle?style=flat-square["Docker",link="https://hub.docker.com/r/emeraldpay/dshackle"]
-image:https://img.shields.io/github/license/emeraldpay/dshackle.svg?style=flat-square&maxAge=2592000["License",link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
-image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge"]
+image:https://github.com/p2p-org/dshackle/workflows/Tests/badge.svg["Unit Tests"]
+image:https://img.shields.io/github/license/p2p-org/dshackle.svg?style=flat-square&maxAge=2592000["License",link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
 
 [.lead]
-_Emerald Dshackle is a Fault Tolerant Load Balancer for Blockchain API._
+_Dshackle is a Fault Tolerant Load Balancer for Blockchain API used at https://drpc.org/[DRPC]_
 
-The goal of the Emerald Dshackle is to provide a stable routing to multiple nodes, and ensure that each request is executed on an appropriate provider.
+Is is a fork of the https://github.com/emeraldpay/dshackle[EmeraldPay's dshackle], adapted to work as a provider side adapter for the DRPC network. This project is specifically designed to integrate providers into the https://drpc.org/[DRPC] network, which is distinguished by its focus on high latency and high availability. Our service facilitates providers in easily connecting to the DRPC, enabling them to be part of a network that prioritizes robust, consistent, and responsive operations. Joining this network through our adapted service allows providers to contribute towards creating a highly available and resilient decentralized system.
+
+The goal of the Dshackle is to provide a stable routing to multiple nodes, and ensure that each request is executed on an appropriate provider.
 It considers nodes locations, state, current height, RPC methods it can provide and other characteristics.
 
 It tries to recover from connection errors, faulty nodes, invalid responses, etc.
 If upstream lags behind others, lost peers below required, started to resync or went down, then Dshackle temporarily excludes it from requests and returns it when the upstream problem is fixed.
 
-The upstreams may be blockchain nodes such as Bitcoind, Geth, Parity, or public providers like Infura, QuickNode, etc.
+The upstreams may be blockchain nodes such as Bitcoind, Geth, Parity, or public providers like DRPC.
 It automatically verifies their availability and the current status of the network, executes commands making sure that the response is consistent and/or data successfully broadcast to the network.
 
 Provides:
@@ -37,10 +36,21 @@ Provides:
 
 Blockchains support:
 
-- Ethereum and Ethereum Classic
-- Kovan, Goerli, Ropsten, Rinkeby testnets
-- Bitcoin
-- Bitcoin testnet
+* Ethereum like
+** Mainnet and testnets
+** Arbitrum
+** Optimism
+** BSC
+* Starknet
+* Solana
+* Varanet
+* Bitcoin
+
+...and more
+
+Full list of supported blockchains - link:foundation/src/main/resources/chains.yaml[here]. Feel free to contribute new chains.
+
+Architecture:
 
 image::dshackle-intro.png[alt="",width=80%,align="center"]
 
@@ -59,40 +69,33 @@ port: 2449
 tls:
   enabled: false
 
-compression:
-  grpc:
-    server:
-      enabled: false
-
 proxy:
   host: 0.0.0.0
   port: 8545
   routes:
     - id: eth
       blockchain: ethereum
-    - id: kovan
-      blockchain: kovan
     - id: btc
       blockchain: bitcoin
 
 cluster:
   upstreams:
-    - id: infura-eth
+    - id: drpc-eth
       chain: ethereum
       connection:
-        ethereum:
+        generic:
           rpc:
-            url: "https://mainnet.infura.io/v3/${INFURA_USER}"
+            url: "https://lb.drpc.org/ogrpc?network=ethereum&dkey=${DRPC_KEY}"
           ws:
-            url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-    - id: infura-kovan
-      chain: kovan
+            url: "wss://lb.drpc.org/ogws?network=ethereum&dkey=${DRPC_KEY}"
+    - id: solana
+      chain: solana
       connection:
-        ethereum:
+        generic:
           rpc:
-            url: "https://kovan.infura.io/v3/${INFURA_USER}"
+            url: "https://localhost:8899"
           ws:
-            url: "wss://kovan.infura.io/ws/v3/${INFURA_USER}"
+            url: "wss://localhost:8900"
     - id: bitcoin-main
       chain: bitcoin
       connection:
@@ -110,13 +113,13 @@ Which sets the following:
 ** TLS security is disabled (_please don't use in production!_)
 ** compression is disabled for gRPC server (enabled by default)
 - JSON RPC access through 0.0.0.0:8545 (both HTTP and WebsScket)
-** proxy requests to Ethereum and Kovan upstreams
-** request path for Ethereum Mainnet is `/eth`, `/kovan` for Kovan Testnet, and `/btc` for bitcoin
+** proxy requests to Ethereum and Bitcoin upstreams
+** request path for Ethereum Mainnet is `/eth` and `/btc` for bitcoin
 ** i.e. call Ethereum Mainnet by `POST http://127.0.0.0:8545/eth` with JSON RPC payload
-- two upstreams, one for Ethereum Mainnet and another for Kovan Testnet (both upstreams are configured to use Infura endpoint)
+- three upstreams - ethereum, solana and bitcoin
 - for Ethereum Mainnet it connects using JSON RPC and WebSocket connections,
-- for Bitcoin Mainet only JSON RPC is used
-- `${INFURA_USER}` will be provided through environment variable
+- for Bitcoin Mainnet only JSON RPC is used
+- `${DRPC_KEY}` will be provided through environment variable
 
 Please note that you can configure many upstreams for a single blockchains.
 If there is more than one upstream, then Dshackle routes requests to them as Round Robin.
@@ -129,178 +132,28 @@ link:docs[See full documentations].
 
 ==== Run docker image
 
-Official Docker image you can find at: https://hub.docker.com/r/emeraldpay/dshackle[emeraldpay/dshackle]
+Official Docker image you can find at: https://hub.docker.com/r/p2p-org/dshackle[p2p-org/dshackle]
 
-.Setup Infura username
+.Setup DRPC key
 [source,bash]
 ----
-export INFURA_USER=...
+export DRPC_KEY=...
 ----
 
 .Run Dshackle
 [source,bash,subs="attributes"]
 ----
-docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "INFURA_USER=$INFURA_USER" emeraldpay/dshackle:{version-short}
+docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "DRPC_KEY=$INFURA_USER" emeraldpay/dshackle:{version-short}
 ----
 
 Now it listens on port 2449 at the localhost and can be connected from any gRPC compatible client.
-Tools such as https://github.com/fullstorydev/grpcurl[gRPCurl] can automatically parse protobuf definitions and connect to it (actual Protobuf sources are located in a separate repository which you can find at https://github.com/emeraldpay/proto)
+Tools such as https://github.com/fullstorydev/grpcurl[gRPCurl] can use protobuf definitions from proto reflection and connect to it
 
 Alternatively you can connect to port 8545 with traditional JSON RPC requests
-
-==== Access using JSON RPC over HTTP
-
-Dshackle implements standard JSON RPC interface, providing additional caching layer, upstream readiness/liveness checks, retry and other features for building Fault Tolerant services.
-
-.Request using Curl
-[source,bash]
-----
-curl --request POST \
-  --url http://localhost:8545/eth \
-  --header 'content-type: application/json' \
-  --data '{"jsonrpc":"2.0", "method":"eth_getBalance", "id":1, "params":["0x690b2bdf41f33f9f251ae0459e5898b856ed96be", "latest"]}'
-----
-
-.Output
-[source,bash]
-----
-{"jsonrpc":"2.0","id":1,"result":"0x72fa5e0181"}
-----
-
-==== Access using JSON RPC over WebSocket
-
-Or the same Proxy URL can be accessed through WebSocket
-
-[source,bash]
-----
-websocat ws://localhost:8545/eth
-----
-
-Then make RPC calls or subscriptions:
-
-----
-> | {"jsonrpc":"2.0", "id": 1, "method": "eth_subscribe", "params": ["newHeads"]}
-
-< | {"jsonrpc":"2.0","id":1,"result":"1f8"}
-< | {"jsonrpc":"2.0","method":"eth_subscription","params":{"result":{....},"subscription":"1f8"}}
-----
-
-==== Access using gRPC
-
-NOTE: It's not necessary to use gRPC, as Dshackle can provide standard JSON RPC proxy, but Dshackle gRPC interface improves performance and provides additional features.
-
-Dshackle provides a custom gRPC based API, which provides additional methods and other features such as streaming responses.
-Please refer to the documentation: link:docs/07-methods.adoc[gRPC Methods]
-The Protobuf definitions could be found in link:proto/[./proto].
-
-.Connect and listen for new blocks on Ethereum Mainnet
-[source,bash]
-----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d '{\"type\": 100}' -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeHead
-----
-
-`type: 100` specifies the blockchain id, and 100 means Ethereum Mainnet. `1` is for Bitcoin Mainnet.
-There we use Ethereum because it creates new blocks every 14 seconds, which works better for demo purposes, but the same request applied to Bitcoin as well.
-
-.Output would be like
-----
-{
-  "chain": "CHAIN_ETHEREUM",
-  "height": 8396159,
-  "blockId": "fc58a258adccc94466ae967b1178eea721349b0667f59d5fe1b0b436460bce75",
-  "timestamp": 1566423564000,
-  "weight": "AnMcf2VJB5kOSQ=="
-}
-{
-  "chain": "CHAIN_ETHEREUM",
-  "height": 8396160,
-  "blockId": "787899711b862b77df8d2faa69de664048598265a9f96abf178d341076e200e0",
-  "timestamp": 1566423574000,
-  "weight": "AnMch35tO6hSGg=="
-}
-...
-...
-----
-
-The output above is for a _streaming subscription_ to all new blocks on the Ethereum Mainnet.
-
-It's one of the services provided by Dshackle, in addition to standard methods provided by RPC JSON of underlying nodes.
-
-.You can also subscribe to balances changes of the balance on an address:
-[source,bash]
-----
-grpcurl -import-path ./proto/ -proto blockchain.proto -d '{\"asset\": {\"chain\": \"100\", \"code\": \"ether\"}, \"address\": {\"address_single\": {\"address\": \"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2\"}}}' -plaintext 127.0.0.1:2449 emerald.Blockchain/SubscribeBalance
-----
-
-.and see how balance of the contract responsible for Wrapped Ether is changing:
-----
-{
-  "asset": {
-    "chain": "CHAIN_ETHEREUM",
-    "code": "ETHER"
-  },
-  "address": {
-    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
-  },
-  "balance": "2410941696896999943701015"
-}
-{
-  "asset": {
-    "chain": "CHAIN_ETHEREUM",
-    "code": "ETHER"
-  },
-  "address": {
-    "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
-  },
-  "balance": "2410930748488073834320430"
-}
-...
-----
-
-The balance subscription works with main coin (_ether_, _bitcoin_), or with tokens like ERC-20 if configured additionally.
-See link:docs/reference-configuration.adoc[Configuration Reference].
-
-See other enhanced methods in the link:docs/07-methods.adoc[Documentation for Enhanced Methods].
 
 == Documentation
 
 For detailed documentation see link:docs/[] directory.
-
-== Client Libraries
-
-=== JSON RPC
-
-Dshackle should be compatible with all standard libraries that use Ethereum JSON RPC over HTTP.
-
-=== Java gRPC Client
-
-https://github.com/emeraldpay/emerald-java-client
-
-[source,groovy]
-----
-repositories {
-    maven { url  "https://maven.emrld.io" }
-}
-
-dependencies {
-    implementation 'io.emeraldpay:emerald-api:0.9.2'
-}
-----
-
-=== Javascript gRPC Client
-
-image:https://img.shields.io/npm/v/@emeraldpay/api-node.svg["npm (scoped)",link="https://www.npmjs.com/package/@emeraldpay/api-node"]
-
-https://github.com/emeraldpay/emerald-js-grpc
-
-[source,json]
-----
-"dependencies": {
-    "@emeraldpay/api-node": "0.2.0-beta.1",
-}
-----
-
-See more in the documentation for link:docs/11-client-libraries.adoc[Client Libraries].
 
 == Development
 
@@ -309,7 +162,7 @@ WARNING: The code in `master` branch is considered a development version, which 
 === Setting up environment
 
 Dshackle is JVM based project written in Kotlin.
-To build and run it from sources you'll need to install https://openjdk.java.net/projects/jdk/13/[Java JDK] and https://gradle.org/[Gradle]
+To build and run it from sources you'll need to install https://openjdk.org/projects/jdk/20/[Java JDK] and https://gradle.org/[Gradle]
 
 === Build Dshackle
 
@@ -338,28 +191,9 @@ gradle jib -Pdocker=gcr.io/myproject
 
 Gradle will prepare a Docker image and upload it to your custom Docker Registry at `gcr.io/myproject` (please change to address of your actual registry)
 
-==== Architecture
-
-Dshackle is built using:
-
-- Kotlin
-- Spring Framework + Spring Boot
-- Spring Reactor
-- Netty
-- Etherjar
-- gRPC and HTTP2 protocol
-- Groovy and Spock for testing
-
 == Community
 
-=== Development Chat
-
-image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
-
-== Commercial Support
-
-Want to support the project, prioritize a specific feature, or get commercial help with using Dshackle in your project?
-Please contact splix@emerald.cash to discuss the possibility
+Join our https://drpc.org/discord[Discord]
 
 == License
 
@@ -372,3 +206,7 @@ http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and limitations under the License.
+
+=== Modifications Copyright:
+
+Modifications made by p2p.org in 2022 are licensed under the same Apache License, Version 2.0. These modifications are copyrighted by p2p.org.

@@ -74,7 +74,7 @@ open class GenericMultistream(
         upstreams.add(u as GenericUpstream)
     }
 
-    private var head: DynamicMergedHead = DynamicMergedHead(
+    private val head: DynamicMergedHead = DynamicMergedHead(
         PriorityForkChoice(),
         "Multistream of ${chain.chainCode}",
         headScheduler,

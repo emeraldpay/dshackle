@@ -6,7 +6,7 @@ Dshackle is a L7 Load Balancer for Blockchain APIs with automatic discovery, hea
 client authentication, and many other features.It can be configured as an edge proxy, middle proxy or API gateway.
 
 Dshackle provided a high level aggregated API on top of several underlying upstreams (blockchain nodes or providers,
-such as Geth, Parity, Infura, etc), automatically verifies their availability and the current status of the network,
+such as DRPC, etc), automatically verifies their availability and the current status of the network,
 it routes requests to available node, and makes sure the response is consistent and/or data successfully broadcasted to
 the networks.
 
@@ -43,7 +43,6 @@ Main goals:
 . link:08-authentication.adoc[Authentication]
 . link:09-quorum-and-selectors.adoc[Quorum and Selectors]
 . link:10-caching.adoc[Caching]
-. link:11-client-libraries.adoc[Client Libraries]
 
 == Reference
 
@@ -51,12 +50,8 @@ Main goals:
 
 == Chat
 
-image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
-
-== Support
-
-Contact splix@emeraldpay.io if you want to integrate Dshackle into your project or want to sponsor the development.
+Join our https://drpc.org/discord[Discord]
 
 == Links
 
-- Github: https://github.com/emeraldpay/dshackle
+- Github: https://github.com/p2p-org/dshackle

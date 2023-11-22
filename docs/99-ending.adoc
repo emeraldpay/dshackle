@@ -1,10 +1,10 @@
 == Links
 
-- Github: https://github.com/emeraldpay/dshackle
+- Github: https://github.com/p2p-org/dshackle
 
 == Chat
 
-image:https://badges.gitter.im/emeraldpay/community.svg[link="https://gitter.im/emeraldpay/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge]
+Join our https://drpc.org/discord[Discord]
 
 == Support
 
