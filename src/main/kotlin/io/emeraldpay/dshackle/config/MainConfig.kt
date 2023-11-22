@@ -21,6 +21,7 @@ class MainConfig {
     var tls: AuthConfig.ServerTlsAuth? = null
     var passthrough: Boolean = false
     var cache: CacheConfig? = null
+    var index: IndexConfig? = null
     var proxy: ProxyConfig? = null
     var upstreams: UpstreamsConfig? = null
     var tokens: TokensConfig? = null

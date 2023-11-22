@@ -12,6 +12,7 @@ import io.emeraldpay.dshackle.upstream.EmptyEgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
+import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.NoIngressSubscription
 import io.emeraldpay.dshackle.upstream.NoopCachingReader
@@ -31,6 +32,7 @@ abstract class AbstractChainSpecific : ChainSpecific {
         cachingReader: CachingReader,
         methods: CallMethods,
         head: Head,
+        logsOracle: LogsOracle?,
     ): Mono<JsonRpcReader> {
         return Mono.just(LocalReader(methods))
     }

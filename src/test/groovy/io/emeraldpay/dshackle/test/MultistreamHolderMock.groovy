@@ -51,7 +51,8 @@ class MultistreamHolderMock implements MultistreamHolder {
                             Schedulers.boundedElastic(),
                             EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                             EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                            io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic())
+                            io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()),
+                            null, Schedulers.immediate()
                     )
                     upstreams[chain].addUpstream(up)
                 } else {
@@ -104,7 +105,7 @@ class MultistreamHolderMock implements MultistreamHolder {
             super(chain, Schedulers.immediate(), null, upstreams, caches, Schedulers.boundedElastic(),
                     EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(new BraveTracer(null, null, null)),
                     EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                    EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
+                    EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()), null, Schedulers.immediate())
         }
 
         EthereumMultistreamMock(@NotNull Chain chain, @NotNull List<GenericUpstream> upstreams) {

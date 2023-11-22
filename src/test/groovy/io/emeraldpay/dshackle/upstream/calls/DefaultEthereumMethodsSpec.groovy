@@ -7,7 +7,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "eth_chainId is available"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         when:
         def act = methods.isAvailable("eth_chainId")
         then:
@@ -16,7 +16,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "eth_chainId is hardcoded"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         when:
         def act = methods.isHardcoded("eth_chainId")
         then:
@@ -25,7 +25,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "eth_chainId is not callable"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         when:
         def act = methods.isCallable("eth_chainId")
         then:
@@ -34,7 +34,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "Provides hardcoded correct chainId"() {
         expect:
-        new String(new DefaultEthereumMethods(chain).executeHardcoded("eth_chainId")) == id
+        new String(new DefaultEthereumMethods(chain, false).executeHardcoded("eth_chainId")) == id
         where:
         chain                  | id
         Chain.ETHEREUM__MAINNET | '"0x1"'
@@ -44,7 +44,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "Optimism chain unsupported methods"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.OPTIMISM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.OPTIMISM__MAINNET, false)
         when:
         def acc = methods.isAvailable("eth_getAccounts")
         def trans = methods.isAvailable("eth_sendTransaction")
@@ -55,7 +55,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "Has supported specific methods"() {
         expect:
-        new DefaultEthereumMethods(chain).getSupportedMethods().containsAll(methods)
+        new DefaultEthereumMethods(chain, false).getSupportedMethods().containsAll(methods)
         where:
         chain          | methods
         Chain.POLYGON__MAINNET | ["bor_getAuthor",
@@ -69,7 +69,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "Has no filter methods by default"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         when:
         def act = methods.getSupportedMethods().findAll { it.containsIgnoreCase("filter") }
         then:
@@ -78,7 +78,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "Has no trace methods by default"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         when:
         def act = methods.getSupportedMethods().findAll { it.containsIgnoreCase("trace") }
         then:
@@ -87,7 +87,7 @@ class DefaultEthereumMethodsSpec extends Specification {
 
     def "Default eth methods are available"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         expect:
         methods.isAvailable(method)
         where:

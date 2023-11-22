@@ -31,6 +31,11 @@ open class SchedulersConfig {
     }
 
     @Bean
+    open fun logsOracleScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("logs-oracle", 4, monitoringConfig)
+    }
+
+    @Bean
     open fun multistreamEventsScheduler(monitoringConfig: MonitoringConfig): Scheduler {
         return makeScheduler("events-scheduler", 4, monitoringConfig)
     }

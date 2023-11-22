@@ -98,6 +98,8 @@ class TestingCommons {
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
                 EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()),
+                null,
+                Schedulers.immediate()
         ).tap {
             it.processUpstreamsEvents(
                     new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up, UpstreamChangeEvent.ChangeType.ADDED)
@@ -124,14 +126,18 @@ class TestingCommons {
         return new GenericMultistream(chain, Schedulers.immediate(), null, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()),
+                null,
+                Schedulers.immediate())
     }
 
     static Multistream multistreamClassicWithoutUpstreams(Chain chain) {
         return new GenericMultistream(chain, Schedulers.immediate(), null, [], emptyCaches().getCaches(chain), Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()),
+                null,
+                Schedulers.immediate())
     }
 
     static FileResolver fileResolver() {

@@ -21,16 +21,17 @@ class EthereumLocalReaderSpec extends Specification {
 
     def "Calls hardcoded"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
-                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)),
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)),
                         TestingCommons.tracerMock()
                 ),
                 methods,
-                new EmptyHead()
+                new EmptyHead(),
+                null
         )
         when:
         def act = router.read(new JsonRpcRequest("eth_coinbase", [])).block(Duration.ofSeconds(1))
@@ -40,16 +41,17 @@ class EthereumLocalReaderSpec extends Specification {
 
     def "Returns empty if nonce set"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
-                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)),
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)),
                         TestingCommons.tracerMock()
                 ),
                 methods,
-                new EmptyHead()
+                new EmptyHead(),
+                null
         )
         when:
         def act = router.read(new JsonRpcRequest("eth_getTransactionByHash", ["test"], 10))
@@ -72,8 +74,8 @@ class EthereumLocalReaderSpec extends Specification {
                 )
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
-        def router = new EthereumLocalReader(reader, methods, head)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        def router = new EthereumLocalReader(reader, methods, head, null)
 
         when:
         def act = router.getBlockByNumber(["latest", false])
@@ -100,8 +102,8 @@ class EthereumLocalReaderSpec extends Specification {
                 )
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
-        def router = new EthereumLocalReader(reader, methods, head)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        def router = new EthereumLocalReader(reader, methods, head, null)
 
         when:
         def act = router.getBlockByNumber(["earliest", false])
@@ -128,8 +130,8 @@ class EthereumLocalReaderSpec extends Specification {
                 )
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
-        def router = new EthereumLocalReader(reader, methods, head)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        def router = new EthereumLocalReader(reader, methods, head, null)
 
         when:
         def act = router.getBlockByNumber(["0x123ef", false])
@@ -152,8 +154,8 @@ class EthereumLocalReaderSpec extends Specification {
             _ * txByHashAsCont() >> new EmptyReader<>()
             _ * blocksByHeightAsCont() >> new EmptyReader<>()
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
-        def router = new EthereumLocalReader(reader, methods, head)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        def router = new EthereumLocalReader(reader, methods, head, null)
 
         when:
         def act = router.getBlockByNumber(["0x0", true])

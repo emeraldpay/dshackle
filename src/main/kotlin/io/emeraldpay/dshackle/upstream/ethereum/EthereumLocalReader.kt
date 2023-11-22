@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
@@ -41,6 +42,7 @@ class EthereumLocalReader(
     private val reader: EthereumCachingReader,
     private val methods: CallMethods,
     private val head: Head,
+    private val logsOracle: LogsOracle?,
 ) : JsonRpcReader {
 
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
@@ -120,6 +122,9 @@ class EthereumLocalReader(
                     .read(hash)
                     .map { it.data to it.upstreamId }
             }
+            method == "drpc_getLogsEstimate" -> {
+                getLogsEstimate(params)
+            }
             else -> null
         }
     }
@@ -166,5 +171,83 @@ class EthereumLocalReader(
 
         return reader.blocksByHeightAsCont()
             .read(number).map { it.data.json!! to it.upstreamId }
+    }
+
+    fun getLogsEstimate(params: List<Any?>): Mono<Pair<ByteArray, String?>>? {
+        if (logsOracle == null) {
+            throw NotImplementedError()
+        }
+        if (params.size != 1 || params[0] == null) {
+            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 1 parameters")
+        }
+
+        val req = params[0] as LinkedHashMap<String, Any?>
+
+        val fromBlock = try { parseBlockRef(req.get("fromBlock") as String?) } catch (_: IllegalArgumentException) {
+            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'fromBlock' parameter")
+        }
+        val toBlock = try { parseBlockRef(req.get("toBlock") as String?) } catch (_: IllegalArgumentException) {
+            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'toBlock' parameter")
+        }
+        val address: List<String> = try {
+            val it = req.get("address") ?: listOf<String>()
+
+            if (it is String) {
+                listOf<String>(it)
+            } else {
+                it as List<String>
+            }
+        } catch (_: Exception) {
+            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'address' parameter")
+        }
+        val topics: List<List<String>> = try {
+            val tpcs = req.get("topics")?.let { it as List<Any> } ?: listOf<Any>()
+            if (tpcs.size > 4) {
+                throw IllegalArgumentException()
+            }
+
+            tpcs.map {
+                if (it is String) {
+                    listOf<String>(it)
+                } else {
+                    it as List<String>
+                }
+            }
+        } catch (_: Exception) {
+            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'topics' parameter")
+        }
+
+        return logsOracle.estimate(fromBlock, toBlock, address, topics)
+            .map { it.toString().toByteArray() to null }
+    }
+
+    private fun parseBlockRef(blockRef: String?): Long? {
+        when {
+            blockRef == null -> {
+                return null
+            }
+            blockRef == "latest" -> {
+                return head.getCurrentHeight() ?: return null
+            }
+            blockRef == "earliest" -> {
+                return 0
+            }
+            blockRef == "finalized" || blockRef == "safe" || blockRef == "pending" -> {
+                return null
+            }
+            blockRef.startsWith("0x") -> {
+                val quantity = HexQuantity.from(blockRef) ?: throw IllegalArgumentException()
+                return quantity.value.let {
+                    if (it < BigInteger.valueOf(Long.MAX_VALUE) && it >= BigInteger.ZERO) {
+                        it.toLong()
+                    } else {
+                        throw IllegalArgumentException()
+                    }
+                }
+            }
+            else -> {
+                throw IllegalArgumentException()
+            }
+        }
     }
 }

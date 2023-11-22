@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.config.context
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.CachesFactory
+import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinMultistream
@@ -26,6 +27,9 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         headScheduler: Scheduler,
         tracer: Tracer,
         multistreamEventsScheduler: Scheduler,
+        indexConfig: IndexConfig,
+        @Qualifier("logsOracleScheduler")
+        logsOracleScheduler: Scheduler,
     ): List<Multistream> {
         return Chain.entries
             .filterNot { it == Chain.UNSPECIFIED }
@@ -33,7 +37,15 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
                 if (chain.type == BITCOIN) {
                     bitcoinMultistream(chain, cachesFactory, headScheduler, multistreamEventsScheduler)
                 } else {
-                    genericMultistream(chain, cachesFactory, headScheduler, tracer, multistreamEventsScheduler)
+                    genericMultistream(
+                        chain,
+                        cachesFactory,
+                        headScheduler,
+                        tracer,
+                        multistreamEventsScheduler,
+                        indexConfig.getByChain(chain),
+                        logsOracleScheduler,
+                    )
                 }
             }
     }
@@ -44,6 +56,8 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         headScheduler: Scheduler,
         tracer: Tracer,
         multistreamEventsScheduler: Scheduler,
+        logsOracleConfig: IndexConfig.Index?,
+        logsOracleScheduler: Scheduler,
     ): Multistream {
         val name = "multi-$chain"
         val cs = ChainSpecificRegistry.resolve(chain)
@@ -58,6 +72,8 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
             cs.makeCachingReaderBuilder(tracer),
             cs::localReaderBuilder,
             cs.subscriptionBuilder(headScheduler),
+            logsOracleConfig,
+            logsOracleScheduler,
         ).also { register(it, name) }
     }
 

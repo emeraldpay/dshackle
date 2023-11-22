@@ -18,14 +18,14 @@ import org.springframework.stereotype.Component
 class CallTargetsHolder {
     private val callTargets = HashMap<Chain, CallMethods>()
 
-    fun getDefaultMethods(chain: Chain): CallMethods {
-        return callTargets[chain] ?: return setupDefaultMethods(chain)
+    fun getDefaultMethods(chain: Chain, hasLogsOracle: Boolean): CallMethods {
+        return callTargets[chain] ?: return setupDefaultMethods(chain, hasLogsOracle)
     }
 
-    private fun setupDefaultMethods(chain: Chain): CallMethods {
+    private fun setupDefaultMethods(chain: Chain, hasLogsOracle: Boolean): CallMethods {
         val created = when (chain.type) {
             BITCOIN -> DefaultBitcoinMethods()
-            ETHEREUM -> DefaultEthereumMethods(chain)
+            ETHEREUM -> DefaultEthereumMethods(chain, hasLogsOracle)
             STARKNET -> DefaultStarknetMethods(chain)
             POLKADOT -> DefaultPolkadotMethods()
             SOLANA -> DefaultSolanaMethods()

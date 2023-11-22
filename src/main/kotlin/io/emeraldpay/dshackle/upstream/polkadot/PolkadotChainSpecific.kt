@@ -14,6 +14,7 @@ import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
+import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.NoopCachingReader
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -74,6 +75,7 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
         cachingReader: CachingReader,
         methods: CallMethods,
         head: Head,
+        logsOracle: LogsOracle?,
     ): Mono<JsonRpcReader> {
         return Mono.just(LocalReader(methods))
     }

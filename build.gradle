@@ -123,7 +123,15 @@ dependencies {
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("linux-x86_64") })
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-x86_64") })
     implementation 'dshackle:foundation:1.0.0'
+
+    implementation files('src/main/resources/LogsOracle.jar')
 }
+
+// Enable 'Foreign Function & Memory API' (JEP 434)
+// Drop after update on Java 21
+tasks.withType(JavaCompile) { options.compilerArgs += "--enable-preview" }
+tasks.withType(Test) { jvmArgs += "--enable-preview" }
+tasks.withType(JavaExec) { jvmArgs += "--enable-preview" }
 
 compileKotlin {
     compilerOptions.jvmTarget.set(JvmTarget.JVM_20)

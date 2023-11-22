@@ -32,6 +32,7 @@ import io.emeraldpay.etherjar.rpc.RpcException
  */
 class DefaultEthereumMethods(
     private val chain: Chain,
+    private val hasLogsOracle: Boolean = false,
 ) : CallMethods {
 
     private val version = "\"EmeraldDshackle/${Global.version}\""
@@ -137,6 +138,7 @@ class DefaultEthereumMethods(
             specialMethods +
             headVerifiedMethods -
             chainUnsupportedMethods(chain) +
+            getDrpcVendorMethods(chain) +
             getChainSpecificMethods(chain)
     }
 
@@ -148,6 +150,7 @@ class DefaultEthereumMethods(
             firstValueMethods.contains(method) -> AlwaysQuorum()
             anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
             headVerifiedMethods.contains(method) -> NotLaggingQuorum(1)
+            getDrpcVendorMethods(chain).contains(method) -> AlwaysQuorum()
             possibleNotIndexedMethods.contains(method) -> NotNullQuorum()
             specialMethods.contains(method) -> {
                 when (method) {
@@ -172,6 +175,15 @@ class DefaultEthereumMethods(
 
             else -> AlwaysQuorum()
         }
+    }
+
+    private fun getDrpcVendorMethods(chain: Chain): List<String> {
+        val supported = mutableListOf<String>()
+
+        // Currently tested on eth mainnet only, should potentially work for all compatible ones.
+        if (chain == Chain.ETHEREUM__MAINNET && hasLogsOracle) { supported.add("drpc_getLogsEstimate") }
+
+        return supported
     }
 
     private fun getChainSpecificMethods(chain: Chain): List<String> {

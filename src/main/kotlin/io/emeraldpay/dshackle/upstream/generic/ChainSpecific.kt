@@ -17,6 +17,7 @@ import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
+import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
@@ -34,7 +35,7 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 
 typealias SubscriptionBuilder = (Multistream) -> EgressSubscription
-typealias LocalReaderBuilder = (CachingReader, CallMethods, Head) -> Mono<JsonRpcReader>
+typealias LocalReaderBuilder = (CachingReader, CallMethods, Head, LogsOracle?) -> Mono<JsonRpcReader>
 typealias CachingReaderBuilder = (Multistream, Caches, Factory<CallMethods>) -> CachingReader
 
 interface ChainSpecific {
@@ -46,7 +47,7 @@ interface ChainSpecific {
 
     fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest
 
-    fun localReaderBuilder(cachingReader: CachingReader, methods: CallMethods, head: Head): Mono<JsonRpcReader>
+    fun localReaderBuilder(cachingReader: CachingReader, methods: CallMethods, head: Head, logsOracle: LogsOracle?): Mono<JsonRpcReader>
 
     fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription
 

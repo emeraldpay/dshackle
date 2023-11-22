@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.startup.configure
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
+import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
@@ -19,9 +20,10 @@ import kotlin.math.abs
 @Component
 open class GenericUpstreamCreator(
     chainsConfig: ChainsConfig,
+    indexConfig: IndexConfig,
     callTargets: CallTargetsHolder,
     private val genericConnectorFactoryCreator: ConnectorFactoryCreator,
-) : UpstreamCreator(chainsConfig, callTargets) {
+) : UpstreamCreator(chainsConfig, indexConfig, callTargets) {
     private val hashes: MutableMap<Byte, Boolean> = HashMap()
 
     override fun createUpstream(

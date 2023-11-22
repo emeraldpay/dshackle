@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.startup.configure
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ChainsConfig
+import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory
 
 abstract class UpstreamCreator(
     private val chainsConfig: ChainsConfig,
+    private val indexConfig: IndexConfig,
     private val callTargets: CallTargetsHolder,
 ) {
     protected val log: Logger = LoggerFactory.getLogger(this::class.java)
@@ -45,7 +47,7 @@ abstract class UpstreamCreator(
     protected fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
         return if (config.methods != null || config.methodGroups != null) {
             ManagedCallMethods(
-                delegate = callTargets.getDefaultMethods(chain),
+                delegate = callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain)),
                 enabled = config.methods?.enabled?.map { it.name }?.toSet() ?: emptySet(),
                 disabled = config.methods?.disabled?.map { it.name }?.toSet() ?: emptySet(),
                 groupsEnabled = config.methodGroups?.enabled ?: emptySet(),
@@ -61,7 +63,7 @@ abstract class UpstreamCreator(
                 }
             }
         } else {
-            callTargets.getDefaultMethods(chain)
+            callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain))
         }
     }
 }

@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.startup.configure
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
+import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
@@ -11,9 +12,10 @@ import org.springframework.stereotype.Component
 @Component
 class EthereumUpstreamCreator(
     chainsConfig: ChainsConfig,
+    indexConfig: IndexConfig,
     callTargets: CallTargetsHolder,
     genericConnectorFactoryCreator: ConnectorFactoryCreator,
-) : GenericUpstreamCreator(chainsConfig, callTargets, genericConnectorFactoryCreator) {
+) : GenericUpstreamCreator(chainsConfig, indexConfig, callTargets, genericConnectorFactoryCreator) {
 
     override fun createUpstream(
         upstreamsConfig: UpstreamsConfig.Upstream<*>,
