@@ -630,7 +630,7 @@ chain-settings:
           priority: 1
           code: IMMUTABLE_ZKEVM_TESTNET
           short-names: [immutable-zkevm-testnet]
-          chain-id: 0x34a0
+          chain-id: 0x34a1
           grpcId: 10034
     - id: astar
       label: Astar zkEVM
