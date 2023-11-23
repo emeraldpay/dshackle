@@ -52,6 +52,9 @@ class MainConfigReader(
         getValueAsInt(input, "port")?.let {
             config.port = it
         }
+        getValueAsBool(input, "compress")?.let {
+            config.compress = it
+        }
 
         authConfigReader.readServerTls(input)?.let {
             config.tls = it

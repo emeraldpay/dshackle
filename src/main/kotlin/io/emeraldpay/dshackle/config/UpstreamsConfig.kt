@@ -157,6 +157,7 @@ open class UpstreamsConfig {
         var port: Int = 0
         var auth: AuthConfig.ClientTlsAuth? = null
         var autoTls: Boolean? = null
+        var compress: Boolean? = null
     }
 
     class EthereumConnection : RpcConnection() {
@@ -178,6 +179,7 @@ open class UpstreamsConfig {
     class HttpEndpoint(val url: URI) {
         var basicAuth: AuthConfig.ClientBasicAuth? = null
         var tls: AuthConfig.ClientTlsAuth? = null
+        var compress: Boolean? = null
     }
 
     class WsEndpoint(val url: URI) {
@@ -186,6 +188,7 @@ open class UpstreamsConfig {
         var frameSize: Int? = null
         var msgSize: Int? = null
         var connections: Int = 1
+        var compress: Boolean? = null
     }
 
     // TODO make it unmodifiable after initial load

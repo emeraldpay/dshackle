@@ -90,6 +90,9 @@ open class WsConnectionImpl(
     var frameSize: Int = DEFAULT_FRAME_SIZE
     var msgSizeLimit: Int = DEFAULT_MSG_SIZE
 
+    // Some upstreams fail to connect if compression is enabled
+    var compress: Boolean = false
+
     private var reconnectBackoff: BackOff = ExponentialBackOff().also {
         it.initialInterval = Duration.ofMillis(100).toMillis()
         it.maxInterval = Duration.ofMinutes(5).toMillis()
@@ -245,7 +248,7 @@ open class WsConnectionImpl(
             .websocket(
                 WebsocketClientSpec.builder()
                     .handlePing(true)
-                    .compress(false)
+                    .compress(compress)
                     .maxFramePayloadLength(frameSize)
                     .build()
             )

@@ -74,6 +74,9 @@ open class EthereumWsFactory(
             config?.msgSize?.let {
                 ws.msgSizeLimit = it
             }
+            config?.compress?.let {
+                ws.compress = it
+            }
         }
     }
 }

@@ -33,6 +33,8 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.ethereum.ConnectionMetrics
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
+import io.grpc.CompressorRegistry
+import io.grpc.DecompressorRegistry
 import io.grpc.ManagedChannelBuilder
 import io.grpc.netty.NettyChannelBuilder
 import io.micrometer.core.instrument.Counter
@@ -74,12 +76,16 @@ class GrpcUpstreams(
     private val known = HashMap<Chain, DefaultUpstream>()
     private val lock = ReentrantLock()
 
+    // for gRCP it's just a suggestion and works only if both sides support the same compression algorithm
+    // so, it's enabled by default because it shouldn't harm if the server doesn't support any compression
+    var compress = true
+
     private val client: ReactorBlockchainGrpc.ReactorBlockchainStub
         get() {
             if (clientValue != null) {
                 return clientValue!!
             }
-            val channel: ManagedChannelBuilder<*> = if (conn.auth != null && StringUtils.isNotEmpty(conn.auth!!.ca)) {
+            var channel: ManagedChannelBuilder<*> = if (conn.auth != null && StringUtils.isNotEmpty(conn.auth!!.ca)) {
                 NettyChannelBuilder.forAddress(conn.host, conn.port)
                     // some messages are very large. many of them in megabytes, some even in gigabytes (ex. ETH Traces)
                     .maxInboundMessageSize(Int.MAX_VALUE)
@@ -97,6 +103,12 @@ class GrpcUpstreams(
                             it.usePlaintext()
                         }
                     }
+            }
+
+            if (compress) {
+                // standard registry supports only GZip compression
+                channel = channel.compressorRegistry(CompressorRegistry.getDefaultInstance())
+                    .decompressorRegistry(DecompressorRegistry.getDefaultInstance())
             }
 
             this.clientValue = ReactorBlockchainGrpc.newReactorStub(channel.build())

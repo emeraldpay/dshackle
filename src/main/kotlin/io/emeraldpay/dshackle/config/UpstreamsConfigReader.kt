@@ -104,6 +104,10 @@ class UpstreamsConfigReader(
                             connection.rpc = http
                             http.basicAuth = authConfigReader.readClientBasicAuth(node)
                             http.tls = authConfigReader.readClientTls(node)
+
+                            getValueAsBool(node, "compress")?.let {
+                                http.compress = it
+                            }
                         }
                     }
                     getMapping(connConfigNode, "ws")?.let { node ->
@@ -132,6 +136,9 @@ class UpstreamsConfigReader(
                                     throw IllegalStateException("connection limit should be in 1..1024")
                                 }
                                 ws.connections = it
+                            }
+                            getValueAsBool(node, "compress")?.let {
+                                ws.compress = it
                             }
                         }
                     }
