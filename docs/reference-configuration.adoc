@@ -172,6 +172,11 @@ cluster:
 | `2449`
 | Port to bind gRPC server
 
+| `compress`
+| `true`
+| Enable support for gRPC compression (i.e., `gzip`).
+
+
 | `tls`
 |
 | Setup TLS configuration for the gRPC server.
@@ -898,6 +903,10 @@ rpc:
     password: "${ETH_PASSWORD}"
 ----
 
+| `rpc.compress`
+| Enable compression for HTTP connection (i.e., `gzip`). May not work with some servers.
+Defaults is `false`
+
 | `ws.url`
 | WebSocket URL to connect to.
 Optional, but optimizes performance if it's available.
@@ -921,6 +930,10 @@ Default is 15Mb
 | `ws.connections`
 | How many concurrent connection to make. If more than one, each used in a robin-round fashion.
 Defaults is `1`
+
+| `ws.compress`
+| Enable compression for WebSocket connection (i.e., `permessage-deflate`). May not work with some servers.
+Defaults is `false`
 
 |===
 
@@ -947,6 +960,10 @@ rpc:
     username: "${NODE_USERNAME}"
     password: "${NODE_PASSWORD}"
 ----
+
+| `rpc.compress`
+| Enable compression for HTTP connection (i.e., `gzip`). May not work with some servers.
+Defaults is `false`
 
 | `zeromq.address`
 a| Set up an additional connection via ZeroMQ protocol to subscribe to the new blocks.
@@ -1010,5 +1027,10 @@ See link:08-authentication.adoc[Authentication] docs and <<tls>>.
 
 | `tls.certificate` + `tls.key`
 | Client certificate (x509) and its private key (PKCS 8) used for authentication on the remote server.
+
+| `compress`
+| Enable compression for gRPC requests (i.e., `gzip`).
+Defaults is `true`
+
 
 |===

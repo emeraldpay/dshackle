@@ -19,6 +19,8 @@ package io.emeraldpay.dshackle
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessLogHandlerGrpc
 import io.emeraldpay.dshackle.monitoring.accesslog.GenerateRequestId
+import io.grpc.CompressorRegistry
+import io.grpc.DecompressorRegistry
 import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
 import org.slf4j.LoggerFactory
@@ -50,6 +52,13 @@ open class GrpcServer(
             .let {
                 if (mainConfig.accessLogConfig.enabled) {
                     it.intercept(accessHandler)
+                } else {
+                    it
+                }
+                if (mainConfig.compress) {
+                    // standard registry supports only GZip compression
+                    it.compressorRegistry(CompressorRegistry.getDefaultInstance())
+                        .decompressorRegistry(DecompressorRegistry.getDefaultInstance())
                 } else {
                     it
                 }

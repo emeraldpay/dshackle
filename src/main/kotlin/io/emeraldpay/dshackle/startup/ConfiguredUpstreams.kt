@@ -352,6 +352,9 @@ open class ConfiguredUpstreams(
             currentRequestLogWriter,
         ).apply {
             this.options = options
+            endpoint.compress?.let { value ->
+                this.compress = value
+            }
         }
         log.info("Using ALL CHAINS (gRPC) upstream, at ${endpoint.host}:${endpoint.port}")
         ds.subscribeUpstreamChanges()
@@ -395,12 +398,16 @@ open class ConfiguredUpstreams(
                 connectionMetrics = ConnectionMetrics(metricsTags)
             )
             urls.add(endpoint.url)
-            JsonRpcHttpClient(
+            val client = JsonRpcHttpClient(
                 endpoint.url.toString(),
                 metrics,
                 conn.rpc?.basicAuth,
                 tls
             )
+            conn.rpc?.compress?.let { value ->
+                client.compress = value
+            }
+            client
         }
     }
 }

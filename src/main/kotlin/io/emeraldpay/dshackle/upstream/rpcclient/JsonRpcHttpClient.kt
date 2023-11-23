@@ -56,11 +56,14 @@ class JsonRpcHttpClient(
     private val parser = ResponseRpcParser()
     private val httpClient: HttpClient
 
+    // some nodes respond with a corrupted response if compression is enabled, so disable it by default
+    var compress: Boolean = false
     override var onHttpError: Consumer<Int>? = null
 
     init {
         var build = HttpClient.create()
             .resolver(DefaultAddressResolverGroup.INSTANCE)
+            .compress(compress)
             .doOnChannelInit(metrics.onChannelInit)
 
         build = build.headers { h ->
