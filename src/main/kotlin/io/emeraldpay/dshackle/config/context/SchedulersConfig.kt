@@ -4,25 +4,33 @@ import io.emeraldpay.dshackle.config.MonitoringConfig
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
-import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 @Configuration
 open class SchedulersConfig {
-    @Bean
-    open fun rpcScheduler(monitoringConfig: MonitoringConfig): Scheduler {
-        return makeScheduler("blockchain-rpc-scheduler", 30, monitoringConfig)
+    private val log = LoggerFactory.getLogger(SchedulersConfig::class.java)
+    private val threadsMultiplier: Int
+
+    init {
+        val cores = Runtime.getRuntime().availableProcessors()
+        threadsMultiplier = if (cores < 3) {
+            1
+        } else {
+            cores / 2
+        }
+        log.info("Creating schedulers with multiplier: {}...", threadsMultiplier)
     }
 
     @Bean
-    open fun trackTxScheduler(monitoringConfig: MonitoringConfig): Scheduler {
-        return makeScheduler("tracktx-scheduler", 5, monitoringConfig)
+    open fun rpcScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("blockchain-rpc-scheduler", 20, monitoringConfig)
     }
 
     @Bean
@@ -56,17 +64,12 @@ open class SchedulersConfig {
     }
 
     @Bean
-    open fun grpcChannelExecutor(monitoringConfig: MonitoringConfig): Executor {
-        return makePool("grpc-client-channel", 10, monitoringConfig)
-    }
-
-    @Bean
     open fun authScheduler(monitoringConfig: MonitoringConfig): Scheduler {
         return makeScheduler("auth-scheduler", 4, monitoringConfig)
     }
 
     private fun makeScheduler(name: String, size: Int, monitoringConfig: MonitoringConfig): Scheduler {
-        return Schedulers.fromExecutorService(makePool(name, size, monitoringConfig))
+        return Schedulers.fromExecutorService(makePool(name, size * threadsMultiplier, monitoringConfig))
     }
 
     private fun makePool(name: String, size: Int, monitoringConfig: MonitoringConfig): ExecutorService {

@@ -37,8 +37,9 @@ fun main(args: Array<String>) {
 
     HeapDumpCreator.init()
 
+    val cores = Runtime.getRuntime().availableProcessors()
     val maxMemory: Long = Runtime.getRuntime().maxMemory() / (1024 * 1024).toLong()
-    log.info("Max heap size: {} MB", maxMemory)
+    log.info("Max heap size: {} MB, number of cores: {}", maxMemory, cores)
 
     val app = SpringApplication(Starter::class.java)
     app.setDefaultProperties(ResourcePropertySource("version.properties").source)
