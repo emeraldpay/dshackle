@@ -680,8 +680,8 @@ chain-settings:
         options:
           validate-peers: false
         lags:
-          syncing: 20
-          lagging: 10
+          syncing: 40
+          lagging: 20
       chains:
         - id: Mainnet
           priority: 1
