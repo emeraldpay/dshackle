@@ -34,7 +34,6 @@ import io.emeraldpay.etherjar.rpc.json.SyncingJson
 import io.emeraldpay.etherjar.rpc.json.TransactionCallJson
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.kotlin.extra.retry.retryRandomBackoff
@@ -45,10 +44,10 @@ import java.util.concurrent.TimeoutException
 
 open class EthereumUpstreamValidator @JvmOverloads constructor(
     private val chain: Chain,
-    private val upstream: Upstream,
-    private val options: ChainOptions.Options,
+    upstream: Upstream,
+    options: ChainOptions.Options,
     private val config: ChainConfig,
-) : UpstreamValidator {
+) : UpstreamValidator(upstream, options) {
     companion object {
         private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
         val scheduler =
@@ -57,7 +56,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
 
     private val objectMapper: ObjectMapper = Global.objectMapper
 
-    open fun validate(): Mono<UpstreamAvailability> {
+    override fun validate(): Mono<UpstreamAvailability> {
         return Mono.zip(
             validateSyncing(),
             validatePeers(),
@@ -125,19 +124,6 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             }
             .doOnError { err -> log.error("Error during peer count validation for ${upstream.getId()}", err) }
             .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
-    }
-
-    override fun start(): Flux<UpstreamAvailability> {
-        return Flux.interval(
-            Duration.ZERO,
-            Duration.ofSeconds(options.validationInterval.toLong()),
-        ).subscribeOn(scheduler)
-            .flatMap {
-                validate()
-            }
-            .doOnNext {
-                log.debug("Status after validation is $it for ${upstream.getId()}")
-            }
     }
 
     override fun validateUpstreamSettings(): Mono<ValidateUpstreamSettingsResult> {

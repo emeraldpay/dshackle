@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.upstream.polkadot
 
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 
@@ -31,6 +32,34 @@ val example = """
   }
 """.trimIndent()
 
+val healthOk = """{
+    "peers": 16,
+    "isSyncing": false,
+    "shouldHavePeers": true
+}
+""".trimIndent()
+
+val healthOk2 = """{
+    "peers": 0,
+    "isSyncing": false,
+    "shouldHavePeers": false
+}
+""".trimIndent()
+
+val healthBadPeers = """{
+    "peers": 0,
+    "isSyncing": false,
+    "shouldHavePeers": true
+}
+""".trimIndent()
+
+val healthBadSyncing = """{
+    "peers": 16,
+    "isSyncing": true,
+    "shouldHavePeers": true
+}
+""".trimIndent()
+
 class PolkadotChainSpecificTest {
     @Test
     fun parseResponse() {
@@ -40,5 +69,33 @@ class PolkadotChainSpecificTest {
         Assertions.assertThat(result.hash).isEqualTo(BlockId.from("0xb52a9b51fb698a891cf378b990b0b6a5743e52fa5175b44a8a6d4e0b2cfd0a53"))
         Assertions.assertThat(result.upstreamId).isEqualTo("1")
         Assertions.assertThat(result.parentHash).isEqualTo(BlockId.from("0xb52a9b51fb698a891cf378b990b0b6a5743e52fa5175b44a8a6d4e0b2cfd0a53"))
+    }
+
+    @Test
+    fun validateHealth() {
+        Assertions.assertThat(PolkadotChainSpecific.validate(healthOk.toByteArray(), 10, "test")).isEqualTo(
+            UpstreamAvailability.OK,
+        )
+    }
+
+    @Test
+    fun validateHealthWithoutPeersOk() {
+        Assertions.assertThat(PolkadotChainSpecific.validate(healthOk2.toByteArray(), 10, "test")).isEqualTo(
+            UpstreamAvailability.OK,
+        )
+    }
+
+    @Test
+    fun validateHealthWithoutPeers() {
+        Assertions.assertThat(PolkadotChainSpecific.validate(healthBadPeers.toByteArray(), 10, "test")).isEqualTo(
+            UpstreamAvailability.IMMATURE,
+        )
+    }
+
+    @Test
+    fun validateHealthSyncing() {
+        Assertions.assertThat(PolkadotChainSpecific.validate(healthBadSyncing.toByteArray(), 10, "test")).isEqualTo(
+            UpstreamAvailability.SYNCING,
+        )
     }
 }

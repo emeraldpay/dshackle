@@ -53,7 +53,7 @@ interface ChainSpecific {
 
     fun makeCachingReaderBuilder(tracer: Tracer): CachingReaderBuilder
 
-    fun validator(chain: Chain, upstream: Upstream, options: ChainOptions.Options, config: ChainConfig): UpstreamValidator?
+    fun validator(chain: Chain, upstream: Upstream, options: ChainOptions.Options, config: ChainConfig): UpstreamValidator
 
     fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector?
 

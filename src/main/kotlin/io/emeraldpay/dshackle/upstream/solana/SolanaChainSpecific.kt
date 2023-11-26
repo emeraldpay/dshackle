@@ -4,18 +4,25 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.foundation.ChainOptions.Options
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.DefaultSolanaMethods
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.SingleCallValidator
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.generic.AbstractChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
+import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -103,6 +110,29 @@ object SolanaChainSpecific : AbstractChainSpecific() {
 
     override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest {
         return JsonRpcRequest("blockUnsubscribe", listOf(subId))
+    }
+
+    override fun validator(
+        chain: Chain,
+        upstream: Upstream,
+        options: Options,
+        config: ChainConfig,
+    ): UpstreamValidator {
+        return GenericUpstreamValidator(
+            upstream,
+            options,
+            SingleCallValidator(
+                JsonRpcRequest("getHealth", listOf()),
+            ) { data ->
+                val resp = String(data)
+                if (resp == "\"ok\"") {
+                    UpstreamAvailability.OK
+                } else {
+                    log.warn("Upstream {} validation failed, solana status is {}", upstream.getId(), resp)
+                    UpstreamAvailability.UNAVAILABLE
+                }
+            },
+        )
     }
 
     override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector? {

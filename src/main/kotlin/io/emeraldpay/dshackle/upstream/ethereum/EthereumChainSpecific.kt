@@ -84,11 +84,11 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         upstream: Upstream,
         options: Options,
         config: ChainConfig,
-    ): UpstreamValidator? {
+    ): UpstreamValidator {
         return EthereumUpstreamValidator(chain, upstream, options, config)
     }
 
-    override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector? {
+    override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector {
         return EthereumLabelsDetector(reader, chain)
     }
 
