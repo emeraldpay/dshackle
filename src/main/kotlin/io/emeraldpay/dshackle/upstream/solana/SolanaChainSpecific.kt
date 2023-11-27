@@ -65,7 +65,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
                     ).map {
                         val raw = it.getResult()
                         val block = Global.objectMapper.readValue(it.getResult(), SolanaBlock::class.java)
-                        makeBlock(raw, block, upstreamId)
+                        makeBlock(raw, block, upstreamId, response.max())
                     }.onErrorResume {
                         log.debug("error during getting last solana block - ${it.message}")
                         Mono.empty()
@@ -77,10 +77,10 @@ object SolanaChainSpecific : AbstractChainSpecific() {
 
     override fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer {
         val res = Global.objectMapper.readValue(data, SolanaWrapper::class.java)
-        return makeBlock(data, res.value.block, upstreamId)
+        return makeBlock(data, res.value.block, upstreamId, res.context.slot)
     }
 
-    private fun makeBlock(raw: ByteArray, block: SolanaBlock, upstreamId: String): BlockContainer {
+    private fun makeBlock(raw: ByteArray, block: SolanaBlock, upstreamId: String, slot: Long): BlockContainer {
         return BlockContainer(
             height = block.height,
             hash = BlockId.fromBase64(block.hash),
@@ -92,6 +92,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
             transactions = emptyList(),
             upstreamId = upstreamId,
             parentHash = BlockId.fromBase64(block.parent),
+            slot = slot,
         )
     }
 

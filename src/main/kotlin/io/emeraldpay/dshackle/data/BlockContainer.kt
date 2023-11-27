@@ -27,7 +27,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import java.math.BigInteger
 import java.time.Instant
 
-class BlockContainer(
+class BlockContainer @JvmOverloads constructor(
     val height: Long,
     val hash: BlockId,
     val difficulty: BigInteger,
@@ -39,6 +39,7 @@ class BlockContainer(
     val transactions: List<TxId> = emptyList(),
     val nodeRating: Int = 0,
     val upstreamId: String = "",
+    val slot: Long = 0,
 ) : SourceContainer(json, parsed) {
     val enriched: Boolean = transactions.isNotEmpty()
 
