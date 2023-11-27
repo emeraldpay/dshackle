@@ -83,7 +83,7 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
     }
 
     override fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription {
-        return { ms -> GenericEgressSubscription(ms, headScheduler, DefaultPolkadotMethods.subs.map { it.first }) }
+        return { ms -> GenericEgressSubscription(ms, headScheduler) }
     }
 
     override fun validator(
@@ -118,7 +118,7 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
     }
 
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
-        return GenericIngressSubscription(ws)
+        return GenericIngressSubscription(ws, DefaultPolkadotMethods.subs.map { it.first })
     }
 }
 

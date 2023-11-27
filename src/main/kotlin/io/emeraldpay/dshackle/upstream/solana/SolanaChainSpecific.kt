@@ -141,11 +141,11 @@ object SolanaChainSpecific : AbstractChainSpecific() {
     }
 
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
-        return GenericIngressSubscription(ws)
+        return GenericIngressSubscription(ws, DefaultSolanaMethods.subs.map { it.first })
     }
 
     override fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription {
-        return { ms -> GenericEgressSubscription(ms, headScheduler, DefaultSolanaMethods.subs.map { it.first }) }
+        return { ms -> GenericEgressSubscription(ms, headScheduler) }
     }
 }
 

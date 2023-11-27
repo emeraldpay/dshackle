@@ -9,10 +9,11 @@ import reactor.core.scheduler.Scheduler
 class GenericEgressSubscription(
     val multistream: Multistream,
     val scheduler: Scheduler,
-    val methods: List<String>,
 ) : EgressSubscription {
     override fun getAvailableTopics(): List<String> {
-        return methods
+        return multistream.getUpstreams()
+            .flatMap { (it as GenericUpstream).getIngressSubscription().getAvailableTopics() }
+            .distinct()
     }
 
     override fun subscribe(topic: String, params: Any?, matcher: Matcher): Flux<ByteArray> {

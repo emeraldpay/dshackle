@@ -10,16 +10,22 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
-class GenericIngressSubscription(val conn: WsSubscriptions) : IngressSubscription {
+class GenericIngressSubscription(val conn: WsSubscriptions, val methods: List<String>) : IngressSubscription {
     override fun getAvailableTopics(): List<String> {
-        return emptyList() // not used now
+        return methods
     }
 
     private val holders = ConcurrentHashMap<Pair<String, Any?>, SubscriptionConnect<out Any>>()
 
     @Suppress("UNCHECKED_CAST")
     override fun <T> get(topic: String, params: Any?): SubscriptionConnect<T> {
-        return holders.computeIfAbsent(topic to params, { key -> GenericSubscriptionConnect(conn, key.first, key.second) }) as SubscriptionConnect<T>
+        return holders.computeIfAbsent(topic to params) { key ->
+            GenericSubscriptionConnect(
+                conn,
+                key.first,
+                key.second,
+            )
+        } as SubscriptionConnect<T>
     }
 }
 
