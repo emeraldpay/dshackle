@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.MatchesResponse.GrpcResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.HeightResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.NotMatchedResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.SameNodeResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.SlotHeightResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.Success
 import org.apache.commons.lang3.StringUtils
 import java.util.Collections
@@ -44,6 +45,9 @@ class Selector {
             return selectors
                 .map {
                     when {
+                        it.hasSlotHeightSelector() -> {
+                            SlotMatcher(it.slotHeightSelector.slotHeight)
+                        }
                         it.hasHeightSelector() -> {
                             val height = if (it.heightSelector.height == -1L) head.getCurrentHeight() else it.heightSelector.height
                             if (height == null) {
@@ -481,6 +485,39 @@ class Selector {
 
         override fun describeInternal(): String {
             return "height $height"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
+    }
+
+    class SlotMatcher(val slotHeight: Long) : Matcher() {
+
+        override fun matchesWithCause(up: Upstream): MatchesResponse {
+            val currentHeight = up.getHead().getCurrentSlotHeight() ?: 0
+            return if (currentHeight >= slotHeight) {
+                Success
+            } else {
+                SlotHeightResponse(slotHeight, currentHeight)
+            }
+        }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is SlotMatcher) return false
+
+            if (slotHeight != other.slotHeight) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            return slotHeight.hashCode()
+        }
+
+        override fun describeInternal(): String {
+            return "slot height $slotHeight"
         }
 
         override fun toString(): String {

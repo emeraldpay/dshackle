@@ -151,6 +151,10 @@ abstract class AbstractHead @JvmOverloads constructor(
         return getCurrent()?.height
     }
 
+    override fun getCurrentSlotHeight(): Long? {
+        return getCurrent()?.slot
+    }
+
     override fun stop() {
         stopping = true
         future?.let {

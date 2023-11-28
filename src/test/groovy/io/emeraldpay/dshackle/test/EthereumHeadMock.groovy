@@ -69,6 +69,11 @@ class EthereumHeadMock implements Head {
     }
 
     @Override
+    Long getCurrentSlotHeight() {
+        return latest?.slot
+    }
+
+    @Override
     void start() {
 
     }

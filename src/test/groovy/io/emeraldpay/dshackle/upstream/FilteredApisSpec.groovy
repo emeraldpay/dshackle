@@ -462,7 +462,7 @@ class FilteredApisSpec extends Specification {
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * isAvailable() >> true
             _ * getHead() >> Mock(Head) {
-                _ * getCurrentHeight() >> 100000001
+                _ * getCurrentSlotHeight() >> 100000001
             }
             _ * getStatus() >> UpstreamAvailability.OK
             _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "test")))
@@ -474,7 +474,7 @@ class FilteredApisSpec extends Specification {
                     _ * getId() >> "id1"
                     _ * getStatus() >> UpstreamAvailability.OK
                     _ * getHead() >> Mock(Head) {
-                        _ * getCurrentHeight() >> 100000
+                        _ * getCurrentSlotHeight() >> 100000
                     }
                     _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "archive")))
                 }, up
@@ -484,7 +484,7 @@ class FilteredApisSpec extends Specification {
                 Chain.ETHEREUM__MAINNET, ups,
                 new Selector.MultiMatcher(
                         of(
-                                new Selector.HeightMatcher(100000000),
+                                new Selector.SlotMatcher(100000000),
                                 new Selector.LabelMatcher("node", of("test"))
                         )
                 )

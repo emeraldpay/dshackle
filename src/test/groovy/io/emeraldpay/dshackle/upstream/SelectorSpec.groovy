@@ -32,6 +32,21 @@ class SelectorSpec extends Specification {
     private BlockchainOuterClass.Selector selectLabel2Selector = BlockchainOuterClass.Selector.newBuilder()
             .setLabelSelector(selectLabel2).build()
 
+    def "Convert slot height selector"() {
+        setup:
+        def slotHeightSelector = BlockchainOuterClass.Selector.newBuilder()
+                .setSlotHeightSelector(
+                        BlockchainOuterClass.SlotHeightSelector.newBuilder()
+                                .setSlotHeight(10000)
+                                .build()
+                )
+                .build()
+        when:
+        def act = Selector.convertToMatcher(List.of(slotHeightSelector), Stub(Head))
+        then:
+        act == new Selector.MultiMatcher(List.of(new Selector.SlotMatcher(10000)))
+    }
+
     def "Convert height selector"() {
         setup:
         def heightSelector = BlockchainOuterClass.Selector.newBuilder()

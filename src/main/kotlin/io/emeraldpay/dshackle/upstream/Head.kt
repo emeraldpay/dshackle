@@ -38,6 +38,8 @@ interface Head {
 
     fun getCurrentHeight(): Long?
 
+    fun getCurrentSlotHeight(): Long?
+
     fun start()
 
     fun stop()

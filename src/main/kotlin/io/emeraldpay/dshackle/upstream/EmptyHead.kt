@@ -31,6 +31,10 @@ class EmptyHead : Head {
     override fun getCurrentHeight(): Long? {
         return null
     }
+
+    override fun getCurrentSlotHeight(): Long? {
+        return null
+    }
     override fun start() {
     }
 

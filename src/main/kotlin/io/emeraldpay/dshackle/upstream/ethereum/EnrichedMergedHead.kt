@@ -63,6 +63,10 @@ class EnrichedMergedHead constructor(
         return referenceHead.getCurrentHeight()
     }
 
+    override fun getCurrentSlotHeight(): Long? {
+        return referenceHead.getCurrentSlotHeight()
+    }
+
     override fun isRunning(): Boolean {
         return cacheSub != null
     }

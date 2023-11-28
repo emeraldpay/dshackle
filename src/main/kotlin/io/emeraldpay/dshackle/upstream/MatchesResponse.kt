@@ -17,6 +17,7 @@ sealed class MatchesResponse {
             is ExistsResponse -> "Label ${this.name} does not exist"
             GrpcResponse -> "Upstream is not grpc"
             is HeightResponse -> "Upstream height ${this.currentHeight} is less than ${this.height}"
+            is SlotHeightResponse -> "Upstream slot height ${this.currentSlotHeight} is less than ${this.slot}"
             is MethodResponse -> "Method ${this.method} is not supported"
             is MultiResponse ->
                 this.allResponses
@@ -73,6 +74,11 @@ sealed class MatchesResponse {
     data class HeightResponse(
         val height: Long,
         val currentHeight: Long,
+    ) : MatchesResponse()
+
+    data class SlotHeightResponse(
+        val slot: Long,
+        val currentSlotHeight: Long,
     ) : MatchesResponse()
 
     data class SameNodeResponse(
