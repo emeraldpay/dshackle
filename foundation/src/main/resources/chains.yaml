@@ -686,14 +686,20 @@ chain-settings:
           lagging: 20
       chains:
         - id: Mainnet
-          priority: 1
+          priority: 100
           code: SOLANA_MAINNET
           short-names: [ solana ]
           chain-id: 0x0
           grpcId: 1028
         - id: Testnet
-          priority: 1
+          priority: 10
           code: SOLANA_TESTMET
           short-names: [ solana-testnet ]
           chain-id: 0x0
           grpcId: 10037
+        - id: Devnet
+          priority: 1
+          code: SOLANA_DEVNET
+          short-names: [ solana-devnet ]
+          chain-id: 0x0
+          grpcId: 10039
