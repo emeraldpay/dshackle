@@ -650,9 +650,10 @@ chain-settings:
           chain-id: 0x133e40
           grpcId: 10035
     - id: vara
-      label: varanet
+      label: Vara Network
       type: polkadot
       settings:
+        currency: VARA
         expected-block-time: 3s
         options:
           validate-peers: false
@@ -673,9 +674,10 @@ chain-settings:
           chain-id: 0x0
           grpcId: 10036
     - id: solana
-      label: solana
+      label: Solana
       type: solana
       settings:
+        currency: SOL
         expected-block-time: 1s
         options:
           validate-peers: false
