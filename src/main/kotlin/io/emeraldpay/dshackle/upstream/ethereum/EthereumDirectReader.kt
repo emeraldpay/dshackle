@@ -16,6 +16,7 @@ import io.emeraldpay.dshackle.reader.RpcReaderFactory
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
@@ -26,6 +27,7 @@ import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.etherjar.hex.HexQuantity
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.etherjar.rpc.json.TransactionLogJson
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
@@ -59,6 +61,7 @@ class EthereumDirectReader(
     val txReader: Reader<TransactionId, Result<TxContainer>>
     val balanceReader: Reader<Address, Result<Wei>>
     val receiptReader: Reader<TransactionId, Result<ByteArray>>
+    val logsByHashReader: Reader<BlockId, Result<List<TransactionLogJson>>>
 
     init {
         blockReader = object : Reader<BlockHash, Result<BlockContainer>> {
@@ -120,6 +123,7 @@ class EthereumDirectReader(
                     }
             }
         }
+
         receiptReader = object : Reader<TransactionId, Result<ByteArray>> {
             override fun read(key: TransactionId): Mono<Result<ByteArray>> {
                 val request = JsonRpcRequest("eth_getTransactionReceipt", listOf(key.toHex()))
@@ -145,6 +149,33 @@ class EthereumDirectReader(
                                 result,
                             )
                         }
+                    }
+            }
+        }
+
+        logsByHashReader = object : Reader<BlockId, Result<List<TransactionLogJson>>> {
+            override fun read(key: BlockId): Mono<Result<List<TransactionLogJson>>> {
+                val request = JsonRpcRequest(
+                    "eth_getLogs",
+                    listOf(
+                        mapOf(
+                            "blockHash" to key.toHexWithPrefix(),
+                        ),
+                    ),
+                )
+                return EthereumCallSelector(caches).blockByHash(key.toHexWithPrefix())
+                    .defaultIfEmpty(Selector.empty).flatMap { matcher ->
+                        readWithQuorum(request, matcher)
+                            .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Logs not read $key")))
+                            .flatMap {
+                                val logs = objectMapper.readValue(it.data, Array<TransactionLogJson>::class.java)?.toList()
+                                if (logs == null) {
+                                    log.debug("Empty logs for block $key")
+                                    Mono.empty()
+                                } else {
+                                    Mono.just(Result(logs, it.upstreamId))
+                                }
+                            }
                     }
             }
         }

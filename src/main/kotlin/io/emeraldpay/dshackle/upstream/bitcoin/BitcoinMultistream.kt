@@ -125,10 +125,6 @@ open class BitcoinMultistream(
         return head
     }
 
-    override fun getEnrichedHead(mather: Matcher): Head {
-        TODO("Not yet implemented")
-    }
-
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return sourceUpstreams.flatMap { it.getLabels() }
     }

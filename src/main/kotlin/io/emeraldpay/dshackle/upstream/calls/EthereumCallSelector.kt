@@ -159,7 +159,7 @@ class EthereumCallSelector(
         }
     }
 
-    private fun blockByHash(blockHash: String): Mono<Selector.Matcher> {
+    fun blockByHash(blockHash: String): Mono<Selector.Matcher> {
         return try {
             caches.getLastHeightByHash()
                 .read(BlockId.from(blockHash))

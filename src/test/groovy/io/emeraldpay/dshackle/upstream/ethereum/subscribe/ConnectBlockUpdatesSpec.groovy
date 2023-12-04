@@ -45,27 +45,17 @@ class ConnectBlockUpdatesSpec extends Specification {
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
             parentHash = parent
-            transactions = [
-                    new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
-                    new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
-            ]
+            transactions = []
         })
         when:
         def act = connectBlockUpdates.extractUpdates(block)
                 .collectList().block(Duration.ofSeconds(3))
 
         then:
-        act.size() == 2
+        act.size() == 1
         with(act[0]) {
             it.blockNumber == 13412871
             it.blockHash == BlockId.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
-            it.transactionId == TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
-            it.type == ConnectBlockUpdates.UpdateType.NEW
-        }
-        with(act[1]) {
-            it.blockNumber == 13412871
-            it.blockHash == BlockId.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
-            it.transactionId == TxId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2")
             it.type == ConnectBlockUpdates.UpdateType.NEW
         }
     }
@@ -79,27 +69,17 @@ class ConnectBlockUpdatesSpec extends Specification {
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
             parentHash = parent
-            transactions = [
-                    new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
-                    new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
-            ]
+            transactions = []
         })
         when:
         def act = connectBlockUpdates.whenReplaced(block, "ConnectBlockUpdatesSpec")
                 .collectList().block(Duration.ofSeconds(3))
 
         then:
-        act.size() == 2
+        act.size() == 1
         with(act[0]) {
             it.blockNumber == 13412871
             it.blockHash == BlockId.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
-            it.transactionId == TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
-            it.type == ConnectBlockUpdates.UpdateType.DROP
-        }
-        with(act[1]) {
-            it.blockNumber == 13412871
-            it.blockHash == BlockId.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
-            it.transactionId == TxId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2")
             it.type == ConnectBlockUpdates.UpdateType.DROP
         }
     }
@@ -113,10 +93,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
             parentHash = parent
-            transactions = [
-                    new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
-                    new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
-            ]
+            transactions = []
         })
         def block2 = BlockContainer.from(new BlockJson<TransactionRefJson>().tap {
             hash = BlockHash.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da")
@@ -124,10 +101,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
             parentHash = parent
-            transactions = [
-                    new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
-                    new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
-            ]
+            transactions = []
         })
         def block3 = BlockContainer.from(new BlockJson<TransactionRefJson>().tap {
             hash = BlockHash.from("0xdb1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7")
@@ -135,10 +109,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             totalDifficulty = BigInteger.ONE
             parentHash = parent
             timestamp = Instant.now()
-            transactions = [
-                    new TransactionRefJson(TransactionId.from("0x9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af6c88df9d65ccc")),
-                    new TransactionRefJson(TransactionId.from("0xdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe25c241a64e7ce536f"))
-            ]
+            transactions = []
         })
 
         when:
@@ -177,10 +148,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
             parentHash = parent
-            transactions = [
-                    new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
-                    new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
-            ]
+            transactions = []
         })
         def block2 = BlockContainer.from(new BlockJson<TransactionRefJson>().tap {
             hash = BlockHash.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da")
@@ -188,10 +156,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             totalDifficulty = BigInteger.ONE
             timestamp = Instant.now()
             parentHash = parent
-            transactions = [
-                    new TransactionRefJson(TransactionId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")),
-                    new TransactionRefJson(TransactionId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2"))
-            ]
+            transactions = []
         })
 
         when:
@@ -200,29 +165,15 @@ class ConnectBlockUpdatesSpec extends Specification {
                 .collectList().block(Duration.ofSeconds(1))
 
         then:
-        act.size() == 4
+        act.size() == 2
         with(act[0]) {
             it.blockNumber == 13412871
             it.blockHash == BlockId.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
-            it.transactionId == TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
             it.type == ConnectBlockUpdates.UpdateType.DROP
         }
         with(act[1]) {
             it.blockNumber == 13412871
-            it.blockHash == BlockId.from("0xe5be2159b2b7daf6b126babdcbaa349da668b92d6b8c7db1350fd527fec4885c")
-            it.transactionId == TxId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2")
-            it.type == ConnectBlockUpdates.UpdateType.DROP
-        }
-        with(act[2]) {
-            it.blockNumber == 13412871
             it.blockHash == BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da")
-            it.transactionId == TxId.from("0x6c88df9d65ccc9351db65676c3581b29483e8dabb71c48ef7671c44b0d5568af")
-            it.type == ConnectBlockUpdates.UpdateType.NEW
-        }
-        with(act[3]) {
-            it.blockNumber == 13412871
-            it.blockHash == BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da")
-            it.transactionId == TxId.from("0x5c241a64e7ce536fdb6b8912091151f18a23dd71cc76a48a4b7d453e339efbe2")
             it.type == ConnectBlockUpdates.UpdateType.NEW
         }
     }
@@ -233,7 +184,7 @@ class ConnectBlockUpdatesSpec extends Specification {
             1 * getFlux() >> Flux.never()
         }
         def up = Mock(GenericMultistream) {
-            1 * getEnrichedHead(Selector.empty) >> head
+            1 * getHead(Selector.empty) >> head
         }
         def connectBlockUpdates = new ConnectBlockUpdates(up, Schedulers.boundedElastic())
 

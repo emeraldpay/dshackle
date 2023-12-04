@@ -493,8 +493,6 @@ abstract class Multistream(
 
     abstract fun getHead(mather: Selector.Matcher): Head
 
-    abstract fun getEnrichedHead(mather: Selector.Matcher): Head
-
     // --------------------------------------------------------------------------------------------------------
 
     class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability)

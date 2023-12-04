@@ -43,6 +43,7 @@ import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.domain.Wei
+import io.emeraldpay.etherjar.rpc.json.TransactionLogJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
 import org.springframework.cloud.sleuth.Tracer
@@ -131,6 +132,10 @@ open class EthereumCachingReader(
             ),
             extractTx,
         )
+    }
+
+    open fun logsByHash(): Reader<BlockId, Result<List<TransactionLogJson>>> {
+        return directReader.logsByHashReader
     }
 
     open fun txByHashAsCont(): Reader<TxId, Result<TxContainer>> {

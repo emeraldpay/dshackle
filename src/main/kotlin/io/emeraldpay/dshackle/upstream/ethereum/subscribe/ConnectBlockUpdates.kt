@@ -17,7 +17,6 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
@@ -51,7 +50,7 @@ class ConnectBlockUpdates(
     fun connect() = connect(Selector.empty)
     override fun connect(matcher: Selector.Matcher): Flux<Update> {
         return connected.computeIfAbsent(matcher.describeInternal()) { key ->
-            extract(upstream.getEnrichedHead(matcher))
+            extract(upstream.getHead(matcher))
                 .publishOn(scheduler)
                 .publish()
                 .refCount(1, Duration.ofSeconds(60))
@@ -104,35 +103,31 @@ class ConnectBlockUpdates(
      * Produce updates for transactions when a block is replaces with a different one on the same height.
      */
     fun whenReplaced(prev: BlockContainer, source: String): Flux<Update> {
-        return Flux.fromIterable(prev.transactions).map {
+        return Flux.just(
             Update(
                 prev.hash,
                 prev.height,
                 UpdateType.DROP,
-                it,
                 source,
-            )
-        }
+            ),
+        )
     }
 
     fun extractUpdates(block: BlockContainer): Flux<Update> {
-        return Flux.fromIterable(block.transactions)
-            .map {
-                Update(
-                    block.hash,
-                    block.height,
-                    UpdateType.NEW,
-                    it,
-                    block.upstreamId,
-                )
-            }
+        return Flux.just(
+            Update(
+                block.hash,
+                block.height,
+                UpdateType.NEW,
+                block.upstreamId,
+            ),
+        )
     }
 
     data class Update(
         val blockHash: BlockId,
         val blockNumber: Long,
         val type: UpdateType,
-        val transactionId: TxId,
         val upstreamId: String,
     )
 

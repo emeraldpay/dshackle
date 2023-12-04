@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
+import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.reader.RpcReader
 import io.emeraldpay.dshackle.reader.RpcReaderFactory
@@ -17,6 +18,7 @@ import io.emeraldpay.etherjar.domain.BlockHash
 import io.emeraldpay.etherjar.domain.TransactionId
 import io.emeraldpay.etherjar.domain.Wei
 import io.emeraldpay.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.etherjar.rpc.json.TransactionLogJson
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import org.apache.commons.collections4.Factory
 import reactor.core.publisher.Mono
@@ -123,6 +125,38 @@ class EthereumDirectReaderSpec extends Specification {
         StepVerifier.create(act)
                 .expectNextMatches { block ->
                     block.data.hash.toHexWithPrefix() == hash1
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
+    def "Reads logs by block hash"() {
+        setup:
+        def json = new TransactionLogJson().tap {
+            address = Address.from(address1)
+            blockHash = BlockHash.from(hash1)
+        }
+        def calls = Mock(Factory) {
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        }
+        EthereumDirectReader reader = new EthereumDirectReader(
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+        )
+        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
+            1 * create(_) >> Mock(RpcReader) {
+                1 * read(new JsonRpcRequest("eth_getLogs", [Map.of("blockHash", hash1)])) >> Mono.just(
+                        new RpcReader.Result(
+                                Global.objectMapper.writeValueAsBytes([json]), null, 1, resolver
+                        )
+                )
+            }
+        }
+        when:
+        def act = reader.logsByHashReader.read(BlockId.from(hash1))
+        then:
+        StepVerifier.create(act)
+                .expectNextMatches { logs ->
+                    logs.data[0].blockHash == BlockHash.from(hash1)
                 }
                 .expectComplete()
                 .verify(Duration.ofSeconds(1))

@@ -21,9 +21,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.reader.JsonRpcReader
-import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
@@ -39,11 +37,8 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Selector.Matcher
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
-import io.emeraldpay.dshackle.upstream.ethereum.EnrichedMergedHead
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumCachingReader
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
-import io.emeraldpay.etherjar.domain.BlockHash
 import org.springframework.util.ConcurrentReferenceHashMap
 import org.springframework.util.ConcurrentReferenceHashMap.ReferenceType.WEAK
 import reactor.core.publisher.Flux
@@ -156,27 +151,6 @@ open class GenericMultistream(
     override fun getHead(): Head {
         return head
     }
-
-    override fun getEnrichedHead(mather: Selector.Matcher): Head =
-        filteredHeads.computeIfAbsent(mather.describeInternal().intern()) { _ ->
-            upstreams.filter { mather.matches(it) }
-                .apply {
-                    log.debug("Found $size upstreams matching [${mather.describeInternal()}]")
-                }.let {
-                    val selected = it.map { source -> source.getHead() }
-                    EnrichedMergedHead(
-                        selected,
-                        getHead(),
-                        headScheduler,
-                        object :
-                            Reader<BlockHash, BlockContainer> {
-                            override fun read(key: BlockHash): Mono<BlockContainer> {
-                                return (cachingReader as EthereumCachingReader).blocksByHashAsCont().read(key).map { res -> res.data }
-                            }
-                        },
-                    )
-                }
-        }
 
     override fun getLabels(): Collection<UpstreamsConfig.Labels> {
         return upstreams.flatMap { it.getLabels() }
