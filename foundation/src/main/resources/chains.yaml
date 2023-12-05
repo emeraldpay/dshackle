@@ -693,7 +693,7 @@ chain-settings:
           grpcId: 1028
         - id: Testnet
           priority: 10
-          code: SOLANA_TESTMET
+          code: SOLANA_TESTNET
           short-names: [ solana-testnet ]
           chain-id: 0x0
           grpcId: 10037
