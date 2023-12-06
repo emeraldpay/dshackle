@@ -62,6 +62,7 @@ chain-settings:
           code: ETHEREUM_HOLESKY
           grpcId: 10027
           priority: 5
+          call-validate-contract: 0x32268860caac2948ab5ddc7b20db5a420467cf96
           chain-id: 0x4268
           short-names: [holesky, ethereum-holesky]
     - id: ethereum-classic
