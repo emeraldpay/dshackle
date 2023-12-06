@@ -12,7 +12,7 @@ image:https://img.shields.io/github/license/p2p-org/dshackle.svg?style=flat-squa
 [.lead]
 _Dshackle is a Fault Tolerant Load Balancer for Blockchain API used at https://drpc.org/[DRPC]_
 
-Is is a fork of the https://github.com/emeraldpay/dshackle[EmeraldPay's dshackle], adapted to work as a provider side adapter for the DRPC network. This project is specifically designed to integrate providers into the https://drpc.org/[DRPC] network, which is distinguished by its focus on high latency and high availability. Our service facilitates providers in easily connecting to the DRPC, enabling them to be part of a network that prioritizes robust, consistent, and responsive operations. Joining this network through our adapted service allows providers to contribute towards creating a highly available and resilient decentralized system.
+Is is a fork of the https://github.com/emeraldpay/dshackle[EmeraldPay's dshackle], adapted to work as a provider side adapter for the DRPC network. This project is specifically designed to integrate providers into the https://drpc.org/[DRPC] network, which is distinguished by its focus on low latency and high availability. Our service facilitates providers in easily connecting to the DRPC, enabling them to be part of a network that prioritizes robust, consistent, and responsive operations. Joining this network through our adapted service allows providers to contribute towards creating a highly available and resilient decentralized system.
 
 The goal of the Dshackle is to provide a stable routing to multiple nodes, and ensure that each request is executed on an appropriate provider.
 It considers nodes locations, state, current height, RPC methods it can provide and other characteristics.
