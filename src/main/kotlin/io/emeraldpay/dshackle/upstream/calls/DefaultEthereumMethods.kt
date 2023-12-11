@@ -88,6 +88,7 @@ class DefaultEthereumMethods(
         "eth_getTransactionByBlockNumberAndIndex",
         "eth_getUncleByBlockHashAndIndex",
         "eth_getUncleCountByBlockHash",
+        "eth_getBlockReceipts",
     )
 
     private val firstValueMethods = listOf(
