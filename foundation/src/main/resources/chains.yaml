@@ -284,6 +284,12 @@ chain-settings:
           grpcId: 10014
           short-names: [base-goerli]
           chain-id: 0x14a33
+        - id: Sepolia
+          priority: 2
+          code: BASE_SEPOLIA
+          grpcId: 10040
+          short-names: [ base-sepolia ]
+          chain-id: 0x14a34
     - id: linea
       label: Linea
       type: eth
