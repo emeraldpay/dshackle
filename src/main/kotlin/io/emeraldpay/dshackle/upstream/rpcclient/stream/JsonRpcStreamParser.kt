@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonToken
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseRpcParser
 import io.emeraldpay.etherjar.rpc.RpcResponseError
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.netty.ByteBufFlux
@@ -16,6 +17,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 class JsonRpcStreamParser {
     companion object {
+        private val log = LoggerFactory.getLogger(JsonRpcStreamParser::class.java)
+
         private val jsonFactory = JsonFactory()
         private val responseRpcParser = ResponseRpcParser()
 
@@ -29,7 +32,7 @@ class JsonRpcStreamParser {
 
     fun streamParse(statusCode: Int, response: Flux<ByteArray>): Mono<out Response> {
         return response.switchOnFirst({ first, responseStream ->
-            if (first.get() == null) {
+            if (first.get() == null || statusCode != 200) {
                 aggregateResponse(responseStream, statusCode)
             } else {
                 val whatCount = AtomicReference<Count>()
@@ -141,48 +144,72 @@ class JsonRpcStreamParser {
         endStream: AtomicBoolean,
         whatCount: AtomicReference<Count>,
     ): SingleResponse? {
-        jsonFactory.createParser(firstBytes).use { parser ->
-            while (true) {
-                parser.nextToken()
-                if (firstBytes.size == parser.currentLocation.byteOffset.toInt()) {
-                    break
-                }
-                if (parser.currentName != null) {
-                    if (parser.currentName == "result") {
-                        val token = parser.nextToken()
-                        val tokenStart = parser.tokenLocation.byteOffset.toInt()
-                        return if (token.isScalarValue) {
-                            val count = CountSlashes(AtomicInteger(1))
-                            whatCount.set(count)
-                            SingleResponse(processScalarValue(parser, tokenStart, firstBytes, count, endStream), null)
-                        } else {
-                            when (token) {
-                                JsonToken.START_OBJECT -> {
-                                    val count = CountObjectBrackets(AtomicInteger(1))
-                                    whatCount.set(count)
-                                    SingleResponse(
-                                        processAndCountBrackets(tokenStart, firstBytes, count.count, endStream, OBJECT_OPEN_BRACKET, OBJECT_CLOSE_BRACKET),
-                                        null,
-                                    )
-                                }
-                                JsonToken.START_ARRAY -> {
-                                    val count = CountArrayBrackets(AtomicInteger(1))
-                                    whatCount.set(count)
-                                    SingleResponse(
-                                        processAndCountBrackets(tokenStart, firstBytes, count.count, endStream, ARRAY_OPEN_BRACKET, ARRAY_CLOSE_BRACKET),
-                                        null,
-                                    )
-                                }
-                                else -> {
-                                    throw IllegalStateException("'result' not an object nor array'")
+        try {
+            jsonFactory.createParser(firstBytes).use { parser ->
+                while (true) {
+                    parser.nextToken()
+                    if (firstBytes.size == parser.currentLocation.byteOffset.toInt()) {
+                        break
+                    }
+                    if (parser.currentName != null) {
+                        if (parser.currentName == "result") {
+                            val token = parser.nextToken()
+                            val tokenStart = parser.tokenLocation.byteOffset.toInt()
+                            return if (token.isScalarValue) {
+                                val count = CountSlashes(AtomicInteger(1))
+                                whatCount.set(count)
+                                SingleResponse(
+                                    processScalarValue(parser, tokenStart, firstBytes, count, endStream),
+                                    null,
+                                )
+                            } else {
+                                when (token) {
+                                    JsonToken.START_OBJECT -> {
+                                        val count = CountObjectBrackets(AtomicInteger(1))
+                                        whatCount.set(count)
+                                        SingleResponse(
+                                            processAndCountBrackets(
+                                                tokenStart,
+                                                firstBytes,
+                                                count.count,
+                                                endStream,
+                                                OBJECT_OPEN_BRACKET,
+                                                OBJECT_CLOSE_BRACKET,
+                                            ),
+                                            null,
+                                        )
+                                    }
+
+                                    JsonToken.START_ARRAY -> {
+                                        val count = CountArrayBrackets(AtomicInteger(1))
+                                        whatCount.set(count)
+                                        SingleResponse(
+                                            processAndCountBrackets(
+                                                tokenStart,
+                                                firstBytes,
+                                                count.count,
+                                                endStream,
+                                                ARRAY_OPEN_BRACKET,
+                                                ARRAY_CLOSE_BRACKET,
+                                            ),
+                                            null,
+                                        )
+                                    }
+
+                                    else -> {
+                                        throw IllegalStateException("'result' not an object nor array'")
+                                    }
                                 }
                             }
+                        } else if (parser.currentName == "error") {
+                            return SingleResponse(null, responseRpcParser.readError(parser))
                         }
-                    } else if (parser.currentName == "error") {
-                        return SingleResponse(null, responseRpcParser.readError(parser))
                     }
                 }
+                return null
             }
+        } catch (e: Exception) {
+            log.warn("Streaming parsing exception: {}", e.message)
             return null
         }
     }

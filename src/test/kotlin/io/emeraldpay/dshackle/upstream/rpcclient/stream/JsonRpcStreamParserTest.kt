@@ -1,5 +1,7 @@
 package io.emeraldpay.dshackle.upstream.rpcclient.stream
 
+import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -23,6 +25,31 @@ class JsonRpcStreamParserTest {
             .expectNext(AggregateResponse(bytes, statusCode))
             .expectComplete()
             .verify(Duration.ofSeconds(1))
+    }
+
+    @Test
+    fun `if non 200 response code then aggregate response`() {
+        val statusCode = 403
+        val bytes = "{\"strangeResponse\": 2}".toByteArray()
+        val stream: Flux<ByteArray> = Flux.just(bytes)
+
+        val response = streamParser.streamParse(statusCode, stream).block() as AggregateResponse
+
+        assertEquals(statusCode, response.code)
+        assertArrayEquals(bytes, response.response)
+    }
+
+    @Test
+    fun `if exception is thrown during parse first part then aggregate response`() {
+        val statusCode = 200
+        val bytes = "{\"jsonrpc\":".toByteArray()
+        val secondBytes = "2, \"end\": 2}".toByteArray()
+        val stream: Flux<ByteArray> = Flux.just(bytes, secondBytes)
+
+        val response = streamParser.streamParse(statusCode, stream).block() as AggregateResponse
+
+        assertEquals(statusCode, response.code)
+        assertArrayEquals(bytes.plus(secondBytes), response.response)
     }
 
     @ParameterizedTest
