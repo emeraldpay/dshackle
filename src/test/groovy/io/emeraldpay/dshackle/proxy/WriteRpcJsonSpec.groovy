@@ -85,7 +85,7 @@ class WriteRpcJsonSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
         call.ids[1] = 105
         def data = [
-                new NativeCall.CallResult(1, null, '"0x98dbb1"'.bytes, null, null, null, null)
+                new NativeCall.CallResult(1, null, '"0x98dbb1"'.bytes, null, null, null, null, null)
         ]
         when:
         def act = writer.toJson(call, data[0])
@@ -98,7 +98,7 @@ class WriteRpcJsonSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
         call.ids[1] = 1
         def data = [
-                new NativeCall.CallResult(1, null, null, new NativeCall.CallError(1, "Internal Error", null, null, null), null, null, null)
+                new NativeCall.CallResult(1, null, null, new NativeCall.CallError(1, "Internal Error", null, null, null), null, null, null, null)
         ]
         when:
         def act = writer.toJson(call, data[0])
@@ -111,7 +111,7 @@ class WriteRpcJsonSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
         call.ids[1] = "aaa"
         def data = [
-                new NativeCall.CallResult(1, null, '"0x98dbb1"'.bytes, null, null, null, null)
+                new NativeCall.CallResult(1, null, '"0x98dbb1"'.bytes, null, null, null, null, null)
         ]
         when:
         def act = writer.toJson(call, data[0])
@@ -126,9 +126,9 @@ class WriteRpcJsonSpec extends Specification {
         call.ids[2] = 11
         call.ids[3] = 15
         def data = [
-                new NativeCall.CallResult(1, null, '"0x98dbb1"'.bytes, null, null, null, null),
-                new NativeCall.CallResult(2, null, null, new NativeCall.CallError(2, "oops", null, null, null), null, null, null),
-                new NativeCall.CallResult(3, null, '{"hash": "0x2484f459dc"}'.bytes, null, null, null, null),
+                new NativeCall.CallResult(1, null, '"0x98dbb1"'.bytes, null, null, null, null, null),
+                new NativeCall.CallResult(2, null, null, new NativeCall.CallError(2, "oops", null, null, null), null, null, null, null),
+                new NativeCall.CallResult(3, null, '{"hash": "0x2484f459dc"}'.bytes, null, null, null, null, null),
         ]
         when:
         def act = Flux.fromIterable(data)
@@ -154,7 +154,7 @@ class WriteRpcJsonSpec extends Specification {
         def call = new ProxyCall(ProxyCall.RpcType.SINGLE)
         call.ids[1] = 10
         def data = [
-                new NativeCall.CallResult(1, null, '"0x1"'.bytes, null, null, null, null),
+                new NativeCall.CallResult(1, null, '"0x1"'.bytes, null, null, null, null, null),
         ]
         when:
         def act = Flux.fromIterable(data)

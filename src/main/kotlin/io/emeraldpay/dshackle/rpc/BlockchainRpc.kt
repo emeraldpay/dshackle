@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit
 @Service
 @DependsOn("monitoringSetup")
 class BlockchainRpc(
-    private val nativeCallStream: NativeCallStream,
+    private val nativeCall: NativeCall,
     private val nativeSubscribe: NativeSubscribe,
     private val streamHead: StreamHead,
     private val describe: Describe,
@@ -73,7 +73,7 @@ class BlockchainRpc(
         var startTime = 0L
         var metrics: RequestMetrics? = null
         val idsMap = mutableMapOf<Int, String>()
-        return nativeCallStream.nativeCall(
+        return nativeCall.nativeCall(
             request
                 .subscribeOn(scheduler)
                 .doOnNext { req ->

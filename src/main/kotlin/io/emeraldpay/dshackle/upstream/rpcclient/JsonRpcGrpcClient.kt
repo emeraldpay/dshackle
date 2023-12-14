@@ -90,7 +90,7 @@ class JsonRpcGrpcClient(
                 } else {
                     null
                 }
-                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), signature, resp.upstreamId))
+                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), null, signature, resp.upstreamId))
             } else {
                 metrics?.fails?.increment()
                 Mono.error(

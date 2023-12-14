@@ -17,11 +17,12 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class BroadcastQuorum() : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
 
-    private var result: ByteArray? = null
+    private var result: JsonRpcResponse? = null
     private var txid: String? = null
     private var sig: ResponseSigner.Signature? = null
 
@@ -33,7 +34,7 @@ open class BroadcastQuorum() : CallQuorum, ValueAwareQuorum<String>(String::clas
         return result == null
     }
 
-    override fun getResult(): ByteArray? {
+    override fun getResponse(): JsonRpcResponse? {
         return result
     }
 
@@ -42,7 +43,7 @@ open class BroadcastQuorum() : CallQuorum, ValueAwareQuorum<String>(String::clas
     }
 
     override fun recordValue(
-        response: ByteArray,
+        response: JsonRpcResponse,
         responseValue: String?,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
@@ -55,7 +56,6 @@ open class BroadcastQuorum() : CallQuorum, ValueAwareQuorum<String>(String::clas
     }
 
     override fun recordError(
-        response: ByteArray?,
         errorMessage: String?,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,

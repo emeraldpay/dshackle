@@ -100,7 +100,7 @@ class QuorumRpcReader(
     }
 
     private fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
-        val quorumReduce = BiFunction<CallQuorum, Tuple3<ByteArray, Optional<ResponseSigner.Signature>, Upstream>, CallQuorum> { res, a ->
+        val quorumReduce = BiFunction<CallQuorum, Tuple3<JsonRpcResponse, Optional<ResponseSigner.Signature>, Upstream>, CallQuorum> { res, a ->
             if (res.record(a.t1, a.t2.orElse(null), a.t3)) {
                 log.trace("Quorum is resolved for method ${key.method}")
                 apiControl.resolve()
@@ -131,14 +131,15 @@ class QuorumRpcReader(
             quorumResult
                 .filter { it.isResolved() } // return nothing if not resolved
                 .map { quorum ->
+                    val response = quorum.getResponse()!!
                     // TODO find actual quorum number
-                    Result(quorum.getResult()!!, quorum.getSignature(), 1, resolvedBy())
+                    Result(response.getResult(), quorum.getSignature(), 1, resolvedBy(), response.stream)
                 }
                 .switchIfEmpty(defaultResult)
         }
     }
 
-    private fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple3<ByteArray, Optional<ResponseSigner.Signature>, Upstream>> {
+    private fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple3<JsonRpcResponse, Optional<ResponseSigner.Signature>, Upstream>> {
         val apiReader = api.getIngressReader()
         val spanParams = mapOf(
             SPAN_REQUEST_API_TYPE to apiReader.javaClass.name,
@@ -156,11 +157,16 @@ class QuorumRpcReader(
             .map { Tuples.of(it.t1, it.t2, api) }
     }
 
-    private fun withSignatureAndUpstream(api: Upstream, key: JsonRpcRequest, response: JsonRpcResponse): Function<Mono<ByteArray>, Mono<Tuple2<ByteArray, Optional<ResponseSigner.Signature>>>> {
+    private fun withSignatureAndUpstream(api: Upstream, key: JsonRpcRequest, response: JsonRpcResponse): Function<Mono<ByteArray>, Mono<Tuple2<JsonRpcResponse, Optional<ResponseSigner.Signature>>>> {
         return Function { src ->
             src.map {
-                val signature = getSignature(key, response, api.getId())
-                Tuples.of(it, Optional.ofNullable(signature))
+                // TODO: do streaming signature
+                val signature = if (response.hasStream()) {
+                    null
+                } else {
+                    getSignature(key, response, api.getId())
+                }
+                Tuples.of(response, Optional.ofNullable(signature))
             }
         }
     }
@@ -222,7 +228,7 @@ class QuorumRpcReader(
             val cause = getCause(method) ?: return Mono.empty()
             if (cause.shouldReturnNull) {
                 Mono.just(
-                    Result(Global.nullValue, null, 1, null),
+                    Result(Global.nullValue, null, 1, null, null),
                 )
             } else {
                 Mono.error(RpcException(1, "No response for method $method. Cause - ${cause.cause}"))

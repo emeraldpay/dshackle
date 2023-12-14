@@ -15,8 +15,9 @@
  */
 package io.emeraldpay.dshackle.quorum
 
-import io.emeraldpay.dshackle.upstream.Head
+
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
@@ -66,14 +67,14 @@ class ValueAwareQuorumSpec extends Specification {
         }
 
         @Override
-        void recordValue(@NotNull byte[] response, @Nullable Object responseValue, @Nullable ResponseSigner.Signature signature, @NotNull Upstream upstream) {
+        void recordValue(@NotNull JsonRpcResponse response, @Nullable Object responseValue, @Nullable ResponseSigner.Signature signature, @NotNull Upstream upstream) {
 
         }
 
 
 
         @Override
-        void recordError(@Nullable byte[] response, @Nullable String errorMessage, @Nullable ResponseSigner.Signature signature, @NotNull Upstream upstream) {
+        void recordError(@Nullable String errorMessage, @Nullable ResponseSigner.Signature signature, @NotNull Upstream upstream) {
 
         }
 
@@ -88,8 +89,8 @@ class ValueAwareQuorumSpec extends Specification {
         }
 
         @Override
-        byte[] getResult() {
-            return new byte[0]
+        JsonRpcResponse getResponse() {
+            return new JsonRpcResponse(null, null)
         }
 
         @Override

@@ -181,7 +181,7 @@ class BroadcastReaderSpec extends Specification {
         when:
         def act = reader
                 .read(new JsonRpcRequest("eth_sendRawTransaction", ["0x1"]))
-                .switchIfEmpty(Mono.just(new RpcReader.Result(new byte[0], null, 0, null)))
+                .switchIfEmpty(Mono.just(new RpcReader.Result(new byte[0], null, 0, null, null)))
         then:
         StepVerifier.create(act)
                 .expectErrorMessage("Unhandled Upstream error")

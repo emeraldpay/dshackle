@@ -19,12 +19,13 @@ package io.emeraldpay.dshackle.quorum
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class AlwaysQuorum : CallQuorum {
 
     private var resolved = false
-    private var result: ByteArray? = null
+    private var result: JsonRpcResponse? = null
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
     private val resolvers = ArrayList<Upstream>()
@@ -42,7 +43,7 @@ open class AlwaysQuorum : CallQuorum {
     }
 
     override fun record(
-        response: ByteArray,
+        response: JsonRpcResponse,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ): Boolean {
@@ -63,7 +64,7 @@ open class AlwaysQuorum : CallQuorum {
         resolvers.add(upstream)
     }
 
-    override fun getResult(): ByteArray? {
+    override fun getResponse(): JsonRpcResponse? {
         return result
     }
 

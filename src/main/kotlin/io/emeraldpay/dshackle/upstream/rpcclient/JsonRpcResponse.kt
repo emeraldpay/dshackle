@@ -18,14 +18,16 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
+import io.emeraldpay.dshackle.upstream.rpcclient.stream.Chunk
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 class JsonRpcResponse(
     private val result: ByteArray?,
     val error: JsonRpcError?,
     val id: Id,
-
+    val stream: Flux<Chunk>?,
     /**
      * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
      */
@@ -33,10 +35,13 @@ class JsonRpcResponse(
     val providedUpstreamId: String? = null,
 ) {
 
-    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0))
+    constructor(stream: Flux<Chunk>, id: Int) :
+        this(null, null, NumberId(id.toLong()), stream, null, null)
+
+    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0), null)
 
     constructor(result: ByteArray?, error: JsonRpcError?, resolvedBy: String?) :
-        this(result, error, NumberId(0), null, resolvedBy)
+        this(result, error, NumberId(0), null, null, resolvedBy)
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
@@ -48,7 +53,7 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun ok(value: ByteArray, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(value, null, id)
+            return JsonRpcResponse(value, null, id, null)
         }
 
         @JvmStatic
@@ -63,22 +68,24 @@ class JsonRpcResponse(
 
         @JvmStatic
         fun error(error: JsonRpcError, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, error, id)
+            return JsonRpcResponse(null, error, id, null)
         }
 
         @JvmStatic
         fun error(code: Int, msg: String, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg), id)
+            return JsonRpcResponse(null, JsonRpcError(code, msg), id, null)
         }
     }
 
     fun hasResult(): Boolean {
-        return result != null
+        return result != null || stream != null
     }
 
     fun hasError(): Boolean {
         return error != null
     }
+
+    fun hasStream(): Boolean = stream != null
 
     fun isNull(): Boolean {
         return result != null && NULL_VALUE.contentEquals(result)
@@ -120,7 +127,7 @@ class JsonRpcResponse(
     }
 
     fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, providedSignature, providedUpstreamId)
+        return JsonRpcResponse(result, error, id, stream, providedSignature, providedUpstreamId)
     }
 
     override fun equals(other: Any?): Boolean {

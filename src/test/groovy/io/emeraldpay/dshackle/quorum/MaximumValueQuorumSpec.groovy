@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import spock.lang.Specification
 
 class MaximumValueQuorumSpec extends Specification {
@@ -18,11 +19,11 @@ class MaximumValueQuorumSpec extends Specification {
         }
         when:
         def quorum = new MaximumValueQuorum()
-        quorum.record('"0x137"'.bytes, null, up)
-        quorum.record('"0x138"'.bytes, null, up1)
-        quorum.record('"0x139"'.bytes, null, up2)
+        quorum.record(new JsonRpcResponse('"0x137"'.bytes, null), null, up)
+        quorum.record(new JsonRpcResponse('"0x138"'.bytes, null), null, up1)
+        quorum.record(new JsonRpcResponse('"0x139"'.bytes, null), null, up2)
         then:
-        quorum.result == '"0x139"'.bytes
+        quorum.response.result == '"0x139"'.bytes
         quorum.resolvedBy.size() == 1
         quorum.isResolved()
         quorum.resolvedBy.contains(up2)
@@ -41,11 +42,11 @@ class MaximumValueQuorumSpec extends Specification {
         }
         when:
         def quorum = new MaximumValueQuorum()
-        quorum.record('"0x137"'.bytes, null, up)
-        quorum.record('"0x138"'.bytes, null, up1)
+        quorum.record(new JsonRpcResponse('"0x137"'.bytes, null), null, up)
+        quorum.record(new JsonRpcResponse('"0x138"'.bytes, null), null, up1)
         quorum.record(new JsonRpcException(10, "error"), null, up2)
         then:
-        quorum.result == '"0x138"'.bytes
+        quorum.response.result == '"0x138"'.bytes
         quorum.isResolved()
         quorum.resolvedBy.size() == 1
         quorum.resolvedBy.contains(up1)

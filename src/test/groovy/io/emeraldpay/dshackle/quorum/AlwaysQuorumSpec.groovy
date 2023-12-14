@@ -17,6 +17,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import spock.lang.Specification
 
@@ -42,10 +43,10 @@ class AlwaysQuorumSpec extends Specification {
         def quorum = new AlwaysQuorum()
         def up = Stub(Upstream)
         when:
-        quorum.record("123".bytes, new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
+        quorum.record(new JsonRpcResponse("123".bytes, null), new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
         then:
         quorum.isResolved()
-        quorum.getResult() == "123".bytes
+        quorum.getResponse().getResult() == "123".bytes
         quorum.signature == new ResponseSigner.Signature("sig1".bytes, "test", 100)
         !quorum.isFailed()
     }

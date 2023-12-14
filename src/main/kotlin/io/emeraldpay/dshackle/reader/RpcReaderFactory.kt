@@ -10,9 +10,11 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.stream.Chunk
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.springframework.cloud.sleuth.Tracer
+import reactor.core.publisher.Flux
 import java.util.concurrent.atomic.AtomicInteger
 
 abstract class RpcReader(
@@ -47,6 +49,7 @@ abstract class RpcReader(
         val signature: ResponseSigner.Signature?,
         val quorum: Int,
         val resolvedBy: Upstream?,
+        val stream: Flux<Chunk>?,
     )
 }
 

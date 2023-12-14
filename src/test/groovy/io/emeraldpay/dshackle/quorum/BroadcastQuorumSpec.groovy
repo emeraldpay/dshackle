@@ -18,9 +18,9 @@ package io.emeraldpay.dshackle.quorum
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import spock.lang.Specification
 
 class BroadcastQuorumSpec extends Specification {
@@ -35,20 +35,20 @@ class BroadcastQuorumSpec extends Specification {
         def upstream3 = Stub(Upstream)
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream1)
+        q.record(new JsonRpcResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream1)
         then:
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream2)
+        q.record(new JsonRpcResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream2)
         then:
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
         q.record(new JsonRpcException(1, "Nonce too low"), null, upstream3)
         then:
-        1 * q.recordError(_, _, _, _)
-        objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
+        1 * q.recordError(_, _, _)
+        objectMapper.readValue(q.response.getResult(), Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
     }
 
     def "Remembers first response"() {
@@ -61,19 +61,19 @@ class BroadcastQuorumSpec extends Specification {
         when:
         q.record(new JsonRpcException(1, "Internal error"), null, upstream1)
         then:
-        1 * q.recordError(_, _, _, _)
+        1 * q.recordError(_, _, _)
 
         when:
-        q.record('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null, upstream2)
+        q.record(new JsonRpcResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream2)
         then:
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
         q.record(new JsonRpcException(1, "Nonce too low"), null, upstream3)
         then:
-        1 * q.recordError(_, _, _, _)
+        1 * q.recordError(_, _, _)
         q.isResolved()
-        objectMapper.readValue(q.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
+        objectMapper.readValue(q.response.result, Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
     }
 
     def "Failed if error received 3+ times"() {

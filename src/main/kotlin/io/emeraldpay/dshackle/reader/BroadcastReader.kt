@@ -42,7 +42,7 @@ class BroadcastReader(
             }.map {
                 if (it.jsonRpcResponse.hasResult()) {
                     val sig = getSignature(key, it.jsonRpcResponse, it.upstream.getId())
-                    quorum.record(it.jsonRpcResponse.getResult(), sig, it.upstream)
+                    quorum.record(it.jsonRpcResponse, sig, it.upstream)
                 } else {
                     val err = JsonRpcException(JsonRpcResponse.NumberId(key.id), it.jsonRpcResponse.error!!, it.upstream.getId())
                     quorum.record(err, null, it.upstream)
@@ -55,10 +55,11 @@ class BroadcastReader(
             .flatMap {
                 if (quorum.isResolved()) {
                     val res = Result(
-                        quorum.getResult()!!,
+                        quorum.getResponse()!!.getResult(),
                         quorum.getSignature(),
                         upstreams.size,
                         quorum.getResolvedBy().first(),
+                        null,
                     )
                     Mono.just(res)
                 } else {

@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
@@ -37,18 +38,21 @@ abstract class ValueAwareQuorum<T>(
     }
 
     override fun record(
-        response: ByteArray,
+        response: JsonRpcResponse,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ): Boolean {
+        if (response.hasStream()) {
+            throw IllegalStateException("ValueAwareQuorum works with value, response must not have stream")
+        }
         try {
-            val value = extractValue(response, clazz)
+            val value = extractValue(response.getResult(), clazz)
             recordValue(response, value, signature, upstream)
             resolvers.add(upstream)
         } catch (e: RpcException) {
-            recordError(response, e.rpcMessage, signature, upstream)
+            recordError(e.rpcMessage, signature, upstream)
         } catch (e: Exception) {
-            recordError(response, e.message, signature, upstream)
+            recordError(e.message, signature, upstream)
         }
         return isResolved()
     }
@@ -59,18 +63,17 @@ abstract class ValueAwareQuorum<T>(
         upstream: Upstream,
     ) {
         this.rpcError = error.error
-        recordError(null, error.error.message, signature, upstream)
+        recordError(error.error.message, signature, upstream)
     }
 
     abstract fun recordValue(
-        response: ByteArray,
+        response: JsonRpcResponse,
         responseValue: T?,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     )
 
     abstract fun recordError(
-        response: ByteArray?,
         errorMessage: String?,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,

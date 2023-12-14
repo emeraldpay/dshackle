@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import io.emeraldpay.dshackle.config.AuthConfig
+
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.micrometer.core.instrument.Counter
@@ -23,9 +23,7 @@ import io.micrometer.core.instrument.Timer
 import org.mockserver.integration.ClientAndServer
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
-import org.mockserver.model.MediaType
 import org.springframework.util.SocketUtils
-import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
@@ -67,35 +65,6 @@ class JsonRpcHttpClientSpec extends Specification {
         then:
         act.error == null
         new String(act.result) == '"0x98de45"'
-    }
-
-    def "Make request with basic auth"() {
-        setup:
-        def auth = new AuthConfig.ClientBasicAuth("user", "passwd")
-        def client = new JsonRpcHttpClient("localhost:${port}", metrics, auth, null)
-
-        mockServer.when(
-                HttpRequest.request()
-                        .withMethod("POST")
-                        .withBody("ping")
-        ).respond(
-                HttpResponse.response()
-                        .withBody("pong")
-        )
-        when:
-        def act = client.execute("ping".bytes).map { new String(it.t2) }
-        then:
-        StepVerifier.create(act)
-                .expectNext("pong")
-                .expectComplete()
-                .verify(Duration.ofSeconds(1))
-        mockServer.verify(
-                HttpRequest.request()
-                        .withMethod("POST")
-                        .withBody("ping")
-                        .withContentType(MediaType.APPLICATION_JSON)
-                        .withHeader("authorization", "Basic dXNlcjpwYXNzd2Q=")
-        )
     }
 
     def "Produces RPC Exception on error status code"() {

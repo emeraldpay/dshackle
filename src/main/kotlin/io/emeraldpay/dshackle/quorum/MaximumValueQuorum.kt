@@ -1,12 +1,13 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.etherjar.hex.HexQuantity
 
 class MaximumValueQuorum : CallQuorum, ValueAwareQuorum<String>(String::class.java) {
     private var max: Long? = null
-    private var result: ByteArray? = null
+    private var result: JsonRpcResponse? = null
     private var sig: ResponseSigner.Signature? = null
 
     override fun isResolved(): Boolean {
@@ -17,7 +18,7 @@ class MaximumValueQuorum : CallQuorum, ValueAwareQuorum<String>(String::class.ja
         return result == null
     }
 
-    override fun getResult(): ByteArray? {
+    override fun getResponse(): JsonRpcResponse? {
         return result
     }
 
@@ -25,7 +26,7 @@ class MaximumValueQuorum : CallQuorum, ValueAwareQuorum<String>(String::class.ja
         return sig
     }
     override fun recordValue(
-        response: ByteArray,
+        response: JsonRpcResponse,
         responseValue: String?,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
@@ -48,7 +49,6 @@ class MaximumValueQuorum : CallQuorum, ValueAwareQuorum<String>(String::class.ja
     }
 
     override fun recordError(
-        response: ByteArray?,
         errorMessage: String?,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,

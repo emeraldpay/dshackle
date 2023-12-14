@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import spock.lang.Specification
 
@@ -30,12 +31,12 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, null, up)
+        quorum.record(new JsonRpcResponse(value, null), null, up)
         then:
         1 * up.getLag() >> 0
         quorum.isResolved()
         !quorum.isFailed()
-        quorum.result == value
+        quorum.response.result == value
     }
 
     def "Keeps signature and upstream"() {
@@ -45,12 +46,12 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
+        quorum.record(new JsonRpcResponse(value, null), new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
         then:
         1 * up.getLag() >> 0
         quorum.isResolved()
         !quorum.isFailed()
-        quorum.result == value
+        quorum.response.result == value
         quorum.signature == new ResponseSigner.Signature("sig1".bytes, "test", 100)
     }
 
@@ -61,12 +62,12 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, null, up)
+        quorum.record(new JsonRpcResponse(value, null), null, up)
         then:
         1 * up.getLag() >> 1
         quorum.isResolved()
         !quorum.isFailed()
-        quorum.result == value
+        quorum.response.result == value
     }
 
     def "Ignores if lags"() {
@@ -76,7 +77,7 @@ class NotLaggingQuorumSpec extends Specification {
         def quorum = new NotLaggingQuorum(1)
 
         when:
-        quorum.record(value, null, up)
+        quorum.record(new JsonRpcResponse(value, null), null, up)
         then:
         1 * up.getLag() >> 2
         !quorum.isResolved()

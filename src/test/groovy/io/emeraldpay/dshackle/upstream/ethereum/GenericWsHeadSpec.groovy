@@ -335,7 +335,7 @@ class GenericWsHeadSpec extends Specification {
             1 * it.subscribe(_) >> new WsSubscriptions.SubscribeData(
                     Flux.error(new RuntimeException()), "id", new AtomicReference<String>(subId)
             )
-            1 * it.unsubscribe(new JsonRpcRequest("eth_unsubscribe", List.of(subId), 2, null, null)) >>
+            1 * it.unsubscribe(new JsonRpcRequest("eth_unsubscribe", List.of(subId), 2, null, null, false)) >>
                     Mono.just(new JsonRpcResponse("".bytes, null))
         }
 

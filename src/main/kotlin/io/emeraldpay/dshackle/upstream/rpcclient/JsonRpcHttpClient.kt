@@ -17,6 +17,11 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.reader.JsonRpcHttpReader
+import io.emeraldpay.dshackle.upstream.rpcclient.stream.AggregateResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.stream.JsonRpcStreamParser
+import io.emeraldpay.dshackle.upstream.rpcclient.stream.Response
+import io.emeraldpay.dshackle.upstream.rpcclient.stream.SingleResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.stream.StreamResponse
 import io.emeraldpay.etherjar.rpc.RpcException
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.micrometer.core.instrument.Metrics
@@ -29,8 +34,6 @@ import org.apache.commons.lang3.time.StopWatch
 import reactor.core.publisher.Mono
 import reactor.netty.http.client.HttpClient
 import reactor.netty.resources.ConnectionProvider
-import reactor.util.function.Tuple2
-import reactor.util.function.Tuples
 import java.io.ByteArrayInputStream
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
@@ -51,6 +54,7 @@ class JsonRpcHttpClient(
 ) : JsonRpcHttpReader {
 
     private val parser = ResponseRpcParser()
+    private val streamParser = JsonRpcStreamParser()
     private val httpClient: HttpClient
 
     init {
@@ -91,18 +95,34 @@ class JsonRpcHttpClient(
         this.httpClient = build
     }
 
-    fun execute(request: ByteArray): Mono<Tuple2<Int, ByteArray>> {
+    private fun execute(request: JsonRpcRequest): Mono<out Response> {
+        val bytesRequest = request.toJson()
+
         val response = httpClient
             .post()
             .uri(target)
-            .send(Mono.just(request).map { Unpooled.wrappedBuffer(it) })
+            .send(Mono.just(Unpooled.wrappedBuffer(bytesRequest)))
 
-        return response.response { header, bytes ->
-            val statusCode = header.status().code()
-            bytes.aggregate().asByteArray().map {
-                Tuples.of(statusCode, it)
-            }
-        }.single()
+        return if (!request.isStreamed) {
+            response.response { header, bytes ->
+                val statusCode = header.status().code()
+
+                bytes.aggregate().asByteArray().map {
+                    AggregateResponse(it, statusCode)
+                }
+            }.single()
+        } else {
+            response.responseConnection { t, u ->
+                streamParser.streamParse(
+                    t.status().code(),
+                    u.inbound().receive()
+                        .asByteArray()
+                        .doFinally {
+                            u.dispose()
+                        },
+                )
+            }.single()
+        }
     }
 
     override fun onStop() {
@@ -113,7 +133,6 @@ class JsonRpcHttpClient(
     override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
         val startTime = StopWatch()
         return Mono.just(key)
-            .map(JsonRpcRequest::toJson)
             .doOnNext {
                 if (!startTime.isStarted) {
                     startTime.start()
@@ -167,26 +186,40 @@ class JsonRpcHttpClient(
      * Process response from the upstream and convert it to JsonRpcResponse.
      * The input is a pair of (Http Status Code, Http Response Body)
      */
-    private fun asJsonRpcResponse(key: JsonRpcRequest): Function<Mono<Tuple2<Int, ByteArray>>, Mono<JsonRpcResponse>> {
+    private fun asJsonRpcResponse(key: JsonRpcRequest): Function<Mono<out Response>, Mono<JsonRpcResponse>> {
         return Function { resp ->
             resp.map {
-                val parsed = parser.parse(it.t2)
-                val statusCode = it.t1
-                if (statusCode != 200) {
-                    if (parsed.hasError() && parsed.error!!.code != RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE) {
-                        // extracted the error details from the HTTP Body
-                        parsed
-                    } else {
-                        // here we got a valid response with ERROR as HTTP Status Code. We assume that HTTP Status has
-                        // a higher priority so return an error here anyway
-                        JsonRpcResponse.error(
-                            RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
-                            "HTTP Code: $statusCode",
-                            JsonRpcResponse.NumberId(key.id),
-                        )
+                when (it) {
+                    is AggregateResponse -> {
+                        val parsed = parser.parse(it.response)
+                        val statusCode = it.code
+                        if (statusCode != 200) {
+                            if (parsed.hasError() && parsed.error!!.code != RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE) {
+                                // extracted the error details from the HTTP Body
+                                parsed
+                            } else {
+                                // here we got a valid response with ERROR as HTTP Status Code. We assume that HTTP Status has
+                                // a higher priority so return an error here anyway
+                                JsonRpcResponse.error(
+                                    RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
+                                    "HTTP Code: $statusCode",
+                                    JsonRpcResponse.NumberId(key.id),
+                                )
+                            }
+                        } else {
+                            parsed
+                        }
                     }
-                } else {
-                    parsed
+                    is StreamResponse -> {
+                        JsonRpcResponse(it.stream, key.id)
+                    }
+                    is SingleResponse -> {
+                        if (it.hasError()) {
+                            JsonRpcResponse(null, it.error)
+                        } else {
+                            JsonRpcResponse(it.result, null)
+                        }
+                    }
                 }
             }
         }

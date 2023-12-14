@@ -4,11 +4,12 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 class NotNullQuorum : CallQuorum {
     private var sig: ResponseSigner.Signature? = null
-    private var result: ByteArray? = null
+    private var result: JsonRpcResponse? = null
     private var rpcError: JsonRpcError? = null
     private val resolvers = ArrayList<Upstream>()
     private var allFailed = true
@@ -19,14 +20,14 @@ class NotNullQuorum : CallQuorum {
     override fun isFailed(): Boolean = rpcError != null
 
     override fun record(
-        response: ByteArray,
+        response: JsonRpcResponse,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ): Boolean {
         allFailed = false
-        val receivedNull = response.isEmpty() || Global.nullValue.contentEquals(response)
+        val receivedNull = response.getResult().isEmpty() || Global.nullValue.contentEquals(response.getResult())
         val upId = upstream.getId()
-        if (seenUpstreams.contains(upId) || !receivedNull) {
+        if (seenUpstreams.contains(upId) || !receivedNull || response.hasStream()) {
             sig = signature
             result = response
             resolvers.add(upstream)
@@ -42,7 +43,7 @@ class NotNullQuorum : CallQuorum {
             if (allFailed) {
                 rpcError = error.error
             } else {
-                result = Global.nullValue
+                result = JsonRpcResponse(Global.nullValue, null)
             }
             sig = signature
         }
@@ -52,7 +53,7 @@ class NotNullQuorum : CallQuorum {
 
     override fun getSignature(): ResponseSigner.Signature? = sig
 
-    override fun getResult(): ByteArray? = result
+    override fun getResponse(): JsonRpcResponse? = result
 
     override fun getError(): JsonRpcError? = rpcError
 

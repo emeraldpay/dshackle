@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.quorum
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import java.util.concurrent.atomic.AtomicReference
 
@@ -29,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
 
-    private val result: AtomicReference<ByteArray> = AtomicReference()
+    private val result: AtomicReference<JsonRpcResponse> = AtomicReference()
     private val failed = AtomicReference(false)
     private var rpcError: JsonRpcError? = null
     private var sig: ResponseSigner.Signature? = null
@@ -44,7 +45,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     }
 
     override fun record(
-        response: ByteArray,
+        response: JsonRpcResponse,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ): Boolean {
@@ -75,7 +76,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         return sig
     }
 
-    override fun getResult(): ByteArray {
+    override fun getResponse(): JsonRpcResponse {
         return result.get()
     }
 

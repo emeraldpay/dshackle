@@ -130,7 +130,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(_) >> Mono.just(new RpcReader.Result("\"foo\"".bytes, null, 1, ups))
+                1 * read(_) >> Mono.just(new RpcReader.Result("\"foo\"".bytes, null, 1, ups, null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
@@ -238,7 +238,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null, null, null)
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null, null, null, null)
         )
         then:
         resp.id == 1561
@@ -253,7 +253,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100), "test", null)
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100), "test", null, null)
         )
         then:
         resp.id == 1561
@@ -584,7 +584,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
                 new NativeCall.RawCallDetails("eth_getFilterUpdates", '["0xabcd"]'),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator(), null, "reqId", 1)
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator(), null, false, "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -614,12 +614,12 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(_) >> Mono.just(new RpcReader.Result("\"0xab\"".bytes, null, 1, ups))
+                1 * read(_) >> Mono.just(new RpcReader.Result("\"0xab\"".bytes, null, 1, ups, null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, "reqId", 1)
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, false, "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -650,12 +650,12 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(_) >> Mono.just(new RpcReader.Result("\"0xab\"".bytes, null, 1, ups))
+                1 * read(_) >> Mono.just(new RpcReader.Result("\"0xab\"".bytes, null, 1, ups, null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
-                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, "reqId", 1)
+                new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, false, "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))

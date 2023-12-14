@@ -108,7 +108,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                 }
                 error = new JsonRpcError(-32601, "Method ${request.method} with ${request.params} is not mocked")
             }
-            return new JsonRpcResponse(result, error, JsonRpcResponse.Id.from(request.id), null, null)
+            return new JsonRpcResponse(result, error, JsonRpcResponse.Id.from(request.id), null, null, null)
         } as Callable<JsonRpcResponse>
         return Mono.fromCallable(call)
     }
