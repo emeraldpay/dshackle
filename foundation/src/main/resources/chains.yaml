@@ -597,7 +597,7 @@ chain-settings:
           chain-id: 0x8ad
           grpcId: 10033
     - id: starknet
-      label: StarkNet
+      label: Starknet
       type: starknet
       settings:
         currency: ETH
