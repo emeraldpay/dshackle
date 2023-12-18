@@ -338,6 +338,14 @@ gradle jib -Pdocker=gcr.io/myproject
 
 Gradle will prepare a Docker image and upload it to your custom Docker Registry at `gcr.io/myproject` (please change to address of your actual registry)
 
+==== Alternative: Build Docker image
+[source,bash]
+----
+docker build . -t myproject/dshackle:{version-short}
+----
+
+This enables you to build a Docker image without Gradle.
+
 ==== Architecture
 
 Dshackle is built using:
