@@ -15,7 +15,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
-class JsonRpcStreamParser {
+class JsonRpcStreamParser(
+    private val firstChunkMaxSize: Int = 8192,
+) {
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcStreamParser::class.java)
 
@@ -31,7 +33,17 @@ class JsonRpcStreamParser {
     }
 
     fun streamParse(statusCode: Int, response: Flux<ByteArray>): Mono<out Response> {
-        return response.switchOnFirst({ first, responseStream ->
+        val firstPartSize = AtomicInteger()
+        return response.bufferUntil {
+            if (firstPartSize.get() > firstChunkMaxSize) {
+                true
+            } else {
+                firstPartSize.addAndGet(it.size)
+                firstPartSize.get() > firstChunkMaxSize // accumulate bytes until chunk is full
+            }
+        }.map {
+            it.reduce { acc, bytes -> acc.plus(bytes) }
+        }.switchOnFirst({ first, responseStream ->
             if (first.get() == null || statusCode != 200) {
                 aggregateResponse(responseStream, statusCode)
             } else {

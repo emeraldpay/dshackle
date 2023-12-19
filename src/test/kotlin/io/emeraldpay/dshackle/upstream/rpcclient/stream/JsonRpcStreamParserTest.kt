@@ -13,7 +13,7 @@ import reactor.test.StepVerifier
 import java.time.Duration
 
 class JsonRpcStreamParserTest {
-    private val streamParser = JsonRpcStreamParser()
+    private val streamParser = JsonRpcStreamParser(5)
 
     @Test
     fun `if first part couldn't be parsed then aggregate response`() {
