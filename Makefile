@@ -9,11 +9,13 @@ build-main:
 test: build-foundation
 	./gradlew check
 
+local-docker: Dockerfile
+	docker build -t drpc-dshackle .
 
-jib: build-foundation
+jib: build-foundation local-docker
 	./gradlew jib -Pdocker=drpcorg
 
-jib-docker: build-foundation
+jib-docker: build-foundation local-docker
 	./gradlew jibDockerBuild -Pdocker=drpcorg
 
 distZip: build-foundation

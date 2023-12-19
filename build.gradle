@@ -169,7 +169,7 @@ application {
 
 jib {
     from {
-        image = 'openjdk:20'
+        image = 'docker://drpc-dshackle'
     }
     to {
         // by default publish as:
@@ -192,7 +192,7 @@ jib {
         }
     }
     container {
-        jvmFlags = ['-XX:+UseG1GC', '-XX:+ExitOnOutOfMemoryError', '-Xms1024M', '-XX:+UnlockDiagnosticVMOptions', '-XX:GCLockerRetryAllocationCount=10']
+        jvmFlags = ['-XX:+UseG1GC', '-XX:+ExitOnOutOfMemoryError', '-Xms1024M', '-XX:+UnlockDiagnosticVMOptions', '-XX:GCLockerRetryAllocationCount=10', '--enable-preview']
         mainClass = 'io.emeraldpay.dshackle.StarterKt'
         args = []
         ports = ['2448', '2449', '8545']

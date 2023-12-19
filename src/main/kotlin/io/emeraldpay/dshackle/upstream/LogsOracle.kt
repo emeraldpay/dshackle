@@ -15,12 +15,14 @@ class LogsOracle(
     private val log = LoggerFactory.getLogger(LogsOracle::class.java)
 
     private var subscription: Disposable? = null
-    private val db = org.drpc.logsoracle.LogsOracle(config.store, config.store, config.ram_limit ?: 0L)
+    private val db = org.drpc.logsoracle.LogsOracle(config.store, config.ram_limit ?: 0L)
 
     fun start() {
+        db.SetUpstream(config.rpc)
+
         subscription = upstream.getHead().getFlux()
             .doOnError { t -> log.warn("Failed to subscribe head for oracle", t) }
-            .subscribe { println(it.height); db.UpdateHeight(it.height) }
+            .subscribe { db.UpdateHeight(it.height) }
     }
 
     fun stop() {
@@ -31,8 +33,8 @@ class LogsOracle(
     }
 
     fun estimate(
-        fromBlock: Long?,
-        toBlock: Long?,
+        fromBlock: Long,
+        toBlock: Long,
         address: List<String>,
         topics: List<List<String>>,
     ): Mono<Long> {

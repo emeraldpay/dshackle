@@ -218,22 +218,16 @@ class EthereumLocalReader(
         }
 
         return logsOracle.estimate(fromBlock, toBlock, address, topics)
-            .map { it.toString().toByteArray() to null }
+            .map { "{\"result\":$it}".toByteArray() to null }
     }
 
-    private fun parseBlockRef(blockRef: String?): Long? {
+    private fun parseBlockRef(blockRef: String?): Long {
         when {
-            blockRef == null -> {
-                return null
-            }
-            blockRef == "latest" -> {
-                return head.getCurrentHeight() ?: return null
-            }
             blockRef == "earliest" -> {
                 return 0
             }
-            blockRef == "finalized" || blockRef == "safe" || blockRef == "pending" -> {
-                return null
+            blockRef == null || blockRef == "finalized" || blockRef == "safe" || blockRef == "pending" || blockRef == "latest" -> {
+                return head.getCurrentHeight() ?: throw Exception("couldn't get current head")
             }
             blockRef.startsWith("0x") -> {
                 val quantity = HexQuantity.from(blockRef) ?: throw IllegalArgumentException()
