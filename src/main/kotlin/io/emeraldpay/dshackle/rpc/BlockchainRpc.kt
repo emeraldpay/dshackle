@@ -100,7 +100,9 @@ class BlockchainRpc(
         }.doOnError {
             failMetric.increment()
         }.doFinally {
-            providerSpanHandler?.sendSpans(tracer.currentSpan().context())
+            tracer.currentSpan()?.run {
+                providerSpanHandler?.sendSpans(this.context())
+            }
         }
     }
 
