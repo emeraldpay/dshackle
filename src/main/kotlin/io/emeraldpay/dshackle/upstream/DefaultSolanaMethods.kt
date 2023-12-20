@@ -70,6 +70,7 @@ class DefaultSolanaMethods : CallMethods {
         "minimumLedgerSlot",
         "requestAirdrop",
         "simulateTransaction",
+        "getRecentBlockHash",
     )
 
     private val add = setOf(
