@@ -710,3 +710,142 @@ chain-settings:
           short-names: [ solana-devnet ]
           chain-id: 0x0
           grpcId: 10039
+    - id: haqq
+      label: HAQQ
+      type: eth
+      settings:
+        expected-block-time: 5.9s
+        lags:
+          syncing: 10
+          lagging: 5
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: HAQQ_MAINNET
+          short-names: [haqq]
+          chain-id: 0x2be3
+          grpcId: 1029
+        - id: Testnet
+          priority: 10
+          code: HAQQ_TESTNET
+          short-names: [haqq-testnet]
+          chain-id: 0xd3c3
+          grpcId: 10041
+    - id: filecoin
+      label: Filecoin
+      type: eth
+      settings:
+        expected-block-time: 1m
+        lags:
+          syncing: 5
+          lagging: 1
+        options:
+          validate-peers: false
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: FILECOIN_MAINNET
+          short-names: [filecoin]
+          chain-id: 0x13a
+          grpcId: 1030
+        - id: Calibration Testnet
+          priority: 10
+          code: FILECOIN_CALIBRATION
+          short-names: [filecoin-calibration]
+          chain-id: 0x4cb2f
+          grpcId: 10042
+    - id: fuse
+      label: Fuse
+      type: eth
+      settings:
+        expected-block-time: 5s
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: FUSE_MAINNET
+          short-names: [fuse]
+          chain-id: 0x7a
+          grpcId: 1031
+    - id: taiko
+      label: Taiko
+      type: eth
+      settings:
+        expected-block-time: 3.9s
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Jolnir
+          priority: 20
+          code: TAIKO_JOLNIR
+          short-names: [taiko-jolnir]
+          chain-id: 0x28c5f
+          grpcId: 10043
+    - id: okt
+      label: OKT Chain
+      type: eth
+      settings:
+        expected-block-time: 2s
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: OKTC_MAINNET
+          short-names: [oktc]
+          chain-id: 0x42
+          grpcId: 1032
+        - id: Testnet
+          priority: 10
+          code: OKTC_TESTNET
+          short-names: [oktc-testnet]
+          chain-id: 0x41
+          grpcId: 10044
+    - id: manta
+      label: Manta Network
+      type: eth
+      settings:
+        expected-block-time: 10s
+        lags:
+          syncing: 10
+          lagging: 5
+        options:
+          validate-peers: false
+      chains:
+        - id: Manta Pacific Mainnet
+          priority: 100
+          code: MANTA_PACIFIC_MAINNET
+          short-names: [manta-pacific]
+          chain-id: 0xa9
+          grpcId: 1033
+        - id: Manta Pacific Testnet
+          priority: 10
+          code: MANTA_PACIFIC_TESTNET
+          short-names: [manta-pacific-testnet]
+          chain-id: 0x34816d
+          grpcId: 10045
+    - id: harmony
+      label: Harmony
+      type: eth
+      settings:
+        expected-block-time: 2s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet Shard 0
+          priority: 100
+          code: HARMONY_MAINNET_SHARD_0
+          short-names: [harmony-0]
+          chain-id: 0x63564c40
+          grpcId: 1034
+        - id: Mainnet Shard 1
+          priority: 10
+          code: HARMONY_MAINNET_SHARD_1
+          short-names: [harmony-1]
+          chain-id: 0x63564c41
+          grpcId: 1035
