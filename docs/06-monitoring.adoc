@@ -177,3 +177,15 @@ ETHEREUM AVAILABLE
   local-eth-1 OK with lag=0
   local-eth-2 OK with lag=0
 ----
+
+== Tracing
+
+Dshackle provides an option to send spans to the DRPC tracing system to see the detailed path of a request and investigate some problems.
+
+By default, this feature is turned off. To turn it on set the env variable `ENABLE_COLLECT_SPANS` to `true`.
+
+Dshackle sends spans for a request:
+
+- which has completed with an error
+
+- which has at least one long span. Threshold to assume that a span is long is 1000 milliseconds by default, and you can control this value by passing the env variable `LONG_SPAN_THRESHOLD` in milliseconds. If you pass 0 it means that spans for all requests will be sent to the tracing system.
