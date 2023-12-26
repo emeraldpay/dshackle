@@ -12,6 +12,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.LogsOracle
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
@@ -86,6 +87,10 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         config: ChainConfig,
     ): UpstreamValidator {
         return EthereumUpstreamValidator(chain, upstream, options, config)
+    }
+
+    override fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector {
+        return EthereumLowerBoundBlockDetector(chain, upstream)
     }
 
     override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector {

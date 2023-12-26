@@ -21,6 +21,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,20 +40,23 @@ class StreamHead(
         return requestMono.map { request ->
             Chain.byId(request.type.number)
         }.flatMapMany { chain ->
-            multistreamHolder.getUpstream(chain).getHead()
+            val ms = multistreamHolder.getUpstream(chain)
+            ms.getHead()
                 .getFlux()
-                .map { asProto(chain, it!!) }
+                .map { asProto(ms, chain, it!!) }
                 .onErrorContinue { t, _ ->
                     log.warn("Head subscription error", t)
                 }
         }
     }
 
-    fun asProto(chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
+    fun asProto(ms: Multistream, chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
         return BlockchainOuterClass.ChainHead.newBuilder()
             .setChainValue(chain.id)
             .setHeight(block.height)
             .setSlot(block.slot)
+            .setCurrentLowerBlock(ms.getLowerBlock().blockNumber)
+            .setCurrentLowerSlot(ms.getLowerBlock().slot ?: 0)
             .setTimestamp(block.timestamp.toEpochMilli())
             .setWeight(ByteString.copyFrom(block.difficulty.toByteArray()))
             .setBlockId(block.hash.toHex())

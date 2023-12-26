@@ -13,6 +13,8 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetectorBuilder
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetectorBuilder
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
@@ -40,6 +42,7 @@ open class GenericUpstream(
     connectorFactory: ConnectorFactory,
     validatorBuilder: UpstreamValidatorBuilder,
     labelsDetectorBuilder: LabelsDetectorBuilder,
+    lowerBoundBlockDetectorBuilder: LowerBoundBlockDetectorBuilder,
 ) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig), Lifecycle {
 
     private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig)
@@ -50,6 +53,8 @@ open class GenericUpstream(
     protected val connector: GenericConnector = connectorFactory.create(this, chain)
     private var livenessSubscription: Disposable? = null
     private val labelsDetector = labelsDetectorBuilder(chain, this.getIngressReader())
+
+    private val lowerBoundBlockDetector = lowerBoundBlockDetectorBuilder(chain, this)
 
     override fun getHead(): Head {
         return connector.getHead()
@@ -75,6 +80,10 @@ open class GenericUpstream(
     override fun isGrpc(): Boolean {
         // this implementation works only with statically configured upstreams
         return false
+    }
+
+    override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData {
+        return lowerBoundBlockDetector.getCurrentLowerBlock()
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -162,6 +171,8 @@ open class GenericUpstream(
             log.debug("Error while checking live subscription for ${getId()}", it)
         },)
         detectLabels()
+
+        detectLowerBlock()
     }
 
     override fun stop() {
@@ -183,6 +194,15 @@ open class GenericUpstream(
         node?.labels?.let { labels ->
             labels[label.first] = label.second
         }
+    }
+
+    private fun detectLowerBlock() {
+        lowerBoundBlockDetector.lowerBlock()
+            .subscribe {
+                stateEventStream.emitNext(
+                    UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED),
+                ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+            }
     }
 
     fun getIngressSubscription(): IngressSubscription {

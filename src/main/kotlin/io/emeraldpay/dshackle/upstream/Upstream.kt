@@ -44,6 +44,7 @@ interface Upstream : Lifecycle {
     fun getId(): String
     fun getCapabilities(): Set<Capability>
     fun isGrpc(): Boolean
+    fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData
 
     fun <T : Upstream> cast(selfType: Class<T>): T
 

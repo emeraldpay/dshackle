@@ -79,6 +79,7 @@ class FilteredApisSpec extends Specification {
                     connectorFactory,
                     cs.&validator,
                     cs.&labelDetector,
+                    cs.&lowerBoundBlockDetector
             )
         }
         def matcher = new Selector.LabelMatcher("test", ["foo"])

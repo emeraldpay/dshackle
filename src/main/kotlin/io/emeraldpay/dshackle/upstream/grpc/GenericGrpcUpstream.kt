@@ -31,6 +31,7 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
@@ -176,5 +177,9 @@ open class GenericGrpcUpstream(
 
     override fun isGrpc(): Boolean {
         return true
+    }
+
+    override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData {
+        return LowerBoundBlockDetector.LowerBlockData.default()
     }
 }

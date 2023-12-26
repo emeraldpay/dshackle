@@ -18,6 +18,7 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.LogsOracle
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
@@ -60,6 +61,8 @@ interface ChainSpecific {
     fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription
 
     fun callSelector(caches: Caches): CallSelector?
+
+    fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector
 }
 
 object ChainSpecificRegistry {

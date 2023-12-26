@@ -13,6 +13,7 @@ import io.emeraldpay.dshackle.upstream.DefaultSolanaMethods
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LabelsDetector
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -134,6 +135,10 @@ object SolanaChainSpecific : AbstractChainSpecific() {
                 }
             },
         )
+    }
+
+    override fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector {
+        return SolanaLowerBoundBlockDetector(chain, upstream)
     }
 
     override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector? {

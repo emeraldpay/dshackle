@@ -8,6 +8,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -67,6 +68,10 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
                 validate(data, config.laggingLagSize, upstream.getId())
             },
         )
+    }
+
+    override fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector {
+        return StarknetLowerBoundBlockDetector(chain, upstream)
     }
 
     fun validate(data: ByteArray, lagging: Int, upstreamId: String): UpstreamAvailability {

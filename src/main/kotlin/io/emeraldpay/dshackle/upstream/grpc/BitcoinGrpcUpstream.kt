@@ -29,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.BuildInfo
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
@@ -146,6 +147,10 @@ class BitcoinGrpcUpstream(
 
     override fun isGrpc(): Boolean {
         return true
+    }
+
+    override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData {
+        return LowerBoundBlockDetector.LowerBlockData.default()
     }
 
     @Suppress("UNCHECKED_CAST")

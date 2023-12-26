@@ -20,8 +20,10 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
+import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.*
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
@@ -29,7 +31,6 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
-import io.emeraldpay.dshackle.foundation.ChainOptions
 
 class GenericUpstreamMock extends GenericUpstream {
     EthereumHeadMock ethereumHeadMock
@@ -74,6 +75,7 @@ class GenericUpstreamMock extends GenericUpstream {
                 new ConnectorFactoryMock(api, new EthereumHeadMock()),
                 io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&validator,
                 io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&labelDetector,
+                io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&lowerBoundBlockDetector,
         )
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock
         setLag(0)
@@ -103,5 +105,10 @@ class GenericUpstreamMock extends GenericUpstream {
     @Override
     String toString() {
         return "Upstream mock ${getId()}"
+    }
+
+    @Override
+    LowerBoundBlockDetector.LowerBlockData getLowerBlock() {
+        return new LowerBoundBlockDetector.LowerBlockData(0, 0)
     }
 }

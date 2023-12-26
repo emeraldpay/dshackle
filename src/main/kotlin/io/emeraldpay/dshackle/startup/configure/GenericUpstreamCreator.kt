@@ -87,6 +87,7 @@ open class GenericUpstreamCreator(
             connectorFactory,
             cs::validator,
             cs::labelDetector,
+            cs::lowerBoundBlockDetector,
         )
 
         upstream.start()
