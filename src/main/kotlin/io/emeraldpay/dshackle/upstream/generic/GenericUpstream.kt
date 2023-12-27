@@ -48,6 +48,7 @@ open class GenericUpstream(
     private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig)
     private var validatorSubscription: Disposable? = null
     private var validationSettingsSubscription: Disposable? = null
+    private var lowerBlockDetectorSubscription: Disposable? = null
 
     private val hasLiveSubscriptionHead: AtomicBoolean = AtomicBoolean(false)
     protected val connector: GenericConnector = connectorFactory.create(this, chain)
@@ -180,6 +181,8 @@ open class GenericUpstream(
         validatorSubscription = null
         livenessSubscription?.dispose()
         livenessSubscription = null
+        lowerBlockDetectorSubscription?.dispose()
+        lowerBlockDetectorSubscription = null
         disposeValidationSettingsSubscription()
         connector.stop()
     }
@@ -197,7 +200,7 @@ open class GenericUpstream(
     }
 
     private fun detectLowerBlock() {
-        lowerBoundBlockDetector.lowerBlock()
+        lowerBlockDetectorSubscription = lowerBoundBlockDetector.lowerBlock()
             .subscribe {
                 stateEventStream.emitNext(
                     UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED),

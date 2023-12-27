@@ -2,11 +2,13 @@ package io.emeraldpay.dshackle.config.reload
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.Global.Companion.chainById
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.ConfiguredUpstreams
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import org.springframework.stereotype.Component
+import java.util.stream.Collectors
 
 @Component
 open class ReloadConfigUpstreamService(
@@ -20,19 +22,21 @@ open class ReloadConfigUpstreamService(
         upstreamsToAdd: Set<Pair<String, Chain>>,
         newUpstreamsConfig: UpstreamsConfig,
     ) {
+        val newUpstreamsCount = newUpstreamsConfig.upstreams.stream()
+            .collect(
+                Collectors.groupingBy(
+                    { chainById(it.chain) },
+                    Collectors.counting(),
+                ),
+            )
+
         val usedChains = removeUpstreams(chainsToReload, upstreamsToRemove)
 
         addUpstreams(newUpstreamsConfig, chainsToReload, upstreamsToAdd.map { it.first }.toSet())
 
         usedChains.forEach { chain ->
-            val upstreamsToRemovePerChain = upstreamsToRemove.filter { it.second == chain }
-            val upstreamsToAddPerChain = upstreamsToAdd.filter { it.second == chain }
-
-            if (upstreamsToAddPerChain.isEmpty() && upstreamsToRemovePerChain.isNotEmpty()) {
-                multistreamHolder.getUpstream(chain)
-                    .run {
-                        this.stop()
-                    }
+            if (newUpstreamsCount[chain] == null) {
+                multistreamHolder.getUpstream(chain).stop()
             }
         }
     }
