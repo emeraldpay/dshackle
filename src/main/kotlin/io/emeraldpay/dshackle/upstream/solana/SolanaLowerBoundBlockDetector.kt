@@ -73,8 +73,6 @@ class SolanaLowerBoundBlockDetector(
                         .map { blockData ->
                             val block = Global.objectMapper.readValue(blockData, SolanaBlock::class.java)
                             LowerBlockData(max(block.height, 1), maxSlot)
-                        }.onErrorResume {
-                            Mono.empty()
                         }
                 }
             }
