@@ -92,7 +92,7 @@ class RecursiveLowerBoundBlockDetectorTest {
                         } else {
                             on {
                                 read(JsonRpcRequest("eth_getBalance", listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
-                            } doReturn Mono.error(RuntimeException())
+                            } doReturn Mono.error(RuntimeException("missing trie node"))
                         }
                     }
                 },
@@ -114,7 +114,7 @@ class RecursiveLowerBoundBlockDetectorTest {
                             } doReturn Mono.just(JsonRpcResponse("\"$hash2\"".toByteArray(), null))
                             on {
                                 read(JsonRpcRequest("state_getMetadata", listOf(hash2)))
-                            } doReturn Mono.error(RuntimeException())
+                            } doReturn Mono.error(RuntimeException("State already discarded for"))
                         }
                     }
                 },
@@ -127,11 +127,8 @@ class RecursiveLowerBoundBlockDetectorTest {
             Arguments.of(
                 mock<JsonRpcReader> {
                     on {
-                        read(JsonRpcRequest("chain_getBlockHash", listOf(any())))
-                    } doReturn Mono.just(JsonRpcResponse(ByteArray(0), null))
-                    on {
-                        read(JsonRpcRequest("state_getMetadata", listOf(any())))
-                    } doReturn Mono.just(JsonRpcResponse(ByteArray(0), null))
+                        read(any())
+                    } doReturn Mono.just(JsonRpcResponse("\"0x1\"".toByteArray(), null))
                 },
                 PolkadotLowerBoundBlockDetector::class.java,
             ),

@@ -2,6 +2,9 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.Chain
 import reactor.core.publisher.Mono
+import reactor.util.retry.Retry
+import reactor.util.retry.RetryBackoffSpec
+import java.time.Duration
 
 abstract class RecursiveLowerBoundBlockDetector(
     chain: Chain,
@@ -48,6 +51,25 @@ abstract class RecursiveLowerBoundBlockDetector(
 
     private fun middleBlock(lowerBoundData: LowerBoundData): Long =
         lowerBoundData.left + (lowerBoundData.right - lowerBoundData.left) / 2
+
+    protected fun retrySpec(nonRetryableErrors: Set<String>): RetryBackoffSpec {
+        return Retry.backoff(
+            Long.MAX_VALUE,
+            Duration.ofSeconds(1),
+        )
+            .maxBackoff(Duration.ofSeconds(3))
+            .filter {
+                !nonRetryableErrors.any { err -> it.message?.contains(err, true) ?: false }
+            }
+            .doAfterRetry {
+                log.debug(
+                    "Error in calculation of lower block of upstream {}, retry attempt - {}, message - {}",
+                    upstream.getId(),
+                    it.totalRetries(),
+                    it.failure().message,
+                )
+            }
+    }
 
     protected abstract fun hasState(blockNumber: Long): Mono<Boolean>
 }

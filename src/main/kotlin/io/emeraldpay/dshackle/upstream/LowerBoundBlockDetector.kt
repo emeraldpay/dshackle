@@ -17,7 +17,7 @@ abstract class LowerBoundBlockDetector(
 ) {
     private val currentLowerBlock = AtomicReference(LowerBlockData.default())
 
-    private val log = LoggerFactory.getLogger(this::class.java)
+    protected val log = LoggerFactory.getLogger(this::class.java)
 
     fun lowerBlock(): Flux<LowerBlockData> {
         return Flux.interval(

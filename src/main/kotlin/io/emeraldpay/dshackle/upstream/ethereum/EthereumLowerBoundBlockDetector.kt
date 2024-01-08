@@ -13,6 +13,28 @@ class EthereumLowerBoundBlockDetector(
     private val upstream: Upstream,
 ) : RecursiveLowerBoundBlockDetector(chain, upstream) {
 
+    companion object {
+        private val nonRetryableErrors = setOf(
+            "No state available for block", // nethermind
+            "missing trie node", // geth
+            "header not found", // optimism, bsc, avalanche
+            "Node state is pruned", // kava
+            "is not available, lowest height is", // kava, cronos
+            "State already discarded for", // moonriver, moonbeam
+            "your node is running with state pruning", // fuse
+            "Max height of block allowed", // mumbai
+            "failed to compute tipset state", // filecoin-calibration
+            "bad tipset height", // filecoin-calibration
+            "body not found for block",
+            "request beyond head block",
+            "block not found",
+            "could not find block",
+            "unknown block",
+            "header for hash not found",
+            "after last accepted block",
+        )
+    }
+
     override fun hasState(blockNumber: Long): Mono<Boolean> {
         return upstream.getIngressReader().read(
             JsonRpcRequest(
@@ -20,6 +42,7 @@ class EthereumLowerBoundBlockDetector(
                 listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", blockNumber.toHex()),
             ),
         )
+            .retryWhen(retrySpec(nonRetryableErrors))
             .flatMap(JsonRpcResponse::requireResult)
             .map { true }
             .onErrorReturn(false)

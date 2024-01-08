@@ -13,6 +13,12 @@ class PolkadotLowerBoundBlockDetector(
     private val upstream: Upstream,
 ) : RecursiveLowerBoundBlockDetector(chain, upstream) {
 
+    companion object {
+        private val nonRetryableErrors = setOf(
+            "State already discarded for",
+        )
+    }
+
     override fun hasState(blockNumber: Long): Mono<Boolean> {
         return upstream.getIngressReader().read(
             JsonRpcRequest(
@@ -32,6 +38,7 @@ class PolkadotLowerBoundBlockDetector(
                     ),
                 )
             }
+            .retryWhen(retrySpec(nonRetryableErrors))
             .flatMap(JsonRpcResponse::requireResult)
             .map { true }
             .onErrorReturn(false)

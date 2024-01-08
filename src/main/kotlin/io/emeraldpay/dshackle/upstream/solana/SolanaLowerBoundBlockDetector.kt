@@ -7,10 +7,13 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Mono
+import reactor.util.retry.Retry
+import java.time.Duration
+import kotlin.math.max
 
 class SolanaLowerBoundBlockDetector(
     chain: Chain,
-    upstream: Upstream,
+    private val upstream: Upstream,
 ) : LowerBoundBlockDetector(chain, upstream) {
     private val reader = upstream.getIngressReader()
 
@@ -23,14 +26,24 @@ class SolanaLowerBoundBlockDetector(
             }
             .flatMap(JsonRpcResponse::requireResult)
             .map {
-                String(it).toLong()
+                val slot = String(it).toLong()
+                if (slot == 0L) {
+                    1L
+                } else {
+                    slot
+                }
             }
             .flatMap { slot ->
+                val from = if (slot <= 10) {
+                    1
+                } else {
+                    slot - 10
+                }
                 reader.read(
                     JsonRpcRequest(
                         "getBlocks",
                         listOf(
-                            slot - 10,
+                            from,
                             slot,
                         ),
                     ),
@@ -59,14 +72,24 @@ class SolanaLowerBoundBlockDetector(
                         .flatMap(JsonRpcResponse::requireResult)
                         .map { blockData ->
                             val block = Global.objectMapper.readValue(blockData, SolanaBlock::class.java)
-                            LowerBlockData(block.height, maxSlot)
+                            LowerBlockData(max(block.height, 1), maxSlot)
                         }.onErrorResume {
                             Mono.empty()
                         }
                 }
             }
-            .onErrorResume {
-                Mono.empty()
-            }
+            .retryWhen(
+                Retry
+                    .backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
+                    .maxBackoff(Duration.ofSeconds(3))
+                    .doAfterRetry {
+                        log.debug(
+                            "Error in calculation of lower block of upstream {}, retry attempt - {}, message - {}",
+                            upstream.getId(),
+                            it.totalRetries(),
+                            it.failure().message,
+                        )
+                    },
+            )
     }
 }
