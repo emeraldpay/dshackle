@@ -8,6 +8,7 @@ import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent.ChangeType.UPDATED
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
@@ -56,6 +57,9 @@ open class GenericUpstream(
     private val labelsDetector = labelsDetectorBuilder(chain, this.getIngressReader())
 
     private val lowerBoundBlockDetector = lowerBoundBlockDetectorBuilder(chain, this)
+
+    private val started = AtomicBoolean(false)
+    private val isUpstreamValid = AtomicBoolean(false)
 
     override fun getHead(): Head {
         return connector.getHead()
@@ -108,44 +112,55 @@ open class GenericUpstream(
                     return
                 }
                 ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR -> {
-                    validateUpstreamSettings()
+                    log.warn("Non fatal upstream settings error, continue validation...")
                 }
-                else -> {
+                ValidateUpstreamSettingsResult.UPSTREAM_VALID -> {
+                    isUpstreamValid.set(true)
                     upstreamStart()
                 }
             }
+            validateUpstreamSettings()
         } else {
+            isUpstreamValid.set(true)
             upstreamStart()
         }
+
+        started.set(true)
     }
 
     private fun validateUpstreamSettings() {
         if (validator != null) {
             validationSettingsSubscription = Flux.interval(
-                Duration.ofSeconds(10),
                 Duration.ofSeconds(20),
             ).flatMap {
                 validator.validateUpstreamSettings()
-            }.subscribe {
-                when (it) {
-                    ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR -> {
-                        connector.stop()
-                        disposeValidationSettingsSubscription()
-                    }
+            }
+                .distinctUntilChanged()
+                .subscribe {
+                    when (it) {
+                        ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR -> {
+                            if (isUpstreamValid.get()) {
+                                log.warn("There is a fatal error after upstream settings validation, removing ${getId()}...")
+                                partialStop()
+                                sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.FATAL_SETTINGS_ERROR_REMOVED)
+                            }
+                            isUpstreamValid.set(false)
+                        }
 
-                    ValidateUpstreamSettingsResult.UPSTREAM_VALID -> {
-                        upstreamStart()
-                        stateEventStream.emitNext(
-                            UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.ADDED),
-                        ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-                        disposeValidationSettingsSubscription()
-                    }
+                        ValidateUpstreamSettingsResult.UPSTREAM_VALID -> {
+                            if (!isUpstreamValid.get()) {
+                                log.warn("Upstream ${getId()} is now valid, adding to the multistream...")
+                                upstreamStart()
+                                sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.ADDED)
+                            }
+                            isUpstreamValid.set(true)
+                        }
 
-                    else -> {
-                        log.warn("Continue validation of upstream ${getId()}")
+                        else -> {
+                            log.warn("Continue validation of upstream ${getId()}")
+                        }
                     }
                 }
-            }
         }
     }
 
@@ -165,9 +180,7 @@ open class GenericUpstream(
         }
         livenessSubscription = connector.hasLiveSubscriptionHead().subscribe({
             hasLiveSubscriptionHead.set(it)
-            stateEventStream.emitNext(
-                UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED),
-            ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+            sendUpstreamStateEvent(UPDATED)
         }, {
             log.debug("Error while checking live subscription for ${getId()}", it)
         },)
@@ -177,19 +190,21 @@ open class GenericUpstream(
     }
 
     override fun stop() {
+        partialStop()
+        validationSettingsSubscription?.dispose()
+        validationSettingsSubscription = null
+        connector.stop()
+        started.set(false)
+    }
+
+    private fun partialStop() {
         validatorSubscription?.dispose()
         validatorSubscription = null
         livenessSubscription?.dispose()
         livenessSubscription = null
         lowerBlockDetectorSubscription?.dispose()
         lowerBlockDetectorSubscription = null
-        disposeValidationSettingsSubscription()
-        connector.stop()
-    }
-
-    private fun disposeValidationSettingsSubscription() {
-        validationSettingsSubscription?.dispose()
-        validationSettingsSubscription = null
+        connector.getHead().stop()
     }
 
     private fun updateLabels(label: Pair<String, String>) {
@@ -202,9 +217,7 @@ open class GenericUpstream(
     private fun detectLowerBlock() {
         lowerBlockDetectorSubscription = lowerBoundBlockDetector.lowerBlock()
             .subscribe {
-                stateEventStream.emitNext(
-                    UpstreamChangeEvent(chain, this, UpstreamChangeEvent.ChangeType.UPDATED),
-                ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                sendUpstreamStateEvent(UPDATED)
             }
     }
 
@@ -212,5 +225,13 @@ open class GenericUpstream(
         return connector.getIngressSubscription()
     }
 
-    override fun isRunning() = connector.isRunning() && validationSettingsSubscription == null
+    override fun isRunning() = connector.isRunning() || started.get()
+
+    fun isValid(): Boolean = isUpstreamValid.get()
+
+    private fun sendUpstreamStateEvent(eventType: UpstreamChangeEvent.ChangeType) {
+        stateEventStream.emitNext(
+            UpstreamChangeEvent(chain, this, eventType),
+        ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+    }
 }

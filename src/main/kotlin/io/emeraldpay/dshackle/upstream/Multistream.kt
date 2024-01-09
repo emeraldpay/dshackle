@@ -84,6 +84,9 @@ abstract class Multistream(
     @Volatile
     private var quorumLabels: List<QuorumForLabels.QuorumItem>? = null
     private val meters: MutableMap<String, List<Meter.Id>> = HashMap()
+    private val observedUpstreams = Sinks.many()
+        .multicast()
+        .directBestEffort<Upstream>()
     private val addedUpstreams = Sinks.many()
         .multicast()
         .directBestEffort<Upstream>()
@@ -153,6 +156,15 @@ abstract class Multistream(
             .subscribe {
                 onUpstreamChange(it)
             }
+
+        observedUpstreams.asFlux()
+            .flatMap {
+                it.observeState()
+                    .takeUntil { event -> event.type == UpstreamChangeEvent.ChangeType.ADDED }
+            }
+            .subscribe {
+                this.processUpstreamsEvents(it)
+            }
     }
 
     /**
@@ -176,10 +188,10 @@ abstract class Multistream(
             }
         }
 
-    fun removeUpstream(id: String): Boolean =
+    fun removeUpstream(id: String, stopUpstream: Boolean): Boolean =
         getUpstreams().removeIf { up ->
             (up.getId() == id).also {
-                if (it) {
+                if (it && stopUpstream) {
                     up.stop()
                 }
             }
@@ -332,7 +344,7 @@ abstract class Multistream(
                     .takeUntilOther(
                         subscribeRemovedUpstreams()
                             .filter {
-                                it.getId() == upstream.getId()
+                                it.getId() == upstream.getId() && !it.isRunning()
                             },
                     )
             }
@@ -460,16 +472,29 @@ abstract class Multistream(
                 }
 
                 UpstreamChangeEvent.ChangeType.REMOVED -> {
-                    removeUpstream(event.upstream.getId()).takeIf { it }?.let {
-                        try {
-                            removedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-                            onUpstreamsUpdated()
-                            log.info("Upstream ${event.upstream.getId()} with chain $chain has been removed")
-                        } catch (e: Sinks.EmissionException) {
-                            log.error("error during event processing $event", e)
-                        }
-                    }
+                    removeUpstream(event, true)
                 }
+
+                UpstreamChangeEvent.ChangeType.FATAL_SETTINGS_ERROR_REMOVED -> {
+                    removeUpstream(event, false)
+                }
+
+                UpstreamChangeEvent.ChangeType.OBSERVED -> {
+                    observedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                    log.info("Upstream ${event.upstream.getId()} with chain $chain has been added to the observation")
+                }
+            }
+        }
+    }
+
+    private fun removeUpstream(event: UpstreamChangeEvent, stopUpstream: Boolean) {
+        removeUpstream(event.upstream.getId(), stopUpstream).takeIf { it }?.let {
+            try {
+                removedUpstreams.emitNext(event.upstream) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                onUpstreamsUpdated()
+                log.info("Upstream ${event.upstream.getId()} with chain $chain has been removed")
+            } catch (e: Sinks.EmissionException) {
+                log.error("error during event processing $event", e)
             }
         }
     }

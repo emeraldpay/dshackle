@@ -7,7 +7,6 @@ import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import org.slf4j.Logger
@@ -23,7 +22,7 @@ abstract class UpstreamCreator(
     fun createUpstream(
         upstreamsConfig: UpstreamsConfig.Upstream<*>,
         defaultOptions: Map<Chain, ChainOptions.PartialOptions>,
-    ): Upstream? {
+    ): UpstreamCreationData {
         val chain = Global.chainById(upstreamsConfig.chain)
         if (chain == Chain.UNSPECIFIED) {
             throw IllegalArgumentException("Chain is unknown: ${upstreamsConfig.chain}")
@@ -42,7 +41,7 @@ abstract class UpstreamCreator(
         chain: Chain,
         options: ChainOptions.Options,
         chainConf: ChainsConfig.ChainConfig,
-    ): Upstream?
+    ): UpstreamCreationData
 
     protected fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
         return if (config.methods != null || config.methodGroups != null) {

@@ -10,7 +10,6 @@ import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.MergedHead
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinZMQHead
@@ -38,13 +37,13 @@ class BitcoinUpstreamCreator(
         chain: Chain,
         options: ChainOptions.Options,
         chainConf: ChainsConfig.ChainConfig,
-    ): Upstream? {
+    ): UpstreamCreationData {
         val config = upstreamsConfig.cast(UpstreamsConfig.BitcoinConnection::class.java)
         val conn = config.connection!!
         val httpFactory = genericConnectorFactoryCreator.buildHttpFactory(conn.rpc)
         if (httpFactory == null) {
             log.warn("Upstream doesn't have API configuration")
-            return null
+            return UpstreamCreationData.default()
         }
         val directApi = httpFactory.create(config.id, chain)
         val esplora = conn.esplora?.let { endpoint ->
@@ -74,6 +73,6 @@ class BitcoinUpstreamCreator(
             methods, esplora, chainConf,
         )
         upstream.start()
-        return upstream
+        return UpstreamCreationData(upstream, true)
     }
 }

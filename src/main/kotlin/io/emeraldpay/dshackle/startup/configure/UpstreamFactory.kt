@@ -7,6 +7,15 @@ import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.Upstream
 import org.springframework.stereotype.Component
 
+data class UpstreamCreationData(
+    val upstream: Upstream?,
+    val isValid: Boolean,
+) {
+    companion object {
+        fun default() = UpstreamCreationData(null, false)
+    }
+}
+
 @Component
 class UpstreamFactory(
     private val genericUpstreamCreator: GenericUpstreamCreator,
@@ -18,7 +27,7 @@ class UpstreamFactory(
         type: BlockchainType,
         upstreamsConfig: UpstreamsConfig.Upstream<*>,
         defaultOptions: Map<Chain, ChainOptions.PartialOptions>,
-    ): Upstream? {
+    ): UpstreamCreationData {
         return when (type) {
             BlockchainType.ETHEREUM -> ethereumUpstreamCreator.createUpstream(upstreamsConfig, defaultOptions)
             BlockchainType.BITCOIN -> bitcoinUpstreamCreator.createUpstream(upstreamsConfig, defaultOptions)

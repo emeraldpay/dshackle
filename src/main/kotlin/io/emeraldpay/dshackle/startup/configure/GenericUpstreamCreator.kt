@@ -8,7 +8,6 @@ import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.generic.ChainSpecificRegistry
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
@@ -31,7 +30,7 @@ open class GenericUpstreamCreator(
         chain: Chain,
         options: ChainOptions.Options,
         chainConf: ChainsConfig.ChainConfig,
-    ): Upstream? {
+    ): UpstreamCreationData {
         return buildGenericUpstream(
             upstreamsConfig.nodeId,
             upstreamsConfig,
@@ -51,10 +50,10 @@ open class GenericUpstreamCreator(
         options: ChainOptions.Options,
         chainConfig: ChainsConfig.ChainConfig,
         nodeRating: Int,
-    ): Upstream? {
+    ): UpstreamCreationData {
         if (config.connection == null) {
             log.warn("Upstream doesn't have connection configuration")
-            return null
+            return UpstreamCreationData.default()
         }
 
         val cs = ChainSpecificRegistry.resolve(chain)
@@ -66,7 +65,7 @@ open class GenericUpstreamCreator(
             NoChoiceWithPriorityForkChoice(nodeRating, config.id!!),
             BlockValidator.ALWAYS_VALID,
             chainConfig,
-        ) ?: return null
+        ) ?: return UpstreamCreationData.default()
 
         val methods = buildMethods(config, chain)
 
@@ -93,9 +92,9 @@ open class GenericUpstreamCreator(
         upstream.start()
         if (!upstream.isRunning) {
             log.debug("Upstream ${upstream.getId()} is not running, it can't be added")
-            return null
+            return UpstreamCreationData.default()
         }
-        return upstream
+        return UpstreamCreationData(upstream, upstream.isValid())
     }
 
     private fun getHash(nodeId: Int?, obj: Any): Byte =

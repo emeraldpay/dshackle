@@ -59,6 +59,16 @@ data class UpstreamChangeEvent(
          * Upstream is removed (it still doesn't mean it wouldn't return again after some reconfiguration)
          */
         REMOVED,
+
+        /**
+         * Upstream is removed but not stopped due to upstream fatal settings error (it could return some reconfiguration)
+         */
+        FATAL_SETTINGS_ERROR_REMOVED,
+
+        /**
+         * Upstream is observed for state updates (it could be added later)
+         */
+        OBSERVED,
     }
 
     override fun setCaches(caches: Caches) {

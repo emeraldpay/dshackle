@@ -6,7 +6,6 @@ import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
-import io.emeraldpay.dshackle.upstream.Upstream
 import org.springframework.stereotype.Component
 
 @Component
@@ -22,7 +21,7 @@ class EthereumUpstreamCreator(
         chain: Chain,
         options: ChainOptions.Options,
         chainConf: ChainsConfig.ChainConfig,
-    ): Upstream? {
+    ): UpstreamCreationData {
         var rating = 0
         val connection = if (upstreamsConfig.connection is UpstreamsConfig.EthereumPosConnection) {
             val posConn = upstreamsConfig.cast(UpstreamsConfig.EthereumPosConnection::class.java)

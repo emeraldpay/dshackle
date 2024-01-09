@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
+import io.emeraldpay.dshackle.startup.configure.UpstreamCreationData
 import io.emeraldpay.dshackle.startup.configure.UpstreamFactory
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import org.slf4j.LoggerFactory
@@ -54,11 +55,20 @@ open class ConfiguredUpstreams(
                     log.error("Chain is unknown: ${up.chain}")
                     return@forEach
                 }
-                val upstream = upstreamFactory.createUpstream(chain.type, up, defaultOptions)
-                if (upstream != null) {
+                val upstreamCreationData = upstreamFactory.createUpstream(chain.type, up, defaultOptions)
+                if (upstreamCreationData != UpstreamCreationData.default()) {
+                    val eventType = if (upstreamCreationData.isValid) {
+                        UpstreamChangeEvent.ChangeType.ADDED
+                    } else {
+                        UpstreamChangeEvent.ChangeType.OBSERVED
+                    }
                     multistreamHolder.getUpstream(chain)
                         .processUpstreamsEvents(
-                            UpstreamChangeEvent(chain, upstream, UpstreamChangeEvent.ChangeType.ADDED),
+                            UpstreamChangeEvent(
+                                chain,
+                                upstreamCreationData.upstream!!,
+                                eventType,
+                            ),
                         )
                 }
             }
