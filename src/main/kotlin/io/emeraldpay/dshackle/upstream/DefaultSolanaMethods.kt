@@ -71,6 +71,7 @@ class DefaultSolanaMethods : CallMethods {
         "requestAirdrop",
         "simulateTransaction",
         "getRecentBlockHash",
+        "getFees",
     )
 
     private val add = setOf(
