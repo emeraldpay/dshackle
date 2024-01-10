@@ -189,10 +189,10 @@ class DefaultEthereumMethods(
 
     private fun getChainSpecificMethods(chain: Chain): List<String> {
         return when (chain) {
-            Chain.OPTIMISM__MAINNET, Chain.OPTIMISM__GOERLI -> listOf(
-                "rollup_gasPrices",
-            )
-
+            Chain.OPTIMISM__MAINNET, Chain.OPTIMISM__GOERLI, Chain.MANTLE__MAINNET, Chain.MANTLE__TESTNET ->
+                listOf(
+                    "rollup_gasPrices",
+                )
             Chain.POLYGON__MAINNET, Chain.POLYGON__MUMBAI -> listOf(
                 "bor_getAuthor",
                 "bor_getCurrentValidators",
