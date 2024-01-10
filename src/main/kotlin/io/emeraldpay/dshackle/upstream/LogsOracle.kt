@@ -33,12 +33,24 @@ class LogsOracle(
     }
 
     fun estimate(
+        limit: Long?,
         fromBlock: Long,
         toBlock: Long,
         address: List<String>,
         topics: List<List<String>>,
-    ): Mono<Long> {
-        return Mono.fromCallable { db.Query(fromBlock, toBlock, address, topics) }
+    ): Mono<String> {
+        return Mono.fromCallable {
+            try {
+                val estimate = db.Query(limit, fromBlock, toBlock, address, topics)
+                "{\"total\":$estimate,\"overflow\":false}"
+            } catch (e: org.drpc.logsoracle.LogsOracle.LogsOracleException) {
+                if (e.isQueryOverflow()) {
+                    "{\"total\":\"-1\",\"overflow\":true}"
+                } else {
+                    throw e
+                }
+            }
+        }
             .subscribeOn(scheduler)
     }
 }
