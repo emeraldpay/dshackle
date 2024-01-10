@@ -183,10 +183,6 @@ class EthereumLocalReader(
 
         val req = params[0] as LinkedHashMap<String, Any?>
 
-        val limit = try { req.get("limit") as Integer? } catch (_: IllegalArgumentException) {
-            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'limit' parameter")
-        }
-
         val fromBlock = try { parseBlockRef(req.get("fromBlock") as String?) } catch (_: IllegalArgumentException) {
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'fromBlock' parameter")
         }
@@ -221,8 +217,8 @@ class EthereumLocalReader(
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'topics' parameter")
         }
 
-        return logsOracle.estimate(limit?.toLong() ?: null, fromBlock, toBlock, address, topics)
-            .map { it.toByteArray() to null }
+        return logsOracle.estimate(fromBlock, toBlock, address, topics)
+            .map { "{\"result\":$it}".toByteArray() to null }
     }
 
     private fun parseBlockRef(blockRef: String?): Long {
