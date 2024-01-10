@@ -21,8 +21,12 @@ class LogsOracle(
         db.SetUpstream(config.rpc)
 
         subscription = upstream.getHead().getFlux()
-            .doOnError { t -> log.warn("Failed to subscribe head for oracle", t) }
-            .subscribe { db.UpdateHeight(it.height) }
+            .doOnError { t -> log.error("Failed to subscribe head for oracle", t) }
+            .subscribeOn(scheduler)
+            .subscribe {
+                log.info("update liboracle state: height=${it.height}")
+                db.UpdateHeight(it.height)
+            }
     }
 
     fun stop() {
