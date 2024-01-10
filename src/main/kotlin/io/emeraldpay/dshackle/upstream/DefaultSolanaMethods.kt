@@ -72,6 +72,8 @@ class DefaultSolanaMethods : CallMethods {
         "simulateTransaction",
         "getRecentBlockHash",
         "getFees",
+        "getIdentity",
+        "getConfirmedSignaturesForAddress2",
     )
 
     private val add = setOf(
