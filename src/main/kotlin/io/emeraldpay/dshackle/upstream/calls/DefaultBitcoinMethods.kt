@@ -43,6 +43,7 @@ class DefaultBitcoinMethods : CallMethods {
     private val anyResponseMethods = listOf(
         "getblockhash",
         "getrawtransaction",
+        "estimatesmartfee",
     ).sorted()
 
     private val headVerifiedMethods = listOf(
