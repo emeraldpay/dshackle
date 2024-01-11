@@ -24,12 +24,15 @@ class LogsOracle(
         subscription = upstream.getHead().getFlux()
             .publishOn(scheduler)
             .doOnError { t -> log.error("Failed to subscribe head for oracle", t) }
+            .doFinally { log.info("unsubscribe head") }
             .subscribe { setHeight(it.height) }
 
         setUpstream(config.rpc)
     }
 
     fun stop() {
+        log.info("liboracle closed")
+
         subscription?.dispose()
         subscription = null
 
