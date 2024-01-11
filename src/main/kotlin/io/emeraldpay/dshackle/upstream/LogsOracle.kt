@@ -15,25 +15,25 @@ class LogsOracle(
     private val log = LoggerFactory.getLogger(LogsOracle::class.java)
 
     private var subscription: Disposable? = null
-    private val db = org.drpc.logsoracle.LogsOracle(config.store, config.ram_limit ?: 0L)
+    private var conn: org.drpc.logsoracle.LogsOracle? = null
 
     fun start() {
-        db.SetUpstream(config.rpc)
+        log.info("liboracle starting")
 
+        conn = org.drpc.logsoracle.LogsOracle(config.store, config.ram_limit ?: 0L)
         subscription = upstream.getHead().getFlux()
             .publishOn(scheduler)
             .doOnError { t -> log.error("Failed to subscribe head for oracle", t) }
-            .subscribe {
-                log.info("update liboracle state: height=${it.height}")
-                db.UpdateHeight(it.height)
-            }
+            .subscribe { setHeight(it.height) }
+
+        setUpstream(config.rpc)
     }
 
     fun stop() {
-        db.close()
-
         subscription?.dispose()
         subscription = null
+
+        conn?.close()
     }
 
     fun estimate(
@@ -44,8 +44,10 @@ class LogsOracle(
         topics: List<List<String>>,
     ): Mono<String> {
         return Mono.fromCallable {
+            log.info("query: from=$fromBlock, to=$toBlock")
+
             try {
-                val estimate = db.Query(limit, fromBlock, toBlock, address, topics)
+                val estimate = conn?.Query(limit, fromBlock, toBlock, address, topics)
                 "{\"total\":$estimate,\"overflow\":false}"
             } catch (e: org.drpc.logsoracle.LogsOracle.LogsOracleException) {
                 if (e.isQueryOverflow()) {
@@ -56,5 +58,23 @@ class LogsOracle(
             }
         }
             .publishOn(scheduler)
+    }
+
+    fun setHeight(height: Long) {
+        try {
+            log.info("update state: height=$height")
+            conn?.UpdateHeight(height)
+        } catch (e: Exception) {
+            log.error("couldn't set height", e)
+        }
+    }
+
+    fun setUpstream(upstream: String) {
+        try {
+            log.info("update state: upstream=$upstream")
+            conn?.SetUpstream(upstream)
+        } catch (e: Exception) {
+            log.error("couldn't set upstream", e)
+        }
     }
 }
