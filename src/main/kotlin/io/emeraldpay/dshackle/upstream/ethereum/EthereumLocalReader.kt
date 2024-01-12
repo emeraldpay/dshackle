@@ -183,7 +183,7 @@ class EthereumLocalReader(
 
         val req = params[0] as LinkedHashMap<String, Any?>
 
-        val limit = try { req.get("limit") as Integer? } catch (_: IllegalArgumentException) {
+        val limit = try { req.get("limit") as Int? } catch (_: IllegalArgumentException) {
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'limit' parameter")
         }
 
@@ -205,7 +205,7 @@ class EthereumLocalReader(
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'address' parameter")
         }
         val topics: List<List<String>> = try {
-            val tpcs = req.get("topics")?.let { it as List<Any> } ?: listOf<Any>()
+            val tpcs = req.get("topics")?.let { it as List<Any?> } ?: listOf<Any?>()
             if (tpcs.size > 4) {
                 throw IllegalArgumentException()
             }
@@ -223,7 +223,7 @@ class EthereumLocalReader(
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'topics' parameter")
         }
 
-        return logsOracle.estimate(limit?.toLong() ?: null, fromBlock, toBlock, address, topics)
+        return logsOracle.estimate(limit?.toLong(), fromBlock, toBlock, address, topics)
             .map { it.toByteArray() to null }
     }
 

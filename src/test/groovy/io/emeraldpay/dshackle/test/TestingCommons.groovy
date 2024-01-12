@@ -99,7 +99,8 @@ class TestingCommons {
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
                 EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()),
                 null,
-                Schedulers.immediate()
+                Schedulers.immediate(),
+                tracerMock()
         ).tap {
             it.processUpstreamsEvents(
                     new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up, UpstreamChangeEvent.ChangeType.ADDED)
@@ -128,7 +129,8 @@ class TestingCommons {
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
                 EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()),
                 null,
-                Schedulers.immediate())
+                Schedulers.immediate(),
+                tracerMock())
     }
 
     static Multistream multistreamClassicWithoutUpstreams(Chain chain) {
@@ -137,7 +139,8 @@ class TestingCommons {
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
                 EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()),
                 null,
-                Schedulers.immediate())
+                Schedulers.immediate(),
+                tracerMock())
     }
 
     static FileResolver fileResolver() {

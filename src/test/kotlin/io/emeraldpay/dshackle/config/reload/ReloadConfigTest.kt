@@ -181,6 +181,7 @@ class ReloadConfigTest {
             cs.subscriptionBuilder(Schedulers.boundedElastic()),
             null,
             Schedulers.fromExecutor(Executors.newFixedThreadPool(6)),
+            mock<Tracer>(),
         )
     }
 

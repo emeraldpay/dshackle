@@ -39,6 +39,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
+import org.springframework.cloud.sleuth.Tracer
 import org.springframework.util.ConcurrentReferenceHashMap
 import org.springframework.util.ConcurrentReferenceHashMap.ReferenceType.WEAK
 import reactor.core.publisher.Flux
@@ -57,6 +58,7 @@ open class GenericMultistream(
     private val subscriptionBuilder: SubscriptionBuilder,
     logsOracleConfig: IndexConfig.Index? = null,
     private val logsOracleScheduler: Scheduler,
+    private val tracer: Tracer,
 ) : Multistream(chain, caches, callSelector, multistreamEventsScheduler) {
 
     private val cachingReader = cachingReaderBuilder(this, caches, getMethodsFactory())
@@ -76,7 +78,7 @@ open class GenericMultistream(
     )
 
     private val logsOracle: LogsOracle? = logsOracleConfig?.let {
-        LogsOracle(logsOracleConfig, this, logsOracleScheduler)
+        LogsOracle(logsOracleConfig, this, logsOracleScheduler, tracer)
     }
 
     private var subscription: EgressSubscription = subscriptionBuilder(this)

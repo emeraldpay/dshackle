@@ -74,6 +74,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
             cs.subscriptionBuilder(headScheduler),
             logsOracleConfig,
             logsOracleScheduler,
+            tracer,
         ).also { register(it, name) }
     }
 

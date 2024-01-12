@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.config.IndexConfig
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.Tracer
 import reactor.core.Disposable
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
@@ -10,6 +11,7 @@ class LogsOracle(
     private val config: IndexConfig.Index,
     private val upstream: Multistream,
     private val scheduler: Scheduler,
+    private val tracer: Tracer,
 ) {
 
     private val log = LoggerFactory.getLogger(LogsOracle::class.java)
@@ -18,7 +20,7 @@ class LogsOracle(
     private var conn: org.drpc.logsoracle.LogsOracle? = null
 
     fun start() {
-        log.info("liboracle starting")
+        log.info("liboracle starting: store=${config.store}, ram=${config.ram_limit}")
 
         conn = org.drpc.logsoracle.LogsOracle(config.store, config.ram_limit ?: 0L)
         subscription = upstream.getHead().getFlux()
@@ -46,8 +48,11 @@ class LogsOracle(
         address: List<String>,
         topics: List<List<String>>,
     ): Mono<String> {
+        val requestSpan = tracer.currentSpan()
+
         return Mono.fromCallable {
-            log.info("query: from=$fromBlock, to=$toBlock")
+            val span = tracer.nextSpan(requestSpan).name("emerald.blockchain/logsoracle").start()
+            log.info("query: from=$fromBlock, to=$toBlock, limit=$limit")
 
             try {
                 val estimate = conn?.Query(limit, fromBlock, toBlock, address, topics)
@@ -58,6 +63,8 @@ class LogsOracle(
                 } else {
                     throw e
                 }
+            } finally {
+                span.end()
             }
         }
             .publishOn(scheduler)
