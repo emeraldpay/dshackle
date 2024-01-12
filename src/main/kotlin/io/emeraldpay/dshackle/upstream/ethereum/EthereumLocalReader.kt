@@ -211,7 +211,9 @@ class EthereumLocalReader(
             }
 
             tpcs.map {
-                if (it is String) {
+                if (it == null) {
+                    emptyList<String>()
+                } else if (it is String) {
                     listOf<String>(it)
                 } else {
                     it as List<String>
