@@ -855,3 +855,18 @@ chain-settings:
           short-names: [harmony-1]
           chain-id: 0x63564c41
           grpcId: 1035
+    - id: berachain
+      label: Berachain
+      type: eth
+      settings:
+        expected-block-time: 6s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Artio
+          priority: 10
+          code: BERACHAIN_ARTIO
+          short-names: [artio, berachain-artio]
+          chain-id: 0x138d5
+          grpcId: 10047
