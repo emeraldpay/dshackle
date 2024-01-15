@@ -35,15 +35,17 @@ class HeapDumpCreator {
             if (enableCreateDumps && dumpsPathExists) {
                 executorService.scheduleAtFixedRate({ dumpCheckTask(dumpsPath) }, 0, 30, TimeUnit.MINUTES)
 
-                configHeapDump(dumpsPath)
+                val appName = envVars["DSHACKLE_APP_NAME"] ?: "dshackle"
+
+                configHeapDump(dumpsPath, appName)
             } else {
                 log.warn("Heap dump creation is turned off")
             }
         }
 
-        private fun configHeapDump(dumpsPath: String) {
+        private fun configHeapDump(dumpsPath: String, appName: String) {
             val date = SimpleDateFormat("yyyyMMddHHmmss").format(Date())
-            val fileName = "$dumpsPath/heap_$date.hprof"
+            val fileName = "$dumpsPath/heap_${date}_$appName.hprof"
 
             val bean = ManagementFactory.newPlatformMXBeanProxy(
                 ManagementFactory.getPlatformMBeanServer(),

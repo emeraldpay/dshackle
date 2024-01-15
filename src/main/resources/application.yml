@@ -1,7 +1,7 @@
 spring:
   application:
     max-metadata-size: ${MAX_METADATA_SIZE:16384}
-    name: ${DRPC_APP_NAME:dshackle}
+    name: ${DSHACKLE_APP_NAME:dshackle}
   zipkin:
     enabled: ${ENABLE_COLLECT_SPANS:false}
     base-url: ${ZIPKIN_URL:https://trace.drpc.dev/}
