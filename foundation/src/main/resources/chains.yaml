@@ -122,6 +122,12 @@ chain-settings:
           grpcId: 10013
           chain-id: 0x13881
           short-names: [polygon-mumbai]
+        - id: Amoy
+          priority: 10
+          code: POLYGON_POS_AMOY
+          grpcId: 10048
+          chain-id: 0x13882
+          short-names: [polygon-amoy]
     - id: arbitrum
       label: Arbitrum One
       type: eth
