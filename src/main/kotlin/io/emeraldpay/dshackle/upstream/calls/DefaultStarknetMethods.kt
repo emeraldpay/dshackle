@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.MaximumValueQuorum
-import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import io.emeraldpay.etherjar.rpc.RpcException
 
@@ -86,11 +85,7 @@ class DefaultStarknetMethods(
         return when {
             nonce.contains(method) -> MaximumValueQuorum()
             add.contains(method) -> BroadcastQuorum()
-            hardcodedMethods.contains(method) -> AlwaysQuorum()
-            nonLagging.contains(method) -> NotLaggingQuorum(1)
             nonNull.contains(method) -> NotNullQuorum()
-            firstValueMethods.contains(method) -> AlwaysQuorum()
-            anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
 
             else -> AlwaysQuorum()
         }

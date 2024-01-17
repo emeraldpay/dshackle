@@ -26,7 +26,6 @@ import org.reactivestreams.Subscriber
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
-import java.time.Duration
 import java.util.EnumMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
@@ -141,10 +140,7 @@ class FilteredApis(
         val second = Flux.fromIterable(secondaryUpstreams.sortedBy { it.getStatus().grpcId })
         // if all failed, try both standard and fallback upstreams, repeating in cycle
         val retries = (0 until this.retries).map {
-            val retryDelay = (it + 1) * 30
-            Flux.fromIterable(
-                standardWithFallback.sortedBy { up -> up.getStatus().grpcId },
-            ).delaySubscription(Duration.ofMillis(retryDelay.toLong()))
+            Flux.fromIterable(standardWithFallback.sortedBy { up -> up.getStatus().grpcId })
         }.let { Flux.concat(it) }
 
         val size = primaryUpstreams.size + secondaryUpstreams.size + standardWithFallback.size * this.retries
@@ -157,16 +153,22 @@ class FilteredApis(
                 .doFinally { metrics[chain]?.tried?.record(count.toDouble()) }
         }
 
-        result.filter { up ->
-            val matchesResponse = internalMatcher.matchesWithCause(up)
-            processMatchesResponse(up.getId(), matchesResponse)
-            matchesResponse.matched()
-        }
-            .zipWith(control.asFlux())
-            .map {
+        control.asFlux()
+            .zipWith(result)
+            .map { it.t2 }
+            .filter { up ->
+                val matchesResponse = internalMatcher.matchesWithCause(up)
+                processMatchesResponse(up.getId(), matchesResponse)
+                matchesResponse.matched()
+                    .also {
+                        if (!it) {
+                            this.request(1)
+                        }
+                    }
+            }
+            .doOnNext {
                 upstreamsMatchesResponse = null
                 counter.incrementAndGet()
-                it.t1
             }
             .doOnSubscribe {
                 if (!started) {

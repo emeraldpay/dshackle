@@ -22,7 +22,6 @@ import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.MaximumValueQuorum
-import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
 import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import io.emeraldpay.etherjar.rpc.RpcException
 
@@ -145,31 +144,11 @@ class DefaultEthereumMethods(
 
     override fun createQuorumFor(method: String): CallQuorum {
         return when {
-            newFilterMethods.contains(method) -> NotLaggingQuorum(4)
-            withFilterIdMethods.contains(method) -> AlwaysQuorum()
-            hardcodedMethods.contains(method) -> AlwaysQuorum()
-            firstValueMethods.contains(method) -> AlwaysQuorum()
-            anyResponseMethods.contains(method) -> NotLaggingQuorum(4)
-            headVerifiedMethods.contains(method) -> NotLaggingQuorum(1)
-            getDrpcVendorMethods(chain).contains(method) -> AlwaysQuorum()
             possibleNotIndexedMethods.contains(method) -> NotNullQuorum()
             specialMethods.contains(method) -> {
                 when (method) {
                     "eth_getTransactionCount" -> MaximumValueQuorum()
-                    "eth_getBalance" -> AlwaysQuorum()
-                    "eth_blockNumber" -> NotLaggingQuorum(0)
                     "eth_sendRawTransaction" -> BroadcastQuorum()
-                    else -> AlwaysQuorum()
-                }
-            }
-
-            getChainSpecificMethods(chain).contains(method) -> {
-                when (method) {
-                    "bor_getAuthor" -> NotLaggingQuorum(4)
-                    "bor_getCurrentValidators" -> NotLaggingQuorum(0)
-                    "bor_getCurrentProposer" -> NotLaggingQuorum(0)
-                    "bor_getRootHash" -> NotLaggingQuorum(4)
-                    "eth_getRootHash" -> NotLaggingQuorum(4)
                     else -> AlwaysQuorum()
                 }
             }

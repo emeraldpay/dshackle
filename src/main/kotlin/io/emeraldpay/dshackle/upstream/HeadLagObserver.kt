@@ -37,7 +37,7 @@ class HeadLagObserver(
     private val distanceExtractor: Extractor,
     private val lagObserverScheduler: Scheduler,
     private val forkDistance: Long,
-    private val throttling: Duration = Duration.ofSeconds(5),
+    private val throttling: Duration = Duration.ofMillis(500),
 ) : Lifecycle {
 
     private val log = LoggerFactory.getLogger(HeadLagObserver::class.java)
@@ -63,13 +63,13 @@ class HeadLagObserver(
             .sample(throttling)
             .flatMap(this::probeFollowers)
             .map { item ->
-                log.debug("Set lag ${item.t1} to upstream ${item.t2.getId()}")
+                log.trace("Set lag ${item.t1} to upstream ${item.t2.getId()}")
                 item.t2.setLag(item.t1)
             }
     }
 
     fun probeFollowers(top: BlockContainer): Flux<Tuple2<Long, Upstream>> {
-        log.debug("Compute lag for ${followers.map { it.getId() }}")
+        log.trace("Compute lag for ${followers.map { it.getId() }}")
 
         return Flux.fromIterable(followers)
             .parallel(followers.size)
@@ -92,7 +92,7 @@ class HeadLagObserver(
                 log.warn("Failed to find distance for $up", t)
             }
             .doOnNext {
-                log.debug("Lag for ${it.t2.getId()} is ${it.t1}")
+                log.trace("Lag for ${it.t2.getId()} is ${it.t1}")
             }
     }
 
