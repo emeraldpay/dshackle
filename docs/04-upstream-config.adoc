@@ -16,12 +16,8 @@ Those protocols can be configures with additional security, TLS and authenticati
 
 - Most common way to connect upstream. Supported for Ethereum, Starknet, Solana and Varanet upstreams. It uses rpc and ws connection to provide access via jsonprc calls.
 
-==== Ethereum PoS
-
-- The support for PoS Ethereum isn't fully implemented yet. However, we support it in a simplified way.
-As we can no longer rely on the difficulty parameter of a block for fork choice algorithm we implement upstream rating.
-In short terms, we just consider the upstream with the highest rating to be always correct when reporting its head.
-Unless it's down then we will fallback on the upstream with the second highest rating, etc.
+==== Solana
+In case of Solana nodes configuration with WS connection it is important to use   `--rpc-pubsub-enable-block-subscription` on solana node to enable head subscription through ws
 
 ==== Bitcoin
 
