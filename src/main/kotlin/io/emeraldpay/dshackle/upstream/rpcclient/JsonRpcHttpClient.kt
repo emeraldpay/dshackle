@@ -28,6 +28,7 @@ import org.apache.commons.lang3.time.StopWatch
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.netty.http.client.HttpClient
+import reactor.netty.resources.ConnectionProvider
 import reactor.util.function.Tuple2
 import reactor.util.function.Tuples
 import java.io.ByteArrayInputStream
@@ -51,6 +52,12 @@ class JsonRpcHttpClient(
 
     companion object {
         private val log = LoggerFactory.getLogger(JsonRpcHttpClient::class.java)
+
+        // default connection pool has only 1000 of pending connections, which is not always enough
+        private val connectionProvider = ConnectionProvider.builder("json-rpc-pool")
+            .maxConnections(500)
+            .pendingAcquireMaxCount(5000)
+            .build()
     }
 
     private val parser = ResponseRpcParser()
@@ -61,7 +68,7 @@ class JsonRpcHttpClient(
     override var onHttpError: Consumer<Int>? = null
 
     init {
-        var build = HttpClient.create()
+        var build = HttpClient.create(connectionProvider)
             .resolver(DefaultAddressResolverGroup.INSTANCE)
             .compress(compress)
             .doOnChannelInit(metrics.onChannelInit)
