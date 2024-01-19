@@ -51,6 +51,7 @@ class DefaultBitcoinMethods : CallMethods {
         "getblockcount",
         "listunspent",
         "getreceivedbyaddress",
+        "getblockchaininfo",
     ).sorted()
 
     private val hardcodedMethods = listOf(
