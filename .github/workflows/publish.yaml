@@ -15,6 +15,11 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 17
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_KEY }}
       - name: Check
         uses: eskatos/gradle-command-action@v1
         with:
@@ -23,8 +28,6 @@ jobs:
         uses: eskatos/gradle-command-action@v1
         with:
           arguments: jib
-        env:
-          DOCKER_KEY: ${{ secrets.DOCKER_KEY }}
 
   publish-github:
     runs-on: ubuntu-latest
