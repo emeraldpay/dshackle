@@ -75,7 +75,15 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
     }
 
     fun validate(data: ByteArray, lagging: Int, upstreamId: String): UpstreamAvailability {
-        val resp = Global.objectMapper.readValue(data, StarknetSyncing::class.java)
+        val raw = Global.objectMapper.readTree(data)
+        if (raw.isBoolean) {
+            return if (raw.asBoolean()) {
+                UpstreamAvailability.SYNCING
+            } else {
+                UpstreamAvailability.OK
+            }
+        }
+        val resp = Global.objectMapper.treeToValue(raw, StarknetSyncing::class.java)
         return if (resp.highest - resp.current > lagging) {
             log.warn("Starknet node {} is syncing: current={} and highest={}", upstreamId, resp.current, resp.highest)
             UpstreamAvailability.SYNCING
