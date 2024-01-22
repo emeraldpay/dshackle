@@ -919,3 +919,17 @@ chain-settings:
           short-names: [artio, berachain-artio]
           chain-id: 0x138d5
           grpcId: 10047
+    - id: blast
+      label: Blast
+      type: eth
+      settings:
+        expected-block-time: 2s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Sepolia
+          code: BLAST_SEPOLIA
+          short-names: [blast-sepolia]
+          chain-id: 0xa0c71fd
+          grpcId: 10049
