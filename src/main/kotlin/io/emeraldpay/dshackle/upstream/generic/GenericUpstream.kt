@@ -107,12 +107,13 @@ open class GenericUpstream(
             val validSettingsResult = validator.validateUpstreamSettingsOnStartup()
             when (validSettingsResult) {
                 ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR -> {
-                    connector.stop()
                     log.warn("Upstream ${getId()} couldn't start, invalid upstream settings")
+                    connector.stop()
                     return
                 }
                 ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR -> {
                     log.warn("Non fatal upstream settings error, continue validation...")
+                    connector.getHead().stop()
                 }
                 ValidateUpstreamSettingsResult.UPSTREAM_VALID -> {
                     isUpstreamValid.set(true)

@@ -445,7 +445,7 @@ abstract class Multistream(
     private fun onUpstreamChange(event: UpstreamChangeEvent) {
         val chain = event.chain
         if (this.chain == chain) {
-            log.debug("Processing event {}", event)
+            log.trace("Processing event {}", event)
             when (event.type) {
                 UpstreamChangeEvent.ChangeType.REVALIDATED -> {}
                 UpstreamChangeEvent.ChangeType.UPDATED -> {
