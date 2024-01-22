@@ -2,12 +2,14 @@ name: Publish
 on:
   release:
     types: [created]
+  push:
+    tags:
+    - '*'
+  workflow_dispatch:
 
 jobs:
-
   publish-docker:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,7 +30,6 @@ jobs:
 
   publish-github:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
         with:
