@@ -33,6 +33,7 @@ class EthereumLowerBoundBlockDetector(
             "header for hash not found",
             "after last accepted block",
             "Version has either been pruned, or is for a future block", // cronos
+            "no historical RPC is available for this historical", // optimism
         )
     }
 

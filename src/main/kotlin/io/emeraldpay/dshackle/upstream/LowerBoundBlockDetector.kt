@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 typealias LowerBoundBlockDetectorBuilder = (Chain, Upstream) -> LowerBoundBlockDetector
@@ -41,11 +42,14 @@ abstract class LowerBoundBlockDetector(
     data class LowerBlockData(
         val blockNumber: Long,
         val slot: Long?,
+        val timestamp: Long,
     ) : Comparable<LowerBlockData> {
-        constructor(blockNumber: Long) : this(blockNumber, null)
+        constructor(blockNumber: Long) : this(blockNumber, null, Instant.now().epochSecond)
+
+        constructor(blockNumber: Long, slot: Long) : this(blockNumber, slot, Instant.now().epochSecond)
 
         companion object {
-            fun default() = LowerBlockData(0, 0)
+            fun default() = LowerBlockData(0, 0, 0)
         }
 
         override fun compareTo(other: LowerBlockData): Int {

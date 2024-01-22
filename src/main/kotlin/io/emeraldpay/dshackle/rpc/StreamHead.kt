@@ -57,6 +57,7 @@ class StreamHead(
             .setSlot(block.slot)
             .setCurrentLowerBlock(ms.getLowerBlock().blockNumber)
             .setCurrentLowerSlot(ms.getLowerBlock().slot ?: 0)
+            .setCurrentLowerDataTimestamp(ms.getLowerBlock().timestamp)
             .setTimestamp(block.timestamp.toEpochMilli())
             .setWeight(ByteString.copyFrom(block.difficulty.toByteArray()))
             .setBlockId(block.hash.toHex())
