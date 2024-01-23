@@ -935,3 +935,20 @@ chain-settings:
           short-names: [blast-sepolia]
           chain-id: 0xa0c71fd
           grpcId: 10049
+    - id: lisk
+      label: Lisk
+      type: eth
+      settings:
+        expected-block-time: 2s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Testnet
+          priority: 1
+          code: LISTK_TESTNET
+          grpcId: 10050
+          short-names: [ lisk-testnet ]
+          chain-id: 0x106a
