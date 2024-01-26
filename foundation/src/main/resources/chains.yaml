@@ -156,6 +156,12 @@ chain-settings:
           chain-id: 0x66eed
           settings:
             expected-block-time: 1s
+        - id: Sepolia
+          priority: 10
+          code: ARBITRUM_SEPOLIA
+          grpcId: 10051
+          short-names: [arbitrum-sepolia]
+          chain-id: 0x66eee
     - id: optimism
       label: Optimism
       type: eth
