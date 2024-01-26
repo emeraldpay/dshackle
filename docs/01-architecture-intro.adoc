@@ -29,7 +29,7 @@ And for a request:
 - Is it for concrete data (_block #100_) or the latest (_get balance_)?
 - Is result a static value (_just block_) or may vary depending on network and node (_latest nonce_)?
 - Does it need to be repeated over multiple nodes (_broadcast transaction_)?
-- Request can also specify which subset of nodes should be able to execute the request by selecting node _Labels_ (see "link:09-quorum-and-selectors.adoc[Quorum and Selectors]")
+- Request can also specify which subset of nodes should be able to execute the request by selecting node _Labels_ (see "xref:09-quorum-and-selectors.adoc[Quorum and Selectors]")
 
 Based on these factors, Dshackle executes the request on a most optimal node.
 For most of the simple requests, it just gets a node that is synchronized to the point that must have a response for that particular request.
