@@ -84,6 +84,24 @@
         url: http://your-url
       ws:
         url: ws://your-url`;
+              if (protocol.id == "bitcoin") {
+                code = `
+- id: ${chain["short-names"][0]}
+  chain: ${chain["short-names"][0]}
+  connection:
+    bitcoin:
+      rpc:
+        url: "http://localhost:8332"
+        basic-auth:
+          username: bitcoin
+          password: e984af45bb888428207c290
+      # use Esplora index to fetch balances and utxo for an address
+      esplora:
+        url: "http://localhost:3001"
+      # connect via ZeroMQ to get notifications about new blocks
+      zeromq:
+        address: "http://localhost:5555"`;
+              }
               let dialog = document.querySelector("#config");
               dialog.querySelector("code").textContent = code;
               dialog.querySelector(
