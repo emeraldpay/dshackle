@@ -33,20 +33,20 @@ Main goals:
 
 == Table of Content
 
-. link:01-architecture-intro.adoc[Architecture Overview]
-. link:02-quick-start.adoc[Quick Start]
-. link:03-server-config.adoc[Server Configuration]
-. link:04-upstream-config.adoc[Upstreams Configuration]
-. link:05-start.adoc[How to launch a server]
-. link:06-monitoring.adoc[Logging & Monitoring]
-. link:07-methods.adoc[API methods]
-. link:08-authentication.adoc[Authentication]
-. link:09-quorum-and-selectors.adoc[Quorum and Selectors]
-. link:10-caching.adoc[Caching]
+. xref:01-architecture-intro.adoc[Architecture Overview]
+. xref:02-quick-start.adoc[Quick Start]
+. xref:03-server-config.adoc[Server Configuration]
+. xref:04-upstream-config.adoc[Upstreams Configuration]
+. xref:05-start.adoc[How to launch a server]
+. xref:06-monitoring.adoc[Logging & Monitoring]
+. xref:07-methods.adoc[API methods]
+. xref:08-authentication.adoc[Authentication]
+. xref:09-quorum-and-selectors.adoc[Quorum and Selectors]
+. xref:10-caching.adoc[Caching]
 
 == Reference
 
-. link:reference-configuration.adoc[Configuration Reference]
+. xref:reference-configuration.adoc[Configuration Reference]
 
 == Chat
 

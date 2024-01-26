@@ -60,7 +60,7 @@ a| `port: 12449`
 a| `tls`
 |
 | TLS configuration for gRPC.
-See link:08-authentication.adoc[Authentication] for details
+See xref:08-authentication.adoc[Authentication] for details
 
 a| `compression`
 |
@@ -195,7 +195,7 @@ a| `enabled: true`
 a| `tls`
 |
 | TLS configuration for proxy.
-See link:08-authentication.adoc[Authentication] for details
+See xref:08-authentication.adoc[Authentication] for details
 
 a| `routes`
 |

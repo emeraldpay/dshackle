@@ -148,4 +148,4 @@ grpcurl -d "{\"type\": 100}" -plaintext 127.0.0.1:2449 emerald.Blockchain/Subscr
 The output above is for a _streaming subscription_ to all new blocks on Ethereum Mainnet.
 It's one of the services provided by Dshackle, in addition to standard methods provided by RPC JSON of underlying nodes.
 
-See other enhanced methods in the link:07-methods.adoc[Documentation for Enhanced Methods]
+See other enhanced methods in the xref:07-methods.adoc[Documentation for Enhanced Methods]

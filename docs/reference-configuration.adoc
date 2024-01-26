@@ -496,7 +496,7 @@ tokens:
 ----
 
 Tokens config enables tracking of a balance amount in the configured tokens.
-After making the configuration above you can request balance (`GetBalance`), or subscribe to balance changes (`SubscribeBalance`), using link:07-methods.adoc[enhanced protocol]
+After making the configuration above you can request balance (`GetBalance`), or subscribe to balance changes (`SubscribeBalance`), using xref:07-methods.adoc[enhanced protocol]
 
 .Token config
 [cols="2a,7"]
@@ -591,7 +591,7 @@ signed-response:
 
 |===
 
-See more details at link:07-methods.adoc#signatures[Signed Response]  in gRPC Methods.
+See more details at xref:07-methods.adoc#signatures[Signed Response]  in gRPC Methods.
 
 [#cluster]
 == Cluster
@@ -701,7 +701,7 @@ Enable/disable the upstream.
 | no
 | Key-Value pairs that are assigned to the upstream.
 Used to select an upstream per-request.
-See link:09-quorum-and-selectors.adoc[Quorum and Selectors]
+See xref:09-quorum-and-selectors.adoc[Quorum and Selectors]
 
 | `options`
 |
@@ -936,7 +936,7 @@ It's more effective, easier to secure connection, and allows to build a distribu
 a| TLC configuration for the connection.
 In general it's an optional configuration, but it's strongly recommended.
 Also HTTP2 + gRPC is designed to be used with TLS, and some of the related software is unable to use it without TLS. +
-See link:08-authentication.adoc[Authentication] docs and <<tls>>.
+See xref:08-authentication.adoc[Authentication] docs and <<tls>>.
 
 | `tls.ca`
 | Path to x509 certificate to verify remote server

@@ -43,7 +43,7 @@ It provides:
 - Routes only realy/alive upstreams, i.e., synchronized and with enough peers
 - Load Balancing
 - Request Retry on upstream errors
-- Local Caching (memory and Redis, see link:10-caching.adoc[Caching])
+- Local Caching (memory and Redis, see xref:10-caching.adoc[Caching])
 - Broadcasting and Quorum for requests
 
 === gRPC protocol
