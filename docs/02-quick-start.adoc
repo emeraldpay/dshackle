@@ -78,7 +78,7 @@ cluster:
 The configuration above sets up the Dshackle to provide a fault-tolerant access to Bitcoin and Ethereum blockchain.
 And for Ethereum, at this particular example, it uses a Round Robin Load Balancing over the DRPC and the local node.
 
-See detailed link:reference-configuration.adoc[Configuration Reference]
+See detailed xref:reference-configuration.adoc[Configuration Reference]
 
 ==== Run as docker
 
