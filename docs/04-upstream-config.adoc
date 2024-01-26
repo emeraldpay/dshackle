@@ -101,62 +101,7 @@ In the example above we have:
 *It's kindly recommended* to strictly associate _node-id_ parameter with a physical node and keep it during any configuration changes
 
 === Supported chains
-
-Currently, dshackle supports next chains (should be used as chain names in config):
-
-* ethereum
-** ethereum (eth)
-** ethereum-classic (etc)
-** polygon (matic)
-** polygon-mumbai
-** arbitrum (arb)
-** arbitrum-testnet
-** arbitrum-nova
-** optimism
-** optimism-testnet
-** optimism-sepolia
-** binance (bsc, bnb-smart-chain)
-** bsc-testnet
-** zksync
-** zksync-sepolia
-** zksync-testnet
-** polygon-zkevm
-** polygon-zkevm-testnet
-** morden
-** kovan (kovan-testnet)
-** goerli (goerli-testnet)
-** rinkeby (rinkeby-testnet)
-** ropsten (ropsten-testnet)
-** ethereum-holesky
-** bitcoin (bitcoin-testnet)
-** base
-** base-goerli
-** linea
-** linea-goerli
-** fantom
-** fantom-testnet
-** gnosis
-** gnosis-chiado
-** avalanche
-** avalanche-fuji
-** aurora
-** aurora-testnet
-** scroll-alphanet
-** scroll-sepolia
-** mantle
-** mantle-testnet
-** klaytn
-** klaytn-baobab
-** celo
-** celo-alfajores
-** moonbeam
-** moonriver
-** moonbase-alpha
-* starknet
-* varanet
-* solana
-
-All supported blockchains are listed link:/foundation/src/main/resources/chains.yaml[here]. Feel free to contribute new chains.
+List of supported chains could be found in https://p2p-org.github.io/dshackle/networks.html
 
 === Roles and Fallback upstream
 
