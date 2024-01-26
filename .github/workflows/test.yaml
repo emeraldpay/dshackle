@@ -9,6 +9,8 @@ on:
       - ci/*
   # on a pull request
   pull_request:
+    paths-ignore:
+      - 'docs/**'
     branches:
       - master
       - release/*
