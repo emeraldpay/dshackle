@@ -5,6 +5,7 @@ on:
   push:
     paths-ignore:
       - '**/docs/**'
+      - '**/.github/**'
     branches:
       - master
       - release/*
