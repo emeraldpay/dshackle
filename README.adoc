@@ -35,7 +35,7 @@ Provides:
 - Separate public blockchain nodes from your internal servers
 
 === Supported chains
-List of supported chains here: https://p2p-org.github.io/dshackle/networks.html[here]. Feel free to contribute new chains.
+List of supported chains https://p2p-org.github.io/dshackle/networks.html[here]. Feel free to contribute new chains.
 
 === Architecture
 
