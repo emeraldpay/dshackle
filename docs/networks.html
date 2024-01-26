@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dshackle Supported Chains</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css" />
+    <style>
+      .small-button {
+        padding: 0.1rem 0.5rem;
+        font-size: small;
+      }
+    </style>
+    <script>
+      function hideConfig() {
+        let dialog = document.querySelector("#config");
+        dialog.close();
+      }
+    </script>
+  </head>
+  <body>
+    <header></header>
+    <header>
+      <h1>Dshackle Supported protocols</h1>
+    </header>
+    <main>
+      <template id="chain">
+        <aside>
+          <h3 class="_id"></h3>
+          <ul>
+            <li><b>short names:</b> <span class="_short_name"></span></li>
+            <li><b>chain id:</b> <span class="_chain_id"></span></li>
+          </ul>
+          <button class="small-button">Show config</button>
+        </aside>
+      </template>
+      <template id="protocol">
+        <section>
+          <header>
+            <h2></h2>
+            <p>List of chains:</p>
+          </header>
+        </section>
+      </template>
+      <dialog id="config">
+        <h2>Example config for <span class="_chain"></span></h2>
+        <pre>
+          <code>
+          </code>
+        </pre>
+        <button onclick="hideConfig()" class="small-button">close</button>
+      </dialog>
+    </main>
+    <script type="module">
+      import yaml from "https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.mjs";
+
+      addEventListener("DOMContentLoaded", async (event) => {
+        let response = await fetch(
+          "https://raw.githubusercontent.com/p2p-org/dshackle/master/foundation/src/main/resources/chains.yaml"
+        );
+        let chains = yaml.load(await response.text());
+        let protocols = chains["chain-settings"].protocols;
+        let protocolTpl = document.querySelector("#protocol");
+        let chainTpl = document.querySelector("#chain");
+        for (let protocol of protocols) {
+          if (protocol.settings.disabled) {
+            continue;
+          }
+          let p = protocolTpl.content.cloneNode(true);
+          p.querySelector("h2").textContent = protocol.label;
+          let chains = protocol.chains.sort((a, b) => b.priority - a.priority);
+          for (let chain of chains) {
+            let c = chainTpl.content.cloneNode(true);
+            c.querySelector("._id").textContent = chain.id;
+            c.querySelector("._short_name").textContent =
+              chain["short-names"].join(", ");
+            c.querySelector("._chain_id").textContent = chain["chain-id"];
+            c.querySelector("button").addEventListener("click", (e) => {
+              let code = `
+- id: ${chain["short-names"][0]}
+  chain: ${chain["short-names"][0]}
+  connection:
+    generic:
+      rpc:
+        url: http://your-url
+      ws:
+        url: ws://your-url`;
+              let dialog = document.querySelector("#config");
+              dialog.querySelector("code").textContent = code;
+              dialog.querySelector(
+                "._chain"
+              ).textContent = `${protocol.label} ${chain.id}`;
+              dialog.showModal();
+            });
+            p.querySelector("section").appendChild(c);
+          }
+          document.querySelector("main").appendChild(p);
+        }
+      });
+    </script>
+  </body>
+</html>
