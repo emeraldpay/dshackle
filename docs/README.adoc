@@ -44,6 +44,10 @@ Main goals:
 . xref:09-quorum-and-selectors.adoc[Quorum and Selectors]
 . xref:10-caching.adoc[Caching]
 
+== List of supported chains
+
+Can be found here:  https://p2p-org.github.io/dshackle/networks.html
+
 == Reference
 
 . xref:reference-configuration.adoc[Configuration Reference]
