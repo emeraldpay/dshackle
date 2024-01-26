@@ -34,19 +34,8 @@ Provides:
 - Automatic **failover** and retry
 - Separate public blockchain nodes from your internal servers
 
-Blockchains support:
 
-* Ethereum like
-** Mainnet and testnets
-** Arbitrum
-** Optimism
-** BSC
-* Starknet
-* Solana
-* Varanet
-* Bitcoin
-
-...and more
+List of supported chains here: https://p2p-org.github.io/dshackle/networks.html
 
 Full list of supported blockchains - link:foundation/src/main/resources/chains.yaml[here]. Feel free to contribute new chains.
 
