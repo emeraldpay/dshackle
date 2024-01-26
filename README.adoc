@@ -34,12 +34,10 @@ Provides:
 - Automatic **failover** and retry
 - Separate public blockchain nodes from your internal servers
 
+=== Supported chains
+List of supported chains here: https://p2p-org.github.io/dshackle/networks.html[here]. Feel free to contribute new chains.
 
-List of supported chains here: https://p2p-org.github.io/dshackle/networks.html
-
-Full list of supported blockchains - link:foundation/src/main/resources/chains.yaml[here]. Feel free to contribute new chains.
-
-Architecture:
+=== Architecture
 
 image::dshackle-intro.png[alt="",width=80%,align="center"]
 
