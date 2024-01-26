@@ -3,6 +3,8 @@ name: Tests
 on:
   # if pushed directly
   push:
+    paths-ignore:
+      - '**/docs/**'
     branches:
       - master
       - release/*
