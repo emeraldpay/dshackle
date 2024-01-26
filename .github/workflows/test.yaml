@@ -10,7 +10,7 @@ on:
   # on a pull request
   pull_request:
     paths-ignore:
-      - 'docs/**'
+      - '**/docs/**'
     branches:
       - master
       - release/*
