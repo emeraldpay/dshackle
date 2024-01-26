@@ -31,7 +31,7 @@ jobs:
       - name: asciidoctor-ghpages
         uses: manoelcampos/asciidoctor-ghpages-action@v2
         env:
-          PREFIX: ${{ github.server_url }}/${{ github.repository }}/docs/
+          PREFIX: ${{ github.server_url }}/${{ github.repository }}/tree/master/docs/
         with:
           pre_build: find ./docs -name '*.adoc' -print0 | xargs -0 sed -i -e "s|link:\([^ ]*\)|link:${PREFIX}\1|g"
 
