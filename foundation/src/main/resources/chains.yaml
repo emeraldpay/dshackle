@@ -835,12 +835,12 @@ chain-settings:
           lagging: 10
         fork-choice: height # wait for providers
       chains:
-        - id: Jolnir
+        - id: Katla
           priority: 20
-          code: TAIKO_JOLNIR
-          short-names: [taiko-jolnir]
-          chain-id: 0x28c5f
-          grpcId: 10043
+          code: TAIKO_KATLA
+          short-names: [ taiko-katla ]
+          chain-id: 0x28c60
+          grpcId: 10052
     - id: okt
       label: OKT Chain
       type: eth
