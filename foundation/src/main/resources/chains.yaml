@@ -956,5 +956,5 @@ chain-settings:
           priority: 1
           code: LISTK_TESTNET
           grpcId: 10050
-          short-names: [ lisk-testnet ]
+          short-names: [ lisk-sepolia, lisk-testnet ]
           chain-id: 0x106a
