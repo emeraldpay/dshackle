@@ -34,6 +34,8 @@ class EthereumLowerBoundBlockDetector(
             "after last accepted block",
             "Version has either been pruned, or is for a future block", // cronos
             "no historical RPC is available for this historical", // optimism
+            "historical backend error", // optimism
+            "load state tree: failed to load state tree", // filecoin
         )
     }
 

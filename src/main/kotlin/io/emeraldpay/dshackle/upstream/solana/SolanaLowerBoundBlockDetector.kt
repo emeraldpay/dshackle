@@ -79,7 +79,7 @@ class SolanaLowerBoundBlockDetector(
             .retryWhen(
                 Retry
                     .backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
-                    .maxBackoff(Duration.ofSeconds(3))
+                    .maxBackoff(Duration.ofMinutes(3))
                     .doAfterRetry {
                         log.debug(
                             "Error in calculation of lower block of upstream {}, retry attempt - {}, message - {}",
@@ -89,5 +89,9 @@ class SolanaLowerBoundBlockDetector(
                         )
                     },
             )
+    }
+
+    override fun periodRequest(): Long {
+        return 3
     }
 }

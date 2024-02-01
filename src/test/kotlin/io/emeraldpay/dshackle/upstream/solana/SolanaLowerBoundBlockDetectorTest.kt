@@ -61,7 +61,7 @@ class SolanaLowerBoundBlockDetectorTest {
         StepVerifier.withVirtualTime { detector.lowerBlock() }
             .expectSubscription()
             .expectNoEvent(Duration.ofSeconds(15))
-            .expectNext(LowerBoundBlockDetector.LowerBlockData(21000000, 23000010))
+            .expectNextMatches { it.blockNumber == 21000000L && it.slot == 23000010L }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 

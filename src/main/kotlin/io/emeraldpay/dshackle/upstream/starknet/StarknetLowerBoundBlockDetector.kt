@@ -14,4 +14,8 @@ class StarknetLowerBoundBlockDetector(
     override fun lowerBlockDetect(): Mono<LowerBlockData> {
         return Mono.just(LowerBlockData(1))
     }
+
+    override fun periodRequest(): Long {
+        return 120
+    }
 }

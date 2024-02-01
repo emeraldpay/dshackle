@@ -6,6 +6,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 typealias LowerBoundBlockDetectorBuilder = (Chain, Upstream) -> LowerBoundBlockDetector
@@ -21,11 +22,20 @@ abstract class LowerBoundBlockDetector(
     protected val log = LoggerFactory.getLogger(this::class.java)
 
     fun lowerBlock(): Flux<LowerBlockData> {
+        val notProcessing = AtomicBoolean(true)
+
         return Flux.interval(
             Duration.ofSeconds(15),
-            Duration.ofSeconds(60),
+            Duration.ofMinutes(periodRequest()),
         )
-            .flatMap { lowerBlockDetect() }
+            .filter { notProcessing.get() }
+            .flatMap {
+                notProcessing.set(false)
+                lowerBlockDetect()
+            }
+            .doOnNext {
+                notProcessing.set(true)
+            }
             .filter { it.blockNumber > currentLowerBlock.get().blockNumber }
             .map {
                 log.info("Lower block of ${upstream.getId()} $chain: block height - {}, slot - {}", it.blockNumber, it.slot ?: "NA")
@@ -38,6 +48,8 @@ abstract class LowerBoundBlockDetector(
     fun getCurrentLowerBlock(): LowerBlockData = currentLowerBlock.get()
 
     protected abstract fun lowerBlockDetect(): Mono<LowerBlockData>
+
+    protected abstract fun periodRequest(): Long
 
     data class LowerBlockData(
         val blockNumber: Long,

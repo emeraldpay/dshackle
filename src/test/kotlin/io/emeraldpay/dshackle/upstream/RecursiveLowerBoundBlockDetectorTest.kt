@@ -38,7 +38,7 @@ class RecursiveLowerBoundBlockDetectorTest {
         StepVerifier.withVirtualTime { detector.lowerBlock() }
             .expectSubscription()
             .expectNoEvent(Duration.ofSeconds(15))
-            .expectNext(LowerBoundBlockDetector.LowerBlockData(17964844L))
+            .expectNextMatches { it.blockNumber == 17964844L }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
@@ -64,7 +64,7 @@ class RecursiveLowerBoundBlockDetectorTest {
         StepVerifier.withVirtualTime { detector.lowerBlock() }
             .expectSubscription()
             .expectNoEvent(Duration.ofSeconds(15))
-            .expectNext(LowerBoundBlockDetector.LowerBlockData(1))
+            .expectNextMatches { it.blockNumber == 1L }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 

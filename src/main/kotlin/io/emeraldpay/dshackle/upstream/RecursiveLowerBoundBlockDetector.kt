@@ -27,7 +27,7 @@ abstract class RecursiveLowerBoundBlockDetector(
                 } else {
                     val middle = middleBlock(data)
 
-                    if (data.left > data.right) {
+                    if (data.left > data.right || middle == 0L) {
                         val current = if (data.current == 0L) 1 else data.current
                         Mono.just(LowerBoundData(current, true))
                     } else {
@@ -57,7 +57,7 @@ abstract class RecursiveLowerBoundBlockDetector(
             Long.MAX_VALUE,
             Duration.ofSeconds(1),
         )
-            .maxBackoff(Duration.ofSeconds(3))
+            .maxBackoff(Duration.ofMinutes(3))
             .filter {
                 !nonRetryableErrors.any { err -> it.message?.contains(err, true) ?: false }
             }
@@ -69,6 +69,10 @@ abstract class RecursiveLowerBoundBlockDetector(
                     it.failure().message,
                 )
             }
+    }
+
+    override fun periodRequest(): Long {
+        return 10
     }
 
     protected abstract fun hasState(blockNumber: Long): Mono<Boolean>
