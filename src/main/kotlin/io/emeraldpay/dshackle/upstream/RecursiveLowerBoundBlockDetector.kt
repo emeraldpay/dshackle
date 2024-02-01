@@ -27,7 +27,7 @@ abstract class RecursiveLowerBoundBlockDetector(
                 } else {
                     val middle = middleBlock(data)
 
-                    if (data.left > data.right || middle == 0L) {
+                    if (data.left > data.right) {
                         val current = if (data.current == 0L) 1 else data.current
                         Mono.just(LowerBoundData(current, true))
                     } else {

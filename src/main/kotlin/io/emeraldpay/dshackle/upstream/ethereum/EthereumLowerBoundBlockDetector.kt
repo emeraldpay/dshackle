@@ -40,6 +40,9 @@ class EthereumLowerBoundBlockDetector(
     }
 
     override fun hasState(blockNumber: Long): Mono<Boolean> {
+        if (blockNumber == 0L) {
+            return Mono.just(true)
+        }
         return upstream.getIngressReader().read(
             JsonRpcRequest(
                 "eth_getBalance",
