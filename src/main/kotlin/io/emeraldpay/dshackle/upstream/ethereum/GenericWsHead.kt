@@ -50,14 +50,11 @@ class GenericWsHead(
     private var isSyncing = false
 
     private var subscription: Disposable? = null
+    private var headResubSubscription: Disposable? = null
     private val noHeadUpdatesSink = Sinks.many().multicast().directBestEffort<Boolean>()
     private val headLivenessSink = Sinks.many().multicast().directBestEffort<Boolean>()
 
     private var subscriptionId = AtomicReference("")
-
-    init {
-        registerHeadResubscribeFlux()
-    }
 
     override fun isRunning(): Boolean {
         return subscription != null
@@ -73,6 +70,10 @@ class GenericWsHead(
             listenNewHeads(),
         )
         this.subscription = super.follow(heads)
+
+        if (headResubSubscription == null) {
+            headResubSubscription = registerHeadResubscribeFlux()
+        }
     }
 
     override fun onNoHeadUpdates() {
@@ -86,7 +87,7 @@ class GenericWsHead(
         this.isSyncing = isSyncing
     }
 
-    fun listenNewHeads(): Flux<BlockContainer> {
+    private fun listenNewHeads(): Flux<BlockContainer> {
         return subscribe()
             .map {
                 chainSpecific.parseHeader(it, "unknown")
@@ -102,7 +103,8 @@ class GenericWsHead(
     override fun stop() {
         super.stop()
         cancelSub()
-        noHeadUpdatesSink.tryEmitComplete()
+        headResubSubscription?.dispose()
+        headResubSubscription = null
     }
 
     override fun headLiveness(): Flux<Boolean> = headLivenessSink.asFlux()
@@ -135,7 +137,7 @@ class GenericWsHead(
         }
     }
 
-    private fun registerHeadResubscribeFlux() {
+    private fun registerHeadResubscribeFlux(): Disposable {
         val connectionStates = wsSubscriptions.connectionInfoFlux()
             .map {
                 if (it.connectionId == connectionId && it.connectionState == WsConnection.ConnectionState.DISCONNECTED) {
@@ -150,10 +152,10 @@ class GenericWsHead(
                 return@map false
             }
 
-        Flux.merge(
+        return Flux.merge(
             noHeadUpdatesSink.asFlux(),
             connectionStates,
-        ).subscribeOn(wsConnectionResubscribeScheduler)
+        ).publishOn(wsConnectionResubscribeScheduler)
             .filter { it && !subscribed && connected && !isSyncing }
             .subscribe {
                 log.warn("Restart ws head, upstreamId: $upstreamId")

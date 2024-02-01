@@ -42,7 +42,6 @@ class CompoundReader<K, D> (
                 rdr.read(key)
                     .timeout(Defaults.timeoutInternal, Mono.empty())
                     .doOnError { t -> log.warn("Failed to read from $rdr", t) }
-                    .onErrorResume { Mono.empty() }
             }, 1,)
             .next()
     }

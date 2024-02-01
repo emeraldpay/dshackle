@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.BlockValidator
@@ -59,24 +60,32 @@ class GenericWsHeadSpec extends Specification {
             Global.objectMapper.writeValueAsBytes(it)
         }
 
-        def apiMock = TestingCommons.api()
+        def reader = Mock(Reader) {
+            1 * it.read(new JsonRpcRequest("eth_getBlockByNumber", List.of("latest", false))) >> Mono.empty()
+        }
 
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> Flux.empty()
         }
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
-
-        def res = BlockContainer.from(block)
-        when:
-        def act = head.listenNewHeads().blockFirst()
-
-        then:
-        act == res
-
         1 * ws.subscribe(_) >> new WsSubscriptions.SubscribeData(
                 Flux.fromIterable([headBlock]), "id", new AtomicReference<String>("")
         )
+
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, reader, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+
+        def res = BlockContainer.from(block)
+        when:
+        def act = head.getFlux()
+
+        then:
+        StepVerifier.create(act)
+                .then {
+                    head.start()
+                }
+                .expectNext(res)
+                .thenCancel()
+                .verify(Duration.ofSeconds(3))
     }
 
     def "Restart ethereum ws head"() {
@@ -328,7 +337,9 @@ class GenericWsHeadSpec extends Specification {
         block.uncles = []
         block.totalDifficulty = BigInteger.ONE
 
-        def apiMock = TestingCommons.api()
+        def reader = Mock(Reader) {
+            1 * it.read(new JsonRpcRequest("eth_getBlockByNumber", List.of("latest", false))) >> Mono.empty()
+        }
         def subId = "subId"
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> Flux.empty()
@@ -339,15 +350,19 @@ class GenericWsHeadSpec extends Specification {
                     Mono.just(new JsonRpcResponse("".bytes, null))
         }
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, reader, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
 
         when:
-        def act = head.listenNewHeads()
+        def act = head.getFlux()
 
         then:
         StepVerifier.create(act)
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+            .then {
+                head.start()
+            }
+            .expectNoEvent(Duration.ofMillis(100))
+            .thenCancel()
+            .verify(Duration.ofSeconds(3))
     }
 
     def "If there is ws disconnect then head must emit false its liveness state"() {

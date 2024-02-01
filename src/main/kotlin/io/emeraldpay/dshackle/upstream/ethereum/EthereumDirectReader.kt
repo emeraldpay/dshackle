@@ -19,6 +19,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.domain.BlockHash
@@ -31,6 +32,7 @@ import io.emeraldpay.etherjar.rpc.json.TransactionLogJson
 import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
 import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
 import org.apache.commons.collections4.Factory
+import org.apache.commons.lang3.exception.ExceptionUtils
 import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
@@ -81,7 +83,7 @@ class EthereumDirectReader(
             override fun read(key: TransactionId): Mono<Result<TxContainer>> {
                 val request = JsonRpcRequest("eth_getTransactionByHash", listOf(key.toHex()))
                 return readWithQuorum(request) // retries were removed because we use NotNullQuorum which handle errors too
-                    .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Tx not read $key")))
+                    .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Tx not read $key")))
                     .flatMap { result ->
                         val tx = objectMapper.readValue(result.data, TransactionJsonSnapshot::class.java)
                         if (tx == null) {
@@ -96,6 +98,8 @@ class EthereumDirectReader(
                         if (tx.data.blockId != null) {
                             caches.cache(Caches.Tag.REQUESTED, tx.data)
                         }
+                    }.onErrorResume {
+                        Mono.error(JsonRpcException(request.id, ExceptionUtils.getRootCauseMessage(it)))
                     }
             }
         }
@@ -128,7 +132,7 @@ class EthereumDirectReader(
             override fun read(key: TransactionId): Mono<Result<ByteArray>> {
                 val request = JsonRpcRequest("eth_getTransactionReceipt", listOf(key.toHex()))
                 return readWithQuorum(request)
-                    .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Receipt not read $key")))
+                    .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Receipt not read $key")))
                     .flatMap { result ->
                         val receipt = objectMapper.readValue(result.data, TransactionReceiptJson::class.java)
                         if (receipt == null) {
@@ -149,6 +153,8 @@ class EthereumDirectReader(
                                 result,
                             )
                         }
+                    }.onErrorResume {
+                        Mono.error(JsonRpcException(request.id, ExceptionUtils.getRootCauseMessage(it)))
                     }
             }
         }
@@ -188,7 +194,7 @@ class EthereumDirectReader(
         matcher: Selector.Matcher = Selector.empty,
     ): Mono<Result<BlockContainer>> {
         return readWithQuorum(request, matcher)
-            .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Block not read $id")))
+            .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Block not read $id")))
             .retryWhen(Retry.fixedDelay(3, Duration.ofMillis(200)))
             .flatMap { result ->
                 val block = objectMapper.readValue(result.data, BlockJson::class.java) as BlockJson<TransactionRefJson>?
@@ -208,6 +214,8 @@ class EthereumDirectReader(
             }
             .doOnNext { block ->
                 caches.cache(Caches.Tag.REQUESTED, block.data)
+            }.onErrorResume {
+                Mono.error(JsonRpcException(request.id, ExceptionUtils.getRootCauseMessage(it)))
             }
     }
 

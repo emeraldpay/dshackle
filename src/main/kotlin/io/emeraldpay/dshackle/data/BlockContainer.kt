@@ -105,7 +105,7 @@ class BlockContainer @JvmOverloads constructor(
 
     fun copyWithRating(nodeRating: Int): BlockContainer {
         return BlockContainer(
-            height, hash, difficulty, timestamp, full, json, parsed, parentHash, transactions, nodeRating,
+            height, hash, difficulty, timestamp, full, json, parsed, parentHash, transactions, nodeRating, upstreamId, slot,
         )
     }
 
