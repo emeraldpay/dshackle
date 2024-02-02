@@ -18,7 +18,6 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
@@ -30,11 +29,11 @@ import java.util.concurrent.ConcurrentHashMap
 class ConnectNewHeads(
     private val upstream: Multistream,
     private val scheduler: Scheduler,
-) : SubscriptionConnect<NewHeadMessage> {
+) : SubscriptionConnect<ByteArray> {
 
-    private val connected: MutableMap<String, Flux<NewHeadMessage>> = ConcurrentHashMap()
+    private val connected: MutableMap<String, Flux<ByteArray>> = ConcurrentHashMap()
 
-    override fun connect(matcher: Selector.Matcher): Flux<NewHeadMessage> =
+    override fun connect(matcher: Selector.Matcher): Flux<ByteArray> =
         connected.computeIfAbsent(matcher.describeInternal()) { key ->
             ProduceNewHeads(upstream.getHead(matcher))
                 .start()

@@ -15,6 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
 import io.emeraldpay.etherjar.hex.HexData
@@ -29,31 +30,36 @@ class ProduceNewHeads(
     val head: Head,
 ) {
 
-    fun start(): Flux<NewHeadMessage> {
+    fun start(): Flux<ByteArray> {
         return head.getFlux()
             .map {
-                val block = it.toBlock()
-                NewHeadMessage(
-                    block.number,
-                    block.hash,
-                    block.parentHash,
-                    block.timestamp,
-                    block.difficulty,
-                    block.gasLimit,
-                    block.gasUsed,
-                    block.logsBloom,
-                    block.miner,
-                    block.baseFeePerGas?.amount,
-                    block.extraData ?: HexData.empty(),
-                    block.mixHash,
-                    block.nonce,
-                    block.receiptsRoot,
-                    block.sha3Uncles,
-                    block.stateRoot,
-                    block.transactionsRoot,
-                    block.withdrawalsRoot,
-                    it.upstreamId,
-                )
+                if (it.full || it.json == null) {
+                    val block = it.toBlock()
+                    val msg = NewHeadMessage(
+                        block.number,
+                        block.hash,
+                        block.parentHash,
+                        block.timestamp,
+                        block.difficulty,
+                        block.gasLimit,
+                        block.gasUsed,
+                        block.logsBloom,
+                        block.miner,
+                        block.baseFeePerGas?.amount,
+                        block.extraData ?: HexData.empty(),
+                        block.mixHash,
+                        block.nonce,
+                        block.receiptsRoot,
+                        block.sha3Uncles,
+                        block.stateRoot,
+                        block.transactionsRoot,
+                        block.withdrawalsRoot,
+                        it.upstreamId,
+                    )
+                    Global.objectMapper.writeValueAsBytes(msg)
+                } else {
+                    it.json
+                }
             }
     }
 }
