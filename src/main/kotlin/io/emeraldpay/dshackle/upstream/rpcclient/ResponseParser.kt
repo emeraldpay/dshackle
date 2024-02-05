@@ -52,11 +52,14 @@ abstract class ResponseParser<T> {
                 )
             }
             while (parser.nextToken() != JsonToken.END_OBJECT) {
-                val field = parser.currentName
+                val field = parser.currentName ?: break
                 state = process(parser, json, field, state)
             }
         } catch (e: JsonParseException) {
             log.warn("Failed to parse JSON from upstream: ${e.message}")
+        }
+        if (state.error != null && state.id == null) {
+            state = state.copy(id = JsonRpcResponse.NumberId(0))
         }
         if (state.isReady) {
             return state
@@ -161,7 +164,7 @@ abstract class ResponseParser<T> {
             val field = parser.currentName()
             if (field == "code" && parser.currentToken == JsonToken.VALUE_NUMBER_INT) {
                 code = parser.intValue
-            } else if (field == "message" && parser.currentToken == JsonToken.VALUE_STRING) {
+            } else if ((field == "message" || field == "error") && parser.currentToken == JsonToken.VALUE_STRING) {
                 message = parser.valueAsString
             } else if (field == "data") {
                 when (val value = parser.nextToken()) {
