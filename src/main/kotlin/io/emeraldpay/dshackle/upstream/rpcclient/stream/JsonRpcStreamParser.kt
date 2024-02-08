@@ -122,14 +122,14 @@ class JsonRpcStreamParser(
                     for (i in bytes.indices) {
                         when (whatCountValue) {
                             is CountObjectBrackets -> {
-                                countBrackets(bytes[i], whatCountValue.count, OBJECT_OPEN_BRACKET, OBJECT_CLOSE_BRACKET)
+                                countBrackets(bytes[i], whatCountValue, OBJECT_OPEN_BRACKET, OBJECT_CLOSE_BRACKET)
                             }
 
                             is CountArrayBrackets -> {
-                                countBrackets(bytes[i], whatCountValue.count, ARRAY_OPEN_BRACKET, ARRAY_CLOSE_BRACKET)
+                                countBrackets(bytes[i], whatCountValue, ARRAY_OPEN_BRACKET, ARRAY_CLOSE_BRACKET)
                             }
 
-                            is CountSlashes -> {
+                            is CountQuotesAndSlashes -> {
                                 countQuotesAndSlashes(bytes[i], whatCountValue)
                             }
                         }
@@ -168,7 +168,7 @@ class JsonRpcStreamParser(
                             val token = parser.nextToken()
                             val tokenStart = parser.tokenLocation.byteOffset.toInt()
                             return if (token.isScalarValue) {
-                                val count = CountSlashes(AtomicInteger(1))
+                                val count = CountQuotesAndSlashes(AtomicInteger(1))
                                 whatCount.set(count)
                                 SingleResponse(
                                     processScalarValue(parser, tokenStart, firstBytes, count, endStream),
@@ -177,13 +177,16 @@ class JsonRpcStreamParser(
                             } else {
                                 when (token) {
                                     JsonToken.START_OBJECT -> {
-                                        val count = CountObjectBrackets(AtomicInteger(1))
+                                        val count = CountObjectBrackets(
+                                            AtomicInteger(1),
+                                            CountQuotesAndSlashes(AtomicInteger(0)),
+                                        )
                                         whatCount.set(count)
                                         SingleResponse(
                                             processAndCountBrackets(
                                                 tokenStart,
                                                 firstBytes,
-                                                count.count,
+                                                count,
                                                 endStream,
                                                 OBJECT_OPEN_BRACKET,
                                                 OBJECT_CLOSE_BRACKET,
@@ -193,13 +196,16 @@ class JsonRpcStreamParser(
                                     }
 
                                     JsonToken.START_ARRAY -> {
-                                        val count = CountArrayBrackets(AtomicInteger(1))
+                                        val count = CountArrayBrackets(
+                                            AtomicInteger(1),
+                                            CountQuotesAndSlashes(AtomicInteger(0)),
+                                        )
                                         whatCount.set(count)
                                         SingleResponse(
                                             processAndCountBrackets(
                                                 tokenStart,
                                                 firstBytes,
-                                                count.count,
+                                                count,
                                                 endStream,
                                                 ARRAY_OPEN_BRACKET,
                                                 ARRAY_CLOSE_BRACKET,
@@ -229,14 +235,14 @@ class JsonRpcStreamParser(
     private fun processAndCountBrackets(
         tokenStart: Int,
         bytes: ByteArray,
-        brackets: AtomicInteger,
+        countBrackets: CountBrackets,
         endStream: AtomicBoolean,
         openBracket: Byte,
         closeBracket: Byte,
     ): ByteArray {
         for (i in tokenStart + 1 until bytes.size) {
-            countBrackets(bytes[i], brackets, openBracket, closeBracket)
-            if (brackets.get() == 0) {
+            countBrackets(bytes[i], countBrackets, openBracket, closeBracket)
+            if (countBrackets.isFinished()) {
                 endStream.set(true)
                 return Arrays.copyOfRange(bytes, tokenStart, i + 1)
             }
@@ -246,27 +252,39 @@ class JsonRpcStreamParser(
 
     private fun countBrackets(
         byte: Byte,
-        brackets: AtomicInteger,
+        countBrackets: CountBrackets,
         openBracket: Byte,
         closeBracket: Byte,
     ) {
+        // we encounter the quote and the start of a string value
+        if (byte == QUOTE && countBrackets.isCountQuotesAndSlashesFinished()) {
+            countBrackets.quotesIncrement()
+            return
+        }
+
+        // we ignore all braces inside a string value until we get to the end of the value
+        if (!countBrackets.isCountQuotesAndSlashesFinished()) {
+            countQuotesAndSlashes(byte, countBrackets.countQuotesAndSlashes)
+            return
+        }
+
         if (byte == openBracket) {
-            brackets.incrementAndGet()
+            countBrackets.increment()
         } else if (byte == closeBracket) {
-            brackets.decrementAndGet()
+            countBrackets.decrement()
         }
     }
 
     private fun countQuotesAndSlashes(
         byte: Byte,
-        countSlashes: CountSlashes,
+        countQuotesAndSlashes: CountQuotesAndSlashes,
     ) {
-        if (byte == BACKSLASH && !countSlashes.hasSlash()) {
-            countSlashes.count.incrementAndGet()
-        } else if (countSlashes.hasSlash()) {
-            countSlashes.count.decrementAndGet()
-        } else if (!countSlashes.hasSlash() && byte == QUOTE) {
-            countSlashes.count.set(0)
+        if (byte == BACKSLASH && !countQuotesAndSlashes.hasSlash()) {
+            countQuotesAndSlashes.increment()
+        } else if (countQuotesAndSlashes.hasSlash()) {
+            countQuotesAndSlashes.decrement()
+        } else if (!countQuotesAndSlashes.hasSlash() && byte == QUOTE) {
+            countQuotesAndSlashes.reset()
         }
     }
 
@@ -274,7 +292,7 @@ class JsonRpcStreamParser(
         parser: JsonParser,
         tokenStart: Int,
         bytes: ByteArray,
-        countSlashes: CountSlashes,
+        countQuotesAndSlashes: CountQuotesAndSlashes,
         endStream: AtomicBoolean,
     ): ByteArray {
         when (parser.currentToken) {
@@ -284,8 +302,8 @@ class JsonRpcStreamParser(
             }
             JsonToken.VALUE_STRING -> {
                 for (i in tokenStart + 1 until bytes.size) {
-                    countQuotesAndSlashes(bytes[i], countSlashes)
-                    if (countSlashes.isFinished()) {
+                    countQuotesAndSlashes(bytes[i], countQuotesAndSlashes)
+                    if (countQuotesAndSlashes.isFinished()) {
                         endStream.set(true)
                         return Arrays.copyOfRange(bytes, tokenStart, i + 1)
                     }
@@ -300,20 +318,45 @@ class JsonRpcStreamParser(
     }
 
     private abstract class Count(
-        val count: AtomicInteger,
+        protected val count: AtomicInteger,
     ) {
         open fun isFinished(): Boolean = count.get() == 0
+
+        fun increment() {
+            count.incrementAndGet()
+        }
+
+        fun decrement() {
+            count.decrementAndGet()
+        }
+
+        fun reset() {
+            count.set(0)
+        }
+    }
+
+    private open class CountBrackets(
+        countBrackets: AtomicInteger,
+        val countQuotesAndSlashes: CountQuotesAndSlashes,
+    ) : Count(countBrackets) {
+        fun quotesIncrement() {
+            countQuotesAndSlashes.increment()
+        }
+
+        fun isCountQuotesAndSlashesFinished() = countQuotesAndSlashes.isFinished()
     }
 
     private class CountArrayBrackets(
         countBrackets: AtomicInteger,
-    ) : Count(countBrackets)
+        countQuotesAndSlashes: CountQuotesAndSlashes,
+    ) : CountBrackets(countBrackets, countQuotesAndSlashes)
 
     private class CountObjectBrackets(
         countBrackets: AtomicInteger,
-    ) : Count(countBrackets)
+        countQuotesAndSlashes: CountQuotesAndSlashes,
+    ) : CountBrackets(countBrackets, countQuotesAndSlashes)
 
-    private class CountSlashes(
+    private class CountQuotesAndSlashes(
         countSlashes: AtomicInteger,
     ) : Count(countSlashes) {
 

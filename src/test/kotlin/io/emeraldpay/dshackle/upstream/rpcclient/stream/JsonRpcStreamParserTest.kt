@@ -153,6 +153,39 @@ class JsonRpcStreamParserTest {
                     Chunk("}]".toByteArray(), true),
                 ),
             ),
+            Arguments.of(
+                listOf(
+                    "{\"id\": 2,\"result\": [{\"na]me\": ".toByteArray(),
+                    "\"bigName]".toByteArray(),
+                    "super]NameGoin[]gOn]".toByteArray(),
+                    "thi]sIsEnd\"".toByteArray(),
+                    "}],".toByteArray(),
+                    "\"field\": \"value\"}".toByteArray(),
+                ),
+                listOf(
+                    Chunk("[{\"na]me\": ".toByteArray(), false),
+                    Chunk("\"bigName]".toByteArray(), false),
+                    Chunk("super]NameGoin[]gOn]".toByteArray(), false),
+                    Chunk("thi]sIsEnd\"".toByteArray(), false),
+                    Chunk("}]".toByteArray(), true),
+                ),
+            ),
+            Arguments.of(
+                listOf(
+                    "{\"id\": 2,\"result\": {\"name\": ".toByteArray(),
+                    "\"bigName}".toByteArray(),
+                    "so}me}{thi{}}ng\",".toByteArray(),
+                    "\"ne}\\w}F}{}ield\" : \"that's}\\\" All\"".toByteArray(),
+                    "}".toByteArray(),
+                ),
+                listOf(
+                    Chunk("{\"name\": ".toByteArray(), false),
+                    Chunk("\"bigName}".toByteArray(), false),
+                    Chunk("so}me}{thi{}}ng\",".toByteArray(), false),
+                    Chunk("\"ne}\\w}F}{}ield\" : \"that's}\\\" All\"".toByteArray(), false),
+                    Chunk("}".toByteArray(), true),
+                ),
+            ),
         )
     }
 }
