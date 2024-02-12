@@ -33,52 +33,29 @@ class SolanaLowerBoundBlockDetector(
                     slot
                 }
             }
-            .flatMap { slot ->
-                val from = if (slot <= 10) {
-                    1
-                } else {
-                    slot - 10
-                }
+            .flatMap {
                 reader.read(
                     JsonRpcRequest(
-                        "getBlocks",
+                        "getBlock", // since getFirstAvailableBlock returns the slot of the lowest confirmed block we can directly call getBlock
                         listOf(
-                            from,
-                            slot,
+                            it,
+                            mapOf(
+                                "showRewards" to false,
+                                "transactionDetails" to "none",
+                                "maxSupportedTransactionVersion" to 0,
+                            ),
                         ),
                     ),
                 )
-            }
-            .flatMap(JsonRpcResponse::requireResult)
-            .flatMap {
-                val response = Global.objectMapper.readValue(it, LongArray::class.java)
-                if (response == null || response.isEmpty()) {
-                    Mono.empty()
-                } else {
-                    val maxSlot = response.max()
-                    reader.read(
-                        JsonRpcRequest(
-                            "getBlock",
-                            listOf(
-                                maxSlot,
-                                mapOf(
-                                    "showRewards" to false,
-                                    "transactionDetails" to "none",
-                                    "maxSupportedTransactionVersion" to 0,
-                                ),
-                            ),
-                        ),
-                    )
-                        .flatMap(JsonRpcResponse::requireResult)
-                        .map { blockData ->
-                            val block = Global.objectMapper.readValue(blockData, SolanaBlock::class.java)
-                            LowerBlockData(max(block.height, 1), maxSlot)
-                        }
-                }
+                    .flatMap(JsonRpcResponse::requireResult)
+                    .map { blockData ->
+                        val block = Global.objectMapper.readValue(blockData, SolanaBlock::class.java)
+                        LowerBlockData(max(block.height, 1), it)
+                    }
             }
             .retryWhen(
                 Retry
-                    .backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
+                    .backoff(20, Duration.ofSeconds(1))
                     .maxBackoff(Duration.ofMinutes(3))
                     .doAfterRetry {
                         log.debug(

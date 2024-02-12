@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.Chain
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
@@ -32,6 +33,8 @@ abstract class LowerBoundBlockDetector(
             .flatMap {
                 notProcessing.set(false)
                 lowerBlockDetect()
+                    .onErrorResume { Mono.just(LowerBlockData.default()) }
+                    .switchIfEmpty { Mono.just(LowerBlockData.default()) } // just to trigger onNext event
             }
             .doOnNext {
                 notProcessing.set(true)

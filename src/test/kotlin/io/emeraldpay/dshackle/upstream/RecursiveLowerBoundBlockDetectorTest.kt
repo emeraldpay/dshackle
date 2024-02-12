@@ -6,7 +6,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotLowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -42,7 +42,7 @@ class RecursiveLowerBoundBlockDetectorTest {
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
-        Assertions.assertEquals(LowerBoundBlockDetector.LowerBlockData(17964844L), detector.getCurrentLowerBlock())
+        assertEquals(17964844L, detector.getCurrentLowerBlock().blockNumber)
     }
 
     @ParameterizedTest
@@ -68,7 +68,7 @@ class RecursiveLowerBoundBlockDetectorTest {
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
-        Assertions.assertEquals(LowerBoundBlockDetector.LowerBlockData(1), detector.getCurrentLowerBlock())
+        assertEquals(1, detector.getCurrentLowerBlock().blockNumber)
     }
 
     companion object {

@@ -3,11 +3,10 @@ package io.emeraldpay.dshackle.upstream.solana
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.JsonRpcReader
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
@@ -22,14 +21,12 @@ class SolanaLowerBoundBlockDetectorTest {
         val reader = mock<JsonRpcReader> {
             on { read(JsonRpcRequest("getFirstAvailableBlock", listOf())) } doReturn
                 Mono.just(JsonRpcResponse("25000000".toByteArray(), null))
-            on { read(JsonRpcRequest("getBlocks", listOf(24999990L, 25000000L))) } doReturn
-                Mono.just(JsonRpcResponse("[23000000, 23000005, 23000010]".toByteArray(), null))
             on {
                 read(
                     JsonRpcRequest(
                         "getBlock",
                         listOf(
-                            23000010L,
+                            25000000L,
                             mapOf(
                                 "showRewards" to false,
                                 "transactionDetails" to "none",
@@ -61,10 +58,11 @@ class SolanaLowerBoundBlockDetectorTest {
         StepVerifier.withVirtualTime { detector.lowerBlock() }
             .expectSubscription()
             .expectNoEvent(Duration.ofSeconds(15))
-            .expectNextMatches { it.blockNumber == 21000000L && it.slot == 23000010L }
+            .expectNextMatches { it.blockNumber == 21000000L && it.slot == 25000000L }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
-        Assertions.assertEquals(LowerBoundBlockDetector.LowerBlockData(21000000, 23000010), detector.getCurrentLowerBlock())
+        assertEquals(21000000, detector.getCurrentLowerBlock().blockNumber)
+        assertEquals(25000000, detector.getCurrentLowerBlock().slot)
     }
 }
