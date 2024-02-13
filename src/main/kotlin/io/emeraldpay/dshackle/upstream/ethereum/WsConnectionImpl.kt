@@ -286,13 +286,13 @@ open class WsConnectionImpl(
         val calls = rpcSend
             .asFlux()
             .map {
-                Unpooled.wrappedBuffer(it.toJson())
+                it.toString()
             }
 
-        return outbound.send(
+        return outbound.sendString(
             Flux.merge(
                 calls.subscribeOn(scheduler),
-                consumer.then(Mono.empty<ByteBuf>()).subscribeOn(scheduler),
+                consumer.then(Mono.empty<String>()).subscribeOn(scheduler),
             ),
         )
     }
