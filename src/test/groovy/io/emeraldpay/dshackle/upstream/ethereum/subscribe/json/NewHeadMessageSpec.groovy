@@ -2,9 +2,9 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe.json
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.etherjar.domain.Address
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.Bloom
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Bloom
 import io.emeraldpay.etherjar.hex.HexData
 import spock.lang.Specification
 

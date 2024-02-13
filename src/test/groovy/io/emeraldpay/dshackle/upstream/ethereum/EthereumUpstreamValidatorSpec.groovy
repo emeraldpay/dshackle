@@ -25,10 +25,10 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.etherjar.rpc.json.TransactionCallJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionCallJson
 import reactor.core.publisher.Mono
 import reactor.util.function.Tuples
 import spock.lang.Specification

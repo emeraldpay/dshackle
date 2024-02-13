@@ -21,9 +21,9 @@ import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJson
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier

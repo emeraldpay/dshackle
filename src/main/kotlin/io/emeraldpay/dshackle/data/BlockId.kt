@@ -16,8 +16,8 @@
  */
 package io.emeraldpay.dshackle.data
 
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.etherjar.domain.BlockHash
 import org.bouncycastle.util.encoders.Hex
 import java.util.Base64
 

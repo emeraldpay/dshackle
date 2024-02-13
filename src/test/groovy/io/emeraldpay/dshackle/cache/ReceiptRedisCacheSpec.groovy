@@ -7,9 +7,9 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionReceiptJson
 import io.lettuce.core.api.StatefulRedisConnection
 import spock.lang.IgnoreIf
 import spock.lang.Specification

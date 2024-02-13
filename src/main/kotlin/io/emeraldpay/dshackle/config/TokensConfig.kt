@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.config
 
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 
 class TokensConfig(
     val tokens: List<Token>,

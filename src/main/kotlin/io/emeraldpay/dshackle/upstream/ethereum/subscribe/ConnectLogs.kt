@@ -18,8 +18,8 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
-import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
 import io.emeraldpay.etherjar.hex.HexDataComparator
 import reactor.core.publisher.Flux

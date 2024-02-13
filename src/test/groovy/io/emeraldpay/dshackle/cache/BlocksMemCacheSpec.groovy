@@ -20,11 +20,11 @@ package io.emeraldpay.dshackle.cache
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import spock.lang.Specification
 
 import java.time.Instant

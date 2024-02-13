@@ -21,10 +21,10 @@ import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
 import spock.lang.Specification

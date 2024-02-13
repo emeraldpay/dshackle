@@ -21,10 +21,10 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.etherjar.domain.Address
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionReceiptJson
 import spock.lang.Specification
 
 import java.time.Instant

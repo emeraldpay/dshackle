@@ -29,9 +29,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
 import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.micrometer.core.instrument.Metrics
-import io.netty.buffer.ByteBuf
 import io.netty.buffer.ByteBufInputStream
-import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import io.netty.resolver.DefaultAddressResolverGroup
 import org.reactivestreams.Publisher

@@ -18,10 +18,10 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe.json
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
-import io.emeraldpay.etherjar.domain.Address
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.Bloom
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Bloom
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.etherjar.hex.HexData
 import io.emeraldpay.etherjar.rpc.json.HexDataSerializer
 import java.math.BigInteger

@@ -19,7 +19,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
-import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers

@@ -35,9 +35,9 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry
 import org.apache.commons.lang3.StringUtils

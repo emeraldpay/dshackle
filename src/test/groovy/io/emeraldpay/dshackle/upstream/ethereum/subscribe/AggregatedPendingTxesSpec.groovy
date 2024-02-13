@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import reactor.core.publisher.Flux
 import spock.lang.Specification
 

@@ -19,7 +19,7 @@ import io.emeraldpay.dshackle.commons.DurableFlux
 import io.emeraldpay.dshackle.commons.SharedFluxHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import reactor.core.publisher.Flux
 import java.time.Duration
 

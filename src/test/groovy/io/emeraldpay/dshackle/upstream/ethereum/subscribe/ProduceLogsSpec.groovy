@@ -20,11 +20,11 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader
-import io.emeraldpay.etherjar.domain.Address
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.etherjar.hex.HexData
-import io.emeraldpay.etherjar.rpc.json.TransactionLogJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionLogJson
 import reactor.core.publisher.Mono
 import spock.lang.Specification
 

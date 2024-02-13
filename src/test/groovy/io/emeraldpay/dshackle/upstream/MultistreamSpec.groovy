@@ -36,8 +36,8 @@ import io.emeraldpay.dshackle.upstream.grpc.GenericGrpcUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import org.jetbrains.annotations.NotNull
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono

@@ -22,9 +22,9 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.test.IntegrationTestingCommons
-import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import io.lettuce.core.api.StatefulRedisConnection
 import spock.lang.IgnoreIf
 import spock.lang.Specification

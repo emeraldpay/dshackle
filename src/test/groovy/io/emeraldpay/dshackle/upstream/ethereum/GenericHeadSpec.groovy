@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.generic.GenericHead
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import io.emeraldpay.etherjar.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers

@@ -16,8 +16,8 @@
  */
 package io.emeraldpay.dshackle.data
 
-import io.emeraldpay.etherjar.domain.TransactionId
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJson
 import org.bouncycastle.util.encoders.Hex
 
 class TxId(

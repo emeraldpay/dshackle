@@ -16,7 +16,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 
 /**
  * A source to subscribe to newPendingTransactions.

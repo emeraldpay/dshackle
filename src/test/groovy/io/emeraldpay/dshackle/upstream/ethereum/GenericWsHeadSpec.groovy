@@ -27,8 +27,8 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks

@@ -17,8 +17,8 @@
 package io.emeraldpay.dshackle.data
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
 
 class TxContainer(
     val height: Long?,

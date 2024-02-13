@@ -21,13 +21,10 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.emeraldpay.etherjar.domain.BlockHash;
-import io.emeraldpay.etherjar.domain.Bloom;
-import io.emeraldpay.etherjar.domain.TransactionId;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Bloom;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId;
 import io.emeraldpay.etherjar.hex.HexData;
-import io.emeraldpay.etherjar.rpc.json.EtherJsonDeserializer;
-import io.emeraldpay.etherjar.rpc.json.TransactionJsonDeserializer;
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -36,7 +33,7 @@ import java.util.List;
 
 public class BlockJsonDeserializer extends EtherJsonDeserializer<BlockJson<?>> {
 
-    private TransactionJsonDeserializer transactionJsonDeserializer = new TransactionJsonDeserializer();
+    private final TransactionJsonDeserializer transactionJsonDeserializer = new TransactionJsonDeserializer();
 
     @Override @SuppressWarnings("unchecked")
     public BlockJson deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {

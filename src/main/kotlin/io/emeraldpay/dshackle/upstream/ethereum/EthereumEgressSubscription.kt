@@ -4,10 +4,10 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectNewHeads
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
-import io.emeraldpay.etherjar.domain.Address
 import io.emeraldpay.etherjar.hex.Hex32
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux

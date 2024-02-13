@@ -1,7 +1,7 @@
 package io.emeraldpay.dshackle.rpc
 
 import io.emeraldpay.api.proto.Common
-import io.emeraldpay.etherjar.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import reactor.test.StepVerifier
 import spock.lang.Specification
 

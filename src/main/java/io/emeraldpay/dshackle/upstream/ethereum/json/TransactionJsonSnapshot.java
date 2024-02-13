@@ -1,10 +1,9 @@
 package io.emeraldpay.dshackle.upstream.ethereum.json;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import io.emeraldpay.etherjar.domain.BlockHash;
-import io.emeraldpay.etherjar.domain.TransactionRef;
-import io.emeraldpay.etherjar.domain.Wei;
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionRef;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Wei;
 
 import java.io.Serializable;
 

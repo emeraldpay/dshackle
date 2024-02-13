@@ -25,8 +25,8 @@ import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.etherjar.rpc.json.TransactionJson
-import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionReceiptJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono

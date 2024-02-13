@@ -2,13 +2,11 @@ package io.emeraldpay.dshackle.upstream.ethereum.json;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import io.emeraldpay.etherjar.domain.Address;
-import io.emeraldpay.etherjar.domain.BlockHash;
-import io.emeraldpay.etherjar.domain.Bloom;
-import io.emeraldpay.etherjar.domain.Wei;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Bloom;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Wei;
 import io.emeraldpay.etherjar.hex.HexData;
-import io.emeraldpay.etherjar.rpc.json.TransactionJson;
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson;
 
 import java.io.Serializable;
 import java.math.BigInteger;

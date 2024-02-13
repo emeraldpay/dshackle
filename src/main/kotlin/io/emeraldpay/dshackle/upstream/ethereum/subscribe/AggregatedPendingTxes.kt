@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import reactor.core.publisher.Flux
 import java.time.Duration
 

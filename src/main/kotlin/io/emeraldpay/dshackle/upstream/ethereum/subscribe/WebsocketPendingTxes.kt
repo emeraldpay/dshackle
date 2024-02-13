@@ -18,8 +18,8 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.etherjar.domain.TransactionId
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono

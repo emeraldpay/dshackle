@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.DefaultContainer
 import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.etherjar.rpc.json.TransactionReceiptJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionReceiptJson
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 

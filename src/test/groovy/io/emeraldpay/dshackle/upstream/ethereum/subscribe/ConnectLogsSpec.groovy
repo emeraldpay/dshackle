@@ -17,9 +17,9 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
-import io.emeraldpay.etherjar.domain.Address
-import io.emeraldpay.etherjar.domain.BlockHash
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.etherjar.hex.Hex32
 import io.emeraldpay.etherjar.hex.HexData
 import reactor.core.publisher.Flux

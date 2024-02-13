@@ -21,7 +21,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass.NativeSubscribeRequest
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumEgressSubscription
-import io.emeraldpay.etherjar.domain.TransactionId
+import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import reactor.core.publisher.Flux
 
 class DshacklePendingTxesSource(

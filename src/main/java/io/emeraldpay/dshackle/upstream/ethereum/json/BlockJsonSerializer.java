@@ -17,12 +17,8 @@ package io.emeraldpay.dshackle.upstream.ethereum.json;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import io.emeraldpay.etherjar.domain.BlockHash;
-import io.emeraldpay.etherjar.domain.Wei;
-import io.emeraldpay.etherjar.rpc.json.EtherJsonSerializer;
-import io.emeraldpay.etherjar.rpc.json.TransactionJson;
-import io.emeraldpay.etherjar.rpc.json.TransactionJsonSerializer;
-import io.emeraldpay.etherjar.rpc.json.TransactionRefJson;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash;
+import io.emeraldpay.dshackle.upstream.ethereum.domain.Wei;
 
 import java.io.IOException;
 

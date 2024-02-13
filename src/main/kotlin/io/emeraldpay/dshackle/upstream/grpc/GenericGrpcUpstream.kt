@@ -34,9 +34,9 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
-import io.emeraldpay.etherjar.domain.BlockHash
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import java.math.BigInteger
