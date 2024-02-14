@@ -97,6 +97,7 @@ class DefaultEthereumMethods(
         "eth_getLogs",
         "eth_maxPriorityFeePerGas",
         "eth_getProof",
+        "eth_createAccessList",
     )
 
     private val specialMethods = listOf(
