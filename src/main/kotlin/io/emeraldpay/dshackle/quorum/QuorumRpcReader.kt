@@ -24,12 +24,12 @@ import io.emeraldpay.dshackle.reader.RpcReader
 import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.upstream.ApiSource
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcUpstreamException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import io.emeraldpay.etherjar.rpc.RpcException
 import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Flux

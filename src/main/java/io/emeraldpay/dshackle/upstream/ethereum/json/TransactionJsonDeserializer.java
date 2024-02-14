@@ -24,7 +24,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.ChainId;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionSignature;
-import io.emeraldpay.etherjar.hex.Hex32;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.Hex32;
 
 import java.io.IOException;
 import java.util.ArrayList;

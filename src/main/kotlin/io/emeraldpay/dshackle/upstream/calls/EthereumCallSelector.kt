@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.etherjar.hex.HexQuantity
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexQuantity
 import org.bouncycastle.util.encoders.DecoderException
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono

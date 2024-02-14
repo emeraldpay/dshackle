@@ -17,13 +17,13 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.reader.JsonRpcHttpReader
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.rpcclient.stream.AggregateResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.stream.JsonRpcStreamParser
 import io.emeraldpay.dshackle.upstream.rpcclient.stream.Response
 import io.emeraldpay.dshackle.upstream.rpcclient.stream.SingleResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.stream.StreamResponse
-import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.micrometer.core.instrument.Metrics
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames

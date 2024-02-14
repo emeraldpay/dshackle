@@ -17,8 +17,8 @@
 
 package io.emeraldpay.dshackle.upstream.ethereum.domain;
 
-import io.emeraldpay.etherjar.hex.Hex32;
-import io.emeraldpay.etherjar.hex.HexData;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.Hex32;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData;
 import org.bouncycastle.jcajce.provider.digest.Keccak;
 import org.bouncycastle.util.encoders.Hex;
 

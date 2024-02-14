@@ -20,10 +20,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ethereum.json.RequestJson
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.etherjar.rpc.RpcResponseError
-import io.emeraldpay.etherjar.rpc.json.RequestJson
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.io.IOException

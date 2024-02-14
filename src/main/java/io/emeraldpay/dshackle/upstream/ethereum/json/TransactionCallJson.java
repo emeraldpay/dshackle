@@ -20,7 +20,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.json;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Wei;
-import io.emeraldpay.etherjar.hex.HexData;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData;
 
 import java.io.Serializable;
 

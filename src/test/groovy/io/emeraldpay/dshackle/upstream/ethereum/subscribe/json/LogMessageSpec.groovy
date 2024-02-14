@@ -20,8 +20,8 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
-import io.emeraldpay.etherjar.hex.Hex32
-import io.emeraldpay.etherjar.hex.HexData
+import io.emeraldpay.dshackle.upstream.ethereum.hex.Hex32
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData
 import spock.lang.Specification
 
 class LogMessageSpec extends Specification {

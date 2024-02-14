@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum.json;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Wei;
-import io.emeraldpay.etherjar.hex.HexData;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData;
 
 import java.io.IOException;
 import java.math.BigInteger;

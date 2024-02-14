@@ -22,9 +22,9 @@ import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
-import io.emeraldpay.etherjar.rpc.RpcException
-import io.emeraldpay.etherjar.rpc.RpcResponseError
 import io.grpc.StatusRuntimeException
 import org.apache.commons.lang3.time.StopWatch
 import org.slf4j.LoggerFactory

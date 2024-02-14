@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import nl.jqno.equalsverifier.EqualsVerifier
 import spock.lang.Specification
 

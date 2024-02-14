@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import spock.lang.Specification
 
 class ResponseRpcParserSpec extends Specification {

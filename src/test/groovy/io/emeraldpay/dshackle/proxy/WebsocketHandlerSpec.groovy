@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.etherjar.rpc.json.RequestJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.RequestJson
 import io.micrometer.core.instrument.Counter
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks

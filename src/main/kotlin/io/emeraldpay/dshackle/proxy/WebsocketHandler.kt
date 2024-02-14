@@ -23,8 +23,8 @@ import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
-import io.emeraldpay.etherjar.rpc.json.RequestJson
-import io.emeraldpay.etherjar.rpc.json.ResponseJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.RequestJson
+import io.emeraldpay.dshackle.upstream.ethereum.json.ResponseJson
 import io.netty.buffer.ByteBufInputStream
 import org.reactivestreams.Publisher
 import org.slf4j.LoggerFactory

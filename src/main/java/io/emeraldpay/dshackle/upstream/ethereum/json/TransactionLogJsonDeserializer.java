@@ -21,7 +21,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.emeraldpay.etherjar.hex.Hex32;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.Hex32;
 
 import java.io.IOException;
 import java.util.ArrayList;

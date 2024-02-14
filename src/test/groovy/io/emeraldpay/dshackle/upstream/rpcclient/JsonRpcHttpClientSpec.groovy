@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import org.mockserver.integration.ClientAndServer

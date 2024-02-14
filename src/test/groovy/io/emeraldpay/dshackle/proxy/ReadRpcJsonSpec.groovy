@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.proxy
 
 
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import spock.lang.Specification
 
 class ReadRpcJsonSpec extends Specification {

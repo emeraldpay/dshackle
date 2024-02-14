@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
-import io.emeraldpay.etherjar.hex.HexData
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionLogJson
 import reactor.core.publisher.Mono
 import spock.lang.Specification

@@ -79,8 +79,6 @@ dependencies {
     }
     implementation libs.brave.instrumentation.grpc
 
-    implementation libs.bundles.etherjar
-
     implementation libs.logstash.encoder
 
     implementation libs.janino

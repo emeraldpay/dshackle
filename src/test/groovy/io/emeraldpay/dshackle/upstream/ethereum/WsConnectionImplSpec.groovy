@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
-import io.emeraldpay.etherjar.rpc.RpcResponseError
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJson
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers

@@ -15,7 +15,7 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-import io.emeraldpay.etherjar.rpc.RpcException
+import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 
 open class JsonRpcException(
     val id: JsonRpcResponse.Id,

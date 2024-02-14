@@ -20,8 +20,8 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
-import io.emeraldpay.etherjar.hex.Hex32
-import io.emeraldpay.etherjar.hex.HexData
+import io.emeraldpay.dshackle.upstream.ethereum.hex.Hex32
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
 import spock.lang.Specification

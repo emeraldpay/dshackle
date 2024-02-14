@@ -1,6 +1,5 @@
 [versions]
 detekt = "1.23.1"
-etherjar = "0.11.1"
 groovy = "4.0.15"
 protoc = "3.21.7"
 jackson = "2.11.0"
@@ -36,15 +35,6 @@ cglib-nodep = "cglib:cglib-nodep:3.3.0"
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 
 equals-verifier = "nl.jqno.equalsverifier:equalsverifier:3.10.1"
-
-etherjar-domain = { module = "io.emeraldpay.etherjar:etherjar-domain", version.ref = "etherjar" }
-etherjar-hex = { module = "io.emeraldpay.etherjar:etherjar-hex", version.ref = "etherjar" }
-etherjar-rpc-api = { module = "io.emeraldpay.etherjar:etherjar-rpc-api", version.ref = "etherjar" }
-etherjar-rpc-http = { module = "io.emeraldpay.etherjar:etherjar-rpc-http", version.ref = "etherjar" }
-etherjar-rpc-ws = { module = "io.emeraldpay.etherjar:etherjar-rpc-ws", version.ref = "etherjar" }
-etherjar-tx = { module = "io.emeraldpay.etherjar:etherjar-tx", version.ref = "etherjar" }
-etherjar-contract = { module = "io.emeraldpay.etherjar:etherjar-contract", version.ref = "etherjar" }
-etherjar-erc20 = { module = "io.emeraldpay.etherjar:etherjar-erc20", version.ref = "etherjar" }
 
 groovy = { module = "org.apache.groovy:groovy", version.ref = "groovy" }
 
@@ -132,7 +122,6 @@ mockito-inline = "org.mockito:mockito-inline:4.0.0"
 
 [bundles]
 apache-commons = ["commons-io", "apache-commons-lang3", "apache-commons-collections4"]
-etherjar = ["etherjar-domain", "etherjar-hex", "etherjar-rpc-api", "etherjar-rpc-http", "etherjar-rpc-ws", "etherjar-tx", "etherjar-contract", "etherjar-erc20"]
 grpc = ["grpc-protobuf", "grpc-stub", "grpc-netty", "grpc-proto-util", "grpc-services"]
 httpcomponents = ["httpcomponents-httpmime", "httpcomponents-httpclient"]
 jackson = ["jackson-core", "jackson-databind", "jackson-datatype-jdk8", "jackson-datatype-jsr310", "jackson-module-kotlin"]

@@ -17,7 +17,7 @@
 
 package io.emeraldpay.dshackle.upstream.ethereum.domain;
 
-import io.emeraldpay.etherjar.hex.HexData;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData;
 
 import java.util.Objects;
 

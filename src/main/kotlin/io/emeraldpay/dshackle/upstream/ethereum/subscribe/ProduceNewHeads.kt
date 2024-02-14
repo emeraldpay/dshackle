@@ -17,8 +17,8 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.NewHeadMessage
-import io.emeraldpay.etherjar.hex.HexData
 import reactor.core.publisher.Flux
 
 /**

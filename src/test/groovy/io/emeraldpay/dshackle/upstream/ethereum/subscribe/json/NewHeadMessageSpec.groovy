@@ -5,7 +5,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Bloom
-import io.emeraldpay.etherjar.hex.HexData
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData
 import spock.lang.Specification
 
 import java.time.Instant

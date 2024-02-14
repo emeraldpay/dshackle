@@ -6,7 +6,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.domain.Address;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Bloom;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Wei;
-import io.emeraldpay.etherjar.hex.HexData;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData;
 
 import java.io.Serializable;
 import java.math.BigInteger;

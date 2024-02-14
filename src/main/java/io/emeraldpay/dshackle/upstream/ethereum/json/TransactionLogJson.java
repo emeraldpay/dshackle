@@ -23,8 +23,8 @@ import io.emeraldpay.dshackle.upstream.ethereum.domain.Address;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId;
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionRef;
-import io.emeraldpay.etherjar.hex.Hex32;
-import io.emeraldpay.etherjar.hex.HexData;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.Hex32;
+import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData;
 
 import java.io.Serializable;
 import java.util.List;
@@ -79,7 +79,6 @@ public class TransactionLogJson implements TransactionRef, Serializable {
      *
      * In solidity: The first topic is the hash of the signature of the event (e.g. Deposit(address,bytes32,uint256)),
      * except you declared the event with the anonymous specifier.
-     * @see io.emeraldpay.etherjar.domain.EventId
      */
     private List<Hex32> topics;
 
