@@ -683,6 +683,12 @@ chain-settings:
           lagging: 1
         fork-choice: quorum
       chains:
+        - id: Mainnet
+          priority: 100
+          code: IMMUTABLE_ZKEVM_MAINNET
+          short-names: [ immutable-zkevm ]
+          chain-id: 0x343b
+          grpcId: 1036
         - id: Testnet
           priority: 1
           code: IMMUTABLE_ZKEVM_TESTNET
