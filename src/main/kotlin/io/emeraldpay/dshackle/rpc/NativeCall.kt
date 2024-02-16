@@ -110,18 +110,32 @@ open class NativeCall(
         return if (callResult.stream == null) {
             Mono.just(buildResponse(callResult))
         } else {
-            val stream = callResult.stream.map { stream ->
-                val result = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
-                    .setSucceed(true)
-                    .setFinalChunk(stream.finalChunk)
-                    .setChunked(true)
-                    .setId(callResult.id)
-                result.payload = ByteString.copyFrom(stream.chunkData)
-
-                result.build()
+            return callResult.stream.switchOnFirst { t, stream ->
+                val firstChunk = t.get()
+                if (firstChunk == null) {
+                    stream.map { buildStreamResult(it, callResult.id).build() }
+                } else {
+                    Flux.concat(
+                        Mono.just(firstChunk)
+                            .map {
+                                buildStreamResult(it, callResult.id)
+                                    .setUpstreamId(callResult.upstreamId)
+                                    .build()
+                            },
+                        stream.skip(1).map { buildStreamResult(it, callResult.id).build() },
+                    )
+                }
             }
-            stream
         }
+    }
+
+    private fun buildStreamResult(chunk: Chunk, id: Int): BlockchainOuterClass.NativeCallReplyItem.Builder {
+        return BlockchainOuterClass.NativeCallReplyItem.newBuilder()
+            .setSucceed(true)
+            .setFinalChunk(chunk.finalChunk)
+            .setChunked(true)
+            .setPayload(ByteString.copyFrom(chunk.chunkData))
+            .setId(id)
     }
 
     private fun completeSpan(callResult: CallResult, requestCount: Int) {
