@@ -588,6 +588,12 @@ chain-settings:
           short-names: [metis]
           chain-id: 0x440
           grpcId: 1023
+        - id: Sepolia
+          priority: 10
+          code: METIS_SEPOLIA
+          short-names: [ metis-sepolia ]
+          chain-id: 0xe9fd
+          grpcId: 10058
         - id: Goerli
           priority: 1
           code: METIS_GOERLI
@@ -964,3 +970,201 @@ chain-settings:
           grpcId: 10050
           short-names: [ lisk-sepolia, lisk-testnet ]
           chain-id: 0x106a
+    - id: zora
+      label: Zora
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 2s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: ZORA_MAINNET
+          grpcId: 1037
+          short-names: [ zora ]
+          chain-id: 0x76adf1
+        - id: Sepolia
+          priority: 10
+          code: ZORA_SEPOLIA
+          grpcId: 10053
+          short-names: [ zora-sepolia ]
+          chain-id: 0x3b9ac9ff
+    - id: mode
+      label: Mode
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 2s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: MODE_MAINNET
+          grpcId: 1038
+          short-names: [ mode ]
+          chain-id: 0x868b
+        - id: Testnet
+          priority: 1
+          code: MODE_TESTNET
+          grpcId: 10054
+          short-names: [ mode-testnet ]
+          chain-id: 0x397
+    - id: evmos
+      label: Evmos
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 2s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: EVMOS_MAINNET
+          grpcId: 1039
+          short-names: [ evmos ]
+          chain-id: 0x2329
+        - id: Testnet
+          priority: 1
+          code: EVMOS_TESTNET
+          grpcId: 10055
+          short-names: [ evmos-testnet ]
+          chain-id: 0x2328
+    - id: ronin
+      label: Ronin
+      type: eth
+      settings:
+        options:
+          validate-peers: false
+        fork-choice: quorum
+        expected-block-time: 3s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: RONIN_MAINNET
+          grpcId: 1043
+          short-names: [ ronin ]
+          chain-id: 0x7e4
+    - id: neon-evm
+      label: Neon EVM
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 500ms
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: NEON_EVM_MAINNET
+          grpcId: 1040
+          short-names: [ neon-evm ]
+          chain-id: 0xe9ac0d6
+        - id: Devnet
+          priority: 1
+          code: NEON_EVM_DEVNET
+          grpcId: 10056
+          short-names: [ neon-evm-devnet ]
+          chain-id: 0xe9ac0ce
+    - id: boba-ethereum
+      label: Boba Ethereum
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 1m
+        options:
+          validate-peers: false
+        lags:
+          syncing: 5
+          lagging: 1
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: BOBA_ETHEREUM_MAINNET
+          grpcId: 1041
+          short-names: [ boba-eth ]
+          chain-id: 0x120
+    - id: boba-bnb
+      label: Boba BNB
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 5s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: BOBA_BNB_MAINNET
+          grpcId: 1044
+          short-names: [ boba-bnb ]
+          chain-id: 0xdbe0
+    - id: heco
+      label: Heco
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 3s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: HECO_MAINNET
+          grpcId: 1042
+          short-names: [ heco ]
+          chain-id: 0x80
+        - id: Testnet
+          priority: 1
+          code: HECO_TESTNET
+          grpcId: 10057
+          short-names: [ heco-testnet ]
+          chain-id: 0x100
+    - id: playnance
+      label: Playnance
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 15s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Testnet
+          priority: 10
+          code: PLAYNANCE_TESTNET
+          grpcId: 10059
+          short-names: [ playnance-testnet ]
+          chain-id: 0x12dbe91402
+    - id: zeta-chain
+      label: ZetaChain
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 5s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: ZETA_CHAIN_MAINNET
+          grpcId: 1045
+          short-names: [ zeta-chain ]
+          chain-id: 0x1b58

@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.hex.HexQuantity
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import reactor.core.publisher.Mono
+import kotlin.math.max
 
 private const val ARBITRUM_NITRO_BLOCK = "0x152DD47" // 22207815
 private const val OPTIMISM_BEDROCK_BLOCK = "0x645C277" // 105235063
@@ -21,7 +22,7 @@ class EthereumArchiveBlockNumberReader(
             .map {
                 HexQuantity
                     .from(
-                        String(it).substring(3, it.size - 1).toLong(radix = 16) - 10_000, // this is definitely archive
+                        max(1, String(it).substring(3, it.size - 1).toLong(radix = 16) - 10_000), // this is definitely archive
                     ).toHex()
             }
 
