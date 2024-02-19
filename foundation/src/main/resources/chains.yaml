@@ -502,18 +502,28 @@ chain-settings:
           grpcId: 1020
           short-names: [moonbeam]
           chain-id: 0x504
-        - id: Moonriver
-          priority: 50
-          code: MOONRIVER
-          grpcId: 1021
-          short-names: [moonriver]
-          chain-id: 0x505
         - id: Moonbase Alpha
           priority: 1
           code: MOONBEAM_ALPHA
           grpcId: 10029
           short-names: [moonbase-alpha]
           chain-id: 0x507
+    - id: moonriver
+      label: Moonriver
+      type: eth
+      settings:
+        expected-block-time: 12s
+        lags:
+          syncing: 6
+          lagging: 1
+        fork-choice: quorum
+      chains:
+        - id: Moonriver
+          priority: 50
+          code: MOONRIVER
+          grpcId: 1021
+          short-names: [moonriver]
+          chain-id: 0x505
     - id: scroll
       label: Scroll
       type: eth
