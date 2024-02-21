@@ -1,6 +1,8 @@
 package io.emeraldpay.dshackle.reader
 
+import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.quorum.MaximumValueQuorum
 import io.emeraldpay.dshackle.quorum.QuorumRpcReader
 import io.emeraldpay.dshackle.reader.RpcReader.Result
 import io.emeraldpay.dshackle.upstream.Multistream
@@ -65,7 +67,7 @@ interface RpcReaderFactory {
 
     class Default : RpcReaderFactory {
         override fun create(data: RpcReaderData): RpcReader {
-            if (data.method == "eth_sendRawTransaction" || data.method == "eth_getTransactionCount") {
+            if (data.quorum is MaximumValueQuorum || data.quorum is BroadcastQuorum) {
                 return BroadcastReader(data.multistream.getAll(), data.matcher, data.signer, data.quorum, data.tracer)
             }
             val apis = data.multistream.getApiSource(data.matcher)
