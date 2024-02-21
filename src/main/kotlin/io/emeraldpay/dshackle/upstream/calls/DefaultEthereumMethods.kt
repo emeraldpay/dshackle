@@ -90,6 +90,34 @@ class DefaultEthereumMethods(
         "eth_getBlockReceipts",
     )
 
+    private val harmonyPossibleNotIndexedMethods = listOf(
+        "hmy_getStakingTransactionByBlockHashAndIndex",
+        "hmy_getStakingTransactionByHash",
+        "hmy_getCXReceiptByHash",
+        "hmy_getBlockTransactionCountByHash",
+        "hmy_getTransactionByHash",
+        "hmy_getTransactionByBlockHashAndIndex",
+        "hmy_getBlockByHash",
+        "hmy_getStakingTransactionByBlockNumberAndIndex",
+        "hmy_getTransactionReceipt",
+        "hmy_getBlockTransactionCountByNumber",
+        "hmy_getTransactionByBlockNumberAndIndex",
+        "hmy_getBlockByNumber",
+        "hmy_getAllValidatorInformationByBlockNumber",
+        "hmyv2_getStakingTransactionByBlockHashAndIndex",
+        "hmyv2_getStakingTransactionByBlockNumberAndIndex",
+        "hmyv2_getStakingTransactionByHash",
+        "hmyv2_getTransactionReceipt",
+        "hmyv2_getBlockTransactionCountByHash",
+        "hmyv2_getBlockTransactionCountByNumber",
+        "hmyv2_getTransactionByHash",
+        "hmyv2_getTransactionByBlockNumberAndIndex",
+        "hmyv2_getTransactionByBlockHashAndIndex",
+        "hmyv2_getBlockByNumber",
+        "hmyv2_getBlockByHash",
+        "hmyv2_getCXReceiptByHash",
+    )
+
     private val firstValueMethods = listOf(
         "eth_call",
         "eth_getStorageAt",
@@ -105,6 +133,12 @@ class DefaultEthereumMethods(
         "eth_blockNumber",
         "eth_getBalance",
         "eth_sendRawTransaction",
+    )
+
+    private val harmonySpecialMethods = listOf(
+        "hmy_sendRawStakingTransaction",
+        "hmy_sendRawTransaction",
+        "hmy_getTransactionCount",
     )
 
     private val headVerifiedMethods = listOf(
@@ -130,6 +164,66 @@ class DefaultEthereumMethods(
         "eth_chainId",
     )
 
+    private val harmonyMethods = listOf(
+        "hmy_newFilter",
+        "hmy_newBlockFilter",
+        "hmy_newPendingTransactionFilter",
+        "hmy_getFilterLogs",
+        "hmy_getFilterChanges",
+        "hmy_getPendingCrossLinks",
+        "hmy_getCurrentTransactionErrorSink",
+        "hmy_getPendingCXReceipts",
+        "hmy_pendingTransactions",
+        "hmy_getTransactionsHistory",
+        "hmy_getBlocks",
+        "hmy_getBalanceByBlockNumber",
+        "hmy_getBalance",
+        "hmy_getLogs",
+        "hmy_estimateGas",
+        "hmy_getStorageAt",
+        "hmy_call",
+        "hmy_getCode",
+        "hmy_isLastBlock",
+        "hmy_latestHeader",
+        "hmy_blockNumber",
+        "hmy_gasPrice",
+        "hmy_getEpoch",
+        "hmy_epochLastBlock",
+        "hmy_getShardingStructure",
+        "hmy_syncing",
+        "hmy_getLeader",
+        "hmy_getCirculatingSupply",
+        "hmy_getTotalSupply",
+        "hmy_getStakingNetworkInfo",
+        "hmy_getAllValidatorInformation",
+        "hmy_getDelegationsByValidator",
+        "hmy_getDelegationsByDelegatorAndValidator",
+        "hmy_getDelegationsByDelegator",
+        "hmy_getValidatorMetrics",
+        "hmy_getMedianRawStakeSnapshot",
+        "hmy_getElectedValidatorAddresses",
+        "hmy_getAllValidatorAddresses",
+        "hmy_getCurrentStakingErrorSink",
+        "hmy_getValidatorInformation",
+        "hmy_getSignedBlocks",
+        "hmy_getValidators",
+        "hmy_isBlockSigner",
+        "hmy_getBlockSigners",
+        "hmyv2_getBalanceByBlockNumber",
+        "hmyv2_getTransactionCount",
+        "hmyv2_getBalance",
+        "hmyv2_getCurrentTransactionErrorSink",
+        "hmyv2_getPendingCrossLinks",
+        "hmyv2_getPendingCXReceipts",
+        "hmyv2_pendingTransactions",
+        "hmyv2_getTransactionsHistory",
+        "hmyv2_getBlocks",
+        "hmyv2_blockNumber",
+        "hmyv2_gasPrice",
+        "hmyv2_getEpoch",
+        "hmyv2_getValidators",
+    )
+
     private val allowedMethods: List<String>
 
     init {
@@ -145,11 +239,11 @@ class DefaultEthereumMethods(
 
     override fun createQuorumFor(method: String): CallQuorum {
         return when {
-            possibleNotIndexedMethods.contains(method) -> NotNullQuorum()
-            specialMethods.contains(method) -> {
+            possibleNotIndexedMethods.contains(method) || harmonyPossibleNotIndexedMethods.contains(method) -> NotNullQuorum()
+            specialMethods.contains(method) || harmonySpecialMethods.contains(method) -> {
                 when (method) {
-                    "eth_getTransactionCount" -> MaximumValueQuorum()
-                    "eth_sendRawTransaction" -> BroadcastQuorum()
+                    "eth_getTransactionCount", "hmy_getTransactionCount" -> MaximumValueQuorum()
+                    "eth_sendRawTransaction", "hmy_sendRawStakingTransaction", "hmy_sendRawTransaction" -> BroadcastQuorum()
                     else -> AlwaysQuorum()
                 }
             }
@@ -214,6 +308,21 @@ class DefaultEthereumMethods(
                 "zks_L1BatchNumber",
                 "zks_L1ChainId",
             )
+
+            Chain.HARMONY__MAINNET_SHARD_0 ->
+                harmonyMethods
+                    .plus(harmonySpecialMethods)
+                    .plus(harmonyPossibleNotIndexedMethods)
+                    .plus(
+                        listOf(
+                            "hmy_getCurrentUtilityMetrics",
+                        ),
+                    )
+
+            Chain.HARMONY__MAINNET_SHARD_1 ->
+                harmonyMethods
+                    .plus(harmonySpecialMethods)
+                    .plus(harmonyPossibleNotIndexedMethods)
 
             else -> emptyList()
         }
