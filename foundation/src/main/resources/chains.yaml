@@ -1178,3 +1178,94 @@ chain-settings:
           grpcId: 1045
           short-names: [ zeta-chain ]
           chain-id: 0x1b58
+    - id: bittorrent
+      label: BitTorrent
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 2s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: BITTORRENT_MAINNET
+          grpcId: 1046
+          short-names: [ bittorrent ]
+          chain-id: 0xc7
+        - id: Testnet
+          priority: 1
+          code: BITTORRENT_TESTNET
+          grpcId: 10060
+          short-names: [ bittorrent-testnet ]
+          chain-id: 0x404
+    - id: thundercore
+      label: Thundercore
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 1s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: THUNDERCORE_MAINNET
+          grpcId: 1047
+          short-names: [ thundercore ]
+          chain-id: 0x6c
+        - id: Testnet
+          priority: 1
+          code: THUNDERCORE_TESTNET
+          grpcId: 10061
+          short-names: [ thundercore-testnet ]
+          chain-id: 0x12
+    - id: core
+      label: Core
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 3s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: CORE_MAINNET
+          grpcId: 1048
+          short-names: [ core ]
+          chain-id: 0x45c
+        - id: Testnet
+          priority: 1
+          code: CORE_TESTNET
+          grpcId: 10062
+          short-names: [ core-testnet ]
+          chain-id: 0x45b
+    - id: telos
+      label: Telos
+      type: eth
+      settings:
+        options:
+          validate-peers: false
+          validate-syncing: false
+        fork-choice: quorum
+        expected-block-time: 300ms
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: TELOS_MAINNET
+          grpcId: 1049
+          short-names: [ telos ]
+          chain-id: 0x28
+        - id: Testnet
+          priority: 1
+          code: TELOS_TESTNET
+          grpcId: 10063
+          short-names: [ telos-testnet ]
+          chain-id: 0x29

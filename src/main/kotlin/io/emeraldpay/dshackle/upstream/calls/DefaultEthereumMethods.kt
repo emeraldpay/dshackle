@@ -333,6 +333,10 @@ class DefaultEthereumMethods(
             Chain.OPTIMISM__MAINNET -> setOf("eth_getAccounts")
             Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__TESTNET, Chain.POLYGON_ZKEVM__TESTNET, Chain.POLYGON_ZKEVM__MAINNET ->
                 setOf("eth_maxPriorityFeePerGas")
+            Chain.TELOS__MAINNET, Chain.TELOS__TESTNET -> setOf(
+                "eth_syncing",
+                "net_peerCount",
+            )
             else -> emptySet()
         }
     }
@@ -404,15 +408,5 @@ class DefaultEthereumMethods(
 
     override fun getSupportedMethods(): Set<String> {
         return allowedMethods.plus(hardcodedMethods).toSortedSet()
-    }
-
-    data class HardcodedData private constructor(
-        val netVersion: String,
-        val chainId: String,
-    ) {
-        companion object {
-            fun createHardcodedData(netVersion: String, chainId: String): HardcodedData =
-                HardcodedData(netVersion.lowercase(), chainId.lowercase())
-        }
     }
 }
