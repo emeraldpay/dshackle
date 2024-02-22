@@ -31,7 +31,12 @@ open class EthereumEgressSubscription(
     open val logs = ConnectLogs(upstream, scheduler)
     override fun getAvailableTopics(): List<String> {
         val subs = if (upstream.getCapabilities().contains(Capability.WS_HEAD)) {
-            listOf(METHOD_NEW_HEADS, METHOD_LOGS)
+            // we can't use logs without eth_getLogs method available
+            if (upstream.getMethods().isAvailable("eth_getLogs")) {
+                listOf(METHOD_NEW_HEADS, METHOD_LOGS)
+            } else {
+                listOf(METHOD_NEW_HEADS)
+            }
         } else {
             listOf()
         }

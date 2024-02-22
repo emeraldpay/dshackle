@@ -200,6 +200,14 @@ class EthereumEgressSubscriptionSpec extends Specification {
         def ethereumSubscribe3 = new EthereumEgressSubscription(TestingCommons.multistream(up3) as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
         then:
         ethereumSubscribe3.getAvailableTopics().toSet() == [EthereumEgressSubscription.METHOD_LOGS, EthereumEgressSubscription.METHOD_NEW_HEADS, EthereumEgressSubscription.METHOD_PENDING_TXES].toSet()
+        when:
+        def up4 = TestingCommons.upstream(TestingCommons.api(), "eth_getBlockByNumber")
+        up4.getConnectorMock().setLiveness(Flux.just(true))
+        up4.stop()
+        up4.start()
+        def ethereumSubscribe4 = new EthereumEgressSubscription(TestingCommons.multistream(up4) as GenericMultistream, Schedulers.boundedElastic(), null)
+        then:
+        ethereumSubscribe4.getAvailableTopics().toSet() == [EthereumEgressSubscription.METHOD_NEW_HEADS].toSet()
 
     }
 }
