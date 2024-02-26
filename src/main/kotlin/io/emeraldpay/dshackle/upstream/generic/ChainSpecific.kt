@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
 import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
+import io.emeraldpay.dshackle.BlockchainType.NEAR
 import io.emeraldpay.dshackle.BlockchainType.POLKADOT
 import io.emeraldpay.dshackle.BlockchainType.SOLANA
 import io.emeraldpay.dshackle.BlockchainType.STARKNET
@@ -26,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
+import io.emeraldpay.dshackle.upstream.near.NearChainSpecific
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotChainSpecific
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.solana.SolanaChainSpecific
@@ -74,6 +76,7 @@ object ChainSpecificRegistry {
             STARKNET -> StarknetChainSpecific
             POLKADOT -> PolkadotChainSpecific
             SOLANA -> SolanaChainSpecific
+            NEAR -> NearChainSpecific
             BITCOIN -> throw IllegalArgumentException("bitcoin should use custom streams implementation")
             UNKNOWN -> throw IllegalArgumentException("unknown chain")
         }

@@ -29,6 +29,7 @@ data class JsonRpcRequest(
     val nonce: Long?,
     val selector: BlockchainOuterClass.Selector?,
     val isStreamed: Boolean = false,
+    val objParams: Map<Any, Any>? = null,
 ) {
 
     @JvmOverloads constructor(
@@ -39,12 +40,17 @@ data class JsonRpcRequest(
         isStreamed: Boolean = false,
     ) : this(method, params, 1, nonce, selectors, isStreamed)
 
+    constructor(
+        method: String,
+        objParams: Map<Any, Any>,
+    ) : this(method, listOf(), 1, null, null, false, objParams)
+
     fun toJson(): ByteArray {
         val json = mapOf(
             "jsonrpc" to "2.0",
             "id" to id,
             "method" to method,
-            "params" to params,
+            "params" to (objParams ?: params),
         )
         return Global.objectMapper.writeValueAsBytes(json)
     }

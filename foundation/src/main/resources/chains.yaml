@@ -1275,3 +1275,31 @@ chain-settings:
           grpcId: 10063
           short-names: [ telos-testnet ]
           chain-id: 0x29
+    - id: near
+      label: Near
+      type: near
+      settings:
+        fork-choice: quorum
+        expected-block-time: 1s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: NEAR_MAINNET
+          grpcId: 1050
+          short-names: [ near ]
+          chain-id: 0x0
+        - id: Testnet
+          priority: 5
+          code: NEAR_TESTNET
+          grpcId: 10064
+          short-names: [ near-testnet ]
+          chain-id: 0x0
+        - id: Betanet
+          priority: 1
+          code: NEAR_BETANET
+          grpcId: 10065
+          short-names: [ near-betanet ]
+          chain-id: 0x0
