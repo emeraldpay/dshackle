@@ -115,11 +115,7 @@ class JsonRpcHttpClient(
             response.responseConnection { t, u ->
                 streamParser.streamParse(
                     t.status().code(),
-                    u.inbound().receive()
-                        .asByteArray()
-                        .doFinally {
-                            u.dispose()
-                        },
+                    u.inbound().receive().asByteArray(),
                 )
             }.single()
         }
