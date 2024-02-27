@@ -39,6 +39,7 @@ import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -93,7 +94,7 @@ class BitcoinGrpcUpstream(
     private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
         // head comes without transaction data
         // need to download transactions for the block
-        defaultReader.read(JsonRpcRequest("getblock", listOf(existingBlock.hash.toHex())))
+        defaultReader.read(JsonRpcRequest("getblock", ListParams(existingBlock.hash.toHex())))
             .flatMap(JsonRpcResponse::requireResult)
             .map(extractBlock::extract)
             .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))

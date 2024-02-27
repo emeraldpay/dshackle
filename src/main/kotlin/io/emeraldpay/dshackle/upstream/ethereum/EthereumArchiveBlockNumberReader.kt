@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.ethereum.hex.HexQuantity
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Mono
 import kotlin.math.max
 
@@ -17,7 +18,7 @@ class EthereumArchiveBlockNumberReader(
 ) {
 
     fun readArchiveBlock(): Mono<String> =
-        reader.read(JsonRpcRequest("eth_blockNumber", listOf()))
+        reader.read(JsonRpcRequest("eth_blockNumber", ListParams()))
             .flatMap(JsonRpcResponse::requireResult)
             .map {
                 HexQuantity

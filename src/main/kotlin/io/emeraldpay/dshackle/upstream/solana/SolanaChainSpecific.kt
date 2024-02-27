@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
@@ -36,12 +37,12 @@ object SolanaChainSpecific : AbstractChainSpecific() {
     private val log = LoggerFactory.getLogger(SolanaChainSpecific::class.java)
 
     override fun getLatestBlock(api: JsonRpcReader, upstreamId: String): Mono<BlockContainer> {
-        return api.read(JsonRpcRequest("getSlot", listOf())).flatMap {
+        return api.read(JsonRpcRequest("getSlot", ListParams())).flatMap {
             val slot = it.getResultAsProcessedString().toLong()
             api.read(
                 JsonRpcRequest(
                     "getBlocks",
-                    listOf(
+                    ListParams(
                         slot - 10,
                         slot,
                     ),
@@ -54,7 +55,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
                     api.read(
                         JsonRpcRequest(
                             "getBlock",
-                            listOf(
+                            ListParams(
                                 response.max(),
                                 mapOf(
                                     "showRewards" to false,
@@ -100,7 +101,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
     override fun listenNewHeadsRequest(): JsonRpcRequest {
         return JsonRpcRequest(
             "blockSubscribe",
-            listOf(
+            ListParams(
                 "all",
                 mapOf(
                     "showRewards" to false,
@@ -111,7 +112,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
     }
 
     override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest {
-        return JsonRpcRequest("blockUnsubscribe", listOf(subId))
+        return JsonRpcRequest("blockUnsubscribe", ListParams(subId))
     }
 
     override fun validator(
@@ -124,7 +125,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
             upstream,
             options,
             SingleCallValidator(
-                JsonRpcRequest("getHealth", listOf()),
+                JsonRpcRequest("getHealth", ListParams()),
             ) { data ->
                 val resp = String(data)
                 if (resp == "\"ok\"") {

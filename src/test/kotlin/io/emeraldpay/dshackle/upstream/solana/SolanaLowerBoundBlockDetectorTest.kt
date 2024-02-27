@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
@@ -19,13 +20,13 @@ class SolanaLowerBoundBlockDetectorTest {
     @Test
     fun `get solana lower block and slot`() {
         val reader = mock<JsonRpcReader> {
-            on { read(JsonRpcRequest("getFirstAvailableBlock", listOf())) } doReturn
+            on { read(JsonRpcRequest("getFirstAvailableBlock", ListParams())) } doReturn
                 Mono.just(JsonRpcResponse("25000000".toByteArray(), null))
             on {
                 read(
                     JsonRpcRequest(
                         "getBlock",
-                        listOf(
+                        ListParams(
                             25000000L,
                             mapOf(
                                 "showRewards" to false,

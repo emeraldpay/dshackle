@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
@@ -41,10 +42,10 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         return parseBlock(data, upstreamId)
     }
 
-    override fun latestBlockRequest() = JsonRpcRequest("eth_getBlockByNumber", listOf("latest", false))
-    override fun listenNewHeadsRequest(): JsonRpcRequest = JsonRpcRequest("eth_subscribe", listOf("newHeads"))
+    override fun latestBlockRequest() = JsonRpcRequest("eth_getBlockByNumber", ListParams("latest", false))
+    override fun listenNewHeadsRequest(): JsonRpcRequest = JsonRpcRequest("eth_subscribe", ListParams("newHeads"))
     override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest =
-        JsonRpcRequest("eth_unsubscribe", listOf(subId))
+        JsonRpcRequest("eth_unsubscribe", ListParams(subId))
 
     override fun localReaderBuilder(
         cachingReader: CachingReader,

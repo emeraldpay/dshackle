@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -54,7 +55,8 @@ class WsSubscriptionsImpl(
     }
 
     override fun unsubscribe(request: JsonRpcRequest): Mono<JsonRpcResponse> {
-        if (request.params.isEmpty() || request.params.contains("")) {
+        if (request.params is ListParams && (request.params.list.isEmpty() || request.params.list.contains(""))
+        ) {
             return Mono.empty()
         }
         return wsPool.getConnection()

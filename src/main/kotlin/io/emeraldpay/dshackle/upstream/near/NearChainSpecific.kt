@@ -16,6 +16,8 @@ import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
+import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
 import java.math.BigInteger
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -60,7 +62,7 @@ object NearChainSpecific : AbstractPollChainSpecific() {
             upstream,
             options,
             SingleCallValidator(
-                JsonRpcRequest("status", listOf()),
+                JsonRpcRequest("status", ListParams()),
             ) { data ->
                 validate(data)
             },
@@ -80,8 +82,8 @@ object NearChainSpecific : AbstractPollChainSpecific() {
         }
     }
 
-    override fun latestBlockRequest(): JsonRpcRequest =
-        JsonRpcRequest("block", mapOf("finality" to "optimistic"))
+    override fun latestBlockRequest(): JsonRpcRequest = // {...}
+        JsonRpcRequest("block", ObjectParams("finality" to "optimistic"))
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

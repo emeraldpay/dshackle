@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.upstream.RecursiveLowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.toHex
 import reactor.core.publisher.Mono
 
@@ -23,7 +24,7 @@ class PolkadotLowerBoundBlockDetector(
         return upstream.getIngressReader().read(
             JsonRpcRequest(
                 "chain_getBlockHash",
-                listOf(blockNumber.toHex()), // in polkadot state methods work only with hash
+                ListParams(blockNumber.toHex()), // in polkadot state methods work only with hash
             ),
         )
             .flatMap(JsonRpcResponse::requireResult)
@@ -34,7 +35,7 @@ class PolkadotLowerBoundBlockDetector(
                 upstream.getIngressReader().read(
                     JsonRpcRequest(
                         "state_getMetadata",
-                        listOf(it),
+                        ListParams(it),
                     ),
                 )
             }

@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.time.Duration
@@ -21,7 +22,7 @@ class SolanaLowerBoundBlockDetector(
         return Mono.just(reader)
             .flatMap {
                 it.read(
-                    JsonRpcRequest("getFirstAvailableBlock", listOf()), // in case of solana we talk about the slot of the lowest confirmed block
+                    JsonRpcRequest("getFirstAvailableBlock", ListParams()), // in case of solana we talk about the slot of the lowest confirmed block
                 )
             }
             .flatMap(JsonRpcResponse::requireResult)
@@ -37,7 +38,7 @@ class SolanaLowerBoundBlockDetector(
                 reader.read(
                     JsonRpcRequest(
                         "getBlock", // since getFirstAvailableBlock returns the slot of the lowest confirmed block we can directly call getBlock
-                        listOf(
+                        ListParams(
                             it,
                             mapOf(
                                 "showRewards" to false,

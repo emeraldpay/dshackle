@@ -43,9 +43,12 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
+import io.emeraldpay.dshackle.upstream.rpcclient.CallParams
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
+import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
 import io.emeraldpay.dshackle.upstream.rpcclient.stream.Chunk
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.micrometer.core.instrument.Metrics
@@ -472,12 +475,16 @@ open class NativeCall(
         }
 
     @Suppress("UNCHECKED_CAST")
-    private fun extractParams(jsonParams: String): List<Any> {
+    private fun extractParams(jsonParams: String): CallParams {
         if (StringUtils.isEmpty(jsonParams) || jsonParams == "null") {
-            return emptyList()
+            return ListParams()
+        }
+        if (jsonParams.trimStart().startsWith("{")) {
+            val req = objectMapper.readValue(jsonParams, Map::class.java)
+            return ObjectParams(req as Map<Any, Any>)
         }
         val req = objectMapper.readValue(jsonParams, List::class.java)
-        return req as List<Any>
+        return ListParams(req as List<Any>)
     }
 
     abstract class CallContext(
@@ -517,18 +524,21 @@ open class NativeCall(
     }
 
     interface RequestDecorator {
-        fun processRequest(request: List<Any>): List<Any>
+        fun processRequest(request: CallParams): CallParams
     }
 
     open class NoneRequestDecorator : RequestDecorator {
-        override fun processRequest(request: List<Any>): List<Any> = request
+        override fun processRequest(request: CallParams): CallParams = request
     }
 
     open class WithFilterIdDecorator : RequestDecorator {
-        override fun processRequest(request: List<Any>): List<Any> {
-            val filterId = request.first().toString()
-            val sanitized = filterId.substring(0, filterId.lastIndex - 1)
-            return listOf(sanitized)
+        override fun processRequest(request: CallParams): CallParams {
+            if (request is ListParams) {
+                val filterId = request.list.first().toString()
+                val sanitized = filterId.substring(0, filterId.lastIndex - 1)
+                return ListParams(listOf(sanitized))
+            }
+            return request
         }
     }
 
@@ -696,5 +706,5 @@ open class NativeCall(
     }
 
     class RawCallDetails(val method: String, val params: String)
-    class ParsedCallDetails(val method: String, val params: List<Any>)
+    class ParsedCallDetails(val method: String, val params: CallParams)
 }

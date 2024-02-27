@@ -39,6 +39,7 @@ import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
@@ -75,7 +76,7 @@ class NativeCallSpec extends Specification {
 
     def "Tries router first"() {
         def routedApi = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.just(new JsonRpcResponse("1".bytes, null))
+            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >> Mono.just(new JsonRpcResponse("1".bytes, null))
         }
         def upstream = Mock(Multistream) {
             1 * getLocalReader() >> Mono.just(routedApi)
@@ -84,7 +85,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
                 1, null, upstream, Selector.empty, new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1
         )
 
         when:
@@ -96,7 +97,7 @@ class NativeCallSpec extends Specification {
 
     def "Return error if router denied the requests"() {
         def routedApi = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.error(new RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Test message"))
+            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >> Mono.error(new RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Test message"))
         }
         def upstream = Mock(Multistream) {
             1 * getLocalReader() >> Mono.just(routedApi)
@@ -105,7 +106,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
                 15, null, upstream, Selector.empty, new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1
         )
 
         when:
@@ -134,7 +135,7 @@ class NativeCallSpec extends Specification {
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -152,11 +153,11 @@ class NativeCallSpec extends Specification {
         nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
                 1 * attempts() >> new AtomicInteger(1)
-                1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.empty()
+                1 * read(new JsonRpcRequest("eth_test", new ListParams(), 10)) >> Mono.empty()
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call)
@@ -176,13 +177,13 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_test", [], 10)) >> Mono.error(
+                1 * read(new JsonRpcRequest("eth_test", new ListParams(), 10)) >> Mono.error(
                         new JsonRpcException(JsonRpcResponse.Id.from(12), new JsonRpcError(-32123, "Foo Bar", "Foo Bar Baz"), null, true, null)
                 )
             }
         }
         def call = new NativeCall.ValidCallContext(12, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
 
         when:
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
@@ -536,7 +537,7 @@ class NativeCallSpec extends Specification {
         def act = nativeCall.parseParams(ctx)
         then:
         act.id == 1
-        act.payload.params == []
+        act.payload.params == new ListParams()
         act.payload.method == "eth_test"
     }
 
@@ -549,7 +550,7 @@ class NativeCallSpec extends Specification {
         def act = nativeCall.parseParams(ctx)
         then:
         act.id == 1
-        act.payload.params == []
+        act.payload.params == new ListParams()
         act.payload.method == "eth_test"
     }
 
@@ -562,7 +563,7 @@ class NativeCallSpec extends Specification {
         def act = nativeCall.parseParams(ctx)
         then:
         act.id == 1
-        act.payload.params == [false]
+        act.payload.params == new ListParams([false])
         act.payload.method == "eth_test"
     }
 
@@ -575,7 +576,7 @@ class NativeCallSpec extends Specification {
         def act = nativeCall.parseParams(ctx)
         then:
         act.id == 1
-        act.payload.params == [false, 123]
+        act.payload.params == new ListParams([false, 123])
         act.payload.method == "eth_test"
     }
 
@@ -589,7 +590,7 @@ class NativeCallSpec extends Specification {
         def act = nativeCall.parseParams(ctx)
         then:
         act.id == 1
-        act.payload.params == ["0xab"]
+        act.payload.params == new ListParams(["0xab"])
         act.payload.method == "eth_getFilterUpdates"
     }
 
@@ -618,7 +619,7 @@ class NativeCallSpec extends Specification {
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
+                new NativeCall.ParsedCallDetails("eth_getFilterChanges", new ListParams()),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, false, "reqId", 1)
 
         when:
@@ -654,7 +655,7 @@ class NativeCallSpec extends Specification {
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
-                new NativeCall.ParsedCallDetails("eth_getFilterChanges", []),
+                new NativeCall.ParsedCallDetails("eth_getFilterChanges", new ListParams()),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, false, "reqId", 1)
 
         when:
@@ -676,7 +677,7 @@ class NativeCallSpec extends Specification {
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
         when:
         nativeCall.fetch(ctx)
         then:
@@ -693,7 +694,7 @@ class NativeCallSpec extends Specification {
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
                 Selector.empty, new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_test", []), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
         when:
         def act = nativeCall.fetch(ctx)
         then:

@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.test.MockWSServer
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
 import spock.lang.Shared
@@ -55,7 +56,7 @@ class WsConnectionImplRealSpec extends Specification {
     def "Can make a RPC request"() {
         when:
         conn.connect()
-        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", []))
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", new ListParams()))
         then:
         StepVerifier.create(resp)
                 .then {
@@ -87,7 +88,7 @@ class WsConnectionImplRealSpec extends Specification {
         server.onNextReply('{"jsonrpc":"2.0","id":100,"result":1}')
         // reconnects in 2 seconds, give 1 extra
         Thread.sleep(3_000)
-        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", [])).block(Duration.ofSeconds(1))
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", new ListParams())).block(Duration.ofSeconds(1))
         def act = server.received
 
         then:
@@ -100,7 +101,7 @@ class WsConnectionImplRealSpec extends Specification {
         conn.connect()
         conn.reconnectIntervalSeconds = 2
 
-        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", []))
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", new ListParams()))
 
         then:
         StepVerifier.create(resp)
@@ -121,7 +122,7 @@ class WsConnectionImplRealSpec extends Specification {
         server.onNextReply('{"jsonrpc":"2.0","id":100,"result":1}')
         Thread.sleep(3_000)
 
-        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", [])).block(Duration.ofSeconds(1))
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", new ListParams())).block(Duration.ofSeconds(1))
         def act = server.received
         then:
         act.size() == 1
@@ -140,7 +141,7 @@ class WsConnectionImplRealSpec extends Specification {
         // reconnects in 2 seconds, give 1 extra
         Thread.sleep(3_000)
 
-        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", []))
+        def resp = conn.callRpc(new JsonRpcRequest("foo_bar", new ListParams()))
         then:
         StepVerifier.create(resp)
                 .then {

@@ -9,6 +9,7 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.apache.commons.codec.binary.Hex
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -32,7 +33,7 @@ class BitcoinZMQHead(
                 Hex.encodeHexString(it)
             }
             .flatMap { hash ->
-                api.read(JsonRpcRequest("getblock", listOf(hash)))
+                api.read(JsonRpcRequest("getblock", ListParams(hash)))
                     .switchIfEmpty(Mono.error(IllegalStateException("Block $hash is not available on upstream")))
                     .retryWhen(Retry.backoff(5, Duration.ofMillis(100)))
                     .switchIfEmpty(Mono.fromCallable { log.warn("Block $hash is not available on upstream") }.then(Mono.empty()))

@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Mono
 
 class NearLowerBoundBlockDetector(
@@ -13,7 +14,7 @@ class NearLowerBoundBlockDetector(
 ) : LowerBoundBlockDetector(chain, upstream) {
 
     override fun lowerBlockDetect(): Mono<LowerBlockData> {
-        return upstream.getIngressReader().read(JsonRpcRequest("status", listOf())).map {
+        return upstream.getIngressReader().read(JsonRpcRequest("status", ListParams())).map {
             val resp = Global.objectMapper.readValue(it.getResult(), NearStatus::class.java)
             LowerBlockData(resp.syncInfo.earliestHeight, null, resp.syncInfo.earliestBlockTime.toEpochMilli())
         }

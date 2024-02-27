@@ -29,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.LocalReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
@@ -66,13 +67,13 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
     }
 
     override fun latestBlockRequest(): JsonRpcRequest =
-        JsonRpcRequest("chain_getBlock", listOf())
+        JsonRpcRequest("chain_getBlock", ListParams())
 
     override fun listenNewHeadsRequest(): JsonRpcRequest =
-        JsonRpcRequest("chain_subscribeNewHeads", listOf())
+        JsonRpcRequest("chain_subscribeNewHeads", ListParams())
 
     override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest =
-        JsonRpcRequest("chain_unsubscribeNewHeads", listOf(subId))
+        JsonRpcRequest("chain_unsubscribeNewHeads", ListParams(subId))
 
     override fun localReaderBuilder(
         cachingReader: CachingReader,
@@ -97,7 +98,7 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
             upstream,
             options,
             SingleCallValidator(
-                JsonRpcRequest("system_health", listOf()),
+                JsonRpcRequest("system_health", ListParams()),
             ) { data ->
                 validate(data, options.minPeers, upstream.getId())
             },

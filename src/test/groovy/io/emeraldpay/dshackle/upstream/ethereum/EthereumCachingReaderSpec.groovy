@@ -13,6 +13,7 @@ import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
@@ -52,7 +53,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null)
                 )
@@ -79,7 +80,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(null), null, 1, resolver, null
                         )
@@ -112,7 +113,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
                         )
@@ -144,7 +145,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getLogs", [Map.of("blockHash", hash1)])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getLogs", new ListParams([Map.of("blockHash", hash1)]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes([json]), null, 1, resolver, null
                         )
@@ -177,7 +178,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getTransactionByHash", [hash1])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getTransactionByHash", new ListParams([hash1]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
                         )
@@ -210,7 +211,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getTransactionReceipt", [hash1])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getTransactionReceipt", new ListParams([hash1]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
                         )
@@ -244,7 +245,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getTransactionReceipt", [hash1])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getTransactionReceipt", new ListParams([hash1]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
                         )
@@ -269,7 +270,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getTransactionByHash", [hash1])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getTransactionByHash", new ListParams([hash1]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes(null), null, 1, resolver, null
                         )
@@ -299,7 +300,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBalance", [address1, "latest"])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getBalance", new ListParams([address1, "latest"]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes("0x100"), null, 1, resolver, null
                         )
@@ -330,7 +331,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBalance", [address1, "0xa8c9bb"])) >> Mono.just(
+                1 * read(new JsonRpcRequest("eth_getBalance", new ListParams([address1, "0xa8c9bb"]))) >> Mono.just(
                         new RpcReader.Result(
                                 Global.objectMapper.writeValueAsBytes("0x100"), null, 1, resolver, null
                         )
@@ -368,11 +369,11 @@ class EthereumDirectReaderSpec extends Specification {
         )
         ethereumDirectReader.rpcReaderFactory = Mock(RpcReaderFactory) {
             2 * create(_) >> Mock(RpcReader) {
-                2 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >>>
+                2 * read(new JsonRpcRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
             }
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByHash", [hash1, false])) >> result
+                1 * read(new JsonRpcRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> result
             }
         }
         when:
@@ -408,11 +409,11 @@ class EthereumDirectReaderSpec extends Specification {
         )
         ethereumDirectReader.rpcReaderFactory = Mock(RpcReaderFactory) {
             2 * create(_) >> Mock(RpcReader) {
-                2 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >>>
+                2 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
             }
             1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", ["0x64", false])) >> result
+                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >> result
             }
         }
         when:
@@ -441,7 +442,7 @@ class EthereumDirectReaderSpec extends Specification {
         )
         reader.rpcReaderFactory = Mock(RpcReaderFactory) {
             4 * create(_) >> Mock(RpcReader) {
-                4 * read(new JsonRpcRequest("eth_getBalance", [address1, "latest"])) >>>
+                4 * read(new JsonRpcRequest("eth_getBalance", new ListParams([address1, "latest"]))) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException()),
                          Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
             }

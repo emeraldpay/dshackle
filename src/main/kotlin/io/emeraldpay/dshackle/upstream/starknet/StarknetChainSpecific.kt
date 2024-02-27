@@ -16,6 +16,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import java.math.BigInteger
 import java.time.Instant
@@ -63,7 +64,7 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
             upstream,
             options,
             SingleCallValidator(
-                JsonRpcRequest("starknet_syncing", listOf()),
+                JsonRpcRequest("starknet_syncing", ListParams()),
             ) { data ->
                 validate(data, config.laggingLagSize, upstream.getId())
             },
@@ -93,7 +94,7 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
     }
 
     override fun latestBlockRequest(): JsonRpcRequest =
-        JsonRpcRequest("starknet_getBlockWithTxHashes", listOf("latest"))
+        JsonRpcRequest("starknet_getBlockWithTxHashes", ListParams("latest"))
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

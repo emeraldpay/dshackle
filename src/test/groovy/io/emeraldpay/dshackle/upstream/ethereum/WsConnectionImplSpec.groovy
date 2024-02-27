@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJson
@@ -58,7 +59,7 @@ class WsConnectionImplSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null, null, false))
+        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false))
 
         then:
         StepVerifier.create(act)
@@ -90,7 +91,7 @@ class WsConnectionImplSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null, null, false))
+        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false))
 
         then:
         StepVerifier.create(act)
@@ -124,7 +125,7 @@ class WsConnectionImplSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"], 15, null, null, false))
+        def act = ws.callRpc(new JsonRpcRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false))
 
         then:
         StepVerifier.create(act)

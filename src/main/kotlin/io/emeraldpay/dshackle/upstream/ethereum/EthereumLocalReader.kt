@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
 import java.math.BigInteger
@@ -73,60 +74,68 @@ class EthereumLocalReader(
     fun commonRequests(key: JsonRpcRequest): Mono<Pair<ByteArray, String?>>? {
         val method = key.method
         val params = key.params
-        return when {
-            method == "eth_getTransactionByHash" -> {
-                if (params.size != 1) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 1 parameter")
+        if (params is ListParams) {
+            return when {
+                method == "eth_getTransactionByHash" -> {
+                    if (params.list.size != 1) {
+                        throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 1 parameter")
+                    }
+                    val hash: TxId
+                    try {
+                        hash = TxId.from(params.list[0].toString())
+                    } catch (e: IllegalArgumentException) {
+                        throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
+                    }
+                    reader.txByHashAsCont()
+                        .read(hash)
+                        .map { it.data.json!! to it.upstreamId }
                 }
-                val hash: TxId
-                try {
-                    hash = TxId.from(params[0].toString())
-                } catch (e: IllegalArgumentException) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
+
+                method == "eth_getBlockByHash" -> {
+                    if (params.list.size != 2) {
+                        throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
+                    }
+                    val hash: BlockId
+                    try {
+                        hash = BlockId.from(params.list[0].toString())
+                    } catch (e: IllegalArgumentException) {
+                        throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be block hash")
+                    }
+                    val withTx = params.list[1].toString().toBoolean()
+                    if (withTx) {
+                        null
+                    } else {
+                        reader.blocksByIdAsCont().read(hash).map { it.data.json!! to it.upstreamId }
+                    }
                 }
-                reader.txByHashAsCont()
-                    .read(hash)
-                    .map { it.data.json!! to it.upstreamId }
+
+                method == "eth_getBlockByNumber" -> {
+                    getBlockByNumber(params.list)
+                }
+
+                method == "eth_getTransactionReceipt" -> {
+                    if (params.list.size != 1) {
+                        throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 1 parameter")
+                    }
+                    val hash: TxId
+                    try {
+                        hash = TxId.from(params.list[0].toString())
+                    } catch (e: IllegalArgumentException) {
+                        throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
+                    }
+                    reader.receipts()
+                        .read(hash)
+                        .map { it.data to it.upstreamId }
+                }
+
+                method == "drpc_getLogsEstimate" -> {
+                    getLogsEstimate(params.list)
+                }
+
+                else -> null
             }
-            method == "eth_getBlockByHash" -> {
-                if (params.size != 2) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
-                }
-                val hash: BlockId
-                try {
-                    hash = BlockId.from(params[0].toString())
-                } catch (e: IllegalArgumentException) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be block hash")
-                }
-                val withTx = params[1].toString().toBoolean()
-                if (withTx) {
-                    null
-                } else {
-                    reader.blocksByIdAsCont().read(hash).map { it.data.json!! to it.upstreamId }
-                }
-            }
-            method == "eth_getBlockByNumber" -> {
-                getBlockByNumber(params)
-            }
-            method == "eth_getTransactionReceipt" -> {
-                if (params.size != 1) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 1 parameter")
-                }
-                val hash: TxId
-                try {
-                    hash = TxId.from(params[0].toString())
-                } catch (e: IllegalArgumentException) {
-                    throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
-                }
-                reader.receipts()
-                    .read(hash)
-                    .map { it.data to it.upstreamId }
-            }
-            method == "drpc_getLogsEstimate" -> {
-                getLogsEstimate(params)
-            }
-            else -> null
         }
+        return null
     }
 
     fun getBlockByNumber(params: List<Any?>): Mono<Pair<ByteArray, String?>>? {

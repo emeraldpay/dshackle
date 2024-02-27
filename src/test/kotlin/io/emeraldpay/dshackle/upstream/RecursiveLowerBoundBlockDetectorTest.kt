@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotLowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -87,11 +88,11 @@ class RecursiveLowerBoundBlockDetectorTest {
                     blocks.forEach {
                         if (it == 17964844L) {
                             on {
-                                read(JsonRpcRequest("eth_getBalance", listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
+                                read(JsonRpcRequest("eth_getBalance", ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
                             } doReturn Mono.just(JsonRpcResponse(ByteArray(0), null))
                         } else {
                             on {
-                                read(JsonRpcRequest("eth_getBalance", listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
+                                read(JsonRpcRequest("eth_getBalance", ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
                             } doReturn Mono.error(RuntimeException("missing trie node"))
                         }
                     }
@@ -103,17 +104,17 @@ class RecursiveLowerBoundBlockDetectorTest {
                     blocks.forEach {
                         if (it == 17964844L) {
                             on {
-                                read(JsonRpcRequest("chain_getBlockHash", listOf(it.toHex())))
+                                read(JsonRpcRequest("chain_getBlockHash", ListParams(it.toHex())))
                             } doReturn Mono.just(JsonRpcResponse("\"$hash1\"".toByteArray(), null))
                             on {
-                                read(JsonRpcRequest("state_getMetadata", listOf(hash1)))
+                                read(JsonRpcRequest("state_getMetadata", ListParams(hash1)))
                             } doReturn Mono.just(JsonRpcResponse(ByteArray(0), null))
                         } else {
                             on {
-                                read(JsonRpcRequest("chain_getBlockHash", listOf(it.toHex())))
+                                read(JsonRpcRequest("chain_getBlockHash", ListParams(it.toHex())))
                             } doReturn Mono.just(JsonRpcResponse("\"$hash2\"".toByteArray(), null))
                             on {
-                                read(JsonRpcRequest("state_getMetadata", listOf(hash2)))
+                                read(JsonRpcRequest("state_getMetadata", ListParams(hash2)))
                             } doReturn Mono.error(RuntimeException("State already discarded for"))
                         }
                     }

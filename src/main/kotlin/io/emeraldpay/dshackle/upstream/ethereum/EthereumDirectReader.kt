@@ -31,6 +31,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.apache.commons.collections4.Factory
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.slf4j.LoggerFactory
@@ -68,20 +69,20 @@ class EthereumDirectReader(
     init {
         blockReader = object : Reader<BlockHash, Result<BlockContainer>> {
             override fun read(key: BlockHash): Mono<Result<BlockContainer>> {
-                val request = JsonRpcRequest("eth_getBlockByHash", listOf(key.toHex(), false))
+                val request = JsonRpcRequest("eth_getBlockByHash", ListParams(key.toHex(), false))
                 return readBlock(request, key.toHex())
             }
         }
         blockByHeightReader = object : Reader<Long, Result<BlockContainer>> {
             override fun read(key: Long): Mono<Result<BlockContainer>> {
                 val heightMatcher = Selector.HeightMatcher(key)
-                val request = JsonRpcRequest("eth_getBlockByNumber", listOf(HexQuantity.from(key).toHex(), false))
+                val request = JsonRpcRequest("eth_getBlockByNumber", ListParams(HexQuantity.from(key).toHex(), false))
                 return readBlock(request, key.toString(), heightMatcher)
             }
         }
         txReader = object : Reader<TransactionId, Result<TxContainer>> {
             override fun read(key: TransactionId): Mono<Result<TxContainer>> {
-                val request = JsonRpcRequest("eth_getTransactionByHash", listOf(key.toHex()))
+                val request = JsonRpcRequest("eth_getTransactionByHash", ListParams(key.toHex()))
                 return readWithQuorum(request) // retries were removed because we use NotNullQuorum which handle errors too
                     .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Tx not read $key")))
                     .flatMap { result ->
@@ -106,7 +107,7 @@ class EthereumDirectReader(
         balanceReader = object : Reader<Address, Result<Wei>> {
             override fun read(key: Address): Mono<Result<Wei>> {
                 val height = up.getHead().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
-                val request = JsonRpcRequest("eth_getBalance", listOf(key.toHex(), height))
+                val request = JsonRpcRequest("eth_getBalance", ListParams(key.toHex(), height))
                 return readWithQuorum(request)
                     .timeout(Defaults.timeoutInternal, Mono.error(TimeoutException("Balance not read $key")))
                     .map {
@@ -130,7 +131,7 @@ class EthereumDirectReader(
 
         receiptReader = object : Reader<TransactionId, Result<ByteArray>> {
             override fun read(key: TransactionId): Mono<Result<ByteArray>> {
-                val request = JsonRpcRequest("eth_getTransactionReceipt", listOf(key.toHex()))
+                val request = JsonRpcRequest("eth_getTransactionReceipt", ListParams(key.toHex()))
                 return readWithQuorum(request)
                     .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Receipt not read $key")))
                     .flatMap { result ->
@@ -163,7 +164,7 @@ class EthereumDirectReader(
             override fun read(key: BlockId): Mono<Result<List<TransactionLogJson>>> {
                 val request = JsonRpcRequest(
                     "eth_getLogs",
-                    listOf(
+                    ListParams(
                         mapOf(
                             "blockHash" to key.toHexWithPrefix(),
                         ),

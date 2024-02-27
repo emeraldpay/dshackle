@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.reader.JsonRpcReader
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
@@ -40,7 +41,7 @@ class BitcoinUpstreamValidator(
     }
 
     fun validate(): Mono<UpstreamAvailability> {
-        return api.read(JsonRpcRequest("getconnectioncount", emptyList()))
+        return api.read(JsonRpcRequest("getconnectioncount", ListParams()))
             .flatMap(JsonRpcResponse::requireResult)
             .map { Integer.parseInt(String(it)) }
             .map { count ->

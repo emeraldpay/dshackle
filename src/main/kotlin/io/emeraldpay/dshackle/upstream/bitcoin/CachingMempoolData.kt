@@ -22,6 +22,7 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Mono
@@ -65,7 +66,7 @@ open class CachingMempoolData(
     @Suppress("UNCHECKED_CAST")
     fun fetchFromUpstream(): Mono<List<String>> {
         return upstreams.getDirectApi(Selector.empty).flatMap { api ->
-            api.read(JsonRpcRequest("getrawmempool", emptyList()))
+            api.read(JsonRpcRequest("getrawmempool", ListParams()))
                 .flatMap(JsonRpcResponse::requireResult)
                 .map { objectMapper.readValue(it, List::class.java) as List<String> }
         }

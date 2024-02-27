@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnection
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.Exceptions
 import spock.lang.Specification
 
@@ -17,7 +18,7 @@ class JsonRpcWsClientSpec extends Specification {
         }
         def client = new JsonRpcWsClient(pool)
         when:
-        client.read(new JsonRpcRequest("foo_bar", [], 1))
+        client.read(new JsonRpcRequest("foo_bar", new ListParams([]), 1))
                 .block(Duration.ofSeconds(1))
         then:
         def t = thrown(Exceptions.ReactiveException)

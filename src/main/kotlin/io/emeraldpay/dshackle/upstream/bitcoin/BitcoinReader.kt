@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -55,16 +56,16 @@ open class BitcoinReader(
     }
 
     open fun getBlock(hash: String): Mono<Map<String, Any>> {
-        return castedRead(JsonRpcRequest("getblock", listOf(hash)), Map::class.java).cast()
+        return castedRead(JsonRpcRequest("getblock", ListParams(hash)), Map::class.java).cast()
     }
 
     open fun getBlock(height: Long): Mono<Map<String, Any>> {
-        return castedRead(JsonRpcRequest("getblockhash", listOf(height)), String::class.java)
+        return castedRead(JsonRpcRequest("getblockhash", ListParams(height)), String::class.java)
             .flatMap(this@BitcoinReader::getBlock)
     }
 
     open fun getTx(txid: String): Mono<Map<String, Any>> {
-        return castedRead(JsonRpcRequest("getrawtransaction", listOf(txid, true)), Map::class.java).cast()
+        return castedRead(JsonRpcRequest("getrawtransaction", ListParams(txid, true)), Map::class.java).cast()
     }
 
     open fun listUnspent(address: Address): Mono<List<SimpleUnspent>> {

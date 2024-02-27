@@ -24,33 +24,30 @@ import io.emeraldpay.dshackle.Global
 
 data class JsonRpcRequest(
     val method: String,
-    val params: List<Any?>,
+    val params: CallParams,
     val id: Int,
     val nonce: Long?,
     val selector: BlockchainOuterClass.Selector?,
     val isStreamed: Boolean = false,
-    val objParams: Map<Any, Any>? = null,
 ) {
 
     @JvmOverloads constructor(
         method: String,
-        params: List<Any?>,
+        params: CallParams,
         nonce: Long? = null,
         selectors: BlockchainOuterClass.Selector? = null,
         isStreamed: Boolean = false,
     ) : this(method, params, 1, nonce, selectors, isStreamed)
-
-    constructor(
-        method: String,
-        objParams: Map<Any, Any>,
-    ) : this(method, listOf(), 1, null, null, false, objParams)
 
     fun toJson(): ByteArray {
         val json = mapOf(
             "jsonrpc" to "2.0",
             "id" to id,
             "method" to method,
-            "params" to (objParams ?: params),
+            "params" to when (params) {
+                is ListParams -> params.list
+                is ObjectParams -> params.obj
+            },
         )
         return Global.objectMapper.writeValueAsBytes(json)
     }
@@ -59,6 +56,7 @@ data class JsonRpcRequest(
         return String(this.toJson())
     }
 
+    @Suppress("UNCHECKED_CAST")
     class Deserializer : JsonDeserializer<JsonRpcRequest>() {
 
         override fun deserialize(p: JsonParser, ctxt: DeserializationContext): JsonRpcRequest {
@@ -78,7 +76,7 @@ data class JsonRpcRequest(
                     throw IllegalStateException("Unsupported param type: ${it.asToken()}")
                 }
             }
-            return JsonRpcRequest(method, params, id, null, null)
+            return JsonRpcRequest(method, ListParams(params as List<Any>), id, null, null)
         }
     }
 }

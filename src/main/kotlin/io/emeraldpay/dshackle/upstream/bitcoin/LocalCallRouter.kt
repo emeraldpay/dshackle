@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -63,16 +64,18 @@ class LocalCallRouter(
      *
      */
     fun processUnspentRequest(key: JsonRpcRequest): Mono<JsonRpcResponse> {
-        if (key.params.size < 3) {
-            return Mono.error(SilentException("Invalid call to unspent. Address is missing"))
-        }
-        val addresses = key.params[2]
-        if (addresses is List<*> && addresses.size > 0) {
-            val address = addresses[0].toString().let { Address.fromString(null, it) }
-            return reader.listUnspent(address).map {
-                val rpc = it.map(convertUnspent(address))
-                val json = Global.objectMapper.writeValueAsBytes(rpc)
-                JsonRpcResponse.ok(json, JsonRpcResponse.NumberId(key.id))
+        if (key.params is ListParams) {
+            if (key.params.list.size < 3) {
+                return Mono.error(SilentException("Invalid call to unspent. Address is missing"))
+            }
+            val addresses = key.params.list[2]
+            if (addresses is List<*> && addresses.size > 0) {
+                val address = addresses[0].toString().let { Address.fromString(null, it) }
+                return reader.listUnspent(address).map {
+                    val rpc = it.map(convertUnspent(address))
+                    val json = Global.objectMapper.writeValueAsBytes(rpc)
+                    JsonRpcResponse.ok(json, JsonRpcResponse.NumberId(key.id))
+                }
             }
         }
         return Mono.error(SilentException("Invalid call to unspent"))

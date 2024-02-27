@@ -61,7 +61,16 @@ class JsonRpcGrpcClient(
             val reqItem = BlockchainOuterClass.NativeCallItem.newBuilder()
                 .setId(1)
                 .setMethod(key.method)
-                .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params)))
+                .setPayload(
+                    ByteString.copyFrom(
+                        Global.objectMapper.writeValueAsBytes(
+                            when (key.params) {
+                                is ListParams -> key.params.list
+                                is ObjectParams -> key.params.obj
+                            },
+                        ),
+                    ),
+                )
             if (key.nonce != null) {
                 reqItem.nonce = key.nonce
             }

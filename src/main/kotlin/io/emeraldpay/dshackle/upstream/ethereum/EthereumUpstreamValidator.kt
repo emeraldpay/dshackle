@@ -32,6 +32,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.SyncingJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionCallJson
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Mono
@@ -79,7 +80,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             return Mono.just(UpstreamAvailability.OK)
         }
         return upstream.getIngressReader()
-            .read(JsonRpcRequest("eth_syncing", listOf()))
+            .read(JsonRpcRequest("eth_syncing", ListParams()))
             .flatMap(JsonRpcResponse::requireResult)
             .map { objectMapper.readValue(it, SyncingJson::class.java) }
             .timeout(
@@ -106,7 +107,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
         }
         return upstream
             .getIngressReader()
-            .read(JsonRpcRequest("net_peerCount", listOf()))
+            .read(JsonRpcRequest("net_peerCount", ListParams()))
             .flatMap(JsonRpcResponse::requireStringResult)
             .map(Integer::decode)
             .timeout(
@@ -179,7 +180,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .read(
                 JsonRpcRequest(
                     "eth_call",
-                    listOf(
+                    ListParams(
                         TransactionCallJson(
                             Address.from(config.callLimitContract),
                             // calling contract with param 200_000, meaning it will generate 200k symbols or response
@@ -223,7 +224,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .readArchiveBlock()
             .flatMap {
                 upstream.getIngressReader()
-                    .read(JsonRpcRequest("eth_getBlockByNumber", listOf(it, false)))
+                    .read(JsonRpcRequest("eth_getBlockByNumber", ListParams(it, false)))
                     .flatMap(JsonRpcResponse::requireResult)
             }
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
@@ -249,7 +250,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
 
     private fun chainId(): Mono<String> {
         return upstream.getIngressReader()
-            .read(JsonRpcRequest("eth_chainId", emptyList()))
+            .read(JsonRpcRequest("eth_chainId", ListParams()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
                     "error during chainId retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
@@ -262,7 +263,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
 
     private fun netVersion(): Mono<String> {
         return upstream.getIngressReader()
-            .read(JsonRpcRequest("net_version", emptyList()))
+            .read(JsonRpcRequest("net_version", ListParams()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
                     "error during netVersion retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +

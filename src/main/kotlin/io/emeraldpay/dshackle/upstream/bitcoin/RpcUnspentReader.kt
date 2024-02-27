@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -50,7 +51,7 @@ class RpcUnspentReader(
         //
         val address = key.toString()
         return upstreams.getDirectApi(selector).flatMap { api ->
-            api.read(JsonRpcRequest("listunspent", listOf(1, 9999999, listOf(address))))
+            api.read(JsonRpcRequest("listunspent", ListParams(1, 9999999, listOf(address))))
                 .flatMap(JsonRpcResponse::requireResult)
                 .map {
                     Global.objectMapper.readerFor(RpcUnspent::class.java).readValues<RpcUnspent>(it).readAll()

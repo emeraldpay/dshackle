@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import org.springframework.cloud.sleuth.Tracer
@@ -42,7 +43,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_test", [])) >> Mono.just(JsonRpcResponse.ok("1"))
+                1 * read(new JsonRpcRequest("eth_test", new ListParams())) >> Mono.just(JsonRpcResponse.ok("1"))
             }
         }
         def apis = new FilteredApis(
@@ -52,7 +53,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -67,7 +68,7 @@ class QuorumRpcReaderSpec extends Specification {
     def "always-quorum - return upstream error returned"() {
         setup:
         def api = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", [])) >>> [
+            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
                     Mono.just(JsonRpcResponse.error(1, "test"))
             ]
         }
@@ -84,7 +85,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -100,7 +101,7 @@ class QuorumRpcReaderSpec extends Specification {
     def "always-quorum - return upstream error thrown"() {
         setup:
         def api = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", [])) >>> [
+            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
                     Mono.error(
                             new RpcException(
                                     RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
@@ -122,7 +123,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -142,7 +143,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {
-                2 * read(new JsonRpcRequest("eth_test", [])) >>> [
+                2 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
                         Mono.just(JsonRpcResponse.ok("null")),
                         Mono.just(JsonRpcResponse.ok("1"))
                 ]
@@ -155,7 +156,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -175,7 +176,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {
-                2 * read(new JsonRpcRequest("eth_test", [])) >>> [
+                2 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
                         Mono.just(JsonRpcResponse.error(1, "test")),
                         Mono.just(JsonRpcResponse.ok("1"))
                 ]
@@ -188,7 +189,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -203,7 +204,7 @@ class QuorumRpcReaderSpec extends Specification {
     def "non-empty-quorum - error if all failed"() {
         setup:
         def api = Mock(Reader) {
-            2 * read(new JsonRpcRequest("eth_test", [])) >>> [
+            2 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
                     Mono.just(JsonRpcResponse.error(1, "test")),
                     Mono.just(JsonRpcResponse.error(1, "test")),
             ]
@@ -221,7 +222,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -235,7 +236,7 @@ class QuorumRpcReaderSpec extends Specification {
     def "always-quorum - error if failed"() {
         setup:
         def api = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", [])) >>> [
+            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
                     Mono.just(JsonRpcResponse.error(1, "test error")),
             ]
         }
@@ -252,7 +253,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -274,7 +275,7 @@ class QuorumRpcReaderSpec extends Specification {
             _ * isAvailable() >> true
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {
-                _ * read(new JsonRpcRequest("eth_test", [])) >>> [
+                _ * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
                         Mono.just(JsonRpcResponse.error(-3010, "test")),
                 ]
             }
@@ -286,7 +287,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new NotLaggingQuorum(1), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
 
         then:
         StepVerifier.create(act)
@@ -312,7 +313,7 @@ class QuorumRpcReaderSpec extends Specification {
         def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", []))
+        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }

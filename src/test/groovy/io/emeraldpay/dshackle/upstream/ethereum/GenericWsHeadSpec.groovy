@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import reactor.core.publisher.Flux
@@ -61,7 +62,7 @@ class GenericWsHeadSpec extends Specification {
         }
 
         def reader = Mock(Reader) {
-            1 * it.read(new JsonRpcRequest("eth_getBlockByNumber", List.of("latest", false))) >> Mono.empty()
+            1 * it.read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams("latest", false))) >> Mono.empty()
         }
 
         def ws = Mock(WsSubscriptions) {
@@ -338,7 +339,7 @@ class GenericWsHeadSpec extends Specification {
         block.totalDifficulty = BigInteger.ONE
 
         def reader = Mock(Reader) {
-            1 * it.read(new JsonRpcRequest("eth_getBlockByNumber", List.of("latest", false))) >> Mono.empty()
+            1 * it.read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams("latest", false))) >> Mono.empty()
         }
         def subId = "subId"
         def ws = Mock(WsSubscriptions) {
@@ -346,7 +347,7 @@ class GenericWsHeadSpec extends Specification {
             1 * it.subscribe(_) >> new WsSubscriptions.SubscribeData(
                     Flux.error(new RuntimeException()), "id", new AtomicReference<String>(subId)
             )
-            1 * it.unsubscribe(new JsonRpcRequest("eth_unsubscribe", List.of(subId), 2, null, null, false)) >>
+            1 * it.unsubscribe(new JsonRpcRequest("eth_unsubscribe", new ListParams(subId), 2, null, null, false)) >>
                     Mono.just(new JsonRpcResponse("".bytes, null))
         }
 

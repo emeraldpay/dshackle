@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import org.mockserver.integration.ClientAndServer
@@ -61,7 +62,7 @@ class JsonRpcHttpClientSpec extends Specification {
                 HttpResponse.response(resp)
         )
         when:
-        def act = client.read(new JsonRpcRequest("test", [])).block()
+        def act = client.read(new JsonRpcRequest("test", new ListParams())).block()
         then:
         act.error == null
         new String(act.result) == '"0x98de45"'
@@ -80,7 +81,7 @@ class JsonRpcHttpClientSpec extends Specification {
         )
         when:
         def act = client.read(
-                new JsonRpcRequest("ping", [])
+                new JsonRpcRequest("ping", new ListParams())
         ).block(Duration.ofSeconds(1))
         then:
         def t = thrown(RuntimeException) // reactor.core.Exceptions$ReactiveException
@@ -108,7 +109,7 @@ class JsonRpcHttpClientSpec extends Specification {
         )
         when:
         def act = client.read(
-                new JsonRpcRequest("ping", [])
+                new JsonRpcRequest("ping", new ListParams())
         ).block(Duration.ofSeconds(1))
         then:
         def t = thrown(RuntimeException) // reactor.core.Exceptions$ReactiveException

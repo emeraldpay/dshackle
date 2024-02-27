@@ -5,6 +5,7 @@ import io.emeraldpay.dshackle.upstream.SubscriptionConnect
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.generic.subscribe.GenericPersistentConnect
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Duration
@@ -37,7 +38,7 @@ class GenericSubscriptionConnect(
 
     @Suppress("UNCHECKED_CAST")
     override fun createConnection(): Flux<Any> {
-        return conn.subscribe(JsonRpcRequest(topic, getParams(params)))
+        return conn.subscribe(JsonRpcRequest(topic, ListParams(getParams(params))))
             .data
             .timeout(Duration.ofSeconds(60), Mono.empty())
             .onErrorResume { Mono.empty() } as Flux<Any>

@@ -81,7 +81,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     @Override
     Mono<JsonRpcResponse> read(JsonRpcRequest request, boolean required = true) {
         Callable<JsonRpcResponse> call = {
-            def predefined = predefined.find { it.isSame(request.method, request.params) }
+            def predefined = predefined.find { it.isSame(request.method, request.params.list) }
             byte[] result = null
             JsonRpcError error = null
             calls.incrementAndGet()

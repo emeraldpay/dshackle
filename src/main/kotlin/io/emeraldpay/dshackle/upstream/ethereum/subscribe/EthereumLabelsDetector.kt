@@ -9,6 +9,7 @@ import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumArchiveBlockNumberReader
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -32,7 +33,7 @@ class EthereumLabelsDetector(
 
     private fun detectNodeType(): Flux<Pair<String, String>?> {
         return reader
-            .read(JsonRpcRequest("web3_clientVersion", listOf()))
+            .read(JsonRpcRequest("web3_clientVersion", ListParams()))
             .flatMap(JsonRpcResponse::requireResult)
             .map { objectMapper.readValue<JsonNode>(it) }
             .flatMapMany { node ->
@@ -64,7 +65,7 @@ class EthereumLabelsDetector(
         return reader.read(
             JsonRpcRequest(
                 "eth_getBalance",
-                listOf("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", blockNumber),
+                ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", blockNumber),
             ),
         ).flatMap(JsonRpcResponse::requireResult)
     }
