@@ -32,11 +32,10 @@ class DefaultNearMethods : CallMethods {
     private val allowedMethods: Set<String> = all + add
 
     override fun createQuorumFor(method: String): CallQuorum {
-        return when {
-            add.contains(method) -> BroadcastQuorum()
-            all.contains(method) -> AlwaysQuorum()
-            else -> AlwaysQuorum()
+        if (add.contains(method)) {
+            return BroadcastQuorum()
         }
+        return AlwaysQuorum()
     }
 
     override fun isCallable(method: String): Boolean {

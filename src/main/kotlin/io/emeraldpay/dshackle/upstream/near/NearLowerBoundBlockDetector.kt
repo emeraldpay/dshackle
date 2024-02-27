@@ -21,6 +21,6 @@ class NearLowerBoundBlockDetector(
     }
 
     override fun periodRequest(): Long {
-        return 120
+        return 3
     }
 }
