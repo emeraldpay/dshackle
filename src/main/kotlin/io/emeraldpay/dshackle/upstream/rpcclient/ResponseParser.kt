@@ -156,15 +156,31 @@ abstract class ResponseParser<T> {
         var message = ""
         var details: Any? = null
 
-        while (parser.nextToken() != JsonToken.END_OBJECT) {
-            if (parser.currentToken() == JsonToken.VALUE_NULL) {
+        var count = 0
+        var inited = false
+
+        while (true) {
+            if (count == 0 && inited) {
+                break
+            }
+            val token = parser.nextToken()
+            if (token == JsonToken.START_OBJECT) {
+                inited = true
+                count++
+                continue
+            }
+            if (token == JsonToken.END_OBJECT) {
+                count--
+                continue
+            }
+            if (token == JsonToken.VALUE_NULL) {
                 // error is just null
                 return null
             }
             val field = parser.currentName()
-            if (field == "code" && parser.currentToken == JsonToken.VALUE_NUMBER_INT) {
+            if (field == "code" && token == JsonToken.VALUE_NUMBER_INT) {
                 code = parser.intValue
-            } else if ((field == "message" || field == "error") && parser.currentToken == JsonToken.VALUE_STRING) {
+            } else if ((field == "message" || field == "error") && token == JsonToken.VALUE_STRING) {
                 message = parser.valueAsString
             } else if (field == "data") {
                 when (val value = parser.nextToken()) {
