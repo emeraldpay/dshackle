@@ -438,6 +438,12 @@ chain-settings:
           grpcId: 10023
           short-names: [mantle-testnet]
           chain-id: 0x1389
+        - id: Sepolia
+          priority: 10
+          code: MANTLE_SEPOLIA
+          grpcId: 10066
+          short-names: [mantle-sepolia]
+          chain-id: 0x138b
     - id: klaytn
       label: Klaytn
       type: eth
