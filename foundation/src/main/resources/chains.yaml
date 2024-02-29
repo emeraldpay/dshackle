@@ -1303,3 +1303,39 @@ chain-settings:
           grpcId: 10065
           short-names: [ near-betanet ]
           chain-id: 0x0
+    - id: op-celestia
+      label: OP Celestia
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 15s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Testnet
+          priority: 10
+          code: OP_CELESTIA_TESTNET
+          grpcId: 10067
+          short-names: [ op-celestia-testnet ]
+          chain-id: 0x75b3dcf
+    - id: orbit-anytrust
+      label: Orbit Anytrust
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 15s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Testnet
+          priority: 10
+          code: ORBIT_ANYTRUST_TESTNET
+          grpcId: 10068
+          short-names: [ orbit-anytrust-testnet ]
+          chain-id: 0x14865d0f05
