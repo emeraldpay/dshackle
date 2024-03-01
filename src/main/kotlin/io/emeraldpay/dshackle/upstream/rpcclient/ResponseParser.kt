@@ -164,18 +164,29 @@ abstract class ResponseParser<T> {
                 break
             }
             val token = parser.nextToken()
-            if (token == JsonToken.START_OBJECT) {
-                inited = true
-                count++
-                continue
-            }
-            if (token == JsonToken.END_OBJECT) {
-                count--
-                continue
-            }
-            if (token == JsonToken.VALUE_NULL) {
-                // error is just null
-                return null
+            when (token) {
+                null -> {
+                    return null
+                }
+                JsonToken.START_OBJECT -> {
+                    inited = true
+                    count++
+                    continue
+                }
+                JsonToken.END_OBJECT -> {
+                    count--
+                    continue
+                }
+                JsonToken.VALUE_NULL -> {
+                    return null
+                }
+                JsonToken.VALUE_STRING -> {
+                    if (!inited) {
+                        message = parser.valueAsString
+                        break
+                    }
+                }
+                else -> {}
             }
             val field = parser.currentName()
             if (field == "code" && token == JsonToken.VALUE_NUMBER_INT) {

@@ -223,4 +223,16 @@ class ResponseRpcParserSpec extends Specification {
         !act.hasResult()
     }
 
+    def "Parse non object error"() {
+        setup:
+        def json = '{"jsonrpc": "2.0", "id": 1, "error": "plain error"}'
+        when:
+        def act = parser.parse(json.getBytes())
+        then:
+        act.error != null
+        act.error.message == "plain error"
+        act.hasError()
+        !act.hasResult()
+    }
+
 }
