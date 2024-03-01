@@ -964,6 +964,12 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
+        - id: Mainnet
+          code: BLAST_MAINNET
+          priority: 100
+          short-names: [ blast ]
+          chain-id: 0x13e31
+          grpcId: 1051
         - id: Sepolia
           code: BLAST_SEPOLIA
           short-names: [blast-sepolia]
@@ -1339,3 +1345,19 @@ chain-settings:
           grpcId: 10068
           short-names: [ orbit-anytrust-testnet ]
           chain-id: 0x14865d0f05
+    - id: dymension
+      label: Dymension
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 4s
+        lags:
+          syncing: 40
+          lagging: 20
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: DYMENSION_MAINNET
+          grpcId: 1052
+          short-names: [ dymension ]
+          chain-id: 0x44c
