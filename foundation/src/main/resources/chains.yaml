@@ -315,7 +315,7 @@ chain-settings:
           priority: 2
           code: BASE_SEPOLIA
           grpcId: 10040
-          short-names: [ base-sepolia ]
+          short-names: [base-sepolia]
           chain-id: 0x14a34
     - id: linea
       label: Linea
@@ -558,7 +558,7 @@ chain-settings:
           priority: 100
           code: SCROLL_MAINNET
           grpcId: 1016
-          short-names: [ scroll ]
+          short-names: [scroll]
           chain-id: 0x82750
     - id: cronos
       label: Cronos
@@ -607,7 +607,7 @@ chain-settings:
         - id: Sepolia
           priority: 10
           code: METIS_SEPOLIA
-          short-names: [ metis-sepolia ]
+          short-names: [metis-sepolia]
           chain-id: 0xe9fd
           grpcId: 10058
         - id: Goerli
@@ -708,7 +708,7 @@ chain-settings:
         - id: Mainnet
           priority: 100
           code: IMMUTABLE_ZKEVM_MAINNET
-          short-names: [ immutable-zkevm ]
+          short-names: [immutable-zkevm]
           chain-id: 0x343b
           grpcId: 1036
         - id: Testnet
@@ -732,7 +732,7 @@ chain-settings:
         - id: zKatana
           priority: 1
           code: ASTAR_ZKATANA
-          short-names: [ astar-zkatana ]
+          short-names: [astar-zkatana]
           chain-id: 0x133e40
           grpcId: 10035
     - id: vara
@@ -751,13 +751,13 @@ chain-settings:
         - id: Mainnet
           priority: 1
           code: VARA_MAINNET
-          short-names: [ vara ]
+          short-names: [vara]
           chain-id: 0x0
           grpcId: 1027
         - id: Testnet
           priority: 1
           code: VARA_TESTMET
-          short-names: [ vara-testnet ]
+          short-names: [vara-testnet]
           chain-id: 0x0
           grpcId: 10036
     - id: solana
@@ -776,19 +776,19 @@ chain-settings:
         - id: Mainnet
           priority: 100
           code: SOLANA_MAINNET
-          short-names: [ solana ]
+          short-names: [solana]
           chain-id: 0x0
           grpcId: 1028
         - id: Testnet
           priority: 10
           code: SOLANA_TESTNET
-          short-names: [ solana-testnet ]
+          short-names: [solana-testnet]
           chain-id: 0x0
           grpcId: 10037
         - id: Devnet
           priority: 1
           code: SOLANA_DEVNET
-          short-names: [ solana-devnet ]
+          short-names: [solana-devnet]
           chain-id: 0x0
           grpcId: 10039
     - id: haqq
@@ -866,7 +866,7 @@ chain-settings:
         - id: Katla
           priority: 20
           code: TAIKO_KATLA
-          short-names: [ taiko-katla ]
+          short-names: [taiko-katla]
           chain-id: 0x28c60
           grpcId: 10052
     - id: okt
@@ -967,7 +967,7 @@ chain-settings:
         - id: Mainnet
           code: BLAST_MAINNET
           priority: 100
-          short-names: [ blast ]
+          short-names: [blast]
           chain-id: 0x13e31
           grpcId: 1051
         - id: Sepolia
@@ -990,7 +990,7 @@ chain-settings:
           priority: 1
           code: LISTK_TESTNET
           grpcId: 10050
-          short-names: [ lisk-sepolia, lisk-testnet ]
+          short-names: [lisk-sepolia, lisk-testnet]
           chain-id: 0x106a
     - id: zora
       label: Zora
@@ -1006,13 +1006,13 @@ chain-settings:
           priority: 100
           code: ZORA_MAINNET
           grpcId: 1037
-          short-names: [ zora ]
+          short-names: [zora]
           chain-id: 0x76adf1
         - id: Sepolia
           priority: 10
           code: ZORA_SEPOLIA
           grpcId: 10053
-          short-names: [ zora-sepolia ]
+          short-names: [zora-sepolia]
           chain-id: 0x3b9ac9ff
     - id: mode
       label: Mode
@@ -1028,13 +1028,13 @@ chain-settings:
           priority: 100
           code: MODE_MAINNET
           grpcId: 1038
-          short-names: [ mode ]
+          short-names: [mode]
           chain-id: 0x868b
         - id: Testnet
           priority: 1
           code: MODE_TESTNET
           grpcId: 10054
-          short-names: [ mode-testnet ]
+          short-names: [mode-testnet]
           chain-id: 0x397
     - id: evmos
       label: Evmos
@@ -1050,13 +1050,13 @@ chain-settings:
           priority: 100
           code: EVMOS_MAINNET
           grpcId: 1039
-          short-names: [ evmos ]
+          short-names: [evmos]
           chain-id: 0x2329
         - id: Testnet
           priority: 1
           code: EVMOS_TESTNET
           grpcId: 10055
-          short-names: [ evmos-testnet ]
+          short-names: [evmos-testnet]
           chain-id: 0x2328
     - id: ronin
       label: Ronin
@@ -1074,7 +1074,7 @@ chain-settings:
           priority: 100
           code: RONIN_MAINNET
           grpcId: 1043
-          short-names: [ ronin ]
+          short-names: [ronin]
           chain-id: 0x7e4
     - id: neon-evm
       label: Neon EVM
@@ -1090,13 +1090,13 @@ chain-settings:
           priority: 100
           code: NEON_EVM_MAINNET
           grpcId: 1040
-          short-names: [ neon-evm ]
+          short-names: [neon-evm]
           chain-id: 0xe9ac0d6
         - id: Devnet
           priority: 1
           code: NEON_EVM_DEVNET
           grpcId: 10056
-          short-names: [ neon-evm-devnet ]
+          short-names: [neon-evm-devnet]
           chain-id: 0xe9ac0ce
     - id: boba-ethereum
       label: Boba Ethereum
@@ -1114,7 +1114,7 @@ chain-settings:
           priority: 100
           code: BOBA_ETHEREUM_MAINNET
           grpcId: 1041
-          short-names: [ boba-eth ]
+          short-names: [boba-eth]
           chain-id: 0x120
     - id: boba-bnb
       label: Boba BNB
@@ -1132,7 +1132,7 @@ chain-settings:
           priority: 100
           code: BOBA_BNB_MAINNET
           grpcId: 1044
-          short-names: [ boba-bnb ]
+          short-names: [boba-bnb]
           chain-id: 0xdbe0
     - id: heco
       label: Heco
@@ -1148,13 +1148,13 @@ chain-settings:
           priority: 100
           code: HECO_MAINNET
           grpcId: 1042
-          short-names: [ heco ]
+          short-names: [heco]
           chain-id: 0x80
         - id: Testnet
           priority: 1
           code: HECO_TESTNET
           grpcId: 10057
-          short-names: [ heco-testnet ]
+          short-names: [heco-testnet]
           chain-id: 0x100
     - id: playnance
       label: Playnance
@@ -1172,7 +1172,7 @@ chain-settings:
           priority: 10
           code: PLAYNANCE_TESTNET
           grpcId: 10059
-          short-names: [ playnance-testnet ]
+          short-names: [playnance-testnet]
           chain-id: 0x12dbe91402
     - id: zeta-chain
       label: ZetaChain
@@ -1188,7 +1188,7 @@ chain-settings:
           priority: 100
           code: ZETA_CHAIN_MAINNET
           grpcId: 1045
-          short-names: [ zeta-chain ]
+          short-names: [zeta-chain]
           chain-id: 0x1b58
     - id: bittorrent
       label: BitTorrent
@@ -1204,13 +1204,13 @@ chain-settings:
           priority: 100
           code: BITTORRENT_MAINNET
           grpcId: 1046
-          short-names: [ bittorrent ]
+          short-names: [bittorrent]
           chain-id: 0xc7
         - id: Testnet
           priority: 1
           code: BITTORRENT_TESTNET
           grpcId: 10060
-          short-names: [ bittorrent-testnet ]
+          short-names: [bittorrent-testnet]
           chain-id: 0x404
     - id: thundercore
       label: Thundercore
@@ -1226,13 +1226,13 @@ chain-settings:
           priority: 100
           code: THUNDERCORE_MAINNET
           grpcId: 1047
-          short-names: [ thundercore ]
+          short-names: [thundercore]
           chain-id: 0x6c
         - id: Testnet
           priority: 1
           code: THUNDERCORE_TESTNET
           grpcId: 10061
-          short-names: [ thundercore-testnet ]
+          short-names: [thundercore-testnet]
           chain-id: 0x12
     - id: core
       label: Core
@@ -1248,13 +1248,13 @@ chain-settings:
           priority: 100
           code: CORE_MAINNET
           grpcId: 1048
-          short-names: [ core ]
+          short-names: [core]
           chain-id: 0x45c
         - id: Testnet
           priority: 1
           code: CORE_TESTNET
           grpcId: 10062
-          short-names: [ core-testnet ]
+          short-names: [core-testnet]
           chain-id: 0x45b
     - id: telos
       label: Telos
@@ -1273,13 +1273,13 @@ chain-settings:
           priority: 100
           code: TELOS_MAINNET
           grpcId: 1049
-          short-names: [ telos ]
+          short-names: [telos]
           chain-id: 0x28
         - id: Testnet
           priority: 1
           code: TELOS_TESTNET
           grpcId: 10063
-          short-names: [ telos-testnet ]
+          short-names: [telos-testnet]
           chain-id: 0x29
     - id: near
       label: Near
@@ -1295,22 +1295,22 @@ chain-settings:
           priority: 100
           code: NEAR_MAINNET
           grpcId: 1050
-          short-names: [ near ]
+          short-names: [near]
           chain-id: 0x0
         - id: Testnet
           priority: 5
           code: NEAR_TESTNET
           grpcId: 10064
-          short-names: [ near-testnet ]
+          short-names: [near-testnet]
           chain-id: 0x0
         - id: Betanet
           priority: 1
           code: NEAR_BETANET
           grpcId: 10065
-          short-names: [ near-betanet ]
+          short-names: [near-betanet]
           chain-id: 0x0
-    - id: op-celestia
-      label: OP Celestia
+    - id: gelato-op-celestia
+      label: Gelato OP Celestia
       type: eth
       settings:
         fork-choice: quorum
@@ -1323,12 +1323,12 @@ chain-settings:
       chains:
         - id: Testnet
           priority: 10
-          code: OP_CELESTIA_TESTNET
+          code: GELATO_OP_CELESTIA_TESTNET
           grpcId: 10067
-          short-names: [ op-celestia-testnet ]
+          short-names: [gelato-op-celestia-testnet]
           chain-id: 0x75b3dcf
-    - id: orbit-anytrust
-      label: Orbit Anytrust
+    - id: gelato-orbit-anytrust
+      label: Gelato Orbit Anytrust
       type: eth
       settings:
         fork-choice: quorum
@@ -1341,9 +1341,9 @@ chain-settings:
       chains:
         - id: Testnet
           priority: 10
-          code: ORBIT_ANYTRUST_TESTNET
+          code: GELATO_ORBIT_ANYTRUST_TESTNET
           grpcId: 10068
-          short-names: [ orbit-anytrust-testnet ]
+          short-names: [gelato-orbit-anytrust-testnet]
           chain-id: 0x14865d0f05
     - id: dymension
       label: Dymension
@@ -1359,5 +1359,5 @@ chain-settings:
           priority: 100
           code: DYMENSION_MAINNET
           grpcId: 1052
-          short-names: [ dymension ]
+          short-names: [dymension]
           chain-id: 0x44c
