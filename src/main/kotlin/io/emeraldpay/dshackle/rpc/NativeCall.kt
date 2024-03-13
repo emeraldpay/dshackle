@@ -81,7 +81,6 @@ open class NativeCall(
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return nativeCallResult(requestMono)
-            .sort { o1, o2 -> o1.id - o2.id }
             .flatMapSequential(this::processCallResult)
             .onErrorResume(this::processException)
     }
