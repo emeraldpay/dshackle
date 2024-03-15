@@ -2,13 +2,13 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.apache.commons.codec.binary.Hex
 import reactor.core.Disposable
@@ -20,7 +20,7 @@ import java.time.Duration
 
 class BitcoinZMQHead(
     private val server: ZMQServer,
-    private val api: JsonRpcReader,
+    private val api: ChainReader,
     private val extractBlock: ExtractBlock,
     headScheduler: Scheduler,
 ) : Head, AbstractHead(MostWorkForkChoice(), headScheduler, awaitHeadTimeoutMs = 1200_000), Lifecycle {
@@ -33,11 +33,11 @@ class BitcoinZMQHead(
                 Hex.encodeHexString(it)
             }
             .flatMap { hash ->
-                api.read(JsonRpcRequest("getblock", ListParams(hash)))
+                api.read(ChainRequest("getblock", ListParams(hash)))
                     .switchIfEmpty(Mono.error(IllegalStateException("Block $hash is not available on upstream")))
                     .retryWhen(Retry.backoff(5, Duration.ofMillis(100)))
                     .switchIfEmpty(Mono.fromCallable { log.warn("Block $hash is not available on upstream") }.then(Mono.empty()))
-                    .flatMap(JsonRpcResponse::requireResult)
+                    .flatMap(ChainResponse::requireResult)
                     .map(extractBlock::extract)
                     .timeout(Defaults.timeout, Mono.error(Exception("Block data is not received")))
             }

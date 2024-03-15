@@ -3,9 +3,9 @@ package io.emeraldpay.dshackle.reader
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
@@ -23,29 +23,29 @@ class BroadcastReaderSpec extends Specification {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.just(new JsonRpcResponse(result, null))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.just(new ChainResponse(result, null))
             }
         }
         def up1 = Mock(Upstream) {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.just(new JsonRpcResponse(result, null))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.just(new ChainResponse(result, null))
             }
         }
         def up2 = Mock(Upstream) {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.just(new JsonRpcResponse(result, null))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.just(new ChainResponse(result, null))
             }
         }
         def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
-        def act = reader.read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
+        def act = reader.read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
         then:
         StepVerifier.create(act)
             .expectNextMatches {
@@ -62,28 +62,28 @@ class BroadcastReaderSpec extends Specification {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.just(new JsonRpcResponse(result, null))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.just(new ChainResponse(result, null))
             }
         }
         def up1 = Mock(Upstream) {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.error(new JsonRpcException(1, "too low"))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.error(new ChainException(1, "too low"))
             }
         }
         def up2 = Mock(Upstream) {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.error(new JsonRpcException(1, "too low"))            }
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.error(new ChainException(1, "too low"))            }
         }
         def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
-        def act = reader.read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
+        def act = reader.read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
         then:
         StepVerifier.create(act)
                 .expectNextMatches {
@@ -100,8 +100,8 @@ class BroadcastReaderSpec extends Specification {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.just(new JsonRpcResponse(result, null))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.just(new ChainResponse(result, null))
             }
         }
         def up1 = Mock(Upstream) {
@@ -116,7 +116,7 @@ class BroadcastReaderSpec extends Specification {
         }
         def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
-        def act = reader.read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
+        def act = reader.read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
         then:
         StepVerifier.create(act)
                 .expectNextMatches {
@@ -132,32 +132,32 @@ class BroadcastReaderSpec extends Specification {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.error(new JsonRpcException(1, "too low"))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.error(new ChainException(1, "too low"))
             }
         }
         def up1 = Mock(Upstream) {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.error(new JsonRpcException(1, "too low"))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.error(new ChainException(1, "too low"))
             }
         }
         def up2 = Mock(Upstream) {
             1 * isAvailable() >> true
             _ * getId() >> "id"
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
-                        Mono.error(new JsonRpcException(1, "too low"))
+                1 * read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"]))) >>
+                        Mono.error(new ChainException(1, "too low"))
             }
         }
         def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
-        def act = reader.read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
+        def act = reader.read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
         then:
         StepVerifier.create(act)
-                .expectError(JsonRpcException.class)
+                .expectError(ChainException.class)
                 .verify(Duration.ofSeconds(3))
     }
 
@@ -181,8 +181,8 @@ class BroadcastReaderSpec extends Specification {
         def reader = new BroadcastReader([up, up1, up2], new Selector.EmptyMatcher(), null, new BroadcastQuorum(), Stub(Tracer))
         when:
         def act = reader
-                .read(new JsonRpcRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
-                .switchIfEmpty(Mono.just(new RpcReader.Result(new byte[0], null, 0, null, null)))
+                .read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
+                .switchIfEmpty(Mono.just(new RequestReader.Result(new byte[0], null, 0, null, null)))
         then:
         StepVerifier.create(act)
                 .expectErrorMessage("Unhandled Upstream error")

@@ -9,7 +9,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import org.apache.commons.collections4.functors.ConstantFactory
@@ -35,7 +35,7 @@ class EthereumLocalReaderSpec extends Specification {
                 null
         )
         when:
-        def act = router.read(new JsonRpcRequest("eth_coinbase", new ListParams())).block(Duration.ofSeconds(1))
+        def act = router.read(new ChainRequest("eth_coinbase", new ListParams())).block(Duration.ofSeconds(1))
         then:
         act.resultAsProcessedString == "0x0000000000000000000000000000000000000000"
     }
@@ -55,7 +55,7 @@ class EthereumLocalReaderSpec extends Specification {
                 null
         )
         when:
-        def act = router.read(new JsonRpcRequest("eth_getTransactionByHash", new ListParams(["test"]), 10))
+        def act = router.read(new ChainRequest("eth_getTransactionByHash", new ListParams(["test"]), 10))
                 .block(Duration.ofSeconds(1))
         then:
         act == null

@@ -17,6 +17,8 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import spock.lang.Specification
 
 class JsonRpcResponseSpec extends Specification {
@@ -25,8 +27,8 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Same responses are equal"() {
         setup:
-        def resp1 = new JsonRpcResponse("\"hello\"".bytes, null)
-        def resp2 = new JsonRpcResponse("\"hello\"".bytes, null)
+        def resp1 = new ChainResponse("\"hello\"".bytes, null)
+        def resp2 = new ChainResponse("\"hello\"".bytes, null)
         when:
         def act = resp1.equals(resp2)
         then:
@@ -35,35 +37,35 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Extract processed string without quoted"() {
         when:
-        def act = new JsonRpcResponse("\"hello\"".bytes, null).resultAsProcessedString
+        def act = new ChainResponse("\"hello\"".bytes, null).resultAsProcessedString
         then:
         act == "hello"
     }
 
     def "Extract raw string with quoted"() {
         when:
-        def act = new JsonRpcResponse("\"hello\"".bytes, null).resultAsRawString
+        def act = new ChainResponse("\"hello\"".bytes, null).resultAsRawString
         then:
         act == "\"hello\""
     }
 
     def "Fails to extract processed string if not quoted"() {
         when:
-        new JsonRpcResponse("{\"hello\": 1}".bytes, null).resultAsProcessedString
+        new ChainResponse("{\"hello\": 1}".bytes, null).resultAsProcessedString
         then:
         thrown(IllegalStateException)
     }
 
     def "Recognizes null"() {
         when:
-        def act = new JsonRpcResponse("null".bytes, null)
+        def act = new ChainResponse("null".bytes, null)
         then:
         act.isNull()
     }
 
     def "Serialize int id and null result"() {
         setup:
-        def json = new JsonRpcResponse("null".bytes, null, new JsonRpcResponse.NumberId(1), null, null, null)
+        def json = new ChainResponse("null".bytes, null, new ChainResponse.NumberId(1), null, null, null)
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -72,7 +74,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize int id and string result"() {
         setup:
-        def json = new JsonRpcResponse('"Hello World"'.bytes, null, new JsonRpcResponse.NumberId(10), null, null, null)
+        def json = new ChainResponse('"Hello World"'.bytes, null, new ChainResponse.NumberId(10), null, null, null)
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -81,7 +83,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize int id and object result"() {
         setup:
-        def json = new JsonRpcResponse('{"foo": "Hello World", "bar": 1}'.bytes, null, new JsonRpcResponse.NumberId(101), null, null, null)
+        def json = new ChainResponse('{"foo": "Hello World", "bar": 1}'.bytes, null, new ChainResponse.NumberId(101), null, null, null)
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -90,7 +92,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize int id and error"() {
         setup:
-        def json = new JsonRpcResponse(null, new JsonRpcError(-32041, "Oooops"), new JsonRpcResponse.NumberId(101), null, null, null)
+        def json = new ChainResponse(null, new ChainCallError(-32041, "Oooops"), new ChainResponse.NumberId(101), null, null, null)
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -99,7 +101,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize string id and null result"() {
         setup:
-        def json = new JsonRpcResponse("null".bytes, null, new JsonRpcResponse.StringId("asf01t1gg"), null, null, null)
+        def json = new ChainResponse("null".bytes, null, new ChainResponse.StringId("asf01t1gg"), null, null, null)
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -108,7 +110,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize string id and string result"() {
         setup:
-        def json = new JsonRpcResponse('"Hello World"'.bytes, null, new JsonRpcResponse.StringId("10"), null, null, null)
+        def json = new ChainResponse('"Hello World"'.bytes, null, new ChainResponse.StringId("10"), null, null, null)
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -117,7 +119,7 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize string id and object result"() {
         setup:
-        def json = new JsonRpcResponse('{"foo": "Hello World", "bar": 1}'.bytes, null, new JsonRpcResponse.StringId("g8gk19g"), null, null, null)
+        def json = new ChainResponse('{"foo": "Hello World", "bar": 1}'.bytes, null, new ChainResponse.StringId("g8gk19g"), null, null, null)
         when:
         def act = objectMapper.writeValueAsString(json)
         then:
@@ -126,9 +128,9 @@ class JsonRpcResponseSpec extends Specification {
 
     def "Serialize string id and error"() {
         setup:
-        def json = new JsonRpcResponse(null,
-                new JsonRpcError(-32041, "Oooops"),
-                new JsonRpcResponse.StringId("9kbo29gkaasf"), null, null, null  )
+        def json = new ChainResponse(null,
+                new ChainCallError(-32041, "Oooops"),
+                new ChainResponse.StringId("9kbo29gkaasf"), null, null, null  )
         when:
         def act = objectMapper.writeValueAsString(json)
         then:

@@ -18,15 +18,15 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Global.Companion.nullValue
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.TxId
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.hex.HexQuantity
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
@@ -44,12 +44,12 @@ class EthereumLocalReader(
     private val methods: CallMethods,
     private val head: Head,
     private val logsOracle: LogsOracle?,
-) : JsonRpcReader {
+) : ChainReader {
 
-    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
+    override fun read(key: ChainRequest): Mono<ChainResponse> {
         if (methods.isHardcoded(key.method)) {
             return Mono.just(methods.executeHardcoded(key.method))
-                .map { JsonRpcResponse(it, null) }
+                .map { ChainResponse(it, null) }
         }
         if (!methods.isCallable(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
@@ -61,7 +61,7 @@ class EthereumLocalReader(
         val common = commonRequests(key)
             ?.switchIfEmpty { Mono.just(nullValue to null) }
         if (common != null) {
-            return common.map { JsonRpcResponse(it.first, null, it.second) }
+            return common.map { ChainResponse(it.first, null, it.second) }
         }
         return Mono.empty()
     }
@@ -71,7 +71,7 @@ class EthereumLocalReader(
      * parses JSON into Map. But the purpose of further processing and caching for some of the requests we want
      * to have actual data types.
      */
-    fun commonRequests(key: JsonRpcRequest): Mono<Pair<ByteArray, String?>>? {
+    fun commonRequests(key: ChainRequest): Mono<Pair<ByteArray, String?>>? {
         val method = key.method
         val params = key.params
         if (params is ListParams) {

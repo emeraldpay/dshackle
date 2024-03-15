@@ -17,11 +17,11 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.slf4j.LoggerFactory
 
@@ -30,7 +30,7 @@ abstract class ValueAwareQuorum<T>(
 ) : CallQuorum {
 
     private val log = LoggerFactory.getLogger(ValueAwareQuorum::class.java)
-    private var rpcError: JsonRpcError? = null
+    private var rpcError: ChainCallError? = null
     protected val resolvers = ArrayList<Upstream>()
 
     fun extractValue(response: ByteArray, clazz: Class<T>): T? {
@@ -38,7 +38,7 @@ abstract class ValueAwareQuorum<T>(
     }
 
     override fun record(
-        response: JsonRpcResponse,
+        response: ChainResponse,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ): Boolean {
@@ -58,7 +58,7 @@ abstract class ValueAwareQuorum<T>(
     }
 
     override fun record(
-        error: JsonRpcException,
+        error: ChainException,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ) {
@@ -67,7 +67,7 @@ abstract class ValueAwareQuorum<T>(
     }
 
     abstract fun recordValue(
-        response: JsonRpcResponse,
+        response: ChainResponse,
         responseValue: T?,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
@@ -79,7 +79,7 @@ abstract class ValueAwareQuorum<T>(
         upstream: Upstream,
     )
 
-    override fun getError(): JsonRpcError? {
+    override fun getError(): ChainCallError? {
         return rpcError
     }
 

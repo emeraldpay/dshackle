@@ -2,10 +2,10 @@ package io.emeraldpay.dshackle.upstream.solana
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -19,12 +19,12 @@ class SolanaLowerBoundBlockDetectorTest {
 
     @Test
     fun `get solana lower block and slot`() {
-        val reader = mock<JsonRpcReader> {
-            on { read(JsonRpcRequest("getFirstAvailableBlock", ListParams())) } doReturn
-                Mono.just(JsonRpcResponse("25000000".toByteArray(), null))
+        val reader = mock<ChainReader> {
+            on { read(ChainRequest("getFirstAvailableBlock", ListParams())) } doReturn
+                Mono.just(ChainResponse("25000000".toByteArray(), null))
             on {
                 read(
-                    JsonRpcRequest(
+                    ChainRequest(
                         "getBlock",
                         ListParams(
                             25000000L,
@@ -37,7 +37,7 @@ class SolanaLowerBoundBlockDetectorTest {
                     ),
                 )
             } doReturn Mono.just(
-                JsonRpcResponse(
+                ChainResponse(
                     Global.objectMapper.writeValueAsBytes(
                         mapOf(
                             "blockHeight" to 21000000,

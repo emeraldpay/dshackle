@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcHttpReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.test.EthereumApiStub
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -29,7 +28,6 @@ import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactor
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import reactor.core.scheduler.Schedulers
 import reactor.test.StepVerifier
-import spock.lang.Retry
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import spock.lang.Specification
 
@@ -54,7 +52,7 @@ class FilteredApisSpec extends Specification {
         ].collect {
 
             def httpFactory = Mock(HttpFactory) {
-                create(_, _) >> Stub(JsonRpcHttpReader)
+                create(_, _) >> Stub(HttpReader)
             }
             def connectorFactory = new GenericConnectorFactory(
                     GenericConnectorFactory.ConnectorMode.RPC_ONLY,

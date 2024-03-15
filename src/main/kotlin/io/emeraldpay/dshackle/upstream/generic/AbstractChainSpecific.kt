@@ -3,8 +3,9 @@ package io.emeraldpay.dshackle.upstream.generic
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.CachingReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.EmptyEgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
@@ -17,7 +18,6 @@ import io.emeraldpay.dshackle.upstream.NoopCachingReader
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
@@ -29,7 +29,7 @@ abstract class AbstractChainSpecific : ChainSpecific {
         methods: CallMethods,
         head: Head,
         logsOracle: LogsOracle?,
-    ): Mono<JsonRpcReader> {
+    ): Mono<ChainReader> {
         return Mono.just(LocalReader(methods))
     }
 
@@ -37,7 +37,7 @@ abstract class AbstractChainSpecific : ChainSpecific {
         return { _, _, _ -> NoopCachingReader }
     }
 
-    override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector? {
+    override fun labelDetector(chain: Chain, reader: ChainReader): LabelsDetector? {
         return null
     }
 
@@ -56,13 +56,13 @@ abstract class AbstractChainSpecific : ChainSpecific {
 
 abstract class AbstractPollChainSpecific : AbstractChainSpecific() {
 
-    override fun getLatestBlock(api: JsonRpcReader, upstreamId: String): Mono<BlockContainer> {
+    override fun getLatestBlock(api: ChainReader, upstreamId: String): Mono<BlockContainer> {
         return api.read(latestBlockRequest()).map {
             parseBlock(it.getResult(), upstreamId)
         }
     }
 
-    abstract fun latestBlockRequest(): JsonRpcRequest
+    abstract fun latestBlockRequest(): ChainRequest
 
     abstract fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer
 }

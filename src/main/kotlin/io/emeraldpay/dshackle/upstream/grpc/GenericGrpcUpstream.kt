@@ -24,7 +24,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.BuildInfo
 import io.emeraldpay.dshackle.upstream.Capability
@@ -101,7 +101,7 @@ open class GenericGrpcUpstream(
     private var capabilities: Set<Capability> = emptySet()
     private val buildInfo: BuildInfo = BuildInfo()
 
-    private val defaultReader: JsonRpcReader = client.getReader()
+    private val defaultReader: ChainReader = client.getReader()
 
     override fun start() {
     }
@@ -159,7 +159,7 @@ open class GenericGrpcUpstream(
         return grpcHead
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): ChainReader {
         return defaultReader
     }
 

@@ -1,10 +1,10 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.RecursiveLowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.toHex
 import reactor.core.publisher.Mono
@@ -45,13 +45,13 @@ class EthereumLowerBoundBlockDetector(
             return Mono.just(true)
         }
         return upstream.getIngressReader().read(
-            JsonRpcRequest(
+            ChainRequest(
                 "eth_getBalance",
                 ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", blockNumber.toHex()),
             ),
         )
             .retryWhen(retrySpec(nonRetryableErrors))
-            .flatMap(JsonRpcResponse::requireResult)
+            .flatMap(ChainResponse::requireResult)
             .map { true }
             .onErrorReturn(false)
     }

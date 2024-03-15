@@ -21,37 +21,35 @@ import io.emeraldpay.api.proto.BlockchainOuterClass.NativeCallReplySignature
 import io.emeraldpay.api.proto.ReactorBlockchainGrpc
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.RequestMetrics
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.grpc.StatusRuntimeException
 import org.apache.commons.lang3.time.StopWatch
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.concurrent.TimeUnit
 
 class JsonRpcGrpcClient(
     private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
     private val chain: Chain,
-    private val metrics: RpcMetrics?,
+    private val metrics: RequestMetrics?,
 ) {
 
-    companion object {
-        private val log = LoggerFactory.getLogger(JsonRpcGrpcClient::class.java)
-    }
-
-    fun getReader(): JsonRpcReader {
+    fun getReader(): ChainReader {
         return Executor(stub, chain, metrics)
     }
 
     class Executor(
         private val stub: ReactorBlockchainGrpc.ReactorBlockchainStub,
         private val chain: Chain,
-        private val metrics: RpcMetrics?,
-    ) : JsonRpcReader {
+        private val metrics: RequestMetrics?,
+    ) : ChainReader {
 
-        override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
+        override fun read(key: ChainRequest): Mono<ChainResponse> {
             val timer = StopWatch()
             val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChainValue(chain.id)
@@ -61,16 +59,28 @@ class JsonRpcGrpcClient(
             val reqItem = BlockchainOuterClass.NativeCallItem.newBuilder()
                 .setId(1)
                 .setMethod(key.method)
-                .setPayload(
+            if (key.params is RestParams) {
+                reqItem.setRestData(
+                    BlockchainOuterClass.RestData.newBuilder()
+                        .addAllHeaders(mapKeyValue(key.params.headers))
+                        .addAllQueryParams(mapKeyValue(key.params.queryParams))
+                        .setPayload(ByteString.copyFrom(Global.objectMapper.writeValueAsBytes(key.params.payload)))
+                        .addAllPathParams(key.params.pathParams)
+                        .build(),
+                )
+            } else {
+                reqItem.setPayload(
                     ByteString.copyFrom(
                         Global.objectMapper.writeValueAsBytes(
                             when (key.params) {
                                 is ListParams -> key.params.list
                                 is ObjectParams -> key.params.obj
+                                else -> throw IllegalStateException("Wrong param types ${key.params.javaClass}")
                             },
                         ),
                     ),
                 )
+            }
             if (key.nonce != null) {
                 reqItem.nonce = key.nonce
             }
@@ -91,7 +101,7 @@ class JsonRpcGrpcClient(
                 }
         }
 
-        fun handleResponse(resp: BlockchainOuterClass.NativeCallReplyItem): Mono<JsonRpcResponse> =
+        fun handleResponse(resp: BlockchainOuterClass.NativeCallReplyItem): Mono<ChainResponse> =
             if (resp.succeed) {
                 val bytes = resp.payload.toByteArray()
                 val signature = if (resp.hasSignature()) {
@@ -99,7 +109,7 @@ class JsonRpcGrpcClient(
                 } else {
                     null
                 }
-                Mono.just(JsonRpcResponse(bytes, null, JsonRpcResponse.NumberId(0), null, signature, resp.upstreamId))
+                Mono.just(ChainResponse(bytes, null, ChainResponse.NumberId(0), null, signature, resp.upstreamId))
             } else {
                 metrics?.fails?.increment()
                 Mono.error(
@@ -140,5 +150,14 @@ class JsonRpcGrpcClient(
                 resp.keyId,
             )
         }
+
+        private fun mapKeyValue(entries: Map<String, String>) =
+            entries.map {
+                BlockchainOuterClass.KeyValue
+                    .newBuilder()
+                    .setKey(it.key)
+                    .setValue(it.value)
+                    .build()
+            }
     }
 }

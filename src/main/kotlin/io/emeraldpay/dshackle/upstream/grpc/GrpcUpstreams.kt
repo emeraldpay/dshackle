@@ -34,13 +34,13 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.RequestMetrics
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.grpc.auth.AuthException
 import io.emeraldpay.dshackle.upstream.grpc.auth.ClientAuthenticationInterceptor
 import io.emeraldpay.dshackle.upstream.grpc.auth.GrpcAuthContext
 import io.emeraldpay.dshackle.upstream.grpc.auth.GrpcUpstreamsAuth
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
-import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.grpc.ClientInterceptor
 import io.grpc.Codec
 import io.grpc.Status
@@ -279,13 +279,13 @@ class GrpcUpstreams(
         return getOrCreate(chain, metrics, creator)
     }
 
-    private fun makeMetrics(chain: Chain): RpcMetrics {
+    private fun makeMetrics(chain: Chain): RequestMetrics {
         val metricsTags = listOf(
             Tag.of("upstream", id),
             Tag.of("chain", chain.chainCode),
         )
 
-        return RpcMetrics(
+        return RequestMetrics(
             Timer.builder("upstream.grpc.conn")
                 .description("Request time through a Dshackle/gRPC connection")
                 .tags(metricsTags)
@@ -300,7 +300,7 @@ class GrpcUpstreams(
 
     private fun getOrCreate(
         chain: Chain,
-        metrics: RpcMetrics,
+        metrics: RequestMetrics,
         creator: (chain: Chain, client: JsonRpcGrpcClient) -> DefaultUpstream,
     ): UpstreamChangeEvent {
         lock.withLock {

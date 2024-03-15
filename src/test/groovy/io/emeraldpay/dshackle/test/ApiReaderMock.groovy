@@ -21,9 +21,9 @@ import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.grpc.stub.StreamObserver
 import io.netty.buffer.ByteBuf
@@ -56,7 +56,7 @@ import java.util.function.BiFunction
 import java.util.function.Consumer
 import java.util.function.Predicate
 
-class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
+class ApiReaderMock implements Reader<ChainRequest, ChainResponse> {
 
     private static final Logger log = LoggerFactory.getLogger(this)
     List<PredefinedResponse> predefined = []
@@ -79,11 +79,11 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     }
 
     @Override
-    Mono<JsonRpcResponse> read(JsonRpcRequest request, boolean required = true) {
-        Callable<JsonRpcResponse> call = {
+    Mono<ChainResponse> read(ChainRequest request, boolean required = true) {
+        Callable<ChainResponse> call = {
             def predefined = predefined.find { it.isSame(request.method, request.params.list) }
             byte[] result = null
-            JsonRpcError error = null
+            ChainCallError error = null
             calls.incrementAndGet()
             if (predefined != null) {
                 if (predefined.exception != null) {
@@ -93,7 +93,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                 }
                 if (predefined.result instanceof RpcResponseError) {
                     ((RpcResponseError) predefined.result).with { err ->
-                        error = new JsonRpcError(err.code, err.message)
+                        error = new ChainCallError(err.code, err.message)
                     }
                 } else {
 //                    ResponseJson json = new ResponseJson<Object, Integer>(id: 1, result: predefined.result)
@@ -106,16 +106,16 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
                 if (!required) {
                     return null
                 }
-                error = new JsonRpcError(-32601, "Method ${request.method} with ${request.params} is not mocked")
+                error = new ChainCallError(-32601, "Method ${request.method} with ${request.params} is not mocked")
             }
-            return new JsonRpcResponse(result, error, JsonRpcResponse.Id.from(request.id), null, null, null)
-        } as Callable<JsonRpcResponse>
+            return new ChainResponse(result, error, ChainResponse.Id.from(request.id), null, null, null)
+        } as Callable<ChainResponse>
         return Mono.fromCallable(call)
     }
 
     def nativeCall(BlockchainOuterClass.NativeCallRequest request, StreamObserver<BlockchainOuterClass.NativeCallReplyItem> responseObserver) {
         request.itemsList.forEach { req ->
-            JsonRpcResponse resp = read(new JsonRpcRequest(req.method, objectMapper.readerFor(List).readValue(req.payload.toByteArray())))
+            ChainResponse resp = read(new ChainRequest(req.method, objectMapper.readerFor(List).readValue(req.payload.toByteArray())))
                     .block(Duration.ofSeconds(5))
             def proto = BlockchainOuterClass.NativeCallReplyItem.newBuilder()
                     .setId(req.id)
@@ -170,7 +170,7 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     class WebsocketApi {
         private final ApiReaderMock api
 
-        private Sinks.Many<JsonRpcResponse> responses = Sinks
+        private Sinks.Many<ChainResponse> responses = Sinks
                 .many()
                 .unicast()
                 .onBackpressureBuffer()
@@ -202,10 +202,10 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
 
     class WebsocketInboundMock implements WebsocketInbound {
 
-        private final Flux<JsonRpcResponse> responses
+        private final Flux<ChainResponse> responses
         private final Flux<String> jsonResponses
 
-        WebsocketInboundMock(Flux<JsonRpcResponse> responses, Flux<String> jsonResponses) {
+        WebsocketInboundMock(Flux<ChainResponse> responses, Flux<String> jsonResponses) {
             this.responses = responses
             this.jsonResponses = jsonResponses
         }
@@ -260,9 +260,9 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
     class WebsocketOutboundMock implements WebsocketOutbound {
 
         private final ApiReaderMock api
-        private final Sinks.Many<JsonRpcResponse> responses
+        private final Sinks.Many<ChainResponse> responses
 
-        WebsocketOutboundMock(ApiReaderMock api, Sinks.Many<JsonRpcResponse> responses) {
+        WebsocketOutboundMock(ApiReaderMock api, Sinks.Many<ChainResponse> responses) {
             this.api = api
             this.responses = responses
         }
@@ -280,9 +280,9 @@ class ApiReaderMock implements Reader<JsonRpcRequest, JsonRpcResponse> {
         private void handle(Publisher<ByteBuf> dataStream) {
             Flux.from(dataStream)
                     .map { it ->
-                        Global.objectMapper.readValue(new ByteBufInputStream(it), JsonRpcRequest)
+                        Global.objectMapper.readValue(new ByteBufInputStream(it), ChainRequest)
                     }
-                    .flatMap { JsonRpcRequest request ->
+                    .flatMap { ChainRequest request ->
                         api.read(request, false)
                     }
                     .doOnNext {

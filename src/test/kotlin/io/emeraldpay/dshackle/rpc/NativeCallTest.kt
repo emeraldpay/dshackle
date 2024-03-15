@@ -5,8 +5,8 @@ import io.emeraldpay.api.proto.BlockchainOuterClass.NativeCallReplyItem
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeCallRequest
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
-import io.emeraldpay.dshackle.upstream.rpcclient.stream.Chunk
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import io.emeraldpay.dshackle.upstream.stream.Chunk
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock

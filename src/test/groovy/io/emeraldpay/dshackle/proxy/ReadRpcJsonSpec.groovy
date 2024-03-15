@@ -17,7 +17,7 @@
 package io.emeraldpay.dshackle.proxy
 
 
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import spock.lang.Specification
 
@@ -192,7 +192,7 @@ class ReadRpcJsonSpec extends Specification {
         def t = thrown(RpcException)
         t.code == -32600
         t.rpcMessage.toLowerCase() == "jsonrpc version is not set"
-        t.details == new JsonRpcResponse.NumberId(2)
+        t.details == new ChainResponse.NumberId(2)
     }
 
     def "Error if jsonrpc version is invalid"() {
@@ -202,7 +202,7 @@ class ReadRpcJsonSpec extends Specification {
         def t = thrown(RpcException)
         t.code == -32600
         t.rpcMessage.toLowerCase() == "unsupported json rpc version: 3.0"
-        t.details == new JsonRpcResponse.NumberId(2)
+        t.details == new ChainResponse.NumberId(2)
     }
 
     def "Error if method is not set"() {
@@ -212,7 +212,7 @@ class ReadRpcJsonSpec extends Specification {
         def t = thrown(RpcException)
         t.code == -32600
         t.rpcMessage.toLowerCase() == "method is not set"
-        t.details == new JsonRpcResponse.NumberId(2)
+        t.details == new ChainResponse.NumberId(2)
     }
 
     def "Error if params is not array"() {
@@ -222,7 +222,7 @@ class ReadRpcJsonSpec extends Specification {
         def t = thrown(RpcException)
         t.code == -32600
         t.rpcMessage.toLowerCase() == "params must be an array"
-        t.details == new JsonRpcResponse.NumberId(2)
+        t.details == new ChainResponse.NumberId(2)
     }
 
     def "Error if json is broken"() {

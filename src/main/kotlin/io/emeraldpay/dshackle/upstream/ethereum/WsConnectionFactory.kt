@@ -3,7 +3,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.AuthConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
+import io.emeraldpay.dshackle.upstream.RequestMetrics
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.core.instrument.Tag
@@ -22,7 +22,7 @@ open class WsConnectionFactory(
     var basicAuth: AuthConfig.ClientBasicAuth? = null
     var config: UpstreamsConfig.WsEndpoint? = null
 
-    private fun metrics(connIndex: Int): RpcMetrics {
+    private fun metrics(connIndex: Int): RequestMetrics {
         val metricsTags = listOf(
             Tag.of("index", connIndex.toString()),
             Tag.of("upstream", id),
@@ -30,7 +30,7 @@ open class WsConnectionFactory(
             Tag.of("chain", chain.chainCode),
         )
 
-        return RpcMetrics(
+        return RequestMetrics(
             Timer.builder("upstream.ws.conn")
                 .description("Request time through a WebSocket JSON RPC connection")
                 .tags(metricsTags)

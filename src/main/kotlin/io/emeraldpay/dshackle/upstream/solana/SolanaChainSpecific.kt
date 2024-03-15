@@ -8,7 +8,8 @@ import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.DefaultSolanaMethods
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.IngressSubscription
@@ -24,7 +25,6 @@ import io.emeraldpay.dshackle.upstream.generic.AbstractChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -36,11 +36,11 @@ object SolanaChainSpecific : AbstractChainSpecific() {
 
     private val log = LoggerFactory.getLogger(SolanaChainSpecific::class.java)
 
-    override fun getLatestBlock(api: JsonRpcReader, upstreamId: String): Mono<BlockContainer> {
-        return api.read(JsonRpcRequest("getSlot", ListParams())).flatMap {
+    override fun getLatestBlock(api: ChainReader, upstreamId: String): Mono<BlockContainer> {
+        return api.read(ChainRequest("getSlot", ListParams())).flatMap {
             val slot = it.getResultAsProcessedString().toLong()
             api.read(
-                JsonRpcRequest(
+                ChainRequest(
                     "getBlocks",
                     ListParams(
                         slot - 10,
@@ -53,7 +53,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
                     Mono.empty()
                 } else {
                     api.read(
-                        JsonRpcRequest(
+                        ChainRequest(
                             "getBlock",
                             ListParams(
                                 response.max(),
@@ -98,8 +98,8 @@ object SolanaChainSpecific : AbstractChainSpecific() {
         )
     }
 
-    override fun listenNewHeadsRequest(): JsonRpcRequest {
-        return JsonRpcRequest(
+    override fun listenNewHeadsRequest(): ChainRequest {
+        return ChainRequest(
             "blockSubscribe",
             ListParams(
                 "all",
@@ -111,8 +111,8 @@ object SolanaChainSpecific : AbstractChainSpecific() {
         )
     }
 
-    override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest {
-        return JsonRpcRequest("blockUnsubscribe", ListParams(subId))
+    override fun unsubscribeNewHeadsRequest(subId: String): ChainRequest {
+        return ChainRequest("blockUnsubscribe", ListParams(subId))
     }
 
     override fun validator(
@@ -125,7 +125,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
             upstream,
             options,
             SingleCallValidator(
-                JsonRpcRequest("getHealth", ListParams()),
+                ChainRequest("getHealth", ListParams()),
             ) { data ->
                 val resp = String(data)
                 if (resp == "\"ok\"") {
@@ -142,7 +142,7 @@ object SolanaChainSpecific : AbstractChainSpecific() {
         return SolanaLowerBoundBlockDetector(chain, upstream)
     }
 
-    override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector? {
+    override fun labelDetector(chain: Chain, reader: ChainReader): LabelsDetector? {
         return null
     }
 

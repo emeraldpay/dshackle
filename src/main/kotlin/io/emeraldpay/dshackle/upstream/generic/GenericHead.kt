@@ -17,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Head
@@ -33,7 +33,7 @@ open class GenericHead(
     private val chainSpecific: ChainSpecific,
 ) : Head, AbstractHead(forkChoice, headScheduler, blockValidator, 60_000, upstreamId) {
 
-    fun getLatestBlock(api: JsonRpcReader): Mono<BlockContainer> {
+    fun getLatestBlock(api: ChainReader): Mono<BlockContainer> {
         return chainSpecific.getLatestBlock(api, upstreamId)
             .subscribeOn(headScheduler)
             .timeout(Defaults.timeout, Mono.error(Exception("Block data not received")))

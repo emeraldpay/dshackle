@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.upstream.generic.connectors
 
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
@@ -29,7 +29,7 @@ class GenericWsConnector(
     chainSpecific: ChainSpecific,
 ) : GenericConnector {
     private val pool: WsConnectionPool
-    private val reader: JsonRpcReader
+    private val reader: ChainReader
     private val head: GenericWsHead
     private val subscriptions: IngressSubscription
     private val liveness: HeadLivenessValidator
@@ -68,7 +68,7 @@ class GenericWsConnector(
         head.stop()
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): ChainReader {
         return reader
     }
 

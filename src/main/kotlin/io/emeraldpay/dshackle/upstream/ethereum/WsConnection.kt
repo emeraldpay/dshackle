@@ -15,8 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsMessage
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -27,7 +27,7 @@ interface WsConnection : AutoCloseable {
 
     fun connectionId(): String
     fun getSubscribeResponses(): Flux<JsonRpcWsMessage>
-    fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse>
+    fun callRpc(originalRequest: ChainRequest): Mono<ChainResponse>
     fun connect()
     fun connectionInfoFlux(): Flux<ConnectionInfo>
 

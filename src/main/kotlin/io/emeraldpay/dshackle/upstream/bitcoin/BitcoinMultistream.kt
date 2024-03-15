@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.EgressSubscription
@@ -91,7 +91,7 @@ open class BitcoinMultistream(
     /**
      * Finds an API that executed directly on a remote.
      */
-    open fun getDirectApi(matcher: Selector.Matcher): Mono<JsonRpcReader> {
+    open fun getDirectApi(matcher: Selector.Matcher): Mono<ChainReader> {
         val apis = getApiSource(matcher)
         apis.request(1)
         return Mono.from(apis)
@@ -99,7 +99,7 @@ open class BitcoinMultistream(
             .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
     }
 
-    override fun getLocalReader(): Mono<JsonRpcReader> {
+    override fun getLocalReader(): Mono<ChainReader> {
         return Mono.just(callRouter)
     }
 

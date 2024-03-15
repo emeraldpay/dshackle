@@ -15,8 +15,10 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
+import io.emeraldpay.dshackle.upstream.ChainCallError
+
 class JsonRpcWsMessage(
     val result: ByteArray?,
-    val error: JsonRpcError?,
+    val error: ChainCallError?,
     val subscriptionId: String,
 )

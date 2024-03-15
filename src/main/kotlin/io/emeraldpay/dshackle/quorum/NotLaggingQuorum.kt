@@ -16,10 +16,10 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import java.util.concurrent.atomic.AtomicReference
 
@@ -30,9 +30,9 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
 
-    private val result: AtomicReference<JsonRpcResponse> = AtomicReference()
+    private val result: AtomicReference<ChainResponse> = AtomicReference()
     private val failed = AtomicReference(false)
-    private var rpcError: JsonRpcError? = null
+    private var rpcError: ChainCallError? = null
     private var sig: ResponseSigner.Signature? = null
     private val resolvers = ArrayList<Upstream>()
 
@@ -45,7 +45,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     }
 
     override fun record(
-        response: JsonRpcResponse,
+        response: ChainResponse,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ): Boolean {
@@ -60,7 +60,7 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
     }
 
     override fun record(
-        error: JsonRpcException,
+        error: ChainException,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ) {
@@ -76,11 +76,11 @@ class NotLaggingQuorum(val maxLag: Long = 0) : CallQuorum {
         return sig
     }
 
-    override fun getResponse(): JsonRpcResponse {
+    override fun getResponse(): ChainResponse {
         return result.get()
     }
 
-    override fun getError(): JsonRpcError? {
+    override fun getError(): ChainCallError? {
         return rpcError
     }
 

@@ -7,7 +7,7 @@ import io.emeraldpay.dshackle.commons.SPAN_REQUEST_CANCELLED
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_INFO
 import io.emeraldpay.dshackle.commons.SPAN_STATUS_MESSAGE
 import io.emeraldpay.dshackle.data.HashId
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import org.springframework.cloud.sleuth.Tracer
 import org.springframework.cloud.sleuth.instrument.reactor.ReactorSleuth
 import reactor.core.publisher.Mono
@@ -50,7 +50,7 @@ class SpannedReader<K, D>(
 
     private fun extractInfoFromKey(key: K): String? {
         return when (key) {
-            is JsonRpcRequest -> "method: ${key.method}"
+            is ChainRequest -> "method: ${key.method}"
             is HashId, Long -> "params: $key"
             else -> null
         }

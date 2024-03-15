@@ -16,10 +16,10 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 interface CallQuorum {
@@ -27,19 +27,19 @@ interface CallQuorum {
     fun isFailed(): Boolean
 
     fun record(
-        response: JsonRpcResponse,
+        response: ChainResponse,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ): Boolean
 
     fun record(
-        error: JsonRpcException,
+        error: ChainException,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     )
     fun getSignature(): ResponseSigner.Signature?
 
-    fun getResponse(): JsonRpcResponse?
-    fun getError(): JsonRpcError?
+    fun getResponse(): ChainResponse?
+    fun getError(): ChainCallError?
     fun getResolvedBy(): Collection<Upstream>
 }

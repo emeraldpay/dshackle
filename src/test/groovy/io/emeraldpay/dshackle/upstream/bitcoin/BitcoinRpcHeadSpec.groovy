@@ -16,8 +16,8 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
@@ -79,13 +79,13 @@ class BitcoinRpcHeadSpec extends Specification {
         """
 
         def api = Mock(Reader) {
-            _ * read(new JsonRpcRequest("getbestblockhash", new ListParams())) >>> [
-                    Mono.just(new JsonRpcResponse("\"$hash1\"".bytes, null)),
-                    Mono.just(new JsonRpcResponse("\"$hash1\"".bytes, null)),
-                    Mono.just(new JsonRpcResponse("\"$hash2\"".bytes, null))
+            _ * read(new ChainRequest("getbestblockhash", new ListParams())) >>> [
+                    Mono.just(new ChainResponse("\"$hash1\"".bytes, null)),
+                    Mono.just(new ChainResponse("\"$hash1\"".bytes, null)),
+                    Mono.just(new ChainResponse("\"$hash2\"".bytes, null))
             ]
-            _ * read(new JsonRpcRequest("getblock", new ListParams([hash1]))) >> Mono.just(new JsonRpcResponse(block1.bytes, null))
-            _ * read(new JsonRpcRequest("getblock", new ListParams([hash2]))) >> Mono.just(new JsonRpcResponse(block2.bytes, null))
+            _ * read(new ChainRequest("getblock", new ListParams([hash1]))) >> Mono.just(new ChainResponse(block1.bytes, null))
+            _ * read(new ChainRequest("getblock", new ListParams([hash2]))) >> Mono.just(new ChainResponse(block2.bytes, null))
         }
         BitcoinRpcHead head = new BitcoinRpcHead(api, new ExtractBlock(), Duration.ofMillis(200), Schedulers.boundedElastic())
 

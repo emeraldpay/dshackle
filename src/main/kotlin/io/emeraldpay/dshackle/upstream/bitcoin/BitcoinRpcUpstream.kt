@@ -19,11 +19,11 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.reader.JsonRpcHttpReader
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.HttpReader
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -34,7 +34,7 @@ import reactor.core.Disposable
 open class BitcoinRpcUpstream(
     id: String,
     chain: Chain,
-    private val directApi: JsonRpcHttpReader,
+    private val directApi: HttpReader,
     private val head: Head,
     options: ChainOptions.Options,
     role: UpstreamsConfig.UpstreamRole,
@@ -56,7 +56,7 @@ open class BitcoinRpcUpstream(
         return head
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): ChainReader {
         return directApi
     }
 

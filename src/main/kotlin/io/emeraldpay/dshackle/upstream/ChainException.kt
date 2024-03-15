@@ -13,34 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.rpcclient
+package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 
-open class JsonRpcException(
-    val id: JsonRpcResponse.Id,
-    val error: JsonRpcError,
+open class ChainException(
+    val id: ChainResponse.Id,
+    val error: ChainCallError,
     val upstreamId: String? = null,
     writableStackTrace: Boolean = true,
     cause: Throwable? = null,
 ) : Exception(error.message, cause, true, writableStackTrace) {
 
-    constructor(id: Int, message: String) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message))
+    constructor(id: Int, message: String) : this(ChainResponse.NumberId(id), ChainCallError(-32005, message))
 
-    constructor(id: Int, message: String, cause: Throwable) : this(JsonRpcResponse.NumberId(id), JsonRpcError(-32005, message), cause = cause)
+    constructor(id: Int, message: String, cause: Throwable) : this(ChainResponse.NumberId(id), ChainCallError(-32005, message), cause = cause)
 
     companion object {
-        fun from(err: RpcException): JsonRpcException {
+        fun from(err: RpcException): ChainException {
             val id = err.details?.let {
-                if (it is JsonRpcResponse.Id) {
+                if (it is ChainResponse.Id) {
                     it
                 } else {
-                    JsonRpcResponse.NumberId(-3)
+                    ChainResponse.NumberId(-3)
                 }
-            } ?: JsonRpcResponse.NumberId(-4)
-            return JsonRpcException(
+            } ?: ChainResponse.NumberId(-4)
+            return ChainException(
                 id,
-                JsonRpcError.from(err),
+                ChainCallError.from(err),
             )
         }
     }

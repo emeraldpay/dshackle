@@ -2,14 +2,13 @@ package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.foundation.ChainOptions
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_VALID
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.util.concurrent.TimeoutException
 
@@ -19,13 +18,10 @@ class GenericUpstreamValidator(
     private val validator: SingleCallValidator,
 ) : UpstreamValidator(upstream, options) {
 
-    companion object {
-        private val log = LoggerFactory.getLogger(GenericUpstreamValidator::class.java)
-    }
     override fun validate(): Mono<UpstreamAvailability> {
         return upstream.getIngressReader()
             .read(validator.method)
-            .flatMap(JsonRpcResponse::requireResult)
+            .flatMap(ChainResponse::requireResult)
             .map { validator.check(it) }
             .timeout(
                 Defaults.timeoutInternal,

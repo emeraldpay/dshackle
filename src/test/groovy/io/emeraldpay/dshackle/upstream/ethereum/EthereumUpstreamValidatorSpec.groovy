@@ -21,9 +21,9 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.ApiReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
@@ -108,8 +108,8 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def up = Mock(Upstream) {
             2 * getIngressReader() >> Mock(Reader) { reader ->
                 2 * reader.read(_) >>> [
-                        Mono.just(new JsonRpcResponse('true'.getBytes(), null)),
-                        Mono.just(new JsonRpcResponse('false'.getBytes(), null))
+                        Mono.just(new ChainResponse('true'.getBytes(), null)),
+                        Mono.just(new ChainResponse('false'.getBytes(), null))
                 ]
             }
             2 * getHead() >> Mock(Head) {head ->
@@ -280,9 +280,9 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def up = Mock(Upstream) {
             2 * getIngressReader() >>
                     Mock(Reader) {
-                        1 * read(new JsonRpcRequest("eth_blockNumber", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
-                        1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
-                                Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
+                        1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                        1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                                Mono.just(new ChainResponse('"result"'.getBytes(), null))
                     }
         }
         def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
@@ -300,13 +300,13 @@ class EthereumUpstreamValidatorSpec extends Specification {
         }.buildOptions()
         def up = Mock(Upstream) {
             3 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_call", new ListParams([new TransactionCallJson(
+                1 * read(new ChainRequest("eth_call", new ListParams([new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
                         HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
-                ), "latest"]))) >> Mono.just(new JsonRpcResponse("0x00000000000000000000".getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_blockNumber", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
-                        Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
+                ), "latest"]))) >> Mono.just(new ChainResponse("0x00000000000000000000".getBytes(), null))
+                1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                        Mono.just(new ChainResponse('"result"'.getBytes(), null))
             }
         }
         def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
@@ -324,13 +324,13 @@ class EthereumUpstreamValidatorSpec extends Specification {
         }.buildOptions()
         def up = Mock(Upstream) {
             3 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_call", new ListParams([new TransactionCallJson(
+                1 * read(new ChainRequest("eth_call", new ListParams([new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
                         HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
-                ), "latest"]))) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
-                1 * read(new JsonRpcRequest("eth_blockNumber", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
-                        Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
+                ), "latest"]))) >> Mono.just(new ChainResponse(null, new ChainCallError(1, "Too long")))
+                1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                        Mono.just(new ChainResponse('"result"'.getBytes(), null))
             }
         }
         def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
@@ -348,11 +348,11 @@ class EthereumUpstreamValidatorSpec extends Specification {
         }.buildOptions()
         def up = Mock(Upstream) {
             4 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_chainId", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x1"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("net_version", new ListParams())) >> Mono.just(new JsonRpcResponse('"1"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_blockNumber", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
-                        Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_chainId", new ListParams())) >> Mono.just(new ChainResponse('"0x1"'.getBytes(), null))
+                1 * read(new ChainRequest("net_version", new ListParams())) >> Mono.just(new ChainResponse('"1"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                        Mono.just(new ChainResponse('"result"'.getBytes(), null))
             }
         }
         def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
@@ -370,11 +370,11 @@ class EthereumUpstreamValidatorSpec extends Specification {
         }.buildOptions()
         def up = Mock(Upstream) {
             4 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_chainId", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x1"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("net_version", new ListParams())) >> Mono.just(new JsonRpcResponse('"1"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_blockNumber", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
-                        Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_chainId", new ListParams())) >> Mono.just(new ChainResponse('"0x1"'.getBytes(), null))
+                1 * read(new ChainRequest("net_version", new ListParams())) >> Mono.just(new ChainResponse('"1"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                        Mono.just(new ChainResponse('"result"'.getBytes(), null))
             }
         }
         def validator = new EthereumUpstreamValidator(OPTIMISM__MAINNET, up, options, conf)
@@ -390,15 +390,15 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().buildOptions()
         def up = Mock(Upstream) {
             5 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_chainId", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x1"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("net_version", new ListParams())) >> Mono.just(new JsonRpcResponse('"1"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_call", new ListParams([new TransactionCallJson(
+                1 * read(new ChainRequest("eth_chainId", new ListParams())) >> Mono.just(new ChainResponse('"0x1"'.getBytes(), null))
+                1 * read(new ChainRequest("net_version", new ListParams())) >> Mono.just(new ChainResponse('"1"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_call", new ListParams([new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
                         HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
-                ), "latest"]))) >> Mono.just(new JsonRpcResponse("0x00000000000000000000".getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_blockNumber", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
-                        Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
+                ), "latest"]))) >> Mono.just(new ChainResponse("0x00000000000000000000".getBytes(), null))
+                1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                        Mono.just(new ChainResponse('"result"'.getBytes(), null))
             }
         }
         def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)
@@ -414,15 +414,15 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().buildOptions()
         def up = Mock(Upstream) {
             5 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_chainId", new ListParams())) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
-                1 * read(new JsonRpcRequest("net_version", new ListParams())) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
-                1 * read(new JsonRpcRequest("eth_call", new ListParams([new TransactionCallJson(
+                1 * read(new ChainRequest("eth_chainId", new ListParams())) >> Mono.just(new ChainResponse(null, new ChainCallError(1, "Too long")))
+                1 * read(new ChainRequest("net_version", new ListParams())) >> Mono.just(new ChainResponse(null, new ChainCallError(1, "Too long")))
+                1 * read(new ChainRequest("eth_call", new ListParams([new TransactionCallJson(
                         Address.from("0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96"),
                         HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240")
-                ), "latest"]))) >> Mono.just(new JsonRpcResponse(null, new JsonRpcError(1, "Too long")))
-                1 * read(new JsonRpcRequest("eth_blockNumber", new ListParams())) >> Mono.just(new JsonRpcResponse('"0x10ff9be"'.getBytes(), null))
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
-                        Mono.just(new JsonRpcResponse('"result"'.getBytes(), null))
+                ), "latest"]))) >> Mono.just(new ChainResponse(null, new ChainCallError(1, "Too long")))
+                1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                        Mono.just(new ChainResponse('"result"'.getBytes(), null))
             }
         }
         def validator = new EthereumUpstreamValidator(ETHEREUM__MAINNET, up, options, conf)

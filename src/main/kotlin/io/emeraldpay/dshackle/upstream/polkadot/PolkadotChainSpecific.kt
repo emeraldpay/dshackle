@@ -8,8 +8,9 @@ import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.CachingReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
@@ -28,7 +29,6 @@ import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.LocalReader
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -66,21 +66,21 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
         )
     }
 
-    override fun latestBlockRequest(): JsonRpcRequest =
-        JsonRpcRequest("chain_getBlock", ListParams())
+    override fun latestBlockRequest(): ChainRequest =
+        ChainRequest("chain_getBlock", ListParams())
 
-    override fun listenNewHeadsRequest(): JsonRpcRequest =
-        JsonRpcRequest("chain_subscribeNewHeads", ListParams())
+    override fun listenNewHeadsRequest(): ChainRequest =
+        ChainRequest("chain_subscribeNewHeads", ListParams())
 
-    override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest =
-        JsonRpcRequest("chain_unsubscribeNewHeads", ListParams(subId))
+    override fun unsubscribeNewHeadsRequest(subId: String): ChainRequest =
+        ChainRequest("chain_unsubscribeNewHeads", ListParams(subId))
 
     override fun localReaderBuilder(
         cachingReader: CachingReader,
         methods: CallMethods,
         head: Head,
         logsOracle: LogsOracle?,
-    ): Mono<JsonRpcReader> {
+    ): Mono<ChainReader> {
         return Mono.just(LocalReader(methods))
     }
 
@@ -98,7 +98,7 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
             upstream,
             options,
             SingleCallValidator(
-                JsonRpcRequest("system_health", ListParams()),
+                ChainRequest("system_health", ListParams()),
             ) { data ->
                 validate(data, options.minPeers, upstream.getId())
             },

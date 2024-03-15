@@ -15,9 +15,9 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -32,7 +32,7 @@ class WsSubscriptionsImpl(
         private val log = LoggerFactory.getLogger(WsSubscriptionsImpl::class.java)
     }
 
-    override fun subscribe(request: JsonRpcRequest): WsSubscriptions.SubscribeData {
+    override fun subscribe(request: ChainRequest): WsSubscriptions.SubscribeData {
         val subscriptionId = AtomicReference("")
         val conn = wsPool.getConnection()
         val messages = conn.getSubscribeResponses()
@@ -44,7 +44,7 @@ class WsSubscriptionsImpl(
             .flatMapMany {
                 if (it.hasError()) {
                     log.warn("Failed to establish subscription: ${it.error?.message}")
-                    Mono.error(JsonRpcException(it.id, it.error!!))
+                    Mono.error(ChainException(it.id, it.error!!))
                 } else {
                     subscriptionId.set(it.getResultAsProcessedString())
                     messages
@@ -54,7 +54,7 @@ class WsSubscriptionsImpl(
         return WsSubscriptions.SubscribeData(messageFlux, conn.connectionId(), subscriptionId)
     }
 
-    override fun unsubscribe(request: JsonRpcRequest): Mono<JsonRpcResponse> {
+    override fun unsubscribe(request: ChainRequest): Mono<ChainResponse> {
         if (request.params is ListParams && (request.params.list.isEmpty() || request.params.list.contains(""))
         ) {
             return Mono.empty()

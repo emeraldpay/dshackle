@@ -16,13 +16,13 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Defaults
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.AbstractHead
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
@@ -34,7 +34,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class BitcoinRpcHead(
-    private val api: JsonRpcReader,
+    private val api: ChainReader,
     private val extractBlock: ExtractBlock,
     private val interval: Duration = Duration.ofSeconds(15),
     headScheduler: Scheduler,
@@ -60,14 +60,14 @@ class BitcoinRpcHead(
         val base = Flux.interval(interval)
             .publishOn(scheduler)
             .flatMap {
-                api.read(JsonRpcRequest("getbestblockhash", ListParams()))
-                    .flatMap(JsonRpcResponse::requireStringResult)
+                api.read(ChainRequest("getbestblockhash", ListParams()))
+                    .flatMap(ChainResponse::requireStringResult)
                     .timeout(Defaults.timeout, Mono.error(Exception("Best block hash is not received")))
             }
             .distinctUntilChanged()
             .flatMap { hash ->
-                api.read(JsonRpcRequest("getblock", ListParams(hash)))
-                    .flatMap(JsonRpcResponse::requireResult)
+                api.read(ChainRequest("getblock", ListParams(hash)))
+                    .flatMap(ChainResponse::requireResult)
                     .map(extractBlock::extract)
                     .timeout(Defaults.timeout, Mono.error(Exception("Block data is not received")))
             }

@@ -3,9 +3,14 @@ package io.emeraldpay.dshackle.upstream.rpcclient.stream
 import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
+import io.emeraldpay.dshackle.upstream.ChainCallError
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseRpcParser
+import io.emeraldpay.dshackle.upstream.stream.AggregateResponse
+import io.emeraldpay.dshackle.upstream.stream.Chunk
+import io.emeraldpay.dshackle.upstream.stream.Response
+import io.emeraldpay.dshackle.upstream.stream.SingleResponse
+import io.emeraldpay.dshackle.upstream.stream.StreamResponse
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -66,7 +71,7 @@ class JsonRpcStreamParser(
                 Mono.just(
                     SingleResponse(
                         null,
-                        JsonRpcError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, it.message ?: "Internal error"),
+                        ChainCallError(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, it.message ?: "Internal error"),
                     ),
                 )
             }

@@ -15,21 +15,22 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import org.slf4j.LoggerFactory
 
-open class ResponseRpcParser : ResponseParser<JsonRpcResponse>() {
+open class ResponseRpcParser : ResponseParser<ChainResponse>() {
 
     companion object {
         private val log = LoggerFactory.getLogger(ResponseRpcParser::class.java)
     }
 
-    override fun build(state: Preparsed): JsonRpcResponse {
+    override fun build(state: Preparsed): ChainResponse {
         if (state.error != null) {
-            return JsonRpcResponse(null, state.error, state.id ?: JsonRpcResponse.Id.from(-1), null)
+            return ChainResponse(null, state.error, state.id ?: ChainResponse.Id.from(-1), null)
         }
         if (state.nullResult) {
-            return JsonRpcResponse("null".toByteArray(), null, state.id ?: JsonRpcResponse.Id.from(-1), null)
+            return ChainResponse("null".toByteArray(), null, state.id ?: ChainResponse.Id.from(-1), null)
         }
-        return JsonRpcResponse(state.result, null, state.id ?: JsonRpcResponse.Id.from(-1), null)
+        return ChainResponse(state.result, null, state.id ?: ChainResponse.Id.from(-1), null)
     }
 }

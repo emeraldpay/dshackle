@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.rpcclient
+package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonNode
 import io.emeraldpay.api.proto.BlockchainOuterClass
-import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.rpcclient.CallParams
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 
-data class JsonRpcRequest(
+data class ChainRequest(
     val method: String,
     val params: CallParams,
     val id: Int,
@@ -40,16 +41,7 @@ data class JsonRpcRequest(
     ) : this(method, params, 1, nonce, selectors, isStreamed)
 
     fun toJson(): ByteArray {
-        val json = mapOf(
-            "jsonrpc" to "2.0",
-            "id" to id,
-            "method" to method,
-            "params" to when (params) {
-                is ListParams -> params.list
-                is ObjectParams -> params.obj
-            },
-        )
-        return Global.objectMapper.writeValueAsBytes(json)
+        return params.toJson(id, method)
     }
 
     override fun toString(): String {
@@ -57,9 +49,9 @@ data class JsonRpcRequest(
     }
 
     @Suppress("UNCHECKED_CAST")
-    class Deserializer : JsonDeserializer<JsonRpcRequest>() {
+    class Deserializer : JsonDeserializer<ChainRequest>() {
 
-        override fun deserialize(p: JsonParser, ctxt: DeserializationContext): JsonRpcRequest {
+        override fun deserialize(p: JsonParser, ctxt: DeserializationContext): ChainRequest {
             val node: JsonNode = p.readValueAsTree()
             val id = node.get("id").intValue()
             val method = node.get("method").textValue()
@@ -76,7 +68,7 @@ data class JsonRpcRequest(
                     throw IllegalStateException("Unsupported param type: ${it.asToken()}")
                 }
             }
-            return JsonRpcRequest(method, ListParams(params as List<Any>), id, null, null)
+            return ChainRequest(method, ListParams(params as List<Any>), id, null, null)
         }
     }
 }

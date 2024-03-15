@@ -6,9 +6,9 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.test.MockGrpcServer
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
-import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.grpc.stub.StreamObserver
 import spock.lang.Specification
 
@@ -40,7 +40,7 @@ class JsonRpcGrpcClientSpec extends Specification {
 
         when:
         def act = client.read(
-                new JsonRpcRequest("test", new ListParams())
+                new ChainRequest("test", new ListParams())
         ).block(Duration.ofSeconds(1))
 
         then:
@@ -74,7 +74,7 @@ class JsonRpcGrpcClientSpec extends Specification {
 
         when:
         client.read(
-                new JsonRpcRequest("test", new ListParams())
+                new ChainRequest("test", new ListParams())
         ).block(Duration.ofSeconds(1))
 
         then:

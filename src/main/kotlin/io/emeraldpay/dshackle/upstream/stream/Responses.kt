@@ -1,13 +1,13 @@
-package io.emeraldpay.dshackle.upstream.rpcclient.stream
+package io.emeraldpay.dshackle.upstream.stream
 
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
+import io.emeraldpay.dshackle.upstream.ChainCallError
 import reactor.core.publisher.Flux
 
 sealed class Response
 
 data class SingleResponse(
     val result: ByteArray?,
-    val error: JsonRpcError?,
+    val error: ChainCallError?,
 ) : Response() {
     fun hasError() = error != null
 

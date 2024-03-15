@@ -1,8 +1,8 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import spock.lang.Specification
 
@@ -20,7 +20,7 @@ class NotNullQuorumSpec extends Specification {
             1 * getId() >> "id2"
         }
         def value = "null".getBytes()
-        def response = new JsonRpcResponse(value, null)
+        def response = new ChainResponse(value, null)
         def quorum = new NotNullQuorum()
 
         when:
@@ -53,15 +53,15 @@ class NotNullQuorumSpec extends Specification {
         def quorum = new NotNullQuorum()
 
         when:
-        quorum.record(new JsonRpcException(10, "error"), null, up)
-        quorum.record(new JsonRpcException(10, "error"), null, up1)
-        quorum.record(new JsonRpcException(10, "error"), null, up2)
-        quorum.record(new JsonRpcException(10, "error"), null, up)
+        quorum.record(new ChainException(10, "error"), null, up)
+        quorum.record(new ChainException(10, "error"), null, up1)
+        quorum.record(new ChainException(10, "error"), null, up2)
+        quorum.record(new ChainException(10, "error"), null, up)
 
         then:
         quorum.isFailed()
         !quorum.isResolved()
-        quorum.error == new JsonRpcException(10, "error").error
+        quorum.error == new ChainException(10, "error").error
     }
 
     def "Resolve if one of upstream responds with value"() {
@@ -79,10 +79,10 @@ class NotNullQuorumSpec extends Specification {
         def quorum = new NotNullQuorum()
 
         when:
-        def res = quorum.record(new JsonRpcResponse(value, null), new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
-        quorum.record(new JsonRpcException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up1)
-        quorum.record(new JsonRpcException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up2)
-        quorum.record(new JsonRpcException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
+        def res = quorum.record(new ChainResponse(value, null), new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
+        quorum.record(new ChainException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up1)
+        quorum.record(new ChainException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up2)
+        quorum.record(new ChainException(10, "error"), new ResponseSigner.Signature("sig1".bytes, "test", 100), up)
 
         then:
         !res

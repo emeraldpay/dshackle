@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ProxyConfig
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.micrometer.core.instrument.Counter
 import reactor.core.publisher.Flux
@@ -73,7 +73,7 @@ class HttpHandlerSpec extends Specification {
     def "Return error on invalid request"() {
         setup:
         ReadRpcJson read = Mock(ReadRpcJson) {
-            1 * apply(_) >> { throw new RpcException(-32123, "test", new JsonRpcResponse.NumberId(4)) }
+            1 * apply(_) >> { throw new RpcException(-32123, "test", new ChainResponse.NumberId(4)) }
         }
         Counter errorMetric = Mock(Counter) {
             1 * increment()

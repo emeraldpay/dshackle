@@ -16,8 +16,8 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.bitcoinj.core.Address
 import org.bitcoinj.params.MainNetParams
@@ -30,7 +30,7 @@ class RpcUnspentReaderSpec extends Specification {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-one-addr.json").bytes
         def rpcReader = Mock(Reader) {
-            1 * read(new JsonRpcRequest("listunspent", new ListParams([1, 9999999, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"]]))) >> Mono.just(JsonRpcResponse.ok(json))
+            1 * read(new ChainRequest("listunspent", new ListParams([1, 9999999, ["1K7xkspJg7DDKNwzXgoRSDCUxiFsRegsSK"]]))) >> Mono.just(ChainResponse.ok(json))
         }
         def upstreams = Mock(BitcoinMultistream) {
             1 * getDirectApi(_) >> Mono.just(rpcReader)
@@ -64,7 +64,7 @@ class RpcUnspentReaderSpec extends Specification {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json").bytes
         def rpcReader = Mock(Reader) {
-            1 * read(new JsonRpcRequest("listunspent", new ListParams([1, 9999999, ["35hK24tcLEWcgNA4JxpvbkNkoAcDGqQPsP"]]))) >> Mono.just(JsonRpcResponse.ok(json))
+            1 * read(new ChainRequest("listunspent", new ListParams([1, 9999999, ["35hK24tcLEWcgNA4JxpvbkNkoAcDGqQPsP"]]))) >> Mono.just(ChainResponse.ok(json))
         }
         def upstreams = Mock(BitcoinMultistream) {
             1 * getDirectApi(_) >> Mono.just(rpcReader)
@@ -99,7 +99,7 @@ class RpcUnspentReaderSpec extends Specification {
         setup:
         def json = this.class.getClassLoader().getResourceAsStream("bitcoin/unspent-two-addr.json").bytes
         def rpcReader = Mock(Reader) {
-            1 * read(_) >> Mono.just(JsonRpcResponse.ok(json))
+            1 * read(_) >> Mono.just(ChainResponse.ok(json))
         }
         def upstreams = Mock(BitcoinMultistream) {
             1 * getDirectApi(_) >> Mono.just(rpcReader)

@@ -21,14 +21,16 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.beaconchain.BeaconChainBlockHeader
+import io.emeraldpay.dshackle.upstream.beaconchain.BeaconChainBlockHeaderDeserializer
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspentDeserializer
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspentDeserializer
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.TransactionIdSerializer
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -67,12 +69,13 @@ class Global {
 
         private fun createObjectMapper(): ObjectMapper {
             val module = SimpleModule("EmeraldDshackle", Version(1, 0, 0, null, null, null))
-            module.addSerializer(JsonRpcResponse::class.java, JsonRpcResponse.ResponseJsonSerializer())
+            module.addSerializer(ChainResponse::class.java, ChainResponse.ResponseJsonSerializer())
             module.addSerializer(TransactionId::class.java, TransactionIdSerializer())
 
             module.addDeserializer(EsploraUnspent::class.java, EsploraUnspentDeserializer())
             module.addDeserializer(RpcUnspent::class.java, RpcUnspentDeserializer())
-            module.addDeserializer(JsonRpcRequest::class.java, JsonRpcRequest.Deserializer())
+            module.addDeserializer(ChainRequest::class.java, ChainRequest.Deserializer())
+            module.addDeserializer(BeaconChainBlockHeader::class.java, BeaconChainBlockHeaderDeserializer())
 
             val objectMapper = ObjectMapper()
             objectMapper.registerModule(module)

@@ -19,8 +19,8 @@ package io.emeraldpay.dshackle.quorum
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import spock.lang.Specification
 
 class BroadcastQuorumSpec extends Specification {
@@ -35,17 +35,17 @@ class BroadcastQuorumSpec extends Specification {
         def upstream3 = Stub(Upstream)
 
         when:
-        q.record(new JsonRpcResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream1)
+        q.record(new ChainResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream1)
         then:
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
-        q.record(new JsonRpcResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream2)
+        q.record(new ChainResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream2)
         then:
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
-        q.record(new JsonRpcException(1, "Nonce too low"), null, upstream3)
+        q.record(new ChainException(1, "Nonce too low"), null, upstream3)
         then:
         1 * q.recordError(_, _, _)
         objectMapper.readValue(q.response.getResult(), Object) == "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"
@@ -59,17 +59,17 @@ class BroadcastQuorumSpec extends Specification {
         def upstream3 = Stub(Upstream)
 
         when:
-        q.record(new JsonRpcException(1, "Internal error"), null, upstream1)
+        q.record(new ChainException(1, "Internal error"), null, upstream1)
         then:
         1 * q.recordError(_, _, _)
 
         when:
-        q.record(new JsonRpcResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream2)
+        q.record(new ChainResponse('"0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c"'.bytes, null), null, upstream2)
         then:
         1 * q.recordValue(_, "0xeaa972c0d8d1ecd3e34fbbef6d34e06670e745c788bdba31c4234a1762f0378c", _, _)
 
         when:
-        q.record(new JsonRpcException(1, "Nonce too low"), null, upstream3)
+        q.record(new ChainException(1, "Nonce too low"), null, upstream3)
         then:
         1 * q.recordError(_, _, _)
         q.isResolved()
@@ -81,9 +81,9 @@ class BroadcastQuorumSpec extends Specification {
         def quorum = new BroadcastQuorum()
         def up = Stub(Upstream)
         when:
-        quorum.record(new JsonRpcException(1, "test 1"), null, up)
-        quorum.record(new JsonRpcException(1, "test 2"), null, up)
-        quorum.record(new JsonRpcException(1, "test 3"), null, up)
+        quorum.record(new ChainException(1, "test 1"), null, up)
+        quorum.record(new ChainException(1, "test 2"), null, up)
+        quorum.record(new ChainException(1, "test 3"), null, up)
         then:
         quorum.isFailed()
         !quorum.isResolved()

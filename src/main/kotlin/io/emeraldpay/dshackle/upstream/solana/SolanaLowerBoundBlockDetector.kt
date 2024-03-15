@@ -2,10 +2,10 @@ package io.emeraldpay.dshackle.upstream.solana
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
@@ -22,10 +22,10 @@ class SolanaLowerBoundBlockDetector(
         return Mono.just(reader)
             .flatMap {
                 it.read(
-                    JsonRpcRequest("getFirstAvailableBlock", ListParams()), // in case of solana we talk about the slot of the lowest confirmed block
+                    ChainRequest("getFirstAvailableBlock", ListParams()), // in case of solana we talk about the slot of the lowest confirmed block
                 )
             }
-            .flatMap(JsonRpcResponse::requireResult)
+            .flatMap(ChainResponse::requireResult)
             .map {
                 val slot = String(it).toLong()
                 if (slot == 0L) {
@@ -36,7 +36,7 @@ class SolanaLowerBoundBlockDetector(
             }
             .flatMap {
                 reader.read(
-                    JsonRpcRequest(
+                    ChainRequest(
                         "getBlock", // since getFirstAvailableBlock returns the slot of the lowest confirmed block we can directly call getBlock
                         ListParams(
                             it,
@@ -48,7 +48,7 @@ class SolanaLowerBoundBlockDetector(
                         ),
                     ),
                 )
-                    .flatMap(JsonRpcResponse::requireResult)
+                    .flatMap(ChainResponse::requireResult)
                     .map { blockData ->
                         val block = Global.objectMapper.readValue(blockData, SolanaBlock::class.java)
                         LowerBlockData(max(block.height, 1), it)

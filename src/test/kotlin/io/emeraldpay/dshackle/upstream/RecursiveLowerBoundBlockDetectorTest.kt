@@ -1,11 +1,9 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotLowerBoundBlockDetector
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.params.ParameterizedTest
@@ -23,7 +21,7 @@ class RecursiveLowerBoundBlockDetectorTest {
     @ParameterizedTest
     @MethodSource("detectors")
     fun `find lower block closer to the height`(
-        reader: JsonRpcReader,
+        reader: ChainReader,
         detectorClass: Class<LowerBoundBlockDetector>,
     ) {
         val head = mock<Head> {
@@ -49,7 +47,7 @@ class RecursiveLowerBoundBlockDetectorTest {
     @ParameterizedTest
     @MethodSource("detectorsFirstBlock")
     fun `lower block is 0x1`(
-        reader: JsonRpcReader,
+        reader: ChainReader,
         detectorClass: Class<LowerBoundBlockDetector>,
     ) {
         val head = mock<Head> {
@@ -84,15 +82,15 @@ class RecursiveLowerBoundBlockDetectorTest {
         @JvmStatic
         fun detectors(): List<Arguments> = listOf(
             Arguments.of(
-                mock<JsonRpcReader> {
+                mock<ChainReader> {
                     blocks.forEach {
                         if (it == 17964844L) {
                             on {
-                                read(JsonRpcRequest("eth_getBalance", ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
-                            } doReturn Mono.just(JsonRpcResponse(ByteArray(0), null))
+                                read(ChainRequest("eth_getBalance", ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
+                            } doReturn Mono.just(ChainResponse(ByteArray(0), null))
                         } else {
                             on {
-                                read(JsonRpcRequest("eth_getBalance", ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
+                                read(ChainRequest("eth_getBalance", ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
                             } doReturn Mono.error(RuntimeException("missing trie node"))
                         }
                     }
@@ -100,21 +98,21 @@ class RecursiveLowerBoundBlockDetectorTest {
                 EthereumLowerBoundBlockDetector::class.java,
             ),
             Arguments.of(
-                mock<JsonRpcReader> {
+                mock<ChainReader> {
                     blocks.forEach {
                         if (it == 17964844L) {
                             on {
-                                read(JsonRpcRequest("chain_getBlockHash", ListParams(it.toHex())))
-                            } doReturn Mono.just(JsonRpcResponse("\"$hash1\"".toByteArray(), null))
+                                read(ChainRequest("chain_getBlockHash", ListParams(it.toHex())))
+                            } doReturn Mono.just(ChainResponse("\"$hash1\"".toByteArray(), null))
                             on {
-                                read(JsonRpcRequest("state_getMetadata", ListParams(hash1)))
-                            } doReturn Mono.just(JsonRpcResponse(ByteArray(0), null))
+                                read(ChainRequest("state_getMetadata", ListParams(hash1)))
+                            } doReturn Mono.just(ChainResponse(ByteArray(0), null))
                         } else {
                             on {
-                                read(JsonRpcRequest("chain_getBlockHash", ListParams(it.toHex())))
-                            } doReturn Mono.just(JsonRpcResponse("\"$hash2\"".toByteArray(), null))
+                                read(ChainRequest("chain_getBlockHash", ListParams(it.toHex())))
+                            } doReturn Mono.just(ChainResponse("\"$hash2\"".toByteArray(), null))
                             on {
-                                read(JsonRpcRequest("state_getMetadata", ListParams(hash2)))
+                                read(ChainRequest("state_getMetadata", ListParams(hash2)))
                             } doReturn Mono.error(RuntimeException("State already discarded for"))
                         }
                     }
@@ -126,16 +124,16 @@ class RecursiveLowerBoundBlockDetectorTest {
         @JvmStatic
         fun detectorsFirstBlock(): List<Arguments> = listOf(
             Arguments.of(
-                mock<JsonRpcReader> {
+                mock<ChainReader> {
                     on {
                         read(any())
-                    } doReturn Mono.just(JsonRpcResponse("\"0x1\"".toByteArray(), null))
+                    } doReturn Mono.just(ChainResponse("\"0x1\"".toByteArray(), null))
                 },
                 PolkadotLowerBoundBlockDetector::class.java,
             ),
             Arguments.of(
-                mock<JsonRpcReader> {
-                    on { read(any()) } doReturn Mono.just(JsonRpcResponse(ByteArray(0), null))
+                mock<ChainReader> {
+                    on { read(any()) } doReturn Mono.just(ChainResponse(ByteArray(0), null))
                 },
                 EthereumLowerBoundBlockDetector::class.java,
             ),

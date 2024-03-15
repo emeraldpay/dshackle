@@ -20,10 +20,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.ethereum.json.RequestJson
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.io.IOException
@@ -54,27 +54,27 @@ open class ReadRpcJson : Function<ByteArray, ProxyCall> {
                     throw RpcException(
                         RpcResponseError.CODE_INVALID_REQUEST,
                         "jsonrpc version is not set",
-                        id?.let { JsonRpcResponse.Id.from(it) },
+                        id?.let { ChainResponse.Id.from(it) },
                     )
                 }
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Unsupported JSON RPC version: " + json["jsonrpc"].toString(),
-                    id?.let { JsonRpcResponse.Id.from(it) },
+                    id?.let { ChainResponse.Id.from(it) },
                 )
             }
             if (!(json["method"] != null && json["method"] is String)) {
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Method is not set",
-                    id?.let { JsonRpcResponse.Id.from(it) },
+                    id?.let { ChainResponse.Id.from(it) },
                 )
             }
             if (json.containsKey("params") && json["params"] !is List<*>) {
                 throw RpcException(
                     RpcResponseError.CODE_INVALID_REQUEST,
                     "Params must be an array",
-                    id?.let { JsonRpcResponse.Id.from(it) },
+                    id?.let { ChainResponse.Id.from(it) },
                 )
             }
             RequestJson<Any>(

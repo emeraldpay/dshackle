@@ -42,7 +42,7 @@ class GenericConnectorFactoryCreatorTest {
 
         mockConstruction(GenericRpcHead::class.java) { _, ctx -> args = ctx.arguments() }
             .use {
-                factory.createConnectorFactoryCreator(
+                factory.createConnectorFactory(
                     "id",
                     UpstreamsConfig.RpcConnection(
                         UpstreamsConfig.HttpEndpoint(URI("http://localhost")),

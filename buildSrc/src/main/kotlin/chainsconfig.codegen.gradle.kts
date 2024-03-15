@@ -1,5 +1,11 @@
-import com.squareup.kotlinpoet.*
+
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
+import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.asClassName
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.ChainsConfigReader
@@ -119,6 +125,7 @@ open class CodeGen(private val config: ChainsConfig) {
             "polkadot" -> "BlockchainType.POLKADOT"
             "solana" -> "BlockchainType.SOLANA"
             "near" -> "BlockchainType.NEAR"
+            "eth-beacon-chain" -> "BlockchainType.ETHEREUM_BEACON_CHAIN"
             else -> throw IllegalArgumentException("unknown blockchain type $type")
         }
     }

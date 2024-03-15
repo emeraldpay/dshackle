@@ -27,8 +27,8 @@ import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.*
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
 
@@ -43,27 +43,27 @@ class GenericUpstreamMock extends GenericUpstream {
         ])
     }
 
-    GenericUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    GenericUpstreamMock(@NotNull Chain chain, @NotNull Reader<ChainRequest, ChainResponse> api) {
         this(chain, api, allMethods())
     }
 
-    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, Map<String, String> labels) {
+    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<ChainRequest, ChainResponse> api, Map<String, String> labels) {
         this(id, chain, api, allMethods(), labels)
     }
 
-    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<ChainRequest, ChainResponse> api) {
         this(id, chain, api, allMethods())
     }
 
-    GenericUpstreamMock(@NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
+    GenericUpstreamMock(@NotNull Chain chain, @NotNull Reader<ChainRequest, ChainResponse> api, CallMethods methods) {
         this("test", chain, api, methods)
     }
 
-    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods) {
+    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<ChainRequest, ChainResponse> api, CallMethods methods) {
         this(id, chain, api, methods, Collections.<String, String>emptyMap())
     }
 
-    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods methods, Map<String, String> labels) {
+    GenericUpstreamMock(@NotNull String id, @NotNull Chain chain, @NotNull Reader<ChainRequest, ChainResponse> api, CallMethods methods, Map<String, String> labels) {
         super(id,
                 chain,
                 (byte)id.hashCode(),

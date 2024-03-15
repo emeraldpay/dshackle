@@ -21,7 +21,7 @@ open class GenericUpstreamCreator(
     chainsConfig: ChainsConfig,
     indexConfig: IndexConfig,
     callTargets: CallTargetsHolder,
-    private val genericConnectorFactoryCreator: ConnectorFactoryCreator,
+    private val connectorFactoryCreatorResolver: ConnectorFactoryCreatorResolver,
 ) : UpstreamCreator(chainsConfig, indexConfig, callTargets) {
     private val hashes: MutableMap<Byte, Boolean> = HashMap()
 
@@ -58,7 +58,7 @@ open class GenericUpstreamCreator(
 
         val cs = ChainSpecificRegistry.resolve(chain)
 
-        val connectorFactory = genericConnectorFactoryCreator.createConnectorFactoryCreator(
+        val connectorFactory = connectorFactoryCreatorResolver.resolve(chain).createConnectorFactory(
             config.id!!,
             connection,
             chain,

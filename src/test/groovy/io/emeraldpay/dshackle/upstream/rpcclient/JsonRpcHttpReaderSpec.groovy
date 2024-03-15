@@ -17,8 +17,10 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 
 import io.emeraldpay.dshackle.test.TestingCommons
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.RequestMetrics
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
-import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 import org.mockserver.integration.ClientAndServer
@@ -29,11 +31,11 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class JsonRpcHttpClientSpec extends Specification {
+class JsonRpcHttpReaderSpec extends Specification {
 
     ClientAndServer mockServer
     int port = 19332
-    RpcMetrics metrics = new RpcMetrics(
+    RequestMetrics metrics = new RequestMetrics(
             Timer.builder("test1").register(TestingCommons.meterRegistry),
             Counter.builder("test2").register(TestingCommons.meterRegistry)
     )
@@ -49,7 +51,7 @@ class JsonRpcHttpClientSpec extends Specification {
 
     def "Make a request"() {
         setup:
-        JsonRpcHttpClient client = new JsonRpcHttpClient("localhost:${port}", metrics,null, null)
+        JsonRpcHttpReader client = new JsonRpcHttpReader("localhost:${port}", metrics,null, null)
         def resp = '{' +
                 '  "jsonrpc": "2.0",' +
                 '  "result": "0x98de45",' +
@@ -62,7 +64,7 @@ class JsonRpcHttpClientSpec extends Specification {
                 HttpResponse.response(resp)
         )
         when:
-        def act = client.read(new JsonRpcRequest("test", new ListParams())).block()
+        def act = client.read(new ChainRequest("test", new ListParams())).block()
         then:
         act.error == null
         new String(act.result) == '"0x98de45"'
@@ -70,7 +72,7 @@ class JsonRpcHttpClientSpec extends Specification {
 
     def "Produces RPC Exception on error status code"() {
         setup:
-        def client = new JsonRpcHttpClient("localhost:${port}", metrics, null, null)
+        def client = new JsonRpcHttpReader("localhost:${port}", metrics, null, null)
 
         mockServer.when(
                 HttpRequest.request()
@@ -81,12 +83,12 @@ class JsonRpcHttpClientSpec extends Specification {
         )
         when:
         def act = client.read(
-                new JsonRpcRequest("ping", new ListParams())
+                new ChainRequest("ping", new ListParams())
         ).block(Duration.ofSeconds(1))
         then:
         def t = thrown(RuntimeException) // reactor.core.Exceptions$ReactiveException
-        t.cause instanceof JsonRpcException
-        with(((JsonRpcException)t.cause).error) {
+        t.cause instanceof ChainException
+        with(((ChainException)t.cause).error) {
             code == RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
             message == "HTTP Code: 500"
         }
@@ -94,7 +96,7 @@ class JsonRpcHttpClientSpec extends Specification {
 
     def "Tries to extract message if HTTP error if it still contains a JSON RPC message"() {
         setup:
-        def client = new JsonRpcHttpClient("localhost:${port}", metrics, null, null)
+        def client = new JsonRpcHttpReader("localhost:${port}", metrics, null, null)
 
         mockServer.when(
                 HttpRequest.request()
@@ -109,12 +111,12 @@ class JsonRpcHttpClientSpec extends Specification {
         )
         when:
         def act = client.read(
-                new JsonRpcRequest("ping", new ListParams())
+                new ChainRequest("ping", new ListParams())
         ).block(Duration.ofSeconds(1))
         then:
         def t = thrown(RuntimeException) // reactor.core.Exceptions$ReactiveException
-        t.cause instanceof JsonRpcException
-        with(((JsonRpcException)t.cause).error) {
+        t.cause instanceof ChainException
+        with(((ChainException)t.cause).error) {
             code == -32603
             message == "Something happened"
         }

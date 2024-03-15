@@ -33,8 +33,8 @@ import io.emeraldpay.dshackle.upstream.calls.DirectCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
@@ -68,27 +68,27 @@ class TestingCommons {
         return new GenericUpstreamMock(id, Chain.ETHEREUM__MAINNET, api(), Collections.singletonMap("provider", provider))
     }
 
-    static GenericUpstreamMock upstream(String id, Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    static GenericUpstreamMock upstream(String id, Reader<ChainRequest, ChainResponse> api) {
         return new GenericUpstreamMock(id, Chain.ETHEREUM__MAINNET, api)
     }
 
-    static GenericUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    static GenericUpstreamMock upstream(Reader<ChainRequest, ChainResponse> api) {
         return new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, api)
     }
 
-    static GenericUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, String method) {
+    static GenericUpstreamMock upstream(Reader<ChainRequest, ChainResponse> api, String method) {
         return upstream(api, [method])
     }
 
-    static GenericUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, List<String> methods) {
+    static GenericUpstreamMock upstream(Reader<ChainRequest, ChainResponse> api, List<String> methods) {
         return new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, api, new DirectCallMethods(methods))
     }
 
-    static GenericUpstreamMock upstream(Reader<JsonRpcRequest, JsonRpcResponse> api, CallMethods callMethods) {
+    static GenericUpstreamMock upstream(Reader<ChainRequest, ChainResponse> api, CallMethods callMethods) {
         return new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, api, callMethods)
     }
 
-    static Multistream multistream(Reader<JsonRpcRequest, JsonRpcResponse> api) {
+    static Multistream multistream(Reader<ChainRequest, ChainResponse> api) {
         return multistream(upstream(api))
     }
 
@@ -109,7 +109,7 @@ class TestingCommons {
     }
 
     static Multistream emptyMultistream() {
-        return multistream(new EmptyReader<JsonRpcRequest, JsonRpcResponse>())
+        return multistream(new EmptyReader<ChainRequest, ChainResponse>())
     }
 
     static CachesFactory emptyCaches() {

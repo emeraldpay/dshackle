@@ -17,6 +17,8 @@ package io.emeraldpay.dshackle.upstream.rpcclient
 
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import org.slf4j.LoggerFactory
 import java.io.IOException
 
@@ -39,7 +41,7 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
         if (state.isSubReady) {
             return WsResponse(
                 Type.SUBSCRIPTION,
-                JsonRpcResponse.Id.from(state.subId!!),
+                ChainResponse.Id.from(state.subId!!),
                 if (state.nullResult) NULL_RESULT else state.result,
                 state.error,
             )
@@ -101,8 +103,8 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
 
     data class WsResponse(
         val type: Type,
-        val id: JsonRpcResponse.Id,
+        val id: ChainResponse.Id,
         val value: ByteArray?,
-        val error: JsonRpcError?,
+        val error: ChainCallError?,
     )
 }

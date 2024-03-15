@@ -11,15 +11,15 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.kotlin.mock
 import org.springframework.cloud.sleuth.Tracer
 
-class RpcReaderFactoryTest {
-    private val defaultFactory = RpcReaderFactory.Default()
+class RequestReaderFactoryTest {
+    private val defaultFactory = RequestReaderFactory.Default()
 
     @ParameterizedTest
     @MethodSource("data")
     fun `create BroadcastReader for MaximumValueQuorum and BroadcastQuorum`(
-        rpcReaderData: RpcReaderFactory.RpcReaderData,
+        readerData: RequestReaderFactory.ReaderData,
     ) {
-        val reader = defaultFactory.create(rpcReaderData)
+        val reader = defaultFactory.create(readerData)
 
         assertTrue(reader is BroadcastReader)
     }
@@ -32,9 +32,8 @@ class RpcReaderFactoryTest {
         fun data(): List<Arguments> {
             return listOf(
                 Arguments.of(
-                    RpcReaderFactory.RpcReaderData(
+                    RequestReaderFactory.ReaderData(
                         ms,
-                        "method",
                         Selector.empty,
                         MaximumValueQuorum(),
                         null,
@@ -42,9 +41,8 @@ class RpcReaderFactoryTest {
                     ),
                 ),
                 Arguments.of(
-                    RpcReaderFactory.RpcReaderData(
+                    RequestReaderFactory.ReaderData(
                         ms,
-                        "method",
                         Selector.empty,
                         BroadcastQuorum(),
                         null,

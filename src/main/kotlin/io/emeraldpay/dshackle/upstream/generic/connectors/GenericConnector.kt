@@ -1,6 +1,6 @@
 package io.emeraldpay.dshackle.upstream.generic.connectors
 
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.Lifecycle
@@ -11,7 +11,7 @@ interface GenericConnector : Lifecycle {
 
     fun hasLiveSubscriptionHead(): Flux<Boolean>
 
-    fun getIngressReader(): JsonRpcReader
+    fun getIngressReader(): ChainReader
 
     fun getIngressSubscription(): IngressSubscription
 }

@@ -20,15 +20,15 @@ import io.emeraldpay.dshackle.commons.API_READER
 import io.emeraldpay.dshackle.commons.SPAN_NO_RESPONSE_MESSAGE
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_API_TYPE
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_UPSTREAM_ID
-import io.emeraldpay.dshackle.reader.RpcReader
+import io.emeraldpay.dshackle.reader.RequestReader
 import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.upstream.ApiSource
+import io.emeraldpay.dshackle.upstream.ChainCallUpstreamException
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcUpstreamException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
@@ -45,22 +45,22 @@ import java.util.function.Function
 /**
  * Makes request with applying Quorum
  */
-class QuorumRpcReader(
+class QuorumRequestReader(
     private val apiControl: ApiSource,
     private val quorum: CallQuorum,
     signer: ResponseSigner?,
     private val tracer: Tracer,
-) : RpcReader(signer) {
+) : RequestReader(signer) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(QuorumRpcReader::class.java)
+        private val log = LoggerFactory.getLogger(QuorumRequestReader::class.java)
     }
 
     constructor(apiControl: ApiSource, quorum: CallQuorum, tracer: Tracer) : this(apiControl, quorum, null, tracer)
 
     override fun attempts(): AtomicInteger = apiControl.attempts()
 
-    override fun read(key: JsonRpcRequest): Mono<Result> {
+    override fun read(key: ChainRequest): Mono<Result> {
         // needs at least one response, so start a request
         apiControl.request(1)
 
@@ -99,8 +99,8 @@ class QuorumRpcReader(
             .transform(processResult(defaultResult))
     }
 
-    private fun execute(key: JsonRpcRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
-        val quorumReduce = BiFunction<CallQuorum, Tuple3<JsonRpcResponse, Optional<ResponseSigner.Signature>, Upstream>, CallQuorum> { res, a ->
+    private fun execute(key: ChainRequest, retrySpec: reactor.util.retry.Retry): Function<Flux<Upstream>, Mono<CallQuorum>> {
+        val quorumReduce = BiFunction<CallQuorum, Tuple3<ChainResponse, Optional<ResponseSigner.Signature>, Upstream>, CallQuorum> { res, a ->
             if (res.record(a.t1, a.t2.orElse(null), a.t3)) {
                 log.trace("Quorum is resolved for method ${key.method}")
                 apiControl.resolve()
@@ -139,7 +139,7 @@ class QuorumRpcReader(
         }
     }
 
-    private fun callApi(api: Upstream, key: JsonRpcRequest): Mono<Tuple3<JsonRpcResponse, Optional<ResponseSigner.Signature>, Upstream>> {
+    private fun callApi(api: Upstream, key: ChainRequest): Mono<Tuple3<ChainResponse, Optional<ResponseSigner.Signature>, Upstream>> {
         val apiReader = api.getIngressReader()
         val spanParams = mapOf(
             SPAN_REQUEST_API_TYPE to apiReader.javaClass.name,
@@ -157,7 +157,7 @@ class QuorumRpcReader(
             .map { Tuples.of(it.t1, it.t2, api) }
     }
 
-    private fun withSignatureAndUpstream(api: Upstream, key: JsonRpcRequest, response: JsonRpcResponse): Function<Mono<ByteArray>, Mono<Tuple2<JsonRpcResponse, Optional<ResponseSigner.Signature>>>> {
+    private fun withSignatureAndUpstream(api: Upstream, key: ChainRequest, response: ChainResponse): Function<Mono<ByteArray>, Mono<Tuple2<ChainResponse, Optional<ResponseSigner.Signature>>>> {
         return Function { src ->
             src.map {
                 // TODO: do streaming signature
@@ -171,11 +171,11 @@ class QuorumRpcReader(
         }
     }
 
-    private fun <T> withErrorResume(api: Upstream, key: JsonRpcRequest): Function<Mono<T>, Mono<T>> {
+    private fun <T> withErrorResume(api: Upstream, key: ChainRequest): Function<Mono<T>, Mono<T>> {
         return Function { src ->
             src.onErrorResume { err ->
                 val msgError = "Error during call upstream ${api.getId()} with method ${key.method}"
-                if (err is JsonRpcUpstreamException) {
+                if (err is ChainCallUpstreamException) {
                     log.debug(msgError, err)
                 } else {
                     log.warn(msgError, err)
@@ -184,12 +184,12 @@ class QuorumRpcReader(
                 // when the call failed with an error we want to notify the quorum because
                 // it may use the error message or other details
                 //
-                val cleanErr: JsonRpcException = getError(key, err)
+                val cleanErr: ChainException = getError(key, err)
                 quorum.record(cleanErr, null, api)
                 // if it's failed after that, then we don't need more calls, stop api source
                 if (quorum.isFailed()) {
                     val msgQuorumFailed = "Quorum is failed, stop api source. Upstream ${api.getId()}, method ${key.method}"
-                    if (cleanErr is JsonRpcUpstreamException) {
+                    if (cleanErr is ChainCallUpstreamException) {
                         log.debug(msgQuorumFailed)
                     } else {
                         log.warn(msgQuorumFailed)
@@ -205,7 +205,7 @@ class QuorumRpcReader(
         }
     }
 
-    private fun setupDefaultResult(key: JsonRpcRequest): Mono<Result> {
+    private fun setupDefaultResult(key: ChainRequest): Mono<Result> {
         return Mono.just(quorum).flatMap { q ->
             if (q.isFailed()) {
                 val resolvedBy = resolvedBy()?.getId()

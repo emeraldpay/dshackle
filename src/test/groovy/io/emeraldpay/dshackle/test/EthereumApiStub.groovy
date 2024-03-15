@@ -17,11 +17,11 @@
 package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import reactor.core.publisher.Mono
 
-class EthereumApiStub implements Reader<JsonRpcRequest, JsonRpcResponse> {
+class EthereumApiStub implements Reader<ChainRequest, ChainResponse> {
 
     private String id
 
@@ -39,7 +39,7 @@ class EthereumApiStub implements Reader<JsonRpcRequest, JsonRpcResponse> {
     }
 
     @Override
-    Mono<JsonRpcResponse> read(JsonRpcRequest key) {
+    Mono<ChainResponse> read(ChainRequest key) {
         return Mono.error(new Exception("Not implemented in mock"))
     }
 

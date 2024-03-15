@@ -8,6 +8,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -15,7 +16,6 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
 import java.math.BigInteger
@@ -44,11 +44,11 @@ object NearChainSpecific : AbstractPollChainSpecific() {
         throw NotImplementedError()
     }
 
-    override fun listenNewHeadsRequest(): JsonRpcRequest {
+    override fun listenNewHeadsRequest(): ChainRequest {
         throw NotImplementedError()
     }
 
-    override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest {
+    override fun unsubscribeNewHeadsRequest(subId: String): ChainRequest {
         throw NotImplementedError()
     }
 
@@ -62,7 +62,7 @@ object NearChainSpecific : AbstractPollChainSpecific() {
             upstream,
             options,
             SingleCallValidator(
-                JsonRpcRequest("status", ListParams()),
+                ChainRequest("status", ListParams()),
             ) { data ->
                 validate(data)
             },
@@ -82,8 +82,8 @@ object NearChainSpecific : AbstractPollChainSpecific() {
         }
     }
 
-    override fun latestBlockRequest(): JsonRpcRequest = // {...}
-        JsonRpcRequest("block", ObjectParams("finality" to "optimistic"))
+    override fun latestBlockRequest(): ChainRequest = // {...}
+        ChainRequest("block", ObjectParams("finality" to "optimistic"))
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

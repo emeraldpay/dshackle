@@ -25,8 +25,8 @@ import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
@@ -62,7 +62,7 @@ class GenericWsHeadSpec extends Specification {
         }
 
         def reader = Mock(Reader) {
-            1 * it.read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams("latest", false))) >> Mono.empty()
+            1 * it.read(new ChainRequest("eth_getBlockByNumber", new ListParams("latest", false))) >> Mono.empty()
         }
 
         def ws = Mock(WsSubscriptions) {
@@ -339,7 +339,7 @@ class GenericWsHeadSpec extends Specification {
         block.totalDifficulty = BigInteger.ONE
 
         def reader = Mock(Reader) {
-            1 * it.read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams("latest", false))) >> Mono.empty()
+            1 * it.read(new ChainRequest("eth_getBlockByNumber", new ListParams("latest", false))) >> Mono.empty()
         }
         def subId = "subId"
         def ws = Mock(WsSubscriptions) {
@@ -347,8 +347,8 @@ class GenericWsHeadSpec extends Specification {
             1 * it.subscribe(_) >> new WsSubscriptions.SubscribeData(
                     Flux.error(new RuntimeException()), "id", new AtomicReference<String>(subId)
             )
-            1 * it.unsubscribe(new JsonRpcRequest("eth_unsubscribe", new ListParams(subId), 2, null, null, false)) >>
-                    Mono.just(new JsonRpcResponse("".bytes, null))
+            1 * it.unsubscribe(new ChainRequest("eth_unsubscribe", new ListParams(subId), 2, null, null, false)) >>
+                    Mono.just(new ChainResponse("".bytes, null))
         }
 
         def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, reader, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)

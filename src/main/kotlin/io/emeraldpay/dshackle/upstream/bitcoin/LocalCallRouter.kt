@@ -17,14 +17,14 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.SilentException
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
@@ -40,16 +40,16 @@ import reactor.core.publisher.Mono
 class LocalCallRouter(
     private val methods: CallMethods,
     private val reader: BitcoinReader,
-) : JsonRpcReader {
+) : ChainReader {
 
     companion object {
         private val log = LoggerFactory.getLogger(LocalCallRouter::class.java)
     }
 
-    override fun read(key: JsonRpcRequest): Mono<JsonRpcResponse> {
+    override fun read(key: ChainRequest): Mono<ChainResponse> {
         if (methods.isHardcoded(key.method)) {
             return Mono.just(methods.executeHardcoded(key.method))
-                .map { JsonRpcResponse(it, null) }
+                .map { ChainResponse(it, null) }
         }
         if (!methods.isCallable(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
@@ -63,7 +63,7 @@ class LocalCallRouter(
     /**
      *
      */
-    fun processUnspentRequest(key: JsonRpcRequest): Mono<JsonRpcResponse> {
+    fun processUnspentRequest(key: ChainRequest): Mono<ChainResponse> {
         if (key.params is ListParams) {
             if (key.params.list.size < 3) {
                 return Mono.error(SilentException("Invalid call to unspent. Address is missing"))
@@ -74,7 +74,7 @@ class LocalCallRouter(
                 return reader.listUnspent(address).map {
                     val rpc = it.map(convertUnspent(address))
                     val json = Global.objectMapper.writeValueAsBytes(rpc)
-                    JsonRpcResponse.ok(json, JsonRpcResponse.NumberId(key.id))
+                    ChainResponse.ok(json, ChainResponse.NumberId(key.id))
                 }
             }
         }

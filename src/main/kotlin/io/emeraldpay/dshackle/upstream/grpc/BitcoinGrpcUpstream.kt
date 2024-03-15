@@ -24,9 +24,11 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.BuildInfo
 import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
@@ -37,8 +39,6 @@ import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
@@ -70,7 +70,7 @@ class BitcoinGrpcUpstream(
     Lifecycle {
 
     private val extractBlock = ExtractBlock()
-    private val defaultReader: JsonRpcReader = client.getReader()
+    private val defaultReader: ChainReader = client.getReader()
     private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
         val parentHash =
             if (value.parentBlockId.isBlank()) {
@@ -94,8 +94,8 @@ class BitcoinGrpcUpstream(
     private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->
         // head comes without transaction data
         // need to download transactions for the block
-        defaultReader.read(JsonRpcRequest("getblock", ListParams(existingBlock.hash.toHex())))
-            .flatMap(JsonRpcResponse::requireResult)
+        defaultReader.read(ChainRequest("getblock", ListParams(existingBlock.hash.toHex())))
+            .flatMap(ChainResponse::requireResult)
             .map(extractBlock::extract)
             .timeout(timeout, Mono.error(TimeoutException("Timeout from upstream")))
             .doOnError { t ->
@@ -134,7 +134,7 @@ class BitcoinGrpcUpstream(
         return grpcHead
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): ChainReader {
         return defaultReader
     }
 

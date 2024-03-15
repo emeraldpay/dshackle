@@ -5,7 +5,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig.Labels
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent.ChangeType.UPDATED
@@ -65,7 +65,7 @@ open class GenericUpstream(
         return connector.getHead()
     }
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): ChainReader {
         return connector.getIngressReader()
     }
 

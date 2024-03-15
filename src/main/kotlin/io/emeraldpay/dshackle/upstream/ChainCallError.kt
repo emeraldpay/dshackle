@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.rpcclient
+package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 
-data class JsonRpcError(val code: Int, val message: String, val details: Any?) {
+data class ChainCallError(val code: Int, val message: String, val details: Any?) {
 
     constructor(code: Int, message: String) : this(code, message, null)
 
     companion object {
         @JvmStatic
-        fun from(err: RpcException): JsonRpcError {
-            return JsonRpcError(
+        fun from(err: RpcException): ChainCallError {
+            return ChainCallError(
                 err.code,
                 err.rpcMessage,
                 err.details,
@@ -32,11 +32,11 @@ data class JsonRpcError(val code: Int, val message: String, val details: Any?) {
         }
     }
 
-    fun asException(id: JsonRpcResponse.Id?): JsonRpcException {
-        return JsonRpcUpstreamException(id ?: JsonRpcResponse.NumberId(-1), this)
+    fun asException(id: ChainResponse.Id?): ChainException {
+        return ChainCallUpstreamException(id ?: ChainResponse.NumberId(-1), this)
     }
 
-    fun asException(id: JsonRpcResponse.Id?, upstreamId: String?): JsonRpcException {
-        return JsonRpcException(id ?: JsonRpcResponse.NumberId(-1), this, upstreamId, false)
+    fun asException(id: ChainResponse.Id?, upstreamId: String?): ChainException {
+        return ChainException(id ?: ChainResponse.NumberId(-1), this, upstreamId, false)
     }
 }

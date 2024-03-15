@@ -1,8 +1,8 @@
 package io.emeraldpay.dshackle.quorum
 
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import spock.lang.Specification
 
 class MaximumValueQuorumSpec extends Specification {
@@ -19,9 +19,9 @@ class MaximumValueQuorumSpec extends Specification {
         }
         when:
         def quorum = new MaximumValueQuorum()
-        quorum.record(new JsonRpcResponse('"0x137"'.bytes, null), null, up)
-        quorum.record(new JsonRpcResponse('"0x138"'.bytes, null), null, up1)
-        quorum.record(new JsonRpcResponse('"0x139"'.bytes, null), null, up2)
+        quorum.record(new ChainResponse('"0x137"'.bytes, null), null, up)
+        quorum.record(new ChainResponse('"0x138"'.bytes, null), null, up1)
+        quorum.record(new ChainResponse('"0x139"'.bytes, null), null, up2)
         then:
         quorum.response.result == '"0x139"'.bytes
         quorum.resolvedBy.size() == 1
@@ -42,9 +42,9 @@ class MaximumValueQuorumSpec extends Specification {
         }
         when:
         def quorum = new MaximumValueQuorum()
-        quorum.record(new JsonRpcResponse('"0x137"'.bytes, null), null, up)
-        quorum.record(new JsonRpcResponse('"0x138"'.bytes, null), null, up1)
-        quorum.record(new JsonRpcException(10, "error"), null, up2)
+        quorum.record(new ChainResponse('"0x137"'.bytes, null), null, up)
+        quorum.record(new ChainResponse('"0x138"'.bytes, null), null, up1)
+        quorum.record(new ChainException(10, "error"), null, up2)
         then:
         quorum.response.result == '"0x138"'.bytes
         quorum.isResolved()
@@ -65,13 +65,13 @@ class MaximumValueQuorumSpec extends Specification {
         }
         when:
         def quorum = new MaximumValueQuorum()
-        quorum.record(new JsonRpcException(10, "error1"), null, up)
-        quorum.record(new JsonRpcException(10, "error2"), null, up1)
-        quorum.record(new JsonRpcException(10, "error3"), null, up2)
+        quorum.record(new ChainException(10, "error1"), null, up)
+        quorum.record(new ChainException(10, "error2"), null, up1)
+        quorum.record(new ChainException(10, "error3"), null, up2)
         then:
         !quorum.isResolved()
         quorum.isFailed()
-        quorum.error == new JsonRpcException(10, "error3").error
+        quorum.error == new ChainException(10, "error3").error
         quorum.resolvedBy.size() == 3
     }
 

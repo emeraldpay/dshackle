@@ -13,8 +13,8 @@ class EthereumUpstreamCreator(
     chainsConfig: ChainsConfig,
     indexConfig: IndexConfig,
     callTargets: CallTargetsHolder,
-    genericConnectorFactoryCreator: ConnectorFactoryCreator,
-) : GenericUpstreamCreator(chainsConfig, indexConfig, callTargets, genericConnectorFactoryCreator) {
+    connectorFactoryCreatorResolver: ConnectorFactoryCreatorResolver,
+) : GenericUpstreamCreator(chainsConfig, indexConfig, callTargets, connectorFactoryCreatorResolver) {
 
     override fun createUpstream(
         upstreamsConfig: UpstreamsConfig.Upstream<*>,

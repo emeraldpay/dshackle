@@ -18,12 +18,12 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.bitcoin.data.SimpleUnspent
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.bitcoinj.core.Address
 import org.slf4j.LoggerFactory
@@ -56,16 +56,16 @@ open class BitcoinReader(
     }
 
     open fun getBlock(hash: String): Mono<Map<String, Any>> {
-        return castedRead(JsonRpcRequest("getblock", ListParams(hash)), Map::class.java).cast()
+        return castedRead(ChainRequest("getblock", ListParams(hash)), Map::class.java).cast()
     }
 
     open fun getBlock(height: Long): Mono<Map<String, Any>> {
-        return castedRead(JsonRpcRequest("getblockhash", ListParams(height)), String::class.java)
+        return castedRead(ChainRequest("getblockhash", ListParams(height)), String::class.java)
             .flatMap(this@BitcoinReader::getBlock)
     }
 
     open fun getTx(txid: String): Mono<Map<String, Any>> {
-        return castedRead(JsonRpcRequest("getrawtransaction", ListParams(txid, true)), Map::class.java).cast()
+        return castedRead(ChainRequest("getrawtransaction", ListParams(txid, true)), Map::class.java).cast()
     }
 
     open fun listUnspent(address: Address): Mono<List<SimpleUnspent>> {
@@ -84,10 +84,10 @@ open class BitcoinReader(
         mempool.stop()
     }
 
-    fun <T> castedRead(req: JsonRpcRequest, clazz: Class<T>): Mono<T> {
+    fun <T> castedRead(req: ChainRequest, clazz: Class<T>): Mono<T> {
         return upstreams.getDirectApi(Selector.empty).flatMap { api ->
             api.read(req)
-                .flatMap(JsonRpcResponse::requireResult)
+                .flatMap(ChainResponse::requireResult)
                 .map {
                     objectMapper.readValue(it, clazz) as T
                 }

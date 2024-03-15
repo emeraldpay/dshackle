@@ -1,5 +1,9 @@
 package io.emeraldpay.dshackle.upstream.rpcclient.stream
 
+import io.emeraldpay.dshackle.upstream.stream.AggregateResponse
+import io.emeraldpay.dshackle.upstream.stream.Chunk
+import io.emeraldpay.dshackle.upstream.stream.SingleResponse
+import io.emeraldpay.dshackle.upstream.stream.StreamResponse
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull

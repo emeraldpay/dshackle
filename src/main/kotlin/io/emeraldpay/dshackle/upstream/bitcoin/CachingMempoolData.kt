@@ -17,11 +17,11 @@ package io.emeraldpay.dshackle.upstream.bitcoin
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Selector
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
@@ -66,8 +66,8 @@ open class CachingMempoolData(
     @Suppress("UNCHECKED_CAST")
     fun fetchFromUpstream(): Mono<List<String>> {
         return upstreams.getDirectApi(Selector.empty).flatMap { api ->
-            api.read(JsonRpcRequest("getrawmempool", ListParams()))
-                .flatMap(JsonRpcResponse::requireResult)
+            api.read(ChainRequest("getrawmempool", ListParams()))
+                .flatMap(ChainResponse::requireResult)
                 .map { objectMapper.readValue(it, List::class.java) as List<String> }
         }
     }

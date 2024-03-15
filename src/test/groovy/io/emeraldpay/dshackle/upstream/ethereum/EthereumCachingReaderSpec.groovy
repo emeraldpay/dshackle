@@ -6,13 +6,12 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.data.DefaultContainer
-import io.emeraldpay.dshackle.reader.RpcReader
-import io.emeraldpay.dshackle.reader.RpcReaderFactory
+import io.emeraldpay.dshackle.reader.RequestReader
+import io.emeraldpay.dshackle.reader.RequestReaderFactory
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
@@ -51,10 +50,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null)
                 )
             }
@@ -78,10 +77,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes(null), null, 1, resolver, null
                         )
                 )
@@ -111,10 +110,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
                         )
                 )
@@ -143,10 +142,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getLogs", new ListParams([Map.of("blockHash", hash1)]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getLogs", new ListParams([Map.of("blockHash", hash1)]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes([json]), null, 1, resolver, null
                         )
                 )
@@ -176,10 +175,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getTransactionByHash", new ListParams([hash1]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getTransactionByHash", new ListParams([hash1]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
                         )
                 )
@@ -209,10 +208,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getTransactionReceipt", new ListParams([hash1]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getTransactionReceipt", new ListParams([hash1]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
                         )
                 )
@@ -243,10 +242,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 Stub(Multistream), caches, new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getTransactionReceipt", new ListParams([hash1]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getTransactionReceipt", new ListParams([hash1]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
                         )
                 )
@@ -268,10 +267,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getTransactionByHash", new ListParams([hash1]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getTransactionByHash", new ListParams([hash1]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes(null), null, 1, resolver, null
                         )
                 )
@@ -298,10 +297,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBalance", new ListParams([address1, "latest"]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getBalance", new ListParams([address1, "latest"]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes("0x100"), null, 1, resolver, null
                         )
                 )
@@ -329,10 +328,10 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBalance", new ListParams([address1, "0xa8c9bb"]))) >> Mono.just(
-                        new RpcReader.Result(
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getBalance", new ListParams([address1, "0xa8c9bb"]))) >> Mono.just(
+                        new RequestReader.Result(
                                 Global.objectMapper.writeValueAsBytes("0x100"), null, 1, resolver, null
                         )
                 )
@@ -361,19 +360,19 @@ class EthereumDirectReaderSpec extends Specification {
             3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         }
         def result = Mono.just(
-                new RpcReader.Result(
+                new RequestReader.Result(
                         Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null)
         )
         EthereumDirectReader ethereumDirectReader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        ethereumDirectReader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            2 * create(_) >> Mock(RpcReader) {
-                2 * read(new JsonRpcRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >>>
+        ethereumDirectReader.requestReaderFactory = Mock(RequestReaderFactory) {
+            2 * create(_) >> Mock(RequestReader) {
+                2 * read(new ChainRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
             }
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> result
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> result
             }
         }
         when:
@@ -401,19 +400,19 @@ class EthereumDirectReaderSpec extends Specification {
             3 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         }
         def result = Mono.just(
-                new RpcReader.Result(
+                new RequestReader.Result(
                         Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null)
         )
         EthereumDirectReader ethereumDirectReader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        ethereumDirectReader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            2 * create(_) >> Mock(RpcReader) {
-                2 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >>>
+        ethereumDirectReader.requestReaderFactory = Mock(RequestReaderFactory) {
+            2 * create(_) >> Mock(RequestReader) {
+                2 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
             }
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >> result
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >> result
             }
         }
         when:
@@ -440,9 +439,9 @@ class EthereumDirectReaderSpec extends Specification {
         EthereumDirectReader reader = new EthereumDirectReader(
                 up, Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
         )
-        reader.rpcReaderFactory = Mock(RpcReaderFactory) {
-            4 * create(_) >> Mock(RpcReader) {
-                4 * read(new JsonRpcRequest("eth_getBalance", new ListParams([address1, "latest"]))) >>>
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            4 * create(_) >> Mock(RequestReader) {
+                4 * read(new ChainRequest("eth_getBalance", new ListParams([address1, "latest"]))) >>>
                         [Mono.error(new RuntimeException()), Mono.error(new RuntimeException()),
                          Mono.error(new RuntimeException()), Mono.error(new RuntimeException())]
             }

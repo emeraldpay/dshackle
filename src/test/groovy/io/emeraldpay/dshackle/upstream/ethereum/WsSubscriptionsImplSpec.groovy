@@ -15,8 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsMessage
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Flux
@@ -46,7 +46,7 @@ class WsSubscriptionsImplSpec extends Specification {
         def ws = new WsSubscriptionsImpl(pool)
 
         when:
-        def act = ws.subscribe(new JsonRpcRequest("eth_subscribe", new ListParams(["foo_bar"])))
+        def act = ws.subscribe(new ChainRequest("eth_subscribe", new ListParams(["foo_bar"])))
             .data
             .map { new String(it) }
             .take(3)
@@ -55,9 +55,9 @@ class WsSubscriptionsImplSpec extends Specification {
         then:
         act == ["100", "101", "102"]
 
-        1 * conn.callRpc({ JsonRpcRequest req ->
+        1 * conn.callRpc({ ChainRequest req ->
             req.method == "eth_subscribe" && req.params == new ListParams(["foo_bar"])
-        }) >> Mono.just(new JsonRpcResponse('"0xcff45d00e7"'.bytes, null))
+        }) >> Mono.just(new ChainResponse('"0xcff45d00e7"'.bytes, null))
         1 * conn.getSubscribeResponses() >> answers
     }
 
@@ -84,7 +84,7 @@ class WsSubscriptionsImplSpec extends Specification {
         def ws = new WsSubscriptionsImpl(pool)
 
         when:
-        def act = ws.subscribe(new JsonRpcRequest("eth_subscribe", new ListParams(["foo_bar"])))
+        def act = ws.subscribe(new ChainRequest("eth_subscribe", new ListParams(["foo_bar"])))
                 .data
                 .map { new String(it) }
                 .take(3)
@@ -93,9 +93,9 @@ class WsSubscriptionsImplSpec extends Specification {
         then:
         act == ["100", "101", "102"]
 
-        1 * conn.callRpc({ JsonRpcRequest req ->
+        1 * conn.callRpc({ ChainRequest req ->
             req.method == "eth_subscribe" && req.params == new ListParams(["foo_bar"])
-        }) >> Mono.just(new JsonRpcResponse('"0xcff45d00e7"'.bytes, null))
+        }) >> Mono.just(new ChainResponse('"0xcff45d00e7"'.bytes, null))
         1 * conn.getSubscribeResponses() >> answers
     }
 }

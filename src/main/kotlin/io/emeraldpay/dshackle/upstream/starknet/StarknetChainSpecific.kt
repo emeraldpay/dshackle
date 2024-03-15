@@ -8,6 +8,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -15,7 +16,6 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import java.math.BigInteger
@@ -46,11 +46,11 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
         throw NotImplementedError()
     }
 
-    override fun listenNewHeadsRequest(): JsonRpcRequest {
+    override fun listenNewHeadsRequest(): ChainRequest {
         throw NotImplementedError()
     }
 
-    override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest {
+    override fun unsubscribeNewHeadsRequest(subId: String): ChainRequest {
         throw NotImplementedError()
     }
 
@@ -64,7 +64,7 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
             upstream,
             options,
             SingleCallValidator(
-                JsonRpcRequest("starknet_syncing", ListParams()),
+                ChainRequest("starknet_syncing", ListParams()),
             ) { data ->
                 validate(data, config.laggingLagSize, upstream.getId())
             },
@@ -93,8 +93,8 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
         }
     }
 
-    override fun latestBlockRequest(): JsonRpcRequest =
-        JsonRpcRequest("starknet_getBlockWithTxHashes", ListParams("latest"))
+    override fun latestBlockRequest(): ChainRequest =
+        ChainRequest("starknet_getBlockWithTxHashes", ListParams("latest"))
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

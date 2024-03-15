@@ -26,8 +26,8 @@ import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.reader.Reader
-import io.emeraldpay.dshackle.reader.RpcReader
-import io.emeraldpay.dshackle.reader.RpcReaderFactory
+import io.emeraldpay.dshackle.reader.RequestReader
+import io.emeraldpay.dshackle.reader.RequestReaderFactory
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.test.MultistreamHolderMock
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -35,10 +35,6 @@ import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
@@ -76,7 +72,7 @@ class NativeCallSpec extends Specification {
 
     def "Tries router first"() {
         def routedApi = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >> Mono.just(new JsonRpcResponse("1".bytes, null))
+            1 * read(new ChainRequest("eth_test", new ListParams())) >> Mono.just(new ChainResponse("1".bytes, null))
         }
         def upstream = Mock(Multistream) {
             1 * getLocalReader() >> Mono.just(routedApi)
@@ -97,7 +93,7 @@ class NativeCallSpec extends Specification {
 
     def "Return error if router denied the requests"() {
         def routedApi = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >> Mono.error(new RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Test message"))
+            1 * read(new ChainRequest("eth_test", new ListParams())) >> Mono.error(new RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Test message"))
         }
         def upstream = Mock(Multistream) {
             1 * getLocalReader() >> Mono.just(routedApi)
@@ -129,9 +125,9 @@ class NativeCallSpec extends Specification {
         }
 
         def nativeCall = nativeCall()
-        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(_) >> Mono.just(new RpcReader.Result("\"foo\"".bytes, null, 1, ups, null))
+        nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(_) >> Mono.just(new RequestReader.Result("\"foo\"".bytes, null, 1, ups, null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
@@ -150,10 +146,10 @@ class NativeCallSpec extends Specification {
         def quorum = new AlwaysQuorum()
 
         def nativeCall = nativeCall()
-        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
+        nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
                 1 * attempts() >> new AtomicInteger(1)
-                1 * read(new JsonRpcRequest("eth_test", new ListParams(), 10)) >> Mono.empty()
+                1 * read(new ChainRequest("eth_test", new ListParams(), 10)) >> Mono.empty()
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
@@ -175,10 +171,10 @@ class NativeCallSpec extends Specification {
         def quorum = new AlwaysQuorum()
 
         def nativeCall = nativeCall()
-        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(new JsonRpcRequest("eth_test", new ListParams(), 10)) >> Mono.error(
-                        new JsonRpcException(JsonRpcResponse.Id.from(12), new JsonRpcError(-32123, "Foo Bar", "Foo Bar Baz"), null, true, null)
+        nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_test", new ListParams(), 10)) >> Mono.error(
+                        new ChainException(ChainResponse.Id.from(12), new ChainCallError(-32123, "Foo Bar", "Foo Bar Baz"), null, true, null)
                 )
             }
         }
@@ -338,7 +334,7 @@ class NativeCallSpec extends Specification {
             id == 1
             nonce == 10
             payload.method == "eth_test"
-            payload.params == "[]"
+            payload.params == new ListParams()
         }
     }
 
@@ -354,6 +350,7 @@ class NativeCallSpec extends Specification {
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
+                                .setPayload(ByteString.copyFromUtf8("[]"))
                                 .setMethod("eth_test")
                 )
                 .build()
@@ -365,7 +362,7 @@ class NativeCallSpec extends Specification {
         with(act[0]) {
             id == 1
             payload.method == "eth_test"
-            payload.params == ""
+            payload.params == new ListParams()
         }
     }
 
@@ -419,6 +416,7 @@ class NativeCallSpec extends Specification {
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
+                                .setPayload(ByteString.copyFromUtf8("[]"))
                                 .setMethod("foo_bar")
                 )
                 .build()
@@ -457,6 +455,7 @@ class NativeCallSpec extends Specification {
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
+                                .setPayload(ByteString.copyFromUtf8("[]"))
                                 .setMethod("eth_newFilter")
                 )
                 .build()
@@ -487,6 +486,7 @@ class NativeCallSpec extends Specification {
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
+                                .setPayload(ByteString.copyFromUtf8("[]"))
                                 .setMethod("eth_getFilterChanges")
                 )
                 .build()
@@ -517,6 +517,7 @@ class NativeCallSpec extends Specification {
                 .addItems(
                         BlockchainOuterClass.NativeCallItem.newBuilder()
                                 .setId(1)
+                                .setPayload(ByteString.copyFromUtf8("[]"))
                                 .setMethod("eth_uninstallFilter")
                 )
                 .build()
@@ -532,7 +533,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_test", "[]"), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -545,7 +546,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_test", ""), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -558,7 +559,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_test", "[false]"), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams(false)), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -571,7 +572,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_test", "[false, 123]"), "reqId", 1)
+                new NativeCall.ParsedCallDetails("eth_test", new ListParams(false, 123)), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
         then:
@@ -584,7 +585,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
-                new NativeCall.RawCallDetails("eth_getFilterUpdates", '["0xabcd"]'),
+                new NativeCall.ParsedCallDetails("eth_getFilterUpdates", new ListParams("0xabcd")),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator(), null, false, "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
@@ -613,9 +614,9 @@ class NativeCallSpec extends Specification {
             _ * it.observeChains() >> Flux.empty()
         }
         def nativeCall = nativeCall(multistreamHolder)
-        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(_) >> Mono.just(new RpcReader.Result("\"0xab\"".bytes, null, 1, ups, null))
+        nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, ups, null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
@@ -649,9 +650,9 @@ class NativeCallSpec extends Specification {
             _ * it.observeChains() >> Flux.empty()
         }
         def nativeCall = nativeCall(multistreamHolder)
-        nativeCall.rpcReaderFactory = Mock(RpcReaderFactory) {
-            1 * create(_) >> Mock(RpcReader) {
-                1 * read(_) >> Mono.just(new RpcReader.Result("\"0xab\"".bytes, null, 1, ups, null))
+        nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create(_) >> Mock(RequestReader) {
+                1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, ups, null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,

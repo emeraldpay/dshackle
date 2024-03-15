@@ -16,17 +16,17 @@
  */
 package io.emeraldpay.dshackle.quorum
 
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 
 open class AlwaysQuorum : CallQuorum {
 
     private var resolved = false
-    private var result: JsonRpcResponse? = null
-    private var rpcError: JsonRpcError? = null
+    private var result: ChainResponse? = null
+    private var rpcError: ChainCallError? = null
     private var sig: ResponseSigner.Signature? = null
     private val resolvers = ArrayList<Upstream>()
 
@@ -43,7 +43,7 @@ open class AlwaysQuorum : CallQuorum {
     }
 
     override fun record(
-        response: JsonRpcResponse,
+        response: ChainResponse,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ): Boolean {
@@ -55,7 +55,7 @@ open class AlwaysQuorum : CallQuorum {
     }
 
     override fun record(
-        error: JsonRpcException,
+        error: ChainException,
         signature: ResponseSigner.Signature?,
         upstream: Upstream,
     ) {
@@ -64,11 +64,11 @@ open class AlwaysQuorum : CallQuorum {
         resolvers.add(upstream)
     }
 
-    override fun getResponse(): JsonRpcResponse? {
+    override fun getResponse(): ChainResponse? {
         return result
     }
 
-    override fun getError(): JsonRpcError? {
+    override fun getError(): ChainCallError? {
         return rpcError
     }
 

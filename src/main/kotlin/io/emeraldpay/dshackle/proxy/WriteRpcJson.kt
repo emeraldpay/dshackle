@@ -19,7 +19,7 @@ package io.emeraldpay.dshackle.proxy
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.rpc.NativeCall
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
@@ -68,22 +68,22 @@ open class WriteRpcJson {
 
     open fun toJson(call: ProxyCall, response: NativeCall.CallResult): String? {
         val id = call.ids[response.id]?.let {
-            JsonRpcResponse.Id.from(it)
+            ChainResponse.Id.from(it)
         } ?: return null
         val json = if (response.isError()) {
             val error = response.error!!
             error.upstreamError?.let { upstreamError ->
-                JsonRpcResponse.error(upstreamError, id)
-            } ?: JsonRpcResponse.error(-32002, error.message, id)
+                ChainResponse.error(upstreamError, id)
+            } ?: ChainResponse.error(-32002, error.message, id)
         } else {
-            JsonRpcResponse.ok(response.result!!, id)
+            ChainResponse.ok(response.result!!, id)
         }
         return objectMapper.writeValueAsString(json)
     }
 
     fun toJson(call: ProxyCall, error: NativeCall.CallFailure): String? {
         val id = call.ids[error.id] ?: return null
-        val json = JsonRpcResponse.error(-32003, error.reason.message ?: "", JsonRpcResponse.Id.from(id))
+        val json = ChainResponse.error(-32003, error.reason.message ?: "", ChainResponse.Id.from(id))
         return objectMapper.writeValueAsString(json)
     }
 

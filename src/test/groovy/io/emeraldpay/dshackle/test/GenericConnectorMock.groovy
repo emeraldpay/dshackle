@@ -5,16 +5,16 @@ import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.NoEthereumIngressSubscription
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import reactor.core.publisher.Flux
 
 class GenericConnectorMock implements GenericConnector {
-    Reader<JsonRpcRequest, JsonRpcResponse> api
+    Reader<ChainRequest, ChainResponse> api
     Head head
     Flux<Boolean> liveness
 
-    GenericConnectorMock(Reader<JsonRpcRequest, JsonRpcResponse> api, Head head) {
+    GenericConnectorMock(Reader<ChainRequest, ChainResponse> api, Head head) {
         this.api = api
         this.head = head
         this.liveness = Flux.just(false)
@@ -26,7 +26,7 @@ class GenericConnectorMock implements GenericConnector {
     }
 
     @Override
-    Reader<JsonRpcRequest, JsonRpcResponse> getIngressReader() {
+    Reader<ChainRequest, ChainResponse> getIngressReader() {
         return this.api
     }
 

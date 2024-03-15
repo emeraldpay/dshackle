@@ -21,7 +21,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.DistanceExtractor
 import io.emeraldpay.dshackle.upstream.DynamicMergedHead
@@ -166,7 +166,7 @@ open class GenericMultistream(
         return this as T
     }
 
-    override fun getLocalReader(): Mono<JsonRpcReader> {
+    override fun getLocalReader(): Mono<ChainReader> {
         return localReaderBuilder(cachingReader, getMethods(), getHead(), logsOracle)
     }
 

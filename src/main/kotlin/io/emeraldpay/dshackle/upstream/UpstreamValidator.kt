@@ -4,7 +4,6 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumUpstreamValidator
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -16,9 +15,8 @@ abstract class UpstreamValidator(
     val upstream: Upstream,
     val options: ChainOptions.Options,
 ) {
-    companion object {
-        private val log = LoggerFactory.getLogger(UpstreamValidator::class.java)
-    }
+    protected val log = LoggerFactory.getLogger(this::class.java)
+
     fun start(): Flux<UpstreamAvailability> {
         return Flux.interval(
             Duration.ZERO,
@@ -39,6 +37,14 @@ abstract class UpstreamValidator(
     fun validateUpstreamSettingsOnStartup(): ValidateUpstreamSettingsResult {
         return validateUpstreamSettings().block() ?: ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
     }
+
+    companion object {
+        @JvmStatic
+        fun resolve(results: Iterable<UpstreamAvailability>): UpstreamAvailability {
+            val cp = Comparator { avail1: UpstreamAvailability, avail2: UpstreamAvailability -> if (avail1.isBetterTo(avail2)) -1 else 1 }
+            return results.sortedWith(cp).last()
+        }
+    }
 }
 
 enum class ValidateUpstreamSettingsResult {
@@ -48,6 +54,6 @@ enum class ValidateUpstreamSettingsResult {
 }
 
 data class SingleCallValidator(
-    val method: JsonRpcRequest,
+    val method: ChainRequest,
     val check: (ByteArray) -> UpstreamAvailability,
 )

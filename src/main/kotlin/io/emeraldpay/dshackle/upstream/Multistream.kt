@@ -22,7 +22,7 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
@@ -216,9 +216,9 @@ abstract class Multistream(
     /**
      * Finds an API that leverages caches and other optimizations/transformations of the request.
      */
-    abstract fun getLocalReader(): Mono<JsonRpcReader>
+    abstract fun getLocalReader(): Mono<ChainReader>
 
-    override fun getIngressReader(): JsonRpcReader {
+    override fun getIngressReader(): ChainReader {
         throw NotImplementedError("Immediate direct API is not implemented for Aggregated Upstream")
     }
 

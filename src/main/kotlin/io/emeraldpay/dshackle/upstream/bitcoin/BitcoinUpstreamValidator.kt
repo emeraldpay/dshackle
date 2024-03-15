@@ -16,10 +16,10 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -30,7 +30,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 class BitcoinUpstreamValidator(
-    private val api: JsonRpcReader,
+    private val api: ChainReader,
     private val options: ChainOptions.Options,
 ) {
 
@@ -41,8 +41,8 @@ class BitcoinUpstreamValidator(
     }
 
     fun validate(): Mono<UpstreamAvailability> {
-        return api.read(JsonRpcRequest("getconnectioncount", ListParams()))
-            .flatMap(JsonRpcResponse::requireResult)
+        return api.read(ChainRequest("getconnectioncount", ListParams()))
+            .flatMap(ChainResponse::requireResult)
             .map { Integer.parseInt(String(it)) }
             .map { count ->
                 val minPeers = options.minPeers ?: 1

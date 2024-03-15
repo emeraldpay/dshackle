@@ -3,11 +3,11 @@ package io.emeraldpay.dshackle.reader
 import io.emeraldpay.dshackle.commons.BROADCAST_READER
 import io.emeraldpay.dshackle.commons.SPAN_REQUEST_UPSTREAM_ID
 import io.emeraldpay.dshackle.quorum.CallQuorum
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
@@ -21,7 +21,7 @@ class BroadcastReader(
     signer: ResponseSigner?,
     private val quorum: CallQuorum,
     private val tracer: Tracer,
-) : RpcReader(signer) {
+) : RequestReader(signer) {
     private val internalMatcher = Selector.MultiMatcher(
         listOf(Selector.AvailabilityMatcher(), matcher),
     )
@@ -34,7 +34,7 @@ class BroadcastReader(
         return AtomicInteger(1)
     }
 
-    override fun read(key: JsonRpcRequest): Mono<Result> {
+    override fun read(key: ChainRequest): Mono<Result> {
         return Flux.fromIterable(upstreams)
             .filter { internalMatcher.matches(it) }
             .flatMap { up ->
@@ -44,7 +44,7 @@ class BroadcastReader(
                     val sig = getSignature(key, it.jsonRpcResponse, it.upstream.getId())
                     quorum.record(it.jsonRpcResponse, sig, it.upstream)
                 } else {
-                    val err = JsonRpcException(JsonRpcResponse.NumberId(key.id), it.jsonRpcResponse.error!!, it.upstream.getId())
+                    val err = ChainException(ChainResponse.NumberId(key.id), it.jsonRpcResponse.error!!, it.upstream.getId())
                     quorum.record(err, null, it.upstream)
                 }
                 quorum
@@ -69,7 +69,7 @@ class BroadcastReader(
     }
 
     private fun execute(
-        key: JsonRpcRequest,
+        key: ChainRequest,
         upstream: Upstream,
     ): Mono<BroadcastResponse> =
         SpannedReader(
@@ -83,12 +83,12 @@ class BroadcastReader(
             .onErrorResume {
                 log.warn("Error during execution ${key.method} from upstream ${upstream.getId()} with message -  ${it.message}")
                 Mono.just(
-                    BroadcastResponse(JsonRpcResponse(null, getError(key, it).error), upstream),
+                    BroadcastResponse(ChainResponse(null, getError(key, it).error), upstream),
                 )
             }
 
     private class BroadcastResponse(
-        val jsonRpcResponse: JsonRpcResponse,
+        val jsonRpcResponse: ChainResponse,
         val upstream: Upstream,
     )
 }

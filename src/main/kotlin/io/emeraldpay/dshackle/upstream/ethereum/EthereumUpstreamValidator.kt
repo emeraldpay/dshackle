@@ -22,109 +22,56 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
+import io.emeraldpay.dshackle.upstream.BasicEthUpstreamValidator
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData
 import io.emeraldpay.dshackle.upstream.ethereum.json.SyncingJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionCallJson
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
-import org.slf4j.LoggerFactory
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.kotlin.extra.retry.retryRandomBackoff
-import reactor.util.function.Tuple2
 import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
+import java.util.function.Supplier
 
 open class EthereumUpstreamValidator @JvmOverloads constructor(
     private val chain: Chain,
     upstream: Upstream,
     options: ChainOptions.Options,
     private val config: ChainConfig,
-) : UpstreamValidator(upstream, options) {
+) : BasicEthUpstreamValidator(upstream, options) {
     companion object {
-        private val log = LoggerFactory.getLogger(EthereumUpstreamValidator::class.java)
         val scheduler =
             Schedulers.fromExecutor(Executors.newCachedThreadPool(CustomizableThreadFactory("ethereum-validator")))
     }
 
     private val objectMapper: ObjectMapper = Global.objectMapper
 
-    override fun validate(): Mono<UpstreamAvailability> {
-        return Mono.zip(
-            validateSyncing(),
-            validatePeers(),
+    override fun validateSyncingRequest(): ValidateSyncingRequest {
+        return ValidateSyncingRequest(
+            ChainRequest("eth_syncing", ListParams()),
+        ) { bytes -> objectMapper.readValue(bytes, SyncingJson::class.java).isSyncing }
+    }
+
+    override fun validatePeersRequest(): ValidatePeersRequest {
+        return ValidatePeersRequest(
+            ChainRequest("net_peerCount", ListParams()),
+        ) { resp -> Integer.decode(resp.getResultAsProcessedString()) }
+    }
+
+    override fun validatorFunctions(): List<Supplier<Mono<UpstreamAvailability>>> {
+        return listOf(
+            Supplier { validateSyncing() },
+            Supplier { validatePeers() },
         )
-            .map(::resolve)
-            .defaultIfEmpty(UpstreamAvailability.UNAVAILABLE)
-            .onErrorResume {
-                log.error("Error during upstream validation for ${upstream.getId()}", it)
-                Mono.just(UpstreamAvailability.UNAVAILABLE)
-            }
-    }
-
-    fun resolve(results: Tuple2<UpstreamAvailability, UpstreamAvailability>): UpstreamAvailability {
-        val cp = Comparator { avail1: UpstreamAvailability, avail2: UpstreamAvailability -> if (avail1.isBetterTo(avail2)) -1 else 1 }
-        return listOf(results.t1, results.t2).sortedWith(cp).last()
-    }
-
-    fun validateSyncing(): Mono<UpstreamAvailability> {
-        if (!options.validateSyncing) {
-            return Mono.just(UpstreamAvailability.OK)
-        }
-        return upstream.getIngressReader()
-            .read(JsonRpcRequest("eth_syncing", ListParams()))
-            .flatMap(JsonRpcResponse::requireResult)
-            .map { objectMapper.readValue(it, SyncingJson::class.java) }
-            .timeout(
-                Defaults.timeoutInternal,
-                Mono.fromCallable { log.warn("No response for eth_syncing from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for Syncing"))),
-            )
-            .map {
-                val isSyncing = it.isSyncing
-                upstream.getHead().onSyncingNode(isSyncing)
-                if (isSyncing) {
-                    UpstreamAvailability.SYNCING
-                } else {
-                    UpstreamAvailability.OK
-                }
-            }
-            .doOnError { err -> log.error("Error during syncing validation for ${upstream.getId()}", err) }
-            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
-    }
-
-    fun validatePeers(): Mono<UpstreamAvailability> {
-        if (!options.validatePeers || options.minPeers == 0) {
-            return Mono.just(UpstreamAvailability.OK)
-        }
-        return upstream
-            .getIngressReader()
-            .read(JsonRpcRequest("net_peerCount", ListParams()))
-            .flatMap(JsonRpcResponse::requireStringResult)
-            .map(Integer::decode)
-            .timeout(
-                Defaults.timeoutInternal,
-                Mono.fromCallable { log.warn("No response for net_peerCount from ${upstream.getId()}") }
-                    .then(Mono.error(TimeoutException("Validation timeout for Peers"))),
-            )
-            .map { count ->
-                val minPeers = options.minPeers
-                if (count < minPeers) {
-                    UpstreamAvailability.IMMATURE
-                } else {
-                    UpstreamAvailability.OK
-                }
-            }
-            .doOnError { err -> log.error("Error during peer count validation for ${upstream.getId()}", err) }
-            .onErrorReturn(UpstreamAvailability.UNAVAILABLE)
     }
 
     override fun validateUpstreamSettings(): Mono<ValidateUpstreamSettingsResult> {
@@ -178,7 +125,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
         }
         return upstream.getIngressReader()
             .read(
-                JsonRpcRequest(
+                ChainRequest(
                     "eth_call",
                     ListParams(
                         TransactionCallJson(
@@ -191,7 +138,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                     ),
                 ),
             )
-            .flatMap(JsonRpcResponse::requireResult)
+            .flatMap(ChainResponse::requireResult)
             .map { ValidateUpstreamSettingsResult.UPSTREAM_VALID }
             .onErrorResume {
                 if (it.message != null && it.message!!.contains("rpc.returndata.limit")) {
@@ -224,8 +171,8 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .readArchiveBlock()
             .flatMap {
                 upstream.getIngressReader()
-                    .read(JsonRpcRequest("eth_getBlockByNumber", ListParams(it, false)))
-                    .flatMap(JsonRpcResponse::requireResult)
+                    .read(ChainRequest("eth_getBlockByNumber", ListParams(it, false)))
+                    .flatMap(ChainResponse::requireResult)
             }
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
@@ -250,7 +197,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
 
     private fun chainId(): Mono<String> {
         return upstream.getIngressReader()
-            .read(JsonRpcRequest("eth_chainId", ListParams()))
+            .read(ChainRequest("eth_chainId", ListParams()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
                     "error during chainId retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
@@ -258,12 +205,12 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 )
             }
             .doOnError { log.error("Error during execution 'eth_chainId' - ${it.message} for ${upstream.getId()}") }
-            .flatMap(JsonRpcResponse::requireStringResult)
+            .flatMap(ChainResponse::requireStringResult)
     }
 
     private fun netVersion(): Mono<String> {
         return upstream.getIngressReader()
-            .read(JsonRpcRequest("net_version", ListParams()))
+            .read(ChainRequest("net_version", ListParams()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
                     "error during netVersion retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
@@ -271,6 +218,6 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
                 )
             }
             .doOnError { log.error("Error during execution 'net_version' - ${it.message} for ${upstream.getId()}") }
-            .flatMap(JsonRpcResponse::requireStringResult)
+            .flatMap(ChainResponse::requireStringResult)
     }
 }

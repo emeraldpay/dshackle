@@ -5,8 +5,9 @@ import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.CachingReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
@@ -27,7 +28,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
@@ -42,17 +42,19 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         return parseBlock(data, upstreamId)
     }
 
-    override fun latestBlockRequest() = JsonRpcRequest("eth_getBlockByNumber", ListParams("latest", false))
-    override fun listenNewHeadsRequest(): JsonRpcRequest = JsonRpcRequest("eth_subscribe", ListParams("newHeads"))
-    override fun unsubscribeNewHeadsRequest(subId: String): JsonRpcRequest =
-        JsonRpcRequest("eth_unsubscribe", ListParams(subId))
+    override fun latestBlockRequest() =
+        ChainRequest("eth_getBlockByNumber", ListParams("latest", false))
+    override fun listenNewHeadsRequest(): ChainRequest =
+        ChainRequest("eth_subscribe", ListParams("newHeads"))
+    override fun unsubscribeNewHeadsRequest(subId: String): ChainRequest =
+        ChainRequest("eth_unsubscribe", ListParams(subId))
 
     override fun localReaderBuilder(
         cachingReader: CachingReader,
         methods: CallMethods,
         head: Head,
         logsOracle: LogsOracle?,
-    ): Mono<JsonRpcReader> {
+    ): Mono<ChainReader> {
         return Mono.just(EthereumLocalReader(cachingReader as EthereumCachingReader, methods, head, logsOracle))
     }
 
@@ -94,7 +96,7 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         return EthereumLowerBoundBlockDetector(chain, upstream)
     }
 
-    override fun labelDetector(chain: Chain, reader: JsonRpcReader): LabelsDetector {
+    override fun labelDetector(chain: Chain, reader: ChainReader): LabelsDetector {
         return EthereumLabelsDetector(reader, chain)
     }
 

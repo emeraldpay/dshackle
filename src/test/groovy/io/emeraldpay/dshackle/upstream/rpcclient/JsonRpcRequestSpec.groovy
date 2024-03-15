@@ -15,15 +15,14 @@
  */
 package io.emeraldpay.dshackle.upstream.rpcclient
 
-
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import spock.lang.Specification
-import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 
 class JsonRpcRequestSpec extends Specification {
 
     def "Serialize empty params"() {
         setup:
-        def req = new JsonRpcRequest("test_foo", new ListParams())
+        def req = new ChainRequest("test_foo", new ListParams())
         when:
         def act = req.toJson()
         then:
@@ -32,7 +31,7 @@ class JsonRpcRequestSpec extends Specification {
 
     def "Serialize single param"() {
         setup:
-        def req = new JsonRpcRequest("test_foo", new ListParams(["0x0000"]))
+        def req = new ChainRequest("test_foo", new ListParams(["0x0000"]))
         when:
         def act = req.toJson()
         then:
@@ -41,7 +40,7 @@ class JsonRpcRequestSpec extends Specification {
 
     def "Serialize two params"() {
         setup:
-        def req = new JsonRpcRequest("test_foo", new ListParams(["0x0000", false]))
+        def req = new ChainRequest("test_foo", new ListParams(["0x0000", false]))
         when:
         def act = req.toJson()
         then:
@@ -50,8 +49,8 @@ class JsonRpcRequestSpec extends Specification {
 
     def "Same requests are equal"() {
         setup:
-        def req1 = new JsonRpcRequest("test_foo", new ListParams(["0x0000", false]))
-        def req2 = new JsonRpcRequest("test_foo", new ListParams(["0x0000", false]))
+        def req1 = new ChainRequest("test_foo", new ListParams(["0x0000", false]))
+        def req2 = new ChainRequest("test_foo", new ListParams(["0x0000", false]))
         when:
         def act = req1.equals(req2)
         then:

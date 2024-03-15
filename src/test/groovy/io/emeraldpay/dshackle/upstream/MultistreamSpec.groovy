@@ -33,8 +33,6 @@ import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
 import io.emeraldpay.dshackle.upstream.generic.GenericMultistream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.grpc.GenericGrpcUpstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
@@ -376,7 +374,7 @@ class MultistreamSpec extends Specification {
 
         @NotNull
         @Override
-        Mono<Reader<JsonRpcRequest, JsonRpcResponse>> getLocalReader() {
+        Mono<Reader<ChainRequest, ChainResponse>> getLocalReader() {
             return null
         }
 

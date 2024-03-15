@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.rpcclient
+package io.emeraldpay.dshackle.upstream
 
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Timer
 
-class RpcMetrics(
+class RequestMetrics(
     val timer: Timer,
     val fails: Counter,
 )

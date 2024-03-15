@@ -4,8 +4,9 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.upstream.BasicHttpFactory
 import io.emeraldpay.dshackle.upstream.BlockValidator
-import io.emeraldpay.dshackle.upstream.HttpRpcFactory
+import io.emeraldpay.dshackle.upstream.HttpFactory
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionFactory
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
@@ -17,16 +18,16 @@ import reactor.core.scheduler.Scheduler
 import java.net.URI
 
 @Component
-class GenericConnectorFactoryCreator(
+open class GenericConnectorFactoryCreator(
     private val fileResolver: FileResolver,
     private val wsConnectionResubscribeScheduler: Scheduler,
     private val headScheduler: Scheduler,
     private val wsScheduler: Scheduler,
     private val headLivenessScheduler: Scheduler,
 ) : ConnectorFactoryCreator {
-    private val log = LoggerFactory.getLogger(this::class.java)
+    protected val log = LoggerFactory.getLogger(this::class.java)
 
-    override fun createConnectorFactoryCreator(
+    override fun createConnectorFactory(
         id: String,
         conn: UpstreamsConfig.RpcConnection,
         chain: Chain,
@@ -57,7 +58,7 @@ class GenericConnectorFactoryCreator(
         return connectorFactory
     }
 
-    override fun buildHttpFactory(conn: UpstreamsConfig.HttpEndpoint?, urls: ArrayList<URI>?): HttpRpcFactory? {
+    override fun buildHttpFactory(conn: UpstreamsConfig.HttpEndpoint?, urls: ArrayList<URI>?): HttpFactory? {
         return conn?.let { endpoint ->
             val tls = conn.tls?.let { tls ->
                 tls.ca?.let { ca ->
@@ -65,7 +66,7 @@ class GenericConnectorFactoryCreator(
                 }
             }
             urls?.add(endpoint.url)
-            HttpRpcFactory(endpoint.url.toString(), conn.basicAuth, tls)
+            BasicHttpFactory(endpoint.url.toString(), conn.basicAuth, tls)
         }
     }
 

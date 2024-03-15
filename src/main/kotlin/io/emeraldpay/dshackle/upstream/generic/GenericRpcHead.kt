@@ -16,7 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.generic
 
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
@@ -26,7 +26,7 @@ import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
 class GenericRpcHead(
-    private val api: JsonRpcReader,
+    private val api: ChainReader,
     forkChoice: ForkChoice,
     upstreamId: String,
     blockValidator: BlockValidator,

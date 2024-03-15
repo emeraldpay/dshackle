@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.emeraldpay.dshackle.upstream.rpcclient
+package io.emeraldpay.dshackle.upstream
 
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
-import io.emeraldpay.dshackle.upstream.rpcclient.stream.Chunk
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import io.emeraldpay.dshackle.upstream.stream.Chunk
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-class JsonRpcResponse(
+class ChainResponse(
     private val result: ByteArray?,
-    val error: JsonRpcError?,
+    val error: ChainCallError?,
     val id: Id,
     val stream: Flux<Chunk>?,
     /**
@@ -38,42 +38,42 @@ class JsonRpcResponse(
     constructor(stream: Flux<Chunk>, id: Int) :
         this(null, null, NumberId(id.toLong()), stream, null, null)
 
-    constructor(result: ByteArray?, error: JsonRpcError?) : this(result, error, NumberId(0), null)
+    constructor(result: ByteArray?, error: ChainCallError?) : this(result, error, NumberId(0), null)
 
-    constructor(result: ByteArray?, error: JsonRpcError?, resolvedBy: String?) :
+    constructor(result: ByteArray?, error: ChainCallError?, resolvedBy: String?) :
         this(result, error, NumberId(0), null, null, resolvedBy)
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
 
         @JvmStatic
-        fun ok(value: ByteArray): JsonRpcResponse {
-            return JsonRpcResponse(value, null)
+        fun ok(value: ByteArray): ChainResponse {
+            return ChainResponse(value, null)
         }
 
         @JvmStatic
-        fun ok(value: ByteArray, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(value, null, id, null)
+        fun ok(value: ByteArray, id: Id): ChainResponse {
+            return ChainResponse(value, null, id, null)
         }
 
         @JvmStatic
-        fun ok(value: String): JsonRpcResponse {
-            return JsonRpcResponse(value.toByteArray(), null)
+        fun ok(value: String): ChainResponse {
+            return ChainResponse(value.toByteArray(), null)
         }
 
         @JvmStatic
-        fun error(code: Int, msg: String): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg))
+        fun error(code: Int, msg: String): ChainResponse {
+            return ChainResponse(null, ChainCallError(code, msg))
         }
 
         @JvmStatic
-        fun error(error: JsonRpcError, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, error, id, null)
+        fun error(error: ChainCallError, id: Id): ChainResponse {
+            return ChainResponse(null, error, id, null)
         }
 
         @JvmStatic
-        fun error(code: Int, msg: String, id: Id): JsonRpcResponse {
-            return JsonRpcResponse(null, JsonRpcError(code, msg), id, null)
+        fun error(code: Int, msg: String, id: Id): ChainResponse {
+            return ChainResponse(null, ChainCallError(code, msg), id, null)
         }
     }
 
@@ -126,13 +126,21 @@ class JsonRpcResponse(
         }
     }
 
-    fun copyWithId(id: Id): JsonRpcResponse {
-        return JsonRpcResponse(result, error, id, stream, providedSignature, providedUpstreamId)
+    fun checkError(): Mono<ChainResponse> {
+        return if (error != null) {
+            Mono.error(error.asException(id))
+        } else {
+            Mono.just(this)
+        }
+    }
+
+    fun copyWithId(id: Id): ChainResponse {
+        return ChainResponse(result, error, id, stream, providedSignature, providedUpstreamId)
     }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is JsonRpcResponse) return false
+        if (other !is ChainResponse) return false
 
         if (result != null) {
             if (other.result == null) return false
@@ -238,8 +246,8 @@ class JsonRpcResponse(
         }
     }
 
-    class ResponseJsonSerializer : JsonSerializer<JsonRpcResponse>() {
-        override fun serialize(value: JsonRpcResponse, gen: JsonGenerator, serializers: SerializerProvider) {
+    class ResponseJsonSerializer : JsonSerializer<ChainResponse>() {
+        override fun serialize(value: ChainResponse, gen: JsonGenerator, serializers: SerializerProvider) {
             gen.writeStartObject()
             gen.writeStringField("jsonrpc", "2.0")
             if (value.id.isNumber()) {

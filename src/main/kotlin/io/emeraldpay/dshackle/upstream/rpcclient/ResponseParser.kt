@@ -20,6 +20,8 @@ import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import org.slf4j.LoggerFactory
 import java.io.IOException
@@ -45,7 +47,7 @@ abstract class ResponseParser<T> {
             parser.nextToken()
             if (parser.currentToken != JsonToken.START_OBJECT) {
                 return Preparsed(
-                    error = JsonRpcError(
+                    error = ChainCallError(
                         RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
                         "Invalid JSON: not an Object",
                     ),
@@ -59,13 +61,13 @@ abstract class ResponseParser<T> {
             log.warn("Failed to parse JSON from upstream: ${e.message}")
         }
         if (state.error != null && state.id == null) {
-            state = state.copy(id = JsonRpcResponse.NumberId(0))
+            state = state.copy(id = ChainResponse.NumberId(0))
         }
         if (state.isReady) {
             return state
         }
         return Preparsed(
-            error = JsonRpcError(
+            error = ChainCallError(
                 RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
                 "Invalid JSON structure: never finalized",
             ),
@@ -76,7 +78,7 @@ abstract class ResponseParser<T> {
         if (field == "jsonrpc") {
             if (!parser.nextToken().isScalarValue) {
                 return state.copy(
-                    error = JsonRpcError(
+                    error = ChainCallError(
                         RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE,
                         "Invalid JSON (jsonrpc value)",
                     ),
@@ -103,17 +105,17 @@ abstract class ResponseParser<T> {
         return state
     }
 
-    private fun readId(parser: JsonParser): JsonRpcResponse.Id {
+    private fun readId(parser: JsonParser): ChainResponse.Id {
         if (parser.currentToken() == JsonToken.FIELD_NAME) {
             parser.nextToken()
         }
         return if (parser.currentToken() == JsonToken.VALUE_NUMBER_INT) {
-            JsonRpcResponse.NumberId(parser.intValue)
+            ChainResponse.NumberId(parser.intValue)
         } else if (parser.currentToken() == JsonToken.VALUE_STRING) {
-            JsonRpcResponse.StringId(parser.text)
+            ChainResponse.StringId(parser.text)
         } else {
             log.warn("Invalid id type: ${parser.currentToken()}")
-            return JsonRpcResponse.NumberId(0)
+            return ChainResponse.NumberId(0)
         }
     }
 
@@ -151,7 +153,7 @@ abstract class ResponseParser<T> {
         }
     }
 
-    fun readError(parser: JsonParser): JsonRpcError? {
+    fun readError(parser: JsonParser): ChainCallError? {
         var code = 0
         var message = ""
         var details: Any? = null
@@ -202,14 +204,14 @@ abstract class ResponseParser<T> {
                 }
             }
         }
-        return JsonRpcError(code, message, details)
+        return ChainCallError(code, message, details)
     }
 
     data class Preparsed(
-        val id: JsonRpcResponse.Id? = null,
+        val id: ChainResponse.Id? = null,
         val result: ByteArray? = null,
         val nullResult: Boolean = false,
-        val error: JsonRpcError? = null,
+        val error: ChainCallError? = null,
         val subMethod: String? = null,
         val subId: String? = null,
     ) {

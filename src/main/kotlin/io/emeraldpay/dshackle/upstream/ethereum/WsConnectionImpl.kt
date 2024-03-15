@@ -18,16 +18,16 @@ package io.emeraldpay.dshackle.upstream.ethereum
 import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.AuthConfig
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.RequestMetrics
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnection.ConnectionState.CONNECTED
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnection.ConnectionState.DISCONNECTED
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsMessage
 import io.emeraldpay.dshackle.upstream.rpcclient.ResponseWSParser
-import io.emeraldpay.dshackle.upstream.rpcclient.RpcMetrics
 import io.micrometer.core.instrument.Metrics
 import io.netty.buffer.ByteBufInputStream
 import io.netty.handler.codec.http.HttpHeaderNames
@@ -64,7 +64,7 @@ open class WsConnectionImpl(
     private val uri: URI,
     private val origin: URI,
     private val basicAuth: AuthConfig.ClientBasicAuth?,
-    private val rpcMetrics: RpcMetrics?,
+    private val requestMetrics: RequestMetrics?,
     private val scheduler: Scheduler,
 ) : AutoCloseable, WsConnection, Cloneable {
 
@@ -108,7 +108,7 @@ open class WsConnectionImpl(
     private var rpcSend = Sinks
         .many()
         .unicast()
-        .onBackpressureBuffer<JsonRpcRequest>()
+        .onBackpressureBuffer<ChainRequest>()
 
     private val disconnects = Sinks
         .many()
@@ -120,7 +120,7 @@ open class WsConnectionImpl(
         .multicast()
         .directBestEffort<WsConnection.ConnectionInfo>()
 
-    private val currentRequests = ConcurrentHashMap<Int, Sinks.One<JsonRpcResponse>>()
+    private val currentRequests = ConcurrentHashMap<Int, Sinks.One<ChainResponse>>()
 
     private val connId = UUID.randomUUID().toString()
     private val sendIdSeq = AtomicInteger(IDS_START)
@@ -168,7 +168,7 @@ open class WsConnectionImpl(
         rpcSend = Sinks
             .many()
             .unicast()
-            .onBackpressureBuffer<JsonRpcRequest>()
+            .onBackpressureBuffer()
         resetBackoffTask?.cancel(false)
         val retryInterval = currentBackOff.nextBackOff()
         resetBackoffTask = resetBackoffExecutor.schedule<Unit>({
@@ -305,7 +305,7 @@ open class WsConnectionImpl(
     }
 
     private fun onMessageRpc(msg: ResponseWSParser.WsResponse) {
-        val rpcResponse = JsonRpcResponse(
+        val rpcResponse = ChainResponse(
             msg.value,
             msg.error,
             msg.id,
@@ -346,7 +346,7 @@ open class WsConnectionImpl(
         return Flux.from(subscriptionResponses.asFlux())
     }
 
-    override fun callRpc(originalRequest: JsonRpcRequest): Mono<JsonRpcResponse> {
+    override fun callRpc(originalRequest: ChainRequest): Mono<ChainResponse> {
         return Mono.fromCallable {
             val startTime = System.nanoTime()
             // use an internal id sequence, to avoid id conflicts with user calls
@@ -358,7 +358,7 @@ open class WsConnectionImpl(
         }
     }
 
-    private fun sendRpc(request: JsonRpcRequest) {
+    private fun sendRpc(request: ChainRequest) {
         // submit to upstream in a separate thread, to free current thread (needs for subscription, etc)
         sendExecutor.execute {
             val result = rpcSend.tryEmitNext(request)
@@ -368,13 +368,13 @@ open class WsConnectionImpl(
         }
     }
 
-    private fun waitForResponse(request: JsonRpcRequest, originalId: Int, startTime: Long): Mono<JsonRpcResponse> {
+    private fun waitForResponse(request: ChainRequest, originalId: Int, startTime: Long): Mono<ChainResponse> {
         val internalId = request.id.toLong()
-        val onResponse = Sinks.one<JsonRpcResponse>()
+        val onResponse = Sinks.one<ChainResponse>()
         currentRequests[internalId.toInt()] = onResponse
-        val noResponse = JsonRpcException(
-            JsonRpcResponse.Id.from(originalId),
-            JsonRpcError(
+        val noResponse = ChainException(
+            ChainResponse.Id.from(originalId),
+            ChainCallError(
                 RpcResponseError.CODE_INTERNAL_ERROR,
                 "Response not received from WebSocket",
             ),
@@ -384,10 +384,10 @@ open class WsConnectionImpl(
 
         val failOnDisconnect = Mono.from(disconnects.asFlux())
             .flatMap {
-                Mono.error<JsonRpcResponse>(
-                    JsonRpcException(
-                        JsonRpcResponse.Id.from(originalId),
-                        JsonRpcError(
+                Mono.error<ChainResponse>(
+                    ChainException(
+                        ChainResponse.Id.from(originalId),
+                        ChainCallError(
                             RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
                             "Disconnected from WebSocket",
                         ),
@@ -398,9 +398,9 @@ open class WsConnectionImpl(
         return Mono.from(onResponse.asMono()).or(failOnDisconnect)
             .doOnSubscribe { sendRpc(request) }
             .take(Defaults.timeout)
-            .doOnNext { rpcMetrics?.timer?.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS) }
-            .doOnError { rpcMetrics?.fails?.increment() }
-            .map { it.copyWithId(JsonRpcResponse.Id.from(originalId)) }
+            .doOnNext { requestMetrics?.timer?.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS) }
+            .doOnError { requestMetrics?.fails?.increment() }
+            .map { it.copyWithId(ChainResponse.Id.from(originalId)) }
             .switchIfEmpty(
                 Mono.fromCallable { log.warn("No response for ${request.method} ${request.params}") }.then(Mono.error(noResponse)),
             )
@@ -414,11 +414,11 @@ open class WsConnectionImpl(
         connection?.dispose()
         connection = null
         currentRequests.clear()
-        rpcMetrics?.fails?.let {
+        requestMetrics?.fails?.let {
             it.close()
             Metrics.globalRegistry.remove(it)
         }
-        rpcMetrics?.timer?.let {
+        requestMetrics?.timer?.let {
             it.close()
             Metrics.globalRegistry.remove(it)
         }

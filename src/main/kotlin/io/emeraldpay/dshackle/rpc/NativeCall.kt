@@ -32,11 +32,14 @@ import io.emeraldpay.dshackle.commons.SPAN_STATUS_MESSAGE
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.quorum.NotLaggingQuorum
-import io.emeraldpay.dshackle.reader.RpcReader
-import io.emeraldpay.dshackle.reader.RpcReaderFactory
-import io.emeraldpay.dshackle.reader.RpcReaderFactory.RpcReaderData
+import io.emeraldpay.dshackle.reader.RequestReader
+import io.emeraldpay.dshackle.reader.RequestReaderFactory
+import io.emeraldpay.dshackle.reader.RequestReaderFactory.ReaderData
 import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.upstream.ApiSource
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
@@ -44,13 +47,11 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.rpcclient.CallParams
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcError
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
-import io.emeraldpay.dshackle.upstream.rpcclient.stream.Chunk
+import io.emeraldpay.dshackle.upstream.rpcclient.RestParams
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import io.emeraldpay.dshackle.upstream.stream.Chunk
 import io.micrometer.core.instrument.Metrics
 import org.apache.commons.lang3.StringUtils
 import org.reactivestreams.Publisher
@@ -77,7 +78,7 @@ open class NativeCall(
 
     private val passthrough = config.passthrough
 
-    var rpcReaderFactory: RpcReaderFactory = RpcReaderFactory.default()
+    var requestReaderFactory: RequestReaderFactory = RequestReaderFactory.default()
 
     open fun nativeCall(requestMono: Mono<BlockchainOuterClass.NativeCallRequest>): Flux<BlockchainOuterClass.NativeCallReplyItem> {
         return nativeCallResult(requestMono)
@@ -199,9 +200,8 @@ open class NativeCall(
         }
     }
 
-    fun parseParams(it: ValidCallContext<RawCallDetails>): ValidCallContext<ParsedCallDetails> {
-        val rawParams = extractParams(it.payload.params)
-        val params = it.requestDecorator.processRequest(rawParams)
+    fun parseParams(it: ValidCallContext<ParsedCallDetails>): ValidCallContext<ParsedCallDetails> {
+        val params = it.requestDecorator.processRequest(it.payload.params)
         return it.withPayload(ParsedCallDetails(it.payload.method, params))
     }
 
@@ -304,7 +304,11 @@ open class NativeCall(
         val requestId = requestItem.requestId
         val requestCount = request.itemsCount
         val method = requestItem.method
-        val params = requestItem.payload.toStringUtf8()
+        val params = if (requestItem.hasPayload()) {
+            requestItem.payload.toStringUtf8()
+        } else {
+            ""
+        }
         val availableMethods = upstream.getMethods()
 
         if (!availableMethods.isAvailable(method)) {
@@ -314,7 +318,7 @@ open class NativeCall(
                     CallError(
                         requestItem.id,
                         errorMessage,
-                        JsonRpcError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage),
+                        ChainCallError(RpcResponseError.CODE_METHOD_NOT_EXIST, errorMessage),
                         null,
                     ),
                     requestId,
@@ -356,7 +360,7 @@ open class NativeCall(
                 upstream,
                 matcher.build(),
                 callQuorum,
-                RawCallDetails(method, params),
+                parsedCallDetails(requestItem),
                 requestDecorator,
                 resultDecorator,
                 selector,
@@ -364,6 +368,24 @@ open class NativeCall(
                 requestId,
                 requestCount,
             )
+        }
+    }
+
+    private fun parsedCallDetails(item: BlockchainOuterClass.NativeCallItem): ParsedCallDetails {
+        return if (item.hasPayload()) {
+            ParsedCallDetails(item.method, extractParams(item.payload.toStringUtf8()))
+        } else if (item.hasRestData()) {
+            ParsedCallDetails(
+                item.method,
+                RestParams(
+                    item.restData.headersList.map { it.key to it.value }.toMap(),
+                    item.restData.queryParamsList.map { it.key to it.value }.toMap(),
+                    item.restData.pathParamsList,
+                    item.restData.payload.toByteArray(),
+                ),
+            )
+        } else {
+            throw IllegalStateException("Wrong payload type")
         }
     }
 
@@ -381,7 +403,7 @@ open class NativeCall(
         return ctx.upstream.getLocalReader()
             .flatMap { api ->
                 SpannedReader(api, tracer, LOCAL_READER)
-                    .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector))
+                    .read(ctx.payload.toChainRequest(ctx.nonce, ctx.forwardedSelector, false))
                     .map {
                         val result = it.getResult()
                         val upstreamId = it.providedUpstreamId ?: ctx.upstream.getId()
@@ -405,13 +427,13 @@ open class NativeCall(
         if (!ctx.upstream.getMethods().isCallable(ctx.payload.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
-        val reader = rpcReaderFactory.create(
-            RpcReaderData(ctx.upstream, ctx.payload.method, ctx.matcher, ctx.callQuorum, signer, tracer),
+        val reader = requestReaderFactory.create(
+            ReaderData(ctx.upstream, ctx.matcher, ctx.callQuorum, signer, tracer),
         )
         val counter = reader.attempts()
 
         return SpannedReader(reader, tracer, RPC_READER)
-            .read(JsonRpcRequest(ctx.payload.method, ctx.payload.params, ctx.nonce, ctx.forwardedSelector, ctx.streamRequest))
+            .read(ctx.payload.toChainRequest(ctx.nonce, ctx.forwardedSelector, ctx.streamRequest))
             .map {
                 val upId = it.resolvedBy?.getId() ?: ctx.upstream.getId()
                 if (it.stream == null) {
@@ -497,11 +519,11 @@ open class NativeCall(
     }
 
     interface ResultDecorator {
-        fun processResult(result: RpcReader.Result): ByteArray
+        fun processResult(result: RequestReader.Result): ByteArray
     }
 
     open class NoneResultDecorator : ResultDecorator {
-        override fun processResult(result: RpcReader.Result): ByteArray = result.value
+        override fun processResult(result: RequestReader.Result): ByteArray = result.value
     }
 
     open class CreateFilterDecorator : ResultDecorator {
@@ -509,7 +531,7 @@ open class NativeCall(
         companion object {
             const val quoteCode = '"'.code.toByte()
         }
-        override fun processResult(result: RpcReader.Result): ByteArray {
+        override fun processResult(result: RequestReader.Result): ByteArray {
             val bytes = result.value
             if (bytes.last() == quoteCode && result.resolvedBy != null) {
                 val suffix = result.resolvedBy.nodeId()
@@ -624,7 +646,7 @@ open class NativeCall(
     data class CallError(
         val id: Int,
         val message: String,
-        val upstreamError: JsonRpcError?,
+        val upstreamError: ChainCallError?,
         val data: String?,
         val upstreamId: String? = null,
     ) {
@@ -644,7 +666,7 @@ open class NativeCall(
             }
             fun from(t: Throwable): CallError {
                 return when (t) {
-                    is JsonRpcException -> CallError(t.error.code, t.error.message, t.error, getDataAsSting(t.error.details), t.upstreamId)
+                    is ChainException -> CallError(t.error.code, t.error.message, t.error, getDataAsSting(t.error.details), t.upstreamId)
                     is RpcException -> CallError(t.code, t.rpcMessage, null, getDataAsSting(t.details))
                     is CallFailure -> CallError(t.id, t.reason.message ?: "Upstream Error", null, null)
                     else -> {
@@ -704,6 +726,13 @@ open class NativeCall(
         }
     }
 
-    class RawCallDetails(val method: String, val params: String)
-    class ParsedCallDetails(val method: String, val params: CallParams)
+    class ParsedCallDetails(val method: String, val params: CallParams) {
+        fun toChainRequest(
+            nonce: Long?,
+            selector: BlockchainOuterClass.Selector?,
+            streamRequest: Boolean,
+        ): ChainRequest {
+            return ChainRequest(method, params, nonce, selector, streamRequest)
+        }
+    }
 }

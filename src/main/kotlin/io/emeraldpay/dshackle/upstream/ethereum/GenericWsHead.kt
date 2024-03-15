@@ -17,7 +17,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.data.BlockContainer
-import io.emeraldpay.dshackle.reader.JsonRpcReader
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference
 class GenericWsHead(
     forkChoice: ForkChoice,
     blockValidator: BlockValidator,
-    private val api: JsonRpcReader,
+    private val api: ChainReader,
     private val wsSubscriptions: WsSubscriptions,
     private val wsConnectionResubscribeScheduler: Scheduler,
     headScheduler: Scheduler,

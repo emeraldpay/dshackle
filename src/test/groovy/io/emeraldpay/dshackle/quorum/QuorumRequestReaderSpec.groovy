@@ -21,9 +21,9 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.FilteredApis
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcException
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcRequest
-import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcResponse
+import io.emeraldpay.dshackle.upstream.ChainException
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
@@ -34,7 +34,7 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class QuorumRpcReaderSpec extends Specification {
+class QuorumRequestReaderSpec extends Specification {
 
     def "always-quorum - get the result if ok"() {
         setup:
@@ -43,17 +43,17 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             1 * getIngressReader() >> Mock(Reader) {
-                1 * read(new JsonRpcRequest("eth_test", new ListParams())) >> Mono.just(JsonRpcResponse.ok("1"))
+                1 * read(new ChainRequest("eth_test", new ListParams())) >> Mono.just(ChainResponse.ok("1"))
             }
         }
         def apis = new FilteredApis(
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -68,8 +68,8 @@ class QuorumRpcReaderSpec extends Specification {
     def "always-quorum - return upstream error returned"() {
         setup:
         def api = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
-                    Mono.just(JsonRpcResponse.error(1, "test"))
+            1 * read(new ChainRequest("eth_test", new ListParams())) >>> [
+                    Mono.just(ChainResponse.error(1, "test"))
             ]
         }
         def up = Mock(Upstream) {
@@ -82,10 +82,10 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -93,7 +93,7 @@ class QuorumRpcReaderSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectErrorMatches {
-                    it instanceof JsonRpcException && ((JsonRpcException) it).error.message == "test"
+                    it instanceof ChainException && ((ChainException) it).error.message == "test"
                 }
                 .verify(Duration.ofSeconds(1))
     }
@@ -101,7 +101,7 @@ class QuorumRpcReaderSpec extends Specification {
     def "always-quorum - return upstream error thrown"() {
         setup:
         def api = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
+            1 * read(new ChainRequest("eth_test", new ListParams())) >>> [
                     Mono.error(
                             new RpcException(
                                     RpcResponseError.CODE_UPSTREAM_CONNECTION_ERROR,
@@ -120,10 +120,10 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -131,7 +131,7 @@ class QuorumRpcReaderSpec extends Specification {
         then:
         StepVerifier.create(act)
                 .expectErrorMatches {
-                    it instanceof JsonRpcException && ((JsonRpcException) it).error.message == "test-123"
+                    it instanceof ChainException && ((ChainException) it).error.message == "test-123"
                 }
                 .verify(Duration.ofSeconds(1))
     }
@@ -143,9 +143,9 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {
-                2 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
-                        Mono.just(JsonRpcResponse.ok("null")),
-                        Mono.just(JsonRpcResponse.ok("1"))
+                2 * read(new ChainRequest("eth_test", new ListParams())) >>> [
+                        Mono.just(ChainResponse.ok("null")),
+                        Mono.just(ChainResponse.ok("1"))
                 ]
             }
         }
@@ -153,10 +153,10 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -176,9 +176,9 @@ class QuorumRpcReaderSpec extends Specification {
             _ * getId() >> "id"
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {
-                2 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
-                        Mono.just(JsonRpcResponse.error(1, "test")),
-                        Mono.just(JsonRpcResponse.ok("1"))
+                2 * read(new ChainRequest("eth_test", new ListParams())) >>> [
+                        Mono.just(ChainResponse.error(1, "test")),
+                        Mono.just(ChainResponse.ok("1"))
                 ]
             }
         }
@@ -186,10 +186,10 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -204,9 +204,9 @@ class QuorumRpcReaderSpec extends Specification {
     def "non-empty-quorum - error if all failed"() {
         setup:
         def api = Mock(Reader) {
-            2 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
-                    Mono.just(JsonRpcResponse.error(1, "test")),
-                    Mono.just(JsonRpcResponse.error(1, "test")),
+            2 * read(new ChainRequest("eth_test", new ListParams())) >>> [
+                    Mono.just(ChainResponse.error(1, "test")),
+                    Mono.just(ChainResponse.error(1, "test")),
             ]
         }
         def up = Mock(Upstream) {
@@ -219,10 +219,10 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NotNullQuorum(), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new NotNullQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -236,8 +236,8 @@ class QuorumRpcReaderSpec extends Specification {
     def "always-quorum - error if failed"() {
         setup:
         def api = Mock(Reader) {
-            1 * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
-                    Mono.just(JsonRpcResponse.error(1, "test error")),
+            1 * read(new ChainRequest("eth_test", new ListParams())) >>> [
+                    Mono.just(ChainResponse.error(1, "test error")),
             ]
         }
         def up = Mock(Upstream) {
@@ -250,10 +250,10 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
@@ -262,7 +262,7 @@ class QuorumRpcReaderSpec extends Specification {
         StepVerifier.create(act)
                 .expectErrorMatches { t ->
                     println("Error: $t.class / $t.message")
-                    t instanceof JsonRpcException && t.message == "test error" && t.error.code == 1
+                    t instanceof ChainException && t.message == "test error" && t.error.code == 1
                 }
                 .verify(Duration.ofSeconds(2))
     }
@@ -275,8 +275,8 @@ class QuorumRpcReaderSpec extends Specification {
             _ * isAvailable() >> true
             _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
             _ * getIngressReader() >> Mock(Reader) {
-                _ * read(new JsonRpcRequest("eth_test", new ListParams())) >>> [
-                        Mono.just(JsonRpcResponse.error(-3010, "test")),
+                _ * read(new ChainRequest("eth_test", new ListParams())) >>> [
+                        Mono.just(ChainResponse.error(-3010, "test")),
                 ]
             }
         }
@@ -284,10 +284,10 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new NotLaggingQuorum(1), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new NotLaggingQuorum(1), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
 
         then:
         StepVerifier.create(act)
@@ -310,10 +310,10 @@ class QuorumRpcReaderSpec extends Specification {
                 Chain.ETHEREUM__MAINNET,
                 [up], Selector.empty
         )
-        def reader = new QuorumRpcReader(apis, new AlwaysQuorum(), Stub(Tracer))
+        def reader = new QuorumRequestReader(apis, new AlwaysQuorum(), Stub(Tracer))
 
         when:
-        def act = reader.read(new JsonRpcRequest("eth_test", new ListParams()))
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
                 .map {
                     new String(it.value)
                 }
