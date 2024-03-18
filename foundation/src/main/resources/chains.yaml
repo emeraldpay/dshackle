@@ -1168,6 +1168,12 @@ chain-settings:
           syncing: 20
           lagging: 10
       chains:
+        - id: Mainnet
+          priority: 100
+          code: PLAYNANCE_MAINNET
+          grpcId: 1054
+          short-names: [ playnance ]
+          chain-id: 0x725
         - id: Testnet
           priority: 10
           code: PLAYNANCE_TESTNET
