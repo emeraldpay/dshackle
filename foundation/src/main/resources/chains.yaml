@@ -1315,8 +1315,8 @@ chain-settings:
           grpcId: 10065
           short-names: [near-betanet]
           chain-id: 0x0
-    - id: gelato-op-celestia
-      label: Gelato OP Celestia
+    - id: opcelestia-raspberry
+      label: OP Celestia Raspberry
       type: eth
       settings:
         fork-choice: quorum
@@ -1329,12 +1329,12 @@ chain-settings:
       chains:
         - id: Testnet
           priority: 10
-          code: GELATO_OP_CELESTIA_TESTNET
+          code: OPCELESTIA_RASPBERRY_TESTNET
           grpcId: 10067
-          short-names: [gelato-op-celestia-testnet]
+          short-names: [opcelestia-raspberry-testnet]
           chain-id: 0x75b3dcf
-    - id: gelato-orbit-anytrust
-      label: Gelato Orbit Anytrust
+    - id: arb-blueberry
+      label: Arbitrum Blueberry
       type: eth
       settings:
         fork-choice: quorum
@@ -1347,9 +1347,9 @@ chain-settings:
       chains:
         - id: Testnet
           priority: 10
-          code: GELATO_ORBIT_ANYTRUST_TESTNET
+          code: ARB_BLUEBERRY_TESTNET
           grpcId: 10068
-          short-names: [gelato-orbit-anytrust-testnet]
+          short-names: [arb-blueberry-testnet]
           chain-id: 0x14865d0f05
     - id: dymension
       label: Dymension
