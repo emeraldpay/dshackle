@@ -1351,6 +1351,24 @@ chain-settings:
           grpcId: 10068
           short-names: [arb-blueberry-testnet]
           chain-id: 0x14865d0f05
+    - id: polygon-blackberry
+      label: Polygon Blackberry
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 15s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Testnet
+          priority: 10
+          code: POLYGON_BLACKBERRY_TESTNET
+          grpcId: 10072
+          short-names: [ polygon-blackberry-testnet ]
+          chain-id: 0x59d7131
     - id: dymension
       label: Dymension
       type: eth
