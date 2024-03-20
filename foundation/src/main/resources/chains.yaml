@@ -1418,3 +1418,21 @@ chain-settings:
           priority: 5
           chain-id: 0x0
           short-names: [eth-beacon-chain-holesky]
+    - id: real
+      label: re.al
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 15s
+        options:
+          validate-peers: false
+        lags:
+          syncing: 20
+          lagging: 10
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: REAL_MAINNET
+          grpcId: 1055
+          short-names: [ real ]
+          chain-id: 0x1b254
