@@ -592,11 +592,11 @@ chain-settings:
       settings:
         options:
           validate-peers: false
-        expected-block-time: 1m
+        expected-block-time: 300ms
         lags:
           syncing: 40
           lagging: 20
-        fork-choice: quorum
+        fork-choice: height
       chains:
         - id: Mainnet
           priority: 100
@@ -771,7 +771,7 @@ chain-settings:
         lags:
           syncing: 40
           lagging: 20
-        fork-choice: height
+        fork-choice: quorum
       chains:
         - id: Mainnet
           priority: 100
@@ -823,7 +823,7 @@ chain-settings:
           lagging: 1
         options:
           validate-peers: false
-        fork-choice: quorum
+        fork-choice: height
       chains:
         - id: Mainnet
           priority: 100
