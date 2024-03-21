@@ -34,6 +34,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 12s
+        mev-critical: true
         lags:
           syncing: 6
           lagging: 1
@@ -104,6 +105,7 @@ chain-settings:
       label: Polygon
       type: eth
       settings:
+        mev-critical: true
         expected-block-time: 2.7s
         lags:
           syncing: 20
@@ -197,6 +199,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 3s
+        mev-critical: true
         lags:
           syncing: 20
           lagging: 10
