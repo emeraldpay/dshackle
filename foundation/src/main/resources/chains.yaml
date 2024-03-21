@@ -1172,7 +1172,7 @@ chain-settings:
           priority: 100
           code: PLAYNANCE_MAINNET
           grpcId: 1054
-          short-names: [ playnance ]
+          short-names: [playnance]
           chain-id: 0x725
         - id: Testnet
           priority: 10
@@ -1367,7 +1367,7 @@ chain-settings:
           priority: 10
           code: POLYGON_BLACKBERRY_TESTNET
           grpcId: 10072
-          short-names: [ polygon-blackberry-testnet ]
+          short-names: [polygon-blackberry-testnet]
           chain-id: 0x59d7131
     - id: dymension
       label: Dymension
@@ -1434,5 +1434,5 @@ chain-settings:
           priority: 100
           code: REAL_MAINNET
           grpcId: 1055
-          short-names: [ real ]
+          short-names: [real]
           chain-id: 0x1b254
