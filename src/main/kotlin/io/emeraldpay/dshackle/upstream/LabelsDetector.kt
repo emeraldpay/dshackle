@@ -55,22 +55,12 @@ abstract class BasicEthLabelsDetector(
     }
 
     private fun clientType(client: String): String? {
-        return if (client.contains("erigon", true)) {
-            "erigon"
-        } else if (client.contains("geth", true)) {
-            "geth"
-        } else if (client.contains("bor", true)) {
-            "bor"
-        } else if (client.contains("nethermind", true)) {
-            "nethermind"
-        } else if (client.contains("prysm", true)) {
-            "prysm"
-        } else if (client.contains("lighthouse", true)) {
-            "lighthouse"
-        } else {
+        val firstSlash = client.indexOf("/")
+        if (firstSlash == -1) {
             log.debug("Unknown client type: {}", client)
-            null
+            return null
         }
+        return client.substring(0, firstSlash).lowercase()
     }
 
     data class NodeTypeRequest(
