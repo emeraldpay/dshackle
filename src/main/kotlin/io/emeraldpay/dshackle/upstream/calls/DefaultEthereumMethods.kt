@@ -324,6 +324,10 @@ class DefaultEthereumMethods(
                     .plus(harmonySpecialMethods)
                     .plus(harmonyPossibleNotIndexedMethods)
 
+            Chain.LINEA__MAINNET, Chain.LINEA__GOERLI -> listOf(
+                "linea_estimateGas",
+            )
+
             else -> emptyList()
         }
     }

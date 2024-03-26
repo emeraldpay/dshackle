@@ -220,10 +220,6 @@ You can specify this modes through `connector-mode` parameter in connection conf
 - `eth_getUncleByBlockNumberAndIndex`
 - `eth_feeHistory`
 - `eth_getLogs`
-- `eth_getFilterChanges`
-- `eth_newFilter`
-- `eth_newBlockFilter`
-- `eth_newPendingTransactionFilter`
 
 .Plus following methods are answered directly by Dshackle
 - `net_version`
