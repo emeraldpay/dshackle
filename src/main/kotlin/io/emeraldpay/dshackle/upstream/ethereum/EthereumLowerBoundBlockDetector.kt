@@ -47,7 +47,7 @@ class EthereumLowerBoundBlockDetector(
         return upstream.getIngressReader().read(
             ChainRequest(
                 "eth_getBalance",
-                ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", blockNumber.toHex()),
+                ListParams(ZERO_ADDRESS, blockNumber.toHex()),
             ),
         )
             .retryWhen(retrySpec(nonRetryableErrors))

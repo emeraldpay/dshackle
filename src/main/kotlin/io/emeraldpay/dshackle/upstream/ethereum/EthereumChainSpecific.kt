@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
-import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumLabelsDetector
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource

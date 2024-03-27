@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundBlockDetector
+import io.emeraldpay.dshackle.upstream.ethereum.ZERO_ADDRESS
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotLowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -86,11 +87,11 @@ class RecursiveLowerBoundBlockDetectorTest {
                     blocks.forEach {
                         if (it == 17964844L) {
                             on {
-                                read(ChainRequest("eth_getBalance", ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
+                                read(ChainRequest("eth_getBalance", ListParams(ZERO_ADDRESS, it.toHex())))
                             } doReturn Mono.just(ChainResponse(ByteArray(0), null))
                         } else {
                             on {
-                                read(ChainRequest("eth_getBalance", ListParams("0x756F45E3FA69347A9A973A725E3C98bC4db0b5a0", it.toHex())))
+                                read(ChainRequest("eth_getBalance", ListParams(ZERO_ADDRESS, it.toHex())))
                             } doReturn Mono.error(RuntimeException("missing trie node"))
                         }
                     }
