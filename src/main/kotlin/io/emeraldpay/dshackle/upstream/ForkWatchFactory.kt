@@ -39,7 +39,7 @@ class ForkWatchFactory(
         // at this moment (Aug 2022) it's still a PoW, but upgrade is coming in weeks, so it's better to configure everything in advance
         Chain.ETHEREUM,
         // those are upgraded to Merge
-        Chain.TESTNET_GOERLI, Chain.TESTNET_ROPSTEN
+        Chain.TESTNET_GOERLI, Chain.TESTNET_ROPSTEN, Chain.TESTNET_HOLESKY, Chain.TESTNET_SEPOLIA
     )
 
     fun create(chain: Chain): ForkWatch {

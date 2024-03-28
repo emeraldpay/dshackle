@@ -772,7 +772,7 @@ configuration, and may be omitted for most of the situations.
 | yes
 | Blockchain which is the provided by the upstream.
 Cluster may have multiple upstreams for a single blockchain.
-Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, `kovan-testnet`, `rinkeby-testnet`, `ropsten-testnet`, or `goerli-testnet`
+Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, or `sepolia-testnet`
 
 
 | `labels`

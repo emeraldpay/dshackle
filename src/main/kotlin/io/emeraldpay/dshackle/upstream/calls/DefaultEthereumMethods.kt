@@ -143,6 +143,12 @@ class DefaultEthereumMethods(
                     Chain.TESTNET_GOERLI == chain -> {
                         "\"5\""
                     }
+                    Chain.TESTNET_HOLESKY == chain -> {
+                        "\"17000\""
+                    }
+                    Chain.TESTNET_SEPOLIA == chain -> {
+                        "\"11155111\""
+                    }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
@@ -171,6 +177,12 @@ class DefaultEthereumMethods(
                     }
                     Chain.TESTNET_GOERLI == chain -> {
                         "\"0x5\""
+                    }
+                    Chain.TESTNET_HOLESKY == chain -> {
+                        "\"0x4268\""
+                    }
+                    Chain.TESTNET_SEPOLIA == chain -> {
+                        "\"0xaa36a7\""
                     }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }

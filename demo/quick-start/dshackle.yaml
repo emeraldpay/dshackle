@@ -13,15 +13,9 @@ cluster:
             url: "https://mainnet.infura.io/v3/${INFURA_USER}"
           ws:
             url: "wss://mainnet.infura.io/ws/v3/${INFURA_USER}"
-    - id: infura-kovan
-      chain: kovan
+    - id: infura-sepolia
+      chain: sepolia
       connection:
         ethereum:
           rpc:
-            url: "https://kovan.infura.io/v3/${INFURA_USER}"
-    - id: infura-goerli
-      chain: goerli
-      connection:
-        ethereum:
-          rpc:
-            url: "https://goerli.infura.io/v3/${INFURA_USER}"
+            url: "https://sepolia.infura.io/v3/${INFURA_USER}"
