@@ -70,8 +70,8 @@ class MainConfigReaderSpec extends Specification {
                 blockchain == Chain.TESTNET_GOERLI
             }
             with(routes[4]) {
-                id == "rinkeby"
-                blockchain == Chain.TESTNET_RINKEBY
+                id == "sepolia"
+                blockchain == Chain.TESTNET_SEPOLIA
             }
         }
         with(act.health) {
