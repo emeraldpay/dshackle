@@ -130,7 +130,7 @@ The log contains the JSON lines similar to:
   "id":"c23a5391-1b8c-40b0-a32f-fa736b8175a2",
   "success":true,
   "upstream":{
-    "id":"goerli",
+    "id":"sepolia",
     "channel":"WSJSONRPC",
     "type":"JSONRPC"
   },
@@ -143,7 +143,7 @@ The log contains the JSON lines similar to:
     "method":"eth_getBlockByHash",
     "id":218
   },
-  "blockchain":"TESTNET_GOERLI",
+  "blockchain":"TESTNET_SEPOLIA",
   "execute":"2022-11-09T01:13:25.540592Z",
   "complete":"2022-11-09T01:13:25.652683Z",
   "responseSize":6243,

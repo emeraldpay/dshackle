@@ -41,6 +41,7 @@ repositories {
     maven { url "https://repo.spring.io/snapshot" }
     maven { url "https://repo.spring.io/milestone" }
     maven { url "https://maven.emrld.io" }
+    maven { url "https://maven-snapshots.emrld.io" }
 }
 
 configurations {
@@ -105,7 +106,7 @@ dependencies {
     implementation "io.emeraldpay.etherjar:etherjar-contract:$etherjarVersion"
     implementation "io.emeraldpay.etherjar:etherjar-erc20:$etherjarVersion"
 
-    implementation "io.emeraldpay:emerald-api:0.12-alpha.7"
+    implementation "io.emeraldpay:emerald-api:0.13-SNAPSHOT"
 
     implementation "org.bitcoinj:bitcoinj-core:0.16.2"
 

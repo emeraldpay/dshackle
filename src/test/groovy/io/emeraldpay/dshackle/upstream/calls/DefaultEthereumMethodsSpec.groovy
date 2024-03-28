@@ -43,5 +43,7 @@ class DefaultEthereumMethodsSpec extends Specification {
         Chain.TESTNET_GOERLI   | '"0x5"'
         Chain.TESTNET_RINKEBY  | '"0x4"'
         Chain.TESTNET_ROPSTEN  | '"0x3"'
+        Chain.TESTNET_SEPOLIA  | '"0xaa36a7"'
+        Chain.TESTNET_HOLESKY  | '"0x4268"'
     }
 }

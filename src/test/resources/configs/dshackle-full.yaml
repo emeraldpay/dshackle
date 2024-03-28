@@ -41,8 +41,8 @@ proxy:
       blockchain: kovan
     - id: goerli
       blockchain: goerli
-    - id: rinkeby
-      blockchain: rinkeby
+    - id: sepolia
+      blockchain: sepolia
 
 cluster:
   defaults:
