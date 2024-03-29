@@ -139,7 +139,12 @@ class WebsocketHandler(
                     val responses = nativeSubscribe
                         .subscribe(blockchain, methodParams.first, methodParams.second, io.emeraldpay.dshackle.upstream.Selector.empty)
                         .map { event ->
-                            WsSubscriptionResponse(params = WsSubscriptionData(event, subscriptionId))
+                            val data = if (event is ByteArray) {
+                                Global.objectMapper.readTree(event)
+                            } else {
+                                event
+                            }
+                            WsSubscriptionResponse(params = WsSubscriptionData(data, subscriptionId))
                         }
                         .takeUntilOther(currentControl.asMono())
                     Flux.concat(Mono.just(start), responses)
