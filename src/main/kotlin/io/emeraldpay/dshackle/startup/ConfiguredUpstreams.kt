@@ -28,7 +28,7 @@ import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.upstream.CurrentMultistreamHolder
 import io.emeraldpay.dshackle.upstream.ForkWatchFactory
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.MergedPowHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinCacheUpdate
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcHead
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinRpcUpstream
@@ -188,7 +188,7 @@ open class ConfiguredUpstreams(
         val head: Head = conn.zeroMq?.let { zeroMq ->
             val server = ZMQServer(zeroMq.host, zeroMq.port, "hashblock")
             val zeroMqHead = BitcoinZMQHead(server, directApi, extractBlock)
-            MergedHead(listOf(rpcHead, zeroMqHead))
+            MergedPowHead(listOf(rpcHead, zeroMqHead))
         } ?: rpcHead
 
         val subscriptions = conn.zeroMq?.let { zeroMq ->

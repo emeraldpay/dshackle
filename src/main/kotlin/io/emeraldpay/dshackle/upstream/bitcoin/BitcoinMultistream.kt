@@ -26,7 +26,7 @@ import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.HardcodedReader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IntegralRpcReader
-import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.MergedPowHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.VerifyingReader
@@ -104,7 +104,7 @@ open class BitcoinMultistream(
                 }
             }
         } else {
-            val newHead = MergedHead(sourceUpstreams.map { it.getHead() }).apply {
+            val newHead = MergedPowHead(sourceUpstreams.map { it.getHead() }).apply {
                 this.start()
             }
             val lagObserver = BitcoinHeadLagObserver(newHead, sourceUpstreams)

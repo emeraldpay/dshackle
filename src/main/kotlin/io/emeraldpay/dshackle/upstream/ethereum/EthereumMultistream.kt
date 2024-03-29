@@ -25,7 +25,8 @@ import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.HardcodedReader
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IntegralRpcReader
-import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.MergedPosHead
+import io.emeraldpay.dshackle.upstream.MergedPowHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.VerifyingReader
@@ -69,6 +70,11 @@ open class EthereumMultistream(
 
     private val supportsEIP1559 = when (chain) {
         Chain.ETHEREUM, Chain.TESTNET_ROPSTEN, Chain.TESTNET_GOERLI, Chain.TESTNET_HOLESKY, Chain.TESTNET_SEPOLIA, Chain.TESTNET_RINKEBY -> true
+        else -> false
+    }
+
+    private val isPos = when (chain) {
+        Chain.ETHEREUM, Chain.TESTNET_GOERLI, Chain.TESTNET_HOLESKY, Chain.TESTNET_SEPOLIA -> true
         else -> false
     }
 
@@ -131,8 +137,13 @@ open class EthereumMultistream(
                 }
             }
         } else {
-            val heads = upstreams.map { it.getHead() }
-            val newHead = MergedHead(heads).apply {
+            val newHead = if (isPos) {
+                val heads = upstreams.map { Pair(it.getOptions().priority, it.getHead()) }
+                MergedPosHead(heads)
+            } else {
+                val heads = upstreams.map { it.getHead() }
+                MergedPowHead(heads)
+            }.apply {
                 this.start()
             }
             val lagObserver = EthereumHeadLagObserver(newHead, upstreams as Collection<Upstream>)
