@@ -8,7 +8,7 @@ import io.emeraldpay.dshackle.reader.StandardRpcReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.ForkWatch
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.MergedHead
+import io.emeraldpay.dshackle.upstream.MergedPowHead
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -106,7 +106,7 @@ open class EthereumRpcUpstream(
             val rpcHead = EthereumRpcHead(chain, getIngressReader(), Duration.ofSeconds(60)).apply {
                 start()
             }
-            MergedHead(listOf(rpcHead, wsHead)).apply {
+            MergedPowHead(listOf(rpcHead, wsHead)).apply {
                 start()
             }
         } else {
