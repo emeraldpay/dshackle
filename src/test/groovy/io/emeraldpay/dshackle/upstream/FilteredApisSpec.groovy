@@ -76,7 +76,7 @@ class FilteredApisSpec extends Specification {
                     ChainsConfig.ChainConfig.default(),
                     connectorFactory,
                     cs.&validator,
-                    cs.&labelDetector,
+                    cs.&upstreamSettingsDetector,
                     cs.&lowerBoundBlockDetector
             )
         }

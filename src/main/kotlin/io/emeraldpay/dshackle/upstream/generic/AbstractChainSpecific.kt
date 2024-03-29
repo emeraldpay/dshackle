@@ -10,11 +10,12 @@ import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.EmptyEgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
-import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.NoIngressSubscription
 import io.emeraldpay.dshackle.upstream.NoopCachingReader
+import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
@@ -37,7 +38,7 @@ abstract class AbstractChainSpecific : ChainSpecific {
         return { _, _, _ -> NoopCachingReader }
     }
 
-    override fun labelDetector(chain: Chain, reader: ChainReader): LabelsDetector? {
+    override fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector? {
         return null
     }
 

@@ -15,7 +15,7 @@ import spock.lang.Specification
 
 import java.time.Duration
 
-class EthereumLabelsDetectorSpec extends Specification {
+class EthereumUpstreamSettingsDetectorSpec extends Specification {
 
     def "Detect labels"() {
         setup:
@@ -27,7 +27,7 @@ class EthereumLabelsDetectorSpec extends Specification {
                     answer("eth_getBalance", ["0x0000000000000000000000000000000000000000", "0x2710"], "")
                 }
         )
-        def detector = new EthereumLabelsDetector(up.getIngressReader(), Chain.ETHEREUM__MAINNET)
+        def detector = new EthereumUpstreamSettingsDetector(up, Chain.ETHEREUM__MAINNET)
 
         when:
         def act = detector.detectLabels()
@@ -51,7 +51,7 @@ class EthereumLabelsDetectorSpec extends Specification {
     def "No any label"() {
         setup:
         def up = Mock(DefaultUpstream) {
-            1 * getIngressReader() >> Mock(Reader) {
+            4 * getIngressReader() >> Mock(Reader) {
                 1 * read(new ChainRequest("web3_clientVersion", new ListParams())) >>
                         Mono.just(new ChainResponse('no/v1.19.3+e8ac1da4/linux-x64/dotnet7.0.8'.getBytes(), null))
                 1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >>
@@ -62,11 +62,29 @@ class EthereumLabelsDetectorSpec extends Specification {
                         Mono.just(new ChainResponse("".getBytes(), null))
             }
         }
-        def detector = new EthereumLabelsDetector(up.getIngressReader(), Chain.ETHEREUM__MAINNET)
+        def detector = new EthereumUpstreamSettingsDetector(up, Chain.ETHEREUM__MAINNET)
         when:
         def act = detector.detectLabels()
         then:
         StepVerifier.create(act)
+            .expectComplete()
+            .verify(Duration.ofSeconds(1))
+    }
+
+    def "Detect client version"() {
+        setup:
+        def up = Mock(DefaultUpstream) {
+            2 * getIngressReader() >> Mock(Reader) {
+                1 * read(new ChainRequest("web3_clientVersion", new ListParams())) >>
+                        Mono.just(new ChainResponse('"Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"'.getBytes(), null))
+            }
+        }
+        def detector = new EthereumUpstreamSettingsDetector(up, Chain.ETHEREUM__MAINNET)
+        when:
+        def act = detector.detectClientVersion()
+        then:
+        StepVerifier.create(act)
+            .expectNext("Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3")
             .expectComplete()
             .verify(Duration.ofSeconds(1))
     }

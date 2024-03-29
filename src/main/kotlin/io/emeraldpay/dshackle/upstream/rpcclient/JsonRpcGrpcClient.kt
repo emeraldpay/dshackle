@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.RequestMetrics
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
@@ -109,7 +110,7 @@ class JsonRpcGrpcClient(
                 } else {
                     null
                 }
-                Mono.just(ChainResponse(bytes, null, ChainResponse.NumberId(0), null, signature, resp.upstreamId))
+                Mono.just(ChainResponse(bytes, null, ChainResponse.NumberId(0), null, signature, Upstream.UpstreamSettingsData(0, resp.upstreamId, resp.upstreamNodeVersion)))
             } else {
                 metrics?.fails?.increment()
                 Mono.error(

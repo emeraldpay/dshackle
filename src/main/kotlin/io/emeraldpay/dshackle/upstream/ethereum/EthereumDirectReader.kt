@@ -17,6 +17,7 @@ import io.emeraldpay.dshackle.upstream.ChainException
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.EthereumCallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
@@ -91,7 +92,7 @@ class EthereumDirectReader(
                             Mono.empty()
                         } else {
                             Mono.just(
-                                Result(TxContainer.from(tx, result.data), result.upstreamId),
+                                Result(TxContainer.from(tx, result.data), result.resolvedUpstreamData),
                             )
                         }
                     }
@@ -116,7 +117,7 @@ class EthereumDirectReader(
                         if (str.startsWith("\"") && str.endsWith("\"")) {
                             Result(
                                 Wei.from(str.substring(1, str.length - 1)),
-                                it.upstreamId,
+                                it.resolvedUpstreamData,
                             )
                         } else {
                             throw RpcException(RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE, "Not Wei value")
@@ -180,7 +181,7 @@ class EthereumDirectReader(
                                     log.debug("Empty logs for block $key")
                                     Mono.empty()
                                 } else {
-                                    Mono.just(Result(logs, it.upstreamId))
+                                    Mono.just(Result(logs, it.resolvedUpstreamData))
                                 }
                             }
                     }
@@ -208,7 +209,7 @@ class EthereumDirectReader(
                     Mono.just(
                         Result(
                             BlockContainer.from(block, result.data, "unknown"),
-                            result.upstreamId,
+                            result.resolvedUpstreamData,
                         ),
                     )
                 }
@@ -245,12 +246,12 @@ class EthereumDirectReader(
             }.flatMap {
                 it.read(request)
             }.map {
-                Result(it.value, it.resolvedBy?.getId())
+                Result(it.value, it.resolvedUpstreamData)
             }
     }
 
     data class Result<T>(
         val data: T,
-        val upstreamId: String?,
+        val resolvedUpstreamData: Upstream.UpstreamSettingsData?,
     )
 }

@@ -74,7 +74,7 @@ class GenericUpstreamMock extends GenericUpstream {
                 ChainConfig.default(),
                 new ConnectorFactoryMock(api, new EthereumHeadMock()),
                 io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&validator,
-                io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&labelDetector,
+                io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&upstreamSettingsDetector,
                 io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific.INSTANCE.&lowerBoundBlockDetector,
         )
         this.ethereumHeadMock = this.getHead() as EthereumHeadMock

@@ -13,11 +13,12 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
-import io.emeraldpay.dshackle.upstream.LabelsDetectorBuilder
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetectorBuilder
+import io.emeraldpay.dshackle.upstream.UNKNOWN_CLIENT_VERSION
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetectorBuilder
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.UpstreamValidatorBuilder
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
@@ -30,6 +31,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 open class GenericUpstream(
     id: String,
@@ -42,7 +44,7 @@ open class GenericUpstream(
     chainConfig: ChainsConfig.ChainConfig,
     connectorFactory: ConnectorFactory,
     validatorBuilder: UpstreamValidatorBuilder,
-    labelsDetectorBuilder: LabelsDetectorBuilder,
+    upstreamSettingsDetectorBuilder: UpstreamSettingsDetectorBuilder,
     lowerBoundBlockDetectorBuilder: LowerBoundBlockDetectorBuilder,
 ) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig), Lifecycle {
 
@@ -54,12 +56,13 @@ open class GenericUpstream(
     private val hasLiveSubscriptionHead: AtomicBoolean = AtomicBoolean(false)
     protected val connector: GenericConnector = connectorFactory.create(this, chain)
     private var livenessSubscription: Disposable? = null
-    private val labelsDetector = labelsDetectorBuilder(chain, this.getIngressReader())
+    private val settingsDetector = upstreamSettingsDetectorBuilder(chain, this)
 
     private val lowerBoundBlockDetector = lowerBoundBlockDetectorBuilder(chain, this)
 
     private val started = AtomicBoolean(false)
     private val isUpstreamValid = AtomicBoolean(false)
+    private val clientVersion = AtomicReference(UNKNOWN_CLIENT_VERSION)
 
     override fun getHead(): Head {
         return connector.getHead()
@@ -89,6 +92,14 @@ open class GenericUpstream(
 
     override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData {
         return lowerBoundBlockDetector.getCurrentLowerBlock()
+    }
+
+    override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
+        return Upstream.UpstreamSettingsData(
+            nodeId(),
+            getId(),
+            clientVersion.get(),
+        )
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -165,8 +176,14 @@ open class GenericUpstream(
         }
     }
 
-    private fun detectLabels() {
-        labelsDetector?.detectLabels()?.subscribe { label -> updateLabels(label) }
+    private fun detectSettings() {
+        settingsDetector?.detectLabels()?.subscribe { label -> updateLabels(label) }
+
+        settingsDetector?.detectClientVersion()
+            ?.subscribe {
+                log.info("Detected node version $it for upstream ${getId()}")
+                clientVersion.set(it)
+            }
     }
 
     private fun upstreamStart() {
@@ -185,7 +202,7 @@ open class GenericUpstream(
         }, {
             log.debug("Error while checking live subscription for ${getId()}", it)
         },)
-        detectLabels()
+        detectSettings()
 
         detectLowerBlock()
     }

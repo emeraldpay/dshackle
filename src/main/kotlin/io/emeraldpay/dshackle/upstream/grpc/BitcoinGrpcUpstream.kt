@@ -154,6 +154,10 @@ class BitcoinGrpcUpstream(
         return LowerBoundBlockDetector.LowerBlockData.default()
     }
 
+    override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
+        return null
+    }
+
     @Suppress("UNCHECKED_CAST")
     override fun <T : Upstream> cast(selfType: Class<T>): T {
         if (!selfType.isAssignableFrom(this.javaClass)) {

@@ -32,7 +32,7 @@ class ChainResponse(
      * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
      */
     val providedSignature: ResponseSigner.Signature? = null,
-    val providedUpstreamId: String? = null,
+    val resolvedUpstreamData: Upstream.UpstreamSettingsData? = null,
 ) {
 
     constructor(stream: Flux<Chunk>, id: Int) :
@@ -40,8 +40,8 @@ class ChainResponse(
 
     constructor(result: ByteArray?, error: ChainCallError?) : this(result, error, NumberId(0), null)
 
-    constructor(result: ByteArray?, error: ChainCallError?, resolvedBy: String?) :
-        this(result, error, NumberId(0), null, null, resolvedBy)
+    constructor(result: ByteArray?, error: ChainCallError?, resolvedUpstreamData: Upstream.UpstreamSettingsData?) :
+        this(result, error, NumberId(0), null, null, resolvedUpstreamData)
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()
@@ -135,7 +135,7 @@ class ChainResponse(
     }
 
     fun copyWithId(id: Id): ChainResponse {
-        return ChainResponse(result, error, id, stream, providedSignature, providedUpstreamId)
+        return ChainResponse(result, error, id, stream, providedSignature, resolvedUpstreamData)
     }
 
     override fun equals(other: Any?): Boolean {

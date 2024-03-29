@@ -32,7 +32,7 @@ class EthereumDirectReaderSpec extends Specification {
 
     String hash1 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String address1 = "0xe0aadb0a012dbcdc529c4c743d3e0385a0b54d3d"
-    Upstream resolver = TestingCommons.upstream()
+    Upstream.UpstreamSettingsData data = new Upstream.UpstreamSettingsData("test")
 
     def "Reads block by hash"() {
         setup:
@@ -54,7 +54,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null)
+                                Global.objectMapper.writeValueAsBytes(json), null, 1, data, null)
                 )
             }
         }
@@ -81,7 +81,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getBlockByHash", new ListParams([hash1, false]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes(null), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes(null), null, 1, data, null
                         )
                 )
             }
@@ -114,7 +114,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x64", false]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes(json), null, 1, data, null
                         )
                 )
             }
@@ -146,7 +146,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getLogs", new ListParams([Map.of("blockHash", hash1)]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes([json]), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes([json]), null, 1, data, null
                         )
                 )
             }
@@ -179,7 +179,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getTransactionByHash", new ListParams([hash1]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes(json), null, 1, data, null
                         )
                 )
             }
@@ -212,7 +212,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getTransactionReceipt", new ListParams([hash1]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes(json), null, 1, data, null
                         )
                 )
             }
@@ -246,7 +246,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getTransactionReceipt", new ListParams([hash1]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes(json), null, 1, data, null
                         )
                 )
             }
@@ -271,7 +271,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getTransactionByHash", new ListParams([hash1]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes(null), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes(null), null, 1, data, null
                         )
                 )
             }
@@ -301,7 +301,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getBalance", new ListParams([address1, "latest"]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes("0x100"), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes("0x100"), null, 1, data, null
                         )
                 )
             }
@@ -332,7 +332,7 @@ class EthereumDirectReaderSpec extends Specification {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_getBalance", new ListParams([address1, "0xa8c9bb"]))) >> Mono.just(
                         new RequestReader.Result(
-                                Global.objectMapper.writeValueAsBytes("0x100"), null, 1, resolver, null
+                                Global.objectMapper.writeValueAsBytes("0x100"), null, 1, data, null
                         )
                 )
             }
@@ -361,7 +361,7 @@ class EthereumDirectReaderSpec extends Specification {
         }
         def result = Mono.just(
                 new RequestReader.Result(
-                        Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null)
+                        Global.objectMapper.writeValueAsBytes(json), null, 1, data, null)
         )
         EthereumDirectReader ethereumDirectReader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
@@ -401,7 +401,7 @@ class EthereumDirectReaderSpec extends Specification {
         }
         def result = Mono.just(
                 new RequestReader.Result(
-                        Global.objectMapper.writeValueAsBytes(json), null, 1, resolver, null)
+                        Global.objectMapper.writeValueAsBytes(json), null, 1, data, null)
         )
         EthereumDirectReader ethereumDirectReader = new EthereumDirectReader(
                 Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()

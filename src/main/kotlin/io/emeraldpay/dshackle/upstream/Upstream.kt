@@ -45,8 +45,17 @@ interface Upstream : Lifecycle {
     fun getCapabilities(): Set<Capability>
     fun isGrpc(): Boolean
     fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData
+    fun getUpstreamSettingsData(): UpstreamSettingsData?
 
     fun <T : Upstream> cast(selfType: Class<T>): T
 
     fun nodeId(): Byte
+
+    data class UpstreamSettingsData(
+        val nodeId: Byte,
+        val id: String,
+        val nodeVersion: String,
+    ) {
+        constructor(id: String) : this(0, id, UNKNOWN_CLIENT_VERSION)
+    }
 }

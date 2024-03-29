@@ -11,11 +11,11 @@ import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
-import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
@@ -95,8 +95,8 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         return EthereumLowerBoundBlockDetector(chain, upstream)
     }
 
-    override fun labelDetector(chain: Chain, reader: ChainReader): LabelsDetector {
-        return EthereumLabelsDetector(reader, chain)
+    override fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector {
+        return EthereumUpstreamSettingsDetector(upstream, chain)
     }
 
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {

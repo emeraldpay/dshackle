@@ -13,6 +13,7 @@ import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
@@ -80,6 +81,10 @@ object NearChainSpecific : AbstractPollChainSpecific() {
         } else {
             UpstreamAvailability.OK
         }
+    }
+
+    override fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector {
+        return NearUpstreamSettingsDetector(upstream)
     }
 
     override fun latestBlockRequest(): ChainRequest = // {...}

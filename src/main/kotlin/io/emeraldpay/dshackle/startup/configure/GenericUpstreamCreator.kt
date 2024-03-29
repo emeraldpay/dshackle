@@ -85,7 +85,7 @@ open class GenericUpstreamCreator(
             chainConfig,
             connectorFactory,
             cs::validator,
-            cs::labelDetector,
+            cs::upstreamSettingsDetector,
             cs::lowerBoundBlockDetector,
         )
 

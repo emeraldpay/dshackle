@@ -11,11 +11,10 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
-import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.rpcclient.RestParams
@@ -56,8 +55,8 @@ object BeaconChainSpecific : AbstractPollChainSpecific() {
         )
     }
 
-    override fun labelDetector(chain: Chain, reader: ChainReader): LabelsDetector {
-        return BeaconChainLabelsDetector(reader)
+    override fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector {
+        return BeaconChainUpstreamSettingsDetector(upstream)
     }
 
     override fun validator(

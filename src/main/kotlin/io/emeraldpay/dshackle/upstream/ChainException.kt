@@ -20,7 +20,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 open class ChainException(
     val id: ChainResponse.Id,
     val error: ChainCallError,
-    val upstreamId: String? = null,
+    val upstreamSettingsData: Upstream.UpstreamSettingsData? = null,
     writableStackTrace: Boolean = true,
     cause: Throwable? = null,
 ) : Exception(error.message, cause, true, writableStackTrace) {

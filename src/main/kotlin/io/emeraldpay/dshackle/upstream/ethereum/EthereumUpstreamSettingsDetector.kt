@@ -1,27 +1,39 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.reader.ChainReader
-import io.emeraldpay.dshackle.upstream.BasicEthLabelsDetector
+import io.emeraldpay.dshackle.upstream.BasicEthUpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 const val ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
-class EthereumLabelsDetector(
-    private val reader: ChainReader,
+class EthereumUpstreamSettingsDetector(
+    private val upstream: Upstream,
     private val chain: Chain,
-) : BasicEthLabelsDetector(reader) {
-    private val blockNumberReader = EthereumArchiveBlockNumberReader(reader)
+) : BasicEthUpstreamSettingsDetector(upstream) {
+    private val blockNumberReader = EthereumArchiveBlockNumberReader(upstream.getIngressReader())
 
     override fun detectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
             detectNodeType(),
             detectArchiveNode(),
         )
+    }
+
+    override fun clientVersionRequest(): ChainRequest {
+        return ChainRequest("web3_clientVersion", ListParams())
+    }
+
+    override fun parseClientVersion(data: ByteArray): String {
+        val version = String(data)
+        if (version.startsWith("\"") && version.endsWith("\"")) {
+            return version.substring(1, version.length - 1)
+        }
+        return version
     }
 
     private fun detectArchiveNode(): Mono<Pair<String, String>> {
@@ -34,7 +46,7 @@ class EthereumLabelsDetector(
     }
 
     private fun haveBalance(blockNumber: String): Mono<ByteArray> {
-        return reader.read(
+        return upstream.getIngressReader().read(
             ChainRequest(
                 "eth_getBalance",
                 ListParams(ZERO_ADDRESS, blockNumber),
@@ -44,7 +56,7 @@ class EthereumLabelsDetector(
 
     override fun nodeTypeRequest(): NodeTypeRequest {
         return NodeTypeRequest(
-            ChainRequest("web3_clientVersion", ListParams()),
+            clientVersionRequest(),
         ) { node -> node }
     }
 }

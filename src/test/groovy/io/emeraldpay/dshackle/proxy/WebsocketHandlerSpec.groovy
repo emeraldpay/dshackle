@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.monitoring.accesslog.AccessHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
 import io.emeraldpay.dshackle.upstream.Selector
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.json.RequestJson
 import io.micrometer.core.instrument.Counter
 import reactor.core.publisher.Flux
@@ -85,7 +86,7 @@ class WebsocketHandlerSpec extends Specification {
 
     def "Respond to a single call"() {
         setup:
-        def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, "test", null, null)
+        def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, new Upstream.UpstreamSettingsData("test"), null, null)
 
         def nativeCall = Mock(NativeCall) {
             1 * it.nativeCallResult(_) >> Flux.fromIterable([response])

@@ -5,6 +5,8 @@ import io.emeraldpay.api.proto.BlockchainOuterClass.NativeCallReplyItem
 import io.emeraldpay.api.proto.BlockchainOuterClass.NativeCallRequest
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.UNKNOWN_CLIENT_VERSION
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.stream.Chunk
 import org.junit.jupiter.api.Test
@@ -31,7 +33,7 @@ class NativeCallTest {
             ),
         ) {
             on { nativeCallResult(request) } doReturn Flux.just(
-                NativeCall.CallResult.ok(1, null, "0x1".toByteArray(), null, "id", null),
+                NativeCall.CallResult.ok(1, null, "0x1".toByteArray(), null, Upstream.UpstreamSettingsData("id"), null),
             )
         }
 
@@ -39,6 +41,7 @@ class NativeCallTest {
             .expectNext(
                 NativeCallReplyItem.newBuilder()
                     .setUpstreamId("id")
+                    .setUpstreamNodeVersion(UNKNOWN_CLIENT_VERSION)
                     .setId(1)
                     .setSucceed(true)
                     .setPayload(ByteString.copyFrom("0x1".toByteArray()))
@@ -60,7 +63,7 @@ class NativeCallTest {
             ),
         ) {
             on { nativeCallResult(request) } doReturn Flux.just(
-                NativeCall.CallResult(1, null, null, NativeCall.CallError(50001, "message", null, null, "upId"), null, null),
+                NativeCall.CallResult(1, null, null, NativeCall.CallError(50001, "message", null, null, Upstream.UpstreamSettingsData("upId")), null, null),
             )
         }
 
@@ -69,6 +72,7 @@ class NativeCallTest {
                 NativeCallReplyItem.newBuilder()
                     .setUpstreamId("upId")
                     .setId(1)
+                    .setUpstreamNodeVersion(UNKNOWN_CLIENT_VERSION)
                     .setSucceed(false)
                     .setErrorMessage("message")
                     .setItemErrorCode(50001)
@@ -95,7 +99,7 @@ class NativeCallTest {
             ),
         ) {
             on { nativeCallResult(request) } doReturn Flux.just(
-                NativeCall.CallResult.ok(1, null, "".toByteArray(), null, "upId", null, chunks),
+                NativeCall.CallResult.ok(1, null, "".toByteArray(), null, Upstream.UpstreamSettingsData("upId"), null, chunks),
             )
         }
 
@@ -104,6 +108,7 @@ class NativeCallTest {
                 NativeCallReplyItem.newBuilder()
                     .setUpstreamId("upId")
                     .setId(1)
+                    .setUpstreamNodeVersion(UNKNOWN_CLIENT_VERSION)
                     .setChunked(true)
                     .setSucceed(true)
                     .setPayload(ByteString.copyFrom("0x1".toByteArray()))

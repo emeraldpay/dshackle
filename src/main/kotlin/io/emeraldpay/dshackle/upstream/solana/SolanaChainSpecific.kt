@@ -13,12 +13,12 @@ import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.DefaultSolanaMethods
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.IngressSubscription
-import io.emeraldpay.dshackle.upstream.LabelsDetector
 import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.generic.AbstractChainSpecific
@@ -142,8 +142,8 @@ object SolanaChainSpecific : AbstractChainSpecific() {
         return SolanaLowerBoundBlockDetector(chain, upstream)
     }
 
-    override fun labelDetector(chain: Chain, reader: ChainReader): LabelsDetector? {
-        return null
+    override fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector {
+        return SolanaUpstreamSettingsDetector(upstream)
     }
 
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {

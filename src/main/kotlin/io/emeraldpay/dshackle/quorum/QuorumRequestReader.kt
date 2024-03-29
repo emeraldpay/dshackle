@@ -208,7 +208,7 @@ class QuorumRequestReader(
     private fun setupDefaultResult(key: ChainRequest): Mono<Result> {
         return Mono.just(quorum).flatMap { q ->
             if (q.isFailed()) {
-                val resolvedBy = resolvedBy()?.getId()
+                val resolvedBy = resolvedBy()
                 val err = handleError(q.getError(), key.id, resolvedBy)
                 log.debug("Quorum is failed. Method ${key.method}, message ${err.message}")
                 Mono.error(err)
@@ -220,7 +220,7 @@ class QuorumRequestReader(
     }
 
     private fun resolvedBy() =
-        if (quorum.getResolvedBy().isEmpty()) null else quorum.getResolvedBy().last()
+        if (quorum.getResolvedBy().isEmpty()) null else quorum.getResolvedBy().last().getUpstreamSettingsData()
 
     private fun noResponse(method: String, q: CallQuorum): Mono<Result> {
         return apiControl.upstreamsMatchesResponse()?.run {

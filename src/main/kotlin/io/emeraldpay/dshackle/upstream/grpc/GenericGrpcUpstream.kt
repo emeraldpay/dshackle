@@ -182,4 +182,8 @@ open class GenericGrpcUpstream(
     override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData {
         return LowerBoundBlockDetector.LowerBlockData.default()
     }
+
+    override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
+        return null
+    }
 }

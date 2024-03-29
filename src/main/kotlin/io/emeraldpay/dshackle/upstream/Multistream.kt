@@ -334,6 +334,14 @@ abstract class Multistream(
 
     override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData = lowerBlock
 
+    override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
+        return Upstream.UpstreamSettingsData(
+            nodeId(),
+            getId(),
+            UNKNOWN_CLIENT_VERSION,
+        )
+    }
+
     private fun observeUpstreamsStatuses() {
         subscribeAddedUpstreams()
             .flatMap { upstream ->

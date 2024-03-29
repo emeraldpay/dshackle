@@ -4,25 +4,45 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
-import io.emeraldpay.dshackle.reader.ChainReader
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
-typealias LabelsDetectorBuilder = (Chain, ChainReader) -> LabelsDetector?
-interface LabelsDetector {
-    fun detectLabels(): Flux<Pair<String, String>>
+const val UNKNOWN_CLIENT_VERSION = "unknown"
+
+typealias UpstreamSettingsDetectorBuilder = (Chain, Upstream) -> UpstreamSettingsDetector?
+abstract class UpstreamSettingsDetector(
+    private val upstream: Upstream,
+) {
+    protected val log = LoggerFactory.getLogger(this::class.java)
+
+    abstract fun detectLabels(): Flux<Pair<String, String>>
+
+    fun detectClientVersion(): Mono<String> {
+        return upstream.getIngressReader()
+            .read(clientVersionRequest())
+            .flatMap(ChainResponse::requireResult)
+            .map(::parseClientVersion)
+            .onErrorResume {
+                log.warn("Can't detect the client version of upstream ${upstream.getId()}, reason - {}", it.message)
+                Mono.just(UNKNOWN_CLIENT_VERSION)
+            }
+    }
+
+    protected abstract fun clientVersionRequest(): ChainRequest
+
+    protected abstract fun parseClientVersion(data: ByteArray): String
 }
 
-abstract class BasicEthLabelsDetector(
-    private val reader: ChainReader,
-) : LabelsDetector {
-    private val log = LoggerFactory.getLogger(this::class.java)
-
+abstract class BasicEthUpstreamSettingsDetector(
+    private val upstream: Upstream,
+) : UpstreamSettingsDetector(upstream) {
     protected abstract fun nodeTypeRequest(): NodeTypeRequest
 
     protected fun detectNodeType(): Flux<Pair<String, String>?> {
         val nodeTypeRequest = nodeTypeRequest()
-        return reader
+        return upstream
+            .getIngressReader()
             .read(nodeTypeRequest.request)
             .flatMap(ChainResponse::requireResult)
             .map { Global.objectMapper.readValue<JsonNode>(it) }
