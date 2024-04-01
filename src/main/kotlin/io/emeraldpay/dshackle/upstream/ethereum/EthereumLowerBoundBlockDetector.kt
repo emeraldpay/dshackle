@@ -37,6 +37,7 @@ class EthereumLowerBoundBlockDetector(
             "no historical RPC is available for this historical", // optimism
             "historical backend error", // optimism
             "load state tree: failed to load state tree", // filecoin
+            "purged for block", // erigon
         )
     }
 
