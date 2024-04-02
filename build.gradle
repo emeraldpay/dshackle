@@ -28,7 +28,7 @@ group = 'io.emeraldpay.dshackle'
 // Version schema:
 //    x.x.x for production, following SemVer model
 //    x.x.x-SNAPSHOT for development
-version = '0.15.0'
+version = '0.15.1'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
