@@ -244,10 +244,10 @@ chain-settings:
           settings:
             expected-block-time: 1m
         - id: Cardona
-          priority: 1
+          priority: 2
           code: POLYGON_ZKEVM_CARDONA_TESTNET
           grpcId: 10073
-          short-names: [polygon-zkevm-cardona-testnet]
+          short-names: [polygon-zkevm-cardona]
           chain-id: 0x98a
           settings:
             expected-block-time: 1m
