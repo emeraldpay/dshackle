@@ -243,6 +243,14 @@ chain-settings:
           chain-id: 0x5a2
           settings:
             expected-block-time: 1m
+        - id: Cardona
+          priority: 1
+          code: POLYGON_ZKEVM_CARDONA_TESTNET
+          grpcId: 10073
+          short-names: [polygon-zkevm-cardona-testnet]
+          chain-id: 0x98a
+          settings:
+            expected-block-time: 1m
     - id: arbitrum-nova
       label: Arbitrum Nova
       type: eth
