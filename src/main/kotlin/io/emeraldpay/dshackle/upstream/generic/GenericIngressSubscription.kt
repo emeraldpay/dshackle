@@ -38,7 +38,7 @@ class GenericSubscriptionConnect(
 
     @Suppress("UNCHECKED_CAST")
     override fun createConnection(): Flux<Any> {
-        return conn.subscribe(ChainRequest(topic, ListParams(getParams(params))))
+        return conn.subscribe(ChainRequest(topic, ListParams(getParams(params) as List<Any>)))
             .data
             .timeout(Duration.ofSeconds(60), Mono.empty())
             .onErrorResume { Mono.empty() } as Flux<Any>
