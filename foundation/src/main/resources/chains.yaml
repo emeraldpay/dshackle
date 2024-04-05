@@ -607,7 +607,7 @@ chain-settings:
         lags:
           syncing: 40
           lagging: 20
-        fork-choice: height
+        fork-choice: quorum
       chains:
         - id: Mainnet
           priority: 100
@@ -780,8 +780,8 @@ chain-settings:
         options:
           validate-peers: false
         lags:
-          syncing: 40
-          lagging: 20
+          syncing: 1000
+          lagging: 100
         fork-choice: quorum
       chains:
         - id: Mainnet
