@@ -49,6 +49,7 @@ class DefaultSolanaMethods : CallMethods {
         "getProgramAccounts",
         "getRecentPerformanceSamples",
         "getRecentPrioritizationFees",
+        "getConfirmedTransaction",
         "getSignaturesForAddress",
         "getSignatureStatuses",
         "getSlot",
