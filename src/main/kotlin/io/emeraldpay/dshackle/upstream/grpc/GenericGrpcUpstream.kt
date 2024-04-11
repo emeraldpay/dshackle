@@ -31,11 +31,11 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
@@ -179,8 +179,8 @@ open class GenericGrpcUpstream(
         return true
     }
 
-    override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData {
-        return LowerBoundBlockDetector.LowerBlockData.default()
+    override fun getLowerBounds(): Collection<LowerBoundData> {
+        return emptyList()
     }
 
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {

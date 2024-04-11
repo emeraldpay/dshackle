@@ -12,7 +12,6 @@ import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LogsOracle
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
@@ -27,6 +26,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
@@ -91,8 +91,8 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         return EthereumUpstreamValidator(chain, upstream, options, config)
     }
 
-    override fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector {
-        return EthereumLowerBoundBlockDetector(chain, upstream)
+    override fun lowerBoundService(chain: Chain, upstream: Upstream): LowerBoundService {
+        return EthereumLowerBoundService(chain, upstream)
     }
 
     override fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector {

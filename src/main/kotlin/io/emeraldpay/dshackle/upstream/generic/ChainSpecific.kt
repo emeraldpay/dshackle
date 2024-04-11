@@ -20,7 +20,6 @@ import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LogsOracle
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
@@ -30,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.near.NearChainSpecific
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotChainSpecific
 import io.emeraldpay.dshackle.upstream.solana.SolanaChainSpecific
@@ -66,7 +66,7 @@ interface ChainSpecific {
 
     fun callSelector(caches: Caches): CallSelector?
 
-    fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector
+    fun lowerBoundService(chain: Chain, upstream: Upstream): LowerBoundService
 }
 
 object ChainSpecificRegistry {

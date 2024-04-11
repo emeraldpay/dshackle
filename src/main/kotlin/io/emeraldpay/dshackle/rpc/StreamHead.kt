@@ -23,6 +23,8 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.MultistreamHolder
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -51,17 +53,54 @@ class StreamHead(
     }
 
     fun asProto(ms: Multistream, chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
+        val msLowerBounds = ms.getLowerBounds()
+        val lowerBoundsProto = msLowerBounds
+            .map {
+                BlockchainOuterClass.LowerBound.newBuilder()
+                    .setLowerBoundTimestamp(it.timestamp)
+                    .setLowerBoundType(toProtoLowerBoundType(it.type))
+                    .setLowerBoundValue(it.lowerBound)
+                    .build()
+            }
+        val toOldApi = toOldApi(msLowerBounds)
+
         return BlockchainOuterClass.ChainHead.newBuilder()
             .setChainValue(chain.id)
             .setHeight(block.height)
             .setSlot(block.slot)
-            .setCurrentLowerBlock(ms.getLowerBlock().blockNumber)
-            .setCurrentLowerSlot(ms.getLowerBlock().slot ?: 0)
-            .setCurrentLowerDataTimestamp(ms.getLowerBlock().timestamp)
+            .setCurrentLowerBlock(toOldApi.block)
+            .setCurrentLowerSlot(toOldApi.slot)
+            .setCurrentLowerDataTimestamp(toOldApi.timestamp)
+            .addAllLowerBounds(lowerBoundsProto)
             .setTimestamp(block.timestamp.toEpochMilli())
             .setWeight(ByteString.copyFrom(block.difficulty.toByteArray()))
             .setBlockId(block.hash.toHex())
             .setParentBlockId(block.parentHash?.toHex() ?: "")
             .build()
     }
+
+    private fun toOldApi(lowerBounds: Collection<LowerBoundData>): LowerBoundDataOldApiCompatibility {
+        val lowerBlockData = lowerBounds.find { it.type == LowerBoundType.STATE } ?: LowerBoundData.default()
+        val slot = lowerBounds.find { it.type == LowerBoundType.SLOT }?.lowerBound ?: 0
+
+        return LowerBoundDataOldApiCompatibility(
+            lowerBlockData.lowerBound,
+            slot,
+            lowerBlockData.timestamp,
+        )
+    }
+
+    private fun toProtoLowerBoundType(type: LowerBoundType): BlockchainOuterClass.LowerBoundType {
+        return when (type) {
+            LowerBoundType.SLOT -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_SLOT
+            LowerBoundType.UNKNOWN -> BlockchainOuterClass.LowerBoundType.UNRECOGNIZED
+            LowerBoundType.STATE -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_STATE
+        }
+    }
+
+    private data class LowerBoundDataOldApiCompatibility(
+        val block: Long,
+        val slot: Long,
+        val timestamp: Long,
+    )
 }

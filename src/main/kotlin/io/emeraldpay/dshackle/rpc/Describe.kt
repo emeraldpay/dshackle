@@ -46,8 +46,6 @@ class Describe(
                         .addAllSupportedSubscriptions(chainUpstreams.getEgressSubscription().getAvailableTopics())
                         .setStatus(status)
                         .setCurrentHeight(chainUpstreams.getHead().getCurrentHeight() ?: 0)
-                        .setCurrentLowerBlock(chainUpstreams.getLowerBlock().blockNumber)
-                        .setCurrentLowerSlot(chainUpstreams.getLowerBlock().slot ?: 0)
                     chainUpstreams.getQuorumLabels()
                         .forEach { node ->
                             val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()

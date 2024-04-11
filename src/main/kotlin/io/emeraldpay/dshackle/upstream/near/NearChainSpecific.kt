@@ -9,7 +9,6 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
 import io.emeraldpay.dshackle.upstream.ChainRequest
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -17,6 +16,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
 import java.math.BigInteger
@@ -70,8 +70,8 @@ object NearChainSpecific : AbstractPollChainSpecific() {
         )
     }
 
-    override fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector {
-        return NearLowerBoundBlockDetector(chain, upstream)
+    override fun lowerBoundService(chain: Chain, upstream: Upstream): LowerBoundService {
+        return NearLowerBoundService(chain, upstream)
     }
 
     fun validate(data: ByteArray): UpstreamAvailability {

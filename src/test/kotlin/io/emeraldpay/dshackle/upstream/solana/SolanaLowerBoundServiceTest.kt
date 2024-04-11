@@ -6,8 +6,10 @@ import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
@@ -15,7 +17,7 @@ import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import java.time.Duration
 
-class SolanaLowerBoundBlockDetectorTest {
+class SolanaLowerBoundServiceTest {
 
     @Test
     fun `get solana lower block and slot`() {
@@ -54,16 +56,23 @@ class SolanaLowerBoundBlockDetectorTest {
             on { getIngressReader() } doReturn reader
         }
 
-        val detector = SolanaLowerBoundBlockDetector(Chain.UNSPECIFIED, upstream)
+        val detector = SolanaLowerBoundService(Chain.UNSPECIFIED, upstream)
 
-        StepVerifier.withVirtualTime { detector.lowerBlock() }
+        StepVerifier.withVirtualTime { detector.detectLowerBounds() }
             .expectSubscription()
             .expectNoEvent(Duration.ofSeconds(15))
-            .expectNextMatches { it.blockNumber == 21000000L && it.slot == 25000000L }
+            .expectNextMatches { it.lowerBound == 21000000L && it.type == LowerBoundType.STATE }
+            .expectNextMatches { it.lowerBound == 25000000L && it.type == LowerBoundType.SLOT }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
-        assertEquals(21000000, detector.getCurrentLowerBlock().blockNumber)
-        assertEquals(25000000, detector.getCurrentLowerBlock().slot)
+        assertThat(detector.getLowerBounds().toList())
+            .usingRecursiveFieldByFieldElementComparatorIgnoringFields("timestamp")
+            .hasSameElementsAs(
+                listOf(
+                    LowerBoundData(21000000L, LowerBoundType.STATE),
+                    LowerBoundData(25000000L, LowerBoundType.SLOT),
+                ),
+            )
     }
 }

@@ -28,6 +28,8 @@ import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Metrics
@@ -78,8 +80,7 @@ abstract class Multistream(
     @Volatile
     private var capabilities: Set<Capability> = emptySet()
 
-    @Volatile
-    private var lowerBlock: LowerBoundBlockDetector.LowerBlockData = LowerBoundBlockDetector.LowerBlockData.default()
+    private val lowerBounds = ConcurrentHashMap<LowerBoundType, LowerBoundData>()
 
     @Volatile
     private var quorumLabels: List<QuorumForLabels.QuorumItem>? = null
@@ -242,10 +243,15 @@ abstract class Multistream(
             }
         }
         quorumLabels = getQuorumLabels(availableUpstreams)
+
         availableUpstreams
-            .filter { it.getLowerBlock() != LowerBoundBlockDetector.LowerBlockData.default() }
-            .minOfOrNull { it.getLowerBlock() }
-            ?.let { lowerBlock = it }
+            .flatMap { it.getLowerBounds() }
+            .groupBy { it.type }
+            .forEach { entry ->
+                val min = entry.value.minBy { it.lowerBound }
+                lowerBounds[entry.key] = min
+            }
+
         when {
             upstreams.size == 1 -> {
                 lagObserver?.stop()
@@ -332,7 +338,9 @@ abstract class Multistream(
         started = true
     }
 
-    override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData = lowerBlock
+    override fun getLowerBounds(): Collection<LowerBoundData> {
+        return lowerBounds.values
+    }
 
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
         return Upstream.UpstreamSettingsData(
@@ -434,10 +442,10 @@ abstract class Multistream(
         val weak = getUpstreams()
             .filter { it.getStatus() != UpstreamAvailability.OK }
             .joinToString(", ") { it.getId() }
-        val lowerBlockData = "[height=${lowerBlock.blockNumber}, slot=${lowerBlock.slot ?: "NA"}]"
+        val lowerBlockData = lowerBounds.entries.joinToString(", ") { "${it.key}=${it.value.lowerBound}" }
 
         val instance = System.identityHashCode(this).toString(16)
-        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=[$statuses], lag=[$lag], lower block=$lowerBlockData, weak=[$weak] ($instance)")
+        log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=[$statuses], lag=[$lag], lower bounds=[$lowerBlockData], weak=[$weak] ($instance)")
     }
 
     fun test(event: UpstreamChangeEvent): Boolean {

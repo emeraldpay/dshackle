@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import reactor.core.publisher.Flux
 
 interface Upstream : Lifecycle {
@@ -44,7 +45,7 @@ interface Upstream : Lifecycle {
     fun getId(): String
     fun getCapabilities(): Set<Capability>
     fun isGrpc(): Boolean
-    fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData
+    fun getLowerBounds(): Collection<LowerBoundData>
     fun getUpstreamSettingsData(): UpstreamSettingsData?
 
     fun <T : Upstream> cast(selfType: Class<T>): T

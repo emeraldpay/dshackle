@@ -12,11 +12,11 @@ import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.ChainRequest
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.RestParams
 import java.math.BigInteger
 import java.time.Instant
@@ -68,8 +68,8 @@ object BeaconChainSpecific : AbstractPollChainSpecific() {
         return BeaconChainValidator(upstream, options)
     }
 
-    override fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector {
-        return BeaconChainLowerBoundBlockDetector(chain, upstream)
+    override fun lowerBoundService(chain: Chain, upstream: Upstream): LowerBoundService {
+        return BeaconChainLowerBoundService(chain, upstream)
     }
 }
 

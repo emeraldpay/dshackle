@@ -31,13 +31,13 @@ import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.bitcoin.BitcoinUpstream
 import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.reactivestreams.Publisher
@@ -150,8 +150,8 @@ class BitcoinGrpcUpstream(
         return true
     }
 
-    override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData {
-        return LowerBoundBlockDetector.LowerBlockData.default()
+    override fun getLowerBounds(): Collection<LowerBoundData> {
+        return emptyList()
     }
 
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {

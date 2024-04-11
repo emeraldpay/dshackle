@@ -1,24 +1,29 @@
 package io.emeraldpay.dshackle.upstream.solana
 
-import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundDetector
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
 import java.time.Duration
 import kotlin.math.max
 
-class SolanaLowerBoundBlockDetector(
-    chain: Chain,
+class SolanaLowerBoundSlotDetector(
     private val upstream: Upstream,
-) : LowerBoundBlockDetector(chain, upstream) {
+) : LowerBoundDetector() {
     private val reader = upstream.getIngressReader()
 
-    override fun lowerBlockDetect(): Mono<LowerBlockData> {
+    override fun period(): Long {
+        return 3
+    }
+
+    override fun internalDetectLowerBound(): Flux<LowerBoundData> {
         return Mono.just(reader)
             .flatMap {
                 it.read(
@@ -34,7 +39,7 @@ class SolanaLowerBoundBlockDetector(
                     slot
                 }
             }
-            .flatMap {
+            .flatMapMany {
                 reader.read(
                     ChainRequest(
                         "getBlock", // since getFirstAvailableBlock returns the slot of the lowest confirmed block we can directly call getBlock
@@ -49,9 +54,12 @@ class SolanaLowerBoundBlockDetector(
                     ),
                 )
                     .flatMap(ChainResponse::requireResult)
-                    .map { blockData ->
+                    .flatMapMany { blockData ->
                         val block = Global.objectMapper.readValue(blockData, SolanaBlock::class.java)
-                        LowerBlockData(max(block.height, 1), it)
+                        Flux.just(
+                            LowerBoundData(max(block.height, 1), LowerBoundType.STATE),
+                            LowerBoundData(it, LowerBoundType.SLOT),
+                        )
                     }
             }
             .retryWhen(
@@ -67,9 +75,5 @@ class SolanaLowerBoundBlockDetector(
                         )
                     },
             )
-    }
-
-    override fun periodRequest(): Long {
-        return 3
     }
 }

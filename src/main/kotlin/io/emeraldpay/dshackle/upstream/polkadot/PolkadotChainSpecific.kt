@@ -15,7 +15,6 @@ import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LogsOracle
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -29,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.LocalReader
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -105,8 +105,8 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
         )
     }
 
-    override fun lowerBoundBlockDetector(chain: Chain, upstream: Upstream): LowerBoundBlockDetector {
-        return PolkadotLowerBoundBlockDetector(chain, upstream)
+    override fun lowerBoundService(chain: Chain, upstream: Upstream): LowerBoundService {
+        return PolkadotLowerBoundService(chain, upstream)
     }
 
     fun validate(data: ByteArray, peers: Int, upstreamId: String): UpstreamAvailability {

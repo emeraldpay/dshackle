@@ -13,8 +13,6 @@ import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetector
-import io.emeraldpay.dshackle.upstream.LowerBoundBlockDetectorBuilder
 import io.emeraldpay.dshackle.upstream.UNKNOWN_CLIENT_VERSION
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
@@ -25,6 +23,8 @@ import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.generic.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundServiceBuilder
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -45,7 +45,7 @@ open class GenericUpstream(
     connectorFactory: ConnectorFactory,
     validatorBuilder: UpstreamValidatorBuilder,
     upstreamSettingsDetectorBuilder: UpstreamSettingsDetectorBuilder,
-    lowerBoundBlockDetectorBuilder: LowerBoundBlockDetectorBuilder,
+    lowerBoundServiceBuilder: LowerBoundServiceBuilder,
 ) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig), Lifecycle {
 
     private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig)
@@ -58,7 +58,7 @@ open class GenericUpstream(
     private var livenessSubscription: Disposable? = null
     private val settingsDetector = upstreamSettingsDetectorBuilder(chain, this)
 
-    private val lowerBoundBlockDetector = lowerBoundBlockDetectorBuilder(chain, this)
+    private val lowerBoundService = lowerBoundServiceBuilder(chain, this)
 
     private val started = AtomicBoolean(false)
     private val isUpstreamValid = AtomicBoolean(false)
@@ -90,8 +90,8 @@ open class GenericUpstream(
         return false
     }
 
-    override fun getLowerBlock(): LowerBoundBlockDetector.LowerBlockData {
-        return lowerBoundBlockDetector.getCurrentLowerBlock()
+    override fun getLowerBounds(): Collection<LowerBoundData> {
+        return lowerBoundService.getLowerBounds()
     }
 
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
@@ -233,7 +233,7 @@ open class GenericUpstream(
     }
 
     private fun detectLowerBlock() {
-        lowerBlockDetectorSubscription = lowerBoundBlockDetector.lowerBlock()
+        lowerBlockDetectorSubscription = lowerBoundService.detectLowerBounds()
             .subscribe {
                 sendUpstreamStateEvent(UPDATED)
             }

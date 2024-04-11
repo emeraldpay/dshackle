@@ -2,11 +2,15 @@ package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.reader.ChainReader
-import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundBlockDetector
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundService
 import io.emeraldpay.dshackle.upstream.ethereum.ZERO_ADDRESS
-import io.emeraldpay.dshackle.upstream.polkadot.PolkadotLowerBoundBlockDetector
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
+import io.emeraldpay.dshackle.upstream.lowerbound.toHex
+import io.emeraldpay.dshackle.upstream.polkadot.PolkadotLowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -17,13 +21,13 @@ import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import java.time.Duration
 
-class RecursiveLowerBoundBlockDetectorTest {
+class RecursiveLowerBoundServiceTest {
 
     @ParameterizedTest
     @MethodSource("detectors")
     fun `find lower block closer to the height`(
         reader: ChainReader,
-        detectorClass: Class<LowerBoundBlockDetector>,
+        detectorClass: Class<LowerBoundService>,
     ) {
         val head = mock<Head> {
             on { getCurrentHeight() } doReturn 18000000
@@ -35,21 +39,25 @@ class RecursiveLowerBoundBlockDetectorTest {
 
         val detector = detectorClass.getConstructor(Chain::class.java, Upstream::class.java).newInstance(Chain.UNSPECIFIED, upstream)
 
-        StepVerifier.withVirtualTime { detector.lowerBlock() }
+        StepVerifier.withVirtualTime { detector.detectLowerBounds() }
             .expectSubscription()
             .expectNoEvent(Duration.ofSeconds(15))
-            .expectNextMatches { it.blockNumber == 17964844L }
+            .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.STATE }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
-        assertEquals(17964844L, detector.getCurrentLowerBlock().blockNumber)
+        assertThat(detector.getLowerBounds().toList())
+            .usingRecursiveFieldByFieldElementComparatorIgnoringFields("timestamp")
+            .hasSameElementsAs(
+                listOf(LowerBoundData(17964844L, LowerBoundType.STATE)),
+            )
     }
 
     @ParameterizedTest
     @MethodSource("detectorsFirstBlock")
     fun `lower block is 0x1`(
         reader: ChainReader,
-        detectorClass: Class<LowerBoundBlockDetector>,
+        detectorClass: Class<LowerBoundService>,
     ) {
         val head = mock<Head> {
             on { getCurrentHeight() } doReturn 18000000
@@ -61,14 +69,18 @@ class RecursiveLowerBoundBlockDetectorTest {
 
         val detector = detectorClass.getConstructor(Chain::class.java, Upstream::class.java).newInstance(Chain.UNSPECIFIED, upstream)
 
-        StepVerifier.withVirtualTime { detector.lowerBlock() }
+        StepVerifier.withVirtualTime { detector.detectLowerBounds() }
             .expectSubscription()
             .expectNoEvent(Duration.ofSeconds(15))
-            .expectNextMatches { it.blockNumber == 1L }
+            .expectNextMatches { it.lowerBound == 1L }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
-        assertEquals(1, detector.getCurrentLowerBlock().blockNumber)
+        assertThat(detector.getLowerBounds().toList())
+            .usingRecursiveFieldByFieldElementComparatorIgnoringFields("timestamp")
+            .hasSameElementsAs(
+                listOf(LowerBoundData(1L, LowerBoundType.STATE)),
+            )
     }
 
     companion object {
@@ -96,7 +108,7 @@ class RecursiveLowerBoundBlockDetectorTest {
                         }
                     }
                 },
-                EthereumLowerBoundBlockDetector::class.java,
+                EthereumLowerBoundService::class.java,
             ),
             Arguments.of(
                 mock<ChainReader> {
@@ -118,7 +130,7 @@ class RecursiveLowerBoundBlockDetectorTest {
                         }
                     }
                 },
-                PolkadotLowerBoundBlockDetector::class.java,
+                PolkadotLowerBoundService::class.java,
             ),
         )
 
@@ -130,13 +142,13 @@ class RecursiveLowerBoundBlockDetectorTest {
                         read(any())
                     } doReturn Mono.just(ChainResponse("\"0x1\"".toByteArray(), null))
                 },
-                PolkadotLowerBoundBlockDetector::class.java,
+                PolkadotLowerBoundService::class.java,
             ),
             Arguments.of(
                 mock<ChainReader> {
                     on { read(any()) } doReturn Mono.just(ChainResponse(ByteArray(0), null))
                 },
-                EthereumLowerBoundBlockDetector::class.java,
+                EthereumLowerBoundService::class.java,
             ),
         )
     }
