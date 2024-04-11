@@ -30,7 +30,6 @@ class RecursiveLowerBound(
                 }
             }
             .expand { data ->
-                println(data)
                 if (data.found) {
                     Mono.empty()
                 } else {
