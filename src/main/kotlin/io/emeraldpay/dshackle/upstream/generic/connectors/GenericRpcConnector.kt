@@ -93,6 +93,7 @@ class GenericRpcConnector(
                         headScheduler,
                         upstream,
                         chainSpecific,
+                        expectedBlockTime,
                     )
                 // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
                 val rpcHead =
@@ -118,6 +119,7 @@ class GenericRpcConnector(
                     headScheduler,
                     upstream,
                     chainSpecific,
+                    expectedBlockTime,
                 )
             }
         }

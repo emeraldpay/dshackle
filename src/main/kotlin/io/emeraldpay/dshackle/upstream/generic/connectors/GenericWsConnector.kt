@@ -46,6 +46,7 @@ class GenericWsConnector(
             headScheduler,
             upstream,
             chainSpecific,
+            expectedBlockTime,
         )
         liveness = HeadLivenessValidator(head, expectedBlockTime, headLivenessScheduler, upstream.getId())
         subscriptions = chainSpecific.makeIngressSubscription(wsSubscriptions)

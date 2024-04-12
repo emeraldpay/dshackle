@@ -73,7 +73,17 @@ class GenericWsHeadSpec extends Specification {
                 Flux.fromIterable([headBlock]), "id", new AtomicReference<String>("")
         )
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, reader, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(
+                new AlwaysForkChoice(),
+                BlockValidator.ALWAYS_VALID,
+                reader,
+                ws,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                upstream,
+                EthereumChainSpecific.INSTANCE,
+                Duration.ofSeconds(60),
+        )
 
         def res = BlockContainer.from(block)
         when:
@@ -112,7 +122,17 @@ class GenericWsHeadSpec extends Specification {
             ]
         }
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(
+                new AlwaysForkChoice(),
+                BlockValidator.ALWAYS_VALID,
+                apiMock,
+                ws,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                upstream,
+                EthereumChainSpecific.INSTANCE,
+                Duration.ofSeconds(60),
+        )
 
         when:
         def act = head.getFlux()
@@ -166,7 +186,17 @@ class GenericWsHeadSpec extends Specification {
             ]
         }
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(
+                new AlwaysForkChoice(),
+                BlockValidator.ALWAYS_VALID,
+                apiMock,
+                ws,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                upstream,
+                EthereumChainSpecific.INSTANCE,
+                Duration.ofSeconds(60),
+        )
 
         when:
         def act = head.getFlux()
@@ -206,7 +236,17 @@ class GenericWsHeadSpec extends Specification {
             ]
         }
 
-        def head = new GenericWsHead( new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(
+                new AlwaysForkChoice(),
+                BlockValidator.ALWAYS_VALID,
+                apiMock,
+                ws,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                upstream,
+                EthereumChainSpecific.INSTANCE,
+                Duration.ofSeconds(60),
+        )
 
         when:
         def act = head.getFlux()
@@ -245,7 +285,17 @@ class GenericWsHeadSpec extends Specification {
             ]
         }
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(
+                new AlwaysForkChoice(),
+                BlockValidator.ALWAYS_VALID,
+                apiMock,
+                ws,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                upstream,
+                EthereumChainSpecific.INSTANCE,
+                Duration.ofSeconds(60),
+        )
 
         when:
         def act = head.getFlux()
@@ -298,7 +348,17 @@ class GenericWsHeadSpec extends Specification {
             ]
         }
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(
+                new AlwaysForkChoice(),
+                BlockValidator.ALWAYS_VALID,
+                apiMock,
+                ws,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                upstream,
+                EthereumChainSpecific.INSTANCE,
+                Duration.ofSeconds(60),
+        )
 
         when:
         def act = head.getFlux()
@@ -351,7 +411,17 @@ class GenericWsHeadSpec extends Specification {
                     Mono.just(new ChainResponse("".bytes, null))
         }
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, reader, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(
+                new AlwaysForkChoice(),
+                BlockValidator.ALWAYS_VALID,
+                reader,
+                ws,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                upstream,
+                EthereumChainSpecific.INSTANCE,
+                Duration.ofSeconds(60),
+        )
 
         when:
         def act = head.getFlux()
@@ -388,7 +458,17 @@ class GenericWsHeadSpec extends Specification {
             ]
         }
 
-        def head = new GenericWsHead(new AlwaysForkChoice(), BlockValidator.ALWAYS_VALID, apiMock, ws, Schedulers.boundedElastic(), Schedulers.boundedElastic(), upstream, EthereumChainSpecific.INSTANCE)
+        def head = new GenericWsHead(
+                new AlwaysForkChoice(),
+                BlockValidator.ALWAYS_VALID,
+                apiMock,
+                ws,
+                Schedulers.boundedElastic(),
+                Schedulers.boundedElastic(),
+                upstream,
+                EthereumChainSpecific.INSTANCE,
+                Duration.ofSeconds(60),
+        )
 
         when:
         head.start()

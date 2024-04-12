@@ -42,7 +42,18 @@ class GenericWsHead(
     headScheduler: Scheduler,
     upstream: DefaultUpstream,
     private val chainSpecific: ChainSpecific,
+    timeout: Duration,
 ) : GenericHead(upstream.getId(), forkChoice, blockValidator, headScheduler, chainSpecific), Lifecycle {
+    private val wsHeadTimeout = run {
+        val defaultTimeout = Duration.ofMinutes(1)
+        if (timeout >= defaultTimeout) {
+            timeout.plus(defaultTimeout)
+        } else {
+            defaultTimeout
+        }
+    }.also {
+        log.info("WS head timeout for ${upstream.getId()} is $it")
+    }
 
     private var connectionId: String? = null
     private var subscribed = false
@@ -92,7 +103,7 @@ class GenericWsHead(
             .map {
                 chainSpecific.parseHeader(it, "unknown")
             }
-            .timeout(Duration.ofSeconds(60), Mono.error(RuntimeException("No response from subscribe to newHeads")))
+            .timeout(wsHeadTimeout, Mono.error(RuntimeException("No response from subscribe to newHeads")))
             .onErrorResume {
                 log.error("Error getting heads for $upstreamId", it)
                 subscribed = false
