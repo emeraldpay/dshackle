@@ -336,7 +336,7 @@ class DefaultEthereumMethods(
         return when (chain) {
             Chain.OPTIMISM__MAINNET -> setOf("eth_getAccounts")
             Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__TESTNET, Chain.POLYGON_ZKEVM__TESTNET, Chain.POLYGON_ZKEVM__MAINNET ->
-                setOf("eth_maxPriorityFeePerGas")
+                setOf("eth_maxPriorityFeePerGas", "zks_getBytecodeByHash")
             Chain.TELOS__MAINNET, Chain.TELOS__TESTNET -> setOf(
                 "eth_syncing",
                 "net_peerCount",
