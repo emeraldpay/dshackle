@@ -19,5 +19,5 @@ data class LowerBoundData(
 }
 
 enum class LowerBoundType {
-    UNKNOWN, STATE, SLOT
+    UNKNOWN, STATE, SLOT, BLOCK
 }

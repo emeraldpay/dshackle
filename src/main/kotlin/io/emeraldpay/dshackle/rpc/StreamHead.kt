@@ -95,6 +95,7 @@ class StreamHead(
             LowerBoundType.SLOT -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_SLOT
             LowerBoundType.UNKNOWN -> BlockchainOuterClass.LowerBoundType.UNRECOGNIZED
             LowerBoundType.STATE -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_STATE
+            LowerBoundType.BLOCK -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_BLOCK
         }
     }
 

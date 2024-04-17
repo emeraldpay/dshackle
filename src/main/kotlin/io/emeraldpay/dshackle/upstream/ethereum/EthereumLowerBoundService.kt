@@ -10,6 +10,9 @@ class EthereumLowerBoundService(
     private val upstream: Upstream,
 ) : LowerBoundService(chain, upstream) {
     override fun detectors(): List<LowerBoundDetector> {
-        return listOf(EthereumLowerBoundStateDetector(upstream))
+        return listOf(
+            EthereumLowerBoundStateDetector(upstream),
+            EthereumLowerBoundBlockDetector(upstream),
+        )
     }
 }
