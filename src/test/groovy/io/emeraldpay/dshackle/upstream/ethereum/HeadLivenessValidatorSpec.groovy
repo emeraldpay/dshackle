@@ -14,7 +14,7 @@ class HeadLivenessValidatorSpec extends Specification{
     def "emits true"() {
         when:
         def head = new EthereumHeadMock()
-        def checker = new HeadLivenessValidator(head, Duration.ofSeconds(10), Schedulers.boundedElastic(), "test")
+        def checker = new HeadLivenessValidatorImpl(head, Duration.ofSeconds(10), Schedulers.boundedElastic(), "test")
         then:
         StepVerifier.create(checker.flux)
                 .then {
@@ -30,7 +30,7 @@ class HeadLivenessValidatorSpec extends Specification{
             1 * it.headLiveness() >> Flux.just(false)
             1 * it.getFlux() >> Flux.just(TestingCommons.blockForEthereum(1))
         }
-        def checker = new HeadLivenessValidator(head, Duration.ofSeconds(10), Schedulers.boundedElastic(), "test")
+        def checker = new HeadLivenessValidatorImpl(head, Duration.ofSeconds(10), Schedulers.boundedElastic(), "test")
         then:
         StepVerifier.create(checker.flux)
                 .expectNext(false)
@@ -41,7 +41,7 @@ class HeadLivenessValidatorSpec extends Specification{
     def "starts accumulating trues but immediately emits after false"() {
         when:
         def head = new EthereumHeadMock()
-        def checker = new HeadLivenessValidator(head, Duration.ofSeconds(100), Schedulers.boundedElastic(), "test")
+        def checker = new HeadLivenessValidatorImpl(head, Duration.ofSeconds(100), Schedulers.boundedElastic(), "test")
         then:
         StepVerifier.create(checker.flux)
                 .then {
@@ -59,7 +59,7 @@ class HeadLivenessValidatorSpec extends Specification{
     def "starts accumulating trues but timeouts because head staled"() {
         when:
         def head = new EthereumHeadMock()
-        def checker = new HeadLivenessValidator(head, Duration.ofMillis(100), Schedulers.boundedElastic(), "test")
+        def checker = new HeadLivenessValidatorImpl(head, Duration.ofMillis(100), Schedulers.boundedElastic(), "test")
         then:
         StepVerifier.create(checker.flux)
                 .then {
@@ -74,7 +74,7 @@ class HeadLivenessValidatorSpec extends Specification{
     def "it recovers after timeout"() {
         when:
         def head = new EthereumHeadMock()
-        def checker = new HeadLivenessValidator(head, Duration.ofMillis(200), Schedulers.boundedElastic(), "test")
+        def checker = new HeadLivenessValidatorImpl(head, Duration.ofMillis(200), Schedulers.boundedElastic(), "test")
         then:
         StepVerifier.create(checker.flux)
                 .then {

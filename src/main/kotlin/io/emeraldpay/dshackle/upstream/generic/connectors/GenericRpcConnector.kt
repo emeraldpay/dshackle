@@ -13,6 +13,8 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.NoIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.GenericWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidatorImpl
+import io.emeraldpay.dshackle.upstream.ethereum.NoHeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
@@ -123,7 +125,11 @@ class GenericRpcConnector(
                 )
             }
         }
-        liveness = HeadLivenessValidator(head, expectedBlockTime, headLivenessScheduler, id)
+
+        liveness = when (connectorType) {
+            RPC_ONLY -> NoHeadLivenessValidator()
+            RPC_REQUESTS_WITH_MIXED_HEAD, RPC_REQUESTS_WITH_WS_HEAD, WS_ONLY -> HeadLivenessValidatorImpl(head, expectedBlockTime, headLivenessScheduler, id)
+        }
     }
 
     override fun setCaches(caches: Caches) {

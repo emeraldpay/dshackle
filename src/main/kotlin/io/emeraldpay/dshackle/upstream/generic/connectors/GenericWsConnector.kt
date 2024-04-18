@@ -6,7 +6,7 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.GenericWsHead
-import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidatorImpl
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptionsImpl
@@ -32,7 +32,7 @@ class GenericWsConnector(
     private val reader: ChainReader
     private val head: GenericWsHead
     private val subscriptions: IngressSubscription
-    private val liveness: HeadLivenessValidator
+    private val liveness: HeadLivenessValidatorImpl
     init {
         pool = wsFactory.create(upstream)
         reader = JsonRpcWsClient(pool)
@@ -48,7 +48,7 @@ class GenericWsConnector(
             chainSpecific,
             expectedBlockTime,
         )
-        liveness = HeadLivenessValidator(head, expectedBlockTime, headLivenessScheduler, upstream.getId())
+        liveness = HeadLivenessValidatorImpl(head, expectedBlockTime, headLivenessScheduler, upstream.getId())
         subscriptions = chainSpecific.makeIngressSubscription(wsSubscriptions)
     }
 
