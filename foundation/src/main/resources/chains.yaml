@@ -193,7 +193,7 @@ chain-settings:
           code: OPTIMISM_SEPOLIA
           grpcId: 10038
           short-names: [optimism-sepolia]
-          chain-id: 0XAA37DC
+          chain-id: 0xaa37dc
     - id: bsc
       label: BNB Smart Chain
       type: eth
