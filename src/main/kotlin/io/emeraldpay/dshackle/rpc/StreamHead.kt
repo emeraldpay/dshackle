@@ -93,7 +93,7 @@ class StreamHead(
     private fun toProtoLowerBoundType(type: LowerBoundType): BlockchainOuterClass.LowerBoundType {
         return when (type) {
             LowerBoundType.SLOT -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_SLOT
-            LowerBoundType.UNKNOWN -> BlockchainOuterClass.LowerBoundType.UNRECOGNIZED
+            LowerBoundType.UNKNOWN -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_UNSPECIFIED
             LowerBoundType.STATE -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_STATE
             LowerBoundType.BLOCK -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_BLOCK
         }

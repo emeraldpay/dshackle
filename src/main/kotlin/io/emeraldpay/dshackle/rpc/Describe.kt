@@ -35,44 +35,46 @@ class Describe(
         return requestMono.map { _ ->
             val resp = BlockchainOuterClass.DescribeResponse.newBuilder()
             resp.buildInfoBuilder.version = Global.version
-            multistreamHolder.getAvailable().forEach { chain ->
-                multistreamHolder.getUpstream(chain).let { chainUpstreams ->
-                    val status = subscribeStatus.chainStatus(chain, chainUpstreams.getStatus(), chainUpstreams)
-                    val targets = chainUpstreams.getMethods().getSupportedMethods()
-                    val capabilities: MutableSet<Capability> = mutableSetOf()
-                    val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
-                        .setChain(Common.ChainRef.forNumber(chain.id))
-                        .addAllSupportedMethods(targets)
-                        .addAllSupportedSubscriptions(chainUpstreams.getEgressSubscription().getAvailableTopics())
-                        .setStatus(status)
-                        .setCurrentHeight(chainUpstreams.getHead().getCurrentHeight() ?: 0)
-                    chainUpstreams.getQuorumLabels()
-                        .forEach { node ->
-                            val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()
-                                .setQuorum(node.quorum)
-                                .addAllLabels(
-                                    node.labels.entries.map { label ->
-                                        BlockchainOuterClass.Label.newBuilder()
-                                            .setName(label.key)
-                                            .setValue(label.value)
-                                            .build()
-                                    },
-                                )
-                            chainDescription.addNodes(nodeDetails)
-                        }
-                    capabilities.addAll(chainUpstreams.getCapabilities())
-                    chainDescription.addAllCapabilities(
-                        capabilities.map {
-                            when (it) {
-                                Capability.RPC -> BlockchainOuterClass.Capabilities.CAP_CALLS
-                                Capability.BALANCE -> BlockchainOuterClass.Capabilities.CAP_BALANCE
-                                Capability.WS_HEAD -> BlockchainOuterClass.Capabilities.CAP_WS_HEAD
+            multistreamHolder.getAvailable()
+                .filter { Common.ChainRef.forNumber(it.id) != null }
+                .forEach { chain ->
+                    multistreamHolder.getUpstream(chain).let { chainUpstreams ->
+                        val status = subscribeStatus.chainStatus(chain, chainUpstreams.getStatus(), chainUpstreams)
+                        val targets = chainUpstreams.getMethods().getSupportedMethods()
+                        val capabilities: MutableSet<Capability> = mutableSetOf()
+                        val chainDescription = BlockchainOuterClass.DescribeChain.newBuilder()
+                            .setChain(Common.ChainRef.forNumber(chain.id))
+                            .addAllSupportedMethods(targets)
+                            .addAllSupportedSubscriptions(chainUpstreams.getEgressSubscription().getAvailableTopics())
+                            .setStatus(status)
+                            .setCurrentHeight(chainUpstreams.getHead().getCurrentHeight() ?: 0)
+                        chainUpstreams.getQuorumLabels()
+                            .forEach { node ->
+                                val nodeDetails = BlockchainOuterClass.NodeDetails.newBuilder()
+                                    .setQuorum(node.quorum)
+                                    .addAllLabels(
+                                        node.labels.entries.map { label ->
+                                            BlockchainOuterClass.Label.newBuilder()
+                                                .setName(label.key)
+                                                .setValue(label.value)
+                                                .build()
+                                        },
+                                    )
+                                chainDescription.addNodes(nodeDetails)
                             }
-                        },
-                    )
-                    resp.addChains(chainDescription.build())
+                        capabilities.addAll(chainUpstreams.getCapabilities())
+                        chainDescription.addAllCapabilities(
+                            capabilities.map {
+                                when (it) {
+                                    Capability.RPC -> BlockchainOuterClass.Capabilities.CAP_CALLS
+                                    Capability.BALANCE -> BlockchainOuterClass.Capabilities.CAP_BALANCE
+                                    Capability.WS_HEAD -> BlockchainOuterClass.Capabilities.CAP_WS_HEAD
+                                }
+                            },
+                        )
+                        resp.addChains(chainDescription.build())
+                    }
                 }
-            }
             resp.build()
         }
     }
