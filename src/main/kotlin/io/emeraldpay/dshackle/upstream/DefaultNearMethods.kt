@@ -9,7 +9,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 class DefaultNearMethods : CallMethods {
 
     private val all = setOf(
-        "view_access_key",
         "query",
         "EXPERIMENTAL_changes",
         "block",
@@ -25,8 +24,7 @@ class DefaultNearMethods : CallMethods {
     )
 
     private val add = setOf(
-        "broadcast_tx_async",
-        "broadcast_tx_commit",
+        "send_tx",
     )
 
     private val allowedMethods: Set<String> = all + add
