@@ -45,7 +45,7 @@ class EthereumLowerBoundStateDetector(
     }
 
     override fun period(): Long {
-        return 5
+        return 3
     }
 
     override fun internalDetectLowerBound(): Flux<LowerBoundData> {
