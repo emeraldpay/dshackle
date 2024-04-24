@@ -67,9 +67,10 @@ class DefaultBeaconChainMethods : CallMethods {
         getMethod("/eth/v1/debug/fork_choice"),
     )
 
-    private val eventMethods = setOf(
-        getMethod("/eth/v1/events"),
-    )
+//    not supported
+//    private val eventMethods = setOf(
+//        getMethod("/eth/v1/events"),
+//    )
 
     // need to think up what to do with these methods, probably hardcode them?
     private val nodeMethods = setOf(
@@ -108,7 +109,7 @@ class DefaultBeaconChainMethods : CallMethods {
     )
 
     private val allowedMethods: Set<String> =
-        beaconMethods + builderMethods + configMethods + debugMethods + eventMethods + nodeMethods + validatorMethods
+        beaconMethods + builderMethods + configMethods + debugMethods + nodeMethods + validatorMethods + rewardMethods
 
     override fun createQuorumFor(method: String): CallQuorum {
         return AlwaysQuorum()

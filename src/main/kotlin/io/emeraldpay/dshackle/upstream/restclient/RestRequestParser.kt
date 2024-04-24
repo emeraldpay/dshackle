@@ -30,10 +30,10 @@ object RestRequestParser {
         return builder.append(path, i, path.length).toString()
     }
 
-    fun transformQueryParams(queryParams: Map<String, String>): String {
+    fun transformQueryParams(queryParams: List<Pair<String, String>>): String {
         if (queryParams.isEmpty()) {
             return ""
         }
-        return "?".plus(queryParams.entries.joinToString("&") { "${it.key}=${it.value}" })
+        return "?".plus(queryParams.joinToString("&") { "${it.first}=${it.second}" })
     }
 }

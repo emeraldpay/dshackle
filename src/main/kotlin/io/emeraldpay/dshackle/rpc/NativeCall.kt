@@ -383,8 +383,8 @@ open class NativeCall(
             ParsedCallDetails(
                 item.method,
                 RestParams(
-                    item.restData.headersList.map { it.key to it.value }.toMap(),
-                    item.restData.queryParamsList.map { it.key to it.value }.toMap(),
+                    item.restData.headersList.map { Pair(it.key, it.value) },
+                    item.restData.queryParamsList.map { Pair(it.key, it.value) },
                     item.restData.pathParamsList,
                     item.restData.payload.toByteArray(),
                 ),

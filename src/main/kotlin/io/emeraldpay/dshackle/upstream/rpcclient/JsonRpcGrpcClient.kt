@@ -152,12 +152,12 @@ class JsonRpcGrpcClient(
             )
         }
 
-        private fun mapKeyValue(entries: Map<String, String>) =
+        private fun mapKeyValue(entries: List<Pair<String, String>>) =
             entries.map {
                 BlockchainOuterClass.KeyValue
                     .newBuilder()
-                    .setKey(it.key)
-                    .setValue(it.value)
+                    .setKey(it.first)
+                    .setValue(it.second)
                     .build()
             }
     }

@@ -10,7 +10,7 @@ class RestRequestParserTest {
 
     @Test
     fun `transform query params into string`() {
-        val queryParams = mapOf(
+        val queryParams = listOf(
             "first" to "coolParam",
             "second" to "moreCoolParam",
         )
@@ -22,7 +22,7 @@ class RestRequestParserTest {
 
     @Test
     fun `transform query params into empty string`() {
-        val result = RestRequestParser.transformQueryParams(emptyMap())
+        val result = RestRequestParser.transformQueryParams(emptyList())
 
         assertEquals("", result)
     }

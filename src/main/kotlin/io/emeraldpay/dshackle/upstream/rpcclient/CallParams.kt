@@ -40,13 +40,13 @@ data class ObjectParams(val obj: Map<Any, Any>) : JsonRpcParams() {
 }
 
 data class RestParams(
-    val headers: Map<String, String>,
-    val queryParams: Map<String, String>,
+    val headers: List<Pair<String, String>>,
+    val queryParams: List<Pair<String, String>>,
     val pathParams: List<String>,
     val payload: ByteArray,
 ) : CallParams {
     companion object {
-        fun emptyParams() = RestParams(emptyMap(), emptyMap(), emptyList(), ByteArray(0))
+        fun emptyParams() = RestParams(emptyList(), emptyList(), emptyList(), ByteArray(0))
     }
 
     override fun toJson(id: Int, method: String): ByteArray {

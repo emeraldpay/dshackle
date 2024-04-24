@@ -73,7 +73,7 @@ class RestHttpReader(
 
         val response = httpClient.headers { headers ->
             restParams.headers.forEach {
-                headers.add(it.key, it.value)
+                headers.add(it.first, it.second)
             }
         }
             .request(HttpMethod.valueOf(restMethod))
