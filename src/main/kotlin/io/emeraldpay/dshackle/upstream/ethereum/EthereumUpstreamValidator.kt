@@ -120,31 +120,19 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
     }
 
     private fun validateCallLimit(): Mono<ValidateUpstreamSettingsResult> {
-        if (!options.validateCallLimit || config.callLimitContract == null) {
+        val validator = callLimitValidatorFactory(upstream, options, config, chain)
+        if (!validator.isEnabled()) {
             return Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
         }
         return upstream.getIngressReader()
-            .read(
-                ChainRequest(
-                    "eth_call",
-                    ListParams(
-                        TransactionCallJson(
-                            Address.from(config.callLimitContract),
-                            // calling contract with param 200_000, meaning it will generate 200k symbols or response
-                            // f4240 + metadata — ~1 million
-                            HexData.from("0xd8a26e3a00000000000000000000000000000000000000000000000000000000000f4240"),
-                        ),
-                        "latest",
-                    ),
-                ),
-            )
+            .read(validator.createRequest())
             .flatMap(ChainResponse::requireResult)
             .map { ValidateUpstreamSettingsResult.UPSTREAM_VALID }
             .onErrorResume {
-                if (it.message != null && it.message!!.contains("rpc.returndata.limit")) {
+                if (validator.isLimitError(it)) {
                     log.warn(
                         "Error: ${it.message}. Node ${upstream.getId()} is probably incorrectly configured. " +
-                            "You need to set up your return limit to at least 1_100_000. " +
+                            "You need to set up your return limit to at least ${options.callLimitSize}. " +
                             "Erigon config example: https://github.com/ledgerwatch/erigon/blob/d014da4dc039ea97caf04ed29feb2af92b7b129d/cmd/utils/flags.go#L369",
                     )
                     Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR)
@@ -219,5 +207,65 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             }
             .doOnError { log.error("Error during execution 'net_version' - ${it.message} for ${upstream.getId()}") }
             .flatMap(ChainResponse::requireStringResult)
+    }
+}
+
+interface CallLimitValidator {
+    fun isEnabled(): Boolean
+    fun createRequest(): ChainRequest
+    fun isLimitError(err: Throwable): Boolean
+}
+
+class EthCallLimitValidator(
+    private val options: ChainOptions.Options,
+    private val config: ChainConfig,
+) : CallLimitValidator {
+    override fun isEnabled() = options.validateCallLimit && config.callLimitContract != null
+
+    override fun createRequest() = ChainRequest(
+        "eth_call",
+        ListParams(
+            TransactionCallJson(
+                Address.from(config.callLimitContract),
+                // contract like https://github.com/p2p-org/dshackle/pull/246
+                // meta + size in hex
+                HexData.from("0xd8a26e3a" + options.callLimitSize.toString(16).padStart(64, '0')),
+            ),
+            "latest",
+        ),
+    )
+
+    override fun isLimitError(err: Throwable): Boolean =
+        err.message != null && err.message!!.contains("rpc.returndata.limit")
+}
+
+class ZkSyncCallLimitValidator(
+    private val upstream: Upstream,
+    private val options: ChainOptions.Options,
+) : CallLimitValidator {
+    private val method = "debug_traceBlockByNumber"
+
+    override fun isEnabled() =
+        options.validateCallLimit && upstream.getMethods().getSupportedMethods().contains(method)
+
+    override fun createRequest() = ChainRequest(
+        method,
+        ListParams("0x1b73b2b", mapOf("tracer" to "callTracer")),
+    )
+
+    override fun isLimitError(err: Throwable): Boolean =
+        err.message != null && err.message!!.contains("response size should not greater than")
+}
+
+fun callLimitValidatorFactory(
+    upstream: Upstream,
+    options: ChainOptions.Options,
+    config: ChainConfig,
+    chain: Chain,
+): CallLimitValidator {
+    return if (listOf(Chain.ZKSYNC__MAINNET).contains(chain)) {
+        ZkSyncCallLimitValidator(upstream, options)
+    } else {
+        EthCallLimitValidator(options, config)
     }
 }

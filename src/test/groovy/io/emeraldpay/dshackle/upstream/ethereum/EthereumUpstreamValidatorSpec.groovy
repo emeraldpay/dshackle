@@ -274,7 +274,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
     def "Doesnt validate chan and callLimit when disabled"() {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().tap {
-            it.validateCalllimit = false
+            it.validateCallLimit = false
             it.validateChain = false
         }.buildOptions()
         def up = Mock(Upstream) {
@@ -344,7 +344,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
     def "Upstream is valid if chain settings are valid"() {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().tap {
-            it.validateCalllimit = false
+            it.validateCallLimit = false
         }.buildOptions()
         def up = Mock(Upstream) {
             4 * getIngressReader() >> Mock(Reader) {
@@ -366,7 +366,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
     def "Upstream is not valid - specified optimism but got ethereum"() {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().tap {
-            it.validateCalllimit = false
+            it.validateCallLimit = false
         }.buildOptions()
         def up = Mock(Upstream) {
             4 * getIngressReader() >> Mock(Reader) {

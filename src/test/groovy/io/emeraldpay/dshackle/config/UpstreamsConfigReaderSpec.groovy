@@ -46,7 +46,7 @@ class UpstreamsConfigReaderSpec extends Specification {
             id == "local"
             chain == "ethereum"
             connection instanceof UpstreamsConfig.RpcConnection
-            with((UpstreamsConfig.RpcConnection)connection) {
+            with((UpstreamsConfig.RpcConnection) connection) {
                 rpc != null
                 rpc.url == new URI("http://localhost:8545")
                 ws != null
@@ -62,7 +62,7 @@ class UpstreamsConfigReaderSpec extends Specification {
             id == "infura"
             chain == "ethereum"
             connection instanceof UpstreamsConfig.RpcConnection
-            with((UpstreamsConfig.RpcConnection)connection) {
+            with((UpstreamsConfig.RpcConnection) connection) {
                 rpc.url == new URI("https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2")
                 rpc.basicAuth != null
                 with((AuthConfig.ClientBasicAuth) rpc.basicAuth) {
@@ -215,7 +215,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         with(act.upstreams.get(0)) {
             id == "remote"
             connection instanceof UpstreamsConfig.GrpcConnection
-            with((UpstreamsConfig.GrpcConnection)connection) {
+            with((UpstreamsConfig.GrpcConnection) connection) {
                 host == "10.2.0.15"
                 auth != null
                 with(auth) {
@@ -279,7 +279,7 @@ class UpstreamsConfigReaderSpec extends Specification {
             id == "local"
             chain == "ethereum"
             connection instanceof UpstreamsConfig.RpcConnection
-            with((UpstreamsConfig.RpcConnection)connection) {
+            with((UpstreamsConfig.RpcConnection) connection) {
                 rpc != null
                 rpc.url == new URI("http://localhost:8545")
                 ws == null
@@ -451,13 +451,13 @@ class UpstreamsConfigReaderSpec extends Specification {
             disableValidation == false
             validateSyncing == true
             validatePeers == false
-            validateCalllimit == true
+            validateCallLimit == true
         }
         with(act.upstreams.get(1).options) {
             disableValidation == false
             validateSyncing == false
             validatePeers == false
-            validateCalllimit == false
+            validateCallLimit == false
         }
         with(act.upstreams.get(2).options) {
             disableValidation == true
@@ -496,18 +496,18 @@ class UpstreamsConfigReaderSpec extends Specification {
         result.disableValidation == exp
 
         where:
-        base        | overwrite     | exp
-        true        | true          | true
-        true        | false         | false
-        true        | null          | true
+        base  | overwrite | exp
+        true  | true      | true
+        true  | false     | false
+        true  | null      | true
 
-        false       | true          | true
-        false       | false         | false
-        false       | null          | false
+        false | true      | true
+        false | false     | false
+        false | null      | false
 
-        null        | true          | true
-        null        | false         | false
-        null        | null          | false
+        null  | true      | true
+        null  | false     | false
+        null  | null      | false
     }
 
     def "Merge options for providesBalance"() {
@@ -518,18 +518,18 @@ class UpstreamsConfigReaderSpec extends Specification {
         result.providesBalance == exp
 
         where:
-        base        | overwrite     | exp
-        true        | true          | true
-        true        | false         | false
-        true        | null          | true
+        base  | overwrite | exp
+        true  | true      | true
+        true  | false     | false
+        true  | null      | true
 
-        false       | true          | true
-        false       | false         | false
-        false       | null          | false
+        false | true      | true
+        false | false     | false
+        false | null      | false
 
-        null        | true          | true
-        null        | false         | false
-        null        | null          | null
+        null  | true      | true
+        null  | false     | false
+        null  | null      | null
     }
 
     def "Merge options for validatePeers"() {
@@ -540,18 +540,18 @@ class UpstreamsConfigReaderSpec extends Specification {
         result.validatePeers == exp
 
         where:
-        base        | overwrite     | exp
-        true        | true          | true
-        true        | false         | false
-        true        | null          | true
+        base  | overwrite | exp
+        true  | true      | true
+        true  | false     | false
+        true  | null      | true
 
-        false       | true          | true
-        false       | false         | false
-        false       | null          | false
+        false | true      | true
+        false | false     | false
+        false | null      | false
 
-        null        | true          | true
-        null        | false         | false
-        null        | null          | true
+        null  | true      | true
+        null  | false     | false
+        null  | null      | true
     }
 
     def "Merge options for validateSyncing"() {
@@ -562,18 +562,18 @@ class UpstreamsConfigReaderSpec extends Specification {
         result.validateSyncing == exp
 
         where:
-        base        | overwrite     | exp
-        true        | true          | true
-        true        | false         | false
-        true        | null          | true
+        base  | overwrite | exp
+        true  | true      | true
+        true  | false     | false
+        true  | null      | true
 
-        false       | true          | true
-        false       | false         | false
-        false       | null          | false
+        false | true      | true
+        false | false     | false
+        false | null      | false
 
-        null        | true          | true
-        null        | false         | false
-        null        | null          | true
+        null  | true      | true
+        null  | false     | false
+        null  | null      | true
     }
 
     def "Merge options for timeout"() {
@@ -589,12 +589,12 @@ class UpstreamsConfigReaderSpec extends Specification {
         result.timeout == expValue
 
         where:
-        base     | overwrite  | exp
-        1        | 2          | 2
-        3        | 4          | 4
-        5        | null       | 5
-        null     | 6          | 6
-        null     | null       | null
+        base | overwrite | exp
+        1    | 2         | 2
+        3    | 4         | 4
+        5    | null      | 5
+        null | 6         | 6
+        null | null      | null
     }
 
     def "Merge options for minPeers"() {
@@ -605,12 +605,12 @@ class UpstreamsConfigReaderSpec extends Specification {
         result.minPeers == exp
 
         where:
-        base     | overwrite  | exp
-        1        | 2          | 2
-        3        | 4          | 4
-        5        | null       | 5
-        null     | 6          | 6
-        null     | null       | 1
+        base | overwrite | exp
+        1    | 2         | 2
+        3    | 4         | 4
+        5    | null      | 5
+        null | 6         | 6
+        null | null      | 1
     }
 
     def "Merge options for validationInterval"() {
@@ -621,12 +621,12 @@ class UpstreamsConfigReaderSpec extends Specification {
         result.validationInterval == exp
 
         where:
-        base     | overwrite  | exp
-        1        | 2          | 2
-        3        | 4          | 4
-        5        | null       | 5
-        null     | 6          | 6
-        null     | null       | 30
+        base | overwrite | exp
+        1    | 2         | 2
+        3    | 4         | 4
+        5    | null      | 5
+        null | 6         | 6
+        null | null      | 30
     }
 
     def "Options with default values"() {
@@ -636,7 +636,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         def options = partialOptions.buildOptions()
         then:
         options == new ChainOptions.Options(
-                false, false, 30, Duration.ofSeconds(60), null, true, 1, true, true, true
+                false, false, 30, Duration.ofSeconds(60), null, true, 1, true, true, true, 1_000_000
         )
     }
 }

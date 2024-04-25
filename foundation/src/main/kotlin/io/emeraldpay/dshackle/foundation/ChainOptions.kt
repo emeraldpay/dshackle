@@ -14,11 +14,12 @@ class ChainOptions {
         val validateSyncing: Boolean,
         val validateCallLimit: Boolean,
         val validateChain: Boolean,
+        val callLimitSize: Int,
     )
 
     data class DefaultOptions(
         var chains: List<String>? = null,
-        var options: PartialOptions? = null
+        var options: PartialOptions? = null,
     )
 
     data class PartialOptions(
@@ -28,10 +29,11 @@ class ChainOptions {
         var timeout: Duration? = null,
         var providesBalance: Boolean? = null,
         var validatePeers: Boolean? = null,
-        var validateCalllimit: Boolean? = null,
+        var validateCallLimit: Boolean? = null,
         var minPeers: Int? = null,
         var validateSyncing: Boolean? = null,
-        var validateChain: Boolean? = null
+        var validateChain: Boolean? = null,
+        var callLimitSize: Int? = null,
     ) {
         companion object {
             @JvmStatic
@@ -53,11 +55,12 @@ class ChainOptions {
             copy.validationInterval = overwrites.validationInterval ?: this.validationInterval
             copy.providesBalance = overwrites.providesBalance ?: this.providesBalance
             copy.validateSyncing = overwrites.validateSyncing ?: this.validateSyncing
-            copy.validateCalllimit = overwrites.validateCalllimit ?: this.validateCalllimit
+            copy.validateCallLimit = overwrites.validateCallLimit ?: this.validateCallLimit
             copy.timeout = overwrites.timeout ?: this.timeout
             copy.validateChain = overwrites.validateChain ?: this.validateChain
             copy.disableUpstreamValidation =
                 overwrites.disableUpstreamValidation ?: this.disableUpstreamValidation
+            copy.callLimitSize = overwrites.callLimitSize ?: this.callLimitSize
             return copy
         }
 
@@ -71,8 +74,9 @@ class ChainOptions {
                 this.validatePeers ?: true,
                 this.minPeers ?: 1,
                 this.validateSyncing ?: true,
-                this.validateCalllimit ?: true,
+                this.validateCallLimit ?: true,
                 this.validateChain ?: true,
+                this.callLimitSize ?: 1_000_000,
             )
     }
 }

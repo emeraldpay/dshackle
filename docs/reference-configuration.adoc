@@ -772,6 +772,17 @@ If it's set to `0` it essentially disables the peer validation.
 | Disables checking for the state of syncing on the upstream (as `eth_syncing` method).
 If the Upstream is in _syncing_ state then the Dshackle doesn't use it for call until it reaches the blockchain head.
 
+| `validate-call-limit`
+| boolean
+| `true`
+| Enable/Disable the call limit validation. Size of call limit is defined by `call-limit` option.
+If it's enabled configuration parameter for chain `call-limit-contract` is required.
+
+| `call-limit-size`
+| number
+| `1000000`
+| For all eth-like chains (except zkSync). The maximum size of the call limit. If the upstream exceeds this limit, it will be considered as failed.
+
 | `timeout`
 | number
 | `60`
