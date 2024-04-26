@@ -231,7 +231,7 @@ open class WsConnectionImpl(
             }
             .websocket(
                 WebsocketClientSpec.builder()
-                    .handlePing(true)
+                    .handlePing(false)
                     .compress(false)
                     .maxFramePayloadLength(frameSize)
                     .build(),
