@@ -12,11 +12,11 @@ internal class ChainsConfigReaderTest {
     fun `read standard config without custom`() {
         val reader = ChainsConfigReader(ChainOptionsReader())
         val config = reader.read(null)
-        val arb = config.resolve("arbitrum-goerli")
-        assertEquals(arb.chainId, "0x66eed")
-        assertEquals(arb.expectedBlockTime.seconds, 1L)
-        assertEquals(arb.options.validatePeers, false)
-        assertEquals(arb.id, "Goerli")
+        val arb = config.resolve("sepolia")
+        assertEquals(arb.chainId, "0xaa36a7")
+        assertEquals(arb.expectedBlockTime.seconds, 12L)
+        assertEquals(arb.options.validatePeers, null)
+        assertEquals(arb.id, "Sepolia")
 
         val ethc = config.resolve("ethereum-classic")
         assertEquals(ethc.chainId, "0x3d")

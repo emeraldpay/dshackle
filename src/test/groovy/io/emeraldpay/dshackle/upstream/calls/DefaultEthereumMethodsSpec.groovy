@@ -39,7 +39,6 @@ class DefaultEthereumMethodsSpec extends Specification {
         chain                  | id
         Chain.ETHEREUM__MAINNET | '"0x1"'
         Chain.ETHEREUM_CLASSIC__MAINNET | '"0x3d"'
-        Chain.ETHEREUM__GOERLI | '"0x5"'
     }
 
     def "Optimism chain unsupported methods"() {

@@ -46,13 +46,6 @@ chain-settings:
           grpcId: 100
           priority: 100
           call-validate-contract: 0x32268860cAAc2948Ab5DdC7b20db5a420467Cf96
-        - id: Goerli
-          chain-id: 0x5
-          code: GOERLI
-          grpcId: 10005
-          priority: 1
-          short-names: [goerli, goerli-testnet]
-          call-validate-contract: 0xCD9303A1F6da2a68f465A579a24cc2Ee5AE2192f
         - id: Sepolia
           code: SEPOLIA
           grpcId: 10008
@@ -150,14 +143,6 @@ chain-settings:
           grpcId: 1004
           short-names: [arbitrum, arb]
           chain-id: 0xa4b1
-        - id: Goerli
-          priority: 1
-          code: ARBITRUM_TESTNET
-          grpcId: 10009
-          short-names: [arbitrum-testnet, arbitrum-goerli]
-          chain-id: 0x66eed
-          settings:
-            expected-block-time: 1s
         - id: Sepolia
           priority: 10
           code: ARBITRUM_SEPOLIA
@@ -182,12 +167,6 @@ chain-settings:
           grpcId: 1005
           short-names: [optimism]
           chain-id: 0xa
-        - id: Goerli
-          priority: 1
-          code: OPTIMISM_TESTNET
-          grpcId: 10010
-          short-names: [optimism-testnet, optimism-goerli]
-          chain-id: 0x1A4
         - id: Sepolia
           priority: 10
           code: OPTIMISM_SEPOLIA
@@ -235,14 +214,6 @@ chain-settings:
           grpcId: 1007
           short-names: [polygon-zkevm]
           chain-id: 0x44d
-        - id: Testnet
-          priority: 1
-          code: POLYGON_ZKEVM_TESTNET
-          grpcId: 10011
-          short-names: [polygon-zkevm-testnet]
-          chain-id: 0x5a2
-          settings:
-            expected-block-time: 1m
         - id: Cardona
           priority: 2
           code: POLYGON_ZKEVM_CARDONA_TESTNET
@@ -284,12 +255,6 @@ chain-settings:
           grpcId: 1009
           chain-id: 0x144
           short-names: [zksync]
-        - id: Testnet
-          priority: 1
-          code: ZKS_TESTNET
-          grpcId: 10012
-          chain-id: 0x118
-          short-names: [zksync-testnet]
         - id: Sepolia
           priority: 1
           code: ZKS_SEPOLIA
@@ -314,12 +279,6 @@ chain-settings:
           grpcId: 1010
           short-names: [base]
           chain-id: 0x2105
-        - id: Goerli
-          priority: 1
-          code: BASE_GOERLI
-          grpcId: 10014
-          short-names: [base-goerli]
-          chain-id: 0x14a33
         - id: Sepolia
           priority: 2
           code: BASE_SEPOLIA
@@ -342,14 +301,12 @@ chain-settings:
           grpcId: 1011
           short-names: [linea]
           chain-id: 0xe708
-        - id: Goerli
-          priority: 1
-          code: LINEA_GOERLI
-          grpcId: 10015
-          short-names: [linea-goerli]
-          chain-id: 0xe704
-          settings:
-            fork-choice: height # wait for providers
+        - id: Sepolia
+          priority: 2
+          code: LINEA_SEPOLIA
+          grpcId: 10074
+          short-names: [ linea-sepolia ]
+          chain-id: 0xe705
     - id: gnosis
       label: Gnosis
       type: eth
@@ -441,12 +398,6 @@ chain-settings:
           grpcId: 1017
           short-names: [mantle]
           chain-id: 0x1388
-        - id: Testnet
-          priority: 1
-          code: MANTLE_TESTNET
-          grpcId: 10023
-          short-names: [mantle-testnet]
-          chain-id: 0x1389
         - id: Sepolia
           priority: 10
           code: MANTLE_SEPOLIA
@@ -551,12 +502,6 @@ chain-settings:
           lagging: 5
         fork-choice: quorum
       chains:
-        - id: Alphanet
-          priority: 1
-          code: SCROLL_ALPHANET
-          grpcId: 10022
-          short-names: [scroll-alphanet]
-          chain-id: 0x82751
         - id: Sepolia
           priority: 10
           code: SCROLL_SEPOLIA
@@ -619,14 +564,6 @@ chain-settings:
           short-names: [metis-sepolia]
           chain-id: 0xe9fd
           grpcId: 10058
-        - id: Goerli
-          priority: 1
-          code: METIS_GOERLI
-          short-names: [metis-goerli]
-          chain-id: 0x257
-          grpcId: 10031
-          settings:
-            fork-choice: height #wait for providers
     - id: opbnb
       label: opBNB
       type: eth
@@ -692,18 +629,12 @@ chain-settings:
           short-names: [starknet]
           chain-id: 0x534e5f4d41494e
           grpcId: 1014
-        - id: Testnet
+        - id: Sepolia
           priority: 2
-          code: STARKNET_TESTNET
-          short-names: [starknet-testnet]
-          chain-id: 0x534e5f474f45524c49
-          grpcId: 10019
-        - id: Testnet 2
-          priority: 1
-          code: STARKNET_TESTNET2
-          short-names: [starknet-testnet2]
-          chain-id: 0x534e5f474f45524c4932
-          grpcId: 10020
+          code: STARKNET_SEPOLIA
+          short-names: [starknet-sepolia]
+          chain-id: 0x534e5f5345504f4c4941
+          grpcId: 10075
     - id: immutable-zkevm
       label: Immutable zkEVM
       type: eth
@@ -726,24 +657,6 @@ chain-settings:
           short-names: [immutable-zkevm-testnet]
           chain-id: 0x34a1
           grpcId: 10034
-    - id: astar
-      label: Astar zkEVM
-      type: eth
-      settings:
-        expected-block-time: 1m
-        options:
-          validate-peers: false
-        lags:
-          syncing: 40
-          lagging: 20
-        fork-choice: quorum
-      chains:
-        - id: zKatana
-          priority: 1
-          code: ASTAR_ZKATANA
-          short-names: [astar-zkatana]
-          chain-id: 0x133e40
-          grpcId: 10035
     - id: vara
       label: Vara Network
       type: polkadot
@@ -918,12 +831,12 @@ chain-settings:
           short-names: [manta-pacific]
           chain-id: 0xa9
           grpcId: 1033
-        - id: Manta Pacific Testnet
-          priority: 10
-          code: MANTA_PACIFIC_TESTNET
-          short-names: [manta-pacific-testnet]
-          chain-id: 0x34816d
-          grpcId: 10045
+        - id: Manta Pacific Sepolia
+          priority: 2
+          code: MANTA_PACIFIC_SEPOLIA
+          short-names: [manta-pacific-sepolia]
+          chain-id: 0x34816e
+          grpcId: 10076
     - id: harmony
       label: Harmony
       type: eth
@@ -1409,12 +1322,6 @@ chain-settings:
           code: ETH_BEACON_CHAIN
           grpcId: 1053
           priority: 100
-        - id: Goerli
-          chain-id: 0x0
-          code: GOERLI_BEACON_CHAIN
-          grpcId: 10069
-          priority: 1
-          short-names: [eth-beacon-chain-goerli]
         - id: Sepolia
           code: SEPOLIA_BEACON_CHAIN
           grpcId: 10070

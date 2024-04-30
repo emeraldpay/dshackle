@@ -286,7 +286,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(upstreams)
 
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
-                .setChainValue(Chain.ETHEREUM__GOERLI.id)
+                .setChainValue(Chain.ETHEREUM__SEPOLIA.id)
                 .addAllItems([1, 2].collect { id ->
                     return BlockchainOuterClass.NativeCallItem.newBuilder()
                             .setId(id)
@@ -294,7 +294,7 @@ class NativeCallSpec extends Specification {
                             .build()
                 })
                 .build()
-        1 * upstreams.isAvailable(Chain.ETHEREUM__GOERLI) >> false
+        1 * upstreams.isAvailable(Chain.ETHEREUM__SEPOLIA) >> false
         when:
         def resp = nativeCall.prepareCall(req)
         then:

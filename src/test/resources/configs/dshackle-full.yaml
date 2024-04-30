@@ -45,8 +45,6 @@ proxy:
       blockchain: ethereum
     - id: etc
       blockchain: ethereum_classic
-    - id: goerli
-      blockchain: goerli
 cluster:
   defaults:
     - chains:

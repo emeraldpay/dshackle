@@ -263,7 +263,7 @@ class DefaultEthereumMethods(
 
     private fun getChainSpecificMethods(chain: Chain): List<String> {
         return when (chain) {
-            Chain.OPTIMISM__MAINNET, Chain.OPTIMISM__GOERLI, Chain.MANTLE__MAINNET, Chain.MANTLE__TESTNET ->
+            Chain.OPTIMISM__MAINNET, Chain.MANTLE__MAINNET ->
                 listOf(
                     "rollup_gasPrices",
                 )
@@ -276,7 +276,7 @@ class DefaultEthereumMethods(
                 "eth_getRootHash",
             )
 
-            Chain.POLYGON_ZKEVM__MAINNET, Chain.POLYGON_ZKEVM__TESTNET -> listOf(
+            Chain.POLYGON_ZKEVM__MAINNET -> listOf(
                 "zkevm_consolidatedBlockNumber",
                 "zkevm_isBlockConsolidated",
                 "zkevm_isBlockVirtualized",
@@ -288,7 +288,7 @@ class DefaultEthereumMethods(
                 "zkevm_getBroadcastURI",
             )
 
-            Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__TESTNET -> listOf(
+            Chain.ZKSYNC__MAINNET -> listOf(
                 "zks_estimateFee",
                 "zks_estimateGasL1ToL2",
                 "zks_getAllAccountBalances",
@@ -324,7 +324,7 @@ class DefaultEthereumMethods(
                     .plus(harmonySpecialMethods)
                     .plus(harmonyPossibleNotIndexedMethods)
 
-            Chain.LINEA__MAINNET, Chain.LINEA__GOERLI -> listOf(
+            Chain.LINEA__MAINNET, Chain.LINEA__SEPOLIA -> listOf(
                 "linea_estimateGas",
             )
 
@@ -335,7 +335,7 @@ class DefaultEthereumMethods(
     private fun chainUnsupportedMethods(chain: Chain): Set<String> {
         return when (chain) {
             Chain.OPTIMISM__MAINNET -> setOf("eth_getAccounts")
-            Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__TESTNET, Chain.POLYGON_ZKEVM__TESTNET, Chain.POLYGON_ZKEVM__MAINNET ->
+            Chain.ZKSYNC__MAINNET, Chain.POLYGON_ZKEVM__MAINNET ->
                 setOf("eth_maxPriorityFeePerGas", "zks_getBytecodeByHash")
             Chain.TELOS__MAINNET, Chain.TELOS__TESTNET -> setOf(
                 "eth_syncing",
