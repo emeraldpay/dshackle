@@ -90,6 +90,12 @@ abstract class Multistream(
         ) {
             it.getLag().toDouble()
         }
+        Metrics.gauge(
+            "$metrics.height",
+            listOf(Tag.of("chain", chain.chainCode), Tag.of("upstream", upstream.getId())), upstream
+        ) {
+            it.getHead().getCurrentHeight()?.toDouble() ?: 0.0
+        }
     }
 
     open fun init() {
