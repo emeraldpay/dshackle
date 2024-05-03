@@ -248,6 +248,8 @@ chain-settings:
           syncing: 40
           lagging: 20
         fork-choice: height # wait for providers
+        options:
+          validate-peers: false
       chains:
         - id: Mainnet
           priority: 100
