@@ -743,8 +743,8 @@ chain-settings:
       settings:
         expected-block-time: 1m
         lags:
-          syncing: 5
-          lagging: 1
+          syncing: 20
+          lagging: 10
         options:
           validate-peers: false
         fork-choice: height
