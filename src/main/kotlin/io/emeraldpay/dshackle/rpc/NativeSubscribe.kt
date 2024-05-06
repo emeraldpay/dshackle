@@ -119,7 +119,7 @@ open class NativeSubscribe(
         }
     }
     open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> =
-        subscribe(chain, method, params, matcher)
+        subscribe(chain, method, params, matcher, "")
 
     open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher, subscriptionId: String): Flux<out Any> =
         getUpstream(chain).getEgressSubscription()
