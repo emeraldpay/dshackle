@@ -46,20 +46,33 @@ open class NativeSubscribe(
     }
 
     private val objectMapper = Global.objectMapper
-
     fun nativeSubscribe(request: Mono<BlockchainOuterClass.NativeSubscribeRequest>): Flux<NativeSubscribeReplyItem> {
         return request
-            .flatMapMany(this@NativeSubscribe::start)
-            .map(this@NativeSubscribe::convertToProto)
-            .onErrorMap(this@NativeSubscribe::convertToStatus)
+            .flatMapMany {
+                    it ->
+                val subscriptionId = it.subscriptionId
+                Mono.just(it)
+                    .flatMapMany {
+                        start(it, subscriptionId)
+                    }
+                    .map(this@NativeSubscribe::convertToProto)
+                    .doOnCancel {
+                        log.warn("Subscription $subscriptionId cancelled")
+                    }.onErrorMap {
+                        convertToStatus(it, subscriptionId)
+                    }
+            }
     }
 
-    fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<ResponseHolder> {
+    fun start(request: BlockchainOuterClass.NativeSubscribeRequest): Publisher<ResponseHolder> = start(request, "")
+
+    fun start(request: BlockchainOuterClass.NativeSubscribeRequest, subscriptionId: String): Publisher<ResponseHolder> {
         val chain = Chain.byId(request.chainValue)
 
         val multistream = getUpstream(chain)
 
         if (!multistream.getSubscriptionTopics().contains(request.method)) {
+            log.error("sub_id:" + subscriptionId + "subscribe ${request.method} is not supported for ${chain.chainCode}")
             return Mono.error(UnsupportedOperationException("subscribe ${request.method} is not supported for ${chain.chainCode}"))
         }
 
@@ -81,33 +94,38 @@ open class NativeSubscribe(
                     objectMapper.readValue(it.newInput(), List::class.java)
                 }
             }
-            subscribe(chain, method, params, matcher)
+            subscribe(chain, method, params, matcher, subscriptionId)
         }
         return publisher.map { ResponseHolder(it, nonce) }
     }
 
-    fun convertToStatus(t: Throwable) = when (t) {
-        is SilentException.UnsupportedBlockchain -> StatusException(
-            Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}"),
-        )
+    fun convertToStatus(t: Throwable) = convertToStatus(t, "")
+    fun convertToStatus(t: Throwable, subscriptionId: String = "") = when (t) {
+        is SilentException.UnsupportedBlockchain -> {
+            log.error("sub_id:$subscriptionId BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}")
+            StatusException(Status.UNAVAILABLE.withDescription("BLOCKCHAIN UNAVAILABLE: ${t.blockchainId}"))
+        }
 
-        is UnsupportedOperationException -> StatusException(
-            Status.UNIMPLEMENTED.withDescription(t.message),
-        )
+        is UnsupportedOperationException -> {
+            log.error("sub_id:$subscriptionId unimplemented error ${t.message}")
+            StatusException(Status.UNIMPLEMENTED.withDescription(t.message))
+        }
 
         else -> {
-            log.warn("Unhandled error", t)
+            log.warn("sub_id:$subscriptionId Unhandled error", t)
             StatusException(
                 Status.INTERNAL.withDescription(t.message),
             )
         }
     }
-
     open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher): Flux<out Any> =
+        subscribe(chain, method, params, matcher)
+
+    open fun subscribe(chain: Chain, method: String, params: Any?, matcher: Selector.Matcher, subscriptionId: String): Flux<out Any> =
         getUpstream(chain).getEgressSubscription()
             .subscribe(method, params, matcher)
             .doOnError {
-                log.error("Error during subscription to $method, chain $chain, params $params", it)
+                log.error("sub_id:$subscriptionId Error during subscription to $method, chain $chain, params $params", it)
             }
 
     private fun getUpstream(chain: Chain): Multistream =

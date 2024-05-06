@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumCachingReader
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader.Result
 import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionLogJson
@@ -28,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.LogMessage
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.onErrorResume
 import reactor.kotlin.core.publisher.switchIfEmpty
 import java.util.concurrent.TimeUnit
 
@@ -35,7 +37,7 @@ class ProduceLogs(
     private val logs: Reader<BlockId, Result<List<TransactionLogJson>>>,
     private val chain: Chain,
 ) {
-
+    private val MAX_RETRIES = 3
     companion object {
         private val log = LoggerFactory.getLogger(ProduceLogs::class.java)
     }
@@ -73,11 +75,26 @@ class ProduceLogs(
             .map { it.copy(removed = true) }
     }
 
-    fun produceAdded(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
+    private fun produceAddedFallback(update: ConnectBlockUpdates.Update, retries: Int): Mono<EthereumDirectReader.Result<List<TransactionLogJson>>> {
         return logs.read(update.blockHash).switchIfEmpty {
-            log.warn("Cannot find receipt for block ${update.blockHash} for chain ${chain.chainName}")
-            Mono.empty()
-        }.map {
+            if (retries > MAX_RETRIES) {
+                log.warn("Cannot find receipt for block ${update.blockHash} for chain ${chain.chainName} retries so far: $retries")
+                Mono.empty()
+            } else {
+                produceAddedFallback(update, retries + 1)
+            }
+        }.onErrorResume { t ->
+            if (retries > MAX_RETRIES) {
+                log.error("Error ${t.message} produced ${update.blockHash} for chain ${chain.chainName} retries so far: $retries")
+                Mono.empty()
+            } else {
+                produceAddedFallback(update, retries + 1)
+            }
+        }
+    }
+
+    fun produceAdded(update: ConnectBlockUpdates.Update): Flux<LogMessage> {
+        return produceAddedFallback(update, 0).map {
             it.data
         }.flatMapMany {
             val messages = it.map { log ->
