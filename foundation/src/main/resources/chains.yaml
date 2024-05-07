@@ -548,7 +548,7 @@ chain-settings:
       settings:
         options:
           validate-peers: false
-        expected-block-time: 300ms
+        expected-block-time: 30s
         lags:
           syncing: 40
           lagging: 20
