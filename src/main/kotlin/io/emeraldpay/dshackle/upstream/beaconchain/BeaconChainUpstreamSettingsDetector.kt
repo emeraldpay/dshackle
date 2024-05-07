@@ -1,11 +1,11 @@
 package io.emeraldpay.dshackle.upstream.beaconchain
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.NullNode
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.BasicEthUpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.NodeTypeRequest
 import io.emeraldpay.dshackle.upstream.UNKNOWN_CLIENT_VERSION
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.RestParams
@@ -18,15 +18,17 @@ class BeaconChainUpstreamSettingsDetector(
     override fun nodeTypeRequest(): NodeTypeRequest {
         return NodeTypeRequest(
             clientVersionRequest(),
-        ) { node ->
-            node.get("data")?.get("version") ?: NullNode.instance
-        }
+        )
     }
 
     override fun detectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
             detectNodeType(),
         )
+    }
+
+    override fun mapping(node: JsonNode): String {
+        return node.get("data")?.get("version")?.asText() ?: ""
     }
 
     override fun clientVersionRequest(): ChainRequest {

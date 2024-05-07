@@ -11,6 +11,7 @@ import reactor.core.publisher.Mono
 const val UNKNOWN_CLIENT_VERSION = "unknown"
 
 typealias UpstreamSettingsDetectorBuilder = (Chain, Upstream) -> UpstreamSettingsDetector?
+
 abstract class UpstreamSettingsDetector(
     private val upstream: Upstream,
 ) {
@@ -34,10 +35,12 @@ abstract class UpstreamSettingsDetector(
     protected abstract fun parseClientVersion(data: ByteArray): String
 }
 
-abstract class BasicEthUpstreamSettingsDetector(
+abstract class BasicUpstreamSettingsDetector(
     private val upstream: Upstream,
 ) : UpstreamSettingsDetector(upstream) {
     protected abstract fun nodeTypeRequest(): NodeTypeRequest
+    protected abstract fun clientVersion(node: JsonNode): String?
+    protected abstract fun clientType(node: JsonNode): String?
 
     protected fun detectNodeType(): Flux<Pair<String, String>?> {
         val nodeTypeRequest = nodeTypeRequest()
@@ -47,25 +50,30 @@ abstract class BasicEthUpstreamSettingsDetector(
             .flatMap(ChainResponse::requireResult)
             .map { Global.objectMapper.readValue<JsonNode>(it) }
             .flatMapMany { node ->
-                val mappedNode = nodeTypeRequest.mapper(node)
                 val labels = mutableListOf<Pair<String, String>>()
-                if (mappedNode.isTextual) {
-                    clientType(mappedNode.textValue())?.let {
-                        labels.add("client_type" to it)
-                    }
-                    clientVersion(mappedNode.textValue())?.let {
-                        labels.add("client_version" to it)
-                    }
+                clientType(node)?.let {
+                    labels.add("client_type" to it)
+                }
+                clientVersion(node)?.let {
+                    labels.add("client_version" to it)
                 }
 
                 Flux.fromIterable(labels)
             }
-            .onErrorResume {
+            .onErrorResume { error ->
+                log.warn("Can't detect the node type of upstream ${upstream.getId()}, reason - {}", error.message)
                 Flux.empty()
             }
     }
+}
 
-    private fun clientVersion(client: String): String? {
+abstract class BasicEthUpstreamSettingsDetector(
+    upstream: Upstream,
+) : BasicUpstreamSettingsDetector(upstream) {
+    abstract fun mapping(node: JsonNode): String
+
+    override fun clientVersion(node: JsonNode): String? {
+        val client = mapping(node)
         val firstSlash = client.indexOf("/")
         val secondSlash = client.indexOf("/", firstSlash + 1)
         if (firstSlash == -1 || secondSlash == -1 || secondSlash < firstSlash) {
@@ -74,7 +82,8 @@ abstract class BasicEthUpstreamSettingsDetector(
         return client.substring(firstSlash + 1, secondSlash)
     }
 
-    private fun clientType(client: String): String? {
+    override fun clientType(node: JsonNode): String? {
+        val client = mapping(node)
         val firstSlash = client.indexOf("/")
         if (firstSlash == -1) {
             log.debug("Unknown client type: {}", client)
@@ -82,9 +91,8 @@ abstract class BasicEthUpstreamSettingsDetector(
         }
         return client.substring(0, firstSlash).lowercase()
     }
-
-    data class NodeTypeRequest(
-        val request: ChainRequest,
-        val mapper: (JsonNode) -> JsonNode,
-    )
 }
+
+data class NodeTypeRequest(
+    val request: ChainRequest,
+)

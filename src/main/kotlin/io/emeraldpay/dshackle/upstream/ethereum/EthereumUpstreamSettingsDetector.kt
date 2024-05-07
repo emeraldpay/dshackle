@@ -1,9 +1,11 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import com.fasterxml.jackson.databind.JsonNode
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.BasicEthUpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.NodeTypeRequest
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Flux
@@ -22,6 +24,10 @@ class EthereumUpstreamSettingsDetector(
             detectNodeType(),
             detectArchiveNode(),
         )
+    }
+
+    override fun mapping(node: JsonNode): String {
+        return node.asText()
     }
 
     override fun clientVersionRequest(): ChainRequest {
@@ -54,9 +60,5 @@ class EthereumUpstreamSettingsDetector(
         ).flatMap(ChainResponse::requireResult)
     }
 
-    override fun nodeTypeRequest(): NodeTypeRequest {
-        return NodeTypeRequest(
-            clientVersionRequest(),
-        ) { node -> node }
-    }
+    override fun nodeTypeRequest(): NodeTypeRequest = NodeTypeRequest(clientVersionRequest())
 }

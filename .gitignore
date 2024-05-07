@@ -2,6 +2,7 @@
 build/
 out/
 ./dshackle.yaml
+dshackle.yaml
 ./upstream.yaml
 testsetup/
 .idea/
