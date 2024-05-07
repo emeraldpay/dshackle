@@ -35,6 +35,7 @@ import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.annotation.PostConstruct
 import javax.annotation.PreDestroy
 
@@ -74,6 +75,11 @@ open class GrpcServer(
             .forAddress(InetSocketAddress(mainConfig.host, mainConfig.port))
             .maxInboundMessageSize(Defaults.maxMessageSize)
             .maxInboundMetadataSize(maxMetadataSize)
+            .keepAliveTime(Defaults.grpcServerKeepAliveTime, TimeUnit.SECONDS)
+            .keepAliveTimeout(Defaults.grpcServerKeepAliveTimeout, TimeUnit.SECONDS)
+            .permitKeepAliveTime(Defaults.grpcServerPermitKeepAliveTime, TimeUnit.SECONDS)
+            .permitKeepAliveWithoutCalls(true)
+            .maxConnectionIdle(Defaults.grpcServerMaxConnectionIdle, TimeUnit.SECONDS)
 
         if (mainConfig.accessLogConfig.enabled) {
             serverBuilder.intercept(accessHandler)

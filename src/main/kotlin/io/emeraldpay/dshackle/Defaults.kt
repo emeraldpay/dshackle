@@ -26,5 +26,9 @@ class Defaults {
         val timeout: Duration = Duration.ofSeconds(60)
         val timeoutInternal: Duration = timeout.dividedBy(4)
         val retryConnection: Duration = Duration.ofSeconds(10)
+        val grpcServerKeepAliveTime: Long = 15 // seconds
+        val grpcServerKeepAliveTimeout: Long = 5
+        val grpcServerPermitKeepAliveTime: Long = 15
+        val grpcServerMaxConnectionIdle: Long = 3600
     }
 }
