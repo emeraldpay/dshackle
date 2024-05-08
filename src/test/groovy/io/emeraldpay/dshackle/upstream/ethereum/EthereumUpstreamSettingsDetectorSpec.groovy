@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.ApiReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
@@ -48,7 +49,7 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
         "Bor/v0.4.0/linux-amd64/go1.19.10"                      | "bor"           |  "v0.4.0"
     }
 
-    def "No any label"() {
+    def "Only default label"() {
         setup:
         def up = Mock(DefaultUpstream) {
             4 * getIngressReader() >> Mock(Reader) {
@@ -61,12 +62,14 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
                 1 * read(new ChainRequest("eth_getBalance", new ListParams(["0x0000000000000000000000000000000000000000", "0x2710"]))) >>
                         Mono.just(new ChainResponse("".getBytes(), null))
             }
+            getLabels() >> []
         }
         def detector = new EthereumUpstreamSettingsDetector(up, Chain.ETHEREUM__MAINNET)
         when:
         def act = detector.detectLabels()
         then:
         StepVerifier.create(act)
+            .expectNext(new Pair<String, String>("archive", "false"))
             .expectComplete()
             .verify(Duration.ofSeconds(1))
     }
