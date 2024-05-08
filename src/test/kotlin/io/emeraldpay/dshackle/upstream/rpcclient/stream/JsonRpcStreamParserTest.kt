@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.rpcclient.stream
 
+import io.emeraldpay.dshackle.upstream.ChainCallError
 import io.emeraldpay.dshackle.upstream.stream.AggregateResponse
 import io.emeraldpay.dshackle.upstream.stream.Chunk
 import io.emeraldpay.dshackle.upstream.stream.SingleResponse
@@ -67,6 +68,28 @@ class JsonRpcStreamParserTest {
 
         StepVerifier.create(streamParser.streamParse(statusCode, stream))
             .expectNext(SingleResponse(result, null))
+            .expectComplete()
+            .verify(Duration.ofSeconds(1))
+    }
+
+    @Test
+    fun `if first part has result field and error then single response`() {
+        val statusCode = 200
+        val response =
+            @Suppress("ktlint:standard:max-line-length")
+            "{\"id\": 2,\"result\": null, \"error\":{\"code\":-32000,\"message\":\"tracing failed: fee cap less than block base fee\"}}".toByteArray()
+        val stream: Flux<ByteArray> = Flux.just(response)
+
+        StepVerifier.create(streamParser.streamParse(statusCode, stream))
+            .expectNext(
+                SingleResponse(
+                    "null".toByteArray(),
+                    ChainCallError(
+                        -32000,
+                        "tracing failed: fee cap less than block base fee",
+                    ),
+                ),
+            )
             .expectComplete()
             .verify(Duration.ofSeconds(1))
     }
