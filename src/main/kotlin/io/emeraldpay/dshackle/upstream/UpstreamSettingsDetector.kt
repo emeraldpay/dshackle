@@ -77,7 +77,7 @@ abstract class BasicEthUpstreamSettingsDetector(
         val firstSlash = client.indexOf("/")
         val secondSlash = client.indexOf("/", firstSlash + 1)
         if (firstSlash == -1 || secondSlash == -1 || secondSlash < firstSlash) {
-            return null
+            return node.asText()
         }
         return client.substring(firstSlash + 1, secondSlash)
     }
