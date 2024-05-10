@@ -839,6 +839,42 @@ chain-settings:
           short-names: [manta-pacific-sepolia]
           chain-id: 0x34816e
           grpcId: 10076
+    - id: alephzero
+      label: Aleph Zero Network
+      type: eth
+      settings:
+        expected-block-time: 60s
+        lags:
+          syncing: 10
+          lagging: 5
+        options:
+          validate-peers: false
+        fork-choice: quorum
+      chains:
+        - id: Sepolia
+          priority: 2
+          code: ALEPHZERO_SEPOLIA
+          short-names: [alephzero-sepolia]
+          chain-id: 0x7f7
+          grpcId: 10078
+    - id: connext
+      label: Connext Network
+      type: eth
+      settings:
+        expected-block-time: 60s
+        lags:
+          syncing: 10
+          lagging: 5
+        options:
+          validate-peers: false
+        fork-choice: quorum
+      chains:
+        - id: Sepolia
+          priority: 2
+          code: CONNEXT_SEPOLIA
+          short-names: [connext-sepolia]
+          chain-id: 0x18fe
+          grpcId: 10077
     - id: harmony
       label: Harmony
       type: eth
