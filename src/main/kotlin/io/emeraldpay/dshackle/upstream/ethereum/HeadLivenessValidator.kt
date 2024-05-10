@@ -12,3 +12,9 @@ class NoHeadLivenessValidator : HeadLivenessValidator {
         return Flux.just(false)
     }
 }
+
+class AlwaysHeadLivenessValidator : HeadLivenessValidator {
+    override fun getFlux(): Flux<Boolean> {
+        return Flux.just(true)
+    }
+}

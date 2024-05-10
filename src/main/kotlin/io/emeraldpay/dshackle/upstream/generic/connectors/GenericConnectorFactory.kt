@@ -79,6 +79,7 @@ open class GenericConnectorFactory(
             headLivenessScheduler,
             expectedBlockTime,
             specific,
+            chain,
         )
     }
 

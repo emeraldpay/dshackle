@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.generic.connectors
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.reader.ChainReader
@@ -11,6 +12,7 @@ import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.NoIngressSubscription
+import io.emeraldpay.dshackle.upstream.ethereum.AlwaysHeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.GenericWsHead
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidatorImpl
@@ -45,6 +47,7 @@ class GenericRpcConnector(
     headLivenessScheduler: Scheduler,
     expectedBlockTime: Duration,
     private val chainSpecific: ChainSpecific,
+    private val chain: Chain,
 ) : GenericConnector, CachesEnabled {
     private val id = upstream.getId()
     private val pool: WsConnectionPool?
@@ -126,9 +129,13 @@ class GenericRpcConnector(
             }
         }
 
-        liveness = when (connectorType) {
-            RPC_ONLY -> NoHeadLivenessValidator()
-            RPC_REQUESTS_WITH_MIXED_HEAD, RPC_REQUESTS_WITH_WS_HEAD, WS_ONLY -> HeadLivenessValidatorImpl(head, expectedBlockTime, headLivenessScheduler, id)
+        liveness = if (connectorType != RPC_ONLY && (chain == Chain.ALEPHZERO__SEPOLIA || chain == Chain.CONNEXT__SEPOLIA)) {
+            AlwaysHeadLivenessValidator()
+        } else {
+            when (connectorType) {
+                RPC_ONLY -> NoHeadLivenessValidator()
+                RPC_REQUESTS_WITH_MIXED_HEAD, RPC_REQUESTS_WITH_WS_HEAD, WS_ONLY -> HeadLivenessValidatorImpl(head, expectedBlockTime, headLivenessScheduler, id)
+            }
         }
     }
 
