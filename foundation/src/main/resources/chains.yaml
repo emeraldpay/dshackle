@@ -946,6 +946,12 @@ chain-settings:
           syncing: 40
           lagging: 20
       chains:
+        - id: Mainnet
+          priority: 100
+          code: LISK_MAINNET
+          grpcId: 1056
+          short-names: [lisk, lisk-mainnet]
+          chain-id: 0x46f
         - id: Testnet
           priority: 1
           code: LISTK_TESTNET
