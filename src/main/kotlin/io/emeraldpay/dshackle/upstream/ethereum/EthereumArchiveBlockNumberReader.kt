@@ -11,6 +11,8 @@ import kotlin.math.max
 
 private const val ARBITRUM_NITRO_BLOCK = "0x152DD47" // 22207815
 private const val OPTIMISM_BEDROCK_BLOCK = "0x645C277" // 105235063
+private const val EVMOS_GENESIS_BLOCK = "0xe54d" // 58701
+
 private const val EARLIEST_BLOCK = "0x2710" // 10000
 
 class EthereumArchiveBlockNumberReader(
@@ -31,6 +33,7 @@ class EthereumArchiveBlockNumberReader(
         return when (chain) {
             Chain.ARBITRUM__MAINNET -> ARBITRUM_NITRO_BLOCK
             Chain.OPTIMISM__MAINNET -> OPTIMISM_BEDROCK_BLOCK
+            Chain.EVMOS__MAINNET -> EVMOS_GENESIS_BLOCK
             else -> EARLIEST_BLOCK
         }.run { Mono.just(this) }
     }
