@@ -18,7 +18,7 @@ class RemoteUnspentReader(
     )
 
     override fun read(key: Address): Mono<List<SimpleUnspent>> {
-        val apis = upstreams.getApiSource(selector)
+        val apis = upstreams.getApiSource(Selector.UpstreamFilter(selector))
         apis.request(1)
         return Mono.empty()
     }

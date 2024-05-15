@@ -80,7 +80,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
-                1, null, upstream, Selector.empty, new AlwaysQuorum(),
+                1, null, upstream, new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1
         )
 
@@ -101,7 +101,7 @@ class NativeCallSpec extends Specification {
 
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(
-                15, null, upstream, Selector.empty, new AlwaysQuorum(),
+                15, null, upstream, new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1
         )
 
@@ -126,7 +126,7 @@ class NativeCallSpec extends Specification {
                 1 * read(_) >> Mono.just(new RequestReader.Result("\"foo\"".bytes, null, 1, new Upstream.UpstreamSettingsData((byte)1, "test", "v"), null))
             }
         }
-        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), new Selector.UpstreamFilter(Selector.empty), quorum,
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
 
         when:
@@ -148,7 +148,7 @@ class NativeCallSpec extends Specification {
                 1 * read(new ChainRequest("eth_test", new ListParams(), 10)) >> Mono.empty()
             }
         }
-        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), new Selector.UpstreamFilter(Selector.empty), quorum,
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
 
         when:
@@ -174,7 +174,7 @@ class NativeCallSpec extends Specification {
                 )
             }
         }
-        def call = new NativeCall.ValidCallContext(12, 10, TestingCommons.multistream(TestingCommons.api()), Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(12, 10, TestingCommons.multistream(TestingCommons.api()), new Selector.UpstreamFilter(Selector.empty), quorum,
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
 
         when:
@@ -420,9 +420,9 @@ class NativeCallSpec extends Specification {
         def act = nativeCall.prepareCall(req, multistream)
                 .collectList().block(Duration.ofSeconds(1)).first()
         then:
-        act.matcher != null
-        act.matcher instanceof Selector.MultiMatcher
-        with((Selector.MultiMatcher) act.matcher) {
+        act.upstreamFilter.matcher != null
+        act.upstreamFilter.matcher instanceof Selector.MultiMatcher
+        with((Selector.MultiMatcher) act.upstreamFilter.matcher) {
             it.getMatchers().size() >= 1
             it.getMatcher(Selector.HeightMatcher) != null
             with(it.getMatcher(Selector.HeightMatcher)) {
@@ -528,7 +528,7 @@ class NativeCallSpec extends Specification {
     def "Parse empty params"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
@@ -541,7 +541,7 @@ class NativeCallSpec extends Specification {
     def "Parse none params"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
@@ -554,7 +554,7 @@ class NativeCallSpec extends Specification {
     def "Parse single param"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams(false)), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
@@ -567,7 +567,7 @@ class NativeCallSpec extends Specification {
     def "Parse multi param"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams(false, 123)), "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
@@ -580,7 +580,7 @@ class NativeCallSpec extends Specification {
     def "Decorate eth_getFilterUpdates params"() {
         setup:
         def nativeCall = nativeCall()
-        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), Selector.empty, new AlwaysQuorum(),
+        def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_getFilterUpdates", new ListParams("0xabcd")),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator(), null, false, "reqId", 1)
         when:
@@ -612,7 +612,7 @@ class NativeCallSpec extends Specification {
                 1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, new Upstream.UpstreamSettingsData((byte) 255, "", ""), null))
             }
         }
-        def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, multistream, new Selector.UpstreamFilter(Selector.empty), quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", new ListParams()),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, false, "reqId", 1)
 
@@ -645,7 +645,7 @@ class NativeCallSpec extends Specification {
                 1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, new Upstream.UpstreamSettingsData((byte) 1, "", ""), null))
             }
         }
-        def call = new NativeCall.ValidCallContext(1, 10, multistream, Selector.empty, quorum,
+        def call = new NativeCall.ValidCallContext(1, 10, multistream, new Selector.UpstreamFilter(Selector.empty), quorum,
                 new NativeCall.ParsedCallDetails("eth_getFilterChanges", new ListParams()),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.CreateFilterDecorator(), null, false, "reqId", 1)
 
@@ -667,7 +667,7 @@ class NativeCallSpec extends Specification {
 
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
-                Selector.empty, new AlwaysQuorum(),
+                new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
         when:
         nativeCall.fetch(ctx)
@@ -684,7 +684,7 @@ class NativeCallSpec extends Specification {
 
         def ctx = new NativeCall.ValidCallContext<NativeCall.ParsedCallDetails>(10, null,
                 upstream,
-                Selector.empty, new AlwaysQuorum(),
+                new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
                 new NativeCall.ParsedCallDetails("eth_test", new ListParams()), "reqId", 1)
         when:
         def act = nativeCall.fetch(ctx)

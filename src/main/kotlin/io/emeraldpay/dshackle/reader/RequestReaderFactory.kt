@@ -68,16 +68,16 @@ interface RequestReaderFactory {
     class Default : RequestReaderFactory {
         override fun create(data: ReaderData): RequestReader {
             if (data.quorum is MaximumValueQuorum || data.quorum is BroadcastQuorum) {
-                return BroadcastReader(data.multistream.getAll(), data.matcher, data.signer, data.quorum, data.tracer)
+                return BroadcastReader(data.multistream.getAll(), data.upstreamFilter.matcher, data.signer, data.quorum, data.tracer)
             }
-            val apis = data.multistream.getApiSource(data.matcher)
+            val apis = data.multistream.getApiSource(data.upstreamFilter)
             return QuorumRequestReader(apis, data.quorum, data.signer, data.tracer)
         }
     }
 
     data class ReaderData(
         val multistream: Multistream,
-        val matcher: Selector.Matcher,
+        val upstreamFilter: Selector.UpstreamFilter,
         val quorum: CallQuorum,
         val signer: ResponseSigner?,
         val tracer: Tracer,

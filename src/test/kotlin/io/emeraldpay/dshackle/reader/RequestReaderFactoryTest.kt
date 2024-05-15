@@ -34,7 +34,7 @@ class RequestReaderFactoryTest {
                 Arguments.of(
                     RequestReaderFactory.ReaderData(
                         ms,
-                        Selector.empty,
+                        Selector.UpstreamFilter(Selector.empty),
                         MaximumValueQuorum(),
                         null,
                         tracer,
@@ -43,7 +43,7 @@ class RequestReaderFactoryTest {
                 Arguments.of(
                     RequestReaderFactory.ReaderData(
                         ms,
-                        Selector.empty,
+                        Selector.UpstreamFilter(Selector.empty),
                         BroadcastQuorum(),
                         null,
                         tracer,

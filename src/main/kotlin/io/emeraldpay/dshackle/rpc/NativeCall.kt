@@ -331,12 +331,12 @@ open class NativeCall(
                 ),
             )
         }
-        val requestMatcher = requestItem.selectorsList
+        val upstreamFilter = requestItem.selectorsList
             .takeIf { it.isNotEmpty() }
-            ?.run { Mono.just(Selector.convertToMatcher(this, upstream.getHead())) }
+            ?.run { Selector.convertToUpstreamFilter(this) }
         // for ethereum the actual block needed for the call may be specified in the call parameters
         val callSpecificMatcher: Mono<Selector.Matcher> =
-            requestMatcher ?: upstream.callSelector?.getMatcher(method, params, upstream.getHead(), passthrough) ?: Mono.empty()
+            upstreamFilter?.matcher?.let { Mono.just(it) } ?: upstream.callSelector?.getMatcher(method, params, upstream.getHead(), passthrough) ?: Mono.empty()
         return callSpecificMatcher.defaultIfEmpty(Selector.empty).map { csm ->
             val matcher = Selector.Builder()
                 .withMatcher(csm)
@@ -363,7 +363,7 @@ open class NativeCall(
                 requestItem.id,
                 nonce,
                 upstream,
-                matcher.build(),
+                Selector.UpstreamFilter(upstreamFilter?.sort ?: Selector.Sort.default, matcher.build()),
                 callQuorum,
                 parsedCallDetails(requestItem),
                 requestDecorator,
@@ -433,7 +433,7 @@ open class NativeCall(
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method"))
         }
         val reader = requestReaderFactory.create(
-            ReaderData(ctx.upstream, ctx.matcher, ctx.callQuorum, signer, tracer),
+            ReaderData(ctx.upstream, ctx.upstreamFilter, ctx.callQuorum, signer, tracer),
         )
         val counter = reader.attempts()
 
@@ -572,7 +572,7 @@ open class NativeCall(
         val id: Int,
         val nonce: Long?,
         val upstream: Multistream,
-        val matcher: Selector.Matcher,
+        val upstreamFilter: Selector.UpstreamFilter,
         val callQuorum: CallQuorum,
         val payload: T,
         val requestDecorator: RequestDecorator,
@@ -587,13 +587,13 @@ open class NativeCall(
             id: Int,
             nonce: Long?,
             upstream: Multistream,
-            matcher: Selector.Matcher,
+            upstreamFilter: Selector.UpstreamFilter,
             callQuorum: CallQuorum,
             payload: T,
             requestId: String,
             requestCount: Int,
         ) : this(
-            id, nonce, upstream, matcher, callQuorum, payload,
+            id, nonce, upstream, upstreamFilter, callQuorum, payload,
             NoneRequestDecorator(), NoneResultDecorator(), null, false, requestId, requestCount,
         )
 
@@ -613,13 +613,13 @@ open class NativeCall(
 
         fun <X> withPayload(payload: X): ValidCallContext<X> {
             return ValidCallContext(
-                id, nonce, upstream, matcher, callQuorum, payload,
+                id, nonce, upstream, upstreamFilter, callQuorum, payload,
                 requestDecorator, resultDecorator, forwardedSelector, streamRequest, requestId, requestCount,
             )
         }
 
         fun getApis(): ApiSource {
-            return upstream.getApiSource(matcher)
+            return upstream.getApiSource(upstreamFilter)
         }
     }
 

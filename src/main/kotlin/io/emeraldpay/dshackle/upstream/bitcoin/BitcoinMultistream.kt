@@ -92,7 +92,7 @@ open class BitcoinMultistream(
      * Finds an API that executed directly on a remote.
      */
     open fun getDirectApi(matcher: Selector.Matcher): Mono<ChainReader> {
-        val apis = getApiSource(matcher)
+        val apis = getApiSource(Selector.UpstreamFilter(matcher))
         apis.request(1)
         return Mono.from(apis)
             .map(Upstream::getIngressReader)

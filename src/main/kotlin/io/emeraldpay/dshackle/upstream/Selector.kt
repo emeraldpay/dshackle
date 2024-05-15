@@ -41,15 +41,19 @@ class Selector {
         val anyLabel = AnyLabelMatcher()
 
         @JvmStatic
-        fun convertToMatcher(selectors: List<BlockchainOuterClass.Selector>, head: Head): Matcher {
-            return selectors
+        fun convertToUpstreamFilter(selectors: List<BlockchainOuterClass.Selector>): UpstreamFilter {
+            val matcher = selectors
                 .map {
                     when {
                         it.hasSlotHeightSelector() -> {
                             SlotMatcher(it.slotHeightSelector.slotHeight)
                         }
                         it.hasHeightSelector() -> {
-                            val height = if (it.heightSelector.height == -1L) head.getCurrentHeight() else it.heightSelector.height
+                            val height = if (it.heightSelector.height == -1L) {
+                                null
+                            } else {
+                                it.heightSelector.height
+                            }
                             if (height == null) {
                                 empty
                             } else {
@@ -61,6 +65,10 @@ class Selector {
                 }.run {
                     MultiMatcher(this)
                 }
+            val sort = selectors.firstOrNull { it.hasHeightSelector() && it.heightSelector.height == -1L }
+                ?.let { Sort(compareByDescending { it.getHead().getCurrentHeight() }) }
+                ?: Sort.default
+            return UpstreamFilter(sort, matcher)
         }
 
         @JvmStatic
@@ -153,12 +161,28 @@ class Selector {
         }
     }
 
+    data class Sort(
+        val comparator: Comparator<Upstream>,
+    ) {
+        companion object {
+            @JvmStatic
+            val default = Sort(compareBy { null })
+        }
+    }
+
     abstract class Matcher {
         fun matches(up: Upstream): Boolean = matchesWithCause(up).matched()
 
         abstract fun matchesWithCause(up: Upstream): MatchesResponse
 
         abstract fun describeInternal(): String
+    }
+
+    data class UpstreamFilter(
+        val sort: Sort,
+        val matcher: Matcher,
+    ) {
+        constructor(matcher: Matcher) : this(Sort.default, matcher)
     }
 
     data class MultiMatcher(

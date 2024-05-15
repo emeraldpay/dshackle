@@ -38,6 +38,7 @@ class FilteredApis(
     matcher: Selector.Matcher,
     private val pos: Int,
     private val retries: Int,
+    sort: Selector.Sort = Selector.Sort.default,
 ) : ApiSource {
     private val internalMatcher: Selector.Matcher
 
@@ -72,6 +73,13 @@ class FilteredApis(
     constructor(
         chain: Chain,
         allUpstreams: List<Upstream>,
+        upstreamFilter: Selector.UpstreamFilter,
+        pos: Int,
+    ) : this(chain, allUpstreams, upstreamFilter.matcher, pos, DEFAULT_RETRY_LIMIT, upstreamFilter.sort)
+
+    constructor(
+        chain: Chain,
+        allUpstreams: List<Upstream>,
         matcher: Selector.Matcher,
     ) : this(chain, allUpstreams, matcher, 0, DEFAULT_RETRY_LIMIT)
 
@@ -79,12 +87,12 @@ class FilteredApis(
         it.getRole() == UpstreamsConfig.UpstreamRole.PRIMARY
     }.let {
         startFrom(it, pos)
-    }
+    }.sortedWith(sort.comparator)
     private val secondaryUpstreams: List<Upstream> = allUpstreams.filter {
         it.getRole() == UpstreamsConfig.UpstreamRole.SECONDARY
     }.let {
         startFrom(it, pos)
-    }
+    }.sortedWith(sort.comparator)
     private val standardWithFallback: List<Upstream>
 
     private val counter: AtomicInteger = AtomicInteger(0)
@@ -98,7 +106,7 @@ class FilteredApis(
             it.getRole() == UpstreamsConfig.UpstreamRole.FALLBACK
         }.let {
             startFrom(it, pos)
-        }
+        }.sortedWith(sort.comparator)
         standardWithFallback = emptyList<Upstream>()
             .plus(primaryUpstreams)
             .plus(secondaryUpstreams)

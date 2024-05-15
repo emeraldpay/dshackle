@@ -42,9 +42,9 @@ class SelectorSpec extends Specification {
                 )
                 .build()
         when:
-        def act = Selector.convertToMatcher(List.of(slotHeightSelector), Stub(Head))
+        def act = Selector.convertToUpstreamFilter(List.of(slotHeightSelector))
         then:
-        act == new Selector.MultiMatcher(List.of(new Selector.SlotMatcher(10000)))
+        act.matcher == new Selector.MultiMatcher(List.of(new Selector.SlotMatcher(10000)))
     }
 
     def "Convert height selector"() {
@@ -57,16 +57,13 @@ class SelectorSpec extends Specification {
                 )
                 .build()
         when:
-        def act = Selector.convertToMatcher(List.of(heightSelector), Stub(Head))
+        def act = Selector.convertToUpstreamFilter(List.of(heightSelector))
         then:
-        act == new Selector.MultiMatcher(List.of(new Selector.HeightMatcher(10000)))
+        act.matcher == new Selector.MultiMatcher(List.of(new Selector.HeightMatcher(10000)))
     }
 
     def "Convert height selector with latest"() {
         setup:
-        def head = Mock(Head) {
-            1 * getCurrentHeight() >> 15000
-        }
         def heightSelector = BlockchainOuterClass.Selector.newBuilder()
                 .setHeightSelector(
                         BlockchainOuterClass.HeightSelector.newBuilder()
@@ -75,9 +72,10 @@ class SelectorSpec extends Specification {
                 )
                 .build()
         when:
-        def act = Selector.convertToMatcher(List.of(heightSelector), head)
+        def act = Selector.convertToUpstreamFilter(List.of(heightSelector))
         then:
-        act == new Selector.MultiMatcher(List.of(new Selector.HeightMatcher(15000)))
+        act.matcher == new Selector.MultiMatcher(List.of(Selector.empty))
+        act.sort != Selector.Sort.default
     }
 
     def "Convert LABEL match"() {

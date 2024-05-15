@@ -86,7 +86,7 @@ class FilteredApisSpec extends Specification {
             it.setStatus(UpstreamAvailability.OK)
         }
         when:
-        def iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 0, 0)
+        def iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 0, 0, Selector.Sort.default)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -97,7 +97,7 @@ class FilteredApisSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
 
         when:
-        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 0)
+        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 0, Selector.Sort.default)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -108,7 +108,7 @@ class FilteredApisSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
 
         when:
-        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 2)
+        iter = new FilteredApis(Chain.ETHEREUM__MAINNET, upstreams, matcher, 1, 2, Selector.Sort.default)
         iter.request(10)
         then:
         StepVerifier.create(iter)
@@ -134,7 +134,7 @@ class FilteredApisSpec extends Specification {
             TestingCommons.upstream(it)
         }
         when:
-        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 0)
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 0, Selector.Sort.default)
         act.request(10)
         then:
         StepVerifier.create(act)
@@ -153,7 +153,7 @@ class FilteredApisSpec extends Specification {
             TestingCommons.upstream(it)
         }
         when:
-        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 0)
+        def act = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, Selector.empty, 2, 0, Selector.Sort.default)
         act.request(3)
         then:
         StepVerifier.create(act)
@@ -212,7 +212,7 @@ class FilteredApisSpec extends Specification {
         when:
         def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + fallback + standard,
-                Selector.empty, 0, 1)
+                Selector.empty, 0, 1, Selector.Sort.default)
         act.request(10)
         then:
         StepVerifier.create(act)
@@ -248,7 +248,7 @@ class FilteredApisSpec extends Specification {
         when:
         def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + fallback + standard + secondary,
-                Selector.empty, 0, 2)
+                Selector.empty, 0, 2, Selector.Sort.default)
         act.request(11)
         then:
         StepVerifier.create(act)
@@ -285,7 +285,7 @@ class FilteredApisSpec extends Specification {
         when:
         def act = new FilteredApis(Chain.ETHEREUM__MAINNET,
                 [] + lagging + ok,
-                Selector.empty, 0, 1)
+                Selector.empty, 0, 1, Selector.Sort.default)
         act.request(4)
         then:
         StepVerifier.create(act)

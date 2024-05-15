@@ -206,12 +206,12 @@ abstract class Multistream(
     /**
      * Get a source for direct APIs
      */
-    open fun getApiSource(matcher: Selector.Matcher): ApiSource {
+    open fun getApiSource(upstreamFilter: Selector.UpstreamFilter): ApiSource {
         val i = seq++
         if (seq >= Int.MAX_VALUE / 2) {
             seq = 0
         }
-        return FilteredApis(chain, getUpstreams(), matcher, i)
+        return FilteredApis(chain, getUpstreams(), upstreamFilter, i)
     }
 
     /**

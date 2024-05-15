@@ -237,7 +237,7 @@ class EthereumDirectReader(
                 it.create(
                     RequestReaderFactory.ReaderData(
                         up,
-                        requestMatcher,
+                        Selector.UpstreamFilter(requestMatcher),
                         callMethodsFactory.create().createQuorumFor(request.method),
                         null,
                         tracer,
