@@ -65,10 +65,18 @@ class Selector {
                 }.run {
                     MultiMatcher(this)
                 }
-            val sort = selectors.firstOrNull { it.hasHeightSelector() && it.heightSelector.height == -1L }
-                ?.let { Sort(compareByDescending { it.getHead().getCurrentHeight() }) }
-                ?: Sort.default
-            return UpstreamFilter(sort, matcher)
+            return UpstreamFilter(getSort(selectors), matcher)
+        }
+
+        private fun getSort(selectors: List<BlockchainOuterClass.Selector>): Sort {
+            selectors.forEach { selector ->
+                if (selector.hasHeightSelector() && selector.heightSelector.height == -1L) {
+                    return Sort(compareByDescending { it.getHead().getCurrentHeight() })
+                } else if (selector.hasLowerHeightSelector() && selector.lowerHeightSelector.height == 0L) {
+                    return Sort(compareBy(nullsLast()) { it.getHead().getCurrentHeight() })
+                }
+            }
+            return Sort.default
         }
 
         @JvmStatic
