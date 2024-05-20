@@ -80,11 +80,23 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
         }
         return Mono.zip(
             validateChain(),
-            validateCallLimit(),
             validateOldBlocks(),
         ).map {
-            listOf(it.t1, it.t2, it.t3).sorted().last()
+            listOf(it.t1, it.t2).maxOf { it }
         }
+    }
+
+    override fun validateUpstreamSettingsOnStartup(): ValidateUpstreamSettingsResult {
+        if (options.disableUpstreamValidation) {
+            return ValidateUpstreamSettingsResult.UPSTREAM_VALID
+        }
+        return Mono.zip(
+            validateChain(),
+            validateOldBlocks(),
+            validateCallLimit(),
+        ).map {
+            listOf(it.t1, it.t2, it.t3).maxOf { it }
+        }.block() ?: ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
     }
 
     private fun validateChain(): Mono<ValidateUpstreamSettingsResult> {
