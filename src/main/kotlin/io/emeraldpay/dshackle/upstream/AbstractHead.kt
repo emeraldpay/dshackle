@@ -87,7 +87,7 @@ abstract class AbstractHead @JvmOverloads constructor(
                 // close internal stream if upstream is finished, otherwise it gets stuck,
                 // but technically it should never happen during normal work, only when the Head
                 // is stopping
-                if (it == SignalType.ON_ERROR && !stopping) {
+                if ((it == SignalType.ON_ERROR || it == SignalType.CANCEL || it == SignalType.ON_COMPLETE) && !stopping) {
                     log.warn("Received signal $upstreamId $it unexpectedly - restart head")
                     lastHeadUpdated = 0L
                 } else {
