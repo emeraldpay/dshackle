@@ -245,8 +245,8 @@ chain-settings:
       settings:
         expected-block-time: 5s
         lags:
-          syncing: 40
-          lagging: 20
+          syncing: 70
+          lagging: 50
         fork-choice: height # wait for providers
         options:
           validate-peers: false
