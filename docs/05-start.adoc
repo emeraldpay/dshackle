@@ -8,12 +8,12 @@ Prepare configuration files `dshackle.yaml` and `upstreams.yaml` in the current 
 
 [source,bash,subs="attributes"]
 ----
-docker run -p 2449:2449 -v $(pwd):/config -w /config p2p-org/dshackle:{version-short}
+docker run -p 2449:2449 -v $(pwd):/config -w /config drpcorg/dshackle:{version-short}
 ----
 
 === Install & Run manually
 
-1. Download latest release from https://github.com/p2p-org/dshackle/releases
+1. Download latest release from https://github.com/drpcorg/dshackle/releases
 2. Unpack `unzip dshackle-0.6.0.zip`
 3. Copy to `/opt/dshackle`
 4. Setup configuration in `/etc/dshackle`

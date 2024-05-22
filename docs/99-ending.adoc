@@ -1,6 +1,6 @@
 == Links
 
-- Github: https://github.com/p2p-org/dshackle
+- Github: https://github.com/drpcorg/dshackle
 
 == Chat
 

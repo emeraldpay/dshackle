@@ -239,7 +239,7 @@ class EthCallLimitValidator(
         ListParams(
             TransactionCallJson(
                 Address.from(config.callLimitContract),
-                // contract like https://github.com/p2p-org/dshackle/pull/246
+                // contract like https://github.com/drpcorg/dshackle/pull/246
                 // meta + size in hex
                 HexData.from("0xd8a26e3a" + options.callLimitSize.toString(16).padStart(64, '0')),
             ),

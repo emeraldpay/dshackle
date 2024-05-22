@@ -82,7 +82,7 @@ See detailed xref:reference-configuration.adoc[Configuration Reference]
 
 ==== Run as docker
 
-Official Docker image you can find at: https://hub.docker.com/r/p2p-org/dshackle[p2p-org/dshackle]
+Official Docker image you can find at: https://hub.docker.com/r/drpcorg/dshackle[drpcorg/dshackle]
 
 .Setup DRPC key
 [source,bash]
@@ -93,7 +93,7 @@ export DRPC_KEY=...
 .Run Dshackle
 [source,bash,subs="attributes"]
 ----
-docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "DRPC_KEY=$DRPC_KEY" p2p-org/dshackle:{version-short}
+docker run -p 2449:2449 -p 8545:8545 -v $(pwd):/etc/dshackle -e "DRPC_KEY=$DRPC_KEY" drpcorg/dshackle:{version-short}
 ----
 
 ==== Access using JSON RPC

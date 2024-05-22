@@ -46,7 +46,7 @@ Main goals:
 
 == List of supported chains
 
-Can be found here:  https://p2p-org.github.io/dshackle/networks.html
+Can be found here:  https://drpcorg.github.io/dshackle/networks.html
 
 == Reference
 
@@ -58,4 +58,4 @@ Join our https://drpc.org/discord[Discord]
 
 == Links
 
-- Github: https://github.com/p2p-org/dshackle
+- Github: https://github.com/drpcorg/dshackle

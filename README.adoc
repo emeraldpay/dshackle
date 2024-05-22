@@ -6,8 +6,8 @@ endif::[]
 :version: 0.12.0
 :version-short: 0.12
 
-image:https://github.com/p2p-org/dshackle/workflows/Tests/badge.svg["Unit Tests"]
-image:https://img.shields.io/github/license/p2p-org/dshackle.svg?style=flat-square&maxAge=2592000["License",link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
+image:https://github.com/drpcorg/dshackle/workflows/Tests/badge.svg["Unit Tests"]
+image:https://img.shields.io/github/license/drpcorg/dshackle.svg?style=flat-square&maxAge=2592000["License",link="https://github.com/emeraldpay/dshackle/blob/master/LICENSE"]
 
 [.lead]
 _Dshackle is a Fault Tolerant Load Balancer for Blockchain API used at https://drpc.org/[DRPC]_
@@ -35,7 +35,7 @@ Provides:
 - Separate public blockchain nodes from your internal servers
 
 === Supported chains
-List of supported chains https://p2p-org.github.io/dshackle/networks.html[here]. Feel free to contribute new chains.
+List of supported chains https://drpcorg.github.io/dshackle/networks.html[here]. Feel free to contribute new chains.
 
 === Architecture
 
@@ -119,7 +119,7 @@ link:docs[See full documentations].
 
 ==== Run docker image
 
-Official Docker image you can find at: https://hub.docker.com/r/p2p-org/dshackle[p2p-org/dshackle]
+Official Docker image you can find at: https://hub.docker.com/r/drpcorg/dshackle[drpcorg/dshackle]
 
 .Setup DRPC key
 [source,bash]

@@ -10,7 +10,7 @@ NOTE: It's not necessary to use gRPC, as Dshackle can provide standard JSON RPC 
 
 === gRPC definition
 
-The source code for the Protobuf definitions could be found in https://github.com/p2p-org/emerald-grpc/tree/master/proto[/proto].
+The source code for the Protobuf definitions could be found in https://github.com/drpcorg/emerald-grpc/tree/master/proto[/proto].
 
 .Service API
 [source,proto]

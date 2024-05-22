@@ -101,7 +101,7 @@ In the example above we have:
 *It's kindly recommended* to strictly associate _node-id_ parameter with a physical node and keep it during any configuration changes
 
 === Supported chains
-List of supported chains could be found https://p2p-org.github.io/dshackle/networks.html[here]
+List of supported chains could be found https://drpcorg.github.io/dshackle/networks.html[here]
 
 === Roles and Fallback upstream
 
@@ -255,9 +255,9 @@ If a client requests to execute method `trace_transaction` then it will be sched
 
 There are also method groups to more easily manage methods in batches, currently there are several groups:
 
-- https://github.com/p2p-org/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L53[trace]
-- https://github.com/p2p-org/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L65[debug]
-- https://github.com/p2p-org/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L41[filter]
+- https://github.com/drpcorg/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L53[trace]
+- https://github.com/drpcorg/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L65[debug]
+- https://github.com/drpcorg/dshackle/blob/master/src/main/kotlin/io/emeraldpay/dshackle/upstream/calls/DefaultEthereumMethods.kt#L41[filter]
 - default, all methods that are enabled by default
 [source, yaml]
 ----
