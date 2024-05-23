@@ -16,6 +16,7 @@ class RecursiveLowerBound(
     private val upstream: Upstream,
     private val type: LowerBoundType,
     private val nonRetryableErrors: Set<String>,
+    private val lowerBounds: Map<LowerBoundType, LowerBoundData>,
 ) {
     private val log = LoggerFactory.getLogger(this::class.java)
 
@@ -25,8 +26,11 @@ class RecursiveLowerBound(
                 val currentHeight = it.getCurrentHeight()
                 if (currentHeight == null) {
                     Mono.empty()
-                } else {
+                } else if (!lowerBounds.contains(type)) {
                     Mono.just(LowerBoundBinarySearch(0, currentHeight))
+                } else {
+                    // next calculations will be carried out only within the last range
+                    Mono.just(LowerBoundBinarySearch(lowerBounds[type]!!.lowerBound, currentHeight))
                 }
             }
             .expand { data ->

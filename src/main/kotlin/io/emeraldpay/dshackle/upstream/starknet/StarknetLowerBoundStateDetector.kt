@@ -14,4 +14,8 @@ class StarknetLowerBoundStateDetector : LowerBoundDetector() {
     override fun internalDetectLowerBound(): Flux<LowerBoundData> {
         return Flux.just(LowerBoundData(1, LowerBoundType.STATE))
     }
+
+    override fun types(): Set<LowerBoundType> {
+        return setOf(LowerBoundType.STATE)
+    }
 }

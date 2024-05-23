@@ -76,4 +76,8 @@ class SolanaLowerBoundSlotDetector(
                     },
             )
     }
+
+    override fun types(): Set<LowerBoundType> {
+        return setOf(LowerBoundType.SLOT, LowerBoundType.STATE)
+    }
 }

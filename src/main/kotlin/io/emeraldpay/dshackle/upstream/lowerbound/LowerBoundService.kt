@@ -15,15 +15,22 @@ abstract class LowerBoundService(
     private val log = LoggerFactory.getLogger(this::class.java)
 
     private val lowerBounds = ConcurrentHashMap<LowerBoundType, LowerBoundData>()
+    private val detectors: List<LowerBoundDetector> by lazy { detectors() }
 
     fun detectLowerBounds(): Flux<LowerBoundData> {
         return Flux.merge(
-            detectors().map { it.detectLowerBound() },
+            detectors.map { it.detectLowerBound() },
         )
             .doOnNext {
                 log.info("Lower bound of type ${it.type} is ${it.lowerBound} for upstream ${upstream.getId()} of chain $chain")
                 lowerBounds[it.type] = it
             }
+    }
+
+    fun updateLowerBound(lowerBound: Long, type: LowerBoundType) {
+        detectors
+            .filter { it.types().contains(type) }
+            .forEach { it.updateLowerBound(lowerBound, type) }
     }
 
     fun getLowerBounds(): Collection<LowerBoundData> = lowerBounds.values

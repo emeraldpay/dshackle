@@ -28,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.ChainException
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.error.UpstreamErrorHandler
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.slf4j.LoggerFactory
@@ -51,6 +52,7 @@ class QuorumRequestReader(
     signer: ResponseSigner?,
     private val tracer: Tracer,
 ) : RequestReader(signer) {
+    private val errorHandler = UpstreamErrorHandler
 
     companion object {
         private val log = LoggerFactory.getLogger(QuorumRequestReader::class.java)
@@ -174,6 +176,8 @@ class QuorumRequestReader(
     private fun <T> withErrorResume(api: Upstream, key: ChainRequest): Function<Mono<T>, Mono<T>> {
         return Function { src ->
             src.onErrorResume { err ->
+                errorHandler.handle(api, key, err.message)
+
                 val msgError = "Error during call upstream ${api.getId()} with method ${key.method}"
                 if (err is ChainCallUpstreamException) {
                     log.debug(msgError, err)

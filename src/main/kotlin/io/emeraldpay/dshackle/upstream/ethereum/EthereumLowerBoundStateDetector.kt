@@ -15,10 +15,10 @@ import reactor.core.publisher.Mono
 class EthereumLowerBoundStateDetector(
     private val upstream: Upstream,
 ) : LowerBoundDetector() {
-    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.STATE, nonRetryableErrors)
+    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.STATE, stateErrors, lowerBounds)
 
     companion object {
-        private val nonRetryableErrors = setOf(
+        val stateErrors = setOf(
             "No state available for block", // nethermind
             "missing trie node", // geth
             "header not found", // optimism, bsc, avalanche
@@ -61,5 +61,9 @@ class EthereumLowerBoundStateDetector(
                 )
             }
         }
+    }
+
+    override fun types(): Set<LowerBoundType> {
+        return setOf(LowerBoundType.STATE)
     }
 }

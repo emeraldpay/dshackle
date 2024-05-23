@@ -24,4 +24,8 @@ class NearLowerBoundStateDetector(
             LowerBoundData(resp.syncInfo.earliestHeight, LowerBoundType.STATE)
         }.toFlux()
     }
+
+    override fun types(): Set<LowerBoundType> {
+        return setOf(LowerBoundType.STATE)
+    }
 }

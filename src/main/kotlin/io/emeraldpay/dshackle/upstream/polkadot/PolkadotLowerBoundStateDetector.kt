@@ -14,7 +14,7 @@ import reactor.core.publisher.Flux
 class PolkadotLowerBoundStateDetector(
     private val upstream: Upstream,
 ) : LowerBoundDetector() {
-    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.STATE, nonRetryableErrors)
+    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.STATE, nonRetryableErrors, lowerBounds)
 
     companion object {
         private val nonRetryableErrors = setOf(
@@ -47,5 +47,9 @@ class PolkadotLowerBoundStateDetector(
                     )
                 }
         }
+    }
+
+    override fun types(): Set<LowerBoundType> {
+        return setOf(LowerBoundType.STATE)
     }
 }

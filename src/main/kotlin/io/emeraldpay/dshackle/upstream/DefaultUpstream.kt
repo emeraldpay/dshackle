@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
@@ -152,6 +153,10 @@ abstract class DefaultUpstream(
 
     override fun getId(): String {
         return id
+    }
+
+    override fun updateLowerBound(lowerBound: Long, type: LowerBoundType) {
+        // NOOP
     }
 
     data class Status(val lag: Long?, val avail: UpstreamAvailability, val status: UpstreamAvailability)

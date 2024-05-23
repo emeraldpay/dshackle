@@ -8,6 +8,7 @@ import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.error.UpstreamErrorHandler
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
@@ -22,6 +23,7 @@ class BroadcastReader(
     private val quorum: CallQuorum,
     private val tracer: Tracer,
 ) : RequestReader(signer) {
+    private val errorHandler = UpstreamErrorHandler
     private val internalMatcher = Selector.MultiMatcher(
         listOf(Selector.AvailabilityMatcher(), matcher),
     )
@@ -81,6 +83,8 @@ class BroadcastReader(
             .read(key)
             .map { BroadcastResponse(it, upstream) }
             .onErrorResume {
+                errorHandler.handle(upstream, key, it.message)
+
                 log.warn("Error during execution ${key.method} from upstream ${upstream.getId()} with message -  ${it.message}")
                 Mono.just(
                     BroadcastResponse(ChainResponse(null, getError(key, it).error), upstream),

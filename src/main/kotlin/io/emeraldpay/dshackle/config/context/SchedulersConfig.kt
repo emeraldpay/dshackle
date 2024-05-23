@@ -15,17 +15,17 @@ import java.util.concurrent.Executors
 
 @Configuration
 open class SchedulersConfig {
-    private val log = LoggerFactory.getLogger(SchedulersConfig::class.java)
-    private val threadsMultiplier: Int
 
-    init {
-        val cores = Runtime.getRuntime().availableProcessors()
-        threadsMultiplier = if (cores < 3) {
-            1
-        } else {
-            cores / 2
-        }
-        log.info("Creating schedulers with multiplier: {}...", threadsMultiplier)
+    companion object {
+        private val log = LoggerFactory.getLogger(SchedulersConfig::class.java)
+        val threadsMultiplier = run {
+            val cores = Runtime.getRuntime().availableProcessors()
+            if (cores < 3) {
+                1
+            } else {
+                cores / 2
+            }
+        }.also { log.info("Creating schedulers with multiplier: {}...", it) }
     }
 
     @Bean

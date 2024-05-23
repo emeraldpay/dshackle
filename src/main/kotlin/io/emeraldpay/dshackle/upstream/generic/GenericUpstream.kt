@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.generic.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundServiceBuilder
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -244,6 +245,10 @@ open class GenericUpstream(
     }
 
     override fun isRunning() = connector.isRunning() || started.get()
+
+    override fun updateLowerBound(lowerBound: Long, type: LowerBoundType) {
+        lowerBoundService.updateLowerBound(lowerBound, type)
+    }
 
     fun isValid(): Boolean = isUpstreamValid.get()
 

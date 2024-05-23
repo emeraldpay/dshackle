@@ -420,6 +420,10 @@ abstract class Multistream(
 
     override fun nodeId(): Byte = 0
 
+    override fun updateLowerBound(lowerBound: Long, type: LowerBoundType) {
+        // NOOP
+    }
+
     fun printStatus() {
         var height: Long? = null
         try {

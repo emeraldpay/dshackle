@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono
 class EthereumLowerBoundBlockDetector(
     private val upstream: Upstream,
 ) : LowerBoundDetector() {
-    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.BLOCK, setOf("No block data"))
+    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.BLOCK, setOf("No block data"), lowerBounds)
 
     override fun period(): Long {
         return 3
@@ -40,5 +40,9 @@ class EthereumLowerBoundBlockDetector(
                     }
             }
         }
+    }
+
+    override fun types(): Set<LowerBoundType> {
+        return setOf(LowerBoundType.BLOCK)
     }
 }
