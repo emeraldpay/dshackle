@@ -1006,7 +1006,6 @@ chain-settings:
       label: Evmos
       type: eth
       settings:
-        fork-choice: quorum
         expected-block-time: 2s
         lags:
           syncing: 40
