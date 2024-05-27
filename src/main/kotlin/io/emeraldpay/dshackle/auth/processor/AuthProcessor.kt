@@ -43,6 +43,7 @@ abstract class AuthProcessor(
                 .withClaim(RegisteredClaims.ISSUED_AT) { claim, _ ->
                     claim.asInstant().plus(1, ChronoUnit.MINUTES).isAfter(Instant.now())
                 }
+                .acceptIssuedAt(60)
                 .build()
             verifier.verify(token)
         } catch (e: Exception) {
