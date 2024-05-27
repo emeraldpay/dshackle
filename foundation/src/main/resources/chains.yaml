@@ -781,18 +781,26 @@ chain-settings:
       label: Taiko
       type: eth
       settings:
-        expected-block-time: 3.9s
+        expected-block-time: 60s
         lags:
-          syncing: 20
-          lagging: 10
+          syncing: 6
+          lagging: 2
         fork-choice: height # wait for providers
       chains:
-        - id: Katla
+        - id: Mainnet
+          priority: 100
+          code: TAIKO_MAINNET
+          short-names: [taiko, taiko-mainnet]
+          chain-id: 0x28c58
+          grpcId: 1058
+        - id: Hekla
           priority: 20
-          code: TAIKO_KATLA
-          short-names: [taiko-katla]
-          chain-id: 0x28c60
-          grpcId: 10052
+          code: TAIKO_HEKLA
+          short-names: [taiko-hekla]
+          chain-id: 0x28c61
+          grpcId: 10080
+          settings:
+            expected-block-time: 30s
     - id: okt
       label: OKT Chain
       type: eth
