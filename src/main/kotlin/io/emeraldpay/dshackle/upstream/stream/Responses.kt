@@ -13,21 +13,6 @@ data class SingleResponse(
 
     fun noResponse() = result == null && error == null
 
-    fun merge(other: SingleResponse?): SingleResponse {
-        if (other == null) {
-            return this
-        }
-        var newResult: ByteArray? = result
-        var newError: ChainCallError? = error
-        if (newResult == null && other.result != null) {
-            newResult = other.result
-        }
-        if (newError == null && other.error != null) {
-            newError = other.error
-        }
-        return SingleResponse(newResult, newError)
-    }
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is SingleResponse) return false

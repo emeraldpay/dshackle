@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.Arguments.of
 import org.junit.jupiter.params.provider.MethodSource
 import reactor.core.publisher.Flux
 import reactor.test.StepVerifier
@@ -60,11 +61,11 @@ class JsonRpcStreamParserTest {
     @ParameterizedTest
     @MethodSource("data")
     fun `if first part has result field then single response`(
-        response: ByteArray,
+        response: List<ByteArray>,
         result: ByteArray,
     ) {
         val statusCode = 200
-        val stream: Flux<ByteArray> = Flux.just(response)
+        val stream: Flux<ByteArray> = Flux.fromIterable(response)
 
         StepVerifier.create(streamParser.streamParse(statusCode, stream))
             .expectNext(SingleResponse(result, null))
@@ -116,24 +117,49 @@ class JsonRpcStreamParserTest {
     companion object {
         @JvmStatic
         fun data(): List<Arguments> = listOf(
-            Arguments.of("{\"id\": 2,\"result\": \"0x12\"}".toByteArray(), "\"0x12\"".toByteArray()),
-            Arguments.of("{\"id\": 2,\"result\": 11}".toByteArray(), "11".toByteArray()),
-            Arguments.of("{\"id\": 2,\"result\": false}".toByteArray(), "false".toByteArray()),
-            Arguments.of("{\"id\": 2,\"result\": null}".toByteArray(), "null".toByteArray()),
-            Arguments.of("{\"id\": 2,\"result\": {\"name\": \"value\"}".toByteArray(), "{\"name\": \"value\"}".toByteArray()),
-            Arguments.of("{\"id\": 2,\"result\": [{\"name\": \"value\"}]".toByteArray(), "[{\"name\": \"value\"}]".toByteArray()),
+            of(
+                listOf("{\"id\": 2,\"result\": \"0x12\"}".toByteArray()),
+                "\"0x12\"".toByteArray(),
+            ),
+            of(
+                listOf("{\"id\": 2,\"result\": 11}".toByteArray()),
+                "11".toByteArray(),
+            ),
+            of(
+                listOf("{\"id\": 2,\"result\": false}".toByteArray()),
+                "false".toByteArray(),
+            ),
+            of(
+                listOf("{\"id\": 2,\"result\": null}".toByteArray()),
+                "null".toByteArray(),
+            ),
+            of(
+                listOf("{\"id\": 2,\"result\": {\"name\": \"value\"}}".toByteArray()),
+                "{\"name\": \"value\"}".toByteArray(),
+            ),
+            of(
+                listOf("{\"id\": 2,\"result\": [{\"name\": \"value\"}]}".toByteArray()),
+                "[{\"name\": \"value\"}]".toByteArray(),
+            ),
+            of(
+                listOf(
+                    "{\"id\": 2,\"result\": [{\"name\": \"value\"}], \"other".toByteArray(),
+                    "\": \"newField\"}".toByteArray(),
+                ),
+                "[{\"name\": \"value\"}]".toByteArray(),
+            ),
         )
 
         @JvmStatic
         fun dataStream(): List<Arguments> = listOf(
-            Arguments.of(
+            of(
                 listOf("{\"id\": 2,\"result\": \"0x12".toByteArray(), "222\"}".toByteArray()),
                 listOf(
                     Chunk("\"0x12".toByteArray(), false),
                     Chunk("222\"".toByteArray(), true),
                 ),
             ),
-            Arguments.of(
+            of(
                 listOf(
                     "{\"id\": 2,\"result\": \"0x12".toByteArray(),
                     "123\\\"".toByteArray(),
@@ -145,7 +171,7 @@ class JsonRpcStreamParserTest {
                     Chunk("222\"".toByteArray(), true),
                 ),
             ),
-            Arguments.of(
+            of(
                 listOf(
                     "{\"id\": 2,\"result\": \"0x12".toByteArray(),
                     "1\\n23\\\"".toByteArray(),
@@ -159,7 +185,7 @@ class JsonRpcStreamParserTest {
                     Chunk("\\222\\\\\\\\\"".toByteArray(), true),
                 ),
             ),
-            Arguments.of(
+            of(
                 listOf("{\"id\": 2,\"result\": {\"name\": ".toByteArray(), "\"bigName\"".toByteArray(), "}".toByteArray()),
                 listOf(
                     Chunk("{\"name\": ".toByteArray(), false),
@@ -167,7 +193,7 @@ class JsonRpcStreamParserTest {
                     Chunk("}".toByteArray(), true),
                 ),
             ),
-            Arguments.of(
+            of(
                 listOf(
                     "{\"id\": 2,\"result\": [{\"name\": ".toByteArray(),
                     "\"bigName\"".toByteArray(),
@@ -180,7 +206,7 @@ class JsonRpcStreamParserTest {
                     Chunk("}]".toByteArray(), true),
                 ),
             ),
-            Arguments.of(
+            of(
                 listOf(
                     "{\"id\": 2,\"result\": [{\"na]me\": ".toByteArray(),
                     "\"bigName]".toByteArray(),
@@ -197,7 +223,7 @@ class JsonRpcStreamParserTest {
                     Chunk("}]".toByteArray(), true),
                 ),
             ),
-            Arguments.of(
+            of(
                 listOf(
                     "{\"id\": 2,\"result\": {\"name\": ".toByteArray(),
                     "\"bigName}".toByteArray(),
