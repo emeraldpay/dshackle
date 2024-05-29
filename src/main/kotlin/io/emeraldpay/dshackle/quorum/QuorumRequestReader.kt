@@ -229,7 +229,7 @@ class QuorumRequestReader(
     private fun noResponse(method: String, q: CallQuorum): Mono<Result> {
         return apiControl.upstreamsMatchesResponse()?.run {
             tracer.currentSpan()?.tag(SPAN_NO_RESPONSE_MESSAGE, getFullCause())
-            val cause = getCause(method) ?: return Mono.empty()
+            val cause = getCause(method) ?: return Mono.error(RpcException(1, "No response for method $method", getFullCause()))
             if (cause.shouldReturnNull) {
                 Mono.just(
                     Result(Global.nullValue, null, 1, null, null),

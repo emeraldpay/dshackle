@@ -19,11 +19,13 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.FilteredApis
+import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ChainException
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
@@ -33,6 +35,9 @@ import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
+
+import static java.util.List.of
+import static java.util.List.of
 
 class QuorumRequestReaderSpec extends Specification {
 
@@ -326,4 +331,55 @@ class QuorumRequestReaderSpec extends Specification {
                 .verify(Duration.ofSeconds(4))
     }
 
+    def "Error if no common response from all upstreams"() {
+        setup:
+        def api = Stub(Reader)
+        List<Upstream> ups = [
+                Mock(Upstream) {
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> false
+                    _ * getId() >> "id1"
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getHead() >> Mock(Head) {
+                        _ * getCurrentHeight() >> 100000
+                    }
+                    _ * getLabels() >> of(
+                            UpstreamsConfig.Labels.fromMap(
+                                    Map.of("node", "archive", "type", "super")
+                            )
+                    )
+                },
+                Mock(Upstream) {
+                    _ * getId() >> "id2"
+                    _ * getRole() >> UpstreamsConfig.UpstreamRole.PRIMARY
+                    _ * isAvailable() >> false
+                    _ * getHead() >> Mock(Head) {
+                        _ * getCurrentHeight() >> 100000
+                    }
+                    _ * getStatus() >> UpstreamAvailability.OK
+                    _ * getLabels() >> of(UpstreamsConfig.Labels.fromMap(Map.of("node", "archive")))
+                }
+        ]
+        def apis = new FilteredApis(Chain.ETHEREUM__MAINNET, ups, new Selector.MultiMatcher(
+                of(
+                        new Selector.HeightMatcher(100000000),
+                )
+        ))
+        def reader = new QuorumRequestReader(apis, new AlwaysQuorum(), Stub(Tracer))
+
+        when:
+        def act = reader.read(new ChainRequest("eth_test", new ListParams()))
+                .map {
+                    new String(it.value)
+                }
+
+        then:
+        StepVerifier.create(act)
+                .expectErrorMatches { t ->
+                    t instanceof RpcException && t.rpcMessage == "No response for method eth_test" &&
+                            t.details == "id1 - Upstream is not available; Upstream height 100000 is less than 100000000; id2 - Upstream is not available; Upstream height 100000 is less than 100000000" &&
+                            t.error.code == 1
+                }
+                .verify(Duration.ofSeconds(5))
+    }
 }

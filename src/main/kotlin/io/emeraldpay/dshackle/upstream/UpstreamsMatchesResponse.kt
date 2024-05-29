@@ -27,9 +27,9 @@ class UpstreamsMatchesResponse {
         }
     }
 
-    fun getFullCause(): String? =
+    fun getFullCause() =
         if (responses.isEmpty()) {
-            null
+            "Response is empty"
         } else {
             responses
                 .joinToString("; ") { "${it.upstreamId} - ${it.matchesResponse.getCause()}" }
