@@ -342,6 +342,10 @@ abstract class Multistream(
         return lowerBounds.values
     }
 
+    override fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData? {
+        return lowerBounds[lowerBoundType]
+    }
+
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
         return Upstream.UpstreamSettingsData(
             nodeId(),

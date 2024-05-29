@@ -35,5 +35,7 @@ abstract class LowerBoundService(
 
     fun getLowerBounds(): Collection<LowerBoundData> = lowerBounds.values
 
+    fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData? = lowerBounds[lowerBoundType]
+
     protected abstract fun detectors(): List<LowerBoundDetector>
 }

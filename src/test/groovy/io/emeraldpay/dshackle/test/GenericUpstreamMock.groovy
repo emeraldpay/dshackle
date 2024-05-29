@@ -112,4 +112,9 @@ class GenericUpstreamMock extends GenericUpstream {
     Collection<LowerBoundData> getLowerBounds() {
         return List.of(new LowerBoundData(0, LowerBoundType.STATE))
     }
+
+    @Override
+    LowerBoundData getLowerBound(@NotNull LowerBoundType lowerBoundType) {
+        return new LowerBoundData(0, LowerBoundType.STATE)
+    }
 }

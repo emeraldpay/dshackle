@@ -38,6 +38,7 @@ import io.emeraldpay.dshackle.upstream.bitcoin.ExtractBlock
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.forkchoice.MostWorkForkChoice
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.reactivestreams.Publisher
@@ -152,6 +153,10 @@ class BitcoinGrpcUpstream(
 
     override fun getLowerBounds(): Collection<LowerBoundData> {
         return emptyList()
+    }
+
+    override fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData? {
+        return null
     }
 
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {

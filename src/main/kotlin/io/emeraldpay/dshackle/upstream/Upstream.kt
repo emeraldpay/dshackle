@@ -47,6 +47,7 @@ interface Upstream : Lifecycle {
     fun getCapabilities(): Set<Capability>
     fun isGrpc(): Boolean
     fun getLowerBounds(): Collection<LowerBoundData>
+    fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData?
     fun getUpstreamSettingsData(): UpstreamSettingsData?
     fun updateLowerBound(lowerBound: Long, type: LowerBoundType)
 

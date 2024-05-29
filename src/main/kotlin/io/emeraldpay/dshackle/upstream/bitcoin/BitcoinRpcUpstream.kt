@@ -29,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import reactor.core.Disposable
 
 open class BitcoinRpcUpstream(
@@ -74,6 +75,10 @@ open class BitcoinRpcUpstream(
 
     override fun getLowerBounds(): Collection<LowerBoundData> {
         return emptyList()
+    }
+
+    override fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData? {
+        return null
     }
 
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {

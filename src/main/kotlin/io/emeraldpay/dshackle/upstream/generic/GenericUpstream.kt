@@ -95,6 +95,10 @@ open class GenericUpstream(
         return lowerBoundService.getLowerBounds()
     }
 
+    override fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData? {
+        return lowerBoundService.getLowerBound(lowerBoundType)
+    }
+
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
         return Upstream.UpstreamSettingsData(
             nodeId(),

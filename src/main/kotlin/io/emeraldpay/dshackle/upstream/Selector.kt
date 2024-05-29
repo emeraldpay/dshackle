@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.MatchesResponse.NotMatchedResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.SameNodeResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.SlotHeightResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.Success
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import org.apache.commons.lang3.StringUtils
 import java.util.Collections
 
@@ -72,11 +73,25 @@ class Selector {
             selectors.forEach { selector ->
                 if (selector.hasHeightSelector() && selector.heightSelector.height == -1L) {
                     return Sort(compareByDescending { it.getHead().getCurrentHeight() })
-                } else if (selector.hasLowerHeightSelector() && selector.lowerHeightSelector.height == 0L) {
-                    return Sort(compareBy(nullsLast()) { it.getHead().getCurrentHeight() })
+                } else if (selector.hasLowerHeightSelector()) {
+                    return Sort(
+                        compareBy(nullsLast()) {
+                            it.getLowerBound(fromProtoType(selector.lowerHeightSelector.lowerBoundType))?.lowerBound
+                        },
+                    )
                 }
             }
             return Sort.default
+        }
+
+        private fun fromProtoType(type: BlockchainOuterClass.LowerBoundType): LowerBoundType {
+            return when (type) {
+                BlockchainOuterClass.LowerBoundType.LOWER_BOUND_SLOT -> LowerBoundType.SLOT
+                BlockchainOuterClass.LowerBoundType.LOWER_BOUND_UNSPECIFIED -> LowerBoundType.UNKNOWN
+                BlockchainOuterClass.LowerBoundType.LOWER_BOUND_STATE -> LowerBoundType.STATE
+                BlockchainOuterClass.LowerBoundType.LOWER_BOUND_BLOCK -> LowerBoundType.BLOCK
+                BlockchainOuterClass.LowerBoundType.UNRECOGNIZED -> LowerBoundType.UNKNOWN
+            }
         }
 
         @JvmStatic
