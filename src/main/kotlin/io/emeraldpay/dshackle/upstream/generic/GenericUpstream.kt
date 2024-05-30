@@ -29,7 +29,6 @@ import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -47,7 +46,7 @@ open class GenericUpstream(
     validatorBuilder: UpstreamValidatorBuilder,
     upstreamSettingsDetectorBuilder: UpstreamSettingsDetectorBuilder,
     lowerBoundServiceBuilder: LowerBoundServiceBuilder,
-) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig), Lifecycle {
+) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig, chain), Lifecycle {
 
     private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig)
     private var validatorSubscription: Disposable? = null
@@ -255,10 +254,4 @@ open class GenericUpstream(
     }
 
     fun isValid(): Boolean = isUpstreamValid.get()
-
-    private fun sendUpstreamStateEvent(eventType: UpstreamChangeEvent.ChangeType) {
-        stateEventStream.emitNext(
-            UpstreamChangeEvent(chain, this, eventType),
-        ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-    }
 }

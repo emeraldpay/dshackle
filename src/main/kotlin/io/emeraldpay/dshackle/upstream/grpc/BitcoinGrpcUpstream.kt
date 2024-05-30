@@ -72,7 +72,7 @@ class BitcoinGrpcUpstream(
 
     private val extractBlock = ExtractBlock()
     private val defaultReader: ChainReader = client.getReader()
-    private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
+    private val blockConverter: Function<BlockchainOuterClass.ChainHead, GrpcHead.GrpcHeadData> = Function { value ->
         val parentHash =
             if (value.parentBlockId.isBlank()) {
                 null
@@ -89,7 +89,7 @@ class BitcoinGrpcUpstream(
             null,
             parentHash,
         )
-        block
+        GrpcHead.GrpcHeadData(block)
     }
 
     private val reloadBlock: Function<BlockContainer, Publisher<BlockContainer>> = Function { existingBlock ->

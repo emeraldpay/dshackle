@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
+import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -61,6 +62,11 @@ open class SchedulersConfig {
     @Bean
     open fun headLivenessScheduler(monitoringConfig: MonitoringConfig): Scheduler {
         return makeScheduler("head-liveness-scheduler", 4, monitoringConfig)
+    }
+
+    @Bean
+    open fun grpcChannelExecutor(monitoringConfig: MonitoringConfig): Executor {
+        return makePool("grpc-client-channel", 10, monitoringConfig)
     }
 
     @Bean

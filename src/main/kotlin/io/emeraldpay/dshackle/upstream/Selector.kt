@@ -27,7 +27,7 @@ import io.emeraldpay.dshackle.upstream.MatchesResponse.NotMatchedResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.SameNodeResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.SlotHeightResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.Success
-import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
+import io.emeraldpay.dshackle.upstream.lowerbound.fromProtoType
 import org.apache.commons.lang3.StringUtils
 import java.util.Collections
 
@@ -76,22 +76,12 @@ class Selector {
                 } else if (selector.hasLowerHeightSelector()) {
                     return Sort(
                         compareBy(nullsLast()) {
-                            it.getLowerBound(fromProtoType(selector.lowerHeightSelector.lowerBoundType))?.lowerBound
+                            it.getLowerBound(selector.lowerHeightSelector.lowerBoundType.fromProtoType())?.lowerBound
                         },
                     )
                 }
             }
             return Sort.default
-        }
-
-        private fun fromProtoType(type: BlockchainOuterClass.LowerBoundType): LowerBoundType {
-            return when (type) {
-                BlockchainOuterClass.LowerBoundType.LOWER_BOUND_SLOT -> LowerBoundType.SLOT
-                BlockchainOuterClass.LowerBoundType.LOWER_BOUND_UNSPECIFIED -> LowerBoundType.UNKNOWN
-                BlockchainOuterClass.LowerBoundType.LOWER_BOUND_STATE -> LowerBoundType.STATE
-                BlockchainOuterClass.LowerBoundType.LOWER_BOUND_BLOCK -> LowerBoundType.BLOCK
-                BlockchainOuterClass.LowerBoundType.UNRECOGNIZED -> LowerBoundType.UNKNOWN
-            }
         }
 
         @JvmStatic

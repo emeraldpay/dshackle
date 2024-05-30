@@ -68,7 +68,7 @@ open class GenericMultistream(
     }
 
     override fun addUpstreamInternal(u: Upstream) {
-        upstreams.add(u as GenericUpstream)
+        upstreams.add(u)
     }
 
     private val head: DynamicMergedHead = DynamicMergedHead(

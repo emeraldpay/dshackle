@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.startup
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
+import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.configure.UpstreamCreationData
@@ -33,6 +34,7 @@ open class ConfiguredUpstreams(
     private val upstreamFactory: UpstreamFactory,
     private val config: UpstreamsConfig,
     private val multistreamHolder: CurrentMultistreamHolder,
+    private val chainsConfig: ChainsConfig,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(ConfiguredUpstreams::class.java)
 
@@ -71,6 +73,19 @@ open class ConfiguredUpstreams(
                             ),
                         )
                 }
+            } else {
+                upstreamFactory.createGrpcUpstream(
+                    up as UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
+                    chainsConfig,
+                )
+                    .start()
+                    .doOnNext {
+                        log.info("Chain ${it.chain} ${it.type} through gRPC at ${up.connection?.host}:${up.connection?.port}. With caps: ${it.upstream.getCapabilities()}")
+                    }
+                    .subscribe {
+                        multistreamHolder.getUpstream(it.chain)
+                            .processUpstreamsEvents(it)
+                    }
             }
         }
     }

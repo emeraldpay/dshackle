@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
@@ -39,6 +40,7 @@ abstract class DefaultUpstream(
     private val targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?,
     private val chainConfig: ChainsConfig.ChainConfig,
+    private val chain: Chain,
 ) : Upstream {
 
     constructor(
@@ -49,8 +51,9 @@ abstract class DefaultUpstream(
         targets: CallMethods?,
         node: QuorumForLabels.QuorumItem?,
         chainConfig: ChainsConfig.ChainConfig,
+        chain: Chain,
     ) :
-        this(id, hash, null, UpstreamAvailability.UNAVAILABLE, options, role, targets, node, chainConfig)
+        this(id, hash, null, UpstreamAvailability.UNAVAILABLE, options, role, targets, node, chainConfig, chain)
 
     protected val log = LoggerFactory.getLogger(this::class.java)
 
@@ -157,6 +160,12 @@ abstract class DefaultUpstream(
 
     override fun updateLowerBound(lowerBound: Long, type: LowerBoundType) {
         // NOOP
+    }
+
+    protected fun sendUpstreamStateEvent(eventType: UpstreamChangeEvent.ChangeType) {
+        stateEventStream.emitNext(
+            UpstreamChangeEvent(chain, this, eventType),
+        ) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
     }
 
     data class Status(val lag: Long?, val avail: UpstreamAvailability, val status: UpstreamAvailability)

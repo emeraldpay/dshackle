@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.startup.configure
 
 import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstreamCreator
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -33,7 +34,13 @@ class UpstreamFactoryTest {
         private val genericUpstreamCreator = mock<GenericUpstreamCreator>()
         private val ethereumUpstreamCreator = mock<EthereumUpstreamCreator>()
         private val bitcoinUpstreamCreator = mock<BitcoinUpstreamCreator>()
-        private val upstreamFactory = UpstreamFactory(genericUpstreamCreator, ethereumUpstreamCreator, bitcoinUpstreamCreator)
+        private val grpcUpstreamCreator = mock<GrpcUpstreamCreator>()
+        private val upstreamFactory = UpstreamFactory(
+            genericUpstreamCreator,
+            ethereumUpstreamCreator,
+            bitcoinUpstreamCreator,
+            grpcUpstreamCreator,
+        )
 
         @JvmStatic
         fun data() = listOf(

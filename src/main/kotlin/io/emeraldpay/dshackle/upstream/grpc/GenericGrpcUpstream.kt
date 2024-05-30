@@ -26,6 +26,7 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
+import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.BuildInfo
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
@@ -37,12 +38,17 @@ import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
+import io.emeraldpay.dshackle.upstream.lowerbound.fromProtoType
 import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcGrpcClient
+import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
+import reactor.core.scheduler.Schedulers
 import java.math.BigInteger
 import java.time.Instant
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import java.util.function.Function
 
 open class GenericGrpcUpstream(
@@ -64,11 +70,12 @@ open class GenericGrpcUpstream(
     null,
     null,
     chainConfig,
+    chain,
 ),
     GrpcUpstream,
     Lifecycle {
 
-    private val blockConverter: Function<BlockchainOuterClass.ChainHead, BlockContainer> = Function { value ->
+    private val blockConverter: Function<BlockchainOuterClass.ChainHead, GrpcHead.GrpcHeadData> = Function { value ->
         val parentHash =
             if (value.parentBlockId.isBlank()) {
                 null
@@ -85,7 +92,9 @@ open class GenericGrpcUpstream(
             null,
             parentHash,
         )
-        block
+        val lowerBounds = value.lowerBoundsList
+            .map { LowerBoundData(it.lowerBoundValue, it.lowerBoundTimestamp, it.lowerBoundType.fromProtoType()) }
+        GrpcHead.GrpcHeadData(block, lowerBounds)
     }
 
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
@@ -104,7 +113,15 @@ open class GenericGrpcUpstream(
 
     private val defaultReader: ChainReader = client.getReader()
 
+    private val lowerBounds = ConcurrentHashMap<LowerBoundType, LowerBoundData>()
+
     override fun start() {
+        grpcHead.lowerBoundsFlux()
+            .publishOn(lowerBoundScheduler)
+            .subscribe {
+                lowerBounds[it.type] = it
+                sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.UPDATED)
+            }
     }
 
     override fun isRunning(): Boolean {
@@ -181,14 +198,24 @@ open class GenericGrpcUpstream(
     }
 
     override fun getLowerBounds(): Collection<LowerBoundData> {
-        return emptyList()
+        return lowerBounds.values
     }
 
     override fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData? {
-        return null
+        return lowerBounds[lowerBoundType]
     }
 
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
-        return null
+        return Upstream.UpstreamSettingsData(
+            nodeId(),
+            getId(),
+            "unknown",
+        )
+    }
+
+    companion object {
+        val lowerBoundScheduler: Scheduler = Schedulers.fromExecutorService(
+            Executors.newFixedThreadPool(4, CustomizableThreadFactory("grpc-lower-bound-")),
+        )
     }
 }

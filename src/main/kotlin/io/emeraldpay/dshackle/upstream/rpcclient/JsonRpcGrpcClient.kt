@@ -29,6 +29,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
+import io.emeraldpay.dshackle.upstream.stream.Chunk
 import io.grpc.StatusRuntimeException
 import org.apache.commons.lang3.time.StopWatch
 import reactor.core.publisher.Mono
@@ -53,6 +54,9 @@ class JsonRpcGrpcClient(
         override fun read(key: ChainRequest): Mono<ChainResponse> {
             val timer = StopWatch()
             val req = BlockchainOuterClass.NativeCallRequest.newBuilder()
+                .setChunkSize(
+                    if (key.isStreamed) 500 else 0,
+                )
                 .setChainValue(chain.id)
 
             key.selector?.let { req.selector = it }
@@ -91,9 +95,22 @@ class JsonRpcGrpcClient(
                 .doOnNext { timer.start() }
                 .flatMap {
                     stub.nativeCall(req.build())
+                        .switchOnFirst({ first, responseStream ->
+                            if (first.get()!!.chunked) {
+                                Mono.just(
+                                    ChainResponse(
+                                        responseStream.map { Chunk(it.payload.toByteArray(), it.finalChunk) },
+                                        key.id,
+                                    ),
+                                )
+                            } else {
+                                responseStream
+                                    .single()
+                                    .flatMap(::handleResponse)
+                            }
+                        }, false,)
                         .single()
                         .onErrorResume(::handleError)
-                        .flatMap(::handleResponse)
                 }
                 .doOnNext {
                     if (timer.isStarted) {
@@ -122,7 +139,7 @@ class JsonRpcGrpcClient(
                 )
             }
 
-        fun handleError(t: Throwable): Mono<BlockchainOuterClass.NativeCallReplyItem> {
+        fun handleError(t: Throwable): Mono<ChainResponse> {
             metrics?.fails?.increment()
             return when (t) {
                 is StatusRuntimeException -> Mono.error(

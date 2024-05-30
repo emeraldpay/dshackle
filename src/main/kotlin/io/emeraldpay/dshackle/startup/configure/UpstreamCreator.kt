@@ -11,6 +11,8 @@ import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.util.function.Function
+import kotlin.math.abs
 
 abstract class UpstreamCreator(
     private val chainsConfig: ChainsConfig,
@@ -18,6 +20,29 @@ abstract class UpstreamCreator(
     private val callTargets: CallTargetsHolder,
 ) {
     protected val log: Logger = LoggerFactory.getLogger(this::class.java)
+
+    companion object {
+        fun getHash(nodeId: Int?, obj: Any, hashes: MutableMap<Byte, Boolean>): Byte =
+            nodeId?.toByte() ?: (obj.hashCode() % 255).let {
+                if (it == 0) 1 else it
+            }.let { nonZeroHash ->
+                listOf<Function<Int, Int>>(
+                    Function { i -> i },
+                    Function { i -> (-i) },
+                    Function { i -> 127 - abs(i) },
+                    Function { i -> abs(i) - 128 },
+                ).map {
+                    it.apply(nonZeroHash).toByte()
+                }.firstOrNull {
+                    hashes[it] != true
+                }?.let {
+                    hashes[it] = true
+                    it
+                } ?: (Byte.MIN_VALUE..Byte.MAX_VALUE).first {
+                    it != 0 && hashes[it.toByte()] != true
+                }.toByte()
+            }
+    }
 
     fun createUpstream(
         upstreamsConfig: UpstreamsConfig.Upstream<*>,

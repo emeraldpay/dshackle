@@ -25,12 +25,14 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import org.reactivestreams.Publisher
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
 import reactor.kotlin.extra.retry.retryExponentialBackoff
 import java.time.Duration
@@ -44,7 +46,7 @@ class GrpcHead(
     /**
      * Converted from remote head details to the block container, which could be partial at this point
      */
-    private val converter: Function<BlockchainOuterClass.ChainHead, BlockContainer>,
+    private val converter: Function<BlockchainOuterClass.ChainHead, GrpcHeadData>,
     /**
      * Populate block data with all missing details, of any
      */
@@ -54,6 +56,8 @@ class GrpcHead(
 ) : AbstractHead(forkChoice, headScheduler, upstreamId = id), Lifecycle {
 
     private var headSubscription: Disposable? = null
+
+    private val lowerBoundsSink = Sinks.many().multicast().directBestEffort<LowerBoundData>()
 
     /**
      * Initiate a new head subscription with connection to the remote
@@ -89,6 +93,10 @@ class GrpcHead(
                 }
 
         var blocks = heads.map(converter)
+            .doOnNext {
+                it.lowerBounds.forEach { bound -> lowerBoundsSink.tryEmitNext(bound) }
+            }
+            .map { it.block }
             .distinctUntilChanged {
                 it.hash
             }.filter { forkChoice.filter(it) }
@@ -125,8 +133,17 @@ class GrpcHead(
         headSubscription?.dispose()
     }
 
+    fun lowerBoundsFlux(): Flux<LowerBoundData> = lowerBoundsSink.asFlux()
+
     val headsCounter = Counter.builder("grpc_head_received")
         .tag("upstream", id)
         .tag("chain", chain.chainCode)
         .register(Metrics.globalRegistry)
+
+    data class GrpcHeadData(
+        val block: BlockContainer,
+        val lowerBounds: List<LowerBoundData>,
+    ) {
+        constructor(block: BlockContainer) : this(block, emptyList())
+    }
 }
