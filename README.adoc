@@ -283,7 +283,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.emeraldpay:emerald-api:0.11.0'
+    implementation 'io.emeraldpay:emerald-api:0.13.0'
 }
 ----
 
@@ -296,7 +296,7 @@ https://github.com/emeraldpay/emerald-api-js
 [source,json]
 ----
 "dependencies": {
-    "@emeraldpay/api-node": "0.3.2",
+    "@emeraldpay/api-node": "^0.4.3",
 }
 ----
 
