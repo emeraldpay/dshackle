@@ -46,7 +46,12 @@ class WsSubscriptionsImpl(
                     log.warn("Failed to establish subscription: ${it.error?.message}")
                     Mono.error(ChainException(it.id, it.error!!))
                 } else {
-                    subscriptionId.set(it.getResultAsProcessedString())
+                    val id = if (it.getResultAsRawString() == "{}") {
+                        request.id.toString() // in case empty result - match by request id
+                    } else {
+                        it.getResultAsProcessedString()
+                    }
+                    subscriptionId.set(id)
                     messages
                 }
             }

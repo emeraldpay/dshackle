@@ -10,7 +10,8 @@ enum class BlockchainType(
     POLKADOT(ApiType.JSON_RPC),
     SOLANA(ApiType.JSON_RPC),
     NEAR(ApiType.JSON_RPC),
-    ETHEREUM_BEACON_CHAIN(ApiType.REST);
+    ETHEREUM_BEACON_CHAIN(ApiType.REST),
+    COSMOS(ApiType.JSON_RPC);
 }
 
 enum class ApiType {

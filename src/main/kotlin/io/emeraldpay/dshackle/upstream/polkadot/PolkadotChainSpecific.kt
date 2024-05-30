@@ -45,10 +45,10 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
         return makeBlock(response.block.header, data, upstreamId)
     }
 
-    override fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer {
+    override fun getFromHeader(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val header = Global.objectMapper.readValue(data, PolkadotHeader::class.java)
 
-        return makeBlock(header, data, upstreamId)
+        return Mono.just(makeBlock(header, data, upstreamId))
     }
 
     private fun makeBlock(header: PolkadotHeader, data: ByteArray, upstreamId: String): BlockContainer {

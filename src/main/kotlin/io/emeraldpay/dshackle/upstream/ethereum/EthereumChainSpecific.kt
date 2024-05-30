@@ -37,8 +37,8 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         return BlockContainer.fromEthereumJson(data, upstreamId)
     }
 
-    override fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer {
-        return parseBlock(data, upstreamId)
+    override fun getFromHeader(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
+        return Mono.just(parseBlock(data, upstreamId))
     }
 
     override fun latestBlockRequest() =

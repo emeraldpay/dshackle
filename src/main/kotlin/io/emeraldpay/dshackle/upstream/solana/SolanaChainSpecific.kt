@@ -77,9 +77,9 @@ object SolanaChainSpecific : AbstractChainSpecific() {
         }
     }
 
-    override fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer {
+    override fun getFromHeader(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val res = Global.objectMapper.readValue(data, SolanaWrapper::class.java)
-        return makeBlock(data, res.value.block, upstreamId, res.context.slot)
+        return Mono.just(makeBlock(data, res.value.block, upstreamId, res.context.slot))
     }
 
     private fun makeBlock(raw: ByteArray, block: SolanaBlock, upstreamId: String, slot: Long): BlockContainer {

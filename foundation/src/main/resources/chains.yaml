@@ -38,6 +38,7 @@ chain-settings:
         lags:
           syncing: 6
           lagging: 1
+      fork-choice: quorum
       chains:
         - id: Mainnet
           chain-id: 0x1
@@ -182,7 +183,7 @@ chain-settings:
         lags:
           syncing: 20
           lagging: 10
-        fork-choice: quorum
+        fork-choice: height
       chains:
         - id: Mainnet
           priority: 100
@@ -1403,3 +1404,25 @@ chain-settings:
           grpcId: 1055
           short-names: [real]
           chain-id: 0x1b254
+    - id: cosmos-hub
+      label: Cosmos Hub
+      type: cosmos
+      settings:
+        expected-block-time: 6s
+        lags:
+          syncing: 6
+          lagging: 1
+      chains:
+        - id: Mainnet
+          chain-id: 0x0
+          short-names: [ cosmos-hub ]
+          code: COSMOS_HUB
+          grpcId: 1057
+          priority: 100
+        - id: Testnet
+          chain-id: 0x0
+          short-names: [ cosmos-hub-testnet ]
+          code: COSMOS_HUB_TESTNET
+          grpcId: 10079
+          priority: 10
+

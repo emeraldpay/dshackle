@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.BlockchainType.BITCOIN
+import io.emeraldpay.dshackle.BlockchainType.COSMOS
 import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.BlockchainType.ETHEREUM_BEACON_CHAIN
 import io.emeraldpay.dshackle.BlockchainType.NEAR
@@ -27,6 +28,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.beaconchain.BeaconChainSpecific
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
+import io.emeraldpay.dshackle.upstream.cosmos.CosmosChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
@@ -44,7 +46,7 @@ typealias LocalReaderBuilder = (CachingReader, CallMethods, Head, LogsOracle?) -
 typealias CachingReaderBuilder = (Multistream, Caches, Factory<CallMethods>) -> CachingReader
 
 interface ChainSpecific {
-    fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer
+    fun getFromHeader(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer>
 
     fun getLatestBlock(api: ChainReader, upstreamId: String): Mono<BlockContainer>
 
@@ -80,6 +82,7 @@ object ChainSpecificRegistry {
             SOLANA -> SolanaChainSpecific
             NEAR -> NearChainSpecific
             ETHEREUM_BEACON_CHAIN -> BeaconChainSpecific
+            COSMOS -> CosmosChainSpecific
             BITCOIN -> throw IllegalArgumentException("bitcoin should use custom streams implementation")
             UNKNOWN -> throw IllegalArgumentException("unknown chain")
         }

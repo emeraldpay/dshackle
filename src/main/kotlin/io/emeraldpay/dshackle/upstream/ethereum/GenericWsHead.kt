@@ -100,8 +100,8 @@ class GenericWsHead(
 
     private fun listenNewHeads(): Flux<BlockContainer> {
         return subscribe()
-            .map {
-                chainSpecific.parseHeader(it, "unknown")
+            .flatMap {
+                chainSpecific.getFromHeader(it, "unknown", api)
             }
             .timeout(wsHeadTimeout, Mono.error(RuntimeException("No response from subscribe to newHeads")))
             .onErrorResume {

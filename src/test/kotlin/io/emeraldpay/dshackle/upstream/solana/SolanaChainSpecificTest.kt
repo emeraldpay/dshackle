@@ -1,8 +1,10 @@
 package io.emeraldpay.dshackle.upstream.solana
 
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.ChainReader
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
 
 val example = """{
       "context": {
@@ -25,7 +27,9 @@ class SolanaChainSpecificTest {
 
     @Test
     fun parseBlock() {
-        val result = SolanaChainSpecific.parseHeader(example.toByteArray(), "1")
+        val reader = mock<ChainReader> {}
+
+        val result = SolanaChainSpecific.getFromHeader(example.toByteArray(), "1", reader).block()!!
 
         Assertions.assertThat(result.height).isEqualTo(101210751)
         Assertions.assertThat(result.hash).isEqualTo(BlockId.fromBase64("6ojMHjctdqfB55JDpEpqfHnP96fiaHEcvzEQ2NNcxzHP"))

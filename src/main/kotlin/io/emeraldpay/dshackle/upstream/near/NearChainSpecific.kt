@@ -8,6 +8,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -19,6 +20,7 @@ import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
+import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -41,7 +43,7 @@ object NearChainSpecific : AbstractPollChainSpecific() {
         )
     }
 
-    override fun parseHeader(data: ByteArray, upstreamId: String): BlockContainer {
+    override fun getFromHeader(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         throw NotImplementedError()
     }
 
