@@ -13,7 +13,7 @@ details at https://github.com/emeraldpay/emerald-js-grpc
 [source,json]
 ----
 "dependencies": {
-    "@emeraldpay/grpc-client": "0.11.0-0.2",
+    "@emeraldpay/grpc-client": "0.11.3-0.2",
 }
 ----
 
