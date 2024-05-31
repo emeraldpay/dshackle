@@ -1427,4 +1427,66 @@ chain-settings:
           code: COSMOS_HUB_TESTNET
           grpcId: 10079
           priority: 10
-
+    - id: axelar
+      label: Axelar
+      type: cosmos
+      settings:
+        expected-block-time: 6s
+        lags:
+          syncing: 6
+          lagging: 1
+      chains:
+        - id: Mainnet
+          chain-id: 0x0
+          short-names: [ axelar ]
+          code: AXELAR
+          grpcId: 1059
+          priority: 100
+        - id: Testnet
+          chain-id: 0x0
+          short-names: [ axelar-testnet ]
+          code: AXELAR_TESTNET
+          grpcId: 10081
+          priority: 10
+    - id: osmosis
+      label: Osmosis
+      type: cosmos
+      settings:
+        expected-block-time: 6s
+        lags:
+          syncing: 6
+          lagging: 1
+      chains:
+        - id: Mainnet
+          chain-id: 0x0
+          short-names: [ osmosis ]
+          code: OSMOSIS
+          grpcId: 1060
+          priority: 100
+        - id: Testnet
+          chain-id: 0x0
+          short-names: [ osmosis-testnet ]
+          code: OSMOSIS_TESTNET
+          grpcId: 10082
+          priority: 10
+    - id: neutron
+      label: Neutron
+      type: cosmos
+      settings:
+        expected-block-time: 6s
+        lags:
+          syncing: 6
+          lagging: 1
+      chains:
+        - id: Mainnet
+          chain-id: 0x0
+          short-names: [ neutron ]
+          code: NEUTRON
+          grpcId: 1061
+          priority: 100
+        - id: Testnet
+          chain-id: 0x0
+          short-names: [ neutron-testnet ]
+          code: NEUTRON_TESTNET
+          grpcId: 10083
+          priority: 10
