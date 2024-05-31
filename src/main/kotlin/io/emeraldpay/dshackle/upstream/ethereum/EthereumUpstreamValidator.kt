@@ -94,8 +94,9 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             validateChain(),
             validateOldBlocks(),
             validateCallLimit(),
+            validateGasPrice(),
         ).map {
-            listOf(it.t1, it.t2, it.t3).maxOf { it }
+            listOf(it.t1, it.t2, it.t3, it.t4).maxOf { it }
         }.block() ?: ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
     }
 
@@ -192,6 +193,31 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .onErrorResume {
                 log.warn("Error during old blocks validation", it)
                 Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
+            }
+    }
+
+    private fun validateGasPrice(): Mono<ValidateUpstreamSettingsResult> {
+        if (!options.validateGasPrice || config.gasPriceCondition == null) {
+            return Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
+        }
+        return upstream.getIngressReader()
+            .read(ChainRequest("eth_gasPrice", ListParams()))
+            .flatMap(ChainResponse::requireStringResult)
+            .map { result ->
+                val actualGasPrice = result.substring(2).toLong(16)
+                if (!config.gasPriceCondition!!.check(actualGasPrice)) {
+                    log.warn(
+                        "Node ${upstream.getId()} has gasPrice $actualGasPrice, " +
+                            "but it is not equal to the required ${config.gasPriceCondition!!.rules()}",
+                    )
+                    ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+                } else {
+                    ValidateUpstreamSettingsResult.UPSTREAM_VALID
+                }
+            }
+            .onErrorResume { err ->
+                log.warn("Error during gasPrice validation", err)
+                Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR)
             }
     }
 

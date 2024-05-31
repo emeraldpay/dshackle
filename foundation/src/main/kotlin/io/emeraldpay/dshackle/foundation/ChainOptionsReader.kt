@@ -25,6 +25,9 @@ class ChainOptionsReader : YamlConfigReader<ChainOptions.PartialOptions>() {
         getValueAsBool(values, "validate-call-limit")?.let {
             options.validateCallLimit = it
         }
+        getValueAsBool(values, "validate-gas-price")?.let {
+            options.validateGasPrice = it
+        }
         getValueAsBool(values, "validate-chain")?.let {
             options.validateChain = it
         }

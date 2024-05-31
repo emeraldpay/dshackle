@@ -36,6 +36,7 @@ import spock.lang.Specification
 
 import java.time.Duration
 
+import static io.emeraldpay.dshackle.Chain.BSC__MAINNET
 import static io.emeraldpay.dshackle.Chain.ETHEREUM__MAINNET
 import static io.emeraldpay.dshackle.Chain.OPTIMISM__MAINNET
 import static io.emeraldpay.dshackle.upstream.UpstreamAvailability.*
@@ -55,16 +56,16 @@ class EthereumUpstreamValidatorSpec extends Specification {
         expect:
         validator.resolve(Tuples.of(sync, peers)) == exp
         where:
-        exp         | sync          | peers
-        OK          | OK            | OK
-        IMMATURE    | OK            | IMMATURE
-        UNAVAILABLE | OK            | UNAVAILABLE
-        SYNCING     | SYNCING       | OK
-        SYNCING     | SYNCING       | IMMATURE
-        UNAVAILABLE | SYNCING       | UNAVAILABLE
-        UNAVAILABLE | UNAVAILABLE   | OK
-        UNAVAILABLE | UNAVAILABLE   | IMMATURE
-        UNAVAILABLE | UNAVAILABLE   | UNAVAILABLE
+        exp         | sync        | peers
+        OK          | OK          | OK
+        IMMATURE    | OK          | IMMATURE
+        UNAVAILABLE | OK          | UNAVAILABLE
+        SYNCING     | SYNCING     | OK
+        SYNCING     | SYNCING     | IMMATURE
+        UNAVAILABLE | SYNCING     | UNAVAILABLE
+        UNAVAILABLE | UNAVAILABLE | OK
+        UNAVAILABLE | UNAVAILABLE | IMMATURE
+        UNAVAILABLE | UNAVAILABLE | UNAVAILABLE
     }
 
     def "Doesnt check eth_syncing when disabled"() {
@@ -112,7 +113,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
                         Mono.just(new ChainResponse('false'.getBytes(), null))
                 ]
             }
-            2 * getHead() >> Mock(Head) {head ->
+            2 * getHead() >> Mock(Head) { head ->
                 1 * head.onSyncingNode(true)
                 1 * head.onSyncingNode(false)
             }
@@ -276,6 +277,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateCallLimit = false
             it.validateChain = false
+            it.validateGasPrice = false
         }.buildOptions()
         def up = Mock(Upstream) {
             2 * getIngressReader() >>
@@ -297,6 +299,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateChain = false
+            it.validateGasPrice = false
         }.buildOptions()
         def up = Mock(Upstream) {
             3 * getIngressReader() >> Mock(Reader) {
@@ -321,6 +324,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateChain = false
+            it.validateGasPrice = false
         }.buildOptions()
         def up = Mock(Upstream) {
             3 * getIngressReader() >> Mock(Reader) {
@@ -339,6 +343,52 @@ class EthereumUpstreamValidatorSpec extends Specification {
         def act = validator.validateUpstreamSettingsOnStartup()
         then:
         act == UPSTREAM_SETTINGS_ERROR
+    }
+
+    def "Upstream is valid if gas price is equal to expected"() {
+        setup:
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
+            it.validateChain = false
+            it.validateCallLimit = false
+        }.buildOptions()
+        def conf = ChainConfig.defaultWithGasPriceCondition("ne 3000000000")
+        def up = Mock(Upstream) {
+            3 * getIngressReader() >>
+                    Mock(Reader) {
+                        1 * read(new ChainRequest("eth_gasPrice", new ListParams())) >> Mono.just(new ChainResponse('"0x3b9aca00"'.getBytes(), null))
+                        1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                        1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                                Mono.just(new ChainResponse('"result"'.getBytes(), null))
+                    }
+        }
+        def validator = new EthereumUpstreamValidator(BSC__MAINNET, up, options, conf)
+        when:
+        def act = validator.validateUpstreamSettingsOnStartup()
+        then:
+        act == UPSTREAM_VALID
+    }
+
+    def "Upstream is NOT valid if gas price is different from expected"() {
+        setup:
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
+            it.validateChain = false
+            it.validateCallLimit = false
+        }.buildOptions()
+        def conf = ChainConfig.defaultWithGasPriceCondition("eq 1000000000")
+        def up = Mock(Upstream) {
+            3 * getIngressReader() >>
+                    Mock(Reader) {
+                        1 * read(new ChainRequest("eth_gasPrice", new ListParams())) >> Mono.just(new ChainResponse('"0xb2d05e00"'.getBytes(), null))
+                        1 * read(new ChainRequest("eth_blockNumber", new ListParams())) >> Mono.just(new ChainResponse('"0x10ff9be"'.getBytes(), null))
+                        1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["0x10fd2ae", false]))) >>
+                                Mono.just(new ChainResponse('"result"'.getBytes(), null))
+                    }
+        }
+        def validator = new EthereumUpstreamValidator(BSC__MAINNET, up, options, conf)
+        when:
+        def act = validator.validateUpstreamSettingsOnStartup()
+        then:
+        act == UPSTREAM_FATAL_SETTINGS_ERROR
     }
 
     def "Upstream is valid if chain settings are valid"() {

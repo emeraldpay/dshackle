@@ -636,7 +636,7 @@ class UpstreamsConfigReaderSpec extends Specification {
         def options = partialOptions.buildOptions()
         then:
         options == new ChainOptions.Options(
-                false, false, 30, Duration.ofSeconds(60), null, true, 1, true, true, true, 1_000_000
+                false, false, 30, Duration.ofSeconds(60), null, true, 1, true, true, true, true, 1_000_000
         )
     }
 }

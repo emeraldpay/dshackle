@@ -778,6 +778,11 @@ If the Upstream is in _syncing_ state then the Dshackle doesn't use it for call 
 | Enable/Disable the call limit validation. Size of call limit is defined by `call-limit` option.
 If it's enabled configuration parameter for chain `call-limit-contract` is required.
 
+| `validate-gas-price`
+| boolean
+| `true`
+| Enable/Disable the gas price validation. If it's enabled, the Dshackle will check the gas price of the upstream and will not use it if it's too high.
+
 | `call-limit-size`
 | number
 | `1000000`

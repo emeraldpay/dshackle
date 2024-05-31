@@ -13,6 +13,7 @@ class ChainOptions {
         val minPeers: Int,
         val validateSyncing: Boolean,
         val validateCallLimit: Boolean,
+        val validateGasPrice: Boolean,
         val validateChain: Boolean,
         val callLimitSize: Int,
     )
@@ -30,6 +31,7 @@ class ChainOptions {
         var providesBalance: Boolean? = null,
         var validatePeers: Boolean? = null,
         var validateCallLimit: Boolean? = null,
+        var validateGasPrice: Boolean? = null,
         var minPeers: Int? = null,
         var validateSyncing: Boolean? = null,
         var validateChain: Boolean? = null,
@@ -56,6 +58,7 @@ class ChainOptions {
             copy.providesBalance = overwrites.providesBalance ?: this.providesBalance
             copy.validateSyncing = overwrites.validateSyncing ?: this.validateSyncing
             copy.validateCallLimit = overwrites.validateCallLimit ?: this.validateCallLimit
+            copy.validateGasPrice = overwrites.validateGasPrice ?: this.validateGasPrice
             copy.timeout = overwrites.timeout ?: this.timeout
             copy.validateChain = overwrites.validateChain ?: this.validateChain
             copy.disableUpstreamValidation =
@@ -75,6 +78,7 @@ class ChainOptions {
                 this.minPeers ?: 1,
                 this.validateSyncing ?: true,
                 this.validateCallLimit ?: true,
+                this.validateGasPrice ?: true,
                 this.validateChain ?: true,
                 this.callLimitSize ?: 1_000_000,
             )
