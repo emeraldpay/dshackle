@@ -191,7 +191,9 @@ chain-settings:
           grpcId: 1006
           chain-id: 0x38
           short-names: [bsc, binance, bnb-smart-chain]
-          gas-price-condition: ne 3000000000
+          gas-price-condition:
+            - ne 3000000000
+            - ne 5000000000
         - id: Testnet
           priority: 1
           code: BSC_TESTNET
@@ -610,7 +612,8 @@ chain-settings:
           short-names: [kava]
           chain-id: 0x8ae
           grpcId: 1025
-          gas-price-condition: eq 1000000000
+          gas-price-condition:
+            - eq 1000000000
         - id: Testnet
           priority: 10
           code: KAVA_TESTNET

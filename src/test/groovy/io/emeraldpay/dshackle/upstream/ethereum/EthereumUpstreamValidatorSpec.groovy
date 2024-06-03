@@ -351,7 +351,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validateChain = false
             it.validateCallLimit = false
         }.buildOptions()
-        def conf = ChainConfig.defaultWithGasPriceCondition("ne 3000000000")
+        def conf = ChainConfig.defaultWithGasPriceCondition(["ne 3000000000", "ne 5000000000"])
         def up = Mock(Upstream) {
             3 * getIngressReader() >>
                     Mock(Reader) {
@@ -374,7 +374,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
             it.validateChain = false
             it.validateCallLimit = false
         }.buildOptions()
-        def conf = ChainConfig.defaultWithGasPriceCondition("eq 1000000000")
+        def conf = ChainConfig.defaultWithGasPriceCondition(["eq 1000000000"])
         def up = Mock(Upstream) {
             3 * getIngressReader() >>
                     Mock(Reader) {
@@ -395,6 +395,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateCallLimit = false
+            it.validateGasPrice = false
         }.buildOptions()
         def up = Mock(Upstream) {
             4 * getIngressReader() >> Mock(Reader) {
@@ -417,6 +418,7 @@ class EthereumUpstreamValidatorSpec extends Specification {
         setup:
         def options = ChainOptions.PartialOptions.getDefaults().tap {
             it.validateCallLimit = false
+            it.validateGasPrice = false
         }.buildOptions()
         def up = Mock(Upstream) {
             4 * getIngressReader() >> Mock(Reader) {
@@ -437,7 +439,9 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Upstream is valid if all setting are valid"() {
         setup:
-        def options = ChainOptions.PartialOptions.getDefaults().buildOptions()
+        def options = ChainOptions.PartialOptions.getDefaults().tap{
+            it.validateGasPrice = false
+        }.buildOptions()
         def up = Mock(Upstream) {
             5 * getIngressReader() >> Mock(Reader) {
                 1 * read(new ChainRequest("eth_chainId", new ListParams())) >> Mono.just(new ChainResponse('"0x1"'.getBytes(), null))
@@ -461,7 +465,9 @@ class EthereumUpstreamValidatorSpec extends Specification {
 
     def "Upstream is not valid if there are errors"() {
         setup:
-        def options = ChainOptions.PartialOptions.getDefaults().buildOptions()
+        def options = ChainOptions.PartialOptions.getDefaults().tap {
+            it.validateGasPrice = false
+        }.buildOptions()
         def up = Mock(Upstream) {
             5 * getIngressReader() >> Mock(Reader) {
                 1 * read(new ChainRequest("eth_chainId", new ListParams())) >> Mono.just(new ChainResponse(null, new ChainCallError(1, "Too long")))

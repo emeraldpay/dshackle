@@ -197,7 +197,7 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
     }
 
     private fun validateGasPrice(): Mono<ValidateUpstreamSettingsResult> {
-        if (!options.validateGasPrice || config.gasPriceCondition == null) {
+        if (!options.validateGasPrice) {
             return Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
         }
         return upstream.getIngressReader()
@@ -205,10 +205,10 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
             .flatMap(ChainResponse::requireStringResult)
             .map { result ->
                 val actualGasPrice = result.substring(2).toLong(16)
-                if (!config.gasPriceCondition!!.check(actualGasPrice)) {
+                if (!config.gasPriceCondition.check(actualGasPrice)) {
                     log.warn(
                         "Node ${upstream.getId()} has gasPrice $actualGasPrice, " +
-                            "but it is not equal to the required ${config.gasPriceCondition!!.rules()}",
+                            "but it is not equal to the required ${config.gasPriceCondition.rules()}",
                     )
                     ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
                 } else {

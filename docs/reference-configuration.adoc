@@ -781,7 +781,8 @@ If it's enabled configuration parameter for chain `call-limit-contract` is requi
 | `validate-gas-price`
 | boolean
 | `true`
-| Enable/Disable the gas price validation. If it's enabled, the Dshackle will check the gas price of the upstream and will not use it if it's too high.
+| Enable/Disable the gas price validation. If it's enabled, the Dshackle will check the gas price of the upstream and compare it with the gas price conditions in chain.yaml
+Check conditions can contain multiple values presented as a list of pair operator and value. The operator can be `eq`, `ne`, `gt`, `ge`, `lt`, `le`. Value is a Long number.
 
 | `call-limit-size`
 | number

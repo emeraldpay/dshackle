@@ -18,21 +18,30 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
         fun default(): ChainsConfig = ChainsConfig(emptyList())
     }
 
-    class GasPriceCondition(private val condition: String) {
+    class GasPriceCondition(rawConditions: List<String>) {
+        private val conditions: List<Pair<String, Long>> = rawConditions.map {
+            val parts = it.split(" ")
+            if (parts.size != 2 || listOf("ne", "eq", "gt", "lt", "ge", "le").none { op -> op == parts[0] }) {
+                throw IllegalArgumentException("Invalid condition: $it")
+            }
+            Pair(parts[0], parts[1].toLong())
+        }
+
         fun check(value: Long): Boolean {
-            val (op, valueStr) = condition.split(" ")
-            return when (op) {
-                "ne" -> value != valueStr.toLong()
-                "eq" -> value == valueStr.toLong()
-                "gt" -> value > valueStr.toLong()
-                "lt" -> value < valueStr.toLong()
-                "ge" -> value >= valueStr.toLong()
-                "le" -> value <= valueStr.toLong()
-                else -> throw IllegalArgumentException("Unsupported condition: $condition")
+            return conditions.all { (op, limit) ->
+                when (op) {
+                    "ne" -> value != limit
+                    "eq" -> value == limit
+                    "gt" -> value > limit
+                    "lt" -> value < limit
+                    "ge" -> value >= limit
+                    "le" -> value <= limit
+                    else -> false
+                }
             }
         }
 
-        fun rules() = condition
+        fun rules() = conditions.joinToString { (op, limit) -> "$op $limit" }
     }
 
     data class ChainConfig(
@@ -49,7 +58,7 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
         val id: String,
         val blockchain: String,
         val type: String,
-        val gasPriceCondition: GasPriceCondition? = null,
+        val gasPriceCondition: GasPriceCondition,
     ) {
         companion object {
             @JvmStatic
@@ -70,12 +79,12 @@ data class ChainsConfig(private val chains: List<ChainConfig>) : Iterable<Chains
                 "undefined",
                 "undefined",
                 "unknown",
-                null,
+                GasPriceCondition(emptyList()),
             )
 
             @JvmStatic
-            fun defaultWithGasPriceCondition(gasPriceCondition: String) = defaultWithContract(null).copy(
-                gasPriceCondition = GasPriceCondition(gasPriceCondition),
+            fun defaultWithGasPriceCondition(gasPriceConditions: List<String>) = defaultWithContract(null).copy(
+                gasPriceCondition = GasPriceCondition(gasPriceConditions),
             )
         }
     }

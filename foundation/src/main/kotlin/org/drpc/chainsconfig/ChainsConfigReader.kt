@@ -35,14 +35,47 @@ class ChainsConfigReader(
                                     MappingNode(
                                         chain.tag,
                                         listOf(
-                                            NodeTuple(ScalarNode(Tag.STR, "settings", null, null, DumperOptions.ScalarStyle.LITERAL), chainSettings),
                                             NodeTuple(
-                                                ScalarNode(Tag.STR, "blockchain", null, null, DumperOptions.ScalarStyle.LITERAL),
-                                                ScalarNode(Tag.STR, blockchain, null, null, DumperOptions.ScalarStyle.LITERAL),
+                                                ScalarNode(
+                                                    Tag.STR,
+                                                    "settings",
+                                                    null,
+                                                    null,
+                                                    DumperOptions.ScalarStyle.LITERAL,
+                                                ),
+                                                chainSettings,
                                             ),
                                             NodeTuple(
-                                                ScalarNode(Tag.STR, "type", null, null, DumperOptions.ScalarStyle.LITERAL),
-                                                ScalarNode(Tag.STR, type, null, null, DumperOptions.ScalarStyle.LITERAL),
+                                                ScalarNode(
+                                                    Tag.STR,
+                                                    "blockchain",
+                                                    null,
+                                                    null,
+                                                    DumperOptions.ScalarStyle.LITERAL,
+                                                ),
+                                                ScalarNode(
+                                                    Tag.STR,
+                                                    blockchain,
+                                                    null,
+                                                    null,
+                                                    DumperOptions.ScalarStyle.LITERAL,
+                                                ),
+                                            ),
+                                            NodeTuple(
+                                                ScalarNode(
+                                                    Tag.STR,
+                                                    "type",
+                                                    null,
+                                                    null,
+                                                    DumperOptions.ScalarStyle.LITERAL,
+                                                ),
+                                                ScalarNode(
+                                                    Tag.STR,
+                                                    type,
+                                                    null,
+                                                    null,
+                                                    DumperOptions.ScalarStyle.LITERAL,
+                                                ),
                                             ),
                                         ),
                                         chain.flowStyle,
@@ -62,7 +95,8 @@ class ChainsConfigReader(
     private fun parseChain(blockchain: String, node: MappingNode): ChainsConfig.ChainConfig {
         val id = getValueAsString(node, "id")
             ?: throw IllegalArgumentException("undefined id for $blockchain")
-        val settings = getMapping(node, "settings") ?: throw IllegalArgumentException("undefined settings for $blockchain")
+        val settings =
+            getMapping(node, "settings") ?: throw IllegalArgumentException("undefined settings for $blockchain")
         val lags = getMapping(settings, "lags")?.let { lagConfig ->
             Pair(
                 getValueAsInt(lagConfig, "syncing")
@@ -86,7 +120,7 @@ class ChainsConfigReader(
             ?: throw IllegalArgumentException("undefined shortnames for $blockchain")
         val type = getValueAsString(node, "type")
             ?: throw IllegalArgumentException("undefined type for $blockchain")
-        val gasPriceCondition = getValueAsString(node, "gas-price-condition")
+        val gasPriceConditions = getListOfString(node, "gas-price-condition") ?: emptyList()
         return ChainsConfig.ChainConfig(
             expectedBlockTime = expectedBlockTime,
             syncingLagSize = lags.first,
@@ -101,7 +135,7 @@ class ChainsConfigReader(
             id = id,
             blockchain = blockchain,
             type = type,
-            gasPriceCondition = gasPriceCondition?.let { ChainsConfig.GasPriceCondition(gasPriceCondition) },
+            gasPriceCondition = ChainsConfig.GasPriceCondition(gasPriceConditions),
         )
     }
 
@@ -118,6 +152,7 @@ class ChainsConfigReader(
                     val merged = mergeMappingNode(defChain.second, curChain.second)
                     parseChain(defChain.first, merged!!)
                 }
+
                 else -> ChainsConfig.ChainConfig.default()
             }
         }
