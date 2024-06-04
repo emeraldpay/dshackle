@@ -194,6 +194,7 @@ chain-settings:
           gas-price-condition:
             - ne 3000000000
             - ne 5000000000
+          call-validate-contract: 0x29fa9fc9e0fffec904124d179ddcc41f5528db7c
         - id: Testnet
           priority: 1
           code: BSC_TESTNET
