@@ -1493,3 +1493,25 @@ chain-settings:
           code: NEUTRON_TESTNET
           grpcId: 10083
           priority: 10
+    - id: rootstock
+      label: Rootstock
+      type: eth
+      settings:
+        fork-choice: quorum
+        expected-block-time: 45s
+        lags:
+          syncing: 6
+          lagging: 1
+      chains:
+        - id: Mainnet
+          chain-id: 0x1e
+          short-names: [ rootstock, rootstock-mainnet ]
+          code: ROOTSTOCK_MAINNET_CHAIN
+          grpcId: 1062
+          priority: 100
+        - id: Testnet
+          chain-id: 0x1f
+          short-names: [ rootstock-testnet ]
+          code: ROOTSTOCK_TESTNET_CHAIN
+          grpcId: 10084
+          priority: 10

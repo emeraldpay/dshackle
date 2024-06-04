@@ -328,6 +328,14 @@ class DefaultEthereumMethods(
                 "linea_estimateGas",
             )
 
+            Chain.ROOTSTOCK__MAINNET, Chain.ROOTSTOCK__TESTNET -> listOf(
+                "rsk_getRawTransactionReceiptByHash",
+                "rsk_getTransactionReceiptNodesByHash",
+                "rsk_getRawBlockHeaderByHash",
+                "rsk_getRawBlockHeaderByNumber",
+                "rsk_protocolVersion",
+            )
+
             else -> emptyList()
         }
     }
