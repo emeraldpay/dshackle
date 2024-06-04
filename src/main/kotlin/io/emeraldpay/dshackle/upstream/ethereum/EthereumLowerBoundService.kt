@@ -13,6 +13,7 @@ class EthereumLowerBoundService(
         return listOf(
             EthereumLowerBoundStateDetector(upstream),
             EthereumLowerBoundBlockDetector(upstream),
+            EthereumLowerBoundTxDetector(upstream),
         )
     }
 }

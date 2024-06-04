@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundService
+import io.emeraldpay.dshackle.upstream.ethereum.MAX_OFFSET
 import io.emeraldpay.dshackle.upstream.ethereum.ZERO_ADDRESS
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
@@ -45,6 +46,9 @@ class RecursiveLowerBoundServiceTest {
                     on {
                         read(ChainRequest("eth_getBlockByNumber", ListParams(it.toHex(), false)))
                     } doReturn Mono.just(ChainResponse(ByteArray(0), null))
+                    on {
+                        read(ChainRequest("eth_getBlockTransactionCountByNumber", ListParams(it.toHex())))
+                    } doReturn Mono.just(ChainResponse("\"0x12\"".toByteArray(), null))
                 } else {
                     on {
                         read(ChainRequest("eth_getBalance", ListParams(ZERO_ADDRESS, it.toHex())))
@@ -52,6 +56,11 @@ class RecursiveLowerBoundServiceTest {
                     on {
                         read(ChainRequest("eth_getBlockByNumber", ListParams(it.toHex(), false)))
                     } doReturn Mono.error(RuntimeException("No block data"))
+                    for (block in it downTo it - MAX_OFFSET - 1) {
+                        on {
+                            read(ChainRequest("eth_getBlockTransactionCountByNumber", ListParams(block.toHex())))
+                        } doReturn Mono.error(RuntimeException("No tx data"))
+                    }
                 }
             }
         }
@@ -67,6 +76,7 @@ class RecursiveLowerBoundServiceTest {
             .expectNoEvent(Duration.ofSeconds(15))
             .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.STATE }
             .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.BLOCK }
+            .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.TX }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
@@ -76,6 +86,7 @@ class RecursiveLowerBoundServiceTest {
                 listOf(
                     LowerBoundData(17964844L, LowerBoundType.STATE),
                     LowerBoundData(17964844L, LowerBoundType.BLOCK),
+                    LowerBoundData(17964844L, LowerBoundType.TX),
                 ),
             )
     }
