@@ -166,8 +166,8 @@ data class UpstreamsConfig(
     )
 
     data class MethodGroups(
-        val enabled: Set<String>,
-        val disabled: Set<String>,
+        var enabled: Set<String>,
+        var disabled: Set<String>,
     )
 
     data class Method(

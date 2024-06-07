@@ -102,7 +102,20 @@ open class NativeCall(
                             CallResult.fail(id, 0, err, null),
                         )
                     }
-                    .doOnNext { callRes -> completeSpan(callRes, requestCount) }
+                    .doOnNext {
+                            callRes ->
+                        if (callRes.error?.message?.contains(Regex("method ([A-Za-z0-9_]+) does not exist/is not available")) == true) {
+                            if (it is ValidCallContext<*>) {
+                                if (it.payload is ParsedCallDetails) {
+                                    log.error("nativeCallResult method ${it.payload.method} of ${it.upstream.getId()} is not available, disabling")
+                                    val cm = (it.upstream.getMethods() as Multistream.DisabledCallMethods)
+                                    cm.disableMethodTemporarily(it.payload.method)
+                                    it.upstream.updateMethods(cm)
+                                }
+                            }
+                        }
+                        completeSpan(callRes, requestCount)
+                    }
                     .doOnCancel {
                         tracer.currentSpan()?.tag(SPAN_STATUS_MESSAGE, SPAN_REQUEST_CANCELLED)?.end()
                     }
@@ -315,7 +328,6 @@ open class NativeCall(
             ""
         }
         val availableMethods = upstream.getMethods()
-
         if (!availableMethods.isAvailable(method)) {
             val errorMessage = "The method $method is not available"
             return Mono.just(
