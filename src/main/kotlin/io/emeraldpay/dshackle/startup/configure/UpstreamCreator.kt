@@ -70,6 +70,15 @@ abstract class UpstreamCreator(
 
     protected fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
         return if (config.methods != null || config.methodGroups != null) {
+            if (config.methodGroups == null) {
+                config.methodGroups = UpstreamsConfig.MethodGroups(setOf("filter"), setOf())
+            } else {
+                val disabled = config.methodGroups!!.disabled
+                if (!disabled.contains("filter")) {
+                    config.methodGroups!!.enabled = config.methodGroups!!.enabled.plus("filter")
+                }
+            }
+
             ManagedCallMethods(
                 delegate = callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain)),
                 enabled = config.methods?.enabled?.map { it.name }?.toSet() ?: emptySet(),

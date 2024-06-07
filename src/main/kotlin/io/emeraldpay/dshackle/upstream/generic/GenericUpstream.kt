@@ -16,6 +16,8 @@ import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.UNKNOWN_CLIENT_VERSION
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamRpcModulesDetector
+import io.emeraldpay.dshackle.upstream.UpstreamRpcModulesDetectorBuilder
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetectorBuilder
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.UpstreamValidatorBuilder
@@ -48,6 +50,24 @@ open class GenericUpstream(
     lowerBoundServiceBuilder: LowerBoundServiceBuilder,
 ) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig, chain), Lifecycle {
 
+    constructor(
+        config: UpstreamsConfig.Upstream<*>,
+        chain: Chain,
+        hash: Byte,
+        options: ChainOptions.Options,
+        node: QuorumForLabels.QuorumItem?,
+        chainConfig: ChainsConfig.ChainConfig,
+        connectorFactory: ConnectorFactory,
+        validatorBuilder: UpstreamValidatorBuilder,
+        upstreamSettingsDetectorBuilder: UpstreamSettingsDetectorBuilder,
+        upstreamRpcModulesDetectorBuilder: UpstreamRpcModulesDetectorBuilder,
+        buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods,
+        lowerBoundServiceBuilder: LowerBoundServiceBuilder,
+    ) : this(config.id!!, chain, hash, options, config.role, buildMethods(config, chain), node, chainConfig, connectorFactory, validatorBuilder, upstreamSettingsDetectorBuilder, lowerBoundServiceBuilder) {
+        rpcModulesDetector = upstreamRpcModulesDetectorBuilder(this)
+        detectRpcModules(config, buildMethods)
+    }
+
     private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig)
     private var validatorSubscription: Disposable? = null
     private var validationSettingsSubscription: Disposable? = null
@@ -57,6 +77,7 @@ open class GenericUpstream(
     protected val connector: GenericConnector = connectorFactory.create(this, chain)
     private var livenessSubscription: Disposable? = null
     private val settingsDetector = upstreamSettingsDetectorBuilder(chain, this)
+    private var rpcModulesDetector: UpstreamRpcModulesDetector? = null
 
     private val lowerBoundService = lowerBoundServiceBuilder(chain, this)
 
@@ -188,6 +209,31 @@ open class GenericUpstream(
                 log.info("Detected node version $it for upstream ${getId()}")
                 clientVersion.set(it)
             }
+    }
+
+    private fun detectRpcModules(config: UpstreamsConfig.Upstream<*>, buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods) {
+        rpcModulesDetector?.detectRpcModules()
+
+        val rpcDetector = rpcModulesDetector?.detectRpcModules()?.block() ?: HashMap<String, String>()
+        log.info("Upstream rpc detector for  ${getId()} returned  $rpcDetector ")
+        if (rpcDetector.size != 0) {
+            var changed = false
+            for ((group, _) in rpcDetector) {
+                if (group == "trace" || group == "debug" || group == "filter") {
+                    if (config.methodGroups == null) {
+                        config.methodGroups = UpstreamsConfig.MethodGroups(setOf("filter"), setOf())
+                    } else {
+                        val disabled = config.methodGroups!!.disabled
+                        val enabled = config.methodGroups!!.enabled
+                        if (!disabled.contains(group) && !enabled.contains(group)) {
+                            config.methodGroups!!.enabled = enabled.plus(group)
+                            changed = true
+                        }
+                    }
+                }
+            }
+            if (changed) updateMethods(buildMethods(config, chain))
+        }
     }
 
     private fun upstreamStart() {

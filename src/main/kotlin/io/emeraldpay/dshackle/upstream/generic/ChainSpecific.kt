@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamRpcModulesDetector
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.beaconchain.BeaconChainSpecific
@@ -63,6 +64,8 @@ interface ChainSpecific {
     fun validator(chain: Chain, upstream: Upstream, options: ChainOptions.Options, config: ChainConfig): UpstreamValidator
 
     fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector?
+
+    fun upstreamRpcModulesDetector(upstream: Upstream): UpstreamRpcModulesDetector?
 
     fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription
 

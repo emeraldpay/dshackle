@@ -30,5 +30,6 @@ class Defaults {
         val grpcServerKeepAliveTimeout: Long = 5
         val grpcServerPermitKeepAliveTime: Long = 15
         val grpcServerMaxConnectionIdle: Long = 3600
+        val multistreamUnavailableMethodDisableDuration: Long = 20 // minutes
     }
 }
