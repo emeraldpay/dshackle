@@ -37,7 +37,7 @@ abstract class DefaultUpstream(
     defaultAvail: UpstreamAvailability,
     private val options: ChainOptions.Options,
     private val role: UpstreamsConfig.UpstreamRole,
-    private var targets: CallMethods?,
+    private val targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?,
     private val chainConfig: ChainsConfig.ChainConfig,
     private val chain: Chain,
@@ -145,11 +145,6 @@ abstract class DefaultUpstream(
 
     override fun getMethods(): CallMethods {
         return targets ?: throw IllegalStateException("Methods are not set")
-    }
-
-    override fun updateMethods(m: CallMethods) {
-        targets = m
-        sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.UPDATED)
     }
 
     override fun nodeId(): Byte = hash

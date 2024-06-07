@@ -16,16 +16,12 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.Defaults.Companion.multistreamUnavailableMethodDisableDuration
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
@@ -72,7 +68,7 @@ abstract class Multistream(
     private var cacheSubscription: Disposable? = null
 
     @Volatile
-    private var callMethods: DisabledCallMethods? = null
+    private var callMethods: CallMethods? = null
     private var callMethodsFactory: Factory<CallMethods> = Factory {
         return@Factory callMethods ?: throw FunctorException("Not initialized yet")
     }
@@ -231,16 +227,7 @@ abstract class Multistream(
         val upstreams = getAll()
         val availableUpstreams = upstreams.filter { it.isAvailable() }
         availableUpstreams.map { it.getMethods() }.let {
-            if (callMethods == null) {
-                callMethods = DisabledCallMethods(this, multistreamUnavailableMethodDisableDuration, AggregatedCallMethods(it))
-            } else {
-                callMethods = DisabledCallMethods(
-                    this,
-                    multistreamUnavailableMethodDisableDuration,
-                    AggregatedCallMethods(it),
-                    callMethods!!.disabledMethods,
-                )
-            }
+            callMethods = AggregatedCallMethods(it)
         }
         capabilities = if (upstreams.isEmpty()) {
             emptySet()
@@ -331,10 +318,6 @@ abstract class Multistream(
 
     override fun getMethods(): CallMethods {
         return callMethods ?: throw IllegalStateException("Methods are not initialized yet")
-    }
-
-    override fun updateMethods(m: CallMethods) {
-        onUpstreamsUpdated()
     }
 
     fun getMethodsFactory(): Factory<CallMethods> {
@@ -568,55 +551,6 @@ abstract class Multistream(
     abstract fun getHead(mather: Selector.Matcher): Head
 
     // --------------------------------------------------------------------------------------------------------
-
-    class DisabledCallMethods(private val multistream: Multistream, private val defaultDisableTimeout: Long, private val callMethods: CallMethods) : CallMethods {
-        var disabledMethods: Cache<String, Boolean> = Caffeine.newBuilder()
-            .removalListener { key: String?, _: Boolean?, cause ->
-                if (cause.wasEvicted() && key != null) {
-                    multistream.log.info("${multistream.getId()} restoring method $key")
-                    multistream.onUpstreamsUpdated()
-                }
-            }
-            .expireAfterWrite(Duration.ofMinutes(defaultDisableTimeout))
-            .build<String, Boolean>()
-
-        constructor(
-            multistream: Multistream,
-            defaultDisableTimeout: Long,
-            callMethods: CallMethods,
-            disabledMethodsCopy: Cache<String, Boolean>,
-        ) : this(multistream, defaultDisableTimeout, callMethods) {
-            disabledMethods = disabledMethodsCopy
-        }
-
-        override fun createQuorumFor(method: String): CallQuorum {
-            return callMethods.createQuorumFor(method)
-        }
-
-        override fun isCallable(method: String): Boolean {
-            return callMethods.isCallable(method) && disabledMethods.getIfPresent(method) == null
-        }
-
-        override fun getSupportedMethods(): Set<String> {
-            return callMethods.getSupportedMethods() - disabledMethods.asMap().keys
-        }
-
-        override fun isHardcoded(method: String): Boolean {
-            return callMethods.isHardcoded(method)
-        }
-
-        override fun executeHardcoded(method: String): ByteArray {
-            return callMethods.executeHardcoded(method)
-        }
-
-        override fun getGroupMethods(groupName: String): Set<String> {
-            return callMethods.getGroupMethods(groupName)
-        }
-
-        fun disableMethodTemporarily(method: String) {
-            disabledMethods.put(method, true)
-        }
-    }
 
     class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability)
 
