@@ -151,6 +151,18 @@ WARNING: The code in `master` branch is considered a development version, which 
 Dshackle is JVM based project written in Kotlin.
 To build and run it from sources you'll need to install https://openjdk.org/projects/jdk/20/[Java JDK] and https://gradle.org/[Gradle]
 
+=== Tests
+
+There is a short guide "How to write tests in dshackle"
+
+1. First of all, all new tests must be written in Kotlin. Groovy tests are fixed only if necessary.
+2. To create mocks we use `org.mockito.kotlin.mock` (instead of `Mockito` class) and all extensions from that package, so that we can write our test code in kotlin-style.
+3. There are 2 main assertion libs in kotlin: the basic one `org.junit.jupiter.api.Assertions` and the more advanced `org.assertj.core.api.Assertions`.
+ - junit assertion lib is super simple - there are a lot of assert functions that just compare inputs
+ - assertj lib is a much more advanced lib that provides a rich set of assertion methods that read like natural language. For example, you can write assertions like `assertThat(result).isEqualTo(expected)` or `assertThat(list).containsExactly(1, 2, 3)`. This makes your tests more self-explanatory and easier to understand. Also, you can easily compare objects with ignoring some fields that sometimes can be really useful. And many other features.
+4. To sum up, for assertions let's use `assertj` lib.
+5. To test the reactive code we use `StepVerifier` from the reactor package. Just call `create` method and pass your `Flux` or `Mono` and add necessary assert methods which start with the `expect` prefix. Also, if your reactive pipeline is dependent on periodic operations you can use `withVirtualTime` method, with which you no longer need to work with real time.
+
 === Build Dshackle
 
 ==== Build everything
