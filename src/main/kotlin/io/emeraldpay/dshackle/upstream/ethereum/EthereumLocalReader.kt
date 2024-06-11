@@ -23,11 +23,12 @@ import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.LogsOracle
-import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.hex.HexQuantity
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
@@ -59,12 +60,11 @@ class EthereumLocalReader(
             // we do not want to serve any requests (except hardcoded) that have nonces from cache
             return Mono.empty()
         }
-        val common = commonRequests(key)
-            ?.switchIfEmpty { Mono.just(nullValue to null) }
-        if (common != null) {
-            return common.map { ChainResponse(it.first, null, it.second) }
-        }
-        return Mono.empty()
+        return commonRequests(key)?.switchIfEmpty {
+            // we need to explicitly return null to prevent executeOnRemote
+            // for example
+            Mono.just(ChainResponse(nullValue, null, null))
+        } ?: Mono.empty()
     }
 
     /**
@@ -72,7 +72,7 @@ class EthereumLocalReader(
      * parses JSON into Map. But the purpose of further processing and caching for some of the requests we want
      * to have actual data types.
      */
-    fun commonRequests(key: ChainRequest): Mono<Pair<ByteArray, Upstream.UpstreamSettingsData?>>? {
+    fun commonRequests(key: ChainRequest): Mono<ChainResponse>? {
         val method = key.method
         val params = key.params
         if (params is ListParams) {
@@ -89,7 +89,7 @@ class EthereumLocalReader(
                     }
                     reader.txByHashAsCont()
                         .read(hash)
-                        .map { it.data.json!! to it.resolvedUpstreamData }
+                        .map { ChainResponse(it.data.json, null, it.resolvedUpstreamData) }
                 }
 
                 method == "eth_getBlockByHash" -> {
@@ -106,7 +106,9 @@ class EthereumLocalReader(
                     if (withTx) {
                         null
                     } else {
-                        reader.blocksByIdAsCont().read(hash).map { it.data.json!! to it.resolvedUpstreamData }
+                        reader.blocksByIdAsCont().read(hash).map {
+                            ChainResponse(it.data.json, null, it.resolvedUpstreamData)
+                        }
                     }
                 }
 
@@ -126,7 +128,7 @@ class EthereumLocalReader(
                     }
                     reader.receipts()
                         .read(hash)
-                        .map { it.data to it.resolvedUpstreamData }
+                        .map { ChainResponse(it.data, null, it.resolvedUpstreamData) }
                 }
 
                 method == "drpc_getLogsEstimate" -> {
@@ -139,7 +141,7 @@ class EthereumLocalReader(
         return null
     }
 
-    fun getBlockByNumber(params: List<Any?>): Mono<Pair<ByteArray, Upstream.UpstreamSettingsData?>>? {
+    fun getBlockByNumber(params: List<Any?>): Mono<ChainResponse>? {
         if (params.size != 2 || params[0] == null || params[1] == null) {
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
         }
@@ -168,8 +170,16 @@ class EthereumLocalReader(
                 blockRef == "earliest" -> {
                     number = 0
                 }
-                blockRef == "finalized" || blockRef == "safe" || blockRef == "pending" -> {
+                blockRef == "pending" -> {
                     return null
+                }
+                blockRef == "finalized" || blockRef == "safe" -> {
+                    val type = FinalizationType.fromBlockRef(blockRef)
+                    return reader
+                        .blockByFinalization().read(type)
+                        .map {
+                            ChainResponse(it.data.json, it.resolvedUpstreamData, FinalizationData(it.data.height, type))
+                        }
                 }
                 else -> {
                     throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Block number is invalid")
@@ -180,10 +190,10 @@ class EthereumLocalReader(
         }
 
         return reader.blocksByHeightAsCont()
-            .read(number).map { it.data.json!! to it.resolvedUpstreamData }
+            .read(number).map { ChainResponse(it.data.json, null, it.resolvedUpstreamData) }
     }
 
-    fun getLogsEstimate(params: List<Any?>): Mono<Pair<ByteArray, Upstream.UpstreamSettingsData?>>? {
+    fun getLogsEstimate(params: List<Any?>): Mono<ChainResponse>? {
         if (logsOracle == null) {
             throw NotImplementedError()
         }
@@ -234,7 +244,7 @@ class EthereumLocalReader(
         }
 
         return logsOracle.estimate(limit?.toLong(), fromBlock, toBlock, address, topics)
-            .map { it.toByteArray() to null }
+            .map { ChainResponse(it.toByteArray(), null, null) }
     }
 
     private fun parseBlockRef(blockRef: String?): Long {

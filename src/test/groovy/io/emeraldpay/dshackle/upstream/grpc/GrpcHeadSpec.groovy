@@ -60,7 +60,7 @@ class GrpcHeadSpec extends Specification {
             }
         })
         def convert = { BlockchainOuterClass.ChainHead head ->
-            new GrpcHead.GrpcHeadData(TestingCommons.blockForBitcoin(head.height), List.of())
+            new GrpcHead.GrpcHeadData(TestingCommons.blockForBitcoin(head.height), List.of(), List.of())
         }
         def head = new GrpcHead(
                 "test",
@@ -127,7 +127,7 @@ class GrpcHeadSpec extends Specification {
             }
         })
         def convert = { BlockchainOuterClass.ChainHead head ->
-            new GrpcHead.GrpcHeadData(TestingCommons.blockForBitcoin(head.height), List.of())
+            new GrpcHead.GrpcHeadData(TestingCommons.blockForBitcoin(head.height), List.of(), List.of())
         }
         def head = new GrpcHead(
                 "test",

@@ -12,6 +12,7 @@ import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.*
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
@@ -33,6 +34,40 @@ class EthereumDirectReaderSpec extends Specification {
     String hash1 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String address1 = "0xe0aadb0a012dbcdc529c4c743d3e0385a0b54d3d"
     Upstream.UpstreamSettingsData data = new Upstream.UpstreamSettingsData("test")
+    def "Reads block by finalization"() {
+        setup:
+        def json = new BlockJson().tap {
+            number = 100
+            hash = BlockHash.from(hash1)
+            timestamp = Instant.now()
+            totalDifficulty = BigInteger.ONE
+            parentHash = BlockHash.from(hash1)
+            transactions = []
+        }
+        def calls = Mock(Factory) {
+            1 * create() >> new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        }
+        EthereumDirectReader reader = new EthereumDirectReader(
+                Stub(Multistream), Caches.default(), new CurrentBlockCache(), calls, TestingCommons.tracerMock()
+        )
+        reader.requestReaderFactory = Mock(RequestReaderFactory) {
+            1 * create({ it.upstreamFilter.sort == Selector.Sort.safe }) >> Mock(RequestReader) {
+                1 * read(new ChainRequest("eth_getBlockByNumber", new ListParams(["safe", false]))) >> Mono.just(
+                        new RequestReader.Result(
+                                Global.objectMapper.writeValueAsBytes(json), null, 1, data, null)
+                )
+            }
+        }
+        when:
+        def act = reader.blockByFinalizationReader.read(FinalizationType.SAFE_BLOCK)
+        then:
+        StepVerifier.create(act)
+                .expectNextMatches { block ->
+                    block.data.hash.toHexWithPrefix() == hash1
+                }
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
 
     def "Reads block by hash"() {
         setup:

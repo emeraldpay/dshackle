@@ -18,12 +18,13 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
 import io.emeraldpay.dshackle.upstream.signature.ResponseSigner
 import io.emeraldpay.dshackle.upstream.stream.Chunk
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-class ChainResponse(
+class ChainResponse @JvmOverloads constructor(
     private val result: ByteArray?,
     val error: ChainCallError?,
     val id: Id,
@@ -33,15 +34,18 @@ class ChainResponse(
      */
     val providedSignature: ResponseSigner.Signature? = null,
     val resolvedUpstreamData: Upstream.UpstreamSettingsData? = null,
+    val finalization: FinalizationData? = null,
 ) {
 
     constructor(stream: Flux<Chunk>, id: Int) :
-        this(null, null, NumberId(id.toLong()), stream, null, null)
+        this(null, null, NumberId(id.toLong()), stream, null, null, null)
 
-    constructor(result: ByteArray?, error: ChainCallError?) : this(result, error, NumberId(0), null)
+    constructor(result: ByteArray?, error: ChainCallError?) : this(result, error, NumberId(0), null, null)
 
     constructor(result: ByteArray?, error: ChainCallError?, resolvedUpstreamData: Upstream.UpstreamSettingsData?) :
-        this(result, error, NumberId(0), null, null, resolvedUpstreamData)
+        this(result, error, NumberId(0), null, null, resolvedUpstreamData, null)
+    constructor(result: ByteArray?, resolvedUpstreamData: Upstream.UpstreamSettingsData?, finalization: FinalizationData) :
+        this(result, null, NumberId(0), null, null, resolvedUpstreamData, finalization)
 
     companion object {
         private val NULL_VALUE = "null".toByteArray()

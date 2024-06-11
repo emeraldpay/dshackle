@@ -35,7 +35,6 @@ import reactor.core.publisher.Mono
 class StreamHead(
     @Autowired private val multistreamHolder: MultistreamHolder,
 ) {
-
     private val log = LoggerFactory.getLogger(StreamHead::class.java)
 
     fun add(requestMono: Mono<Common.Chain>): Flux<BlockchainOuterClass.ChainHead> {
@@ -54,12 +53,20 @@ class StreamHead(
 
     fun asProto(ms: Multistream, chain: Chain, block: BlockContainer): BlockchainOuterClass.ChainHead {
         val msLowerBounds = ms.getLowerBounds()
-        val lowerBoundsProto = msLowerBounds
-            .map {
-                BlockchainOuterClass.LowerBound.newBuilder()
-                    .setLowerBoundTimestamp(it.timestamp)
-                    .setLowerBoundType(toProtoLowerBoundType(it.type))
-                    .setLowerBoundValue(it.lowerBound)
+        val lowerBoundsProto =
+            msLowerBounds
+                .map {
+                    BlockchainOuterClass.LowerBound.newBuilder()
+                        .setLowerBoundTimestamp(it.timestamp)
+                        .setLowerBoundType(toProtoLowerBoundType(it.type))
+                        .setLowerBoundValue(it.lowerBound)
+                        .build()
+                }
+        val finalizationData =
+            ms.getFinalizations().map {
+                Common.FinalizationData.newBuilder()
+                    .setHeight(it.height)
+                    .setType(it.type.toProtoFinalizationType())
                     .build()
             }
         val toOldApi = toOldApi(msLowerBounds)
@@ -72,6 +79,7 @@ class StreamHead(
             .setCurrentLowerSlot(toOldApi.slot)
             .setCurrentLowerDataTimestamp(toOldApi.timestamp)
             .addAllLowerBounds(lowerBoundsProto)
+            .addAllFinalizationData(finalizationData)
             .setTimestamp(block.timestamp.toEpochMilli())
             .setWeight(ByteString.copyFrom(block.difficulty.toByteArray()))
             .setBlockId(block.hash.toHex())

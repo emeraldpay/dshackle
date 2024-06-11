@@ -32,6 +32,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionReceiptJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.apache.commons.collections4.Factory
 import org.apache.commons.lang3.exception.ExceptionUtils
@@ -66,6 +67,7 @@ class EthereumDirectReader(
     val balanceReader: Reader<Address, Result<Wei>>
     val receiptReader: Reader<TransactionId, Result<ByteArray>>
     val logsByHashReader: Reader<BlockId, Result<List<TransactionLogJson>>>
+    val blockByFinalizationReader: Reader<FinalizationType, Result<BlockContainer>>
 
     init {
         blockReader = object : Reader<BlockHash, Result<BlockContainer>> {
@@ -105,6 +107,24 @@ class EthereumDirectReader(
                     }
             }
         }
+
+        blockByFinalizationReader = object : Reader<FinalizationType, Result<BlockContainer>> {
+            override fun read(key: FinalizationType): Mono<Result<BlockContainer>> {
+                val request = ChainRequest("eth_getBlockByNumber", ListParams(key.toBlockRef(), false))
+                val tag = when (key) {
+                    FinalizationType.FINALIZED_BLOCK -> Selector.Companion.HeightNumberOrTag.Finalized
+                    FinalizationType.SAFE_BLOCK -> Selector.Companion.HeightNumberOrTag.Safe
+                    else -> null
+                }
+                return readBlock(
+                    request,
+                    key.toString(),
+                    Selector.empty,
+                    tag?.getSort() ?: Selector.Sort.default,
+                )
+            }
+        }
+
         balanceReader = object : Reader<Address, Result<Wei>> {
             override fun read(key: Address): Mono<Result<Wei>> {
                 val height = up.getHead().getCurrentHeight()?.let { HexQuantity.from(it).toHex() } ?: "latest"
@@ -194,8 +214,9 @@ class EthereumDirectReader(
         request: ChainRequest,
         id: String,
         matcher: Selector.Matcher = Selector.empty,
+        sort: Selector.Sort = Selector.Sort.default,
     ): Mono<Result<BlockContainer>> {
-        return readWithQuorum(request, matcher)
+        return readWithQuorum(request, matcher, sort)
             .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Block not read $id")))
             .retryWhen(Retry.fixedDelay(3, Duration.ofMillis(200)))
             .flatMap { result ->
@@ -227,6 +248,7 @@ class EthereumDirectReader(
     private fun readWithQuorum(
         request: ChainRequest,
         matcher: Selector.Matcher = Selector.empty,
+        sort: Selector.Sort = Selector.Sort.default,
     ): Mono<Result<ByteArray>> {
         return Mono.just(requestReaderFactory)
             .map {
@@ -237,7 +259,7 @@ class EthereumDirectReader(
                 it.create(
                     RequestReaderFactory.ReaderData(
                         up,
-                        Selector.UpstreamFilter(requestMatcher),
+                        Selector.UpstreamFilter(sort, requestMatcher),
                         callMethodsFactory.create().createQuorumFor(request.method),
                         null,
                         tracer,

@@ -32,6 +32,7 @@ import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.cosmos.CosmosChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumChainSpecific
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationDetector
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.near.NearChainSpecific
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotChainSpecific
@@ -45,6 +46,7 @@ import reactor.core.scheduler.Scheduler
 typealias SubscriptionBuilder = (Multistream) -> EgressSubscription
 typealias LocalReaderBuilder = (CachingReader, CallMethods, Head, LogsOracle?) -> Mono<ChainReader>
 typealias CachingReaderBuilder = (Multistream, Caches, Factory<CallMethods>) -> CachingReader
+typealias FinalizationDetectorBuilder = () -> FinalizationDetector
 
 interface ChainSpecific {
     fun getFromHeader(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer>
@@ -55,7 +57,14 @@ interface ChainSpecific {
 
     fun unsubscribeNewHeadsRequest(subId: String): ChainRequest
 
-    fun localReaderBuilder(cachingReader: CachingReader, methods: CallMethods, head: Head, logsOracle: LogsOracle?): Mono<ChainReader>
+    fun finalizationDetectorBuilder(): FinalizationDetector
+
+    fun localReaderBuilder(
+        cachingReader: CachingReader,
+        methods: CallMethods,
+        head: Head,
+        logsOracle: LogsOracle?,
+    ): Mono<ChainReader>
 
     fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription
 

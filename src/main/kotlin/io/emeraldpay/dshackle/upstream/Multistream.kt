@@ -32,6 +32,8 @@ import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import io.micrometer.core.instrument.Gauge
@@ -48,6 +50,7 @@ import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.max
 
 /**
  * Aggregation of multiple upstreams responding to a single blockchain
@@ -353,6 +356,18 @@ abstract class Multistream(
         observeUpstreamsStatuses()
 
         started = true
+    }
+
+    override fun getFinalizations(): Collection<FinalizationData> {
+        return getAll().flatMap { it.getFinalizations() }
+            .fold(mutableMapOf<FinalizationType, Long>()) { acc, data ->
+                acc[data.type] = max(acc[data.type] ?: 0, data.height)
+                acc
+            }.toList().map { FinalizationData(it.second, it.first) }
+    }
+
+    override fun addFinalization(finalization: FinalizationData, upstreamId: String) {
+        getAll().find { it.getId() == upstreamId }?.addFinalization(finalization, upstreamId)
     }
 
     override fun getLowerBounds(): Collection<LowerBoundData> {

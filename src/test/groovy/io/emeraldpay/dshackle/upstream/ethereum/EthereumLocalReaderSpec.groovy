@@ -10,6 +10,8 @@ import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import org.apache.commons.collections4.functors.ConstantFactory
@@ -84,8 +86,8 @@ class EthereumLocalReaderSpec extends Specification {
         then:
         act != null
         with(act.block()) {
-            it.first.length > 0
-            with(Global.objectMapper.readValue(it.first, BlockJson)) {
+            it.result.length > 0
+            with(Global.objectMapper.readValue(it.result, BlockJson)) {
                 number == 101
             }
         }
@@ -112,8 +114,8 @@ class EthereumLocalReaderSpec extends Specification {
         then:
         act != null
         with(act.block()) {
-            it.first.length > 0
-            with(Global.objectMapper.readValue(it.first, BlockJson)) {
+            it.result.length > 0
+            with(Global.objectMapper.readValue(it.result, BlockJson)) {
                 number == 0
             }
         }
@@ -140,10 +142,40 @@ class EthereumLocalReaderSpec extends Specification {
         then:
         act != null
         with(act.block()) {
-            it.first.length > 0
-            with(Global.objectMapper.readValue(it.first, BlockJson)) {
+            it.result.length > 0
+            with(Global.objectMapper.readValue(it.result, BlockJson)) {
                 number == 74735
             }
+        }
+    }
+
+    def "getBlockByNumber fetches the block by tag"() {
+        setup:
+        def head = Stub(Head) {}
+        def reader = Mock(EthereumCachingReader) {
+            1 * blockByFinalization() >> Mock(Reader) {
+                1 * read(FinalizationType.SAFE_BLOCK) >> Mono.just(
+                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(74735L), null)
+                )
+            }
+        }
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        def router = new EthereumLocalReader(reader, methods, head, null)
+
+        when:
+        def act = router.read(
+                new ChainRequest("eth_getBlockByNumber",
+                        new ListParams("safe", false))
+        )
+
+        then:
+        act != null
+        with(act.block()) {
+            it.result.length > 0
+            with(Global.objectMapper.readValue(it.result, BlockJson)) {
+                number == 74735
+            }
+            it.finalization == new FinalizationData(74735, FinalizationType.SAFE_BLOCK)
         }
     }
 

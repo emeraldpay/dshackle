@@ -32,7 +32,6 @@ import io.emeraldpay.dshackle.reader.CompoundReader
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.reader.RekeyingReader
 import io.emeraldpay.dshackle.reader.SpannedReader
-import io.emeraldpay.dshackle.reader.TransformingReader
 import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
@@ -45,6 +44,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionLogJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import org.apache.commons.collections4.Factory
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
@@ -92,18 +92,8 @@ open class EthereumCachingReader(
         SpannedReader(RekeyingReader(idToBlockHash, directReader.blockReader), tracer, DIRECT_QUORUM_RPC_READER),
     )
 
-    fun blocksByHashAsCont(): Reader<BlockHash, Result<BlockContainer>> {
-        return CompoundReader(
-            SpannedReader(CacheWithUpstreamIdReader(RekeyingReader(blockHashToId, caches.getBlocksByHash())), tracer, CACHE_BLOCK_BY_HASH_READER),
-            SpannedReader(directReader.blockReader, tracer, DIRECT_QUORUM_RPC_READER),
-        )
-    }
-
-    fun blocksByHashParsed(): Reader<BlockHash, BlockJson<TransactionRefJson>> {
-        return TransformingReader(
-            blocksByHashAsCont(),
-            extractBlock,
-        )
+    open fun blockByFinalization(): Reader<FinalizationType, Result<BlockContainer>> {
+        return SpannedReader(directReader.blockByFinalizationReader, tracer, DIRECT_QUORUM_RPC_READER)
     }
 
     open fun blocksByIdAsCont(): Reader<BlockId, Result<BlockContainer>> {
@@ -114,23 +104,6 @@ open class EthereumCachingReader(
         return CompoundReader(
             SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHeight()), tracer, CACHE_BLOCK_BY_HEIGHT_READER),
             SpannedReader(directReader.blockByHeightReader, tracer, DIRECT_QUORUM_RPC_READER),
-        )
-    }
-
-    open fun blocksByHeightParsed(): Reader<Long, BlockJson<TransactionRefJson>> {
-        return TransformingReader(
-            blocksByHeightAsCont(),
-            extractBlock,
-        )
-    }
-
-    open fun txByHash(): Reader<TransactionId, TransactionJsonSnapshot> {
-        return TransformingReader(
-            CompoundReader(
-                CacheWithUpstreamIdReader(RekeyingReader(txHashToId, caches.getTxByHash())),
-                directReader.txReader,
-            ),
-            extractTx,
         )
     }
 

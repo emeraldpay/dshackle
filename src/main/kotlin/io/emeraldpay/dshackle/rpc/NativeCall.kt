@@ -19,6 +19,7 @@ package io.emeraldpay.dshackle.rpc
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
+import io.emeraldpay.api.proto.Common
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.Global.Companion.nullValue
@@ -47,6 +48,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
 import io.emeraldpay.dshackle.upstream.rpcclient.CallParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
@@ -243,6 +245,12 @@ open class NativeCall(
             result.upstreamId = it.id
             result.upstreamNodeVersion = it.nodeVersion
         }
+        it.finalization?.let {
+            result.finalization = Common.FinalizationData.newBuilder()
+                .setHeight(it.height)
+                .setType(it.type.toProtoFinalizationType())
+                .build()
+        }
         return result.build()
     }
 
@@ -426,9 +434,9 @@ open class NativeCall(
                         val resolvedUpstreamData = it.resolvedUpstreamData ?: ctx.upstream.getUpstreamSettingsData()
                         validateResult(result, "local", ctx)
                         if (ctx.nonce != null) {
-                            CallResult.ok(ctx.id, ctx.nonce, result, signer.sign(ctx.nonce, result, resolvedUpstreamData?.id ?: ctx.upstream.getId()), resolvedUpstreamData, ctx)
+                            CallResult.ok(ctx.id, ctx.nonce, result, signer.sign(ctx.nonce, result, resolvedUpstreamData?.id ?: ctx.upstream.getId()), resolvedUpstreamData, ctx, it.finalization)
                         } else {
-                            CallResult.ok(ctx.id, null, result, null, resolvedUpstreamData, ctx)
+                            CallResult.ok(ctx.id, null, result, null, resolvedUpstreamData, ctx, it.finalization)
                         }
                     }
             }.switchIfEmpty(
@@ -436,6 +444,10 @@ open class NativeCall(
             )
             .onErrorResume {
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, it, ctx))
+            }.doOnNext {
+                if (it.finalization != null && it.upstreamSettingsData != null) {
+                    ctx.upstream.addFinalization(it.finalization, it.upstreamSettingsData.id)
+                }
             }
     }
 
@@ -700,7 +712,7 @@ open class NativeCall(
         }
     }
 
-    open class CallResult(
+    open class CallResult @JvmOverloads constructor(
         val id: Int,
         val nonce: Long?,
         val result: ByteArray?,
@@ -709,6 +721,7 @@ open class NativeCall(
         val upstreamSettingsData: Upstream.UpstreamSettingsData?,
         val ctx: ValidCallContext<ParsedCallDetails>?,
         val stream: Flux<Chunk>? = null,
+        val finalization: FinalizationData? = null,
     ) {
 
         constructor(
@@ -723,6 +736,10 @@ open class NativeCall(
         companion object {
             fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: Upstream.UpstreamSettingsData?, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
                 return CallResult(id, nonce, result, null, signature, upstreamSettingsData, ctx)
+            }
+
+            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: Upstream.UpstreamSettingsData?, ctx: ValidCallContext<ParsedCallDetails>?, final: FinalizationData?): CallResult {
+                return CallResult(id, nonce, result, null, signature, upstreamSettingsData, ctx, null, final)
             }
 
             fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: Upstream.UpstreamSettingsData?, ctx: ValidCallContext<ParsedCallDetails>?, stream: Flux<Chunk>?): CallResult {

@@ -84,6 +84,7 @@ open class GenericUpstreamCreator(
             cs::upstreamRpcModulesDetector,
             buildMethodsFun,
             cs::lowerBoundService,
+            cs::finalizationDetectorBuilder,
         )
 
         upstream.start()

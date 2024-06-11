@@ -20,12 +20,13 @@ import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationDetector
+import io.emeraldpay.dshackle.upstream.finalization.NoopFinalizationDetector
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 
 abstract class AbstractChainSpecific : ChainSpecific {
-
     override fun localReaderBuilder(
         cachingReader: CachingReader,
         methods: CallMethods,
@@ -35,11 +36,18 @@ abstract class AbstractChainSpecific : ChainSpecific {
         return Mono.just(LocalReader(methods))
     }
 
+    override fun finalizationDetectorBuilder(): FinalizationDetector {
+        return NoopFinalizationDetector()
+    }
+
     override fun makeCachingReaderBuilder(tracer: Tracer): CachingReaderBuilder {
         return { _, _, _ -> NoopCachingReader }
     }
 
-    override fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector? {
+    override fun upstreamSettingsDetector(
+        chain: Chain,
+        upstream: Upstream,
+    ): UpstreamSettingsDetector? {
         return null
     }
 

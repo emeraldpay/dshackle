@@ -24,6 +24,7 @@ import io.emeraldpay.dshackle.upstream.AbstractHead
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.micrometer.core.instrument.Counter
@@ -54,10 +55,9 @@ class GrpcHead(
     private val forkChoice: ForkChoice,
     headScheduler: Scheduler,
 ) : AbstractHead(forkChoice, headScheduler, upstreamId = id), Lifecycle {
-
     private var headSubscription: Disposable? = null
 
-    private val lowerBoundsSink = Sinks.many().multicast().directBestEffort<LowerBoundData>()
+    private val rawDataSink = Sinks.many().multicast().directBestEffort<GrpcHeadData>()
 
     /**
      * Initiate a new head subscription with connection to the remote
@@ -92,14 +92,15 @@ class GrpcHead(
                     log.warn("Head subscription finished: $it")
                 }
 
-        var blocks = heads.map(converter)
-            .doOnNext {
-                it.lowerBounds.forEach { bound -> lowerBoundsSink.tryEmitNext(bound) }
-            }
-            .map { it.block }
-            .distinctUntilChanged {
-                it.hash
-            }.filter { forkChoice.filter(it) }
+        var blocks =
+            heads.map(converter)
+                .doOnNext {
+                    rawDataSink.tryEmitNext(it)
+                }
+                .map { it.block }
+                .distinctUntilChanged {
+                    it.hash
+                }.filter { forkChoice.filter(it) }
 
         if (enhancer != null) {
             blocks = blocks.flatMap(enhancer)
@@ -133,7 +134,7 @@ class GrpcHead(
         headSubscription?.dispose()
     }
 
-    fun lowerBoundsFlux(): Flux<LowerBoundData> = lowerBoundsSink.asFlux()
+    fun rawDataFlux(): Flux<GrpcHeadData> = rawDataSink.asFlux()
 
     val headsCounter = Counter.builder("grpc_head_received")
         .tag("upstream", id)
@@ -143,7 +144,8 @@ class GrpcHead(
     data class GrpcHeadData(
         val block: BlockContainer,
         val lowerBounds: List<LowerBoundData>,
+        val finalizationData: List<FinalizationData>,
     ) {
-        constructor(block: BlockContainer) : this(block, emptyList())
+        constructor(block: BlockContainer) : this(block, emptyList(), emptyList())
     }
 }

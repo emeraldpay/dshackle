@@ -35,6 +35,9 @@ import io.emeraldpay.dshackle.upstream.Lifecycle
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
+import io.emeraldpay.dshackle.upstream.finalization.fromProtoType
 import io.emeraldpay.dshackle.upstream.forkchoice.NoChoiceWithPriorityForkChoice
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
@@ -74,52 +77,65 @@ open class GenericGrpcUpstream(
 ),
     GrpcUpstream,
     Lifecycle {
-
-    private val blockConverter: Function<BlockchainOuterClass.ChainHead, GrpcHead.GrpcHeadData> = Function { value ->
-        val parentHash =
-            if (value.parentBlockId.isBlank()) {
-                null
-            } else {
-                BlockId.from(BlockHash.from("0x" + value.parentBlockId))
-            }
-        val block = BlockContainer(
-            value.height,
-            BlockId.from(BlockHash.from("0x" + value.blockId)),
-            BigInteger(1, value.weight.toByteArray()),
-            Instant.ofEpochMilli(value.timestamp),
-            false,
-            null,
-            null,
-            parentHash,
-        )
-        val lowerBounds = value.lowerBoundsList
-            .map { LowerBoundData(it.lowerBoundValue, it.lowerBoundTimestamp, it.lowerBoundType.fromProtoType()) }
-        GrpcHead.GrpcHeadData(block, lowerBounds)
-    }
+    private val blockConverter: Function<BlockchainOuterClass.ChainHead, GrpcHead.GrpcHeadData> =
+        Function { value ->
+            val parentHash =
+                if (value.parentBlockId.isBlank()) {
+                    null
+                } else {
+                    BlockId.from(BlockHash.from("0x" + value.parentBlockId))
+                }
+            val block =
+                BlockContainer(
+                    value.height,
+                    BlockId.from(BlockHash.from("0x" + value.blockId)),
+                    BigInteger(1, value.weight.toByteArray()),
+                    Instant.ofEpochMilli(value.timestamp),
+                    false,
+                    null,
+                    null,
+                    parentHash,
+                )
+            val lowerBounds =
+                value.lowerBoundsList
+                    .map { LowerBoundData(it.lowerBoundValue, it.lowerBoundTimestamp, it.lowerBoundType.fromProtoType()) }
+            val finalizationData =
+                value.finalizationDataList.map {
+                    FinalizationData(it.height, it.type.fromProtoType())
+                }
+            GrpcHead.GrpcHeadData(block, lowerBounds, finalizationData)
+        }
 
     private val upstreamStatus = GrpcUpstreamStatus(overrideLabels)
-    private val grpcHead = GrpcHead(
-        getId(),
-        chain,
-        this,
-        remote,
-        blockConverter,
-        null,
-        NoChoiceWithPriorityForkChoice(nodeRating, parentId),
-        headScheduler,
-    )
+    private val grpcHead =
+        GrpcHead(
+            getId(),
+            chain,
+            this,
+            remote,
+            blockConverter,
+            null,
+            NoChoiceWithPriorityForkChoice(nodeRating, parentId),
+            headScheduler,
+        )
     private var capabilities: Set<Capability> = emptySet()
     private val buildInfo: BuildInfo = BuildInfo()
 
     private val defaultReader: ChainReader = client.getReader()
 
     private val lowerBounds = ConcurrentHashMap<LowerBoundType, LowerBoundData>()
+    private var finalizationData = ConcurrentHashMap<FinalizationType, FinalizationData>()
 
     override fun start() {
-        grpcHead.lowerBoundsFlux()
-            .publishOn(lowerBoundScheduler)
-            .subscribe {
-                lowerBounds[it.type] = it
+        grpcHead.rawDataFlux()
+            .publishOn(rawDataScheduler)
+            .subscribe { head ->
+                head.lowerBounds.forEach {
+                    lowerBounds[it.type] = it
+                }
+                head.finalizationData.forEach {
+                    finalizationData[it.type] = it
+                }
                 sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.UPDATED)
             }
     }
@@ -205,6 +221,14 @@ open class GenericGrpcUpstream(
         return lowerBounds[lowerBoundType]
     }
 
+    override fun getFinalizations(): Collection<FinalizationData> {
+        return finalizationData.values
+    }
+
+    override fun addFinalization(finalization: FinalizationData, upstreamId: String) {
+        finalizationData[finalization.type] = finalization
+    }
+
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
         return Upstream.UpstreamSettingsData(
             nodeId(),
@@ -214,8 +238,9 @@ open class GenericGrpcUpstream(
     }
 
     companion object {
-        val lowerBoundScheduler: Scheduler = Schedulers.fromExecutorService(
-            Executors.newFixedThreadPool(4, CustomizableThreadFactory("grpc-lower-bound-")),
-        )
+        val rawDataScheduler: Scheduler =
+            Schedulers.fromExecutorService(
+                Executors.newFixedThreadPool(4, CustomizableThreadFactory("grpc-raw-data-bound-")),
+            )
     }
 }

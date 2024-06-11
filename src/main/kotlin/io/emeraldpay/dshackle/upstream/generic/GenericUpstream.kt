@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.UpstreamValidatorBuilder
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
 import io.emeraldpay.dshackle.upstream.generic.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
@@ -43,11 +44,12 @@ open class GenericUpstream(
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
     private val node: QuorumForLabels.QuorumItem?,
-    chainConfig: ChainsConfig.ChainConfig,
+    private val chainConfig: ChainsConfig.ChainConfig,
     connectorFactory: ConnectorFactory,
     validatorBuilder: UpstreamValidatorBuilder,
     upstreamSettingsDetectorBuilder: UpstreamSettingsDetectorBuilder,
     lowerBoundServiceBuilder: LowerBoundServiceBuilder,
+    finalizationDetectorBuilder: FinalizationDetectorBuilder,
 ) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig, chain), Lifecycle {
 
     constructor(
@@ -63,7 +65,8 @@ open class GenericUpstream(
         upstreamRpcModulesDetectorBuilder: UpstreamRpcModulesDetectorBuilder,
         buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods,
         lowerBoundServiceBuilder: LowerBoundServiceBuilder,
-    ) : this(config.id!!, chain, hash, options, config.role, buildMethods(config, chain), node, chainConfig, connectorFactory, validatorBuilder, upstreamSettingsDetectorBuilder, lowerBoundServiceBuilder) {
+        finalizationDetectorBuilder: FinalizationDetectorBuilder,
+    ) : this(config.id!!, chain, hash, options, config.role, buildMethods(config, chain), node, chainConfig, connectorFactory, validatorBuilder, upstreamSettingsDetectorBuilder, lowerBoundServiceBuilder, finalizationDetectorBuilder) {
         rpcModulesDetector = upstreamRpcModulesDetectorBuilder(this)
         detectRpcModules(config, buildMethods)
     }
@@ -84,6 +87,9 @@ open class GenericUpstream(
     private val started = AtomicBoolean(false)
     private val isUpstreamValid = AtomicBoolean(false)
     private val clientVersion = AtomicReference(UNKNOWN_CLIENT_VERSION)
+
+    private val finalizationDetector = finalizationDetectorBuilder()
+    private var finalizationDetectorSubscription: Disposable? = null
 
     override fun getHead(): Head {
         return connector.getHead()
@@ -255,6 +261,8 @@ open class GenericUpstream(
         detectSettings()
 
         detectLowerBlock()
+
+        detectFinalization()
     }
 
     override fun stop() {
@@ -272,6 +280,8 @@ open class GenericUpstream(
         livenessSubscription = null
         lowerBlockDetectorSubscription?.dispose()
         lowerBlockDetectorSubscription = null
+        finalizationDetectorSubscription?.dispose()
+        finalizationDetectorSubscription = null
         connector.getHead().stop()
     }
 
@@ -282,11 +292,29 @@ open class GenericUpstream(
         }
     }
 
-    private fun detectLowerBlock() {
-        lowerBlockDetectorSubscription = lowerBoundService.detectLowerBounds()
-            .subscribe {
+    override fun getFinalizations(): Collection<FinalizationData> {
+        return finalizationDetector.getFinalizations()
+    }
+
+    override fun addFinalization(finalization: FinalizationData, upstreamId: String) {
+        if (getId() == upstreamId) {
+            finalizationDetector.addFinalization(finalization)
+        }
+    }
+
+    private fun detectFinalization() {
+        finalizationDetectorSubscription =
+            finalizationDetector.detectFinalization(this, chainConfig.expectedBlockTime).subscribe {
                 sendUpstreamStateEvent(UPDATED)
             }
+    }
+
+    private fun detectLowerBlock() {
+        lowerBlockDetectorSubscription =
+            lowerBoundService.detectLowerBounds()
+                .subscribe {
+                    sendUpstreamStateEvent(UPDATED)
+                }
     }
 
     fun getIngressSubscription(): IngressSubscription {

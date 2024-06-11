@@ -25,6 +25,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.subscribe.AggregatedPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.EthereumWsIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.NoPendingTxes
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
+import io.emeraldpay.dshackle.upstream.finalization.FinalizationDetector
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.CachingReaderBuilder
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
@@ -101,7 +102,14 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         return EthereumLowerBoundService(chain, upstream)
     }
 
-    override fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector {
+    override fun finalizationDetectorBuilder(): FinalizationDetector {
+        return EthereumFinalizationDetector()
+    }
+
+    override fun upstreamSettingsDetector(
+        chain: Chain,
+        upstream: Upstream,
+    ): UpstreamSettingsDetector {
         return EthereumUpstreamSettingsDetector(upstream, chain)
     }
 
