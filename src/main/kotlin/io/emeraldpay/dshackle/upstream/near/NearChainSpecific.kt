@@ -15,6 +15,7 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
@@ -64,11 +65,20 @@ object NearChainSpecific : AbstractPollChainSpecific() {
         return GenericUpstreamValidator(
             upstream,
             options,
-            SingleCallValidator(
-                ChainRequest("status", ListParams()),
-            ) { data ->
-                validate(data)
-            },
+            listOf(
+                SingleCallValidator(
+                    ChainRequest("status", ListParams()),
+                ) { data ->
+                    validate(data)
+                },
+            ),
+            listOf(
+                SingleCallValidator(
+                    ChainRequest("status", ListParams()),
+                ) { data ->
+                    validateSettings(data, chain)
+                },
+            ),
         )
     }
 
@@ -82,6 +92,15 @@ object NearChainSpecific : AbstractPollChainSpecific() {
             UpstreamAvailability.SYNCING
         } else {
             UpstreamAvailability.OK
+        }
+    }
+
+    fun validateSettings(data: ByteArray, chain: Chain): ValidateUpstreamSettingsResult {
+        val resp = Global.objectMapper.readValue(data, NearStatus::class.java)
+        return if (chain.chainId.isNotEmpty() && resp.chainId.lowercase() != chain.chainId.lowercase()) {
+            ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+        } else {
+            ValidateUpstreamSettingsResult.UPSTREAM_VALID
         }
     }
 
@@ -108,6 +127,7 @@ data class NearHeader(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class NearStatus(
+    @JsonProperty("chain_id") var chainId: String,
     @JsonProperty("sync_info") var syncInfo: NearSync,
 )
 

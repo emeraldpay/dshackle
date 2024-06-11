@@ -35,6 +35,7 @@ chain-settings:
       settings:
         expected-block-time: 12s
         mev-critical: true
+        allow-pruning-requirement: true
         lags:
           syncing: 6
           lagging: 1
@@ -76,6 +77,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 3s
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -101,6 +103,7 @@ chain-settings:
       settings:
         mev-critical: true
         expected-block-time: 2.7s
+        allow-pruning-requirement: true
         lags:
           syncing: 20
           lagging: 10
@@ -131,6 +134,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 260ms
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -155,6 +159,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 2s
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -179,6 +184,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 3s
+        allow-pruning-requirement: true
         mev-critical: true
         lags:
           syncing: 20
@@ -206,6 +212,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 2.7s
+        allow-pruning-requirement: true
         options:
           disable-validation: true
         lags:
@@ -232,6 +239,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 260ms
+        allow-pruning-requirement: true
         options:
           disable-validation: true
         lags:
@@ -249,6 +257,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 5s
+        allow-pruning-requirement: true
         lags:
           syncing: 70
           lagging: 50
@@ -273,6 +282,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 2s
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -297,6 +307,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 12s
+        allow-pruning-requirement: true
         lags:
           syncing: 6
           lagging: 1
@@ -319,6 +330,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 6s
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -343,6 +355,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 2s
+        allow-pruning-requirement: true
         options:
           validate-peers: false
           validate-syncing: false
@@ -392,6 +405,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 500ms
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -416,6 +430,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 1s
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -442,6 +457,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 5s
+        allow-pruning-requirement: true
         lags:
           syncing: 10
           lagging: 5
@@ -464,6 +480,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 12s
+        allow-pruning-requirement: true
         lags:
           syncing: 6
           lagging: 1
@@ -486,6 +503,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 12s
+        allow-pruning-requirement: true
         lags:
           syncing: 6
           lagging: 1
@@ -554,6 +572,7 @@ chain-settings:
         options:
           validate-peers: false
         expected-block-time: 30s
+        allow-pruning-requirement: true
         lags:
           syncing: 40
           lagging: 20
@@ -600,6 +619,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 6s
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -613,8 +633,7 @@ chain-settings:
           short-names: [kava]
           chain-id: 0x8ae
           grpcId: 1025
-          gas-price-condition:
-            - eq 1000000000
+          gas-price-condition: eq 1000000000
         - id: Testnet
           priority: 10
           code: KAVA_TESTNET
@@ -683,13 +702,13 @@ chain-settings:
           priority: 1
           code: VARA_MAINNET
           short-names: [vara]
-          chain-id: 0x0
+          chain-id: Vara Network
           grpcId: 1027
         - id: Testnet
           priority: 1
           code: VARA_TESTMET
           short-names: [vara-testnet]
-          chain-id: 0x0
+          chain-id: Vara Network Testnet
           grpcId: 10036
     - id: solana
       label: Solana
@@ -773,6 +792,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 5s
+        allow-pruning-requirement: true
         lags:
           syncing: 20
           lagging: 10
@@ -835,6 +855,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 10s
+        allow-pruning-requirement: true
         lags:
           syncing: 10
           lagging: 5
@@ -933,6 +954,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 2s
+        allow-pruning-requirement: true
         options:
           validate-peers: false
         lags:
@@ -1022,6 +1044,7 @@ chain-settings:
       type: eth
       settings:
         expected-block-time: 2s
+        allow-pruning-requirement: true
         lags:
           syncing: 40
           lagging: 20
@@ -1282,19 +1305,19 @@ chain-settings:
           code: NEAR_MAINNET
           grpcId: 1050
           short-names: [near]
-          chain-id: 0x0
+          chain-id: mainnet
         - id: Testnet
           priority: 5
           code: NEAR_TESTNET
           grpcId: 10064
           short-names: [near-testnet]
-          chain-id: 0x0
+          chain-id: testnet
         - id: Betanet
           priority: 1
           code: NEAR_BETANET
           grpcId: 10065
           short-names: [near-betanet]
-          chain-id: 0x0
+          chain-id: betanet
     - id: opcelestia-raspberry
       label: OP Celestia Raspberry
       type: eth
@@ -1420,13 +1443,13 @@ chain-settings:
           lagging: 1
       chains:
         - id: Mainnet
-          chain-id: 0x0
+          chain-id: cosmoshub-4
           short-names: [ cosmos-hub ]
           code: COSMOS_HUB
           grpcId: 1057
           priority: 100
         - id: Testnet
-          chain-id: 0x0
+          chain-id: provider
           short-names: [ cosmos-hub-testnet ]
           code: COSMOS_HUB_TESTNET
           grpcId: 10079
@@ -1441,13 +1464,13 @@ chain-settings:
           lagging: 1
       chains:
         - id: Mainnet
-          chain-id: 0x0
+          chain-id: axelar-dojo-1
           short-names: [ axelar ]
           code: AXELAR
           grpcId: 1059
           priority: 100
         - id: Testnet
-          chain-id: 0x0
+          chain-id: axelar-testnet-lisbon-3
           short-names: [ axelar-testnet ]
           code: AXELAR_TESTNET
           grpcId: 10081
@@ -1462,13 +1485,13 @@ chain-settings:
           lagging: 1
       chains:
         - id: Mainnet
-          chain-id: 0x0
+          chain-id: osmosis
           short-names: [ osmosis ]
           code: OSMOSIS
           grpcId: 1060
           priority: 100
         - id: Testnet
-          chain-id: 0x0
+          chain-id: osmo-test-5
           short-names: [ osmosis-testnet ]
           code: OSMOSIS_TESTNET
           grpcId: 10082
@@ -1483,13 +1506,13 @@ chain-settings:
           lagging: 1
       chains:
         - id: Mainnet
-          chain-id: 0x0
+          chain-id: neutron-1
           short-names: [ neutron ]
           code: NEUTRON
           grpcId: 1061
           priority: 100
         - id: Testnet
-          chain-id: 0x0
+          chain-id: pion-1
           short-names: [ neutron-testnet ]
           code: NEUTRON_TESTNET
           grpcId: 10083

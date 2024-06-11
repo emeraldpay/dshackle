@@ -20,6 +20,7 @@ import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultPolkadotMethods
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
@@ -97,11 +98,20 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
         return GenericUpstreamValidator(
             upstream,
             options,
-            SingleCallValidator(
-                ChainRequest("system_health", ListParams()),
-            ) { data ->
-                validate(data, options.minPeers, upstream.getId())
-            },
+            listOf(
+                SingleCallValidator(
+                    ChainRequest("system_health", ListParams()),
+                ) { data ->
+                    validate(data, options.minPeers, upstream.getId())
+                },
+            ),
+            listOf(
+                SingleCallValidator(
+                    ChainRequest("system_chain", ListParams()),
+                ) { data ->
+                    validateSettings(data, chain)
+                },
+            ),
         )
     }
 
@@ -121,6 +131,15 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
         }
 
         return UpstreamAvailability.OK
+    }
+
+    fun validateSettings(data: ByteArray, chain: Chain): ValidateUpstreamSettingsResult {
+        val id = Global.objectMapper.readValue(data, String::class.java)
+        return if (chain.chainId.isNotEmpty() && id.lowercase() != chain.chainId.lowercase()) {
+            ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+        } else {
+            ValidateUpstreamSettingsResult.UPSTREAM_VALID
+        }
     }
 
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {

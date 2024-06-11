@@ -65,11 +65,14 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
         return GenericUpstreamValidator(
             upstream,
             options,
-            SingleCallValidator(
-                ChainRequest("starknet_syncing", ListParams()),
-            ) { data ->
-                validate(data, config.laggingLagSize, upstream.getId())
-            },
+            listOf(
+                SingleCallValidator(
+                    ChainRequest("starknet_syncing", ListParams()),
+                ) { data ->
+                    validate(data, config.laggingLagSize, upstream.getId())
+                },
+            ),
+            listOf(),
         )
     }
 

@@ -115,7 +115,8 @@ class ChainsConfigReader(
             ?: throw IllegalArgumentException("undefined code for $blockchain")
         val grpcId = getValueAsInt(node, "grpcId")
             ?: throw IllegalArgumentException("undefined code for $blockchain")
-        val netVersion = getValueAsLong(node, "net-version")?.toBigInteger() ?: BigInteger(chainId.drop(2), 16)
+        val netVersion = getValueAsLong(node, "net-version")?.toBigInteger() ?:
+            if (chainId.startsWith("0x")) BigInteger(chainId.drop(2), 16) else BigInteger.ZERO
         val shortNames = getListOfString(node, "short-names")
             ?: throw IllegalArgumentException("undefined shortnames for $blockchain")
         val type = getValueAsString(node, "type")

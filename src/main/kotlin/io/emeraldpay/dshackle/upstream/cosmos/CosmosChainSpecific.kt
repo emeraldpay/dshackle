@@ -14,15 +14,19 @@ import io.emeraldpay.dshackle.upstream.SingleCallValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability.OK
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
 
 object CosmosChainSpecific : AbstractPollChainSpecific() {
+
+    val log = LoggerFactory.getLogger(this::class.java)
     override fun latestBlockRequest(): ChainRequest = ChainRequest("block", ObjectParams())
 
     override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
@@ -75,9 +79,24 @@ object CosmosChainSpecific : AbstractPollChainSpecific() {
         return GenericUpstreamValidator(
             upstream,
             options,
-            SingleCallValidator(
-                ChainRequest("health", ListParams()),
-            ) { _ -> OK },
+            listOf(
+                SingleCallValidator(
+                    ChainRequest("health", ListParams()),
+                ) { _ -> OK },
+            ),
+            listOf(
+                SingleCallValidator(
+                    ChainRequest("status", ListParams()),
+                ) { data ->
+                    val resp = Global.objectMapper.readValue(data, CosmosStatus::class.java)
+                    if (chain.chainId.isNotEmpty() && resp.nodeInfo.network.lowercase() != chain.chainId.lowercase()) {
+                        ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+                    } else {
+                        ValidateUpstreamSettingsResult.UPSTREAM_VALID
+                    }
+                },
+            ),
+
         )
     }
 
@@ -115,6 +134,7 @@ data class CosmosStatus(
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class CosmosNodeInfo(
     @JsonProperty("version") var version: String,
+    @JsonProperty("network") var network: String,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

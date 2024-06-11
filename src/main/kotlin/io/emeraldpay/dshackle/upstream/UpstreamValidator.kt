@@ -44,16 +44,21 @@ abstract class UpstreamValidator(
             val cp = Comparator { avail1: UpstreamAvailability, avail2: UpstreamAvailability -> if (avail1.isBetterTo(avail2)) -1 else 1 }
             return results.sortedWith(cp).last()
         }
+
+        fun resolve(results: Iterable<ValidateUpstreamSettingsResult>): ValidateUpstreamSettingsResult {
+            val cp = Comparator { res1: ValidateUpstreamSettingsResult, res2: ValidateUpstreamSettingsResult -> if (res1.priority < res2.priority) -1 else 1 }
+            return results.sortedWith(cp).last()
+        }
     }
 }
 
-enum class ValidateUpstreamSettingsResult {
-    UPSTREAM_VALID,
-    UPSTREAM_SETTINGS_ERROR,
-    UPSTREAM_FATAL_SETTINGS_ERROR,
+enum class ValidateUpstreamSettingsResult(val priority: Int) {
+    UPSTREAM_VALID(0),
+    UPSTREAM_SETTINGS_ERROR(1),
+    UPSTREAM_FATAL_SETTINGS_ERROR(2),
 }
 
-data class SingleCallValidator(
+data class SingleCallValidator<T>(
     val method: ChainRequest,
-    val check: (ByteArray) -> UpstreamAvailability,
+    val check: (ByteArray) -> T,
 )

@@ -124,17 +124,20 @@ object SolanaChainSpecific : AbstractChainSpecific() {
         return GenericUpstreamValidator(
             upstream,
             options,
-            SingleCallValidator(
-                ChainRequest("getHealth", ListParams()),
-            ) { data ->
-                val resp = String(data)
-                if (resp == "\"ok\"") {
-                    UpstreamAvailability.OK
-                } else {
-                    log.warn("Upstream {} validation failed, solana status is {}", upstream.getId(), resp)
-                    UpstreamAvailability.UNAVAILABLE
-                }
-            },
+            listOf(
+                SingleCallValidator(
+                    ChainRequest("getHealth", ListParams()),
+                ) { data ->
+                    val resp = String(data)
+                    if (resp == "\"ok\"") {
+                        UpstreamAvailability.OK
+                    } else {
+                        log.warn("Upstream {} validation failed, solana status is {}", upstream.getId(), resp)
+                        UpstreamAvailability.UNAVAILABLE
+                    }
+                },
+            ),
+            listOf(),
         )
     }
 
