@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.databind.JsonNode
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.BasicEthUpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
@@ -60,7 +61,13 @@ class EthereumUpstreamSettingsDetector(
                 "eth_getBalance",
                 ListParams(ZERO_ADDRESS, blockNumber),
             ),
-        ).flatMap(ChainResponse::requireResult)
+        )
+            .flatMap(ChainResponse::requireResult)
+            .doOnNext {
+                if (it.contentEquals(Global.nullValue)) {
+                    throw IllegalStateException("Null data")
+                }
+            }
     }
 
     override fun nodeTypeRequest(): NodeTypeRequest = NodeTypeRequest(clientVersionRequest())

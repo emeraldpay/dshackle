@@ -1,13 +1,12 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.ApiReaderMock
 import io.emeraldpay.dshackle.test.TestingCommons
-import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import kotlin.Pair
 import reactor.core.publisher.Mono
@@ -47,6 +46,31 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
         "Geth/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"     | "geth"          |  "v1.12.0-stable-e501b3b0"
         "Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"   | "erigon"        |  "v1.12.0-stable-e501b3b0"
         "Bor/v0.4.0/linux-amd64/go1.19.10"                      | "bor"           |  "v0.4.0"
+    }
+
+    def "Not archival node if null response"() {
+        setup:
+        def up = TestingCommons.upstream(
+                new ApiReaderMock().tap {
+                    answer("web3_clientVersion", [], "Bor/v0.4.0/linux-amd64/go1.19.10")
+                    answer("eth_blockNumber", [], "0x10df3e5")
+                    answer("eth_getBalance", ["0x0000000000000000000000000000000000000000", "0x10dccd5"], "")
+                    answer("eth_getBalance", ["0x0000000000000000000000000000000000000000", "0x2710"], null)
+                }
+        )
+        def detector = new EthereumUpstreamSettingsDetector(up, Chain.ETHEREUM__MAINNET)
+
+        when:
+        def act = detector.detectLabels()
+        then:
+        StepVerifier.create(act)
+                .expectNext(
+                        new Pair<String, String>("client_type", "bor"),
+                        new Pair<String, String>("client_version", "v0.4.0"),
+                        new Pair<String, String>("archive", "false")
+                )
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
     }
 
     def "Only default label"() {

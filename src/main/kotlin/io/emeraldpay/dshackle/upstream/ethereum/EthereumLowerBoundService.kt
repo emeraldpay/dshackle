@@ -14,6 +14,7 @@ class EthereumLowerBoundService(
             EthereumLowerBoundStateDetector(upstream),
             EthereumLowerBoundBlockDetector(upstream),
             EthereumLowerBoundTxDetector(upstream),
+            EthereumLowerBoundLogsDetector(upstream),
         )
     }
 }

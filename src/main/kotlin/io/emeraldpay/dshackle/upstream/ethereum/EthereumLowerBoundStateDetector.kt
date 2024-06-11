@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -41,6 +42,7 @@ class EthereumLowerBoundStateDetector(
             "historical backend error", // optimism
             "load state tree: failed to load state tree", // filecoin
             "purged for block", // erigon
+            "No state data", // our own error if there is "null" in response
         )
     }
 
@@ -59,6 +61,10 @@ class EthereumLowerBoundStateDetector(
                         ListParams(ZERO_ADDRESS, block.toHex()),
                     ),
                 )
+            }.doOnNext {
+                if (it.hasResult() && it.getResult().contentEquals(Global.nullValue)) {
+                    throw IllegalStateException("No state data")
+                }
             }
         }
     }
