@@ -404,7 +404,7 @@ chain-settings:
       label: Mantle
       type: eth
       settings:
-        expected-block-time: 500ms
+        expected-block-time: 2s
         allow-pruning-requirement: true
         options:
           validate-peers: false
