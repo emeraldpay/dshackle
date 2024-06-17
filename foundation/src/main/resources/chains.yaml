@@ -213,8 +213,6 @@ chain-settings:
       settings:
         expected-block-time: 2.7s
         allow-pruning-requirement: true
-        options:
-          disable-validation: true
         lags:
           syncing: 40
           lagging: 20
@@ -240,8 +238,6 @@ chain-settings:
       settings:
         expected-block-time: 260ms
         allow-pruning-requirement: true
-        options:
-          disable-validation: true
         lags:
           syncing: 40
           lagging: 20
@@ -358,7 +354,6 @@ chain-settings:
         allow-pruning-requirement: true
         options:
           validate-peers: false
-          validate-syncing: false
         lags:
           syncing: 10
           lagging: 5
@@ -1271,7 +1266,6 @@ chain-settings:
       settings:
         options:
           validate-peers: false
-          validate-syncing: false
         fork-choice: quorum
         expected-block-time: 300ms
         lags:

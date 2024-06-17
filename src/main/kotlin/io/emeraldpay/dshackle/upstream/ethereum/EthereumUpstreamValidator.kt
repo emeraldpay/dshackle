@@ -30,7 +30,6 @@ import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.hex.HexData
-import io.emeraldpay.dshackle.upstream.ethereum.json.SyncingJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionCallJson
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory
@@ -58,7 +57,15 @@ open class EthereumUpstreamValidator @JvmOverloads constructor(
     override fun validateSyncingRequest(): ValidateSyncingRequest {
         return ValidateSyncingRequest(
             ChainRequest("eth_syncing", ListParams()),
-        ) { bytes -> objectMapper.readValue(bytes, SyncingJson::class.java).isSyncing }
+        ) { bytes ->
+            val raw = Global.objectMapper.readTree(bytes)
+            if (raw.isBoolean) {
+                raw.asBoolean()
+            } else {
+                log.warn("Received syncing object ${raw.toPrettyString()} for upstream ${upstream.getId()}")
+                true
+            }
+        }
     }
 
     override fun validatePeersRequest(): ValidatePeersRequest {
