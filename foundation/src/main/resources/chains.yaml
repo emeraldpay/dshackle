@@ -1539,3 +1539,21 @@ chain-settings:
           code: ROOTSTOCK_TESTNET_CHAIN
           grpcId: 10084
           priority: 10
+    - id: open-campus-codex
+      label: Open Campus Codex
+      type: eth
+      settings:
+        expected-block-time: 20m
+        lags:
+          syncing: 10
+          lagging: 5
+        options:
+          validate-peers: false
+        fork-choice: quorum
+      chains:
+        - id: Sepolia
+          priority: 2
+          code: OPEN_CAMPUS_CODEX_SEPOLIA
+          short-names: [open-campus-codex-sepolia]
+          chain-id: 0xa045c
+          grpcId: 10085
