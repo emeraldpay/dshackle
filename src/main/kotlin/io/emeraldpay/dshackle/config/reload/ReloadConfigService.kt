@@ -20,7 +20,7 @@ class ReloadConfigService(
 
     fun readUpstreamsConfig() = upstreamsConfigReader.read(config.getConfigPath().inputStream())!!
 
-    fun currentUpstreamsConfig() = mainConfig.upstreams!!
+    fun currentUpstreamsConfig() = mainConfig.initialConfig!!
 
     fun updateUpstreamsConfig(newConfig: UpstreamsConfig) {
         mainConfig.upstreams = newConfig

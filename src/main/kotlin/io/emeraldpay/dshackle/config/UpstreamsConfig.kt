@@ -16,6 +16,8 @@
  */
 package io.emeraldpay.dshackle.config
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode
 import java.net.URI
@@ -25,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 data class UpstreamsConfig(
     var defaultOptions: MutableList<ChainOptions.DefaultOptions> = ArrayList(),
-    var upstreams: MutableList<Upstream<*>> = ArrayList(),
+    var upstreams: MutableList<Upstream<out UpstreamConnection>> = ArrayList(),
 ) {
 
     data class Upstream<T : UpstreamConnection>(
@@ -56,6 +58,15 @@ data class UpstreamsConfig(
         FALLBACK,
     }
 
+    @JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+    )
+    @JsonSubTypes(
+        JsonSubTypes.Type(value = RpcConnection::class),
+        JsonSubTypes.Type(value = GrpcConnection::class),
+        JsonSubTypes.Type(value = EthereumPosConnection::class),
+        JsonSubTypes.Type(value = BitcoinConnection::class),
+    )
     open class UpstreamConnection
 
     data class RpcConnection(

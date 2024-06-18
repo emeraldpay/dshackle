@@ -15,6 +15,9 @@
  */
 package io.emeraldpay.dshackle.config
 
+import com.fasterxml.jackson.module.kotlin.readValue
+import io.emeraldpay.dshackle.Global
+
 class MainConfig {
     var host = "127.0.0.1"
     var port = 2449
@@ -24,6 +27,17 @@ class MainConfig {
     var index: IndexConfig? = null
     var proxy: ProxyConfig? = null
     var upstreams: UpstreamsConfig? = null
+        set(value) {
+            field = value
+            value?.let { cfg ->
+                // we need to store the initial config we've loaded from dshackle.yaml
+                // because we can change the current config on the fly
+                // during config reload we must compare the pure configs
+                initialConfig = Global.objectMapper.readValue<UpstreamsConfig>(
+                    Global.objectMapper.writeValueAsBytes(cfg),
+                )
+            }
+        }
     var tokens: TokensConfig? = null
     var monitoring: MonitoringConfig = MonitoringConfig.default()
     var accessLogConfig: AccessLogConfig = AccessLogConfig.default()
@@ -32,4 +46,7 @@ class MainConfig {
     var compression: CompressionConfig = CompressionConfig.default()
     var chains: ChainsConfig = ChainsConfig.default()
     var authorization: AuthorizationConfig = AuthorizationConfig.default()
+
+    var initialConfig: UpstreamsConfig? = null
+        private set
 }

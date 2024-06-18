@@ -153,6 +153,7 @@ class ReloadConfigTest {
         val initialConfigFile = ResourceUtils.getFile("classpath:configs/upstreams-initial.yaml")
         val initialConfig = upstreamsConfigReader.read(initialConfigFile.inputStream())!!
         mainConfig.upstreams = initialConfig
+        mainConfig.upstreams?.upstreams?.get(0)?.methodGroups = UpstreamsConfig.MethodGroups(setOf("new"), setOf())
 
         val reloadConfigUpstreamService = mock<ReloadConfigUpstreamService>()
 

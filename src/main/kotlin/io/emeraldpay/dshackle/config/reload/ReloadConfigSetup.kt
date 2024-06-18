@@ -78,9 +78,9 @@ class ReloadConfigSetup(
             .toSet()
         val upstreamsToAdd = upstreamsAnalyzeData.added
 
-        reloadConfigUpstreamService.reloadUpstreams(chainsToReload, upstreamsToRemove, upstreamsToAdd, newUpstreamsConfig)
-
         reloadConfigService.updateUpstreamsConfig(newUpstreamsConfig)
+
+        reloadConfigUpstreamService.reloadUpstreams(chainsToReload, upstreamsToRemove, upstreamsToAdd, newUpstreamsConfig)
 
         return true
     }
