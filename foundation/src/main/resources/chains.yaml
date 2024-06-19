@@ -1551,3 +1551,19 @@ chain-settings:
           short-names: [open-campus-codex-sepolia]
           chain-id: 0xa045c
           grpcId: 10085
+    - id: gameswift
+      label: GameSwift
+      type: eth
+      settings:
+        expected-block-time: 2s
+        lags:
+          syncing: 10
+          lagging: 5
+        fork-choice: quorum
+      chains:
+        - id: Testnet
+          priority: 1
+          code: GAMESWIFT_TESTNET
+          short-names: [gameswift-testnet]
+          chain-id: 0x2a88
+          grpcId: 10086
