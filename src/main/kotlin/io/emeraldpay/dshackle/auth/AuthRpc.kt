@@ -31,10 +31,10 @@ class AuthRpc(
                     .build()
             }.onErrorResume {
                 if (it is StatusException) {
-                    log.error(it.message)
+                    log.error("Error during auth - ${it.message}")
                     Mono.error(it)
                 } else {
-                    val message = "Internal error: ${it.message}"
+                    val message = "Error during auth - Internal error: ${it.message}"
                     log.error(message)
                     Mono.error(
                         Status.INTERNAL
