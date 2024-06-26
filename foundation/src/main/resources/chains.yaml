@@ -1183,7 +1183,7 @@ chain-settings:
       type: eth
       settings:
         fork-choice: quorum
-        expected-block-time: 5s
+        expected-block-time: 6s
         lags:
           syncing: 40
           lagging: 20
@@ -1192,8 +1192,14 @@ chain-settings:
           priority: 100
           code: ZETA_CHAIN_MAINNET
           grpcId: 1045
-          short-names: [zeta-chain]
+          short-names: [zeta-chain, zeta-chain-mainnet]
           chain-id: 0x1b58
+        - id: Testnet
+          priority: 1
+          code: ZETA_CHAIN_TESTNET
+          grpcId: 10087
+          short-names: [zeta-chain-testnet, athens]
+          chain-id: 0x1b59
     - id: bittorrent
       label: BitTorrent
       type: eth
