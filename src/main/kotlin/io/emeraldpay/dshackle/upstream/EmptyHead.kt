@@ -45,4 +45,8 @@ class EmptyHead : Head {
     }
 
     override fun headLiveness(): Flux<Boolean> = Flux.empty()
+
+    override fun getCurrent(): BlockContainer? {
+        return null
+    }
 }

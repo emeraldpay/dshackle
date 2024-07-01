@@ -47,4 +47,6 @@ interface Head {
     fun onSyncingNode(isSyncing: Boolean)
 
     fun headLiveness(): Flux<Boolean>
+
+    fun getCurrent(): BlockContainer?
 }

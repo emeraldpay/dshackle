@@ -10,66 +10,55 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
 import reactor.core.publisher.Mono
+import reactor.test.StepVerifier
 import java.time.Duration
 import java.time.Instant
 
 class EthereumFinalizationDetectorTest {
 
-    private lateinit var upstream: Upstream
-    private lateinit var chainReader: ChainReader
-    private lateinit var detector: EthereumFinalizationDetector
-
-    @BeforeEach
-    fun setUp() {
-        upstream = mock()
-        chainReader = mock()
-        `when`(upstream.getIngressReader()).thenReturn(chainReader)
-        detector = EthereumFinalizationDetector()
-    }
-
     @Test
     fun testDetectFinalization() {
-        `when`(chainReader.read(ChainRequest("eth_getBlockByNumber", ListParams("safe", false), 1)))
-            .thenReturn(
-                Mono.just(
-                    ChainResponse(
-                        Global.objectMapper.writeValueAsString(
-                            BlockJson<TransactionRefJson>().apply {
-                                number = 1
-                                timestamp = Instant.now()
-                            },
-                        ).toByteArray(),
-                        null,
-                    ),
-                ),
-            )
-        `when`(chainReader.read(ChainRequest("eth_getBlockByNumber", ListParams("finalized", false), 2)))
-            .thenReturn(
-                Mono.just(
-                    ChainResponse(
-                        Global.objectMapper.writeValueAsString(
-                            BlockJson<TransactionRefJson>().apply {
-                                number = 2
-                                timestamp = Instant.now()
-                            },
-                        ).toByteArray(),
-                        null,
-                    ),
-                ),
-            )
+        val reader = mock<ChainReader> {
+            on {
+                read(ChainRequest("eth_getBlockByNumber", ListParams("safe", false), 1))
+            } doReturn response(1) doReturn response(5) doReturn response(3)
+            on {
+                read(ChainRequest("eth_getBlockByNumber", ListParams("finalized", false), 2))
+            } doReturn response(2) doReturn response(10) doReturn response(5)
+        }
+        val upstream = mock<Upstream> {
+            on { getIngressReader() } doReturn reader
+        }
+        val detector = EthereumFinalizationDetector()
 
-        val flux = detector.detectFinalization(upstream, Duration.ofMillis(200))
-        flux.take(2).collectList().block()
-        val result = detector.getFinalizations().toList()
-        Assertions.assertEquals(2, result.size)
-        org.assertj.core.api.Assertions.assertThat(result)
-            .contains(FinalizationData(2L, FinalizationType.FINALIZED_BLOCK))
-            .contains(FinalizationData(1L, FinalizationType.SAFE_BLOCK))
+        StepVerifier.withVirtualTime { detector.detectFinalization(upstream, Duration.ofMillis(200)) }
+            .expectSubscription()
+            .thenAwait(Duration.ofSeconds(0))
+            .expectNext(FinalizationData(1L, FinalizationType.SAFE_BLOCK))
+            .expectNext(FinalizationData(2L, FinalizationType.FINALIZED_BLOCK))
+            .thenAwait(Duration.ofSeconds(15))
+            .expectNext(FinalizationData(5L, FinalizationType.SAFE_BLOCK))
+            .expectNext(FinalizationData(10L, FinalizationType.FINALIZED_BLOCK))
+            .thenAwait(Duration.ofSeconds(15))
+            .expectNoEvent(Duration.ofMillis(100))
+            .thenCancel()
+            .verify(Duration.ofSeconds(1))
     }
+
+    private fun response(blockNumber: Long) =
+        Mono.just(
+            ChainResponse(
+                Global.objectMapper.writeValueAsString(
+                    BlockJson<TransactionRefJson>().apply {
+                        number = blockNumber
+                        timestamp = Instant.now()
+                    },
+                ).toByteArray(),
+                null,
+            ),
+        )
 }

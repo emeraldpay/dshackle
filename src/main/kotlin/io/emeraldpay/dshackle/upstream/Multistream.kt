@@ -16,26 +16,22 @@
  */
 package io.emeraldpay.dshackle.upstream
 
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.Defaults.Companion.multistreamUnavailableMethodDisableDuration
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CachesEnabled
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
-import io.emeraldpay.dshackle.quorum.CallQuorum
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
-import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
-import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
+import io.emeraldpay.dshackle.upstream.state.MultistreamState
+import io.emeraldpay.dshackle.upstream.state.MultistreamStateEvent
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.Meter
 import io.micrometer.core.instrument.Metrics
@@ -50,7 +46,6 @@ import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.max
 
 /**
  * Aggregation of multiple upstreams responding to a single blockchain
@@ -68,29 +63,22 @@ abstract class Multistream(
         private const val metrics = "upstreams"
     }
 
+    private val state = MultistreamState { onUpstreamsUpdated() }
+
     protected val log = LoggerFactory.getLogger(this::class.java)
 
     private var started = false
 
     private var cacheSubscription: Disposable? = null
 
-    @Volatile
-    private var callMethods: DisabledCallMethods? = null
     private var callMethodsFactory: Factory<CallMethods> = Factory {
-        return@Factory callMethods ?: throw FunctorException("Not initialized yet")
+        return@Factory state.getCallMethods() ?: throw FunctorException("Not initialized yet")
     }
     private var stopSignal = Sinks.many().multicast().directBestEffort<Boolean>()
     private var seq = 0
     protected var lagObserver: HeadLagObserver? = null
     private var subscription: Disposable? = null
 
-    @Volatile
-    private var capabilities: Set<Capability> = emptySet()
-
-    private val lowerBounds = ConcurrentHashMap<LowerBoundType, LowerBoundData>()
-
-    @Volatile
-    private var quorumLabels: List<QuorumForLabels.QuorumItem>? = null
     private val meters: MutableMap<String, List<Meter.Id>> = HashMap()
     private val observedUpstreams = Sinks.many()
         .multicast()
@@ -232,41 +220,7 @@ abstract class Multistream(
 
     protected open fun onUpstreamsUpdated() {
         val upstreams = getAll()
-        val availableUpstreams = upstreams.filter { it.isAvailable() }
-        availableUpstreams.map { it.getMethods() }.let {
-            if (callMethods == null) {
-                callMethods = DisabledCallMethods(this, multistreamUnavailableMethodDisableDuration, AggregatedCallMethods(it))
-            } else {
-                callMethods = DisabledCallMethods(
-                    this,
-                    multistreamUnavailableMethodDisableDuration,
-                    AggregatedCallMethods(it),
-                    callMethods!!.disabledMethods,
-                )
-            }
-        }
-        capabilities = if (upstreams.isEmpty()) {
-            emptySet()
-        } else {
-            availableUpstreams.map { up ->
-                up.getCapabilities()
-            }.let {
-                if (it.isNotEmpty()) {
-                    it.reduce { acc, curr -> acc + curr }
-                } else {
-                    emptySet()
-                }
-            }
-        }
-        quorumLabels = getQuorumLabels(availableUpstreams)
-
-        availableUpstreams
-            .flatMap { it.getLowerBounds() }
-            .groupBy { it.type }
-            .forEach { entry ->
-                val min = entry.value.minBy { it.lowerBound }
-                lowerBounds[entry.key] = min
-            }
+        state.updateState(upstreams, getSubscriptionTopics())
 
         when {
             upstreams.size == 1 -> {
@@ -279,17 +233,7 @@ abstract class Multistream(
         }
     }
 
-    private fun getQuorumLabels(ups: List<Upstream>): List<QuorumForLabels.QuorumItem> {
-        val nodes = QuorumForLabels()
-        ups.forEach { up ->
-            if (up is DefaultUpstream) {
-                nodes.add(up.getQuorumByLabel())
-            }
-        }
-        return nodes.getAll()
-    }
-
-    fun getQuorumLabels(): List<QuorumForLabels.QuorumItem> = quorumLabels ?: emptyList()
+    open fun getQuorumLabels(): List<QuorumForLabels.QuorumItem> = state.getQuorumLabels() ?: emptyList()
 
     override fun observeStatus(): Flux<UpstreamAvailability> {
         val upstreamsFluxes = getAll().map { up ->
@@ -314,12 +258,7 @@ abstract class Multistream(
     }
 
     override fun getStatus(): UpstreamAvailability {
-        val upstreams = getAll()
-        return if (upstreams.isEmpty()) {
-            UpstreamAvailability.UNAVAILABLE
-        } else {
-            upstreams.minOf { it.getStatus() }
-        }
+        return state.getStatus()
     }
 
     // TODO options for multistream are useless
@@ -333,7 +272,7 @@ abstract class Multistream(
     }
 
     override fun getMethods(): CallMethods {
-        return callMethods ?: throw IllegalStateException("Methods are not initialized yet")
+        return state.getCallMethods() ?: throw IllegalStateException("Methods are not initialized yet")
     }
 
     override fun updateMethods(m: CallMethods) {
@@ -359,11 +298,7 @@ abstract class Multistream(
     }
 
     override fun getFinalizations(): Collection<FinalizationData> {
-        return getAll().flatMap { it.getFinalizations() }
-            .fold(mutableMapOf<FinalizationType, Long>()) { acc, data ->
-                acc[data.type] = max(acc[data.type] ?: 0, data.height)
-                acc
-            }.toList().map { FinalizationData(it.second, it.first) }
+        return state.getFinalizationData()
     }
 
     override fun addFinalization(finalization: FinalizationData, upstreamId: String) {
@@ -371,11 +306,11 @@ abstract class Multistream(
     }
 
     override fun getLowerBounds(): Collection<LowerBoundData> {
-        return lowerBounds.values
+        return state.getLowerBounds()
     }
 
     override fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData? {
-        return lowerBounds[lowerBoundType]
+        return state.getLowerBound(lowerBoundType)
     }
 
     override fun getUpstreamSettingsData(): Upstream.UpstreamSettingsData? {
@@ -447,7 +382,7 @@ abstract class Multistream(
     }
 
     override fun getCapabilities(): Set<Capability> {
-        return this.capabilities
+        return state.getCapabilities()
     }
 
     override fun isGrpc(): Boolean {
@@ -482,7 +417,7 @@ abstract class Multistream(
         val weak = getUpstreams()
             .filter { it.getStatus() != UpstreamAvailability.OK }
             .joinToString(", ") { it.getId() }
-        val lowerBlockData = lowerBounds.entries.joinToString(", ") { "${it.key}=${it.value.lowerBound}" }
+        val lowerBlockData = state.lowerBoundsToString()
 
         val instance = System.identityHashCode(this).toString(16)
         log.info("State of ${chain.chainCode}: height=${height ?: '?'}, status=[$statuses], lag=[$lag], lower bounds=[$lowerBlockData], weak=[$weak] ($instance)")
@@ -571,6 +506,8 @@ abstract class Multistream(
     fun subscribeUpdatedUpstreams(): Flux<Upstream> =
         updateUpstreams.asFlux()
 
+    fun stateEvents(): Flux<Collection<MultistreamStateEvent>> = state.stateEvents()
+
     abstract fun makeLagObserver(): HeadLagObserver
 
     open fun tryProxySubscribe(
@@ -581,57 +518,6 @@ abstract class Multistream(
     abstract fun getCachingReader(): CachingReader?
 
     abstract fun getHead(mather: Selector.Matcher): Head
-
-    // --------------------------------------------------------------------------------------------------------
-
-    class DisabledCallMethods(private val multistream: Multistream, private val defaultDisableTimeout: Long, private val callMethods: CallMethods) : CallMethods {
-        var disabledMethods: Cache<String, Boolean> = Caffeine.newBuilder()
-            .removalListener { key: String?, _: Boolean?, cause ->
-                if (cause.wasEvicted() && key != null) {
-                    multistream.log.info("${multistream.getId()} restoring method $key")
-                    multistream.onUpstreamsUpdated()
-                }
-            }
-            .expireAfterWrite(Duration.ofMinutes(defaultDisableTimeout))
-            .build<String, Boolean>()
-
-        constructor(
-            multistream: Multistream,
-            defaultDisableTimeout: Long,
-            callMethods: CallMethods,
-            disabledMethodsCopy: Cache<String, Boolean>,
-        ) : this(multistream, defaultDisableTimeout, callMethods) {
-            disabledMethods = disabledMethodsCopy
-        }
-
-        override fun createQuorumFor(method: String): CallQuorum {
-            return callMethods.createQuorumFor(method)
-        }
-
-        override fun isCallable(method: String): Boolean {
-            return callMethods.isCallable(method) && disabledMethods.getIfPresent(method) == null
-        }
-
-        override fun getSupportedMethods(): Set<String> {
-            return callMethods.getSupportedMethods() - disabledMethods.asMap().keys
-        }
-
-        override fun isHardcoded(method: String): Boolean {
-            return callMethods.isHardcoded(method)
-        }
-
-        override fun executeHardcoded(method: String): ByteArray {
-            return callMethods.executeHardcoded(method)
-        }
-
-        override fun getGroupMethods(groupName: String): Set<String> {
-            return callMethods.getGroupMethods(groupName)
-        }
-
-        fun disableMethodTemporarily(method: String) {
-            disabledMethods.put(method, true)
-        }
-    }
 
     class UpstreamStatus(val upstream: Upstream, val status: UpstreamAvailability)
 

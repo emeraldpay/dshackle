@@ -46,6 +46,7 @@ import io.emeraldpay.dshackle.upstream.MultistreamHolder
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
+import io.emeraldpay.dshackle.upstream.calls.DisabledCallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
@@ -110,7 +111,7 @@ open class NativeCall(
                             if (it is ValidCallContext<*>) {
                                 if (it.payload is ParsedCallDetails) {
                                     log.error("nativeCallResult method ${it.payload.method} of ${it.upstream.getId()} is not available, disabling")
-                                    val cm = (it.upstream.getMethods() as Multistream.DisabledCallMethods)
+                                    val cm = (it.upstream.getMethods() as DisabledCallMethods)
                                     cm.disableMethodTemporarily(it.payload.method)
                                     it.upstream.updateMethods(cm)
                                 }

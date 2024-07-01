@@ -52,6 +52,7 @@ class BlockchainRpc(
     @Autowired(required = false)
     private val providerSpanHandler: ProviderSpanHandler?,
     private val tracer: Tracer,
+    private val subscribeChainStatus: SubscribeChainStatus,
 ) : ReactorBlockchainGrpc.BlockchainImplBase() {
 
     private val log = LoggerFactory.getLogger(BlockchainRpc::class.java)
@@ -162,6 +163,12 @@ class BlockchainRpc(
                     log.info("Closing node status subscription named [$subId] with $sig")
                 }
         }
+    }
+
+    override fun subscribeChainStatus(
+        request: Mono<BlockchainOuterClass.SubscribeChainStatusRequest>,
+    ): Flux<BlockchainOuterClass.SubscribeChainStatusResponse> {
+        return subscribeChainStatus.chainStatuses()
     }
 
     class RequestMetrics(val chain: Chain) {

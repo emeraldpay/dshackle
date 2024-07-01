@@ -143,7 +143,7 @@ abstract class AbstractHead @JvmOverloads constructor(
         ).onBackpressureLatest()
     }
 
-    fun getCurrent(): BlockContainer? {
+    override fun getCurrent(): BlockContainer? {
         return forkChoice.getHead()
     }
 

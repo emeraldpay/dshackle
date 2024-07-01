@@ -73,7 +73,7 @@ class QuorumForLabels() {
     /**
      * Details for a single element (upstream, node or aggregation)
      */
-    class QuorumItem(val quorum: Int, val labels: UpstreamsConfig.Labels) {
+    data class QuorumItem(val quorum: Int, val labels: UpstreamsConfig.Labels) {
         companion object {
             fun empty(): QuorumItem {
                 return QuorumItem(0, UpstreamsConfig.Labels())

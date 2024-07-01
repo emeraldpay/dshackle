@@ -208,7 +208,11 @@ open class GenericUpstream(
     }
 
     private fun detectSettings() {
-        settingsDetector?.detectLabels()?.subscribe { label -> updateLabels(label) }
+        settingsDetector?.detectLabels()
+            ?.subscribe { label ->
+                updateLabels(label)
+                sendUpstreamStateEvent(UPDATED)
+            }
 
         settingsDetector?.detectClientVersion()
             ?.subscribe {

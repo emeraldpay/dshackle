@@ -20,6 +20,7 @@ import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig.Labels.Companion.fromMap
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.startup.UpstreamChangeEvent
@@ -155,7 +156,7 @@ abstract class DefaultUpstream(
     override fun nodeId(): Byte = hash
 
     open fun getQuorumByLabel(): QuorumForLabels {
-        return node?.let { QuorumForLabels(it) }
+        return node?.let { QuorumForLabels(it.copy(labels = fromMap(it.labels))) }
             ?: QuorumForLabels(QuorumForLabels.QuorumItem.empty())
     }
 

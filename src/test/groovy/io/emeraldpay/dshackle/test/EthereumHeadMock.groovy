@@ -92,4 +92,9 @@ class EthereumHeadMock implements Head {
     Flux<Boolean> headLiveness() {
         return Flux.empty()
     }
+
+    @Override
+    BlockContainer getCurrent() {
+        return null
+    }
 }
