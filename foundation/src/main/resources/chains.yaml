@@ -1485,7 +1485,7 @@ chain-settings:
           lagging: 1
       chains:
         - id: Mainnet
-          chain-id: osmosis
+          chain-id: osmosis-1
           short-names: [ osmosis ]
           code: OSMOSIS
           grpcId: 1060
