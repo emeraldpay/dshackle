@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.AggregatedCallMethods
@@ -59,7 +60,7 @@ class MultistreamState(
         return status
     }
 
-    fun updateState(upstreams: List<Upstream>, subs: List<String>) {
+    fun updateState(upstreams: List<Upstream>, egressSubscription: EgressSubscription) {
         val oldState = CurrentMultistreamState(this)
 
         val availableUpstreams = upstreams.filter { it.isAvailable() }
@@ -68,7 +69,7 @@ class MultistreamState(
         updateQuorumLabels(availableUpstreams)
         updateUpstreamBounds(availableUpstreams)
         status = if (upstreams.isEmpty()) UpstreamAvailability.UNAVAILABLE else upstreams.minOf { it.getStatus() }
-        this.subs = subs
+        this.subs = egressSubscription.getAvailableTopics()
 
         stateEvents.emitNext(
             stateHandler.compareStates(oldState, CurrentMultistreamState(this)),

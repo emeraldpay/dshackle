@@ -220,7 +220,7 @@ abstract class Multistream(
 
     protected open fun onUpstreamsUpdated() {
         val upstreams = getAll()
-        state.updateState(upstreams, getSubscriptionTopics())
+        state.updateState(upstreams, getEgressSubscription())
 
         when {
             upstreams.size == 1 -> {

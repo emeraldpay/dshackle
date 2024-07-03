@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.Capability
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
@@ -57,11 +58,14 @@ class MultistreamStateTest {
             listOf(LowerBoundData(1, LowerBoundType.STATE), LowerBoundData(1, LowerBoundType.BLOCK)),
             listOf(FinalizationData(990, FinalizationType.SAFE_BLOCK), FinalizationData(880, FinalizationType.FINALIZED_BLOCK)),
         )
+        val egressSub = mock<EgressSubscription> {
+            on { getAvailableTopics() } doReturn listOf("heads", "notHeads")
+        }
 
         val state = MultistreamState {}
 
         StepVerifier.create(state.stateEvents())
-            .then { state.updateState(listOf(up1, up2, up3), listOf("heads", "notHeads")) }
+            .then { state.updateState(listOf(up1, up2, up3), egressSub) }
             .assertNext {
                 assertThat(it).hasSize(7)
                 assertThat(it.toList())
@@ -93,11 +97,11 @@ class MultistreamStateTest {
                         ),
                     )
             }
-            .then { state.updateState(listOf(up1, up2, up3), listOf("heads", "notHeads")) }
+            .then { state.updateState(listOf(up1, up2, up3), egressSub) }
             .assertNext {
                 assertThat(it).hasSize(0)
             }
-            .then { state.updateState(listOf(up1, up2, up3, up4), listOf("heads", "notHeads")) }
+            .then { state.updateState(listOf(up1, up2, up3, up4), egressSub) }
             .assertNext {
                 assertThat(it).hasSize(4)
                 assertThat(it.toList())
