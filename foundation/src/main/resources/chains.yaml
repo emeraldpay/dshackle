@@ -1601,3 +1601,27 @@ chain-settings:
           short-names: [gameswift-testnet]
           chain-id: 0x2a88
           grpcId: 10086
+    - id: zircuit
+      label: Zircuit
+      type: eth
+      settings:
+        options:
+          validate-peers: false
+        expected-block-time: 2s
+        lags:
+          syncing: 10
+          lagging: 5
+        fork-choice: quorum
+      chains:
+        - id: Mainnet
+          priority: 100
+          code: ZIRCUIT_TESTNET
+          short-names: [zircuit-mainnet]
+          chain-id: 0xbf04
+          grpcId: 1063
+        - id: Testnet
+          priority: 10
+          code: ZIRCUIT_TESTNET
+          short-names: [zircuit-testnet]
+          chain-id: 0xbf03
+          grpcId: 10088
