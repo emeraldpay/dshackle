@@ -14,7 +14,7 @@ class ChainsConfigReader(
     private val chainsOptionsReader: ChainOptionsReader,
 ) : YamlConfigReader<ChainsConfig>() {
 
-    private val defaultConfig = this::class.java.getResourceAsStream("/chains.yaml")!!
+    private val defaultConfig = this::class.java.getResourceAsStream("/public/chains.yaml")!!
 
     private fun readChains(input: MappingNode?): Map<Int, Pair<String, MappingNode>> {
         return getMapping(input, "chain-settings")?.let { config ->
