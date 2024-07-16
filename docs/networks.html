@@ -55,7 +55,7 @@
 
       addEventListener("DOMContentLoaded", async (event) => {
         let response = await fetch(
-          "https://raw.githubusercontent.com/drpcorg/dshackle/master/foundation/src/main/resources/chains.yaml"
+          "https://raw.githubusercontent.com/drpcorg/public/main/chains.yaml"
         );
         let chains = yaml.load(await response.text());
         let protocols = chains["chain-settings"].protocols;
