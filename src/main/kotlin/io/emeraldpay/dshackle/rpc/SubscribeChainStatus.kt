@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
+import java.time.Duration
 
 @Service
 class SubscribeChainStatus(
@@ -79,8 +80,13 @@ class SubscribeChainStatus(
             .map { toFullResponse(it!!, ms) }
             .switchIfEmpty {
                 // in case if there is still no head we mush wait until we get it
-                ms.getHead()
-                    .getFlux()
+                // also we have to use 2 approaches due to the head's flux can be stopped
+                Flux.concat(
+                    ms.getHead()
+                        .getFlux(),
+                    Flux.interval(Duration.ofSeconds(3))
+                        .mapNotNull { ms.getHead().getCurrent() },
+                )
                     .next()
                     .map { toFullResponse(it!!, ms) }
             }

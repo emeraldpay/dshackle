@@ -63,7 +63,7 @@ class SubscribeChainStatusTest {
     }
 
     @Test
-    fun `first full event if there is already an ms head`() {
+    fun `first full event if there is already a ms head`() {
         val head = mock<Head> {
             on { getCurrent() } doReturn head(550)
             on { getFlux() } doReturn Flux.empty()
@@ -101,6 +101,29 @@ class SubscribeChainStatusTest {
 
         StepVerifier.create(subscribeChainStatus.chainStatuses())
             .expectSubscription()
+            .expectNext(response(true))
+            .thenCancel()
+            .verify(Duration.ofSeconds(1))
+    }
+
+    @Test
+    fun `first full event with awaiting a head from polling`() {
+        val head = mock<Head> {
+            on { getCurrent() } doReturn null doReturn head(550)
+            on { getFlux() } doReturn Flux.empty()
+        }
+        val ms = spy<TestMultistream> {
+            on { getHead() } doReturn head
+            on { stateEvents() } doReturn Flux.empty()
+        }
+        val msHolder = mock<MultistreamHolder> {
+            on { all() } doReturn listOf(ms)
+        }
+        val subscribeChainStatus = SubscribeChainStatus(msHolder, chainEventMapper)
+
+        StepVerifier.withVirtualTime { subscribeChainStatus.chainStatuses() }
+            .expectSubscription()
+            .expectNoEvent(Duration.ofSeconds(3))
             .expectNext(response(true))
             .thenCancel()
             .verify(Duration.ofSeconds(1))
