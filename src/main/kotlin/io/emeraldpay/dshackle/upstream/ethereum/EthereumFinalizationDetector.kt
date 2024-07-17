@@ -1,7 +1,9 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
@@ -13,6 +15,7 @@ import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
@@ -23,12 +26,13 @@ class EthereumFinalizationDetector : FinalizationDetector {
     }
 
     val data: ConcurrentHashMap<FinalizationType, FinalizationData> = ConcurrentHashMap()
-
+    private val disableDetector: ConcurrentHashMap<FinalizationType, Boolean> = ConcurrentHashMap()
     private val finalizationSink = Sinks.many().multicast().directBestEffort<FinalizationData>()
 
     override fun detectFinalization(
         upstream: Upstream,
         blockTime: Duration,
+        chain: Chain,
     ): Flux<FinalizationData> {
         return Flux.merge(
             finalizationSink.asFlux(),
@@ -56,23 +60,38 @@ class EthereumFinalizationDetector : FinalizationDetector {
                         ),
                     ),
                 ).flatMap { (type, req) ->
-                    upstream
-                        .getIngressReader()
-                        .read(req)
-                        .flatMap {
-                            it.requireResult().map { result ->
-                                val block =
-                                    Global.objectMapper
-                                        .readValue(result, BlockJson::class.java) as BlockJson<TransactionRefJson>?
-                                if (block != null) {
-                                    FinalizationData(block.number, type)
+                    if (!disableDetector.getOrDefault(type, false)) {
+                        upstream
+                            .getIngressReader()
+                            .read(req)
+                            .onErrorResume {
+                                if (it.message != null && it.message!!.matches(Regex("(bad request|block not found|Unknown block|tag not supported on pre-merge network)"))) {
+                                    log.warn("Can't retrieve tagged block, finalization detector for upstream ${upstream.getId()} $chain tag $type disabled")
+                                    disableDetector[type] = true
                                 } else {
-                                    throw RpcException(RpcResponseError.CODE_INVALID_JSON, "can't parse block data")
+                                    throw it
+                                }
+                                Mono.empty<ChainResponse>()
+                            }
+                            .flatMap {
+                                it.requireResult().map { result ->
+                                    val block = Global.objectMapper
+                                        .readValue(
+                                            result,
+                                            BlockJson::class.java,
+                                        ) as BlockJson<TransactionRefJson>?
+                                    if (block != null) {
+                                        FinalizationData(block.number, type)
+                                    } else {
+                                        throw RpcException(RpcResponseError.CODE_INVALID_JSON, "can't parse block data")
+                                    }
                                 }
                             }
-                        }
+                    } else {
+                        Flux.empty()
+                    }
                 }.onErrorResume {
-                    log.error("Error during retrieving — $it")
+                    log.error("Error in FinalizationDetector for upstream ${upstream.getId()} $chain — $it")
                     Flux.empty()
                 }
             }.filter {

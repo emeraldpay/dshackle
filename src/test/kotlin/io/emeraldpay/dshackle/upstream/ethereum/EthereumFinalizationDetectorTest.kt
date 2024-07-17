@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
@@ -33,9 +34,13 @@ class EthereumFinalizationDetectorTest {
         val upstream = mock<Upstream> {
             on { getIngressReader() } doReturn reader
         }
+
+        val chain = mock<Chain> {
+            on { toString() } doReturn "TestChain"
+        }
         val detector = EthereumFinalizationDetector()
 
-        StepVerifier.withVirtualTime { detector.detectFinalization(upstream, Duration.ofMillis(200)) }
+        StepVerifier.withVirtualTime { detector.detectFinalization(upstream, Duration.ofMillis(200), chain) }
             .expectSubscription()
             .thenAwait(Duration.ofSeconds(0))
             .expectNext(FinalizationData(1L, FinalizationType.SAFE_BLOCK))

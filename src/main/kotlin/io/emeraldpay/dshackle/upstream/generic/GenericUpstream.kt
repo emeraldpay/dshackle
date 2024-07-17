@@ -308,7 +308,7 @@ open class GenericUpstream(
 
     private fun detectFinalization() {
         finalizationDetectorSubscription =
-            finalizationDetector.detectFinalization(this, chainConfig.expectedBlockTime).subscribe {
+            finalizationDetector.detectFinalization(this, chainConfig.expectedBlockTime, chain).subscribe {
                 sendUpstreamStateEvent(UPDATED)
             }
     }
