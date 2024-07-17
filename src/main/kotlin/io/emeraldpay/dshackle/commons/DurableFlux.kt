@@ -43,9 +43,10 @@ class DurableFlux<T>(
                 messagesSinceStart = 0
             }
             .onErrorResume { t ->
+                log.warn("Error during durable flux processing", t)
                 val backoff = errorBackOffExecution.nextBackOff()
                 if (backoff != BackOffExecution.STOP) {
-                    log.warn("Connection closed with ${t.message}. Reconnecting in ${backoff}ms")
+                    log.warn("${t.message}. Reconnecting in ${backoff}ms")
                     connect().delaySubscription(Duration.ofMillis(backoff))
                 } else {
                     log.warn("Connection closed with ${t.message}. Not reconnecting")

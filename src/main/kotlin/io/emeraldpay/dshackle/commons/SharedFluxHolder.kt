@@ -40,7 +40,13 @@ class SharedFluxHolder<T>(
         val created = Holder(
             provider.invoke()
                 .share()
-                .doFinally { onClose(id) },
+                .doOnError {
+                    log.warn("Shared flux error", it)
+                }
+                .doFinally {
+                    log.warn("Shared flux finished {}", it)
+                    onClose(id)
+                },
             id,
         )
         lock.write {

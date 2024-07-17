@@ -17,16 +17,9 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 
 class NoPendingTxes : PendingTxesSource {
-
-    companion object {
-        private val log = LoggerFactory.getLogger(NoPendingTxes::class.java)
-
-        val DEFAULT = NoPendingTxes()
-    }
 
     override fun connect(matched: Selector.Matcher): Flux<TransactionId> {
         return Flux.empty()
