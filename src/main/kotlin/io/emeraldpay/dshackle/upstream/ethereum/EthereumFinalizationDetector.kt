@@ -65,7 +65,7 @@ class EthereumFinalizationDetector : FinalizationDetector {
                             .getIngressReader()
                             .read(req)
                             .onErrorResume {
-                                if (it.message != null && it.message!!.matches(Regex("(bad request|block not found|Unknown block|tag not supported on pre-merge network)"))) {
+                                if (it.message != null && it.message!!.matches(Regex("(.*bad request.*|.*block not found.*|.*Unknown block.*|.*tag not supported on pre-merge network.*)"))) {
                                     log.warn("Can't retrieve tagged block, finalization detector for upstream ${upstream.getId()} $chain tag $type disabled")
                                     disableDetector[type] = true
                                 } else {
