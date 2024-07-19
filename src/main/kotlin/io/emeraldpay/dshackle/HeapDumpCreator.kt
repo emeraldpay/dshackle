@@ -16,8 +16,6 @@ import java.util.concurrent.TimeUnit
 
 class HeapDumpCreator {
     companion object {
-        private const val MAX_DUMPS = 3
-
         private val log = LoggerFactory.getLogger(HeapDumpCreator::class.java)
         private val executorService = Executors.newSingleThreadScheduledExecutor()
 
@@ -25,6 +23,7 @@ class HeapDumpCreator {
             val envVars = System.getenv()
             val enableCreateDumps = envVars["HEAP_DUMP_ENABLE"]?.toBoolean() ?: true
             val dumpsPath = envVars["HEAP_DUMP_PATH"] ?: "/etc/dshackle/dumps"
+            val maxDumps = envVars["MAX_HEAP_DUMPS"]?.toInt() ?: 3
             val dumpsPathExists = heapDumpsPathExists(dumpsPath)
                 .also {
                     if (!it) {
@@ -33,7 +32,7 @@ class HeapDumpCreator {
                 }
 
             if (enableCreateDumps && dumpsPathExists) {
-                executorService.scheduleAtFixedRate({ dumpCheckTask(dumpsPath) }, 0, 30, TimeUnit.MINUTES)
+                executorService.scheduleAtFixedRate({ dumpCheckTask(dumpsPath, maxDumps) }, 0, 30, TimeUnit.MINUTES)
 
                 val appName = envVars["DSHACKLE_APP_NAME"] ?: "dshackle"
 
@@ -64,7 +63,7 @@ class HeapDumpCreator {
             }
         }
 
-        private fun dumpCheckTask(dumpsPath: String) {
+        private fun dumpCheckTask(dumpsPath: String, maxDumps: Int) {
             val files = File(dumpsPath).listFiles()
                 ?.filter { it.name.endsWith("hprof") }
                 ?: emptyList()
@@ -72,7 +71,7 @@ class HeapDumpCreator {
             if (files.isNotEmpty()) {
                 log.warn("There are some heap dumps, please send them to dshackle developers")
             }
-            if (files.size >= MAX_DUMPS) {
+            if (files.size >= maxDumps) {
                 files.minBy {
                     Files.readAttributes(Paths.get(it.absolutePath), BasicFileAttributes::class.java).creationTime()
                 }.run {
