@@ -43,7 +43,7 @@ class ProduceLogs(
     }
 
     constructor(upstream: Multistream) :
-        this((upstream.getCachingReader() as EthereumCachingReader).logsByHash(), (upstream as Multistream).chain)
+        this((upstream.getCachingReader() as EthereumCachingReader).logsByHash(), (upstream as Multistream).getChain())
 
     // need to keep history of recent messages in case they get removed. cannot rely on
     // any other cache or upstream because if when it gets removed it's unavailable in any other source

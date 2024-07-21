@@ -96,7 +96,7 @@ open class BitcoinMultistream(
         apis.request(1)
         return Mono.from(apis)
             .map(Upstream::getIngressReader)
-            .switchIfEmpty(Mono.error(Exception("No API available for $chain")))
+            .switchIfEmpty(Mono.error(Exception("No API available for ${getChain()}")))
     }
 
     override fun getLocalReader(): Mono<ChainReader> {

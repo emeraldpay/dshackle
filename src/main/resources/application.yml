@@ -21,3 +21,7 @@ spring:
 spans:
   collect:
     long-span-threshold: ${LONG_SPAN_THRESHOLD:1000}
+
+compatibility:
+  enabled: ${DSHACKLE_COMPATIBILITY_ENABLED:true}
+  url: ${DSHACKLE_COMPATIBILITY_URL:https://raw.githubusercontent.com/drpcorg/public/main/compatible-clients.yaml}

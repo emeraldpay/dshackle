@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
+import io.emeraldpay.dshackle.config.hot.CompatibleVersionsRules
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
 import io.emeraldpay.dshackle.upstream.BlockValidator
@@ -13,6 +14,7 @@ import io.emeraldpay.dshackle.upstream.generic.ChainSpecificRegistry
 import io.emeraldpay.dshackle.upstream.generic.GenericUpstream
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory
 import org.springframework.stereotype.Component
+import java.util.function.Supplier
 
 @Component
 open class GenericUpstreamCreator(
@@ -20,6 +22,7 @@ open class GenericUpstreamCreator(
     indexConfig: IndexConfig,
     callTargets: CallTargetsHolder,
     private val connectorFactoryCreatorResolver: ConnectorFactoryCreatorResolver,
+    private val versionRules: Supplier<CompatibleVersionsRules?>,
 ) : UpstreamCreator(chainsConfig, indexConfig, callTargets) {
     private val hashes: MutableMap<Byte, Boolean> = HashMap()
 
@@ -85,6 +88,7 @@ open class GenericUpstreamCreator(
             buildMethodsFun,
             cs::lowerBoundService,
             cs::finalizationDetectorBuilder,
+            versionRules,
         )
 
         upstream.start()

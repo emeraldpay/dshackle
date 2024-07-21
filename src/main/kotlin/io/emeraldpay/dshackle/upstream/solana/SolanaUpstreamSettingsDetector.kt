@@ -38,8 +38,8 @@ class SolanaUpstreamSettingsDetector(
 
     override fun nodeTypeRequest(): NodeTypeRequest = NodeTypeRequest(clientVersionRequest())
 
-    override fun clientVersion(node: JsonNode): String? =
+    override fun clientVersion(node: JsonNode): String =
         node.get("solana-core")?.textValue() ?: UNKNOWN_CLIENT_VERSION
 
-    override fun clientType(node: JsonNode): String? = null
+    override fun clientType(node: JsonNode): String = "solana" // todo - solana have different types of nodes, need to detect
 }

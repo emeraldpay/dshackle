@@ -41,7 +41,7 @@ class GrpcUpstreamCreator(
         )
     }
 
-    fun creatGrpcUpstream(
+    fun createGrpcUpstream(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
         chainsConfig: ChainsConfig,
     ): GrpcUpstreams {

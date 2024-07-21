@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.ChainReader
@@ -54,6 +55,8 @@ interface Upstream : Lifecycle {
     fun addFinalization(finalization: FinalizationData, upstreamId: String)
     fun getUpstreamSettingsData(): UpstreamSettingsData?
     fun updateLowerBound(lowerBound: Long, type: LowerBoundType)
+
+    fun getChain(): Chain
 
     fun <T : Upstream> cast(selfType: Class<T>): T
 

@@ -53,6 +53,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-datatype-jdk8 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jdk8", version.ref = "jackson" }
 jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
 jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
+jackson-yaml = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", version.ref = "jackson" }
 
 java-websocket = "org.java-websocket:Java-WebSocket:1.5.1"
 
@@ -124,7 +125,7 @@ mockito-inline = "org.mockito:mockito-inline:4.0.0"
 apache-commons = ["commons-io", "apache-commons-lang3", "apache-commons-collections4"]
 grpc = ["grpc-protobuf", "grpc-stub", "grpc-netty", "grpc-proto-util", "grpc-services"]
 httpcomponents = ["httpcomponents-httpmime", "httpcomponents-httpclient"]
-jackson = ["jackson-core", "jackson-databind", "jackson-datatype-jdk8", "jackson-datatype-jsr310", "jackson-module-kotlin"]
+jackson = ["jackson-core", "jackson-databind", "jackson-datatype-jdk8", "jackson-datatype-jsr310", "jackson-module-kotlin", "jackson-yaml"]
 kotlin = ["kotlin-stdlib-jdk8", "kotlin-reflect"]
 netty = ["netty-common", "netty-transport", "netty-handler-core", "netty-handler-proxy", "netty-resolver-core", "netty-resolver-dns", "netty-codec-core", "netty-codec-http", "netty-codec-http2", "netty-buffer", "netty-tcnative-core"]
 reactor = ["reactor-core", "reactor-netty", "reactor-extra", "reactor-kotlin"]

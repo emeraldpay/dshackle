@@ -29,7 +29,7 @@ class SubscribeChainStatus(
             // we need to track not only multistreams with upstreams but all of them
             // because upstreams can be added in runtime with hot config reload
             multistreamHolder.all()
-                .filter { Common.ChainRef.forNumber(it.chain.id) != null }
+                .filter { Common.ChainRef.forNumber(it.getChain().id) != null }
                 .map { ms ->
                     Flux.concat(
                         // the first event must be filled with all fields
@@ -52,7 +52,7 @@ class SubscribeChainStatus(
             .map { events ->
                 val response = BlockchainOuterClass.SubscribeChainStatusResponse.newBuilder()
                 val chainDescription = BlockchainOuterClass.ChainDescription.newBuilder()
-                    .setChain(Common.ChainRef.forNumber(ms.chain.id))
+                    .setChain(Common.ChainRef.forNumber(ms.getChain().id))
 
                 events.forEach {
                     chainDescription.addChainEvent(processMsEvent(it))
@@ -100,7 +100,7 @@ class SubscribeChainStatus(
                 BlockchainOuterClass.SubscribeChainStatusResponse.newBuilder()
                     .setChainDescription(
                         BlockchainOuterClass.ChainDescription.newBuilder()
-                            .setChain(Common.ChainRef.forNumber(ms.chain.id))
+                            .setChain(Common.ChainRef.forNumber(ms.getChain().id))
                             .addChainEvent(chainEventMapper.mapHead(it))
                             .build(),
                     )
@@ -112,7 +112,7 @@ class SubscribeChainStatus(
         return BlockchainOuterClass.SubscribeChainStatusResponse.newBuilder()
             .setChainDescription(
                 BlockchainOuterClass.ChainDescription.newBuilder()
-                    .setChain(Common.ChainRef.forNumber(ms.chain.id))
+                    .setChain(Common.ChainRef.forNumber(ms.getChain().id))
                     .addChainEvent(chainEventMapper.chainStatus(ms.getStatus()))
                     .addChainEvent(chainEventMapper.mapHead(head))
                     .addChainEvent(chainEventMapper.supportedMethods(ms.getMethods().getSupportedMethods()))

@@ -68,7 +68,7 @@ abstract class BasicUpstreamSettingsDetector(
 }
 
 abstract class BasicEthUpstreamSettingsDetector(
-    upstream: Upstream,
+    val upstream: Upstream,
 ) : BasicUpstreamSettingsDetector(upstream) {
     abstract fun mapping(node: JsonNode): String
 

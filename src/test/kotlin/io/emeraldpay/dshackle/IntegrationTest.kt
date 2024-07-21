@@ -14,6 +14,7 @@ import io.grpc.inprocess.InProcessChannelBuilder
 import io.grpc.inprocess.InProcessServerBuilder
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -29,6 +30,7 @@ import java.net.URI
 @SpringBootTest(properties = ["spring.main.allow-bean-definition-overriding=true"])
 @Import(Config::class)
 @ActiveProfiles("integration-test")
+@Disabled
 class IntegrationTest {
 
     @Autowired

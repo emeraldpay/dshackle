@@ -120,7 +120,7 @@ class SubscribeNodeStatus(
                     .setDescription(
                         NodeDescription.newBuilder()
                             .setNodeId(upstream.nodeId().toInt())
-                            .setChain(Common.ChainRef.forNumber(ms.chain.id))
+                            .setChain(Common.ChainRef.forNumber(ms.getChain().id))
                             .build(),
                     )
                     .setNodeId(upstream.getId())
@@ -148,7 +148,7 @@ class SubscribeNodeStatus(
 
     private fun buildDescription(ms: Multistream, up: Upstream): NodeDescription.Builder {
         val builder = NodeDescription.newBuilder()
-            .setChain(Common.ChainRef.forNumber(ms.chain.id))
+            .setChain(Common.ChainRef.forNumber(ms.getChain().id))
             .setNodeId(up.nodeId().toInt())
             .addAllNodeLabels(
                 up.getLabels().map { nodeLabels ->

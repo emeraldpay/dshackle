@@ -12,14 +12,14 @@ import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.EgressSubscription
+import io.emeraldpay.dshackle.upstream.GenericSingleCallValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.SingleCallValidator
+import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultPolkadotMethods
@@ -27,7 +27,6 @@ import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
-import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.generic.LocalReader
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
@@ -89,29 +88,35 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
         return { ms -> GenericEgressSubscription(ms, headScheduler) }
     }
 
-    override fun validator(
+    override fun upstreamValidators(
         chain: Chain,
         upstream: Upstream,
         options: Options,
         config: ChainConfig,
-    ): UpstreamValidator {
-        return GenericUpstreamValidator(
-            upstream,
-            options,
-            listOf(
-                SingleCallValidator(
-                    ChainRequest("system_health", ListParams()),
-                ) { data ->
-                    validate(data, options.minPeers, upstream.getId())
-                },
-            ),
-            listOf(
-                SingleCallValidator(
-                    ChainRequest("system_chain", ListParams()),
-                ) { data ->
-                    validateSettings(data, chain)
-                },
-            ),
+    ): List<SingleValidator<UpstreamAvailability>> {
+        return listOf(
+            GenericSingleCallValidator(
+                ChainRequest("system_health", ListParams()),
+                upstream,
+            ) { data ->
+                validate(data, options.minPeers, upstream.getId())
+            },
+        )
+    }
+
+    override fun upstreamSettingsValidators(
+        chain: Chain,
+        upstream: Upstream,
+        options: Options,
+        config: ChainConfig,
+    ): List<SingleValidator<ValidateUpstreamSettingsResult>> {
+        return listOf(
+            GenericSingleCallValidator(
+                ChainRequest("system_chain", ListParams()),
+                upstream,
+            ) { data ->
+                validateSettings(data, chain)
+            },
         )
     }
 

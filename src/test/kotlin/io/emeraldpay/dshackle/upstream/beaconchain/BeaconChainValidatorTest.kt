@@ -1,5 +1,7 @@
 package io.emeraldpay.dshackle.upstream.beaconchain
 
+import io.emeraldpay.dshackle.Chain.ETH_BEACON_CHAIN__MAINNET
+import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainCallError
@@ -39,7 +41,13 @@ class BeaconChainValidatorTest {
             on { getIngressReader() } doReturn reader
             on { getHead() } doReturn mock<Head>()
         }
-        val validator = BeaconChainValidator(upstream, ChainOptions.PartialOptions.getDefaults().buildOptions())
+        val validator = BeaconChainSpecific.validator(
+            ETH_BEACON_CHAIN__MAINNET,
+            upstream,
+            ChainOptions.PartialOptions.getDefaults().buildOptions(),
+            ChainConfig.default(),
+            { null },
+        )
 
         val result = validator.validate().block()
 

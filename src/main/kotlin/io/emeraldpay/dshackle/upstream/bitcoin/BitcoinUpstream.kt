@@ -26,7 +26,7 @@ import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
 
 abstract class BitcoinUpstream(
     id: String,
-    val chain: Chain,
+    private val chain: Chain,
     options: ChainOptions.Options,
     role: UpstreamsConfig.UpstreamRole,
     callMethods: CallMethods,

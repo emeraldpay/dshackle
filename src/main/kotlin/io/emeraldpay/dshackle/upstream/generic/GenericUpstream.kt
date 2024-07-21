@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig.Labels
+import io.emeraldpay.dshackle.config.hot.CompatibleVersionsRules
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.startup.QuorumForLabels
@@ -35,10 +36,11 @@ import reactor.core.publisher.Flux
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import java.util.function.Supplier
 
 open class GenericUpstream(
     id: String,
-    val chain: Chain,
+    chain: Chain,
     hash: Byte,
     options: ChainOptions.Options,
     role: UpstreamsConfig.UpstreamRole,
@@ -50,6 +52,7 @@ open class GenericUpstream(
     upstreamSettingsDetectorBuilder: UpstreamSettingsDetectorBuilder,
     lowerBoundServiceBuilder: LowerBoundServiceBuilder,
     finalizationDetectorBuilder: FinalizationDetectorBuilder,
+    versionRules: Supplier<CompatibleVersionsRules?>,
 ) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig, chain), Lifecycle {
 
     constructor(
@@ -66,12 +69,13 @@ open class GenericUpstream(
         buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods,
         lowerBoundServiceBuilder: LowerBoundServiceBuilder,
         finalizationDetectorBuilder: FinalizationDetectorBuilder,
-    ) : this(config.id!!, chain, hash, options, config.role, buildMethods(config, chain), node, chainConfig, connectorFactory, validatorBuilder, upstreamSettingsDetectorBuilder, lowerBoundServiceBuilder, finalizationDetectorBuilder) {
+        versionRules: Supplier<CompatibleVersionsRules?>,
+    ) : this(config.id!!, chain, hash, options, config.role, buildMethods(config, chain), node, chainConfig, connectorFactory, validatorBuilder, upstreamSettingsDetectorBuilder, lowerBoundServiceBuilder, finalizationDetectorBuilder, versionRules) {
         rpcModulesDetector = upstreamRpcModulesDetectorBuilder(this)
         detectRpcModules(config, buildMethods)
     }
 
-    private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig)
+    private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig, versionRules)
     private var validatorSubscription: Disposable? = null
     private var validationSettingsSubscription: Disposable? = null
     private var lowerBlockDetectorSubscription: Disposable? = null
@@ -142,7 +146,7 @@ open class GenericUpstream(
     }
 
     override fun start() {
-        log.info("Configured for ${chain.chainName}")
+        log.info("Configured for ${getChain().chainName}")
         connector.start()
 
         if (validator != null) {
@@ -208,17 +212,23 @@ open class GenericUpstream(
     }
 
     private fun detectSettings() {
-        settingsDetector?.detectLabels()
-            ?.subscribe { label ->
-                updateLabels(label)
-                sendUpstreamStateEvent(UPDATED)
-            }
-
-        settingsDetector?.detectClientVersion()
-            ?.subscribe {
-                log.info("Detected node version $it for upstream ${getId()}")
-                clientVersion.set(it)
-            }
+        Flux.interval(
+            Duration.ZERO,
+            Duration.ofSeconds(getOptions().validationInterval.toLong() * 5),
+        ).flatMap {
+            Flux.merge(
+                settingsDetector?.detectLabels()
+                    ?.doOnNext { label ->
+                        updateLabels(label)
+                        sendUpstreamStateEvent(UPDATED)
+                    },
+                settingsDetector?.detectClientVersion()
+                    ?.doOnNext {
+                        log.info("Detected node version $it for upstream ${getId()}")
+                        clientVersion.set(it)
+                    },
+            )
+        }.subscribe()
     }
 
     private fun detectRpcModules(config: UpstreamsConfig.Upstream<*>, buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods) {
@@ -242,7 +252,7 @@ open class GenericUpstream(
                     }
                 }
             }
-            if (changed) updateMethods(buildMethods(config, chain))
+            if (changed) updateMethods(buildMethods(config, getChain()))
         }
     }
 
@@ -308,7 +318,7 @@ open class GenericUpstream(
 
     private fun detectFinalization() {
         finalizationDetectorSubscription =
-            finalizationDetector.detectFinalization(this, chainConfig.expectedBlockTime, chain).subscribe {
+            finalizationDetector.detectFinalization(this, chainConfig.expectedBlockTime, getChain()).subscribe {
                 sendUpstreamStateEvent(UPDATED)
             }
     }

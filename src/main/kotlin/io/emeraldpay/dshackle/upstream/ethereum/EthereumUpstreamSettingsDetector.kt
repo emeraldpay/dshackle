@@ -15,9 +15,9 @@ import reactor.core.publisher.Mono
 const val ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 class EthereumUpstreamSettingsDetector(
-    private val upstream: Upstream,
+    private val _upstream: Upstream,
     private val chain: Chain,
-) : BasicEthUpstreamSettingsDetector(upstream) {
+) : BasicEthUpstreamSettingsDetector(_upstream) {
     private val blockNumberReader = EthereumArchiveBlockNumberReader(upstream.getIngressReader())
 
     override fun detectLabels(): Flux<Pair<String, String>> {

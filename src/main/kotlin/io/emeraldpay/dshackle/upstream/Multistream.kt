@@ -51,7 +51,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Aggregation of multiple upstreams responding to a single blockchain
  */
 abstract class Multistream(
-    val chain: Chain,
+    private val chain: Chain,
     val caches: Caches,
     val callSelector: CallSelector?,
     multistreamEventsScheduler: Scheduler,
@@ -530,4 +530,8 @@ abstract class Multistream(
     }
 
     abstract fun getEgressSubscription(): EgressSubscription
+
+    override fun getChain(): Chain {
+        return chain
+    }
 }

@@ -10,14 +10,13 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
-import io.emeraldpay.dshackle.upstream.SingleCallValidator
+import io.emeraldpay.dshackle.upstream.GenericSingleCallValidator
+import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
-import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
-import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
@@ -56,29 +55,33 @@ object NearChainSpecific : AbstractPollChainSpecific() {
         throw NotImplementedError()
     }
 
-    override fun validator(
+    override fun upstreamValidators(
         chain: Chain,
         upstream: Upstream,
         options: Options,
         config: ChainConfig,
-    ): UpstreamValidator {
-        return GenericUpstreamValidator(
-            upstream,
-            options,
-            listOf(
-                SingleCallValidator(
-                    ChainRequest("status", ListParams()),
-                ) { data ->
-                    validate(data)
-                },
-            ),
-            listOf(
-                SingleCallValidator(
-                    ChainRequest("status", ListParams()),
-                ) { data ->
-                    validateSettings(data, chain)
-                },
-            ),
+    ): List<SingleValidator<UpstreamAvailability>> {
+        return listOf(
+            GenericSingleCallValidator(
+                ChainRequest("status", ListParams()),
+                upstream,
+            ) { data -> validate(data) },
+        )
+    }
+
+    override fun upstreamSettingsValidators(
+        chain: Chain,
+        upstream: Upstream,
+        options: Options,
+        config: ChainConfig,
+    ): List<SingleValidator<ValidateUpstreamSettingsResult>> {
+        return listOf(
+            GenericSingleCallValidator(
+                ChainRequest("status", ListParams()),
+                upstream,
+            ) { data ->
+                validateSettings(data, chain)
+            },
         )
     }
 

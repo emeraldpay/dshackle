@@ -520,7 +520,7 @@ open class NativeCall(
                     "reason",
                     reason,
                     "chain",
-                    ctx.upstream.chain.chainCode,
+                    ctx.upstream.getChain().chainCode,
                 ).increment()
             }
         }

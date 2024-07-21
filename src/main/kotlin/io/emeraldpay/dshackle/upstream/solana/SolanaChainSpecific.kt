@@ -12,18 +12,18 @@ import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.DefaultSolanaMethods
 import io.emeraldpay.dshackle.upstream.EgressSubscription
+import io.emeraldpay.dshackle.upstream.GenericSingleCallValidator
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.Multistream
-import io.emeraldpay.dshackle.upstream.SingleCallValidator
+import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
-import io.emeraldpay.dshackle.upstream.UpstreamValidator
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.ethereum.WsSubscriptions
 import io.emeraldpay.dshackle.upstream.generic.AbstractChainSpecific
 import io.emeraldpay.dshackle.upstream.generic.GenericEgressSubscription
 import io.emeraldpay.dshackle.upstream.generic.GenericIngressSubscription
-import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
@@ -115,30 +115,35 @@ object SolanaChainSpecific : AbstractChainSpecific() {
         return ChainRequest("blockUnsubscribe", ListParams(subId))
     }
 
-    override fun validator(
+    override fun upstreamValidators(
         chain: Chain,
         upstream: Upstream,
         options: Options,
         config: ChainConfig,
-    ): UpstreamValidator {
-        return GenericUpstreamValidator(
-            upstream,
-            options,
-            listOf(
-                SingleCallValidator(
-                    ChainRequest("getHealth", ListParams()),
-                ) { data ->
-                    val resp = String(data)
-                    if (resp == "\"ok\"") {
-                        UpstreamAvailability.OK
-                    } else {
-                        log.warn("Upstream {} validation failed, solana status is {}", upstream.getId(), resp)
-                        UpstreamAvailability.UNAVAILABLE
-                    }
-                },
-            ),
-            listOf(),
+    ): List<SingleValidator<UpstreamAvailability>> {
+        return listOf(
+            GenericSingleCallValidator(
+                ChainRequest("getHealth", ListParams()),
+                upstream,
+            ) { data ->
+                val resp = String(data)
+                if (resp == "\"ok\"") {
+                    UpstreamAvailability.OK
+                } else {
+                    log.warn("Upstream {} validation failed, solana status is {}", upstream.getId(), resp)
+                    UpstreamAvailability.UNAVAILABLE
+                }
+            },
         )
+    }
+
+    override fun upstreamSettingsValidators(
+        chain: Chain,
+        upstream: Upstream,
+        options: Options,
+        config: ChainConfig,
+    ): List<SingleValidator<ValidateUpstreamSettingsResult>> {
+        return listOf()
     }
 
     override fun lowerBoundService(chain: Chain, upstream: Upstream): LowerBoundService {

@@ -12,6 +12,7 @@ import io.emeraldpay.dshackle.BlockchainType.UNKNOWN
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
+import io.emeraldpay.dshackle.config.hot.CompatibleVersionsRules
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.reader.ChainReader
@@ -42,6 +43,7 @@ import org.apache.commons.collections4.Factory
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
+import java.util.function.Supplier
 
 typealias SubscriptionBuilder = (Multistream) -> EgressSubscription
 typealias LocalReaderBuilder = (CachingReader, CallMethods, Head, LogsOracle?) -> Mono<ChainReader>
@@ -70,7 +72,13 @@ interface ChainSpecific {
 
     fun makeCachingReaderBuilder(tracer: Tracer): CachingReaderBuilder
 
-    fun validator(chain: Chain, upstream: Upstream, options: ChainOptions.Options, config: ChainConfig): UpstreamValidator
+    fun validator(
+        chain: Chain,
+        upstream: Upstream,
+        options: ChainOptions.Options,
+        config: ChainConfig,
+        versionRules: Supplier<CompatibleVersionsRules?>,
+    ): UpstreamValidator
 
     fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector?
 

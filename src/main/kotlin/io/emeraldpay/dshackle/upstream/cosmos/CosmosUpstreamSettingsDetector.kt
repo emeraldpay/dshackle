@@ -30,8 +30,8 @@ class CosmosUpstreamSettingsDetector(
 
     override fun nodeTypeRequest(): NodeTypeRequest = NodeTypeRequest(clientVersionRequest())
 
-    override fun clientType(node: JsonNode): String? = null
+    override fun clientType(node: JsonNode): String = "cosmos"
 
-    override fun clientVersion(node: JsonNode): String? =
+    override fun clientVersion(node: JsonNode): String =
         node.get("node_info")?.get("version")?.asText() ?: UNKNOWN_CLIENT_VERSION
 }

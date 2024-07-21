@@ -47,7 +47,7 @@ class SubscribeChainStatusTest {
             on { getFlux() } doReturn Flux.error(IllegalStateException())
         }
         val ms = mock<Multistream> {
-            on { chain } doReturn Chain.ETHEREUM__MAINNET
+            on { getChain() } doReturn Chain.ETHEREUM__MAINNET
             on { getHead() } doReturn head
             on { stateEvents() } doReturn Flux.empty()
         }

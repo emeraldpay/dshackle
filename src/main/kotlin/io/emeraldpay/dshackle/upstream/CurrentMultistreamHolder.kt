@@ -28,7 +28,7 @@ open class CurrentMultistreamHolder(
 
     private val log = LoggerFactory.getLogger(CurrentMultistreamHolder::class.java)
 
-    private val chainMapping = multistreams.associateBy { it.chain }
+    private val chainMapping = multistreams.associateBy { it.getChain() }
 
     override fun getUpstream(chain: Chain): Multistream {
         return chainMapping.getValue(chain)
@@ -37,7 +37,7 @@ open class CurrentMultistreamHolder(
     override fun getAvailable(): List<Chain> {
         return chainMapping.values.asSequence()
             .filter { it.haveUpstreams() }
-            .map { it.chain }
+            .map { it.getChain() }
             .toList()
     }
 

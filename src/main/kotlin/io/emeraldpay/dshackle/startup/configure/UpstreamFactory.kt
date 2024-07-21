@@ -43,6 +43,6 @@ class UpstreamFactory(
         config: UpstreamsConfig.Upstream<UpstreamsConfig.GrpcConnection>,
         chainsConfig: ChainsConfig,
     ): GrpcUpstreams {
-        return grpcUpstreamCreator.creatGrpcUpstream(config, chainsConfig)
+        return grpcUpstreamCreator.createGrpcUpstream(config, chainsConfig)
     }
 }

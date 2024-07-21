@@ -110,7 +110,7 @@ open class BitcoinRpcUpstream(
     }
 
     override fun start() {
-        log.info("Configured for ${chain.chainName}")
+        log.info("Configured for ${getChain().chainName}")
         if (head is Lifecycle) {
             if (!head.isRunning()) {
                 head.start()

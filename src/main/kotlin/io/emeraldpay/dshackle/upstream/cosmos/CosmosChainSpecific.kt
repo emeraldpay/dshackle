@@ -10,13 +10,13 @@ import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
-import io.emeraldpay.dshackle.upstream.SingleCallValidator
+import io.emeraldpay.dshackle.upstream.GenericSingleCallValidator
+import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
+import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability.OK
-import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
-import io.emeraldpay.dshackle.upstream.generic.GenericUpstreamValidator
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.rpcclient.ObjectParams
 import org.slf4j.LoggerFactory
@@ -75,28 +75,38 @@ object CosmosChainSpecific : AbstractPollChainSpecific() {
     override fun unsubscribeNewHeadsRequest(subId: String) = throw NotImplementedError()
     // ChainRequest("unsubscribe", ListParams("tm.event = 'NewBlockHeader'"))
 
-    override fun validator(chain: Chain, upstream: Upstream, options: Options, config: ChainConfig): UpstreamValidator {
-        return GenericUpstreamValidator(
-            upstream,
-            options,
-            listOf(
-                SingleCallValidator(
-                    ChainRequest("health", ListParams()),
-                ) { _ -> OK },
-            ),
-            listOf(
-                SingleCallValidator(
-                    ChainRequest("status", ListParams()),
-                ) { data ->
-                    val resp = Global.objectMapper.readValue(data, CosmosStatus::class.java)
-                    if (chain.chainId.isNotEmpty() && resp.nodeInfo.network.lowercase() != chain.chainId.lowercase()) {
-                        ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
-                    } else {
-                        ValidateUpstreamSettingsResult.UPSTREAM_VALID
-                    }
-                },
-            ),
+    override fun upstreamValidators(
+        chain: Chain,
+        upstream: Upstream,
+        options: Options,
+        config: ChainConfig,
+    ): List<SingleValidator<UpstreamAvailability>> {
+        return listOf(
+            GenericSingleCallValidator(
+                ChainRequest("health", ListParams()),
+                upstream,
+            ) { _ -> OK },
+        )
+    }
 
+    override fun upstreamSettingsValidators(
+        chain: Chain,
+        upstream: Upstream,
+        options: Options,
+        config: ChainConfig,
+    ): List<SingleValidator<ValidateUpstreamSettingsResult>> {
+        return listOf(
+            GenericSingleCallValidator(
+                ChainRequest("status", ListParams()),
+                upstream,
+            ) { data ->
+                val resp = Global.objectMapper.readValue(data, CosmosStatus::class.java)
+                if (chain.chainId.isNotEmpty() && resp.nodeInfo.network.lowercase() != chain.chainId.lowercase()) {
+                    ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+                } else {
+                    ValidateUpstreamSettingsResult.UPSTREAM_VALID
+                }
+            },
         )
     }
 

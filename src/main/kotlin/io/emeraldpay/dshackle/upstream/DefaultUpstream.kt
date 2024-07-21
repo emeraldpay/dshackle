@@ -175,4 +175,8 @@ abstract class DefaultUpstream(
     }
 
     data class Status(val lag: Long?, val avail: UpstreamAvailability, val status: UpstreamAvailability)
+
+    override fun getChain(): Chain {
+        return chain
+    }
 }
