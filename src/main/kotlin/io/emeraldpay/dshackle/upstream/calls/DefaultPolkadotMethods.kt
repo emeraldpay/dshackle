@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.upstream.calls
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
@@ -25,7 +26,9 @@ import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
  * Default configuration for Ethereum based RPC. Defines optimal Quorum strategies for different methods, and provides
  * hardcoded results for base methods, such as `net_version`, `web3_clientVersion` and similar
  */
-class DefaultPolkadotMethods : CallMethods {
+class DefaultPolkadotMethods(
+    val chain: Chain,
+) : CallMethods {
 
     companion object {
         val subs = setOf(
@@ -142,11 +145,33 @@ class DefaultPolkadotMethods : CallMethods {
         "system_version",
     )
 
+    private val availMethods = setOf(
+        "chainSpec_v1_chainName",
+        "chainSpec_v1_genesisHash",
+        "chainSpec_v1_properties",
+        "kate_blockLength",
+        "kate_queryDataProof",
+        "kate_queryProof",
+        "kate_queryRows",
+        "mmr_generateProof",
+        "mmr_root",
+        "mmr_verifyProof",
+        "mmr_verifyProofStateless",
+    )
+
     private val add = setOf(
         "author_submitExtrinsic",
     )
 
-    private val allowedMethods: Set<String> = all + add
+    private val allowedMethods: Set<String> = all + add + specificMethods()
+
+    private fun specificMethods(): Set<String> {
+        return if (chain == Chain.AVAIL__MAINNET || chain == Chain.AVAIL__TESTNET) {
+            availMethods
+        } else {
+            emptySet()
+        }
+    }
 
     override fun createQuorumFor(method: String): CallQuorum {
         return when {

@@ -32,7 +32,7 @@ class CallTargetsHolder {
             BITCOIN -> DefaultBitcoinMethods()
             ETHEREUM -> DefaultEthereumMethods(chain, hasLogsOracle)
             STARKNET -> DefaultStarknetMethods(chain)
-            POLKADOT -> DefaultPolkadotMethods()
+            POLKADOT -> DefaultPolkadotMethods(chain)
             SOLANA -> DefaultSolanaMethods()
             NEAR -> DefaultNearMethods()
             ETHEREUM_BEACON_CHAIN -> DefaultBeaconChainMethods()
