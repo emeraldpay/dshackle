@@ -17,7 +17,6 @@ package io.emeraldpay.dshackle.upstream.ethereum.subscribe
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.data.BlockId
-import io.emeraldpay.dshackle.data.TxId
 import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
@@ -47,7 +46,7 @@ class ProduceLogsSpec extends Specification {
         setup:
         def logs = Mock(Reader) {
             1 * it.read(BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da")) >>
-                    Mono.just(new EthereumDirectReader.Result<>([], null))
+                    Mono.just(new EthereumDirectReader.Result<>([], List.of()))
         }
         def producer = new ProduceLogs(logs, Chain.ETHEREUM__MAINNET)
         def update = new ConnectBlockUpdates.Update(
@@ -69,7 +68,7 @@ class ProduceLogsSpec extends Specification {
 
         def logs = Mock(Reader) {
             1 * it.read(BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da")) >>
-                    Mono.just(new EthereumDirectReader.Result<>(logs, null))
+                    Mono.just(new EthereumDirectReader.Result<>(logs, List.of()))
         }
         def producer = new ProduceLogs(logs, Chain.ETHEREUM__MAINNET)
         def update = new ConnectBlockUpdates.Update(
@@ -92,7 +91,7 @@ class ProduceLogsSpec extends Specification {
         setup:
         def logs = Mock(Reader) {
             1 * it.read(BlockId.from("0x668b92d6b8c7db1350fd527fec4885ce5be2159b2b7daf6b126babdcbaa349da")) >>
-                    Mono.just(new EthereumDirectReader.Result<>(logs, null))
+                    Mono.just(new EthereumDirectReader.Result<>(logs, List.of()))
         }
         def producer = new ProduceLogs(logs, Chain.ETHEREUM__MAINNET)
         def update1 = new ConnectBlockUpdates.Update(

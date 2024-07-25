@@ -86,7 +86,7 @@ class WebsocketHandlerSpec extends Specification {
 
     def "Respond to a single call"() {
         setup:
-        def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, new Upstream.UpstreamSettingsData("test"), null, null)
+        def response = new NativeCall.CallResult(0, null, '{"foo": 1}'.bytes, null, null, List.of(new Upstream.UpstreamSettingsData("test")), null, null)
 
         def nativeCall = Mock(NativeCall) {
             1 * it.nativeCallResult(_) >> Flux.fromIterable([response])

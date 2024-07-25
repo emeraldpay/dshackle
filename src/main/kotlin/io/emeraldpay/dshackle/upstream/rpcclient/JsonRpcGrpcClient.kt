@@ -127,7 +127,16 @@ class JsonRpcGrpcClient(
                 } else {
                     null
                 }
-                Mono.just(ChainResponse(bytes, null, ChainResponse.NumberId(0), null, signature, Upstream.UpstreamSettingsData(0, resp.upstreamId, resp.upstreamNodeVersion)))
+                Mono.just(
+                    ChainResponse(
+                        bytes,
+                        null,
+                        ChainResponse.NumberId(0),
+                        null,
+                        signature,
+                        listOf(Upstream.UpstreamSettingsData(0, resp.upstreamId, resp.upstreamNodeVersion)),
+                    ),
+                )
             } else {
                 metrics?.fails?.increment()
                 Mono.error(

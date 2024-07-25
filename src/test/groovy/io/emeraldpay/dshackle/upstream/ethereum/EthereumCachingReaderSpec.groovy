@@ -33,7 +33,7 @@ class EthereumDirectReaderSpec extends Specification {
 
     String hash1 = "0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"
     String address1 = "0xe0aadb0a012dbcdc529c4c743d3e0385a0b54d3d"
-    Upstream.UpstreamSettingsData data = new Upstream.UpstreamSettingsData("test")
+    List<Upstream.UpstreamSettingsData> data = List.of(new Upstream.UpstreamSettingsData("test"))
     def "Reads block by finalization"() {
         setup:
         def json = new BlockJson().tap {

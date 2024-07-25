@@ -42,7 +42,7 @@ class HttpHandlerSpec extends Specification {
                 .setMethod("test_test")
                 .setPayload(ByteString.copyFromUtf8("[]"))
                 .build()
-        def respItem = new NativeCall.CallResult(1, null, "100".bytes, null, null, null, null, null)
+        def respItem = new NativeCall.CallResult(1, null, "100".bytes, null, null, List.of(), null, null)
         def req = BlockchainOuterClass.NativeCallRequest.newBuilder()
                 .setChain(Common.ChainRef.CHAIN_ETHEREUM__MAINNET)
                 .addItems(reqItem)
@@ -128,7 +128,7 @@ class HttpHandlerSpec extends Specification {
         def act = handler.execute(Chain.ETHEREUM__MAINNET, call, new AccessHandlerHttp.NoOpHandler(), false)
 
         then:
-        1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, null, "".bytes, null, null, null, null, null))
+        1 * nativeCall.nativeCallResult(_) >> Flux.just(new NativeCall.CallResult(1, null, "".bytes, null, null, List.of(), null, null))
         StepVerifier.create(act)
                 .expectNext("hello")
                 .expectComplete()

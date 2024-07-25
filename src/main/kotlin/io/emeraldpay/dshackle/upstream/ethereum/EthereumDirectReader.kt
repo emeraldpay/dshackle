@@ -274,6 +274,6 @@ class EthereumDirectReader(
 
     data class Result<T>(
         val data: T,
-        val resolvedUpstreamData: Upstream.UpstreamSettingsData?,
+        val resolvedUpstreamData: List<Upstream.UpstreamSettingsData>,
     )
 }

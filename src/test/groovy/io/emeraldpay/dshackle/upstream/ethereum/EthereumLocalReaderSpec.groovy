@@ -73,7 +73,7 @@ class EthereumLocalReaderSpec extends Specification {
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
                 1 * read(101L) >> Mono.just(
-                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(101L), null)
+                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(101L), List.of())
                 )
             }
         }
@@ -101,7 +101,7 @@ class EthereumLocalReaderSpec extends Specification {
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
                 1 * read(0L) >> Mono.just(
-                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(0L), null)
+                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(0L), List.of())
                 )
             }
         }
@@ -129,7 +129,7 @@ class EthereumLocalReaderSpec extends Specification {
             _ * txByHashAsCont() >> new EmptyReader<>()
             1 * blocksByHeightAsCont() >> Mock(Reader) {
                 1 * read(74735L) >> Mono.just(
-                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(74735L), null)
+                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(74735L), List.of())
                 )
             }
         }
@@ -155,7 +155,7 @@ class EthereumLocalReaderSpec extends Specification {
         def reader = Mock(EthereumCachingReader) {
             1 * blockByFinalization() >> Mock(Reader) {
                 1 * read(FinalizationType.SAFE_BLOCK) >> Mono.just(
-                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(74735L), null)
+                        new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(74735L), List.of())
                 )
             }
         }

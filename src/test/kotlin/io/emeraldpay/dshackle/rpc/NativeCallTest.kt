@@ -33,7 +33,7 @@ class NativeCallTest {
             ),
         ) {
             on { nativeCallResult(request) } doReturn Flux.just(
-                NativeCall.CallResult.ok(1, null, "0x1".toByteArray(), null, Upstream.UpstreamSettingsData("id"), null),
+                NativeCall.CallResult.ok(1, null, "0x1".toByteArray(), null, listOf(Upstream.UpstreamSettingsData("id")), null),
             )
         }
 
@@ -63,7 +63,7 @@ class NativeCallTest {
             ),
         ) {
             on { nativeCallResult(request) } doReturn Flux.just(
-                NativeCall.CallResult(1, null, null, NativeCall.CallError(50001, "message", null, null, Upstream.UpstreamSettingsData("upId")), null, null),
+                NativeCall.CallResult(1, null, null, NativeCall.CallError(50001, "message", null, null, listOf(Upstream.UpstreamSettingsData("upId"))), null, null),
             )
         }
 
@@ -99,7 +99,7 @@ class NativeCallTest {
             ),
         ) {
             on { nativeCallResult(request) } doReturn Flux.just(
-                NativeCall.CallResult.ok(1, null, "".toByteArray(), null, Upstream.UpstreamSettingsData("upId"), null, chunks),
+                NativeCall.CallResult.ok(1, null, "".toByteArray(), null, listOf(Upstream.UpstreamSettingsData("upId")), null, chunks),
             )
         }
 

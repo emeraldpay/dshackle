@@ -138,10 +138,15 @@ open class NativeCall(
                     Flux.concat(
                         Mono.just(firstChunk)
                             .map {
-                                buildStreamResult(it, callResult.id)
-                                    .setUpstreamId(callResult.upstreamSettingsData?.id)
-                                    .setUpstreamNodeVersion(callResult.upstreamSettingsData?.nodeVersion)
-                                    .build()
+                                val result = buildStreamResult(it, callResult.id)
+                                if (callResult.upstreamSettingsData.isNotEmpty()) {
+                                    getUpstreamIdsAndVersions(callResult.upstreamSettingsData)
+                                        .let { idsAndVersions ->
+                                            result.upstreamId = idsAndVersions.first
+                                            result.upstreamNodeVersion = idsAndVersions.second
+                                        }
+                                }
+                                result.build()
                             },
                         stream.skip(1).map { buildStreamResult(it, callResult.id).build() },
                     )
@@ -213,7 +218,7 @@ open class NativeCall(
             val error = callContext.getError()
 
             Mono.just(
-                CallResult(error.id, 0, null, error, null, null, null),
+                CallResult(error.id, 0, null, error, null, emptyList(), null),
             )
         }
     }
@@ -242,9 +247,10 @@ open class NativeCall(
         if (it.nonce != null && it.signature != null) {
             result.signature = buildSignature(it.nonce, it.signature)
         }
-        it.upstreamSettingsData?.let {
-            result.upstreamId = it.id
-            result.upstreamNodeVersion = it.nodeVersion
+        if (it.upstreamSettingsData.isNotEmpty()) {
+            val idsAndVersions = getUpstreamIdsAndVersions(it.upstreamSettingsData)
+            result.upstreamId = idsAndVersions.first
+            result.upstreamNodeVersion = idsAndVersions.second
         }
         it.finalization?.let {
             result.finalization = Common.FinalizationData.newBuilder()
@@ -397,6 +403,13 @@ open class NativeCall(
         }
     }
 
+    private fun getUpstreamIdsAndVersions(upstreamSettingsData: List<Upstream.UpstreamSettingsData>): Pair<String, String> {
+        return Pair(
+            upstreamSettingsData.joinToString { it.id },
+            upstreamSettingsData.joinToString { it.nodeVersion },
+        )
+    }
+
     private fun parsedCallDetails(item: BlockchainOuterClass.NativeCallItem): ParsedCallDetails {
         return if (item.hasPayload()) {
             ParsedCallDetails(item.method, extractParams(item.payload.toStringUtf8()))
@@ -432,10 +445,17 @@ open class NativeCall(
                     .read(ctx.payload.toChainRequest(ctx.nonce, ctx.forwardedSelector, false))
                     .map {
                         val result = it.getResult()
-                        val resolvedUpstreamData = it.resolvedUpstreamData ?: ctx.upstream.getUpstreamSettingsData()
+                        val resolvedUpstreamData = it.resolvedUpstreamData.ifEmpty {
+                            ctx.upstream.getUpstreamSettingsData()?.run { listOf(this) } ?: emptyList()
+                        }
                         validateResult(result, "local", ctx)
                         if (ctx.nonce != null) {
-                            CallResult.ok(ctx.id, ctx.nonce, result, signer.sign(ctx.nonce, result, resolvedUpstreamData?.id ?: ctx.upstream.getId()), resolvedUpstreamData, ctx, it.finalization)
+                            val source = if (resolvedUpstreamData.isNotEmpty()) {
+                                resolvedUpstreamData[0].id
+                            } else {
+                                ctx.upstream.getId()
+                            }
+                            CallResult.ok(ctx.id, ctx.nonce, result, signer.sign(ctx.nonce, result, source), resolvedUpstreamData, ctx, it.finalization)
                         } else {
                             CallResult.ok(ctx.id, null, result, null, resolvedUpstreamData, ctx, it.finalization)
                         }
@@ -446,8 +466,8 @@ open class NativeCall(
             .onErrorResume {
                 Mono.just(CallResult.fail(ctx.id, ctx.nonce, it, ctx))
             }.doOnNext {
-                if (it.finalization != null && it.upstreamSettingsData != null) {
-                    ctx.upstream.addFinalization(it.finalization, it.upstreamSettingsData.id)
+                if (it.finalization != null && it.upstreamSettingsData.isNotEmpty()) {
+                    ctx.upstream.addFinalization(it.finalization, it.upstreamSettingsData[0].id)
                 }
             }
     }
@@ -465,7 +485,9 @@ open class NativeCall(
         return SpannedReader(reader, tracer, RPC_READER)
             .read(ctx.payload.toChainRequest(ctx.nonce, ctx.forwardedSelector, ctx.streamRequest))
             .map {
-                val resolvedUpstreamData = it.resolvedUpstreamData ?: ctx.upstream.getUpstreamSettingsData()
+                val resolvedUpstreamData = it.resolvedUpstreamData.ifEmpty {
+                    ctx.upstream.getUpstreamSettingsData()?.run { listOf(this) } ?: emptyList()
+                }
                 if (it.stream == null) {
                     val bytes = ctx.resultDecorator.processResult(it)
                     validateResult(bytes, "remote", ctx)
@@ -563,8 +585,8 @@ open class NativeCall(
         }
         override fun processResult(result: RequestReader.Result): ByteArray {
             val bytes = result.value
-            if (bytes.last() == quoteCode && result.resolvedUpstreamData != null) {
-                val suffix = result.resolvedUpstreamData.nodeId
+            if (bytes.last() == quoteCode && result.resolvedUpstreamData.isNotEmpty()) {
+                val suffix = result.resolvedUpstreamData[0].nodeId
                     .toUByte()
                     .toString(16).padStart(2, padChar = '0').toByteArray()
                 bytes[bytes.lastIndex] = suffix.first()
@@ -678,7 +700,7 @@ open class NativeCall(
         val message: String,
         val upstreamError: ChainCallError?,
         val data: String?,
-        val upstreamSettingsData: Upstream.UpstreamSettingsData? = null,
+        val upstreamSettingsData: List<Upstream.UpstreamSettingsData> = emptyList(),
     ) {
 
         companion object {
@@ -719,7 +741,7 @@ open class NativeCall(
         val result: ByteArray?,
         val error: CallError?,
         val signature: ResponseSigner.Signature?,
-        val upstreamSettingsData: Upstream.UpstreamSettingsData?,
+        val upstreamSettingsData: List<Upstream.UpstreamSettingsData>,
         val ctx: ValidCallContext<ParsedCallDetails>?,
         val stream: Flux<Chunk>? = null,
         val finalization: FinalizationData? = null,
@@ -732,23 +754,23 @@ open class NativeCall(
             callError: CallError?,
             signature: ResponseSigner.Signature?,
             ctx: ValidCallContext<ParsedCallDetails>?,
-        ) : this(id, nonce, result, callError, signature, callError?.upstreamSettingsData, ctx)
+        ) : this(id, nonce, result, callError, signature, callError?.upstreamSettingsData ?: emptyList(), ctx)
 
         companion object {
-            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: Upstream.UpstreamSettingsData?, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
+            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: List<Upstream.UpstreamSettingsData>, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
                 return CallResult(id, nonce, result, null, signature, upstreamSettingsData, ctx)
             }
 
-            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: Upstream.UpstreamSettingsData?, ctx: ValidCallContext<ParsedCallDetails>?, final: FinalizationData?): CallResult {
+            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: List<Upstream.UpstreamSettingsData>, ctx: ValidCallContext<ParsedCallDetails>?, final: FinalizationData?): CallResult {
                 return CallResult(id, nonce, result, null, signature, upstreamSettingsData, ctx, null, final)
             }
 
-            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: Upstream.UpstreamSettingsData?, ctx: ValidCallContext<ParsedCallDetails>?, stream: Flux<Chunk>?): CallResult {
+            fun ok(id: Int, nonce: Long?, result: ByteArray, signature: ResponseSigner.Signature?, upstreamSettingsData: List<Upstream.UpstreamSettingsData>, ctx: ValidCallContext<ParsedCallDetails>?, stream: Flux<Chunk>?): CallResult {
                 return CallResult(id, nonce, result, null, signature, upstreamSettingsData, ctx, stream)
             }
 
             fun fail(id: Int, nonce: Long?, error: CallError, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {
-                return CallResult(id, nonce, null, error, null, null, ctx)
+                return CallResult(id, nonce, null, error, null, emptyList(), ctx)
             }
 
             fun fail(id: Int, nonce: Long?, error: Throwable, ctx: ValidCallContext<ParsedCallDetails>?): CallResult {

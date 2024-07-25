@@ -33,18 +33,18 @@ class ChainResponse @JvmOverloads constructor(
      * When making a request through Dshackle protocol a remote may provide its signature with the response, which we keep here
      */
     val providedSignature: ResponseSigner.Signature? = null,
-    val resolvedUpstreamData: Upstream.UpstreamSettingsData? = null,
+    val resolvedUpstreamData: List<Upstream.UpstreamSettingsData> = emptyList(),
     val finalization: FinalizationData? = null,
 ) {
 
     constructor(stream: Flux<Chunk>, id: Int) :
-        this(null, null, NumberId(id.toLong()), stream, null, null, null)
+        this(null, null, NumberId(id.toLong()), stream, null, emptyList(), null)
 
     constructor(result: ByteArray?, error: ChainCallError?) : this(result, error, NumberId(0), null, null)
 
-    constructor(result: ByteArray?, error: ChainCallError?, resolvedUpstreamData: Upstream.UpstreamSettingsData?) :
+    constructor(result: ByteArray?, error: ChainCallError?, resolvedUpstreamData: List<Upstream.UpstreamSettingsData>) :
         this(result, error, NumberId(0), null, null, resolvedUpstreamData, null)
-    constructor(result: ByteArray?, resolvedUpstreamData: Upstream.UpstreamSettingsData?, finalization: FinalizationData) :
+    constructor(result: ByteArray?, resolvedUpstreamData: List<Upstream.UpstreamSettingsData>, finalization: FinalizationData) :
         this(result, null, NumberId(0), null, null, resolvedUpstreamData, finalization)
 
     companion object {

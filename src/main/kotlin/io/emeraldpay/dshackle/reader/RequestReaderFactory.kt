@@ -34,9 +34,12 @@ abstract class RequestReader(
             )
         }
 
-    protected fun handleError(error: ChainCallError?, id: Int, upstreamSettingsData: Upstream.UpstreamSettingsData?) =
-        error?.asException(ChainResponse.NumberId(id), upstreamSettingsData)
-            ?: ChainException(ChainResponse.NumberId(id), ChainCallError(-32603, "Unhandled Upstream error"), upstreamSettingsData)
+    protected fun handleError(
+        error: ChainCallError?,
+        id: Int,
+        upstreamSettingsData: List<Upstream.UpstreamSettingsData>,
+    ) = error?.asException(ChainResponse.NumberId(id), upstreamSettingsData)
+        ?: ChainException(ChainResponse.NumberId(id), ChainCallError(-32603, "Unhandled Upstream error"), upstreamSettingsData)
 
     protected fun getSignature(key: ChainRequest, response: ChainResponse, upstreamId: String) =
         response.providedSignature
@@ -50,7 +53,7 @@ abstract class RequestReader(
         val value: ByteArray,
         val signature: ResponseSigner.Signature?,
         val quorum: Int,
-        val resolvedUpstreamData: Upstream.UpstreamSettingsData?,
+        val resolvedUpstreamData: List<Upstream.UpstreamSettingsData>,
         val stream: Flux<Chunk>?,
     )
 }

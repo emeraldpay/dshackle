@@ -116,7 +116,7 @@ abstract class BaseHandler(
                             // If Proxy is configured to preserve original order it means that a client expect responses at exact same position
                             // as requests even if a request completely failed for a some reason. It's very unlikely situation, but still possible
                             // At this case, if we found a gap in responses, we put a default response with an error
-                            ?: NativeCall.CallResult(id, null, null, NativeCall.CallError(id, "No response", null, null), null, null, null)
+                            ?: NativeCall.CallResult(id, null, null, NativeCall.CallError(id, "No response", null, null), null, emptyList(), null)
                     }
                 }
                 .flatMapMany {

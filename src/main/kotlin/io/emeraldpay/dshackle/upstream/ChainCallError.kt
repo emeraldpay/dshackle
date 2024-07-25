@@ -36,7 +36,7 @@ data class ChainCallError(val code: Int, val message: String, val details: Any?)
         return ChainCallUpstreamException(id ?: ChainResponse.NumberId(-1), this)
     }
 
-    fun asException(id: ChainResponse.Id?, upstreamSettingsData: Upstream.UpstreamSettingsData?): ChainException {
+    fun asException(id: ChainResponse.Id?, upstreamSettingsData: List<Upstream.UpstreamSettingsData>): ChainException {
         return ChainException(id ?: ChainResponse.NumberId(-1), this, upstreamSettingsData, false)
     }
 }

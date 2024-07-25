@@ -46,26 +46,28 @@ class BroadcastReader(
                     val sig = getSignature(key, it.jsonRpcResponse, it.upstream.getId())
                     quorum.record(it.jsonRpcResponse, sig, it.upstream)
                 } else {
-                    val err = ChainException(ChainResponse.NumberId(key.id), it.jsonRpcResponse.error!!, it.upstream.getUpstreamSettingsData())
+                    val upData = it.upstream.getUpstreamSettingsData()?.run { listOf(this) } ?: emptyList()
+                    val err = ChainException(ChainResponse.NumberId(key.id), it.jsonRpcResponse.error!!, upData)
                     quorum.record(err, null, it.upstream)
                 }
                 quorum
             }.onErrorResume { err ->
                 log.error("Broadcast error: ${err.message}")
-                Mono.error(handleError(null, 0, null))
+                Mono.error(handleError(null, 0, emptyList()))
             }.collectList()
             .flatMap {
+                val upsData = quorum.getResolvedBy().mapNotNull { it.getUpstreamSettingsData() }
                 if (quorum.isResolved()) {
                     val res = Result(
                         quorum.getResponse()!!.getResult(),
                         quorum.getSignature(),
                         upstreams.size,
-                        quorum.getResolvedBy().first().getUpstreamSettingsData(),
+                        upsData,
                         null,
                     )
                     Mono.just(res)
                 } else {
-                    Mono.error(handleError(quorum.getError(), key.id, null))
+                    Mono.error(handleError(quorum.getError(), key.id, upsData))
                 }
             }
     }

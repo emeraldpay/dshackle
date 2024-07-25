@@ -223,8 +223,12 @@ class QuorumRequestReader(
         }
     }
 
-    private fun resolvedBy() =
-        if (quorum.getResolvedBy().isEmpty()) null else quorum.getResolvedBy().last().getUpstreamSettingsData()
+    private fun resolvedBy(): List<Upstream.UpstreamSettingsData> {
+        if (quorum.getResolvedBy().isEmpty()) {
+            return emptyList()
+        }
+        return quorum.getResolvedBy().last().getUpstreamSettingsData()?.run { listOf(this) } ?: emptyList()
+    }
 
     private fun noResponse(method: String, q: CallQuorum): Mono<Result> {
         return apiControl.upstreamsMatchesResponse()?.run {
@@ -232,7 +236,7 @@ class QuorumRequestReader(
             val cause = getCause(method) ?: return Mono.error(RpcException(1, "No response for method $method", getFullCause()))
             if (cause.shouldReturnNull) {
                 Mono.just(
-                    Result(Global.nullValue, null, 1, null, null),
+                    Result(Global.nullValue, null, 1, emptyList(), null),
                 )
             } else {
                 Mono.error(RpcException(1, "No response for method $method. Cause - ${cause.cause}"))

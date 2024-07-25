@@ -182,7 +182,7 @@ class BroadcastReaderSpec extends Specification {
         when:
         def act = reader
                 .read(new ChainRequest("eth_sendRawTransaction", new ListParams(["0x1"])))
-                .switchIfEmpty(Mono.just(new RequestReader.Result(new byte[0], null, 0, null, null)))
+                .switchIfEmpty(Mono.just(new RequestReader.Result(new byte[0], null, 0, List.of(), null)))
         then:
         StepVerifier.create(act)
                 .expectErrorMessage("Unhandled Upstream error")

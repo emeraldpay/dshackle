@@ -378,7 +378,7 @@ open class WsConnectionImpl(
                 RpcResponseError.CODE_INTERNAL_ERROR,
                 "Response not received from WebSocket",
             ),
-            null,
+            emptyList(),
             false,
         )
 

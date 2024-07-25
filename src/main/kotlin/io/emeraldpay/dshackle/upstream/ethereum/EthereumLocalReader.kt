@@ -63,7 +63,7 @@ class EthereumLocalReader(
         return commonRequests(key)?.switchIfEmpty {
             // we need to explicitly return null to prevent executeOnRemote
             // for example
-            Mono.just(ChainResponse(nullValue, null, null))
+            Mono.just(ChainResponse(nullValue, null, emptyList()))
         } ?: Mono.empty()
     }
 
@@ -244,7 +244,7 @@ class EthereumLocalReader(
         }
 
         return logsOracle.estimate(limit?.toLong(), fromBlock, toBlock, address, topics)
-            .map { ChainResponse(it.toByteArray(), null, null) }
+            .map { ChainResponse(it.toByteArray(), null, emptyList()) }
     }
 
     private fun parseBlockRef(blockRef: String?): Long {

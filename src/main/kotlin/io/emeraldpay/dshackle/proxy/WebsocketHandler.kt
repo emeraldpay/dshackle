@@ -183,7 +183,7 @@ class WebsocketHandler(
                 }
                 Mono.just(response)
                     .map { Global.objectMapper.writeValueAsString(it) }
-                    .doOnNext { eventHandler.onResponse(NativeCall.CallResult.ok(0, null, it.toByteArray(), null, null, null)) }
+                    .doOnNext { eventHandler.onResponse(NativeCall.CallResult.ok(0, null, it.toByteArray(), null, emptyList(), null)) }
                     .doFinally { eventHandler.close() }
             } else {
                 val eventHandler: AccessHandlerHttp.RequestHandler = eventHandlerFactory.call()

@@ -108,7 +108,7 @@ class ApiReaderMock implements Reader<ChainRequest, ChainResponse> {
                 }
                 error = new ChainCallError(-32601, "Method ${request.method} with ${request.params} is not mocked")
             }
-            return new ChainResponse(result, error, ChainResponse.Id.from(request.id), null, null, null, null)
+            return new ChainResponse(result, error, ChainResponse.Id.from(request.id), null, null, List.of(), null)
         } as Callable<ChainResponse>
         return Mono.fromCallable(call)
     }

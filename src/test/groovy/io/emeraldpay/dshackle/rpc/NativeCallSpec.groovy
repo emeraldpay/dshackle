@@ -123,7 +123,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall()
         nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
             1 * create(_) >> Mock(RequestReader) {
-                1 * read(_) >> Mono.just(new RequestReader.Result("\"foo\"".bytes, null, 1, new Upstream.UpstreamSettingsData((byte)1, "test", "v"), null))
+                1 * read(_) >> Mono.just(new RequestReader.Result("\"foo\"".bytes, null, 1, List.of(new Upstream.UpstreamSettingsData((byte)1, "test", "v")), null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, TestingCommons.multistream(TestingCommons.api()), new Selector.UpstreamFilter(Selector.empty), quorum,
@@ -170,7 +170,7 @@ class NativeCallSpec extends Specification {
         nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
             1 * create(_) >> Mock(RequestReader) {
                 1 * read(new ChainRequest("eth_test", new ListParams(), 10)) >> Mono.error(
-                        new ChainException(ChainResponse.Id.from(12), new ChainCallError(-32123, "Foo Bar", "Foo Bar Baz"), null, true, null)
+                        new ChainException(ChainResponse.Id.from(12), new ChainCallError(-32123, "Foo Bar", "Foo Bar Baz"), List.of(), true, null)
                 )
             }
         }
@@ -231,7 +231,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null, null, null, null)
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, null, List.of(), null, null)
         )
         then:
         resp.id == 1561
@@ -246,7 +246,7 @@ class NativeCallSpec extends Specification {
 
         when:
         def resp = nativeCall.buildResponse(
-                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100), new Upstream.UpstreamSettingsData("test"), null, null)
+                new NativeCall.CallResult(1561, 10, objectMapper.writeValueAsBytes(json), null, new ResponseSigner.Signature("sig1".bytes, "test", 100), List.of(new Upstream.UpstreamSettingsData("test")), null, null)
         )
         then:
         resp.id == 1561
@@ -609,7 +609,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
             1 * create(_) >> Mock(RequestReader) {
-                1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, new Upstream.UpstreamSettingsData((byte) 255, "", ""), null))
+                1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, List.of(new Upstream.UpstreamSettingsData((byte) 255, "", "")), null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, new Selector.UpstreamFilter(Selector.empty), quorum,
@@ -642,7 +642,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
             1 * create(_) >> Mock(RequestReader) {
-                1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, new Upstream.UpstreamSettingsData((byte) 1, "", ""), null))
+                1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, List.of(new Upstream.UpstreamSettingsData((byte) 1, "", "")), null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, new Selector.UpstreamFilter(Selector.empty), quorum,

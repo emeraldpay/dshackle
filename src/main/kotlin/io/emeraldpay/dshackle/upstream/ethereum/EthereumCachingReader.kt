@@ -157,7 +157,7 @@ open class EthereumCachingReader(
     ) : Reader<K, Result<D>> {
         override fun read(key: K): Mono<Result<D>> {
             return reader.read(key)
-                .map { Result(it, null) }
+                .map { Result(it, emptyList()) }
         }
     }
 }
