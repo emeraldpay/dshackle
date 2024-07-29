@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
@@ -29,15 +30,31 @@ class EthereumLowerBoundTxDetector(
         return recursiveLowerBound.recursiveDetectLowerBoundWithOffset(MAX_OFFSET) { block ->
             upstream.getIngressReader()
                 .read(
-                    ChainRequest(
-                        "eth_getBlockTransactionCountByNumber",
-                        ListParams(block.toHex()),
-                    ),
+                    ChainRequest("eth_getBlockByNumber", ListParams(block.toHex(), false)),
                 )
                 .doOnNext {
-                    if (it.hasResult() && (it.getResult().contentEquals("null".toByteArray()) || it.getResultAsProcessedString().substring(2).toLong(16) == 0L)) {
+                    if (it.hasResult() && it.getResult().contentEquals("null".toByteArray())) {
                         throw IllegalStateException(NO_TX_DATA)
                     }
+                }
+                .handle { it, sink ->
+                    val blockJson = BlockContainer.fromEthereumJson(it.getResult(), upstream.getId())
+                    if (blockJson.transactions.isEmpty()) {
+                        sink.error(IllegalStateException(NO_TX_DATA))
+                        return@handle
+                    }
+                    sink.next(blockJson.transactions[0].toHexWithPrefix())
+                }
+                .flatMap { tx ->
+                    upstream.getIngressReader()
+                        .read(
+                            ChainRequest("eth_getTransactionByHash", ListParams(tx)),
+                        )
+                        .doOnNext {
+                            if (it.hasResult() && it.getResult().contentEquals("null".toByteArray())) {
+                                throw IllegalStateException(NO_TX_DATA)
+                            }
+                        }
                 }
         }
     }

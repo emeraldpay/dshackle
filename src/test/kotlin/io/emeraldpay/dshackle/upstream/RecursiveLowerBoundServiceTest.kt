@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundService
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundTxDetector.Companion.MAX_OFFSET
@@ -21,6 +22,8 @@ import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
+import java.io.File
+import java.nio.file.Files
 import java.time.Duration
 
 class RecursiveLowerBoundServiceTest {
@@ -37,6 +40,9 @@ class RecursiveLowerBoundServiceTest {
         val head = mock<Head> {
             on { getCurrentHeight() } doReturn 18000000
         }
+        val blockBytes = Files.readAllBytes(
+            File(this::class.java.getResource("/responses/get-by-number-response.json")!!.toURI()).toPath(),
+        )
         val reader = mock<ChainReader> {
             blocks.forEach {
                 if (it == 17964844L) {
@@ -45,10 +51,10 @@ class RecursiveLowerBoundServiceTest {
                     } doReturn Mono.just(ChainResponse(ByteArray(0), null))
                     on {
                         read(ChainRequest("eth_getBlockByNumber", ListParams(it.toHex(), false)))
-                    } doReturn Mono.just(ChainResponse(ByteArray(0), null))
+                    } doReturn Mono.just(ChainResponse(blockBytes, null))
                     on {
-                        read(ChainRequest("eth_getBlockTransactionCountByNumber", ListParams(it.toHex())))
-                    } doReturn Mono.just(ChainResponse("\"0x12\"".toByteArray(), null))
+                        read(ChainRequest("eth_getTransactionByHash", ListParams("0x99e52a94cfdf83a5bdadcd2e25c71574a5a24fa4df56a33f9f8b5cb6fa0ac657")))
+                    } doReturn Mono.just(ChainResponse(ByteArray(0), null))
                     on {
                         read(ChainRequest("eth_getLogs", ListParams(mapOf("fromBlock" to it.toHex(), "toBlock" to it.toHex()))))
                     } doReturn Mono.just(ChainResponse("[\"0x12\"]".toByteArray(), null))
@@ -56,13 +62,10 @@ class RecursiveLowerBoundServiceTest {
                     on {
                         read(ChainRequest("eth_getBalance", ListParams(ZERO_ADDRESS, it.toHex())))
                     } doReturn Mono.error(RuntimeException("missing trie node"))
-                    on {
-                        read(ChainRequest("eth_getBlockByNumber", ListParams(it.toHex(), false)))
-                    } doReturn Mono.error(RuntimeException("No block data"))
                     for (block in it downTo it - MAX_OFFSET - 1) {
                         on {
-                            read(ChainRequest("eth_getBlockTransactionCountByNumber", ListParams(block.toHex())))
-                        } doReturn Mono.error(RuntimeException("No tx data"))
+                            read(ChainRequest("eth_getBlockByNumber", ListParams(block.toHex(), false)))
+                        } doReturn Mono.just(ChainResponse(Global.nullValue, null))
                         on {
                             read(ChainRequest("eth_getLogs", ListParams(mapOf("fromBlock" to block.toHex(), "toBlock" to block.toHex()))))
                         } doReturn Mono.error(RuntimeException("No logs data"))
@@ -71,6 +74,7 @@ class RecursiveLowerBoundServiceTest {
             }
         }
         val upstream = mock<Upstream> {
+            on { getId() } doReturn "id"
             on { getHead() } doReturn head
             on { getIngressReader() } doReturn reader
         }
