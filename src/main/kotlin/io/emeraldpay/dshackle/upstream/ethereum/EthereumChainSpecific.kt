@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.cloud.sleuth.Tracer
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
+import java.math.BigInteger
 
 object EthereumChainSpecific : AbstractPollChainSpecific() {
 
@@ -115,8 +116,24 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
                         UpstreamAvailability.OK
                     }
                 } else {
-                    log.warn("Received syncing object ${raw.toPrettyString()} for upstream ${upstream.getId()}")
-                    UpstreamAvailability.SYNCING
+                    when (chain) {
+                        Chain.TRON__MAINNET, Chain.TRON__SHASTA -> {
+                            var current =
+                                BigInteger(raw.get("currentBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
+                            var highest =
+                                BigInteger(raw.get("highestBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
+
+                            if (highest - current > config.syncingLagSize.toBigInteger()) {
+                                UpstreamAvailability.SYNCING
+                            } else {
+                                UpstreamAvailability.OK
+                            }
+                        }
+                        else -> {
+                            log.warn("Received syncing object ${raw.toPrettyString()} for upstream ${upstream.getId()}")
+                            UpstreamAvailability.SYNCING
+                        }
+                    }
                 }
             }
         }

@@ -457,6 +457,9 @@ class DefaultEthereumMethods(
                 "rsk_getRawBlockHeaderByNumber",
                 "rsk_protocolVersion",
             )
+            Chain.TRON__MAINNET, Chain.TRON__SHASTA -> listOf(
+                "buildTransaction",
+            )
 
             else -> emptyList()
         }

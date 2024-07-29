@@ -34,6 +34,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.kotlin.extra.retry.retryRandomBackoff
+import java.math.BigInteger
 import java.time.Duration
 import java.util.concurrent.TimeoutException
 interface CallLimitValidator : SingleValidator<ValidateUpstreamSettingsResult> {
@@ -155,13 +156,19 @@ class ChainIdValidator(
             netVersion(),
         )
             .map {
+                var netver: BigInteger
+                if (it.t2.lowercase().contains("x")) {
+                    netver = BigInteger(it.t2.lowercase().substringAfter("x"), 16)
+                } else {
+                    netver = BigInteger(it.t2)
+                }
                 val isChainValid = chain.chainId.lowercase() == it.t1.lowercase() &&
-                    chain.netVersion.toString() == it.t2
+                    chain.netVersion == netver
 
                 if (!isChainValid) {
                     val actualChain = Global.chainByChainId(it.t1).chainName
                     log.warn(
-                        "${chain.chainName} is specified for upstream ${upstream.getId()} " +
+                        "${chain.chainName} is specified for upstream ${upstream.getId()} (${chain.chainId.lowercase()} $netver) " +
                             "but actually it is $actualChain with chainId ${it.t1} and net_version ${it.t2}",
                     )
                 }
