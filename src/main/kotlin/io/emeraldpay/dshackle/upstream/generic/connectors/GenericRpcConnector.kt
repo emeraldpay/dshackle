@@ -129,7 +129,7 @@ class GenericRpcConnector(
             }
         }
 
-        liveness = if (connectorType != RPC_ONLY && (chain == Chain.OPEN_CAMPUS_CODEX__SEPOLIA || chain == Chain.ALEPHZERO__SEPOLIA || chain == Chain.CONNEXT__SEPOLIA)) {
+        liveness = if (connectorType != RPC_ONLY && isSpecialChain(chain)) {
             AlwaysHeadLivenessValidator()
         } else {
             when (connectorType) {
@@ -138,6 +138,9 @@ class GenericRpcConnector(
             }
         }
     }
+
+    private fun isSpecialChain(chain: Chain) =
+        chain == Chain.OPEN_CAMPUS_CODEX__SEPOLIA || chain == Chain.ALEPHZERO__SEPOLIA || chain == Chain.CONNEXT__SEPOLIA || chain == Chain.ALEPHZERO__MAINNET
 
     override fun setCaches(caches: Caches) {
         if (head is CachesEnabled) {
