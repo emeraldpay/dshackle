@@ -169,14 +169,24 @@ class RecursiveLowerBound(
                 !nonRetryableErrors.any { err -> it.message?.contains(err, true) ?: false }
             }
             .doAfterRetry {
-                log.debug(
-                    "Error in calculation of lower block {} of upstream {}, type - {}, retry attempt - {}, message - {}",
-                    block,
-                    upstream.getId(),
-                    type,
-                    it.totalRetries(),
-                    it.failure().message,
-                )
+                if (it.totalRetries() > 30) {
+                    log.warn(
+                        "There are too much retries to calculate {} lower bound of upstream {}, " +
+                            "probably this error with message `{}` is not retryable, please report it to dshackle devs",
+                        type,
+                        upstream.getId(),
+                        it.failure().message,
+                    )
+                } else {
+                    log.debug(
+                        "Error in calculation of lower block {} of upstream {}, type - {}, retry attempt - {}, message - {}",
+                        block,
+                        upstream.getId(),
+                        type,
+                        it.totalRetries(),
+                        it.failure().message,
+                    )
+                }
             }
     }
 

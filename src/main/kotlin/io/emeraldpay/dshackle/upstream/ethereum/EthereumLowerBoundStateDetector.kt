@@ -43,6 +43,7 @@ class EthereumLowerBoundStateDetector(
             "load state tree: failed to load state tree", // filecoin
             "purged for block", // erigon
             "No state data", // our own error if there is "null" in response
+            "state is not available", // bsc also can return this error along with "header not found"
         )
     }
 
