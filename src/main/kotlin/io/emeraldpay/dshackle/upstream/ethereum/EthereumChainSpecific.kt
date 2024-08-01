@@ -115,25 +115,20 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
                     } else {
                         UpstreamAvailability.OK
                     }
-                } else {
-                    when (chain) {
-                        Chain.TRON__MAINNET, Chain.TRON__SHASTA -> {
-                            var current =
-                                BigInteger(raw.get("currentBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
-                            var highest =
-                                BigInteger(raw.get("highestBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
+                } else if (raw.get("currentBlock") != null && raw.get("highestBlock") != null) {
+                    val current =
+                        BigInteger(raw.get("currentBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
+                    val highest =
+                        BigInteger(raw.get("highestBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
 
-                            if (highest - current > config.syncingLagSize.toBigInteger()) {
-                                UpstreamAvailability.SYNCING
-                            } else {
-                                UpstreamAvailability.OK
-                            }
-                        }
-                        else -> {
-                            log.warn("Received syncing object ${raw.toPrettyString()} for upstream ${upstream.getId()}")
-                            UpstreamAvailability.SYNCING
-                        }
+                    if (highest - current > config.syncingLagSize.toBigInteger()) {
+                        UpstreamAvailability.SYNCING
+                    } else {
+                        UpstreamAvailability.OK
                     }
+                } else {
+                    log.error("Received unknown syncing object ${raw.toPrettyString()} for upstream ${upstream.getId()}")
+                    UpstreamAvailability.OK
                 }
             }
         }
