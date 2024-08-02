@@ -26,20 +26,22 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 object NearChainSpecific : AbstractPollChainSpecific() {
-    override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
+    override fun parseBlock(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val block = Global.objectMapper.readValue(data, NearBlock::class.java).header
 
-        return BlockContainer(
-            height = block.height,
-            hash = BlockId.fromBase64(block.hash),
-            difficulty = BigInteger.ZERO,
-            timestamp = Instant.ofEpochMilli(TimeUnit.MILLISECONDS.convert(block.timestamp, TimeUnit.NANOSECONDS)),
-            full = false,
-            json = data,
-            parsed = block,
-            transactions = emptyList(),
-            upstreamId = upstreamId,
-            parentHash = BlockId.fromBase64(block.prevHash),
+        return Mono.just(
+            BlockContainer(
+                height = block.height,
+                hash = BlockId.fromBase64(block.hash),
+                difficulty = BigInteger.ZERO,
+                timestamp = Instant.ofEpochMilli(TimeUnit.MILLISECONDS.convert(block.timestamp, TimeUnit.NANOSECONDS)),
+                full = false,
+                json = data,
+                parsed = block,
+                transactions = emptyList(),
+                upstreamId = upstreamId,
+                parentHash = BlockId.fromBase64(block.prevHash),
+            ),
         )
     }
 

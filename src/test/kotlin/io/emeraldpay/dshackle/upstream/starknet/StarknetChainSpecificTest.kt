@@ -1,9 +1,13 @@
 package io.emeraldpay.dshackle.upstream.starknet
 
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
+import reactor.core.publisher.Mono
 
 val example = """
     {
@@ -45,21 +49,31 @@ val syncingBad = """
 class StarknetChainSpecificTest {
     @Test
     fun parseResponse() {
-        val result = StarknetChainSpecific.parseBlock(example.toByteArray(), "1")
+        val result = StarknetChainSpecific.parseBlock(
+            example.toByteArray(),
+            "1",
+            object : ChainReader {
+                override fun read(key: ChainRequest): Mono<ChainResponse> = Mono.empty()
+            },
+        ).block()!!
 
         Assertions.assertThat(result.height).isEqualTo(304789)
-        Assertions.assertThat(result.hash).isEqualTo(BlockId.from("046fa6638dc7fae06cece980ce4195436a79ef314ca49d99e0cef552d6f13c4e"))
+        Assertions.assertThat(result.hash)
+            .isEqualTo(BlockId.from("046fa6638dc7fae06cece980ce4195436a79ef314ca49d99e0cef552d6f13c4e"))
         Assertions.assertThat(result.upstreamId).isEqualTo("1")
-        Assertions.assertThat(result.parentHash).isEqualTo(BlockId.from("07cc1e178c848b0bdfa047a414d9a8bee4f6cb76f25f312f2d42e058ea91d78b"))
+        Assertions.assertThat(result.parentHash)
+            .isEqualTo(BlockId.from("07cc1e178c848b0bdfa047a414d9a8bee4f6cb76f25f312f2d42e058ea91d78b"))
     }
 
     @Test
     fun validateOk() {
-        Assertions.assertThat(StarknetChainSpecific.validate(syncingGood.toByteArray(), 10, "test")).isEqualTo(UpstreamAvailability.OK)
+        Assertions.assertThat(StarknetChainSpecific.validate(syncingGood.toByteArray(), 10, "test"))
+            .isEqualTo(UpstreamAvailability.OK)
     }
 
     @Test
     fun validateSyncing() {
-        Assertions.assertThat(StarknetChainSpecific.validate(syncingBad.toByteArray(), 10, "test")).isEqualTo(UpstreamAvailability.SYNCING)
+        Assertions.assertThat(StarknetChainSpecific.validate(syncingBad.toByteArray(), 10, "test"))
+            .isEqualTo(UpstreamAvailability.SYNCING)
     }
 }

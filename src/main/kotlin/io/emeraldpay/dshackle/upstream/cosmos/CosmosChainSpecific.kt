@@ -29,20 +29,22 @@ object CosmosChainSpecific : AbstractPollChainSpecific() {
     val log = LoggerFactory.getLogger(this::class.java)
     override fun latestBlockRequest(): ChainRequest = ChainRequest("block", ObjectParams())
 
-    override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
+    override fun parseBlock(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val result = Global.objectMapper.readValue(data, CosmosBlockResult::class.java)
 
-        return BlockContainer(
-            height = result.block.header.height.toLong(),
-            hash = BlockId.from(result.blockId.hash),
-            difficulty = BigInteger.ZERO,
-            timestamp = result.block.header.time,
-            full = false,
-            json = data,
-            parsed = result,
-            transactions = emptyList(),
-            upstreamId = upstreamId,
-            parentHash = BlockId.from(result.block.header.lastBlockId.hash),
+        return Mono.just(
+            BlockContainer(
+                height = result.block.header.height.toLong(),
+                hash = BlockId.from(result.blockId.hash),
+                difficulty = BigInteger.ZERO,
+                timestamp = result.block.header.time,
+                full = false,
+                json = data,
+                parsed = result,
+                transactions = emptyList(),
+                upstreamId = upstreamId,
+                parentHash = BlockId.from(result.block.header.lastBlockId.hash),
+            ),
         )
     }
 

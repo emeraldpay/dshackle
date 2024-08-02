@@ -39,22 +39,22 @@ import java.time.Instant
 object PolkadotChainSpecific : AbstractPollChainSpecific() {
 
     private val log = LoggerFactory.getLogger(PolkadotChainSpecific::class.java)
-    override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
+    override fun parseBlock(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val response = Global.objectMapper.readValue(data, PolkadotBlockResponse::class.java)
-
-        return makeBlock(response.block.header, data, upstreamId)
+        return api.read(ChainRequest("chain_getBlockHash", ListParams(response.block.header.number)))
+            .map { makeBlock(it.getResultAsProcessedString(), response.block.header, data, upstreamId) }
     }
 
     override fun getFromHeader(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val header = Global.objectMapper.readValue(data, PolkadotHeader::class.java)
-
-        return Mono.just(makeBlock(header, data, upstreamId))
+        return api.read(ChainRequest("chain_getBlockHash", ListParams(header.number)))
+            .map { makeBlock(it.getResultAsProcessedString(), header, data, upstreamId) }
     }
 
-    private fun makeBlock(header: PolkadotHeader, data: ByteArray, upstreamId: String): BlockContainer {
+    private fun makeBlock(id: String, header: PolkadotHeader, data: ByteArray, upstreamId: String): BlockContainer {
         return BlockContainer(
             height = header.number.substring(2).toLong(16),
-            hash = BlockId.from(header.parentHash), // todo
+            hash = BlockId.from(id),
             difficulty = BigInteger.ZERO,
             timestamp = Instant.EPOCH,
             full = false,

@@ -27,20 +27,22 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
 
     private val log = LoggerFactory.getLogger(StarknetChainSpecific::class.java)
 
-    override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
+    override fun parseBlock(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val block = Global.objectMapper.readValue(data, StarknetBlock::class.java)
 
-        return BlockContainer(
-            height = block.number,
-            hash = BlockId.from(block.hash),
-            difficulty = BigInteger.ZERO,
-            timestamp = block.timestamp,
-            full = false,
-            json = data,
-            parsed = block,
-            transactions = emptyList(),
-            upstreamId = upstreamId,
-            parentHash = BlockId.from(block.parent),
+        return Mono.just(
+            BlockContainer(
+                height = block.number,
+                hash = BlockId.from(block.hash),
+                difficulty = BigInteger.ZERO,
+                timestamp = block.timestamp,
+                full = false,
+                json = data,
+                parsed = block,
+                transactions = emptyList(),
+                upstreamId = upstreamId,
+                parentHash = BlockId.from(block.parent),
+            ),
         )
     }
 

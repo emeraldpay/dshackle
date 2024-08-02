@@ -2,8 +2,12 @@ package io.emeraldpay.dshackle.upstream.beaconchain
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import reactor.core.publisher.Mono
 import java.math.BigInteger
 import java.time.Instant
 
@@ -44,7 +48,13 @@ class BeaconChainSpecificTest {
             parsed = null,
         )
 
-        val block = BeaconChainSpecific.parseBlock(header, "upId")
+        val block = BeaconChainSpecific.parseBlock(
+            header,
+            "upId",
+            object : ChainReader {
+                override fun read(key: ChainRequest): Mono<ChainResponse> = Mono.empty()
+            },
+        ).block()!!
         assertEquals(expected, block)
     }
 }

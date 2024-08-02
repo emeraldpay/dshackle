@@ -45,20 +45,22 @@ object BeaconChainSpecific : AbstractPollChainSpecific() {
         return ChainRequest("GET#/eth/v1/beacon/headers/head", RestParams.emptyParams())
     }
 
-    override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
+    override fun parseBlock(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val blockHeader = Global.objectMapper.readValue<BeaconChainBlockHeader>(data)
 
-        return BlockContainer(
-            height = blockHeader.height,
-            hash = BlockId.from(blockHeader.hash),
-            difficulty = BigInteger.ZERO,
-            timestamp = Instant.EPOCH,
-            full = false,
-            json = data,
-            parsed = blockHeader,
-            transactions = emptyList(),
-            upstreamId = upstreamId,
-            parentHash = BlockId.from(blockHeader.parentHash),
+        return Mono.just(
+            BlockContainer(
+                height = blockHeader.height,
+                hash = BlockId.from(blockHeader.hash),
+                difficulty = BigInteger.ZERO,
+                timestamp = Instant.EPOCH,
+                full = false,
+                json = data,
+                parsed = blockHeader,
+                transactions = emptyList(),
+                upstreamId = upstreamId,
+                parentHash = BlockId.from(blockHeader.parentHash),
+            ),
         )
     }
 

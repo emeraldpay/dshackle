@@ -46,12 +46,12 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
 
     private val log: Logger = LoggerFactory.getLogger(EthereumChainSpecific::class.java)
 
-    override fun parseBlock(data: ByteArray, upstreamId: String): BlockContainer {
-        return BlockContainer.fromEthereumJson(data, upstreamId)
+    override fun parseBlock(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
+        return Mono.just(BlockContainer.fromEthereumJson(data, upstreamId))
     }
 
     override fun getFromHeader(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
-        return Mono.just(parseBlock(data, upstreamId))
+        return parseBlock(data, upstreamId, api)
     }
 
     override fun latestBlockRequest() =

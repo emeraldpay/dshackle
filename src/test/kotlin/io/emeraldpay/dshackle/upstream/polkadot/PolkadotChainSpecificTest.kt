@@ -1,9 +1,13 @@
 package io.emeraldpay.dshackle.upstream.polkadot
 
 import io.emeraldpay.dshackle.data.BlockId
+import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
+import reactor.core.publisher.Mono
 
 val example = """
 {
@@ -63,10 +67,16 @@ val healthBadSyncing = """{
 class PolkadotChainSpecificTest {
     @Test
     fun parseResponse() {
-        val result = PolkadotChainSpecific.parseBlock(example.toByteArray(), "1")
+        val result = PolkadotChainSpecific.parseBlock(
+            example.toByteArray(),
+            "1",
+            object : ChainReader {
+                override fun read(key: ChainRequest): Mono<ChainResponse> = Mono.just(ChainResponse("\"0x1\"".toByteArray(), null))
+            },
+        ).block()!!
 
         Assertions.assertThat(result.height).isEqualTo(17963964)
-        Assertions.assertThat(result.hash).isEqualTo(BlockId.from("0xb52a9b51fb698a891cf378b990b0b6a5743e52fa5175b44a8a6d4e0b2cfd0a53"))
+        Assertions.assertThat(result.hash).isEqualTo(BlockId.from("0x1"))
         Assertions.assertThat(result.upstreamId).isEqualTo("1")
         Assertions.assertThat(result.parentHash).isEqualTo(BlockId.from("0xb52a9b51fb698a891cf378b990b0b6a5743e52fa5175b44a8a6d4e0b2cfd0a53"))
     }
