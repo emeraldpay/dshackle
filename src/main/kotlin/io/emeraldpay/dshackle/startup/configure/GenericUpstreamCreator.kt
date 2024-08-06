@@ -24,7 +24,7 @@ open class GenericUpstreamCreator(
     private val connectorFactoryCreatorResolver: ConnectorFactoryCreatorResolver,
     private val versionRules: Supplier<CompatibleVersionsRules?>,
 ) : UpstreamCreator(chainsConfig, indexConfig, callTargets) {
-    private val hashes: MutableMap<Byte, Boolean> = HashMap()
+    private val hashes = HashSet<Short>()
 
     override fun createUpstream(
         upstreamsConfig: UpstreamsConfig.Upstream<*>,

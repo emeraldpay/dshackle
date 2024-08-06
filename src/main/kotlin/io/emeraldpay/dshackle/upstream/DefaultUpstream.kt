@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 abstract class DefaultUpstream(
     private val id: String,
-    private val hash: Byte,
+    private val hash: Short,
     defaultLag: Long?,
     defaultAvail: UpstreamAvailability,
     private val options: ChainOptions.Options,
@@ -46,7 +46,7 @@ abstract class DefaultUpstream(
 
     constructor(
         id: String,
-        hash: Byte,
+        hash: Short,
         options: ChainOptions.Options,
         role: UpstreamsConfig.UpstreamRole,
         targets: CallMethods?,
@@ -153,7 +153,7 @@ abstract class DefaultUpstream(
         sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.UPDATED)
     }
 
-    override fun nodeId(): Byte = hash
+    override fun nodeId(): Short = hash
 
     open fun getQuorumByLabel(): QuorumForLabels {
         return node?.let { QuorumForLabels(it.copy(labels = fromMap(it.labels))) }

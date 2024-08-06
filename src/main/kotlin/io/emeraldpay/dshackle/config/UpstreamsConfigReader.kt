@@ -252,8 +252,8 @@ class UpstreamsConfigReader(
             return false
         }
         return upstream.nodeId?.let {
-            if (it !in 1..255) {
-                log.warn("Invalid node-id: $it. Must be in range [1, 255].")
+            if (it !in 1..65535) {
+                log.warn("Invalid node-id: $it. Must be in range [1, 65535].")
                 false
             } else if (!knownNodeIds.add(it)) {
                 log.warn("Duplicated node-id: $it. Must be in unique.")

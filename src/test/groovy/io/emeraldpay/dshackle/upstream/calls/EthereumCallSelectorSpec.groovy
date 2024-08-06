@@ -194,12 +194,12 @@ class EthereumCallSelectorSpec extends Specification {
 
         expect:
         callSelector.getMatcher("eth_getFilterChanges", param, head, true).block()
-                == new Selector.SameNodeMatcher((byte)hash)
+                == new Selector.SameNodeMatcher((short)hash)
 
         where:
         param | hash
-        '["0xff09"]' | 9
-        '["0xff"]' | 255
+        '["0x0009"]' | 9
+        '["0x00ff"]' | 255
         '[""]' | 0
         '["0x0"]' | 0
     }

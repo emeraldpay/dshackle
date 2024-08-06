@@ -69,7 +69,7 @@ import kotlin.concurrent.withLock
 
 class GrpcUpstreams(
     private val id: String,
-    private val hash: Byte,
+    private val hash: Short,
     private val role: UpstreamsConfig.UpstreamRole,
     private val host: String,
     private val port: Int,

@@ -82,7 +82,7 @@ sealed class MatchesResponse {
     ) : MatchesResponse()
 
     data class SameNodeResponse(
-        val upstreamHash: Byte,
+        val upstreamHash: Short,
     ) : MatchesResponse()
 
     object AvailabilityResponse : MatchesResponse()

@@ -26,7 +26,7 @@ upstreams:
         ws:
           url: "ws://localhost:9546"
   - id: invalid_node_id
-    node-id: 256
+    node-id: 100000
     chain: ethereum
     connection:
       grpc:

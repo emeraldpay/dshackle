@@ -587,12 +587,22 @@ open class NativeCall(
             val bytes = result.value
             if (bytes.last() == quoteCode && result.resolvedUpstreamData.isNotEmpty()) {
                 val suffix = result.resolvedUpstreamData[0].nodeId
-                    .toUByte()
-                    .toString(16).padStart(2, padChar = '0').toByteArray()
-                bytes[bytes.lastIndex] = suffix.first()
-                return bytes + suffix.last() + quoteCode
+                    .toUShort()
+                    .toString(16).padStart(4, padChar = '0').toByteArray()
+                return resultArray(bytes, suffix)
             }
             return bytes
+        }
+
+        private fun resultArray(bytes: ByteArray, suffix: ByteArray): ByteArray {
+            val newBytes = ByteArray(bytes.size + suffix.size)
+            newBytes[newBytes.size - 1] = quoteCode
+            var index = bytes.size - 1
+
+            System.arraycopy(bytes, 0, newBytes, 0, bytes.size - 1)
+            for (byteVal in suffix) newBytes[index++] = byteVal
+
+            return newBytes
         }
     }
 
@@ -608,7 +618,7 @@ open class NativeCall(
         override fun processRequest(request: CallParams): CallParams {
             if (request is ListParams) {
                 val filterId = request.list.first().toString()
-                val sanitized = filterId.substring(0, filterId.lastIndex - 1)
+                val sanitized = filterId.substring(0, filterId.lastIndex - 3)
                 return ListParams(listOf(sanitized))
             }
             return request

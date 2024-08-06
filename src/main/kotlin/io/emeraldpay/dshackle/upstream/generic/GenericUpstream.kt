@@ -41,7 +41,7 @@ import java.util.function.Supplier
 open class GenericUpstream(
     id: String,
     chain: Chain,
-    hash: Byte,
+    hash: Short,
     options: ChainOptions.Options,
     role: UpstreamsConfig.UpstreamRole,
     targets: CallMethods?,
@@ -58,7 +58,7 @@ open class GenericUpstream(
     constructor(
         config: UpstreamsConfig.Upstream<*>,
         chain: Chain,
-        hash: Byte,
+        hash: Short,
         options: ChainOptions.Options,
         node: QuorumForLabels.QuorumItem?,
         chainConfig: ChainsConfig.ChainConfig,

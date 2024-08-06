@@ -389,7 +389,7 @@ abstract class Multistream(
         return false
     }
 
-    override fun nodeId(): Byte = 0
+    override fun nodeId(): Short = 0
 
     override fun updateLowerBound(lowerBound: Long, type: LowerBoundType) {
         // NOOP

@@ -22,7 +22,7 @@ import reactor.core.scheduler.Schedulers
 
 class GenericGrpcUpstreamTest {
     private val parentId = "testParent"
-    private val hash: Byte = 0x01
+    private val hash: Short = 0x01
     private val role = UpstreamsConfig.UpstreamRole.PRIMARY
     private val headSink = Sinks.many().multicast().directBestEffort<BlockchainOuterClass.ChainHead>()
     private val remote =

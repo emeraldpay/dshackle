@@ -60,10 +60,10 @@ interface Upstream : Lifecycle {
 
     fun <T : Upstream> cast(selfType: Class<T>): T
 
-    fun nodeId(): Byte
+    fun nodeId(): Short
 
     data class UpstreamSettingsData(
-        val nodeId: Byte,
+        val nodeId: Short,
         val id: String,
         val nodeVersion: String,
     ) {

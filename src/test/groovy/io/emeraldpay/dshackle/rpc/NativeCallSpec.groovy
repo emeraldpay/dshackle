@@ -581,7 +581,7 @@ class NativeCallSpec extends Specification {
         setup:
         def nativeCall = nativeCall()
         def ctx = new NativeCall.ValidCallContext(1, null, Stub(Multistream), new Selector.UpstreamFilter(Selector.empty), new AlwaysQuorum(),
-                new NativeCall.ParsedCallDetails("eth_getFilterUpdates", new ListParams("0xabcd")),
+                new NativeCall.ParsedCallDetails("eth_getFilterUpdates", new ListParams("0xabcdcd")),
                 new NativeCall.WithFilterIdDecorator(), new NativeCall.NoneResultDecorator(), null, false, "reqId", 1)
         when:
         def act = nativeCall.parseParams(ctx)
@@ -609,7 +609,7 @@ class NativeCallSpec extends Specification {
         def nativeCall = nativeCall(multistreamHolder)
         nativeCall.requestReaderFactory = Mock(RequestReaderFactory) {
             1 * create(_) >> Mock(RequestReader) {
-                1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, List.of(new Upstream.UpstreamSettingsData((byte) 255, "", "")), null))
+                1 * read(_) >> Mono.just(new RequestReader.Result("\"0xab\"".bytes, null, 1, List.of(new Upstream.UpstreamSettingsData((short) 65535, "", "")), null))
             }
         }
         def call = new NativeCall.ValidCallContext(1, 10, multistream, new Selector.UpstreamFilter(Selector.empty), quorum,
@@ -620,7 +620,7 @@ class NativeCallSpec extends Specification {
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
         def act = objectMapper.readValue(resp.result, Object)
         then:
-        act == "0xabff"
+        act == "0xabffff"
         resp.nonce == 10
     }
 
@@ -653,7 +653,7 @@ class NativeCallSpec extends Specification {
         def resp = nativeCall.executeOnRemote(call).block(Duration.ofSeconds(1))
         def act = objectMapper.readValue(resp.result, Object)
         then:
-        act == "0xab01"
+        act == "0xab0001"
         resp.nonce == 10
     }
 

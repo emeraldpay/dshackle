@@ -612,7 +612,7 @@ class Selector {
         }
     }
 
-    class SameNodeMatcher(private val upstreamHash: Byte) : Matcher() {
+    class SameNodeMatcher(private val upstreamHash: Short) : Matcher() {
 
         override fun matchesWithCause(up: Upstream): MatchesResponse =
             if (up.nodeId() == upstreamHash) {

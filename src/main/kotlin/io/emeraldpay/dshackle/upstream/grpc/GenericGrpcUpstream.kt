@@ -56,7 +56,7 @@ import java.util.function.Function
 
 open class GenericGrpcUpstream(
     parentId: String,
-    hash: Byte,
+    hash: Short,
     role: UpstreamsConfig.UpstreamRole,
     chain: Chain,
     private val remote: ReactorBlockchainGrpc.ReactorBlockchainStub,

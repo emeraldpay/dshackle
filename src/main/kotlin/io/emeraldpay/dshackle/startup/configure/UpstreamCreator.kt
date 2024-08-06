@@ -22,26 +22,28 @@ abstract class UpstreamCreator(
     protected val log: Logger = LoggerFactory.getLogger(this::class.java)
 
     companion object {
-        fun getHash(nodeId: Int?, obj: Any, hashes: MutableMap<Byte, Boolean>): Byte =
-            nodeId?.toByte() ?: (obj.hashCode() % 255).let {
-                if (it == 0) 1 else it
-            }.let { nonZeroHash ->
-                listOf<Function<Int, Int>>(
-                    Function { i -> i },
-                    Function { i -> (-i) },
-                    Function { i -> 127 - abs(i) },
-                    Function { i -> abs(i) - 128 },
-                ).map {
-                    it.apply(nonZeroHash).toByte()
-                }.firstOrNull {
-                    hashes[it] != true
-                }?.let {
-                    hashes[it] = true
-                    it
-                } ?: (Byte.MIN_VALUE..Byte.MAX_VALUE).first {
-                    it != 0 && hashes[it.toByte()] != true
-                }.toByte()
-            }
+        fun getHash(nodeId: Int?, obj: Any, hashes: MutableSet<Short>): Short {
+            val hash = nodeId?.toShort()
+                ?: run {
+                    (obj.hashCode() % 65535)
+                        .let { if (it == 0) 1 else it }
+                        .let { nonZeroHash ->
+                            listOf<Function<Int, Int>>(
+                                Function { i -> i },
+                                Function { i -> (-i) },
+                                Function { i -> 32767 - abs(i) },
+                                Function { i -> abs(i) - 32768 },
+                            )
+                                .map { it.apply(nonZeroHash).toShort() }
+                                .firstOrNull { !hashes.contains(it) }
+                        }
+                        ?: (Short.MIN_VALUE..Short.MAX_VALUE).first {
+                            it != 0 && !hashes.contains(it.toShort())
+                        }.toShort()
+                }
+
+            return hash.also { hashes.add(it) }
+        }
     }
 
     fun createUpstream(
