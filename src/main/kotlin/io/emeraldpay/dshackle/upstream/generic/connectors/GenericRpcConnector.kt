@@ -140,7 +140,7 @@ class GenericRpcConnector(
     }
 
     private fun isSpecialChain(chain: Chain) =
-        chain == Chain.OPEN_CAMPUS_CODEX__SEPOLIA || chain == Chain.ALEPHZERO__SEPOLIA || chain == Chain.CONNEXT__SEPOLIA || chain == Chain.ALEPHZERO__MAINNET
+        chain == Chain.OPEN_CAMPUS_CODEX__SEPOLIA || chain == Chain.ALEPHZERO__SEPOLIA || chain == Chain.EVERCLEAR__SEPOLIA || chain == Chain.ALEPHZERO__MAINNET
 
     override fun setCaches(caches: Caches) {
         if (head is CachesEnabled) {
