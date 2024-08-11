@@ -1,5 +1,7 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.upstream.ChainCallError
+import io.emeraldpay.dshackle.upstream.ChainCallUpstreamException
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -18,6 +20,11 @@ class EthereumLowerBoundBlockDetector(
 
     companion object {
         private const val NO_BLOCK_DATA = "No block data"
+
+        private val NO_BLOCK_ERRORS = listOf(
+            "error loading messages for tipset",
+            "bad tipset height",
+        )
     }
 
     private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.BLOCK, setOf(NO_BLOCK_DATA), lowerBounds)
@@ -42,9 +49,17 @@ class EthereumLowerBoundBlockDetector(
                         if (it.hasResult() && it.getResult().contentEquals("null".toByteArray())) {
                             throw IllegalStateException(NO_BLOCK_DATA)
                         }
+                    }.doOnError {
+                        if (it is ChainCallUpstreamException && handleError(it.error)) {
+                            throw IllegalStateException(NO_BLOCK_DATA)
+                        }
                     }
             }
         }
+    }
+
+    private fun handleError(error: ChainCallError): Boolean {
+        return NO_BLOCK_ERRORS.any { error.message.contains(it) }
     }
 
     override fun types(): Set<LowerBoundType> {
