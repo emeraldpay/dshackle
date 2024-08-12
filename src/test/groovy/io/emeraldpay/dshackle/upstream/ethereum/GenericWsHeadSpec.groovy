@@ -27,6 +27,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
@@ -69,6 +70,11 @@ class GenericWsHeadSpec extends Specification {
             1 * it.connectionInfoFlux() >> Flux.empty()
         }
 
+        def pool = Mock(WsConnectionPool) {
+            getConnection() >> Mock(WsConnection)
+        }
+        def client = new JsonRpcWsClient(pool)
+
         1 * ws.subscribe(_) >> new WsSubscriptions.SubscribeData(
                 Flux.fromIterable([headBlock]), "id", new AtomicReference<String>("")
         )
@@ -82,6 +88,7 @@ class GenericWsHeadSpec extends Specification {
                 Schedulers.boundedElastic(),
                 upstream,
                 EthereumChainSpecific.INSTANCE,
+                client,
                 Duration.ofSeconds(60),
         )
 
@@ -113,6 +120,11 @@ class GenericWsHeadSpec extends Specification {
 
         def apiMock = TestingCommons.api()
 
+        def pool = Mock(WsConnectionPool) {
+            getConnection() >> Mock(WsConnection)
+        }
+        def client = new JsonRpcWsClient(pool)
+
         def connectionInfoSink = Sinks.many().multicast().directBestEffort()
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
@@ -120,6 +132,8 @@ class GenericWsHeadSpec extends Specification {
                     new WsSubscriptions.SubscribeData(Flux.error(new RuntimeException()), "id", new AtomicReference<String>("")),
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id", new AtomicReference<String>(""))
             ]
+            1 * it.unsubscribe(new ChainRequest("eth_unsubscribe", new ListParams(""), 2, null, null, false)) >>
+                    Mono.just(new ChainResponse("".bytes, null))
         }
 
         def head = new GenericWsHead(
@@ -131,6 +145,7 @@ class GenericWsHeadSpec extends Specification {
                 Schedulers.boundedElastic(),
                 upstream,
                 EthereumChainSpecific.INSTANCE,
+                client,
                 Duration.ofSeconds(60),
         )
 
@@ -171,6 +186,11 @@ class GenericWsHeadSpec extends Specification {
             Global.objectMapper.writeValueAsBytes(it)
         }
 
+        def pool = Mock(WsConnectionPool) {
+            getConnection() >> Mock(WsConnection)
+        }
+        def client = new JsonRpcWsClient(pool)
+
         def apiMock = TestingCommons.api()
         def connectionInfoSink = Sinks.many().multicast().directBestEffort()
         apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], null)
@@ -195,6 +215,7 @@ class GenericWsHeadSpec extends Specification {
                 Schedulers.boundedElastic(),
                 upstream,
                 EthereumChainSpecific.INSTANCE,
+                client,
                 Duration.ofSeconds(60),
         )
 
@@ -229,6 +250,11 @@ class GenericWsHeadSpec extends Specification {
         apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], null)
         apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
 
+        def pool = Mock(WsConnectionPool) {
+            getConnection() >> Mock(WsConnection)
+        }
+        def client = new JsonRpcWsClient(pool)
+
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             1 * subscribe(_) >>> [
@@ -245,6 +271,7 @@ class GenericWsHeadSpec extends Specification {
                 Schedulers.boundedElastic(),
                 upstream,
                 EthereumChainSpecific.INSTANCE,
+                client,
                 Duration.ofSeconds(60),
         )
 
@@ -278,6 +305,11 @@ class GenericWsHeadSpec extends Specification {
         apiMock.answerOnce("eth_getBlockByHash", ["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200", false], null)
         apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
 
+        def pool = Mock(WsConnectionPool) {
+            getConnection() >> Mock(WsConnection)
+        }
+        def client = new JsonRpcWsClient(pool)
+
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             1 * subscribe(_) >>> [
@@ -294,6 +326,7 @@ class GenericWsHeadSpec extends Specification {
                 Schedulers.boundedElastic(),
                 upstream,
                 EthereumChainSpecific.INSTANCE,
+                client,
                 Duration.ofSeconds(60),
         )
 
@@ -340,6 +373,11 @@ class GenericWsHeadSpec extends Specification {
         apiMock.answerOnce("eth_getBlockByHash", ["0x29229361dc5aa1ec66c323dc7a299e2b61a8c8dd2a3522d41255ec10eca25dd8", false], null)
         apiMock.answerOnce("eth_blockNumber", [], Mono.empty())
 
+        def pool = Mock(WsConnectionPool) {
+            getConnection() >> Mock(WsConnection)
+        }
+        def client = new JsonRpcWsClient(pool)
+
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
             2 * subscribe(_) >>> [
@@ -357,6 +395,7 @@ class GenericWsHeadSpec extends Specification {
                 Schedulers.boundedElastic(),
                 upstream,
                 EthereumChainSpecific.INSTANCE,
+                client,
                 Duration.ofSeconds(60),
         )
 
@@ -401,6 +440,12 @@ class GenericWsHeadSpec extends Specification {
         def reader = Mock(Reader) {
             1 * it.read(new ChainRequest("eth_getBlockByNumber", new ListParams("latest", false))) >> Mono.empty()
         }
+
+        def pool = Mock(WsConnectionPool) {
+            getConnection() >> Mock(WsConnection)
+        }
+        def client = new JsonRpcWsClient(pool)
+
         def subId = "subId"
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> Flux.empty()
@@ -420,6 +465,7 @@ class GenericWsHeadSpec extends Specification {
                 Schedulers.boundedElastic(),
                 upstream,
                 EthereumChainSpecific.INSTANCE,
+                client,
                 Duration.ofSeconds(60),
         )
 
@@ -450,6 +496,11 @@ class GenericWsHeadSpec extends Specification {
 
         def apiMock = TestingCommons.api()
 
+        def pool = Mock(WsConnectionPool) {
+            getConnection() >> Mock(WsConnection)
+        }
+        def client = new JsonRpcWsClient(pool)
+
         def connectionInfoSink = Sinks.many().multicast().directBestEffort()
         def ws = Mock(WsSubscriptions) {
             1 * it.connectionInfoFlux() >> connectionInfoSink.asFlux()
@@ -467,6 +518,7 @@ class GenericWsHeadSpec extends Specification {
                 Schedulers.boundedElastic(),
                 upstream,
                 EthereumChainSpecific.INSTANCE,
+                client,
                 Duration.ofSeconds(60),
         )
 
@@ -479,7 +531,7 @@ class GenericWsHeadSpec extends Specification {
                 .then {
                     connectionInfoSink.tryEmitNext(new WsConnection.ConnectionInfo("id", WsConnection.ConnectionState.DISCONNECTED))
                 }
-                .expectNext(false)
+                .expectNext(HeadLivenessState.DISCONNECTED)
                 .thenCancel()
                 .verify(Duration.ofSeconds(1))
     }

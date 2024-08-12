@@ -18,7 +18,7 @@ class HeadLivenessValidatorImpl(
         private val log = LoggerFactory.getLogger(HeadLivenessValidatorImpl::class.java)
     }
 
-    override fun getFlux(): Flux<Boolean> {
+    override fun getFlux(): Flux<HeadLivenessState> {
         val headLiveness = head.headLiveness()
         // first we have moving window of 2 blocks and check that they are consecutive ones
         val headFlux = head.getFlux().map { it.height }.buffer(2, 1).map {
@@ -39,13 +39,13 @@ class HeadLivenessValidatorImpl(
             // we emit when we have false or checked CHECKED_BLOCKS_UNTIL_LIVE blocks
             // CHECKED_BLOCKS_UNTIL_LIVE blocks == (CHECKED_BLOCKS_UNTIL_LIVE - 1) consecutive true
             when {
-                count >= (CHECKED_BLOCKS_UNTIL_LIVE - 1) -> Flux.just(true)
-                !value -> Flux.just(false)
+                count >= (CHECKED_BLOCKS_UNTIL_LIVE - 1) -> Flux.just(HeadLivenessState.OK)
+                !value -> Flux.just(HeadLivenessState.NON_CONSECUTIVE)
                 else -> Flux.empty()
             }
         }.timeout(
             expectedBlockTime.multipliedBy(CHECKED_BLOCKS_UNTIL_LIVE.toLong() * 2),
-            Flux.just(false).doOnNext {
+            Flux.just(HeadLivenessState.NON_CONSECUTIVE).doOnNext {
                 if (log.isDebugEnabled) {
                     log.debug("head liveness check broken with timeout in $upstreamId")
                 } else {

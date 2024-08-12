@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessState
 import reactor.core.publisher.Flux
 
 /**
@@ -46,7 +47,7 @@ interface Head {
 
     fun onSyncingNode(isSyncing: Boolean)
 
-    fun headLiveness(): Flux<Boolean>
+    fun headLiveness(): Flux<HeadLivenessState>
 
     fun getCurrent(): BlockContainer?
 }

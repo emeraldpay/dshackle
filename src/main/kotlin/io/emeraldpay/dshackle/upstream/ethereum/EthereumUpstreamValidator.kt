@@ -21,6 +21,7 @@ import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
+import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.SingleValidator
@@ -37,6 +38,8 @@ import reactor.kotlin.extra.retry.retryRandomBackoff
 import java.math.BigInteger
 import java.time.Duration
 import java.util.concurrent.TimeoutException
+import java.util.function.Supplier
+
 interface CallLimitValidator : SingleValidator<ValidateUpstreamSettingsResult> {
     fun isEnabled(): Boolean
 }
@@ -144,7 +147,11 @@ fun callLimitValidatorFactory(
 class ChainIdValidator(
     private val upstream: Upstream,
     private val chain: Chain,
+    private val customReader: ChainReader? = null,
 ) : SingleValidator<ValidateUpstreamSettingsResult> {
+    private val validatorReader: Supplier<ChainReader> = Supplier {
+        customReader ?: upstream.getIngressReader()
+    }
 
     companion object {
         @JvmStatic
@@ -186,7 +193,7 @@ class ChainIdValidator(
     }
 
     private fun chainId(): Mono<String> {
-        return upstream.getIngressReader()
+        return validatorReader.get()
             .read(ChainRequest("eth_chainId", ListParams()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
@@ -199,7 +206,7 @@ class ChainIdValidator(
     }
 
     private fun netVersion(): Mono<String> {
-        return upstream.getIngressReader()
+        return validatorReader.get()
             .read(ChainRequest("net_version", ListParams()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(

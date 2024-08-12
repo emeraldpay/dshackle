@@ -18,6 +18,7 @@ package io.emeraldpay.dshackle.test
 
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessState
 import org.jetbrains.annotations.NotNull
 import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
@@ -89,7 +90,7 @@ class EthereumHeadMock implements Head {
     }
 
     @Override
-    Flux<Boolean> headLiveness() {
+    Flux<HeadLivenessState> headLiveness() {
         return Flux.empty()
     }
 

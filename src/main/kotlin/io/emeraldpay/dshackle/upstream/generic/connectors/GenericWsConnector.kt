@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.GenericWsHead
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessState
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidatorImpl
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPool
 import io.emeraldpay.dshackle.upstream.ethereum.WsConnectionPoolFactory
@@ -46,13 +47,14 @@ class GenericWsConnector(
             headScheduler,
             upstream,
             chainSpecific,
+            reader,
             expectedBlockTime,
         )
         liveness = HeadLivenessValidatorImpl(head, expectedBlockTime, headLivenessScheduler, upstream.getId())
         subscriptions = chainSpecific.makeIngressSubscription(wsSubscriptions)
     }
 
-    override fun hasLiveSubscriptionHead(): Flux<Boolean> {
+    override fun headLivenessEvents(): Flux<HeadLivenessState> {
         return liveness.getFlux().distinctUntilChanged()
     }
     override fun start() {

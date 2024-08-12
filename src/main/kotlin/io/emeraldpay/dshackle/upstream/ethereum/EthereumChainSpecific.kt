@@ -163,6 +163,17 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         }
     }
 
+    override fun chainSettingsValidator(
+        chain: Chain,
+        upstream: Upstream,
+        reader: ChainReader,
+    ): SingleValidator<ValidateUpstreamSettingsResult>? {
+        if (upstream.getOptions().disableUpstreamValidation) {
+            return null
+        }
+        return ChainIdValidator(upstream, chain, reader)
+    }
+
     override fun upstreamRpcModulesDetector(upstream: Upstream): UpstreamRpcModulesDetector {
         return BasicEthUpstreamRpcModulesDetector(upstream)
     }

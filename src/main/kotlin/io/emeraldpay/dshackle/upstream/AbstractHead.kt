@@ -16,6 +16,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessState
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.Meter
@@ -164,7 +165,7 @@ abstract class AbstractHead @JvmOverloads constructor(
         metrics.forEach { Metrics.globalRegistry.remove(it) }
     }
 
-    protected open fun onNoHeadUpdates() {
+    open fun onNoHeadUpdates() {
         // NOOP
     }
 
@@ -172,7 +173,7 @@ abstract class AbstractHead @JvmOverloads constructor(
         // NOOP
     }
 
-    override fun headLiveness(): Flux<Boolean> {
+    override fun headLiveness(): Flux<HeadLivenessState> {
         return Flux.empty()
     }
 

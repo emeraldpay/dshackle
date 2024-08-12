@@ -14,6 +14,7 @@ import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.NoIngressSubscription
 import io.emeraldpay.dshackle.upstream.ethereum.AlwaysHeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.GenericWsHead
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessState
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidator
 import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessValidatorImpl
 import io.emeraldpay.dshackle.upstream.ethereum.NoHeadLivenessValidator
@@ -30,6 +31,7 @@ import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactor
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_WS_HEAD
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnectorFactory.ConnectorMode.WS_ONLY
+import io.emeraldpay.dshackle.upstream.rpcclient.JsonRpcWsClient
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
@@ -55,18 +57,20 @@ class GenericRpcConnector(
     private val ingressSubscription: IngressSubscription?
     private val head: Head
     private val liveness: HeadLivenessValidator
+    private val jsonRpcWsClient: JsonRpcWsClient?
 
     companion object {
         private val log = LoggerFactory.getLogger(GenericRpcConnector::class.java)
     }
 
-    override fun hasLiveSubscriptionHead(): Flux<Boolean> {
+    override fun headLivenessEvents(): Flux<HeadLivenessState> {
         return liveness.getFlux().distinctUntilChanged()
     }
 
     init {
         pool = wsFactory?.create(upstream)
         wsSubs = pool?.let { WsSubscriptionsImpl(it) }
+        jsonRpcWsClient = pool?.let { JsonRpcWsClient(pool) }
         ingressSubscription = wsSubs?.let { chainSpecific.makeIngressSubscription(it) }
 
         head = when (connectorType) {
@@ -98,6 +102,7 @@ class GenericRpcConnector(
                         headScheduler,
                         upstream,
                         chainSpecific,
+                        jsonRpcWsClient!!,
                         expectedBlockTime,
                     )
                 // receive all new blocks through WebSockets, but also periodically verify with RPC in case if WS failed
@@ -124,6 +129,7 @@ class GenericRpcConnector(
                     headScheduler,
                     upstream,
                     chainSpecific,
+                    jsonRpcWsClient!!,
                     expectedBlockTime,
                 )
             }

@@ -179,14 +179,14 @@ class EthereumEgressSubscriptionSpec extends Specification {
     def "get available subscriptions"() {
         when:
         def up1 = TestingCommons.upstream("test")
-        up1.getConnectorMock().setLiveness(Flux.just(false))
+        up1.getConnectorMock().setLiveness(Flux.just(HeadLivenessState.NON_CONSECUTIVE))
 
         def ethereumSubscribe1 = new EthereumEgressSubscription(TestingCommons.multistream(up1) as GenericMultistream, Schedulers.boundedElastic(), null)
         then:
         ethereumSubscribe1.getAvailableTopics() == []
         when:
         def up2 = TestingCommons.upstream("test")
-        up2.getConnectorMock().setLiveness(Flux.just(true))
+        up2.getConnectorMock().setLiveness(Flux.just(HeadLivenessState.OK))
         up2.stop()
         up2.start()
         def ethereumSubscribe2 = new EthereumEgressSubscription(TestingCommons.multistream(up2) as GenericMultistream, Schedulers.boundedElastic(), null)
@@ -194,7 +194,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
         ethereumSubscribe2.getAvailableTopics().toSet() == [EthereumEgressSubscription.METHOD_LOGS, EthereumEgressSubscription.METHOD_NEW_HEADS].toSet()
         when:
         def up3 = TestingCommons.upstream("test")
-        up3.getConnectorMock().setLiveness(Flux.just(true))
+        up3.getConnectorMock().setLiveness(Flux.just(HeadLivenessState.OK))
         up3.stop()
         up3.start()
         def ethereumSubscribe3 = new EthereumEgressSubscription(TestingCommons.multistream(up3) as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
@@ -202,7 +202,7 @@ class EthereumEgressSubscriptionSpec extends Specification {
         ethereumSubscribe3.getAvailableTopics().toSet() == [EthereumEgressSubscription.METHOD_LOGS, EthereumEgressSubscription.METHOD_NEW_HEADS, EthereumEgressSubscription.METHOD_PENDING_TXES].toSet()
         when:
         def up4 = TestingCommons.upstream(TestingCommons.api(), "eth_getBlockByNumber")
-        up4.getConnectorMock().setLiveness(Flux.just(true))
+        up4.getConnectorMock().setLiveness(Flux.just(HeadLivenessState.OK))
         up4.stop()
         up4.start()
         def ethereumSubscribe4 = new EthereumEgressSubscription(TestingCommons.multistream(up4) as GenericMultistream, Schedulers.boundedElastic(), null)

@@ -17,6 +17,7 @@
 package io.emeraldpay.dshackle.upstream
 
 import io.emeraldpay.dshackle.data.BlockContainer
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessState
 import reactor.core.publisher.Flux
 
 class EmptyHead : Head {
@@ -44,7 +45,7 @@ class EmptyHead : Head {
     override fun onSyncingNode(isSyncing: Boolean) {
     }
 
-    override fun headLiveness(): Flux<Boolean> = Flux.empty()
+    override fun headLiveness(): Flux<HeadLivenessState> = Flux.empty()
 
     override fun getCurrent(): BlockContainer? {
         return null

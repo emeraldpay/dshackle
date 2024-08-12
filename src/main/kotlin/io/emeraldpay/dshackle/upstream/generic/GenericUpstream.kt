@@ -23,7 +23,11 @@ import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetectorBuilder
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.UpstreamValidatorBuilder
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_VALID
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.HeadLivenessState
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
 import io.emeraldpay.dshackle.upstream.generic.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.generic.connectors.GenericConnector
@@ -33,6 +37,7 @@ import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import org.springframework.context.Lifecycle
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Sinks
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -95,6 +100,8 @@ open class GenericUpstream(
     private val finalizationDetector = finalizationDetectorBuilder()
     private var finalizationDetectorSubscription: Disposable? = null
 
+    private val headLivenessState = Sinks.many().multicast().directBestEffort<ValidateUpstreamSettingsResult>()
+
     override fun getHead(): Head {
         return connector.getHead()
     }
@@ -152,16 +159,16 @@ open class GenericUpstream(
         if (validator != null) {
             val validSettingsResult = validator.validateUpstreamSettingsOnStartup()
             when (validSettingsResult) {
-                ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR -> {
+                UPSTREAM_FATAL_SETTINGS_ERROR -> {
                     log.warn("Upstream ${getId()} couldn't start, invalid upstream settings")
                     connector.stop()
                     return
                 }
-                ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR -> {
+                UPSTREAM_SETTINGS_ERROR -> {
                     log.warn("Non fatal upstream settings error, continue validation...")
                     connector.getHead().stop()
                 }
-                ValidateUpstreamSettingsResult.UPSTREAM_VALID -> {
+                UPSTREAM_VALID -> {
                     isUpstreamValid.set(true)
                     upstreamStart()
                 }
@@ -177,15 +184,18 @@ open class GenericUpstream(
 
     private fun validateUpstreamSettings() {
         if (validator != null) {
-            validationSettingsSubscription = Flux.interval(
-                Duration.ofSeconds(20),
-            ).flatMap {
-                validator.validateUpstreamSettings()
-            }
+            validationSettingsSubscription = Flux.merge(
+                Flux.interval(
+                    Duration.ofSeconds(20),
+                ).flatMap {
+                    validator.validateUpstreamSettings()
+                },
+                headLivenessState.asFlux(),
+            )
                 .distinctUntilChanged()
                 .subscribe {
                     when (it) {
-                        ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR -> {
+                        UPSTREAM_FATAL_SETTINGS_ERROR -> {
                             if (isUpstreamValid.get()) {
                                 log.warn("There is a fatal error after upstream settings validation, removing ${getId()}...")
                                 partialStop()
@@ -194,7 +204,7 @@ open class GenericUpstream(
                             isUpstreamValid.set(false)
                         }
 
-                        ValidateUpstreamSettingsResult.UPSTREAM_VALID -> {
+                        UPSTREAM_VALID -> {
                             if (!isUpstreamValid.get()) {
                                 log.warn("Upstream ${getId()} is now valid, adding to the multistream...")
                                 upstreamStart()
@@ -232,8 +242,6 @@ open class GenericUpstream(
     }
 
     private fun detectRpcModules(config: UpstreamsConfig.Upstream<*>, buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods) {
-        rpcModulesDetector?.detectRpcModules()
-
         val rpcDetector = rpcModulesDetector?.detectRpcModules()?.block() ?: HashMap<String, String>()
         log.info("Upstream rpc detector for  ${getId()} returned  $rpcDetector ")
         if (rpcDetector.size != 0) {
@@ -266,9 +274,14 @@ open class GenericUpstream(
             validatorSubscription = validator?.start()
                 ?.subscribe(this::setStatus)
         }
-        livenessSubscription = connector.hasLiveSubscriptionHead().subscribe({
-            hasLiveSubscriptionHead.set(it)
-            sendUpstreamStateEvent(UPDATED)
+        livenessSubscription = connector.headLivenessEvents().subscribe({
+            val hasSub = it == HeadLivenessState.OK
+            hasLiveSubscriptionHead.set(hasSub)
+            if (it == HeadLivenessState.FATAL_ERROR) {
+                headLivenessState.emitNext(UPSTREAM_FATAL_SETTINGS_ERROR) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+            } else {
+                sendUpstreamStateEvent(UPDATED)
+            }
         }, {
             log.debug("Error while checking live subscription for ${getId()}", it)
         },)

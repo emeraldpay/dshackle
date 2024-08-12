@@ -60,6 +60,14 @@ abstract class AbstractChainSpecific : ChainSpecific {
         return null
     }
 
+    override fun chainSettingsValidator(
+        chain: Chain,
+        upstream: Upstream,
+        reader: ChainReader,
+    ): SingleValidator<ValidateUpstreamSettingsResult>? {
+        return null
+    }
+
     override fun upstreamRpcModulesDetector(upstream: Upstream): UpstreamRpcModulesDetector? {
         return null
     }
