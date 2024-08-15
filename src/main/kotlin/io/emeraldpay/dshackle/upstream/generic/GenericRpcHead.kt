@@ -18,7 +18,10 @@ package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
+import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.SingleValidator
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -30,10 +33,12 @@ class GenericRpcHead(
     forkChoice: ForkChoice,
     upstreamId: String,
     blockValidator: BlockValidator,
+    upstream: DefaultUpstream,
     private val headScheduler: Scheduler,
     private val chainSpecific: ChainSpecific,
     private val interval: Duration = Duration.ofSeconds(10),
 ) : GenericHead(upstreamId, forkChoice, blockValidator, headScheduler, chainSpecific), Lifecycle {
+    private val chainIdValidator = chainSpecific.chainSettingsValidator(upstream.getChain(), upstream, null)
 
     private var refreshSubscription: Disposable? = null
     private var isSyncing = false
@@ -62,5 +67,9 @@ class GenericRpcHead(
         super.stop()
         refreshSubscription?.dispose()
         refreshSubscription = null
+    }
+
+    override fun chainIdValidator(): SingleValidator<ValidateUpstreamSettingsResult>? {
+        return chainIdValidator
     }
 }

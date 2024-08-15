@@ -166,7 +166,7 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
     override fun chainSettingsValidator(
         chain: Chain,
         upstream: Upstream,
-        reader: ChainReader,
+        reader: ChainReader?,
     ): SingleValidator<ValidateUpstreamSettingsResult>? {
         if (upstream.getOptions().disableUpstreamValidation) {
             return null

@@ -84,7 +84,7 @@ interface ChainSpecific {
 
     fun upstreamSettingsDetector(chain: Chain, upstream: Upstream): UpstreamSettingsDetector?
 
-    fun chainSettingsValidator(chain: Chain, upstream: Upstream, reader: ChainReader): SingleValidator<ValidateUpstreamSettingsResult>?
+    fun chainSettingsValidator(chain: Chain, upstream: Upstream, reader: ChainReader?): SingleValidator<ValidateUpstreamSettingsResult>?
 
     fun upstreamRpcModulesDetector(upstream: Upstream): UpstreamRpcModulesDetector?
 

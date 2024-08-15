@@ -21,6 +21,9 @@ import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
 import io.emeraldpay.dshackle.upstream.Lifecycle
+import io.emeraldpay.dshackle.upstream.SingleValidator
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
+import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult.UPSTREAM_VALID
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
@@ -69,7 +72,6 @@ class GenericWsHead(
     private var subscription: Disposable? = null
     private var headResubSubscription: Disposable? = null
     private val noHeadUpdatesSink = Sinks.many().multicast().directBestEffort<Boolean>()
-    private val headLivenessSink = Sinks.many().multicast().directBestEffort<HeadLivenessState>()
 
     private var subscriptionId = AtomicReference("")
 
@@ -130,7 +132,7 @@ class GenericWsHead(
                         subscribed = false
                         Mono.empty()
                     }
-                    else -> {
+                    UPSTREAM_FATAL_SETTINGS_ERROR -> {
                         log.error("Chain settings check hasn't been passed via ws connection, upstream {} will be removed", upstreamId)
                         headLivenessSink.emitNext(HeadLivenessState.FATAL_ERROR) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
                         Mono.empty()
@@ -146,7 +148,9 @@ class GenericWsHead(
         headResubSubscription = null
     }
 
-    override fun headLiveness(): Flux<HeadLivenessState> = headLivenessSink.asFlux()
+    override fun chainIdValidator(): SingleValidator<ValidateUpstreamSettingsResult>? {
+        return chainIdValidator
+    }
 
     private fun unsubscribe(): Mono<BlockContainer> {
         subscribed = false

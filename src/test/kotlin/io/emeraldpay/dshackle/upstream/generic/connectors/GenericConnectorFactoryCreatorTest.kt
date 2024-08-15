@@ -53,7 +53,7 @@ class GenericConnectorFactoryCreatorTest {
                     config,
                 )?.create(mock<DefaultUpstream> { on { getId() } doReturn "id" }, Chain.ETHEREUM__MAINNET)
 
-                assertEquals(expectedBlockTime, args?.get(6))
+                assertEquals(expectedBlockTime, args?.get(7))
             }
     }
 

@@ -63,7 +63,7 @@ abstract class AbstractChainSpecific : ChainSpecific {
     override fun chainSettingsValidator(
         chain: Chain,
         upstream: Upstream,
-        reader: ChainReader,
+        reader: ChainReader?,
     ): SingleValidator<ValidateUpstreamSettingsResult>? {
         return null
     }

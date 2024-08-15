@@ -24,6 +24,7 @@ import io.micrometer.core.instrument.Metrics
 import org.slf4j.LoggerFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.core.publisher.SignalType
 import reactor.core.publisher.Sinks
 import reactor.core.publisher.Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER
@@ -93,6 +94,20 @@ abstract class AbstractHead @JvmOverloads constructor(
                     lastHeadUpdated = 0L
                 } else {
                     log.warn("Received signal $upstreamId $it, continue emit heads")
+                }
+            }
+            .flatMap {
+                if (isSuspiciousBlock(it)) {
+                    log.warn(
+                        "Got a suspicious head of upstream {} with a height {} " +
+                            "that is very different from the previous head with a height {}, validating this upstream",
+                        upstreamId,
+                        it.height,
+                        getCurrentHeight(),
+                    )
+                    checkSuspiciousBlock(it)
+                } else {
+                    Mono.just(it)
                 }
             }
             .subscribeOn(headScheduler)
@@ -165,7 +180,7 @@ abstract class AbstractHead @JvmOverloads constructor(
         metrics.forEach { Metrics.globalRegistry.remove(it) }
     }
 
-    open fun onNoHeadUpdates() {
+    protected open fun onNoHeadUpdates() {
         // NOOP
     }
 
@@ -195,5 +210,13 @@ abstract class AbstractHead @JvmOverloads constructor(
                 TimeUnit.SECONDS,
             )
         }
+    }
+
+    protected open fun isSuspiciousBlock(block: BlockContainer): Boolean {
+        return false
+    }
+
+    protected open fun checkSuspiciousBlock(block: BlockContainer): Mono<BlockContainer> {
+        return Mono.just(block)
     }
 }
