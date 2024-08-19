@@ -27,7 +27,6 @@ class EthereumLowerBoundStateDetector(
             "is not available, lowest height is", // kava, cronos
             "State already discarded for", // moonriver, moonbeam
             "your node is running with state pruning", // fuse
-            "Max height of block allowed", // mumbai
             "failed to compute tipset state", // filecoin-calibration
             "bad tipset height", // filecoin-calibration
             "body not found for block",

@@ -389,7 +389,7 @@ class DefaultEthereumMethods(
                     "rollup_gasPrices",
                     "eth_getBlockRange",
                 )
-            Chain.POLYGON__MAINNET, Chain.POLYGON__MUMBAI -> listOf(
+            Chain.POLYGON__MAINNET -> listOf(
                 "bor_getAuthor",
                 "bor_getCurrentValidators",
                 "bor_getCurrentProposer",
