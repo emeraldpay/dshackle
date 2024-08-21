@@ -109,26 +109,29 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
             ) { data ->
                 val raw = Global.objectMapper.readTree(data)
                 if (raw.isBoolean) {
-                    upstream.getHead().onSyncingNode(raw.asBoolean())
                     if (raw.asBoolean()) {
                         UpstreamAvailability.SYNCING
                     } else {
                         UpstreamAvailability.OK
                     }
-                } else if (raw.get("currentBlock") != null && raw.get("highestBlock") != null) {
-                    val current =
-                        BigInteger(raw.get("currentBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
-                    val highest =
-                        BigInteger(raw.get("highestBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
+                } else {
+                    if (raw.get("currentBlock") != null && raw.get("highestBlock") != null) {
+                        val current =
+                            BigInteger(raw.get("currentBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
+                        val highest =
+                            BigInteger(raw.get("highestBlock")?.asText()?.lowercase()?.substringAfter("x"), 16)
 
-                    if (highest - current > config.syncingLagSize.toBigInteger()) {
-                        UpstreamAvailability.SYNCING
+                        if (highest - current > config.syncingLagSize.toBigInteger()) {
+                            UpstreamAvailability.SYNCING
+                        } else {
+                            UpstreamAvailability.OK
+                        }
                     } else {
+                        log.error("Received unknown syncing object ${raw.toPrettyString()} for upstream ${upstream.getId()}")
                         UpstreamAvailability.OK
                     }
-                } else {
-                    log.error("Received unknown syncing object ${raw.toPrettyString()} for upstream ${upstream.getId()}")
-                    UpstreamAvailability.OK
+                }.also {
+                    upstream.getHead().onSyncingNode(it == UpstreamAvailability.SYNCING)
                 }
             }
         }
