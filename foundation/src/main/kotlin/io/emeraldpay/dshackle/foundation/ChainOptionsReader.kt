@@ -49,6 +49,9 @@ class ChainOptionsReader : YamlConfigReader<ChainOptions.PartialOptions>() {
         getValueAsInt(values, "call-limit-size")?.let {
             options.callLimitSize = it
         }
+        getValueAsBool(values, "disable-upstream-validation")?.let {
+            options.disableUpstreamValidation = it
+        }
         return options
     }
 }

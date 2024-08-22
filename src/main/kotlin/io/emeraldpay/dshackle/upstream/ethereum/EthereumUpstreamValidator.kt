@@ -267,6 +267,9 @@ class GasPriceValidator(
         val log: Logger = LoggerFactory.getLogger(GasPriceValidator::class.java)
     }
     override fun validate(onError: ValidateUpstreamSettingsResult): Mono<ValidateUpstreamSettingsResult> {
+        if (!upstream.getMethods().isCallable("eth_gasPrice")) {
+            return Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
+        }
         return upstream.getIngressReader()
             .read(ChainRequest("eth_gasPrice", ListParams()))
             .flatMap(ChainResponse::requireStringResult)
