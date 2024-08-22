@@ -16,7 +16,7 @@ import kotlin.math.max
 
 class SolanaLowerBoundSlotDetector(
     private val upstream: Upstream,
-) : LowerBoundDetector() {
+) : LowerBoundDetector(upstream.getChain()) {
     private val reader = upstream.getIngressReader()
 
     override fun period(): Long {

@@ -1,19 +1,21 @@
 package io.emeraldpay.dshackle.upstream.lowerbound
 
+import io.emeraldpay.dshackle.Chain
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Sinks
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 fun Long.toHex() = "0x${this.toString(16)}"
 
-abstract class LowerBoundDetector {
+abstract class LowerBoundDetector(
+    chain: Chain,
+) {
     protected val log = LoggerFactory.getLogger(this::class.java)
 
-    protected val lowerBounds = ConcurrentHashMap<LowerBoundType, LowerBoundData>()
+    protected val lowerBounds = LowerBounds(chain)
     private val lowerBoundSink = Sinks.many().multicast().directBestEffort<LowerBoundData>()
 
     fun detectLowerBound(): Flux<LowerBoundData> {
@@ -35,10 +37,10 @@ abstract class LowerBoundDetector {
                 },
         )
             .filter {
-                it.lowerBound >= (lowerBounds[it.type]?.lowerBound ?: 0)
+                it.lowerBound >= (lowerBounds.getLastBound(it.type)?.lowerBound ?: 0)
             }
             .map {
-                lowerBounds[it.type] = it
+                lowerBounds.updateBound(it)
                 it
             }
     }
@@ -52,5 +54,9 @@ abstract class LowerBoundDetector {
 
     fun updateLowerBound(lowerBound: Long, type: LowerBoundType) {
         lowerBoundSink.emitNext(LowerBoundData(lowerBound, type)) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+    }
+
+    fun predictLowerBound(type: LowerBoundType): Long {
+        return lowerBounds.predictNextBound(type)
     }
 }

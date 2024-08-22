@@ -13,7 +13,7 @@ import reactor.core.publisher.Flux
 
 class PolkadotLowerBoundStateDetector(
     private val upstream: Upstream,
-) : LowerBoundDetector() {
+) : LowerBoundDetector(upstream.getChain()) {
     private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.STATE, nonRetryableErrors, lowerBounds)
 
     companion object {

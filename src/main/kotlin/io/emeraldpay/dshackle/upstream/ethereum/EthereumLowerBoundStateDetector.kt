@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono
 
 class EthereumLowerBoundStateDetector(
     private val upstream: Upstream,
-) : LowerBoundDetector() {
+) : LowerBoundDetector(upstream.getChain()) {
     private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.STATE, stateErrors, lowerBounds)
 
     companion object {

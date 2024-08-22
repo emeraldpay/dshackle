@@ -33,6 +33,13 @@ abstract class LowerBoundService(
             .forEach { it.updateLowerBound(lowerBound, type) }
     }
 
+    fun predictLowerBound(type: LowerBoundType): Long {
+        return detectors
+            .firstOrNull { it.types().contains(type) }
+            ?.predictLowerBound(type)
+            ?: 0
+    }
+
     fun getLowerBounds(): Collection<LowerBoundData> = lowerBounds.values
 
     fun getLowerBound(lowerBoundType: LowerBoundType): LowerBoundData? = lowerBounds[lowerBoundType]

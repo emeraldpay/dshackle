@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono
 
 class EthereumLowerBoundBlockDetector(
     private val upstream: Upstream,
-) : LowerBoundDetector() {
+) : LowerBoundDetector(upstream.getChain()) {
 
     companion object {
         private const val NO_BLOCK_DATA = "No block data"

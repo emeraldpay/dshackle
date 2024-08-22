@@ -1,11 +1,14 @@
 package io.emeraldpay.dshackle.upstream.starknet
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundDetector
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import reactor.core.publisher.Flux
 
-class StarknetLowerBoundStateDetector : LowerBoundDetector() {
+class StarknetLowerBoundStateDetector(
+    chain: Chain,
+) : LowerBoundDetector(chain) {
 
     override fun period(): Long {
         return 120

@@ -354,5 +354,9 @@ open class GenericUpstream(
         lowerBoundService.updateLowerBound(lowerBound, type)
     }
 
+    override fun predictLowerBound(type: LowerBoundType): Long {
+        return lowerBoundService.predictLowerBound(type)
+    }
+
     fun isValid(): Boolean = isUpstreamValid.get()
 }

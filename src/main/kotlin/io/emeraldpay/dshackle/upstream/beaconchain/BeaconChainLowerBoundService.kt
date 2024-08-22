@@ -6,10 +6,10 @@ import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundDetector
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 
 class BeaconChainLowerBoundService(
-    chain: Chain,
+    private val chain: Chain,
     upstream: Upstream,
 ) : LowerBoundService(chain, upstream) {
     override fun detectors(): List<LowerBoundDetector> {
-        return listOf(BeaconChainLowerBoundStateDetector())
+        return listOf(BeaconChainLowerBoundStateDetector(chain))
     }
 }

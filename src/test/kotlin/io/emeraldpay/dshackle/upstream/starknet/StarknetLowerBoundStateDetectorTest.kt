@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.starknet
 
+import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import org.junit.jupiter.api.Test
@@ -10,7 +11,7 @@ class StarknetLowerBoundStateDetectorTest {
 
     @Test
     fun `starknet lower block is 1`() {
-        val detector = StarknetLowerBoundStateDetector()
+        val detector = StarknetLowerBoundStateDetector(Chain.STARKNET__MAINNET)
 
         StepVerifier.withVirtualTime { detector.detectLowerBound() }
             .expectSubscription()

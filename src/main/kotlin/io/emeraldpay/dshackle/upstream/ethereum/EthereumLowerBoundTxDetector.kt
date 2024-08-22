@@ -13,7 +13,7 @@ import reactor.core.publisher.Flux
 
 class EthereumLowerBoundTxDetector(
     private val upstream: Upstream,
-) : LowerBoundDetector() {
+) : LowerBoundDetector(upstream.getChain()) {
 
     companion object {
         const val MAX_OFFSET = 20

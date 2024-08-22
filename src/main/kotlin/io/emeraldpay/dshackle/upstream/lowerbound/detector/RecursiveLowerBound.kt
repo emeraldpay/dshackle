@@ -4,6 +4,7 @@ import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBounds
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -17,7 +18,7 @@ class RecursiveLowerBound(
     private val upstream: Upstream,
     private val type: LowerBoundType,
     private val nonRetryableErrors: Set<String>,
-    private val lowerBounds: Map<LowerBoundType, LowerBoundData>,
+    private val lowerBounds: LowerBounds,
 ) {
     private val log = LoggerFactory.getLogger(this::class.java)
 
@@ -56,13 +57,13 @@ class RecursiveLowerBound(
 
     fun recursiveDetectLowerBoundWithOffset(maxLimit: Int, hasData: (Long) -> Mono<ChainResponse>): Flux<LowerBoundData> {
         val visitedBlocks = HashSet<Long>()
-        return Mono.justOrEmpty(lowerBounds[type]?.lowerBound)
-            .flatMapMany {
+        return Mono.justOrEmpty(lowerBounds.getLastBound(type)?.lowerBound)
+            .flatMapMany { bound ->
                 // at first, we try to check the current bound to prevent huge calculations
-                hasData(it!!)
-                    .retryWhen(retrySpec(it, nonRetryableErrors))
+                hasData(bound!!)
+                    .retryWhen(retrySpec(bound, nonRetryableErrors))
                     .flatMap(ChainResponse::requireResult)
-                    .map { LowerBoundData(lowerBounds[type]!!.lowerBound, type) }
+                    .map { LowerBoundData(bound, type) }
                     .onErrorResume { Mono.empty() }
             }.switchIfEmpty(
                 initialRange()
@@ -150,11 +151,11 @@ class RecursiveLowerBound(
                 val currentHeight = it.getCurrentHeight()
                 if (currentHeight == null) {
                     Mono.empty()
-                } else if (!lowerBounds.contains(type)) {
+                } else if (lowerBounds.getLastBound(type) == null) {
                     Mono.just(LowerBoundBinarySearchData(0, currentHeight))
                 } else {
                     // next calculations will be carried out only within the last range
-                    Mono.just(LowerBoundBinarySearchData(lowerBounds[type]!!.lowerBound, currentHeight))
+                    Mono.just(LowerBoundBinarySearchData(lowerBounds.getLastBound(type)!!.lowerBound, currentHeight))
                 }
             }
     }

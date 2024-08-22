@@ -11,6 +11,8 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.ChainsConfigReader
 import io.emeraldpay.dshackle.foundation.ChainOptionsReader
 import java.math.BigInteger
+import java.time.Duration
+import kotlin.math.ceil
 
 open class CodeGen(private val config: ChainsConfig) {
     companion object {
@@ -25,7 +27,7 @@ open class CodeGen(private val config: ChainsConfig) {
         builder.addEnumConstant(
             "UNSPECIFIED",
             TypeSpec.anonymousClassBuilder()
-                .addSuperclassConstructorParameter("%L, %S, %S, %S, %L, %L, %L", 0, "UNSPECIFIED", "Unknown", "0x0", "BigInteger.ZERO", "emptyList()", "BlockchainType.UNKNOWN")
+                .addSuperclassConstructorParameter("%L, %S, %S, %S, %L, %L, %L, %L", 0, "UNSPECIFIED", "Unknown", "0x0", "BigInteger.ZERO", "emptyList()", "BlockchainType.UNKNOWN", 0.0)
                 .build(),
         )
         for (chain in config) {
@@ -34,14 +36,15 @@ open class CodeGen(private val config: ChainsConfig) {
                     .replace(' ', '_'),
                 TypeSpec.anonymousClassBuilder()
                     .addSuperclassConstructorParameter(
-                        "%L, %S, %S, %S, %L, %L, %L",
+                        "%L, %S, %S, %S, %L, %L, %L, %L",
                         chain.grpcId,
                         chain.code,
                         chain.blockchain.replaceFirstChar { it.uppercase() } + " " + chain.id.replaceFirstChar { it.uppercase() },
                         chain.chainId,
                         "BigInteger(\"" + chain.netVersion + "\")",
                         "listOf(" + chain.shortNames.map { "\"${it}\"" }.joinToString() + ")",
-                        type(chain.type)
+                        type(chain.type),
+                        averageRemoveSpeed(chain.expectedBlockTime),
                     )
                     .build(),
             )
@@ -74,6 +77,7 @@ open class CodeGen(private val config: ChainsConfig) {
                         .addParameter("netVersion", BigInteger::class)
                         .addParameter("shortNames", List::class.asClassName().parameterizedBy(String::class.asClassName()))
                         .addParameter("type", BlockchainType::class)
+                        .addParameter("averageRemoveDataSpeed", Double::class.java)
                         .build(),
                 )
                 .addProperty(
@@ -111,6 +115,11 @@ open class CodeGen(private val config: ChainsConfig) {
                         .initializer("type")
                         .build(),
                 )
+                .addProperty(
+                    PropertySpec.builder("averageRemoveDataSpeed", Double::class)
+                        .initializer("averageRemoveDataSpeed")
+                        .build(),
+                )
         ).build()
         return FileSpec.builder("io.emeraldpay.dshackle", "Chain")
             .addType(chainType)
@@ -129,6 +138,10 @@ open class CodeGen(private val config: ChainsConfig) {
             "cosmos" -> "BlockchainType.COSMOS"
             else -> throw IllegalArgumentException("unknown blockchain type $type")
         }
+    }
+
+    private fun averageRemoveSpeed(expectedBlockTime: Duration): Double {
+        return ceil(1000.0/expectedBlockTime.toMillis()*100) / 100
     }
 }
 

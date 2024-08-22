@@ -11,7 +11,7 @@ import reactor.core.publisher.Flux
 
 class NearLowerBoundStateDetector(
     private val upstream: Upstream,
-) : LowerBoundDetector() {
+) : LowerBoundDetector(upstream.getChain()) {
 
     override fun period(): Long {
         return 3

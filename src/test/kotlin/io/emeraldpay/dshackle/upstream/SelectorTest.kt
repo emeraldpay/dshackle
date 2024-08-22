@@ -195,6 +195,7 @@ class SelectorTest {
             BlockchainOuterClass.Selector.newBuilder()
                 .setLowerHeightSelector(
                     BlockchainOuterClass.LowerHeightSelector.newBuilder()
+                        .setHeight(100050003)
                         .setLowerBoundType(BlockchainOuterClass.LowerBoundType.LOWER_BOUND_BLOCK)
                         .build(),
                 )
@@ -204,14 +205,45 @@ class SelectorTest {
         val upstreamFilter = Selector.convertToUpstreamFilter(requestSelectors)
 
         val actual = ups.sortedWith(upstreamFilter.sort.comparator)
+        val actualMatcher = Selector.MultiMatcher(listOf(Selector.LowerHeightMatcher(100050003, LowerBoundType.BLOCK)))
 
         assertEquals(
-            listOf(up2, up3, up1),
+            upstreamFilter.matcher,
+            actualMatcher,
+        )
+        assertEquals(
+            listOf(up1, up3, up2),
             actual,
         )
     }
 
+    @ParameterizedTest
+    @MethodSource("lowerHeightData")
+    fun `test lower height matcher`(
+        lowerHeight: Long,
+        predicted: Long,
+        expected: MatchesResponse,
+    ) {
+        val up = mock<Upstream> {
+            on { predictLowerBound(LowerBoundType.STATE) } doReturn predicted
+        }
+        val matcher = Selector.LowerHeightMatcher(lowerHeight, LowerBoundType.STATE)
+
+        val actualResponse = matcher.matchesWithCause(up)
+
+        assertEquals(expected, actualResponse)
+    }
+
     companion object {
+        @JvmStatic
+        fun lowerHeightData(): List<Arguments> =
+            listOf(
+                of(10000, 400, MatchesResponse.Success),
+                of(10000, 50000, MatchesResponse.LowerHeightResponse(10000, 50000, LowerBoundType.STATE)),
+                of(5000, 5000, MatchesResponse.Success),
+                of(3000, 0, MatchesResponse.LowerHeightResponse(3000, 0, LowerBoundType.STATE)),
+            )
+
         @JvmStatic
         fun data(): List<Arguments> =
             listOf(

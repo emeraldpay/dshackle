@@ -257,6 +257,10 @@ abstract class Multistream(
         return getAll().any { it.isAvailable() }
     }
 
+    override fun predictLowerBound(type: LowerBoundType): Long {
+        return 0
+    }
+
     override fun getStatus(): UpstreamAvailability {
         return state.getStatus()
     }

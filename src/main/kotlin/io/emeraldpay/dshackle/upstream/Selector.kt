@@ -23,11 +23,13 @@ import io.emeraldpay.dshackle.upstream.MatchesResponse.CapabilityResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.ExistsResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.GrpcResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.HeightResponse
+import io.emeraldpay.dshackle.upstream.MatchesResponse.LowerHeightResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.NotMatchedResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.SameNodeResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.SlotHeightResponse
 import io.emeraldpay.dshackle.upstream.MatchesResponse.Success
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import io.emeraldpay.dshackle.upstream.lowerbound.fromProtoType
 import org.apache.commons.lang3.StringUtils
 import java.util.Collections
@@ -101,6 +103,16 @@ class Selector {
                                 else -> empty
                             }
                         }
+                        it.hasLowerHeightSelector() -> {
+                            if (it.lowerHeightSelector.height > 0) {
+                                LowerHeightMatcher(
+                                    it.lowerHeightSelector.height,
+                                    it.lowerHeightSelector.lowerBoundType.fromProtoType(),
+                                )
+                            } else {
+                                empty
+                            }
+                        }
                         else -> empty
                     }
                 }.run {
@@ -112,8 +124,11 @@ class Selector {
         private fun getSort(selectors: List<BlockchainOuterClass.Selector>): Sort {
             selectors.forEach { selector ->
                 if (selector.hasHeightSelector()) {
-                    return HeightNumberOrTag.fromHeightSelector(selector.heightSelector)?.getSort() ?: Sort.default
-                } else if (selector.hasLowerHeightSelector()) {
+                    val heightSort = HeightNumberOrTag.fromHeightSelector(selector.heightSelector)?.getSort() ?: Sort.default
+                    if (heightSort != Sort.default) {
+                        return heightSort
+                    }
+                } else if (selector.hasLowerHeightSelector() && selector.lowerHeightSelector.height == 0L) {
                     return Sort(
                         compareBy(nullsLast()) {
                             it.getLowerBound(selector.lowerHeightSelector.lowerBoundType.fromProtoType())?.lowerBound
@@ -539,6 +554,28 @@ class Selector {
 
         override fun describeInternal(): String {
             return "is gRPC"
+        }
+
+        override fun toString(): String {
+            return "Matcher: ${describeInternal()}"
+        }
+    }
+
+    data class LowerHeightMatcher(
+        private val lowerHeight: Long,
+        private val boundType: LowerBoundType,
+    ) : Matcher() {
+        override fun matchesWithCause(up: Upstream): MatchesResponse {
+            val predictedLowerBound = up.predictLowerBound(boundType)
+            return if (lowerHeight >= predictedLowerBound && predictedLowerBound != 0L) {
+                Success
+            } else {
+                LowerHeightResponse(lowerHeight, predictedLowerBound, boundType)
+            }
+        }
+
+        override fun describeInternal(): String {
+            return "lower height $lowerHeight"
         }
 
         override fun toString(): String {

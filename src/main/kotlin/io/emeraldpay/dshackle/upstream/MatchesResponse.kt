@@ -1,5 +1,7 @@
 package io.emeraldpay.dshackle.upstream
 
+import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
+
 sealed class MatchesResponse {
 
     fun matched(): Boolean {
@@ -25,6 +27,13 @@ sealed class MatchesResponse {
                     .joinToString("; ") { it.getCause()!! }
             is NotMatchedResponse -> "Not matched - ${response.getCause()}"
             is SameNodeResponse -> "Upstream does not have hash ${this.upstreamHash}"
+            is LowerHeightResponse -> {
+                if (this.predictedHeight == 0L) {
+                    "Upstream lower height of type ${this.boundType} cannot be predicted"
+                } else {
+                    "Upstream lower height ${this.predictedHeight} of type ${this.boundType} is greater than ${this.lowerHeight}"
+                }
+            }
             else -> null
         }
 
@@ -70,6 +79,12 @@ sealed class MatchesResponse {
     ) : MatchesResponse()
 
     object GrpcResponse : MatchesResponse()
+
+    data class LowerHeightResponse(
+        val lowerHeight: Long,
+        val predictedHeight: Long,
+        val boundType: LowerBoundType,
+    ) : MatchesResponse()
 
     data class HeightResponse(
         val height: Long,

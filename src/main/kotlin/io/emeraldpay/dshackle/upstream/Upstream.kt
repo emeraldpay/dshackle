@@ -55,6 +55,7 @@ interface Upstream : Lifecycle {
     fun addFinalization(finalization: FinalizationData, upstreamId: String)
     fun getUpstreamSettingsData(): UpstreamSettingsData?
     fun updateLowerBound(lowerBound: Long, type: LowerBoundType)
+    fun predictLowerBound(type: LowerBoundType): Long
 
     fun getChain(): Chain
 

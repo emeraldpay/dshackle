@@ -54,6 +54,7 @@ class SolanaLowerBoundServiceTest {
         }
         val upstream = mock<Upstream> {
             on { getIngressReader() } doReturn reader
+            on { getChain() } doReturn Chain.UNSPECIFIED
         }
 
         val detector = SolanaLowerBoundService(Chain.UNSPECIFIED, upstream)

@@ -1,15 +1,15 @@
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.lowerbound
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.reader.ChainReader
+import io.emeraldpay.dshackle.upstream.ChainRequest
+import io.emeraldpay.dshackle.upstream.ChainResponse
+import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundService
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumLowerBoundTxDetector.Companion.MAX_OFFSET
 import io.emeraldpay.dshackle.upstream.ethereum.ZERO_ADDRESS
-import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
-import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
-import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
-import io.emeraldpay.dshackle.upstream.lowerbound.toHex
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotLowerBoundService
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.assertj.core.api.Assertions.assertThat
@@ -77,6 +77,7 @@ class RecursiveLowerBoundServiceTest {
             on { getId() } doReturn "id"
             on { getHead() } doReturn head
             on { getIngressReader() } doReturn reader
+            on { getChain() } doReturn Chain.UNSPECIFIED
         }
 
         val detector = EthereumLowerBoundService(Chain.UNSPECIFIED, upstream)
@@ -130,6 +131,7 @@ class RecursiveLowerBoundServiceTest {
         val upstream = mock<Upstream> {
             on { getHead() } doReturn head
             on { getIngressReader() } doReturn reader
+            on { getChain() } doReturn Chain.STARKNET__MAINNET
         }
 
         val detector = PolkadotLowerBoundService(Chain.UNSPECIFIED, upstream)
@@ -162,6 +164,7 @@ class RecursiveLowerBoundServiceTest {
         val upstream = mock<Upstream> {
             on { getHead() } doReturn head
             on { getIngressReader() } doReturn reader
+            on { getChain() } doReturn Chain.UNSPECIFIED
         }
 
         val detector = detectorClass.getConstructor(Chain::class.java, Upstream::class.java).newInstance(Chain.UNSPECIFIED, upstream)

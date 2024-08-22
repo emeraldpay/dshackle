@@ -168,6 +168,10 @@ abstract class DefaultUpstream(
         // NOOP
     }
 
+    override fun predictLowerBound(type: LowerBoundType): Long {
+        return 0
+    }
+
     protected fun sendUpstreamStateEvent(eventType: UpstreamChangeEvent.ChangeType) {
         stateEventStream.emitNext(
             UpstreamChangeEvent(chain, this, eventType),
