@@ -1,14 +1,12 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import com.fasterxml.jackson.module.kotlin.readValue
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
-import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
-import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
-import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcResponseError
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationDetector
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
@@ -74,35 +72,28 @@ class EthereumFinalizationDetector : FinalizationDetector {
                         upstream
                             .getIngressReader()
                             .read(req)
-                            .onErrorResume {
-                                if (it.message != null && it.message!!.matches(Regex(errorRegex))) {
-                                    log.warn("Can't retrieve tagged block, finalization detector for upstream ${upstream.getId()} $chain tag $type disabled")
-                                    disableDetector[type] = true
-                                } else {
-                                    throw it
-                                }
-                                Mono.empty<ChainResponse>()
-                            }
                             .flatMap {
-                                it.requireResult().map { result ->
-                                    val block = Global.objectMapper
-                                        .readValue(
-                                            result,
-                                            BlockJson::class.java,
-                                        ) as BlockJson<TransactionRefJson>?
+                                it.requireResult().flatMap { result ->
+                                    val block = Global.objectMapper.readValue<BlockJson<TransactionRefJson>>(result)
                                     if (block != null) {
-                                        FinalizationData(block.number, type)
+                                        Mono.just(FinalizationData(block.number, type))
                                     } else {
-                                        throw RpcException(RpcResponseError.CODE_INVALID_JSON, "can't parse block data")
+                                        Mono.empty()
                                     }
                                 }
+                            }
+                            .onErrorResume {
+                                if (it.message != null && it.message!!.matches(Regex(errorRegex))) {
+                                    log.warn("Can't retrieve tagged block, finalization detector of upstream {} tag {} is disabled", upstream.getId(), type)
+                                    disableDetector[type] = true
+                                } else {
+                                    log.error("Error in FinalizationDetector of upstream {}, reason - {}", upstream.getId(), it.message)
+                                }
+                                Mono.empty()
                             }
                     } else {
                         Flux.empty()
                     }
-                }.onErrorResume {
-                    log.error("Error in FinalizationDetector for upstream ${upstream.getId()} $chain — $it")
-                    Flux.empty()
                 }
             }.filter {
                 it.height > (data[it.type]?.height ?: 0)
