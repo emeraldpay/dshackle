@@ -437,15 +437,9 @@ class GenericWsHeadTest {
             Duration.ofSeconds(60),
         )
 
-        StepVerifier.create(wsHead.getFlux())
+        StepVerifier.create(wsHead.headLiveness())
             .then { wsHead.start() }
-            .expectNext(BlockContainer.from(block1))
-            .then {
-                StepVerifier.create(wsHead.headLiveness())
-                    .expectNext(HeadLivenessState.FATAL_ERROR)
-                    .thenCancel()
-                    .verify(Duration.ofSeconds(2))
-            }
+            .expectNext(HeadLivenessState.FATAL_ERROR)
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
