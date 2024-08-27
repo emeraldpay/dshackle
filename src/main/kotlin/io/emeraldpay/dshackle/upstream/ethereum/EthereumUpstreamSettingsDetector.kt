@@ -11,7 +11,6 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import kotlin.text.toBigInteger
 
 const val ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -21,7 +20,7 @@ class EthereumUpstreamSettingsDetector(
 ) : BasicEthUpstreamSettingsDetector(_upstream) {
     private val blockNumberReader = EthereumArchiveBlockNumberReader(upstream.getIngressReader())
 
-    override fun detectLabels(): Flux<Pair<String, String>> {
+    override fun internalDetectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
             detectNodeType(),
             detectArchiveNode(),

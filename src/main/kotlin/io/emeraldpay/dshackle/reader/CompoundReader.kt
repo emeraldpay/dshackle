@@ -41,7 +41,7 @@ class CompoundReader<K, D> (
             .flatMap({ rdr ->
                 rdr.read(key)
                     .timeout(Defaults.timeoutInternal, Mono.empty())
-                    .doOnError { t -> log.warn("Failed to read from $rdr", t) }
+                    .doOnError { t -> log.warn("Failed to read from {}, reason - {}", rdr, t.message) }
             }, 1,)
             .next()
     }

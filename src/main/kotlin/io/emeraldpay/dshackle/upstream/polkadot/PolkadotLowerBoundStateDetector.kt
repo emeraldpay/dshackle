@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.polkadot
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -34,6 +35,7 @@ class PolkadotLowerBoundStateDetector(
                     ListParams(block.toHex()), // in polkadot state methods work only with hash
                 ),
             )
+                .timeout(Defaults.internalCallsTimeout)
                 .flatMap(ChainResponse::requireResult)
                 .map {
                     String(it, 1, it.size - 2)
@@ -44,7 +46,7 @@ class PolkadotLowerBoundStateDetector(
                             "state_getMetadata",
                             ListParams(it),
                         ),
-                    )
+                    ).timeout(Defaults.internalCallsTimeout)
                 }
         }
     }

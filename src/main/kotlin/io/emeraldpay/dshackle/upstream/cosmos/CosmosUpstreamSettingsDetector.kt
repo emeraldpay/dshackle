@@ -14,7 +14,7 @@ import reactor.core.publisher.Flux
 class CosmosUpstreamSettingsDetector(
     upstream: Upstream,
 ) : BasicUpstreamSettingsDetector(upstream) {
-    override fun detectLabels(): Flux<Pair<String, String>> {
+    override fun internalDetectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
             detectNodeType(),
         )

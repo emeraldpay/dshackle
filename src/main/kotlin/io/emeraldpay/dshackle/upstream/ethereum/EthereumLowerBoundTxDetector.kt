@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -32,6 +33,7 @@ class EthereumLowerBoundTxDetector(
                 .read(
                     ChainRequest("eth_getBlockByNumber", ListParams(block.toHex(), false)),
                 )
+                .timeout(Defaults.internalCallsTimeout)
                 .doOnNext {
                     if (it.hasResult() && it.getResult().contentEquals("null".toByteArray())) {
                         throw IllegalStateException(NO_TX_DATA)
@@ -50,6 +52,7 @@ class EthereumLowerBoundTxDetector(
                         .read(
                             ChainRequest("eth_getTransactionByHash", ListParams(tx)),
                         )
+                        .timeout(Defaults.internalCallsTimeout)
                         .doOnNext {
                             if (it.hasResult() && it.getResult().contentEquals("null".toByteArray())) {
                                 throw IllegalStateException(NO_TX_DATA)

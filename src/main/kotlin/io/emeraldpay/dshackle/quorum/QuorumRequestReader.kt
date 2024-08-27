@@ -178,11 +178,11 @@ class QuorumRequestReader(
             src.onErrorResume { err ->
                 errorHandler.handle(api, key, err.message)
 
-                val msgError = "Error during call upstream ${api.getId()} with method ${key.method}"
+                val msgError = "Error during call upstream ${api.getId()} with method ${key.method}, reason - ${err.message}"
                 if (err is ChainCallUpstreamException) {
-                    log.debug(msgError, err)
+                    log.debug(msgError)
                 } else {
-                    log.warn(msgError, err)
+                    log.warn(msgError)
                 }
 
                 // when the call failed with an error we want to notify the quorum because

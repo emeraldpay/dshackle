@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
@@ -39,6 +40,7 @@ class EthereumLowerBoundLogsDetector(
                         ),
                     ),
                 )
+                .timeout(Defaults.internalCallsTimeout)
                 .doOnNext {
                     if (it.hasResult() && (it.getResult().contentEquals("null".toByteArray()) || it.getResult().contentEquals("[]".toByteArray()))) {
                         throw IllegalStateException(NO_LOGS_DATA)

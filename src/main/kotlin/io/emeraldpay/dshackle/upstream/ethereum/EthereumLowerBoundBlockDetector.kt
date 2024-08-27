@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.upstream.ChainCallError
 import io.emeraldpay.dshackle.upstream.ChainCallUpstreamException
 import io.emeraldpay.dshackle.upstream.ChainRequest
@@ -45,6 +46,7 @@ class EthereumLowerBoundBlockDetector(
                             ListParams(block.toHex(), false),
                         ),
                     )
+                    .timeout(Defaults.internalCallsTimeout)
                     .doOnNext {
                         if (it.hasResult() && it.getResult().contentEquals("null".toByteArray())) {
                             throw IllegalStateException(NO_BLOCK_DATA)

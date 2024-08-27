@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.upstream.cosmos
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -31,10 +32,13 @@ class CosmosLowerBoundStateDetector(
     }
 
     override fun internalDetectLowerBound(): Flux<LowerBoundData> {
-        return upstream.getIngressReader().read(ChainRequest("status", ListParams())).map {
-            val resp = Global.objectMapper.readValue(it.getResult(), CosmosStatus::class.java)
-            LowerBoundData(resp.syncInfo.earliestBlockHeight.toLong(), STATE)
-        }.toFlux()
+        return upstream.getIngressReader()
+            .read(ChainRequest("status", ListParams()))
+            .timeout(Defaults.internalCallsTimeout)
+            .map {
+                val resp = Global.objectMapper.readValue(it.getResult(), CosmosStatus::class.java)
+                LowerBoundData(resp.syncInfo.earliestBlockHeight.toLong(), STATE)
+            }.toFlux()
     }
 
     override fun types(): Set<LowerBoundType> {

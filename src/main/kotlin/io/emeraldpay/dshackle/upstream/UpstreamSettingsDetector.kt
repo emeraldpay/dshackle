@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.Defaults.Companion.internalCallsTimeout
 import io.emeraldpay.dshackle.Global
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -17,15 +18,25 @@ abstract class UpstreamSettingsDetector(
 ) {
     protected val log = LoggerFactory.getLogger(this::class.java)
 
-    abstract fun detectLabels(): Flux<Pair<String, String>>
+    fun detectLabels(): Flux<Pair<String, String>> {
+        return internalDetectLabels()
+            .timeout(internalCallsTimeout)
+            .onErrorResume {
+                log.warn("Couldn't detect lables of upstream {}, message - {}", upstream.getId(), it.message)
+                Flux.empty()
+            }
+    }
+
+    protected abstract fun internalDetectLabels(): Flux<Pair<String, String>>
 
     fun detectClientVersion(): Mono<String> {
         return upstream.getIngressReader()
             .read(clientVersionRequest())
             .flatMap(ChainResponse::requireResult)
             .map(::parseClientVersion)
+            .timeout(internalCallsTimeout)
             .onErrorResume {
-                log.warn("Can't detect the client version of upstream ${upstream.getId()}, reason - {}", it.message)
+                log.warn("Can't detect the client version of upstream {}, reason - {}", upstream.getId(), it.message)
                 Mono.just(UNKNOWN_CLIENT_VERSION)
             }
     }

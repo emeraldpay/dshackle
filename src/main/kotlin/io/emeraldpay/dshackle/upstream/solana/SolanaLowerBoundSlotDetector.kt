@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.solana
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
@@ -28,7 +29,7 @@ class SolanaLowerBoundSlotDetector(
             .flatMap {
                 it.read(
                     ChainRequest("getFirstAvailableBlock", ListParams()), // in case of solana we talk about the slot of the lowest confirmed block
-                )
+                ).timeout(Defaults.internalCallsTimeout)
             }
             .flatMap(ChainResponse::requireResult)
             .map {
@@ -53,6 +54,7 @@ class SolanaLowerBoundSlotDetector(
                         ),
                     ),
                 )
+                    .timeout(Defaults.internalCallsTimeout)
                     .flatMap(ChainResponse::requireResult)
                     .flatMapMany { blockData ->
                         val block = Global.objectMapper.readValue(blockData, SolanaBlock::class.java)

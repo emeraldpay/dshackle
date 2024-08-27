@@ -1,6 +1,7 @@
 package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig.Labels
@@ -35,10 +36,13 @@ import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundData
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundServiceBuilder
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundType
 import org.springframework.context.Lifecycle
+import org.springframework.scheduling.concurrent.CustomizableThreadFactory
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
+import reactor.core.scheduler.Schedulers
 import java.time.Duration
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Supplier
@@ -192,6 +196,7 @@ open class GenericUpstream(
                 },
                 headLivenessState.asFlux(),
             )
+                .subscribeOn(upstreamSettingsScheduler)
                 .distinctUntilChanged()
                 .subscribe {
                     when (it) {
@@ -238,29 +243,35 @@ open class GenericUpstream(
                         clientVersion.set(it)
                     },
             )
+                .subscribeOn(settingsScheduler)
         }.subscribe()
     }
 
     private fun detectRpcModules(config: UpstreamsConfig.Upstream<*>, buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods) {
-        val rpcDetector = rpcModulesDetector?.detectRpcModules()?.block() ?: HashMap<String, String>()
-        log.info("Upstream rpc detector for  ${getId()} returned  $rpcDetector ")
-        if (rpcDetector.size != 0) {
-            var changed = false
-            for ((group, _) in rpcDetector) {
-                if (group == "trace" || group == "debug" || group == "filter") {
-                    if (config.methodGroups == null) {
-                        config.methodGroups = UpstreamsConfig.MethodGroups(setOf("filter"), setOf())
-                    } else {
-                        val disabled = config.methodGroups!!.disabled
-                        val enabled = config.methodGroups!!.enabled
-                        if (!disabled.contains(group) && !enabled.contains(group)) {
-                            config.methodGroups!!.enabled = enabled.plus(group)
-                            changed = true
+        try {
+            val rpcDetector = rpcModulesDetector?.detectRpcModules()?.block(Defaults.internalCallsTimeout)
+                ?: HashMap<String, String>()
+            log.info("Upstream rpc detector for  ${getId()} returned  $rpcDetector ")
+            if (rpcDetector.size != 0) {
+                var changed = false
+                for ((group, _) in rpcDetector) {
+                    if (group == "trace" || group == "debug" || group == "filter") {
+                        if (config.methodGroups == null) {
+                            config.methodGroups = UpstreamsConfig.MethodGroups(setOf("filter"), setOf())
+                        } else {
+                            val disabled = config.methodGroups!!.disabled
+                            val enabled = config.methodGroups!!.enabled
+                            if (!disabled.contains(group) && !enabled.contains(group)) {
+                                config.methodGroups!!.enabled = enabled.plus(group)
+                                changed = true
+                            }
                         }
                     }
                 }
+                if (changed) updateMethods(buildMethods(config, getChain()))
             }
-            if (changed) updateMethods(buildMethods(config, getChain()))
+        } catch (e: RuntimeException) {
+            log.error("Couldn't detect rpc modules of upstream {} due to error {}", getId(), e.message)
         }
     }
 
@@ -331,14 +342,17 @@ open class GenericUpstream(
 
     private fun detectFinalization() {
         finalizationDetectorSubscription =
-            finalizationDetector.detectFinalization(this, chainConfig.expectedBlockTime, getChain()).subscribe {
-                sendUpstreamStateEvent(UPDATED)
-            }
+            finalizationDetector.detectFinalization(this, chainConfig.expectedBlockTime, getChain())
+                .subscribeOn(finalizationScheduler)
+                .subscribe {
+                    sendUpstreamStateEvent(UPDATED)
+                }
     }
 
     private fun detectLowerBlock() {
         lowerBlockDetectorSubscription =
             lowerBoundService.detectLowerBounds()
+                .subscribeOn(lowerScheduler)
                 .subscribe {
                     sendUpstreamStateEvent(UPDATED)
                 }
@@ -359,4 +373,15 @@ open class GenericUpstream(
     }
 
     fun isValid(): Boolean = isUpstreamValid.get()
+
+    companion object {
+        private val upstreamSettingsScheduler =
+            Schedulers.fromExecutor(Executors.newFixedThreadPool(4, CustomizableThreadFactory("upstreamSettings-")))
+        private val finalizationScheduler =
+            Schedulers.fromExecutor(Executors.newFixedThreadPool(4, CustomizableThreadFactory("finalization-")))
+        private val settingsScheduler =
+            Schedulers.fromExecutor(Executors.newFixedThreadPool(4, CustomizableThreadFactory("settings-")))
+        private val lowerScheduler =
+            Schedulers.fromExecutor(Executors.newFixedThreadPool(4, CustomizableThreadFactory("lowerBound-")))
+    }
 }

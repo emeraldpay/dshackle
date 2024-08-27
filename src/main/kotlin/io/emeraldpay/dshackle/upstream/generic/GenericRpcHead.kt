@@ -46,12 +46,15 @@ class GenericRpcHead(
     override fun start() {
         super.start()
         refreshSubscription?.dispose()
+
         val base = Flux.interval(interval)
+            .onBackpressureDrop()
             .publishOn(headScheduler)
             .filter { !isSyncing }
-            .flatMap {
+            .concatMap {
                 getLatestBlock(api)
             }
+
         refreshSubscription = super.follow(base)
     }
 

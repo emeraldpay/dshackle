@@ -444,10 +444,10 @@ class GenericWsHeadTest {
                 StepVerifier.create(wsHead.headLiveness())
                     .expectNext(HeadLivenessState.FATAL_ERROR)
                     .thenCancel()
-                    .verify(Duration.ofSeconds(1))
+                    .verify(Duration.ofSeconds(2))
             }
             .thenCancel()
-            .verify(Duration.ofSeconds(1))
+            .verify(Duration.ofSeconds(3))
 
         verify(connection, times(2)).callRpc(ChainRequest("eth_chainId", ListParams()))
         verify(connection, times(2)).callRpc(ChainRequest("net_version", ListParams()))

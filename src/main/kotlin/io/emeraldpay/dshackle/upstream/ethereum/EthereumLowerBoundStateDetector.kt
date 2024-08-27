@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
@@ -60,7 +61,7 @@ class EthereumLowerBoundStateDetector(
                         "eth_getBalance",
                         ListParams(ZERO_ADDRESS, block.toHex()),
                     ),
-                )
+                ).timeout(Defaults.internalCallsTimeout)
             }.doOnNext {
                 if (it.hasResult() && it.getResult().contentEquals(Global.nullValue)) {
                     throw IllegalStateException("No state data")

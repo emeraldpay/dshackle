@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.generic
 
+import io.emeraldpay.dshackle.Defaults.Companion.internalCallsTimeout
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -21,8 +22,9 @@ class AggregatedUpstreamValidator(
         ) { a -> a.map { it as UpstreamAvailability } }
             .map(::resolve)
             .defaultIfEmpty(UpstreamAvailability.OK) // upstream is OK on case there are no validators
+            .timeout(internalCallsTimeout)
             .onErrorResume {
-                log.error("Error during upstream validation for ${upstream.getId()}", it)
+                log.error("Error during upstream validation for {}, reason - {}", upstream.getId(), it.message)
                 Mono.just(UpstreamAvailability.UNAVAILABLE)
             }
     }
@@ -33,13 +35,16 @@ class AggregatedUpstreamValidator(
         ) { a -> a.map { it as ValidateUpstreamSettingsResult } }
             .map(::resolve)
             .defaultIfEmpty(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
+            .timeout(internalCallsTimeout)
             .onErrorResume {
-                log.error("Error during upstream validation for ${upstream.getId()}", it)
+                log.error("Error during upstream validation for {}, reason - {}", upstream.getId(), it.message)
                 Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR)
             }
     }
 
     override fun validateUpstreamSettingsOnStartup(): ValidateUpstreamSettingsResult {
-        return validateUpstreamSettings().block() ?: ValidateUpstreamSettingsResult.UPSTREAM_VALID
+        return runCatching {
+            validateUpstreamSettings().block(internalCallsTimeout) ?: ValidateUpstreamSettingsResult.UPSTREAM_VALID
+        }.getOrDefault(ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR)
     }
 }

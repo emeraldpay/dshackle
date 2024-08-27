@@ -1,5 +1,6 @@
 package io.emeraldpay.dshackle.upstream.near
 
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -18,17 +19,20 @@ class NearLowerBoundStateDetector(
     }
 
     override fun internalDetectLowerBound(): Flux<LowerBoundData> {
-        return upstream.getIngressReader().read(ChainRequest("status", ListParams())).map {
-            val resp = Global.objectMapper.readValue(it.getResult(), NearStatus::class.java)
-            resp.syncInfo.earliestHeight
-        }.flatMapMany {
-            Flux.fromIterable(
-                listOf(
-                    LowerBoundData(it, LowerBoundType.STATE),
-                    LowerBoundData(it, LowerBoundType.BLOCK),
-                ),
-            )
-        }
+        return upstream.getIngressReader()
+            .read(ChainRequest("status", ListParams()))
+            .timeout(Defaults.internalCallsTimeout)
+            .map {
+                val resp = Global.objectMapper.readValue(it.getResult(), NearStatus::class.java)
+                resp.syncInfo.earliestHeight
+            }.flatMapMany {
+                Flux.fromIterable(
+                    listOf(
+                        LowerBoundData(it, LowerBoundType.STATE),
+                        LowerBoundData(it, LowerBoundType.BLOCK),
+                    ),
+                )
+            }
     }
 
     override fun types(): Set<LowerBoundType> {

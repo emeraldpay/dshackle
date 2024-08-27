@@ -2,6 +2,7 @@ package io.emeraldpay.dshackle.upstream.ethereum
 
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -72,6 +73,7 @@ class EthereumFinalizationDetector : FinalizationDetector {
                         upstream
                             .getIngressReader()
                             .read(req)
+                            .timeout(Defaults.internalCallsTimeout)
                             .flatMap {
                                 it.requireResult().flatMap { result ->
                                     val block = Global.objectMapper.readValue<BlockJson<TransactionRefJson>>(result)
