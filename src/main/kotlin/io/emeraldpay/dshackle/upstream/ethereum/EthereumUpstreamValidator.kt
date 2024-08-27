@@ -187,7 +187,7 @@ class ChainIdValidator(
                 }
             }
             .onErrorResume {
-                log.error("Error during chain validation", it)
+                log.error("Error during chain validation of upstream {}, reason - {}", upstream.getId(), it.message)
                 Mono.just(onError)
             }
     }
@@ -197,11 +197,13 @@ class ChainIdValidator(
             .read(ChainRequest("eth_chainId", ListParams()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
-                    "error during chainId retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
-                        "message ${ctx.exception().message}",
+                    "error during chainId retrieving for {}, iteration {}, reason - {}",
+                    upstream.getId(),
+                    ctx.iteration(),
+                    ctx.exception().message,
                 )
             }
-            .doOnError { log.error("Error during execution 'eth_chainId' - ${it.message} for ${upstream.getId()}") }
+            .doOnError { log.error("Error during execution 'eth_chainId' - {} for {}", it.message, upstream.getId()) }
             .flatMap(ChainResponse::requireStringResult)
     }
 
@@ -210,11 +212,13 @@ class ChainIdValidator(
             .read(ChainRequest("net_version", ListParams()))
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
-                    "error during netVersion retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
-                        "message ${ctx.exception().message}",
+                    "error during netVersion retrieving for {}, iteration {}, reason - {}",
+                    upstream.getId(),
+                    ctx.iteration(),
+                    ctx.exception().message,
                 )
             }
-            .doOnError { log.error("Error during execution 'net_version' - ${it.message} for ${upstream.getId()}") }
+            .doOnError { log.error("Error during execution 'net_version' - {} for {}", it.message, upstream.getId()) }
             .flatMap(ChainResponse::requireStringResult)
     }
 }
@@ -237,8 +241,10 @@ class OldBlockValidator(
             }
             .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
                 log.warn(
-                    "error during old block retrieving for ${upstream.getId()}, iteration ${ctx.iteration()}, " +
-                        "message ${ctx.exception().message}",
+                    "error during old block retrieving for {}, iteration {}, reason - {}",
+                    upstream.getId(),
+                    ctx.iteration(),
+                    ctx.exception().message,
                 )
             }
             .map { result ->
@@ -251,7 +257,7 @@ class OldBlockValidator(
                 ValidateUpstreamSettingsResult.UPSTREAM_VALID
             }
             .onErrorResume {
-                log.warn("Error during old blocks validation", it)
+                log.warn("Error during old blocks validation of upstream {}, reason - {}", upstream.getId(), it.message)
                 Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
             }
     }

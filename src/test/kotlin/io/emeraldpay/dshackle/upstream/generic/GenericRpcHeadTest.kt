@@ -16,6 +16,7 @@ import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
@@ -179,20 +180,16 @@ class GenericRpcHeadTest {
             Duration.ofSeconds(5),
         )
 
-        StepVerifier.withVirtualTime { head.getFlux() }
+        StepVerifier.withVirtualTime { head.headLiveness() }
             .expectSubscription()
             .then { head.start() }
             .expectNoEvent(Duration.ofSeconds(5))
-            .expectNext(BlockContainer.from(block1))
             .expectNoEvent(Duration.ofSeconds(5))
-            .then {
-                StepVerifier.create(head.headLiveness())
-                    .expectNext(HeadLivenessState.FATAL_ERROR)
-                    .thenCancel()
-                    .verify(Duration.ofSeconds(3))
-            }
+            .expectNext(HeadLivenessState.FATAL_ERROR)
             .thenCancel()
             .verify(Duration.ofSeconds(3))
+
+        assertThat(head.getCurrentHeight()).isEqualTo(10000)
 
         verify(reader, times(2)).read(ChainRequest("eth_getBlockByNumber", ListParams("latest", false)))
         verify(reader).read(ChainRequest("eth_chainId", ListParams()))
