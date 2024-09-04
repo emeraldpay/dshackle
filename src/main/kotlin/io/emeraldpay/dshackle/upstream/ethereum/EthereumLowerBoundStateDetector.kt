@@ -44,6 +44,8 @@ class EthereumLowerBoundStateDetector(
             "purged for block", // erigon
             "No state data", // our own error if there is "null" in response
             "state is not available", // bsc also can return this error along with "header not found"
+            "Block with such an ID is pruned", // zksync
+            "state at block", // berachain, eth
         )
     }
 
