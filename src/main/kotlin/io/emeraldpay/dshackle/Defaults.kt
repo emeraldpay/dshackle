@@ -25,7 +25,7 @@ class Defaults {
         const val maxMetadataSize = 16384
         val timeout: Duration = Duration.ofSeconds(60)
         val timeoutInternal: Duration = timeout.dividedBy(4)
-        val internalCallsTimeout = Duration.ofSeconds(3)
+        val internalCallsTimeout = Duration.ofSeconds(5)
         val retryConnection: Duration = Duration.ofSeconds(10)
         val grpcServerKeepAliveTime: Long = 15 // seconds
         val grpcServerKeepAliveTimeout: Long = 5

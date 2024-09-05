@@ -38,7 +38,7 @@ class AggregatedUpstreamValidator(
             .timeout(internalCallsTimeout)
             .onErrorResume {
                 log.error("Error during upstream validation for {}, reason - {}", upstream.getId(), it.message)
-                Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_FATAL_SETTINGS_ERROR)
+                Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_SETTINGS_ERROR)
             }
     }
 

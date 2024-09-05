@@ -76,6 +76,10 @@ class TestingCommons {
         return new GenericUpstreamMock(Chain.ETHEREUM__MAINNET, api)
     }
 
+    static GenericUpstreamMock upstream(Reader<ChainRequest, ChainResponse> api, Map<String, String> labels) {
+        return new GenericUpstreamMock("test-1", Chain.ETHEREUM__MAINNET, api, labels)
+    }
+
     static GenericUpstreamMock upstream(Reader<ChainRequest, ChainResponse> api, String method) {
         return upstream(api, [method])
     }

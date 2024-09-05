@@ -19,11 +19,14 @@ class EthereumUpstreamSettingsDetector(
     private val chain: Chain,
 ) : BasicEthUpstreamSettingsDetector(_upstream) {
     private val blockNumberReader = EthereumArchiveBlockNumberReader(upstream.getIngressReader())
+    private val notArchived = upstream
+        .getLabels()
+        .find { it.getOrDefault("archive", "") == "false" } != null
 
     override fun internalDetectLabels(): Flux<Pair<String, String>> {
         return Flux.merge(
             detectNodeType(),
-            detectArchiveNode(),
+            detectArchiveNode(notArchived),
             detectGasLabels(),
         )
     }
@@ -88,8 +91,8 @@ class EthereumUpstreamSettingsDetector(
         }
     }
 
-    private fun detectArchiveNode(): Mono<Pair<String, String>> {
-        if (upstream.getLabels().firstOrNull { it.getOrDefault("archive", "") == "false" } != null) {
+    private fun detectArchiveNode(notArchived: Boolean): Mono<Pair<String, String>> {
+        if (notArchived) {
             return Mono.empty()
         }
         return Mono.zip(

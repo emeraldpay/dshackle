@@ -84,6 +84,29 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
                 .verify(Duration.ofSeconds(1))
     }
 
+    def "No archive label if it is set manually"() {
+        setup:
+        def up = TestingCommons.upstream(
+                new ApiReaderMock().tap {
+                    answer("web3_clientVersion", [], "Bor/v0.4.0/linux-amd64/go1.19.10")
+                    answer("eth_blockNumber", [], "0x10df3e5")
+                },
+                Map.of("archive", "false")
+        )
+        def detector = new EthereumUpstreamSettingsDetector(up, Chain.ETHEREUM__MAINNET)
+
+        when:
+        def act = detector.internalDetectLabels()
+        then:
+        StepVerifier.create(act)
+                .expectNext(
+                        new Pair<String, String>("client_type", "bor"),
+                        new Pair<String, String>("client_version", "v0.4.0"),
+                )
+                .expectComplete()
+                .verify(Duration.ofSeconds(1))
+    }
+
     def "Only default label"() {
         setup:
         def up = Mock(DefaultUpstream) {
@@ -128,6 +151,7 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
                 1 * read(new ChainRequest("web3_clientVersion", new ListParams())) >>
                         Mono.just(new ChainResponse('"Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"'.getBytes(), null))
             }
+            1 * getLabels() >> List.of()
         }
         def detector = new EthereumUpstreamSettingsDetector(up, Chain.ETHEREUM__MAINNET)
         when:
