@@ -175,8 +175,8 @@ class ChainIdValidator(
                 if (!isChainValid) {
                     val actualChain = Global.chainByChainId(it.t1).chainName
                     log.warn(
-                        "${chain.chainName} is specified for upstream ${upstream.getId()} (${chain.chainId.lowercase()} $netver) " +
-                            "but actually it is $actualChain with chainId ${it.t1} and net_version ${it.t2}",
+                        "${chain.chainName} is specified for upstream ${upstream.getId()} (chainId ${chain.chainId.lowercase()}, net_version ${chain.netVersion}) " +
+                            "but actually it is $actualChain with chainId ${it.t1} and net_version $netver",
                     )
                 }
 
