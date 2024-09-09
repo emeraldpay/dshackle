@@ -348,6 +348,7 @@ class DefaultEthereumMethods(
         "Filecoin.SyncIncomingBlocks",
         "Filecoin.SyncState",
         "Filecoin.SyncValidateTipset",
+        "Filecoin.Version",
         "Filecoin.WalletBalance",
         "Filecoin.WalletValidateAddress",
         "Filecoin.WalletVerify",

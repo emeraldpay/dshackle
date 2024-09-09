@@ -22,3 +22,5 @@ Test*.kt
 
 # http-client config
 http-client.env.json
+
+.DS_Store
