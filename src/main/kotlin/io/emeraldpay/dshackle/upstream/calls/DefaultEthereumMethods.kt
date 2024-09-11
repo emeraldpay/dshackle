@@ -153,6 +153,30 @@ class DefaultEthereumMethods(
         "klay_getTransactionReceiptBySenderTxHash",
     )
 
+    private val kaiaPossibleNotIndexedMethods = listOf(
+        "kaia_blockNumber",
+        "kaia_getBlockByHash",
+        "kaia_getBlockReceipts",
+        "kaia_getBlockTransactionCountByNumber",
+        "kaia_getBlockWithConsensusInfoByNumber",
+        "kaia_getBlockByNumber",
+        "kaia_getBlockTransactionCountByHash",
+        "kaia_getHeaderByNumber",
+        "kaia_getHeaderByHash",
+        "kaia_getBlockWithConsensusInfoByNumberRange",
+        "kaia_getBlockWithConsensusInfoByHash",
+        "kaia_getDecodedAnchoringTransactionByHash",
+        "kaia_getRawTransactionByBlockNumberAndIndex",
+        "kaia_getRawTransactionByBlockHashAndIndex",
+        "kaia_getRawTransactionByHash",
+        "kaia_getTransactionByBlockNumberAndIndex",
+        "kaia_getTransactionBySenderTxHash",
+        "kaia_getTransactionByBlockHashAndIndex",
+        "kaia_getTransactionByHash",
+        "kaia_getTransactionReceipt",
+        "kaia_getTransactionReceiptBySenderTxHash",
+    )
+
     private val firstValueMethods = listOf(
         "eth_call",
         "eth_getStorageAt",
@@ -179,6 +203,11 @@ class DefaultEthereumMethods(
     private val klaySpecialMethods = listOf(
         "klay_sendRawTransaction",
         "klay_getTransactionCount",
+    )
+
+    private val kaiaSpecialMethods = listOf(
+        "kaia_sendRawTransaction",
+        "kaia_getTransactionCount",
     )
 
     private val headVerifiedMethods = listOf(
@@ -420,6 +449,73 @@ class DefaultEthereumMethods(
         // "klay_isParallelDBWrite"
         // "klay_isSenderTxHashIndexingEnabled"
     )
+
+    private val kaiaMethods = listOf(
+        "kaia_accountCreated",
+        "kaia_accounts",
+        "kaia_decodeAccountKey",
+        "kaia_getAccountKey",
+        "kaia_getCode",
+        "kaia_encodeAccountKey",
+        "kaia_getAccount",
+        "kaia_getAccount",
+        "kaia_sign",
+        "kaia_isContractAccount",
+
+        "kaia_getCommittee",
+        "kaia_getCommitteeSize",
+        "kaia_getCouncil",
+        "kaia_getCouncilSize",
+
+        "kaia_getRewards",
+        "kaia_getStorageAt",
+        "kaia_syncing",
+
+        "kaia_call",
+
+        "kaia_estimateGas",
+
+        "kaia_estimateComputationCost",
+        "kaia_pendingTransactions",
+        "kaia_createAccessList",
+
+        "kaia_resend",
+
+        "kaia_chainID",
+        "kaia_clientVersion",
+        "kaia_gasPriceAt",
+        "kaia_gasPrice",
+        "kaia_protocolVersion",
+        "kaia_getChainConfig",
+        "kaia_forkStatus",
+        "kaia_getFilterChanges",
+        "kaia_getFilterLogs",
+        "kaia_newBlockFilter",
+        "kaia_newPendingTransactionFilter",
+        "kaia_uninstallFilter",
+        "kaia_unsubscribe",
+        "kaia_getLogs",
+        "kaia_subscribe",
+        "kaia_newFilter",
+
+        "kaia_feeHistory",
+        "kaia_lowerBoundGasPrice",
+        "kaia_upperBoundGasPrice",
+        "kaia_maxPriorityFeePerGas",
+
+        "kaia_getStakingInfo",
+        "kaia_sha3",
+        "kaia_recoverFromTransaction",
+        "kaia_recoverFromMessage",
+        "kaia_getProof",
+        "kaia_nodeAddress",
+
+        // they exist, but i have doubts that we need to expose them
+        // "kaia_rewardbase"
+        // "kaia_isParallelDBWrite"
+        // "kaia_isSenderTxHashIndexingEnabled"
+    )
+
     private val harmonyMethods = listOf(
         "hmy_newFilter",
         "hmy_newBlockFilter",
@@ -495,11 +591,11 @@ class DefaultEthereumMethods(
 
     override fun createQuorumFor(method: String): CallQuorum {
         return when {
-            possibleNotIndexedMethods.contains(method) || harmonyPossibleNotIndexedMethods.contains(method) || klayPossibleNotIndexedMethods.contains(method) -> NotNullQuorum()
-            specialMethods.contains(method) || harmonySpecialMethods.contains(method) || klaySpecialMethods.contains(method) -> {
+            possibleNotIndexedMethods.contains(method) || harmonyPossibleNotIndexedMethods.contains(method) || klayPossibleNotIndexedMethods.contains(method) || kaiaPossibleNotIndexedMethods.contains(method) -> NotNullQuorum()
+            specialMethods.contains(method) || harmonySpecialMethods.contains(method) || klaySpecialMethods.contains(method) || kaiaSpecialMethods.contains(method) -> {
                 when (method) {
-                    "eth_getTransactionCount", "hmy_getTransactionCount", "klay_getTransactionCount" -> MaximumValueQuorum()
-                    "eth_sendRawTransaction", "hmy_sendRawStakingTransaction", "hmy_sendRawTransaction", "klay_sendRawTransaction", "Filecoin.MpoolPush" -> BroadcastQuorum()
+                    "eth_getTransactionCount", "hmy_getTransactionCount", "klay_getTransactionCount", "kaia_getTransactionCount" -> MaximumValueQuorum()
+                    "eth_sendRawTransaction", "hmy_sendRawStakingTransaction", "hmy_sendRawTransaction", "klay_sendRawTransaction", "kaia_sendRawTransaction", "Filecoin.MpoolPush" -> BroadcastQuorum()
                     else -> AlwaysQuorum()
                 }
             }
@@ -535,6 +631,9 @@ class DefaultEthereumMethods(
                 klayMethods
                     .plus(klaySpecialMethods)
                     .plus(klayPossibleNotIndexedMethods)
+                    .plus(kaiaMethods)
+                    .plus(kaiaSpecialMethods)
+                    .plus(kaiaPossibleNotIndexedMethods)
             Chain.MANTLE__MAINNET, Chain.MANTLE__SEPOLIA ->
                 listOf(
                     "rollup_gasPrices",
