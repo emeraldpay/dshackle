@@ -809,4 +809,12 @@ class DefaultEthereumMethods(
     override fun getSupportedMethods(): Set<String> {
         return allowedMethods.plus(hardcodedMethods).toSortedSet()
     }
+
+    fun getAllMethods(): Set<String> =
+        getSupportedMethods()
+            .plus(getGroupMethods("filter"))
+            .plus(getGroupMethods("trace"))
+            .plus(getGroupMethods("debug"))
+            .plus(getChainSpecificMethods(chain))
+            .toSet()
 }

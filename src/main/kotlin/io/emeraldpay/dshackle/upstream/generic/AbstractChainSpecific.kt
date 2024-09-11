@@ -3,6 +3,7 @@ package io.emeraldpay.dshackle.upstream.generic
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.hot.CompatibleVersionsRules
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
@@ -20,7 +21,7 @@ import io.emeraldpay.dshackle.upstream.NoopCachingReader
 import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.UpstreamRpcModulesDetector
+import io.emeraldpay.dshackle.upstream.UpstreamRpcMethodsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
@@ -68,9 +69,10 @@ abstract class AbstractChainSpecific : ChainSpecific {
         return null
     }
 
-    override fun upstreamRpcModulesDetector(upstream: Upstream): UpstreamRpcModulesDetector? {
-        return null
-    }
+    override fun upstreamRpcMethodsDetector(
+        upstream: Upstream,
+        config: UpstreamsConfig.Upstream<*>?,
+    ): UpstreamRpcMethodsDetector? = null
 
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
         return NoIngressSubscription()

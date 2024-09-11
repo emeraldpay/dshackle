@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.data.BlockId
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
@@ -20,6 +21,7 @@ import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamRpcMethodsDetector
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultPolkadotMethods
@@ -37,7 +39,6 @@ import java.math.BigInteger
 import java.time.Instant
 
 object PolkadotChainSpecific : AbstractPollChainSpecific() {
-
     private val log = LoggerFactory.getLogger(PolkadotChainSpecific::class.java)
     override fun parseBlock(data: ByteArray, upstreamId: String, api: ChainReader): Mono<BlockContainer> {
         val response = Global.objectMapper.readValue(data, PolkadotBlockResponse::class.java)
@@ -150,6 +151,11 @@ object PolkadotChainSpecific : AbstractPollChainSpecific() {
     override fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription {
         return GenericIngressSubscription(ws, DefaultPolkadotMethods.subs.map { it.first })
     }
+
+    override fun upstreamRpcMethodsDetector(
+        upstream: Upstream,
+        config: UpstreamsConfig.Upstream<*>?,
+    ): UpstreamRpcMethodsDetector = BasicPolkadotUpstreamRpcMethodsDetector(upstream)
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

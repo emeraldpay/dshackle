@@ -1,7 +1,6 @@
 package io.emeraldpay.dshackle.upstream.generic
 
 import io.emeraldpay.dshackle.Chain
-import io.emeraldpay.dshackle.Defaults
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig.Labels
@@ -18,8 +17,8 @@ import io.emeraldpay.dshackle.upstream.IngressSubscription
 import io.emeraldpay.dshackle.upstream.UNKNOWN_CLIENT_VERSION
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
-import io.emeraldpay.dshackle.upstream.UpstreamRpcModulesDetector
-import io.emeraldpay.dshackle.upstream.UpstreamRpcModulesDetectorBuilder
+import io.emeraldpay.dshackle.upstream.UpstreamRpcMethodsDetector
+import io.emeraldpay.dshackle.upstream.UpstreamRpcMethodsDetectorBuilder
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetectorBuilder
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.UpstreamValidatorBuilder
@@ -62,8 +61,8 @@ open class GenericUpstream(
     lowerBoundServiceBuilder: LowerBoundServiceBuilder,
     finalizationDetectorBuilder: FinalizationDetectorBuilder,
     versionRules: Supplier<CompatibleVersionsRules?>,
-) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig, chain), Lifecycle {
-
+) : DefaultUpstream(id, hash, null, UpstreamAvailability.OK, options, role, targets, node, chainConfig, chain),
+    Lifecycle {
     constructor(
         config: UpstreamsConfig.Upstream<*>,
         chain: Chain,
@@ -74,14 +73,29 @@ open class GenericUpstream(
         connectorFactory: ConnectorFactory,
         validatorBuilder: UpstreamValidatorBuilder,
         upstreamSettingsDetectorBuilder: UpstreamSettingsDetectorBuilder,
-        upstreamRpcModulesDetectorBuilder: UpstreamRpcModulesDetectorBuilder,
+        upstreamRpcMethodsDetectorBuilder: UpstreamRpcMethodsDetectorBuilder,
         buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods,
         lowerBoundServiceBuilder: LowerBoundServiceBuilder,
         finalizationDetectorBuilder: FinalizationDetectorBuilder,
         versionRules: Supplier<CompatibleVersionsRules?>,
-    ) : this(config.id!!, chain, hash, options, config.role, buildMethods(config, chain), node, chainConfig, connectorFactory, validatorBuilder, upstreamSettingsDetectorBuilder, lowerBoundServiceBuilder, finalizationDetectorBuilder, versionRules) {
-        rpcModulesDetector = upstreamRpcModulesDetectorBuilder(this)
-        detectRpcModules(config, buildMethods)
+    ) : this(
+        config.id!!,
+        chain,
+        hash,
+        options,
+        config.role,
+        buildMethods(config, chain),
+        node,
+        chainConfig,
+        connectorFactory,
+        validatorBuilder,
+        upstreamSettingsDetectorBuilder,
+        lowerBoundServiceBuilder,
+        finalizationDetectorBuilder,
+        versionRules,
+    ) {
+        rpcMethodsDetector = upstreamRpcMethodsDetectorBuilder(this, config)
+        detectRpcMethods(config, buildMethods)
     }
 
     private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig, versionRules)
@@ -93,7 +107,7 @@ open class GenericUpstream(
     protected val connector: GenericConnector = connectorFactory.create(this, chain)
     private var livenessSubscription: Disposable? = null
     private val settingsDetector = upstreamSettingsDetectorBuilder(chain, this)
-    private var rpcModulesDetector: UpstreamRpcModulesDetector? = null
+    private var rpcMethodsDetector: UpstreamRpcMethodsDetector? = null
 
     private val lowerBoundService = lowerBoundServiceBuilder(chain, this)
 
@@ -168,10 +182,12 @@ open class GenericUpstream(
                     connector.stop()
                     return
                 }
+
                 UPSTREAM_SETTINGS_ERROR -> {
                     log.warn("Non fatal upstream settings error, continue validation...")
                     connector.getHead().stop()
                 }
+
                 UPSTREAM_VALID -> {
                     isUpstreamValid.set(true)
                     upstreamStart()
@@ -247,31 +263,44 @@ open class GenericUpstream(
         }.subscribe()
     }
 
-    private fun detectRpcModules(config: UpstreamsConfig.Upstream<*>, buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods) {
+    private fun detectRpcMethods(
+        config: UpstreamsConfig.Upstream<*>,
+        buildMethods: (UpstreamsConfig.Upstream<*>, Chain) -> CallMethods,
+    ) {
         try {
-            val rpcDetector = rpcModulesDetector?.detectRpcModules()?.block(Defaults.internalCallsTimeout)
-                ?: HashMap<String, String>()
-            log.info("Upstream rpc detector for  ${getId()} returned  $rpcDetector ")
-            if (rpcDetector.size != 0) {
-                var changed = false
-                for ((group, _) in rpcDetector) {
-                    if (group == "trace" || group == "debug" || group == "filter") {
-                        if (config.methodGroups == null) {
-                            config.methodGroups = UpstreamsConfig.MethodGroups(setOf("filter"), setOf())
-                        } else {
-                            val disabled = config.methodGroups!!.disabled
-                            val enabled = config.methodGroups!!.enabled
-                            if (!disabled.contains(group) && !enabled.contains(group)) {
-                                config.methodGroups!!.enabled = enabled.plus(group)
-                                changed = true
-                            }
-                        }
-                    }
+            rpcMethodsDetector?.detectRpcMethods()?.subscribe { rpcDetector ->
+                log.info("Upstream rpc method detector for  ${getId()} returned  $rpcDetector ")
+                if (rpcDetector.isEmpty()) {
+                    return@subscribe
                 }
-                if (changed) updateMethods(buildMethods(config, getChain()))
+                if (config.methods == null) {
+                    config.methods = UpstreamsConfig.Methods(mutableSetOf(), mutableSetOf())
+                }
+                val enableMethods =
+                    rpcDetector
+                        .filter { (_, enabled) -> enabled }
+                        .keys
+                        .map { UpstreamsConfig.Method(it) }
+                        .toSet()
+                val disableMethods =
+                    rpcDetector
+                        .filter { (_, enabled) -> !enabled }
+                        .keys
+                        .map { UpstreamsConfig.Method(it) }
+                        .toSet()
+                config.methods =
+                    UpstreamsConfig.Methods(
+                        enableMethods
+                            .minus(disableMethods)
+                            .plus(config.methods!!.enabled),
+                        disableMethods
+                            .minus(enableMethods)
+                            .plus(config.methods!!.disabled),
+                    )
+                updateMethods(buildMethods(config, getChain()))
             }
-        } catch (e: RuntimeException) {
-            log.error("Couldn't detect rpc modules of upstream {} due to error {}", getId(), e.message)
+        } catch (e: Exception) {
+            log.error("Couldn't detect methods of upstream ${getId()} due to error {}", e.message)
         }
     }
 
@@ -285,17 +314,20 @@ open class GenericUpstream(
             validatorSubscription = validator?.start()
                 ?.subscribe(this::setStatus)
         }
-        livenessSubscription = connector.headLivenessEvents().subscribe({
-            val hasSub = it == HeadLivenessState.OK
-            hasLiveSubscriptionHead.set(hasSub)
-            if (it == HeadLivenessState.FATAL_ERROR) {
-                headLivenessState.emitNext(UPSTREAM_FATAL_SETTINGS_ERROR) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-            } else {
-                sendUpstreamStateEvent(UPDATED)
-            }
-        }, {
-            log.debug("Error while checking live subscription for ${getId()}", it)
-        },)
+        livenessSubscription = connector.headLivenessEvents().subscribe(
+            {
+                val hasSub = it == HeadLivenessState.OK
+                hasLiveSubscriptionHead.set(hasSub)
+                if (it == HeadLivenessState.FATAL_ERROR) {
+                    headLivenessState.emitNext(UPSTREAM_FATAL_SETTINGS_ERROR) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                } else {
+                    sendUpstreamStateEvent(UPDATED)
+                }
+            },
+            {
+                log.debug("Error while checking live subscription for ${getId()}", it)
+            },
+        )
         detectSettings()
 
         detectLowerBlock()

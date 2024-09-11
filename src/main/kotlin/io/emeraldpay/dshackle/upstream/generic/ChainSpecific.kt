@@ -12,6 +12,7 @@ import io.emeraldpay.dshackle.BlockchainType.UNKNOWN
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.config.ChainsConfig.ChainConfig
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.hot.CompatibleVersionsRules
 import io.emeraldpay.dshackle.data.BlockContainer
 import io.emeraldpay.dshackle.foundation.ChainOptions
@@ -25,7 +26,7 @@ import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
-import io.emeraldpay.dshackle.upstream.UpstreamRpcModulesDetector
+import io.emeraldpay.dshackle.upstream.UpstreamRpcMethodsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.UpstreamValidator
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
@@ -86,7 +87,10 @@ interface ChainSpecific {
 
     fun chainSettingsValidator(chain: Chain, upstream: Upstream, reader: ChainReader?): SingleValidator<ValidateUpstreamSettingsResult>?
 
-    fun upstreamRpcModulesDetector(upstream: Upstream): UpstreamRpcModulesDetector?
+    fun upstreamRpcMethodsDetector(
+        upstream: Upstream,
+        config: UpstreamsConfig.Upstream<*>?,
+    ): UpstreamRpcMethodsDetector?
 
     fun makeIngressSubscription(ws: WsSubscriptions): IngressSubscription
 
