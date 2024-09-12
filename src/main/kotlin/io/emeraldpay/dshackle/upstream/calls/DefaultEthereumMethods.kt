@@ -98,7 +98,6 @@ class DefaultEthereumMethods(
         "eth_getTransactionByBlockNumberAndIndex",
         "eth_getUncleByBlockHashAndIndex",
         "eth_getUncleCountByBlockHash",
-        "eth_getBlockReceipts",
     )
 
     private val harmonyPossibleNotIndexedMethods = listOf(
@@ -185,6 +184,7 @@ class DefaultEthereumMethods(
         "eth_maxPriorityFeePerGas",
         "eth_getProof",
         "eth_createAccessList",
+        "eth_getBlockReceipts",
     )
 
     private val specialMethods = listOf(
