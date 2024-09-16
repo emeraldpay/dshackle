@@ -16,6 +16,7 @@ interface ErrorHandler {
 object UpstreamErrorHandler {
     private val errorHandlers = listOf(
         EthereumStateLowerBoundErrorHandler,
+        EthereumTraceLowerBoundErrorHandler,
     )
     private val errorHandlerExecutor = Executors.newFixedThreadPool(
         2 * SchedulersConfig.threadsMultiplier,

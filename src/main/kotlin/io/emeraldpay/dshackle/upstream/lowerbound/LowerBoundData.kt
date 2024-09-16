@@ -20,7 +20,7 @@ data class LowerBoundData(
 }
 
 enum class LowerBoundType {
-    UNKNOWN, STATE, SLOT, BLOCK, TX, LOGS
+    UNKNOWN, STATE, SLOT, BLOCK, TX, LOGS, TRACE
 }
 
 fun BlockchainOuterClass.LowerBoundType.fromProtoType(): LowerBoundType {
@@ -32,5 +32,6 @@ fun BlockchainOuterClass.LowerBoundType.fromProtoType(): LowerBoundType {
         BlockchainOuterClass.LowerBoundType.UNRECOGNIZED -> LowerBoundType.UNKNOWN
         BlockchainOuterClass.LowerBoundType.LOWER_BOUND_TX -> LowerBoundType.TX
         BlockchainOuterClass.LowerBoundType.LOWER_BOUND_LOGS -> LowerBoundType.LOGS
+        BlockchainOuterClass.LowerBoundType.LOWER_BOUND_TRACE -> LowerBoundType.TRACE
     }
 }

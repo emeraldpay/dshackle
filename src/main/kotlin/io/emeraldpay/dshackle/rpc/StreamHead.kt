@@ -106,6 +106,7 @@ class StreamHead(
             LowerBoundType.BLOCK -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_BLOCK
             LowerBoundType.TX -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_TX
             LowerBoundType.LOGS -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_LOGS
+            LowerBoundType.TRACE -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_TRACE
         }
     }
 
