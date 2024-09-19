@@ -50,6 +50,14 @@ abstract class LowerBoundDetector(
 
     protected abstract fun internalDetectLowerBound(): Flux<LowerBoundData>
 
+    protected fun lowerBoundFrom(lowerBoundFrom: LowerBoundData, newType: LowerBoundType): LowerBoundData {
+        val currentBound = lowerBounds.getLastBound(newType)
+        if (currentBound == null || lowerBoundFrom.lowerBound >= currentBound.lowerBound) {
+            return lowerBoundFrom.copy(type = newType)
+        }
+        return LowerBoundData(currentBound.lowerBound, newType)
+    }
+
     abstract fun types(): Set<LowerBoundType>
 
     fun updateLowerBound(lowerBound: Long, type: LowerBoundType) {

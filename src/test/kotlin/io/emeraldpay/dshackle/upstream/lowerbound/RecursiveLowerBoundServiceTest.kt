@@ -55,9 +55,6 @@ class RecursiveLowerBoundServiceTest {
                     on {
                         read(ChainRequest("eth_getTransactionByHash", ListParams("0x99e52a94cfdf83a5bdadcd2e25c71574a5a24fa4df56a33f9f8b5cb6fa0ac657")))
                     } doReturn Mono.just(ChainResponse(ByteArray(0), null))
-                    on {
-                        read(ChainRequest("eth_getLogs", ListParams(mapOf("fromBlock" to it.toHex(), "toBlock" to it.toHex()))))
-                    } doReturn Mono.just(ChainResponse("[\"0x12\"]".toByteArray(), null))
                 } else {
                     on {
                         read(ChainRequest("eth_getBalance", ListParams(ZERO_ADDRESS, it.toHex())))
@@ -66,9 +63,6 @@ class RecursiveLowerBoundServiceTest {
                         on {
                             read(ChainRequest("eth_getBlockByNumber", ListParams(block.toHex(), false)))
                         } doReturn Mono.just(ChainResponse(Global.nullValue, null))
-                        on {
-                            read(ChainRequest("eth_getLogs", ListParams(mapOf("fromBlock" to block.toHex(), "toBlock" to block.toHex()))))
-                        } doReturn Mono.error(RuntimeException("No logs data"))
                     }
                 }
             }
@@ -88,8 +82,8 @@ class RecursiveLowerBoundServiceTest {
             .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.STATE }
             .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.TRACE }
             .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.BLOCK }
-            .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.TX }
             .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.LOGS }
+            .expectNextMatches { it.lowerBound == 17964844L && it.type == LowerBoundType.TX }
             .thenCancel()
             .verify(Duration.ofSeconds(3))
 
@@ -100,8 +94,8 @@ class RecursiveLowerBoundServiceTest {
                     LowerBoundData(17964844L, LowerBoundType.STATE),
                     LowerBoundData(17964844L, LowerBoundType.TRACE),
                     LowerBoundData(17964844L, LowerBoundType.BLOCK),
-                    LowerBoundData(17964844L, LowerBoundType.TX),
                     LowerBoundData(17964844L, LowerBoundType.LOGS),
+                    LowerBoundData(17964844L, LowerBoundType.TX),
                 ),
             )
     }

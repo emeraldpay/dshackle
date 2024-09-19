@@ -70,16 +70,8 @@ class EthereumLowerBoundStateDetector(
                 }
             }
         }.flatMap {
-            Flux.just(it, lowerBoundFromState(it, LowerBoundType.TRACE))
+            Flux.just(it, lowerBoundFrom(it, LowerBoundType.TRACE))
         }
-    }
-
-    private fun lowerBoundFromState(stateLowerBoundData: LowerBoundData, newType: LowerBoundType): LowerBoundData {
-        val currentBound = lowerBounds.getLastBound(newType)
-        if (currentBound == null || stateLowerBoundData.lowerBound >= currentBound.lowerBound) {
-            return stateLowerBoundData.copy(type = newType)
-        }
-        return LowerBoundData(currentBound.lowerBound, newType)
     }
 
     override fun types(): Set<LowerBoundType> {
