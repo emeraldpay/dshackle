@@ -99,13 +99,14 @@ open class GenericUpstream(
     }
 
     private val validator: UpstreamValidator? = validatorBuilder(chain, this, getOptions(), chainConfig, versionRules)
-    private var validatorSubscription: Disposable? = null
-    private var validationSettingsSubscription: Disposable? = null
-    private var lowerBlockDetectorSubscription: Disposable? = null
+    private val validatorSubscription = AtomicReference<Disposable?>()
+    private val validationSettingsSubscription = AtomicReference<Disposable?>()
+    private val lowerBlockDetectorSubscription = AtomicReference<Disposable?>()
+    private val settingsDetectorSubscription = AtomicReference<Disposable?>()
 
     private val hasLiveSubscriptionHead: AtomicBoolean = AtomicBoolean(false)
     protected val connector: GenericConnector = connectorFactory.create(this, chain)
-    private var livenessSubscription: Disposable? = null
+    private val livenessSubscription = AtomicReference<Disposable?>()
     private val settingsDetector = upstreamSettingsDetectorBuilder(chain, this)
     private var rpcMethodsDetector: UpstreamRpcMethodsDetector? = null
 
@@ -116,7 +117,7 @@ open class GenericUpstream(
     private val clientVersion = AtomicReference(UNKNOWN_CLIENT_VERSION)
 
     private val finalizationDetector = finalizationDetectorBuilder()
-    private var finalizationDetectorSubscription: Disposable? = null
+    private val finalizationDetectorSubscription = AtomicReference<Disposable?>()
 
     private val headLivenessState = Sinks.many().multicast().directBestEffort<ValidateUpstreamSettingsResult>()
 
@@ -204,63 +205,67 @@ open class GenericUpstream(
 
     private fun validateUpstreamSettings() {
         if (validator != null) {
-            validationSettingsSubscription = Flux.merge(
-                Flux.interval(
-                    Duration.ofSeconds(20),
-                ).flatMap {
-                    validator.validateUpstreamSettings()
-                },
-                headLivenessState.asFlux(),
+            validationSettingsSubscription.set(
+                Flux.merge(
+                    Flux.interval(
+                        Duration.ofSeconds(20),
+                    ).flatMap {
+                        validator.validateUpstreamSettings()
+                    },
+                    headLivenessState.asFlux(),
+                )
+                    .subscribeOn(upstreamSettingsScheduler)
+                    .distinctUntilChanged()
+                    .subscribe {
+                        when (it) {
+                            UPSTREAM_FATAL_SETTINGS_ERROR -> {
+                                if (isUpstreamValid.get()) {
+                                    log.warn("There is a fatal error after upstream settings validation, removing ${getId()}...")
+                                    partialStop()
+                                    sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.FATAL_SETTINGS_ERROR_REMOVED)
+                                }
+                                isUpstreamValid.set(false)
+                            }
+
+                            UPSTREAM_VALID -> {
+                                if (!isUpstreamValid.get()) {
+                                    log.warn("Upstream ${getId()} is now valid, adding to the multistream...")
+                                    upstreamStart()
+                                    sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.ADDED)
+                                }
+                                isUpstreamValid.set(true)
+                            }
+
+                            else -> {
+                                log.warn("Continue validation of upstream ${getId()}")
+                            }
+                        }
+                    },
             )
-                .subscribeOn(upstreamSettingsScheduler)
-                .distinctUntilChanged()
-                .subscribe {
-                    when (it) {
-                        UPSTREAM_FATAL_SETTINGS_ERROR -> {
-                            if (isUpstreamValid.get()) {
-                                log.warn("There is a fatal error after upstream settings validation, removing ${getId()}...")
-                                partialStop()
-                                sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.FATAL_SETTINGS_ERROR_REMOVED)
-                            }
-                            isUpstreamValid.set(false)
-                        }
-
-                        UPSTREAM_VALID -> {
-                            if (!isUpstreamValid.get()) {
-                                log.warn("Upstream ${getId()} is now valid, adding to the multistream...")
-                                upstreamStart()
-                                sendUpstreamStateEvent(UpstreamChangeEvent.ChangeType.ADDED)
-                            }
-                            isUpstreamValid.set(true)
-                        }
-
-                        else -> {
-                            log.warn("Continue validation of upstream ${getId()}")
-                        }
-                    }
-                }
         }
     }
 
     private fun detectSettings() {
-        Flux.interval(
-            Duration.ZERO,
-            Duration.ofSeconds(getOptions().validationInterval.toLong() * 5),
-        ).flatMap {
-            Flux.merge(
-                settingsDetector?.detectLabels()
-                    ?.doOnNext { label ->
-                        updateLabels(label)
-                        sendUpstreamStateEvent(UPDATED)
-                    },
-                settingsDetector?.detectClientVersion()
-                    ?.doOnNext {
-                        log.info("Detected node version $it for upstream ${getId()}")
-                        clientVersion.set(it)
-                    },
-            )
-                .subscribeOn(settingsScheduler)
-        }.subscribe()
+        settingsDetectorSubscription.set(
+            Flux.interval(
+                Duration.ZERO,
+                Duration.ofSeconds(getOptions().validationInterval.toLong() * 5),
+            ).flatMap {
+                Flux.merge(
+                    settingsDetector?.detectLabels()
+                        ?.doOnNext { label ->
+                            updateLabels(label)
+                            sendUpstreamStateEvent(UPDATED)
+                        },
+                    settingsDetector?.detectClientVersion()
+                        ?.doOnNext {
+                            log.info("Detected node version $it for upstream ${getId()}")
+                            clientVersion.set(it)
+                        },
+                )
+                    .subscribeOn(settingsScheduler)
+            }.subscribe(),
+        )
     }
 
     private fun detectRpcMethods(
@@ -311,22 +316,26 @@ open class GenericUpstream(
             this.setStatus(UpstreamAvailability.OK)
         } else {
             log.debug("Start validation for upstream ${this.getId()}")
-            validatorSubscription = validator?.start()
-                ?.subscribe(this::setStatus)
+            validatorSubscription.set(
+                validator?.start()
+                    ?.subscribe(this::setStatus),
+            )
         }
-        livenessSubscription = connector.headLivenessEvents().subscribe(
-            {
-                val hasSub = it == HeadLivenessState.OK
-                hasLiveSubscriptionHead.set(hasSub)
-                if (it == HeadLivenessState.FATAL_ERROR) {
-                    headLivenessState.emitNext(UPSTREAM_FATAL_SETTINGS_ERROR) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-                } else {
-                    sendUpstreamStateEvent(UPDATED)
-                }
-            },
-            {
-                log.debug("Error while checking live subscription for ${getId()}", it)
-            },
+        livenessSubscription.set(
+            connector.headLivenessEvents().subscribe(
+                {
+                    val hasSub = it == HeadLivenessState.OK
+                    hasLiveSubscriptionHead.set(hasSub)
+                    if (it == HeadLivenessState.FATAL_ERROR) {
+                        headLivenessState.emitNext(UPSTREAM_FATAL_SETTINGS_ERROR) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
+                    } else {
+                        sendUpstreamStateEvent(UPDATED)
+                    }
+                },
+                {
+                    log.debug("Error while checking live subscription for ${getId()}", it)
+                },
+            ),
         )
         detectSettings()
 
@@ -337,21 +346,17 @@ open class GenericUpstream(
 
     override fun stop() {
         partialStop()
-        validationSettingsSubscription?.dispose()
-        validationSettingsSubscription = null
+        validationSettingsSubscription.getAndSet(null)?.dispose()
         connector.stop()
         started.set(false)
     }
 
     private fun partialStop() {
-        validatorSubscription?.dispose()
-        validatorSubscription = null
-        livenessSubscription?.dispose()
-        livenessSubscription = null
-        lowerBlockDetectorSubscription?.dispose()
-        lowerBlockDetectorSubscription = null
-        finalizationDetectorSubscription?.dispose()
-        finalizationDetectorSubscription = null
+        validatorSubscription.getAndSet(null)?.dispose()
+        livenessSubscription.getAndSet(null)?.dispose()
+        lowerBlockDetectorSubscription.getAndSet(null)?.dispose()
+        finalizationDetectorSubscription.getAndSet(null)?.dispose()
+        settingsDetectorSubscription.getAndSet(null)?.dispose()
         connector.getHead().stop()
     }
 
@@ -373,21 +378,23 @@ open class GenericUpstream(
     }
 
     private fun detectFinalization() {
-        finalizationDetectorSubscription =
+        finalizationDetectorSubscription.set(
             finalizationDetector.detectFinalization(this, chainConfig.expectedBlockTime, getChain())
                 .subscribeOn(finalizationScheduler)
                 .subscribe {
                     sendUpstreamStateEvent(UPDATED)
-                }
+                },
+        )
     }
 
     private fun detectLowerBlock() {
-        lowerBlockDetectorSubscription =
+        lowerBlockDetectorSubscription.set(
             lowerBoundService.detectLowerBounds()
                 .subscribeOn(lowerScheduler)
                 .subscribe {
                     sendUpstreamStateEvent(UPDATED)
-                }
+                },
+        )
     }
 
     fun getIngressSubscription(): IngressSubscription {

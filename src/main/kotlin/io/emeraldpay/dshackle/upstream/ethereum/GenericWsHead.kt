@@ -37,6 +37,7 @@ import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
 import reactor.kotlin.core.publisher.switchIfEmpty
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -64,34 +65,34 @@ class GenericWsHead(
     }
     private val chainIdValidator = chainSpecific.chainSettingsValidator(upstream.getChain(), upstream, jsonRpcWsClient)
 
-    private var connectionId: String? = null
-    private var subscribed = false
-    private var connected = false
-    private var isSyncing = false
+    private val connectionId = AtomicReference<String?>(null)
+    private val subscribed = AtomicBoolean(false)
+    private val connected = AtomicBoolean(false)
+    private val isSyncing = AtomicBoolean(false)
 
-    private var subscription: Disposable? = null
-    private var headResubSubscription: Disposable? = null
+    private val subscription = AtomicReference<Disposable?>()
+    private val headResubSubscription = AtomicReference<Disposable?>()
     private val noHeadUpdatesSink = Sinks.many().multicast().directBestEffort<Boolean>()
 
-    private var subscriptionId = AtomicReference("")
+    private val subscriptionId = AtomicReference("")
 
     override fun isRunning(): Boolean {
-        return subscription != null
+        return subscription.get() != null
     }
 
     override fun start() {
         super.start()
-        this.subscription?.dispose()
-        this.subscribed = true
+        this.subscription.get()?.dispose()
+        this.subscribed.set(true)
         val heads = Flux.merge(
             // get the current block, not just wait for the next update
             getLatestBlock(api),
             listenNewHeads(),
         )
-        this.subscription = super.follow(heads)
+        this.subscription.set(super.follow(heads))
 
-        if (headResubSubscription == null) {
-            headResubSubscription = registerHeadResubscribeFlux()
+        if (headResubSubscription.get() == null) {
+            headResubSubscription.set(registerHeadResubscribeFlux())
         }
     }
 
@@ -100,10 +101,10 @@ class GenericWsHead(
     }
 
     override fun onSyncingNode(isSyncing: Boolean) {
-        if (isSyncing && !this.isSyncing) {
+        if (isSyncing && !this.isSyncing.get()) {
             cancelSub()
         }
-        this.isSyncing = isSyncing
+        this.isSyncing.set(isSyncing)
     }
 
     private fun listenNewHeads(): Flux<BlockContainer> {
@@ -129,7 +130,7 @@ class GenericWsHead(
                     }
                     UPSTREAM_SETTINGS_ERROR -> {
                         log.warn("Couldn't check chain settings via ws connection for {}, ws sub will be recreated", upstreamId)
-                        subscribed = false
+                        subscribed.set(false)
                         Mono.empty()
                     }
                     UPSTREAM_FATAL_SETTINGS_ERROR -> {
@@ -144,8 +145,7 @@ class GenericWsHead(
     override fun stop() {
         super.stop()
         cancelSub()
-        headResubSubscription?.dispose()
-        headResubSubscription = null
+        headResubSubscription.getAndSet(null)?.dispose()
     }
 
     override fun chainIdValidator(): SingleValidator<ValidateUpstreamSettingsResult>? {
@@ -153,7 +153,7 @@ class GenericWsHead(
     }
 
     private fun unsubscribe(): Mono<BlockContainer> {
-        subscribed = false
+        subscribed.set(false)
         return wsSubscriptions.unsubscribe(chainSpecific.unsubscribeNewHeadsRequest(subscriptionId.get()).copy(id = ids.getAndIncrement()))
             .flatMap { it.requireResult() }
             .doOnNext { log.warn("{} has just unsubscribed from newHeads", upstreamId) }
@@ -170,10 +170,10 @@ class GenericWsHead(
         return try {
             wsSubscriptions.subscribe(chainSpecific.listenNewHeadsRequest().copy(id = ids.getAndIncrement()))
                 .also {
-                    connectionId = it.connectionId
-                    subscriptionId = it.subId
-                    if (!connected) {
-                        connected = true
+                    connectionId.set(it.connectionId)
+                    subscriptionId.set(it.subId.get())
+                    if (!connected.get()) {
+                        connected.set(true)
                     }
                 }.data
         } catch (e: Exception) {
@@ -184,13 +184,13 @@ class GenericWsHead(
     private fun registerHeadResubscribeFlux(): Disposable {
         val connectionStates = wsSubscriptions.connectionInfoFlux()
             .map {
-                if (it.connectionId == connectionId && it.connectionState == WsConnection.ConnectionState.DISCONNECTED) {
+                if (it.connectionId == connectionId.get() && it.connectionState == WsConnection.ConnectionState.DISCONNECTED) {
                     headLivenessSink.emitNext(HeadLivenessState.DISCONNECTED) { _, res -> res == Sinks.EmitResult.FAIL_NON_SERIALIZED }
-                    subscribed = false
-                    connected = false
-                    connectionId = null
+                    subscribed.set(false)
+                    connected.set(false)
+                    connectionId.set(null)
                 } else if (it.connectionState == WsConnection.ConnectionState.CONNECTED) {
-                    connected = true
+                    connected.set(true)
                     return@map true
                 }
                 return@map false
@@ -200,7 +200,7 @@ class GenericWsHead(
             noHeadUpdatesSink.asFlux(),
             connectionStates,
         ).publishOn(wsConnectionResubscribeScheduler)
-            .filter { it && !subscribed && connected && !isSyncing }
+            .filter { it && !subscribed.get() && connected.get() && !isSyncing.get() }
             .subscribe {
                 log.warn("Restart ws head, upstreamId: $upstreamId")
                 start()
@@ -208,8 +208,7 @@ class GenericWsHead(
     }
 
     private fun cancelSub() {
-        subscription?.dispose()
-        subscription = null
-        subscribed = false
+        subscription.getAndSet(null)?.dispose()
+        subscribed.set(false)
     }
 }
