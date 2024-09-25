@@ -63,7 +63,7 @@ class BitcoinUpstreamCreator(
             MergedHead(listOf(rpcHead, zeroMqHead), MostWorkForkChoice(), headScheduler)
         } ?: rpcHead
 
-        val methods = buildMethods(config, chain)
+        val methods = buildMethods(config, chain, options)
         val upstream = BitcoinRpcUpstream(
             config.id
                 ?: "bitcoin-${seq.getAndIncrement()}",

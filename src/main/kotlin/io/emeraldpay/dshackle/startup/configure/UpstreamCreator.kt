@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
+import io.emeraldpay.dshackle.foundation.ChainOptions.Options
 import io.emeraldpay.dshackle.upstream.CallTargetsHolder
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.ManagedCallMethods
@@ -70,7 +71,7 @@ abstract class UpstreamCreator(
         chainConf: ChainsConfig.ChainConfig,
     ): UpstreamCreationData
 
-    protected fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain): CallMethods {
+    protected fun buildMethods(config: UpstreamsConfig.Upstream<*>, chain: Chain, options: Options): CallMethods {
         return if (config.methods != null || config.methodGroups != null) {
             if (config.methodGroups == null) {
                 config.methodGroups = UpstreamsConfig.MethodGroups(setOf("filter"), setOf())
@@ -82,7 +83,7 @@ abstract class UpstreamCreator(
             }
 
             ManagedCallMethods(
-                delegate = callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain)),
+                delegate = callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain), options),
                 enabled = config.methods?.enabled?.map { it.name }?.toSet() ?: emptySet(),
                 disabled = config.methods?.disabled?.map { it.name }?.toSet() ?: emptySet(),
                 groupsEnabled = config.methodGroups?.enabled ?: emptySet(),
@@ -98,7 +99,7 @@ abstract class UpstreamCreator(
                 }
             }
         } else {
-            callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain))
+            callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain), options)
         }
     }
 }

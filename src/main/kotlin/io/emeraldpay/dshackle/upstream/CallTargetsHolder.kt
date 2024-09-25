@@ -10,6 +10,7 @@ import io.emeraldpay.dshackle.BlockchainType.SOLANA
 import io.emeraldpay.dshackle.BlockchainType.STARKNET
 import io.emeraldpay.dshackle.BlockchainType.UNKNOWN
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBeaconChainMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBitcoinMethods
@@ -23,13 +24,13 @@ import org.springframework.stereotype.Component
 class CallTargetsHolder {
     private val callTargets = HashMap<Chain, CallMethods>()
 
-    fun getDefaultMethods(chain: Chain, hasLogsOracle: Boolean): CallMethods {
-        return callTargets[chain] ?: return setupDefaultMethods(chain, hasLogsOracle)
+    fun getDefaultMethods(chain: Chain, hasLogsOracle: Boolean, options: ChainOptions.Options): CallMethods {
+        return callTargets[chain] ?: return setupDefaultMethods(chain, hasLogsOracle, options)
     }
 
-    private fun setupDefaultMethods(chain: Chain, hasLogsOracle: Boolean): CallMethods {
+    private fun setupDefaultMethods(chain: Chain, hasLogsOracle: Boolean, options: ChainOptions.Options): CallMethods {
         val created = when (chain.type) {
-            BITCOIN -> DefaultBitcoinMethods()
+            BITCOIN -> DefaultBitcoinMethods(options.providesBalance == true)
             ETHEREUM -> DefaultEthereumMethods(chain, hasLogsOracle)
             STARKNET -> DefaultStarknetMethods(chain)
             POLKADOT -> DefaultPolkadotMethods(chain)

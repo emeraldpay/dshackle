@@ -72,7 +72,7 @@ open class GenericUpstreamCreator(
             if (it.connectorMode == GenericConnectorFactory.ConnectorMode.RPC_REQUESTS_WITH_MIXED_HEAD.name) it.rpc?.url ?: it.ws?.url else it.ws?.url ?: it.rpc?.url
         }
         val hash = getHash(nodeId, hashUrl!!, hashes)
-        val buildMethodsFun = { a: UpstreamsConfig.Upstream<*>, b: Chain -> this.buildMethods(a, b) }
+        val buildMethodsFun = { a: UpstreamsConfig.Upstream<*>, b: Chain -> this.buildMethods(a, b, options) }
 
         val upstream = GenericUpstream(
             config,

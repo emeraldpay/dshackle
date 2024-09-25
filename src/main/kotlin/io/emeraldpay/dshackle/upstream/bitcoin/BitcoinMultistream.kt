@@ -51,7 +51,7 @@ open class BitcoinMultistream(
     private var reader = BitcoinReader(this, head, esplora)
     private var addressActiveCheck: AddressActiveCheck? = null
     private var xpubAddresses: XpubAddresses? = null
-    private var callRouter: LocalCallRouter = LocalCallRouter(DefaultBitcoinMethods(), reader)
+    private var callRouter: LocalCallRouter = LocalCallRouter(DefaultBitcoinMethods(sourceUpstreams.any { it.getOptions().providesBalance == true }), reader)
     override fun getUpstreams(): MutableList<out Upstream> {
         return sourceUpstreams
     }

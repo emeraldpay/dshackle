@@ -23,7 +23,7 @@ import io.emeraldpay.dshackle.quorum.NotNullQuorum
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 import java.util.Collections
 
-class DefaultBitcoinMethods : CallMethods {
+class DefaultBitcoinMethods(balances: Boolean) : CallMethods {
 
     private val networkinfo = Global.objectMapper.writeValueAsBytes(
         mapOf(
@@ -49,7 +49,6 @@ class DefaultBitcoinMethods : CallMethods {
         "getbestblockhash",
         "getblocknumber",
         "getblockcount",
-        "listunspent",
         "getreceivedbyaddress",
         "getblockchaininfo",
     ).sorted()
@@ -63,8 +62,12 @@ class DefaultBitcoinMethods : CallMethods {
         "sendrawtransaction",
     ).sorted()
 
+    private val withBalances = listOf(
+        "listunspent",
+    )
+
     private val allowedMethods =
-        (freshMethods + anyResponseMethods + headVerifiedMethods + broadcastMethods).sorted()
+        (freshMethods + anyResponseMethods + headVerifiedMethods + broadcastMethods + if (balances) withBalances else listOf()).sorted()
 
     override fun createQuorumFor(method: String): CallQuorum {
         return when {

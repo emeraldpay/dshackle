@@ -41,5 +41,5 @@ abstract class BitcoinUpstream(
         options: ChainOptions.Options,
         role: UpstreamsConfig.UpstreamRole,
         chainConfig: ChainsConfig.ChainConfig,
-    ) : this(id, chain, options, role, DefaultBitcoinMethods(), QuorumForLabels.QuorumItem.empty(), null, chainConfig)
+    ) : this(id, chain, options, role, DefaultBitcoinMethods(options.providesBalance == true), QuorumForLabels.QuorumItem.empty(), null, chainConfig)
 }
