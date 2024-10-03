@@ -46,6 +46,7 @@ class EthereumLowerBoundStateDetector(
             "state is not available", // bsc also can return this error along with "header not found"
             "Block with such an ID is pruned", // zksync
             "state at block", // berachain, eth
+            "unsupported block number", // arb
         )
     }
 
