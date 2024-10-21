@@ -82,9 +82,7 @@ class EthereumUpstreamSettingsDetector(
         }.flatMapMany {
             val gaslimit = String(it).drop(3).dropLast(1).toBigInteger(16) + (21180).toBigInteger()
             val labels = mutableListOf(Pair("gas-limit", gaslimit.toString(10)))
-            if (gaslimit >= (600_000_000).toBigInteger()) {
-                labels.add(Pair("extra_gas_limit", "600000000"))
-            }
+            labels.add(Pair("extra_gas_limit", gaslimit.toString(10)))
             Flux.fromIterable(labels)
         }.onErrorResume {
             Flux.empty()

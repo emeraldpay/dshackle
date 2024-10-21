@@ -47,7 +47,8 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
                     new Pair<String, String>("client_type", clientType),
                     new Pair<String, String>("client_version", version),
                     new Pair<String, String>("archive", "true"),
-                    new Pair<String, String>("gas-limit", "50000000")
+                    new Pair<String, String>("gas-limit", "50000000"),
+                    new Pair<String, String>("extra_gas_limit", "50000000")
             )
             .expectComplete()
             .verify(Duration.ofSeconds(1))
