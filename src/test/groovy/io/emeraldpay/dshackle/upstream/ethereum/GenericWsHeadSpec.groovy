@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.test.GenericUpstreamMock
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.BlockValidator
 import io.emeraldpay.dshackle.upstream.DefaultUpstream
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
 import io.emeraldpay.dshackle.upstream.forkchoice.AlwaysForkChoice
 import io.emeraldpay.dshackle.upstream.ChainRequest
@@ -132,7 +133,7 @@ class GenericWsHeadSpec extends Specification {
                     new WsSubscriptions.SubscribeData(Flux.error(new RuntimeException()), "id", new AtomicReference<String>("")),
                     new WsSubscriptions.SubscribeData(Flux.fromIterable([secondHeadBlock]), "id", new AtomicReference<String>(""))
             ]
-            1 * it.unsubscribe(new ChainRequest("eth_unsubscribe", new ListParams(""), 2, null, null, false)) >>
+            1 * it.unsubscribe(new ChainRequest("eth_unsubscribe", new ListParams(""), 2, null, null, false, Selector.empty)) >>
                     Mono.just(new ChainResponse("".bytes, null))
         }
 
@@ -452,7 +453,7 @@ class GenericWsHeadSpec extends Specification {
             1 * it.subscribe(_) >> new WsSubscriptions.SubscribeData(
                     Flux.error(new RuntimeException()), "id", new AtomicReference<String>(subId)
             )
-            1 * it.unsubscribe(new ChainRequest("eth_unsubscribe", new ListParams(subId), 2, null, null, false)) >>
+            1 * it.unsubscribe(new ChainRequest("eth_unsubscribe", new ListParams(subId), 2, null, null, false, Selector.empty)) >>
                     Mono.just(new ChainResponse("".bytes, null))
         }
 

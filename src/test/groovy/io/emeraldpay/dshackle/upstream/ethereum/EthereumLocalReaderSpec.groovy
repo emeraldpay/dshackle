@@ -8,6 +8,7 @@ import io.emeraldpay.dshackle.reader.Reader
 import io.emeraldpay.dshackle.test.TestingCommons
 import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.DefaultEthereumMethods
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationData
@@ -69,9 +70,9 @@ class EthereumLocalReaderSpec extends Specification {
             1 * getCurrentHeight() >> 101L
         }
         def reader = Mock(EthereumCachingReader) {
-            _ * blocksByIdAsCont() >> new EmptyReader<>()
-            _ * txByHashAsCont() >> new EmptyReader<>()
-            1 * blocksByHeightAsCont() >> Mock(Reader) {
+            _ * blocksByIdAsCont(Selector.empty) >> new EmptyReader<>()
+            _ * txByHashAsCont(Selector.empty) >> new EmptyReader<>()
+            1 * blocksByHeightAsCont(Selector.empty) >> Mock(Reader) {
                 1 * read(101L) >> Mono.just(
                         new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(101L), List.of())
                 )
@@ -81,7 +82,7 @@ class EthereumLocalReaderSpec extends Specification {
         def router = new EthereumLocalReader(reader, methods, head, null)
 
         when:
-        def act = router.getBlockByNumber(["latest", false])
+        def act = router.getBlockByNumber(["latest", false], Selector.empty)
 
         then:
         act != null
@@ -97,9 +98,9 @@ class EthereumLocalReaderSpec extends Specification {
         setup:
         def head = Stub(Head) {}
         def reader = Mock(EthereumCachingReader) {
-            _ * blocksByIdAsCont() >> new EmptyReader<>()
-            _ * txByHashAsCont() >> new EmptyReader<>()
-            1 * blocksByHeightAsCont() >> Mock(Reader) {
+            _ * blocksByIdAsCont(Selector.empty) >> new EmptyReader<>()
+            _ * txByHashAsCont(Selector.empty) >> new EmptyReader<>()
+            1 * blocksByHeightAsCont(Selector.empty) >> Mock(Reader) {
                 1 * read(0L) >> Mono.just(
                         new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(0L), List.of())
                 )
@@ -109,7 +110,7 @@ class EthereumLocalReaderSpec extends Specification {
         def router = new EthereumLocalReader(reader, methods, head, null)
 
         when:
-        def act = router.getBlockByNumber(["earliest", false])
+        def act = router.getBlockByNumber(["earliest", false], Selector.empty)
 
         then:
         act != null
@@ -125,9 +126,9 @@ class EthereumLocalReaderSpec extends Specification {
         setup:
         def head = Stub(Head) {}
         def reader = Mock(EthereumCachingReader) {
-            _ * blocksByIdAsCont() >> new EmptyReader<>()
-            _ * txByHashAsCont() >> new EmptyReader<>()
-            1 * blocksByHeightAsCont() >> Mock(Reader) {
+            _ * blocksByIdAsCont(Selector.empty) >> new EmptyReader<>()
+            _ * txByHashAsCont(Selector.empty) >> new EmptyReader<>()
+            1 * blocksByHeightAsCont(Selector.empty) >> Mock(Reader) {
                 1 * read(74735L) >> Mono.just(
                         new EthereumDirectReader.Result<>(TestingCommons.blockForEthereum(74735L), List.of())
                 )
@@ -137,7 +138,7 @@ class EthereumLocalReaderSpec extends Specification {
         def router = new EthereumLocalReader(reader, methods, head, null)
 
         when:
-        def act = router.getBlockByNumber(["0x123ef", false])
+        def act = router.getBlockByNumber(["0x123ef", false], Selector.empty)
 
         then:
         act != null
@@ -183,15 +184,15 @@ class EthereumLocalReaderSpec extends Specification {
         setup:
         def head = Mock(Head)
         def reader = Mock(EthereumCachingReader) {
-            _ * blocksByIdAsCont() >> new EmptyReader<>()
-            _ * txByHashAsCont() >> new EmptyReader<>()
-            _ * blocksByHeightAsCont() >> new EmptyReader<>()
+            _ * blocksByIdAsCont(Selector.empty) >> new EmptyReader<>()
+            _ * txByHashAsCont(Selector.empty) >> new EmptyReader<>()
+            _ * blocksByHeightAsCont(Selector.empty) >> new EmptyReader<>()
         }
         def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
         def router = new EthereumLocalReader(reader, methods, head, null)
 
         when:
-        def act = router.getBlockByNumber(["0x0", true])
+        def act = router.getBlockByNumber(["0x0", true], Selector.empty)
 
         then:
         act == null

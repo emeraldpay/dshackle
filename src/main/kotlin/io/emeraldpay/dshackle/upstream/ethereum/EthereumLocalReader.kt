@@ -23,6 +23,7 @@ import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.LogsOracle
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.hex.HexQuantity
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
@@ -87,7 +88,7 @@ class EthereumLocalReader(
                     } catch (e: IllegalArgumentException) {
                         throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
                     }
-                    reader.txByHashAsCont()
+                    reader.txByHashAsCont(key.matcher)
                         .read(hash)
                         .map { ChainResponse(it.data.json, null, it.resolvedUpstreamData) }
                 }
@@ -106,14 +107,14 @@ class EthereumLocalReader(
                     if (withTx) {
                         null
                     } else {
-                        reader.blocksByIdAsCont().read(hash).map {
+                        reader.blocksByIdAsCont(key.matcher).read(hash).map {
                             ChainResponse(it.data.json, null, it.resolvedUpstreamData)
                         }
                     }
                 }
 
                 method == "eth_getBlockByNumber" -> {
-                    getBlockByNumber(params.list)
+                    getBlockByNumber(params.list, key.matcher)
                 }
 
                 method == "eth_getTransactionReceipt" -> {
@@ -126,7 +127,7 @@ class EthereumLocalReader(
                     } catch (e: IllegalArgumentException) {
                         throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be transaction id")
                     }
-                    reader.receipts()
+                    reader.receipts(key.matcher)
                         .read(hash)
                         .map { ChainResponse(it.data, null, it.resolvedUpstreamData) }
                 }
@@ -141,7 +142,7 @@ class EthereumLocalReader(
         return null
     }
 
-    fun getBlockByNumber(params: List<Any?>): Mono<ChainResponse>? {
+    fun getBlockByNumber(params: List<Any?>, matcher: Selector.Matcher): Mono<ChainResponse>? {
         if (params.size != 2 || params[0] == null || params[1] == null) {
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 2 parameters")
         }
@@ -189,7 +190,7 @@ class EthereumLocalReader(
             throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "[0] must be a block number")
         }
 
-        return reader.blocksByHeightAsCont()
+        return reader.blocksByHeightAsCont(matcher)
             .read(number).map { ChainResponse(it.data.json, null, it.resolvedUpstreamData) }
     }
 

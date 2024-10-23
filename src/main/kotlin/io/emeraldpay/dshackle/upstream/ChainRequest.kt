@@ -30,6 +30,7 @@ data class ChainRequest(
     val nonce: Long?,
     val selector: BlockchainOuterClass.Selector?,
     val isStreamed: Boolean = false,
+    val matcher: Selector.Matcher = Selector.empty,
 ) {
 
     @JvmOverloads constructor(
@@ -38,7 +39,14 @@ data class ChainRequest(
         nonce: Long? = null,
         selectors: BlockchainOuterClass.Selector? = null,
         isStreamed: Boolean = false,
-    ) : this(method, params, 1, nonce, selectors, isStreamed)
+        matcher: Selector.Matcher = Selector.empty,
+    ) : this(method, params, 1, nonce, selectors, isStreamed, matcher)
+
+    constructor(
+        method: String,
+        params: CallParams,
+        matcher: Selector.Matcher,
+    ) : this(method, params, 1, null, null, false, matcher)
 
     fun toJson(): ByteArray {
         return params.toJson(id, method)

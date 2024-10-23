@@ -15,8 +15,6 @@
  */
 package io.emeraldpay.dshackle.upstream.ethereum
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.cache.Caches
 import io.emeraldpay.dshackle.cache.CurrentBlockCache
 import io.emeraldpay.dshackle.commons.CACHE_BLOCK_BY_HASH_READER
@@ -34,16 +32,15 @@ import io.emeraldpay.dshackle.reader.RekeyingReader
 import io.emeraldpay.dshackle.reader.SpannedReader
 import io.emeraldpay.dshackle.upstream.CachingReader
 import io.emeraldpay.dshackle.upstream.Multistream
+import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
+import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader.Request
 import io.emeraldpay.dshackle.upstream.ethereum.EthereumDirectReader.Result
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Address
 import io.emeraldpay.dshackle.upstream.ethereum.domain.BlockHash
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.ethereum.domain.Wei
-import io.emeraldpay.dshackle.upstream.ethereum.json.BlockJson
-import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionJsonSnapshot
 import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionLogJson
-import io.emeraldpay.dshackle.upstream.ethereum.json.TransactionRefJson
 import io.emeraldpay.dshackle.upstream.finalization.FinalizationType
 import org.apache.commons.collections4.Factory
 import org.springframework.cloud.sleuth.Tracer
@@ -60,50 +57,26 @@ open class EthereumCachingReader(
     private val tracer: Tracer,
 ) : CachingReader {
 
-    private val objectMapper: ObjectMapper = Global.objectMapper
     private val balanceCache = CurrentBlockCache<Address, Wei>()
     private val directReader = EthereumDirectReader(up, caches, balanceCache, callMethodsFactory, tracer)
-
-    private val extractBlock = Function<Result<BlockContainer>, BlockJson<TransactionRefJson>> { result ->
-        val block = result.data
-        val existing = block.getParsed(BlockJson::class.java)
-        if (existing != null) {
-            existing.withoutTransactionDetails()
-        } else {
-            objectMapper
-                .readValue(block.json, BlockJson::class.java)
-                .withoutTransactionDetails()
-        }
-    }
-
-    private val extractTx = Function<Result<TxContainer>, TransactionJsonSnapshot> { result ->
-        result.data.getParsed(TransactionJsonSnapshot::class.java)
-            ?: objectMapper.readValue(result.data.json, TransactionJsonSnapshot::class.java)
-    }
-
-    private val idToBlockHash = Function<BlockId, BlockHash> { id -> BlockHash.from(id.value) }
-    private val blockHashToId = Function<BlockHash, BlockId> { hash -> BlockId.from(hash) }
-
-    private val txHashToId = Function<TransactionId, TxId> { hash -> TxId.from(hash) }
-    private val idToTxHash = Function<TxId, TransactionId> { id -> TransactionId.from(id.value) }
-
-    private val blocksByIdAsCont = CompoundReader(
-        SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHash()), tracer, CACHE_BLOCK_BY_HASH_READER),
-        SpannedReader(RekeyingReader(idToBlockHash, directReader.blockReader), tracer, DIRECT_QUORUM_RPC_READER),
-    )
 
     open fun blockByFinalization(): Reader<FinalizationType, Result<BlockContainer>> {
         return SpannedReader(directReader.blockByFinalizationReader, tracer, DIRECT_QUORUM_RPC_READER)
     }
 
-    open fun blocksByIdAsCont(): Reader<BlockId, Result<BlockContainer>> {
-        return blocksByIdAsCont
+    open fun blocksByIdAsCont(matcher: Selector.Matcher): Reader<BlockId, Result<BlockContainer>> {
+        val idToBlockHash = Function<BlockId, Request<BlockHash>> { id -> Request(BlockHash.from(id.value), matcher) }
+        return CompoundReader(
+            SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHash()), tracer, CACHE_BLOCK_BY_HASH_READER),
+            SpannedReader(RekeyingReader(idToBlockHash, directReader.blockReader), tracer, DIRECT_QUORUM_RPC_READER),
+        )
     }
 
-    open fun blocksByHeightAsCont(): Reader<Long, Result<BlockContainer>> {
+    open fun blocksByHeightAsCont(matcher: Selector.Matcher): Reader<Long, Result<BlockContainer>> {
+        val numToRequest = Function<Long, Request<Long>> { num -> Request(num, matcher) }
         return CompoundReader(
             SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHeight()), tracer, CACHE_BLOCK_BY_HEIGHT_READER),
-            SpannedReader(directReader.blockByHeightReader, tracer, DIRECT_QUORUM_RPC_READER),
+            SpannedReader(RekeyingReader(numToRequest, directReader.blockByHeightReader), tracer, DIRECT_QUORUM_RPC_READER),
         )
     }
 
@@ -111,7 +84,8 @@ open class EthereumCachingReader(
         return directReader.logsByHashReader
     }
 
-    open fun txByHashAsCont(): Reader<TxId, Result<TxContainer>> {
+    open fun txByHashAsCont(matcher: Selector.Matcher): Reader<TxId, Result<TxContainer>> {
+        val idToTxHash = Function<TxId, Request<TransactionId>> { id -> Request(TransactionId.from(id.value), matcher) }
         return CompoundReader(
             CacheWithUpstreamIdReader(SpannedReader(caches.getTxByHash(), tracer, CACHE_TX_BY_HASH_READER)),
             SpannedReader(RekeyingReader(idToTxHash, directReader.txReader), tracer, DIRECT_QUORUM_RPC_READER),
@@ -126,9 +100,9 @@ open class EthereumCachingReader(
         )
     }
 
-    fun receipts(): Reader<TxId, Result<ByteArray>> {
+    fun receipts(matcher: Selector.Matcher): Reader<TxId, Result<ByteArray>> {
         val requested = RekeyingReader(
-            { txid: TxId -> TransactionId.from(txid.value) },
+            { txid: TxId -> Request(TransactionId.from(txid.value), matcher) },
             directReader.receiptReader,
         )
         return CompoundReader(

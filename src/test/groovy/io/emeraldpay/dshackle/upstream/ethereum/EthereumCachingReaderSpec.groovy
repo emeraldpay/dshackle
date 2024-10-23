@@ -94,7 +94,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.blockReader.read(BlockHash.from(hash1))
+        def act = reader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.empty))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
@@ -122,7 +122,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.blockReader.read(BlockHash.from(hash1))
+        def act = reader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.empty))
         then:
         StepVerifier.create(act)
                 .expectComplete()
@@ -155,7 +155,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.blockByHeightReader.read(100)
+        def act = reader.blockByHeightReader.read(new EthereumDirectReader.Request<Long>(100L, Selector.empty))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
@@ -220,7 +220,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.txReader.read(TransactionId.from(hash1))
+        def act = reader.txReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.empty))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
@@ -253,7 +253,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.receiptReader.read(TransactionId.from(hash1))
+        def act = reader.receiptReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.empty))
             .block(Duration.ofSeconds(1))
             .with { new String(it.data) }
         then:
@@ -287,7 +287,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.receiptReader.read(TransactionId.from(hash1))
+        def act = reader.receiptReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.empty))
                 .block(Duration.ofSeconds(1))
                 .with { new String(it.data) }
         then:
@@ -312,7 +312,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.txReader.read(TransactionId.from(hash1))
+        def act = reader.txReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.empty))
         then:
         StepVerifier.create(act)
                 .expectComplete()
@@ -411,7 +411,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = ethereumDirectReader.blockReader.read(BlockHash.from(hash1))
+        def act = ethereumDirectReader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.empty))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
@@ -451,7 +451,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = ethereumDirectReader.blockByHeightReader.read(100)
+        def act = ethereumDirectReader.blockByHeightReader.read(new EthereumDirectReader.Request<Long>(100L, Selector.empty))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->

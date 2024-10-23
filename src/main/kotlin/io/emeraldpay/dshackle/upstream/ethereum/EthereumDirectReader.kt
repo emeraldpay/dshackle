@@ -61,32 +61,31 @@ class EthereumDirectReader(
     private val objectMapper: ObjectMapper = Global.objectMapper
     var requestReaderFactory: RequestReaderFactory = RequestReaderFactory.default()
 
-    val blockReader: Reader<BlockHash, Result<BlockContainer>>
-    val blockByHeightReader: Reader<Long, Result<BlockContainer>>
-    val txReader: Reader<TransactionId, Result<TxContainer>>
+    val blockReader: Reader<Request<BlockHash>, Result<BlockContainer>>
+    val blockByHeightReader: Reader<Request<Long>, Result<BlockContainer>>
+    val txReader: Reader<Request<TransactionId>, Result<TxContainer>>
     val balanceReader: Reader<Address, Result<Wei>>
-    val receiptReader: Reader<TransactionId, Result<ByteArray>>
+    val receiptReader: Reader<Request<TransactionId>, Result<ByteArray>>
     val logsByHashReader: Reader<BlockId, Result<List<TransactionLogJson>>>
     val blockByFinalizationReader: Reader<FinalizationType, Result<BlockContainer>>
 
     init {
-        blockReader = object : Reader<BlockHash, Result<BlockContainer>> {
-            override fun read(key: BlockHash): Mono<Result<BlockContainer>> {
-                val request = ChainRequest("eth_getBlockByHash", ListParams(key.toHex(), false))
-                return readBlock(request, key.toHex())
+        blockReader = object : Reader<Request<BlockHash>, Result<BlockContainer>> {
+            override fun read(key: Request<BlockHash>): Mono<Result<BlockContainer>> {
+                val request = ChainRequest("eth_getBlockByHash", ListParams(key.requestBy.toHex(), false))
+                return readBlock(request, key.requestBy.toHex(), key.matcher)
             }
         }
-        blockByHeightReader = object : Reader<Long, Result<BlockContainer>> {
-            override fun read(key: Long): Mono<Result<BlockContainer>> {
-                val heightMatcher = Selector.HeightMatcher(key)
-                val request = ChainRequest("eth_getBlockByNumber", ListParams(HexQuantity.from(key).toHex(), false))
-                return readBlock(request, key.toString(), heightMatcher)
+        blockByHeightReader = object : Reader<Request<Long>, Result<BlockContainer>> {
+            override fun read(key: Request<Long>): Mono<Result<BlockContainer>> {
+                val request = ChainRequest("eth_getBlockByNumber", ListParams(HexQuantity.from(key.requestBy).toHex(), false))
+                return readBlock(request, key.toString(), key.matcher)
             }
         }
-        txReader = object : Reader<TransactionId, Result<TxContainer>> {
-            override fun read(key: TransactionId): Mono<Result<TxContainer>> {
-                val request = ChainRequest("eth_getTransactionByHash", ListParams(key.toHex()))
-                return readWithQuorum(request) // retries were removed because we use NotNullQuorum which handle errors too
+        txReader = object : Reader<Request<TransactionId>, Result<TxContainer>> {
+            override fun read(key: Request<TransactionId>): Mono<Result<TxContainer>> {
+                val request = ChainRequest("eth_getTransactionByHash", ListParams(key.requestBy.toHex()))
+                return readWithQuorum(request, key.matcher) // retries were removed because we use NotNullQuorum which handle errors too
                     .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Tx not read $key")))
                     .flatMap { result ->
                         val tx = objectMapper.readValue(result.data, TransactionJsonSnapshot::class.java)
@@ -150,10 +149,10 @@ class EthereumDirectReader(
             }
         }
 
-        receiptReader = object : Reader<TransactionId, Result<ByteArray>> {
-            override fun read(key: TransactionId): Mono<Result<ByteArray>> {
-                val request = ChainRequest("eth_getTransactionReceipt", ListParams(key.toHex()))
-                return readWithQuorum(request)
+        receiptReader = object : Reader<Request<TransactionId>, Result<ByteArray>> {
+            override fun read(key: Request<TransactionId>): Mono<Result<ByteArray>> {
+                val request = ChainRequest("eth_getTransactionReceipt", ListParams(key.requestBy.toHex()))
+                return readWithQuorum(request, key.matcher)
                     .timeout(Duration.ofSeconds(5), Mono.error(TimeoutException("Receipt not read $key")))
                     .flatMap { result ->
                         val receipt = objectMapper.readValue(result.data, TransactionReceiptJson::class.java)
@@ -164,7 +163,7 @@ class EthereumDirectReader(
                             caches.cacheReceipt(
                                 Caches.Tag.REQUESTED,
                                 DefaultContainer(
-                                    txId = TxId.from(key),
+                                    txId = TxId.from(key.requestBy),
                                     blockId = BlockId.from(receipt.blockHash),
                                     height = receipt.blockNumber,
                                     json = result.data,
@@ -252,14 +251,10 @@ class EthereumDirectReader(
     ): Mono<Result<ByteArray>> {
         return Mono.just(requestReaderFactory)
             .map {
-                val requestMatcher = Selector.Builder()
-                    .withMatcher(matcher)
-                    .forMethod(request.method)
-                    .build()
                 it.create(
                     RequestReaderFactory.ReaderData(
                         up,
-                        Selector.UpstreamFilter(sort, requestMatcher),
+                        Selector.UpstreamFilter(sort, matcher),
                         callMethodsFactory.create().createQuorumFor(request.method),
                         null,
                         tracer,
@@ -275,5 +270,10 @@ class EthereumDirectReader(
     data class Result<T>(
         val data: T,
         val resolvedUpstreamData: List<Upstream.UpstreamSettingsData>,
+    )
+
+    data class Request<T>(
+        val requestBy: T,
+        val matcher: Selector.Matcher,
     )
 }
