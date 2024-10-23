@@ -33,6 +33,8 @@ import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspent
 import io.emeraldpay.dshackle.upstream.bitcoin.data.RpcUnspentDeserializer
 import io.emeraldpay.dshackle.upstream.ethereum.domain.TransactionId
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.json.TransactionIdSerializer
+import io.emeraldpay.dshackle.upstream.ton.TonMasterchainInfo
+import io.emeraldpay.dshackle.upstream.ton.TonMasterchainInfoDeserializer
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -81,6 +83,7 @@ class Global {
             module.addDeserializer(RpcUnspent::class.java, RpcUnspentDeserializer())
             module.addDeserializer(ChainRequest::class.java, ChainRequest.Deserializer())
             module.addDeserializer(BeaconChainBlockHeader::class.java, BeaconChainBlockHeaderDeserializer())
+            module.addDeserializer(TonMasterchainInfo::class.java, TonMasterchainInfoDeserializer())
 
             val objectMapper = ObjectMapper()
             objectMapper.registerModule(module)
