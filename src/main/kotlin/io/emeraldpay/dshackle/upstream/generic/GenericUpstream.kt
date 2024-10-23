@@ -246,26 +246,28 @@ open class GenericUpstream(
     }
 
     private fun detectSettings() {
-        settingsDetectorSubscription.set(
-            Flux.interval(
-                Duration.ZERO,
-                Duration.ofSeconds(getOptions().validationInterval.toLong() * 5),
-            ).flatMap {
-                Flux.merge(
-                    settingsDetector?.detectLabels()
-                        ?.doOnNext { label ->
-                            updateLabels(label)
-                            sendUpstreamStateEvent(UPDATED)
-                        },
-                    settingsDetector?.detectClientVersion()
-                        ?.doOnNext {
-                            log.info("Detected node version $it for upstream ${getId()}")
-                            clientVersion.set(it)
-                        },
-                )
-                    .subscribeOn(settingsScheduler)
-            }.subscribe(),
-        )
+        if (settingsDetector != null) {
+            settingsDetectorSubscription.set(
+                Flux.interval(
+                    Duration.ZERO,
+                    Duration.ofSeconds(getOptions().validationInterval.toLong() * 5),
+                ).flatMap {
+                    Flux.merge(
+                        settingsDetector.detectLabels()
+                            .doOnNext { label ->
+                                updateLabels(label)
+                                sendUpstreamStateEvent(UPDATED)
+                            },
+                        settingsDetector.detectClientVersion()
+                            .doOnNext {
+                                log.info("Detected node version $it for upstream ${getId()}")
+                                clientVersion.set(it)
+                            },
+                    )
+                        .subscribeOn(settingsScheduler)
+                }.subscribe(),
+            )
+        }
     }
 
     private fun detectRpcMethods(
