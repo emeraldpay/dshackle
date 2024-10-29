@@ -153,19 +153,17 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         options: Options,
         config: ChainConfig,
     ): List<SingleValidator<ValidateUpstreamSettingsResult>> {
-        val limitValidator = callLimitValidatorFactory(upstream, options, config, chain)
-
         val validators = mutableListOf(
             ChainIdValidator(upstream, chain),
             OldBlockValidator(upstream),
         )
+        val limitValidator = EthCallLimitValidator(upstream, options, config)
         if (limitValidator.isEnabled()) {
             validators.add(limitValidator)
         }
         if (options.validateGasPrice) {
             validators.add(GasPriceValidator(upstream, config))
         }
-
         return validators
     }
 

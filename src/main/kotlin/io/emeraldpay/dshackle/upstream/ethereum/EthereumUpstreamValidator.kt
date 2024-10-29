@@ -113,37 +113,6 @@ class EthCallLimitValidator(
         err.message != null && err.message!!.contains("rpc.returndata.limit")
 }
 
-class ZkSyncCallLimitValidator(
-    private val upstream: Upstream,
-    private val options: ChainOptions.Options,
-) : AbstractCallLimitValidator(upstream, options) {
-    private val method = "debug_traceBlockByNumber"
-
-    override fun isEnabled() =
-        options.validateCallLimit && upstream.getMethods().getSupportedMethods().contains(method)
-
-    override fun createRequest() = ChainRequest(
-        method,
-        ListParams("0x1b73b2b", mapOf("tracer" to "callTracer")),
-    )
-
-    override fun isLimitError(err: Throwable): Boolean =
-        err.message != null && err.message!!.contains("response size should not greater than")
-}
-
-fun callLimitValidatorFactory(
-    upstream: Upstream,
-    options: ChainOptions.Options,
-    config: ChainConfig,
-    chain: Chain,
-): CallLimitValidator {
-    return if (listOf(Chain.ZKSYNC__MAINNET).contains(chain)) {
-        ZkSyncCallLimitValidator(upstream, options)
-    } else {
-        EthCallLimitValidator(upstream, options, config)
-    }
-}
-
 class ChainIdValidator(
     private val upstream: Upstream,
     private val chain: Chain,
