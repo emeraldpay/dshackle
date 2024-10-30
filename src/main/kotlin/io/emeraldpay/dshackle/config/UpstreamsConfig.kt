@@ -73,7 +73,17 @@ data class UpstreamsConfig(
         var rpc: HttpEndpoint? = null,
         var ws: WsEndpoint? = null,
         var connectorMode: String? = null,
+        var tag: String? = null,
     ) : UpstreamConnection() {
+        private val additionalEndpoints = ArrayList<RpcConnection>()
+
+        fun addEndpoint(newConnection: RpcConnection) {
+            additionalEndpoints.add(newConnection)
+        }
+
+        fun getEndpointByTag(tag: String): RpcConnection? {
+            return additionalEndpoints.find { it.tag == tag }
+        }
 
         fun resolveMode(): ConnectorMode {
             return if (connectorMode == null) {

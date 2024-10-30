@@ -195,6 +195,17 @@ class UpstreamsConfigReader(
         getValueAsString(connConfigNode, "connector-mode")?.let {
             connection.connectorMode = it
         }
+
+        getList<MappingNode>(connConfigNode, "additional")
+            ?.value
+            ?.mapNotNull {
+                connection.addEndpoint(readRpcConnection(it))
+            }
+
+        getValueAsString(connConfigNode, "tag")?.let {
+            connection.tag = it
+        }
+
         getMapping(connConfigNode, "ws")?.let { node ->
             getValueAsString(node, "url")?.let { url ->
                 val ws = UpstreamsConfig.WsEndpoint(URI(url))
@@ -230,14 +241,14 @@ class UpstreamsConfigReader(
     private fun <T : UpstreamsConfig.UpstreamConnection> readUpstream(
         config: UpstreamsConfig,
         upNode: MappingNode,
-        connFactory: () -> T,
+        connFactory: (String?) -> T,
     ) {
         val upstream = UpstreamsConfig.Upstream<T>()
         readUpstreamCommon(upNode, upstream)
         readUpstreamStandard(upNode, upstream)
         if (isValid(upstream)) {
             config.upstreams.add(upstream)
-            upstream.connection = connFactory()
+            upstream.connection = connFactory(upstream.chain)
         } else {
             log.error("Upstream at #0 has invalid configuration")
         }

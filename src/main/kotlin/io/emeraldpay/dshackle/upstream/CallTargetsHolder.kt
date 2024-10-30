@@ -11,6 +11,7 @@ import io.emeraldpay.dshackle.BlockchainType.STARKNET
 import io.emeraldpay.dshackle.BlockchainType.TON
 import io.emeraldpay.dshackle.BlockchainType.UNKNOWN
 import io.emeraldpay.dshackle.Chain
+import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.calls.DefaultBeaconChainMethods
@@ -26,11 +27,21 @@ import org.springframework.stereotype.Component
 class CallTargetsHolder {
     private val callTargets = HashMap<Chain, CallMethods>()
 
-    fun getDefaultMethods(chain: Chain, hasLogsOracle: Boolean, options: ChainOptions.Options): CallMethods {
-        return callTargets[chain] ?: return setupDefaultMethods(chain, hasLogsOracle, options)
+    fun getDefaultMethods(
+        chain: Chain,
+        hasLogsOracle: Boolean,
+        options: ChainOptions.Options,
+        connection: UpstreamsConfig.UpstreamConnection?,
+    ): CallMethods {
+        return callTargets[chain] ?: return setupDefaultMethods(chain, hasLogsOracle, options, connection)
     }
 
-    private fun setupDefaultMethods(chain: Chain, hasLogsOracle: Boolean, options: ChainOptions.Options): CallMethods {
+    private fun setupDefaultMethods(
+        chain: Chain,
+        hasLogsOracle: Boolean,
+        options: ChainOptions.Options,
+        connection: UpstreamsConfig.UpstreamConnection?,
+    ): CallMethods {
         val created = when (chain.type) {
             BITCOIN -> DefaultBitcoinMethods(options.providesBalance == true)
             ETHEREUM -> DefaultEthereumMethods(chain, hasLogsOracle)
@@ -40,7 +51,7 @@ class CallTargetsHolder {
             NEAR -> DefaultNearMethods()
             ETHEREUM_BEACON_CHAIN -> DefaultBeaconChainMethods()
             COSMOS -> DefaultCosmosMethods()
-            TON -> DefaultTonHttpMethods()
+            TON -> DefaultTonHttpMethods(connection)
             UNKNOWN -> throw IllegalArgumentException("unknown chain")
         }
         callTargets[chain] = created

@@ -82,7 +82,7 @@ class JsonRpcHttpReader(
             .flatMap(this@JsonRpcHttpReader::execute)
             .doOnNext {
                 if (startTime.isStarted) {
-                    metrics.timer.record(startTime.nanoTime, TimeUnit.NANOSECONDS)
+                    metrics?.timer?.record(startTime.nanoTime, TimeUnit.NANOSECONDS)
                 }
             }
             .transform(asJsonRpcResponse(key))

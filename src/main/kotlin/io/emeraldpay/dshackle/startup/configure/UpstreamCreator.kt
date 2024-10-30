@@ -83,7 +83,7 @@ abstract class UpstreamCreator(
             }
 
             ManagedCallMethods(
-                delegate = callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain), options),
+                delegate = callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain), options, config.connection),
                 enabled = config.methods?.enabled?.map { it.name }?.toSet() ?: emptySet(),
                 disabled = config.methods?.disabled?.map { it.name }?.toSet() ?: emptySet(),
                 groupsEnabled = config.methodGroups?.enabled ?: emptySet(),
@@ -99,7 +99,7 @@ abstract class UpstreamCreator(
                 }
             }
         } else {
-            callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain), options)
+            callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain), options, config.connection)
         }
     }
 }

@@ -1,10 +1,12 @@
 package io.emeraldpay.dshackle.startup.configure
 
+import io.emeraldpay.dshackle.BlockchainType
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.upstream.BlockValidator
+import io.emeraldpay.dshackle.upstream.TonCompoundHttpFactory
 import io.emeraldpay.dshackle.upstream.forkchoice.ForkChoice
 import io.emeraldpay.dshackle.upstream.generic.connectors.ConnectorFactory
 import io.emeraldpay.dshackle.upstream.generic.connectors.RestConnectorFactory
@@ -35,11 +37,17 @@ class RestConnectorFactoryCreator(
     ): ConnectorFactory? {
         val urls = ArrayList<URI>()
         val httpFactory = buildHttpFactory(conn.rpc, urls)
+        val tonV3HttpFactory = buildHttpFactory(conn.getEndpointByTag("ton_v3")?.rpc, urls)
+        val upstreamHttpFactory = if (httpFactory != null && chain.type == BlockchainType.TON) {
+            TonCompoundHttpFactory(httpFactory, tonV3HttpFactory)
+        } else {
+            httpFactory
+        }
         log.info("Using ${chain.chainName} upstream, at ${urls.joinToString()}")
 
         val connectorFactory =
             RestConnectorFactory(
-                httpFactory,
+                upstreamHttpFactory,
                 forkChoice,
                 blockValidator,
                 headScheduler,

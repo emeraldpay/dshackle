@@ -41,7 +41,7 @@ class RestHttpReader(
             .flatMap(this::execute)
             .doOnNext {
                 if (startTime.isStarted) {
-                    metrics.timer.record(startTime.nanoTime, TimeUnit.NANOSECONDS)
+                    metrics?.timer?.record(startTime.nanoTime, TimeUnit.NANOSECONDS)
                 }
             }
             .handle { it, sink ->

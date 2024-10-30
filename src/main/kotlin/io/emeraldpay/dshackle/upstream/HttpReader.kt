@@ -22,10 +22,12 @@ import java.util.function.Function
 
 abstract class HttpReader(
     protected val target: String,
-    protected val metrics: RequestMetrics,
+    protected val metrics: RequestMetrics?,
     basicAuth: AuthConfig.ClientBasicAuth? = null,
     tlsCAAuth: ByteArray? = null,
 ) : ChainReader {
+
+    constructor() : this("", null)
 
     protected val httpClient: HttpClient
 
@@ -76,9 +78,11 @@ abstract class HttpReader(
 
     protected abstract fun internalRead(key: ChainRequest): Mono<ChainResponse>
 
-    fun onStop() {
-        Metrics.globalRegistry.remove(metrics.timer)
-        Metrics.globalRegistry.remove(metrics.fails)
+    open fun onStop() {
+        if (metrics != null) {
+            Metrics.globalRegistry.remove(metrics.timer)
+            Metrics.globalRegistry.remove(metrics.fails)
+        }
     }
 
     /**
@@ -108,7 +112,7 @@ abstract class HttpReader(
                     else -> ChainException(key.id, t.message ?: t.javaClass.name, cause = t)
                 }
                 // here we're measure the internal errors, not upstream errors
-                metrics.fails.increment()
+                metrics?.fails?.increment()
                 Mono.error(err)
             }
         }
