@@ -450,6 +450,13 @@ class DefaultEthereumMethods(
         // "klay_isSenderTxHashIndexingEnabled"
     )
 
+    private val seiMethods = listOf(
+        "sei_getCosmosTx",
+        "sei_getEvmTx",
+        "sei_getEVMAddress",
+        "sei_getSeiAddress",
+    )
+
     private val kaiaMethods = listOf(
         "kaia_accountCreated",
         "kaia_accounts",
@@ -712,6 +719,8 @@ class DefaultEthereumMethods(
             )
 
             Chain.FILECOIN__MAINNET, Chain.FILECOIN__CALIBRATION_TESTNET -> filecoinMethods
+
+            Chain.SEI__MAINNET, Chain.SEI__TESTNET, Chain.SEI__DEVNET -> seiMethods
 
             else -> emptyList()
         }
