@@ -64,16 +64,16 @@ open class EthereumCachingReader(
         return SpannedReader(directReader.blockByFinalizationReader, tracer, DIRECT_QUORUM_RPC_READER)
     }
 
-    open fun blocksByIdAsCont(matcher: Selector.Matcher): Reader<BlockId, Result<BlockContainer>> {
-        val idToBlockHash = Function<BlockId, Request<BlockHash>> { id -> Request(BlockHash.from(id.value), matcher) }
+    open fun blocksByIdAsCont(upstreamFilter: Selector.UpstreamFilter): Reader<BlockId, Result<BlockContainer>> {
+        val idToBlockHash = Function<BlockId, Request<BlockHash>> { id -> Request(BlockHash.from(id.value), upstreamFilter) }
         return CompoundReader(
             SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHash()), tracer, CACHE_BLOCK_BY_HASH_READER),
             SpannedReader(RekeyingReader(idToBlockHash, directReader.blockReader), tracer, DIRECT_QUORUM_RPC_READER),
         )
     }
 
-    open fun blocksByHeightAsCont(matcher: Selector.Matcher): Reader<Long, Result<BlockContainer>> {
-        val numToRequest = Function<Long, Request<Long>> { num -> Request(num, matcher) }
+    open fun blocksByHeightAsCont(upstreamFilter: Selector.UpstreamFilter): Reader<Long, Result<BlockContainer>> {
+        val numToRequest = Function<Long, Request<Long>> { num -> Request(num, upstreamFilter) }
         return CompoundReader(
             SpannedReader(CacheWithUpstreamIdReader(caches.getBlocksByHeight()), tracer, CACHE_BLOCK_BY_HEIGHT_READER),
             SpannedReader(RekeyingReader(numToRequest, directReader.blockByHeightReader), tracer, DIRECT_QUORUM_RPC_READER),
@@ -84,8 +84,8 @@ open class EthereumCachingReader(
         return directReader.logsByHashReader
     }
 
-    open fun txByHashAsCont(matcher: Selector.Matcher): Reader<TxId, Result<TxContainer>> {
-        val idToTxHash = Function<TxId, Request<TransactionId>> { id -> Request(TransactionId.from(id.value), matcher) }
+    open fun txByHashAsCont(upstreamFilter: Selector.UpstreamFilter): Reader<TxId, Result<TxContainer>> {
+        val idToTxHash = Function<TxId, Request<TransactionId>> { id -> Request(TransactionId.from(id.value), upstreamFilter) }
         return CompoundReader(
             CacheWithUpstreamIdReader(SpannedReader(caches.getTxByHash(), tracer, CACHE_TX_BY_HASH_READER)),
             SpannedReader(RekeyingReader(idToTxHash, directReader.txReader), tracer, DIRECT_QUORUM_RPC_READER),
@@ -100,9 +100,9 @@ open class EthereumCachingReader(
         )
     }
 
-    fun receipts(matcher: Selector.Matcher): Reader<TxId, Result<ByteArray>> {
+    fun receipts(upstreamFilter: Selector.UpstreamFilter): Reader<TxId, Result<ByteArray>> {
         val requested = RekeyingReader(
-            { txid: TxId -> Request(TransactionId.from(txid.value), matcher) },
+            { txid: TxId -> Request(TransactionId.from(txid.value), upstreamFilter) },
             directReader.receiptReader,
         )
         return CompoundReader(

@@ -60,7 +60,7 @@ class WsConnectionImplSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.callRpc(new ChainRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false, Selector.empty))
+        def act = ws.callRpc(new ChainRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false, Selector.UpstreamFilter.default))
 
         then:
         StepVerifier.create(act)
@@ -92,7 +92,7 @@ class WsConnectionImplSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.callRpc(new ChainRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false, Selector.empty))
+        def act = ws.callRpc(new ChainRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false, Selector.UpstreamFilter.default))
 
         then:
         StepVerifier.create(act)
@@ -126,7 +126,7 @@ class WsConnectionImplSpec extends Specification {
 
         when:
         Flux.from(ws.handle(wsApiMock.inbound, wsApiMock.outbound)).subscribe()
-        def act = ws.callRpc(new ChainRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false, Selector.empty))
+        def act = ws.callRpc(new ChainRequest("eth_getTransactionByHash", new ListParams(["0x3ec2ebf5d0ec474d0ac6bc50d2770d8409ad76e119968e7919f85d5ec8915200"]), 15, null, null, false, Selector.UpstreamFilter.default))
 
         then:
         StepVerifier.create(act)

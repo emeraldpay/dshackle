@@ -442,7 +442,7 @@ open class NativeCall(
         return ctx.upstream.getLocalReader()
             .flatMap { api ->
                 SpannedReader(api, tracer, LOCAL_READER)
-                    .read(ctx.payload.toChainRequest(ctx.nonce, ctx.forwardedSelector, false, ctx.upstreamFilter.matcher))
+                    .read(ctx.payload.toChainRequest(ctx.nonce, ctx.forwardedSelector, false, ctx.upstreamFilter))
                     .map {
                         val result = it.getResult()
                         val resolvedUpstreamData = it.resolvedUpstreamData.ifEmpty {
@@ -799,16 +799,16 @@ open class NativeCall(
             selector: BlockchainOuterClass.Selector?,
             streamRequest: Boolean,
         ): ChainRequest {
-            return toChainRequest(nonce, selector, streamRequest, Selector.empty)
+            return toChainRequest(nonce, selector, streamRequest, Selector.UpstreamFilter.default)
         }
 
         fun toChainRequest(
             nonce: Long?,
             selector: BlockchainOuterClass.Selector?,
             streamRequest: Boolean,
-            matcher: Selector.Matcher,
+            upstreamFilter: Selector.UpstreamFilter,
         ): ChainRequest {
-            return ChainRequest(method, params, nonce, selector, streamRequest, matcher)
+            return ChainRequest(method, params, nonce, selector, streamRequest, upstreamFilter)
         }
     }
 }

@@ -94,7 +94,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.empty))
+        def act = reader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.UpstreamFilter.default))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
@@ -122,7 +122,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.empty))
+        def act = reader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.UpstreamFilter.default))
         then:
         StepVerifier.create(act)
                 .expectComplete()
@@ -155,7 +155,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.blockByHeightReader.read(new EthereumDirectReader.Request<Long>(100L, Selector.empty))
+        def act = reader.blockByHeightReader.read(new EthereumDirectReader.Request<Long>(100L, Selector.UpstreamFilter.default))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
@@ -220,7 +220,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.txReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.empty))
+        def act = reader.txReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.UpstreamFilter.default))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
@@ -253,7 +253,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.receiptReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.empty))
+        def act = reader.receiptReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.UpstreamFilter.default))
             .block(Duration.ofSeconds(1))
             .with { new String(it.data) }
         then:
@@ -287,7 +287,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.receiptReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.empty))
+        def act = reader.receiptReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.UpstreamFilter.default))
                 .block(Duration.ofSeconds(1))
                 .with { new String(it.data) }
         then:
@@ -312,7 +312,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = reader.txReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.empty))
+        def act = reader.txReader.read(new EthereumDirectReader.Request<TransactionId>(TransactionId.from(hash1), Selector.UpstreamFilter.default))
         then:
         StepVerifier.create(act)
                 .expectComplete()
@@ -411,7 +411,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = ethereumDirectReader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.empty))
+        def act = ethereumDirectReader.blockReader.read(new EthereumDirectReader.Request<BlockHash>(BlockHash.from(hash1), Selector.UpstreamFilter.default))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->
@@ -451,7 +451,7 @@ class EthereumDirectReaderSpec extends Specification {
             }
         }
         when:
-        def act = ethereumDirectReader.blockByHeightReader.read(new EthereumDirectReader.Request<Long>(100L, Selector.empty))
+        def act = ethereumDirectReader.blockByHeightReader.read(new EthereumDirectReader.Request<Long>(100L, Selector.UpstreamFilter.default))
         then:
         StepVerifier.create(act)
                 .expectNextMatches { block ->

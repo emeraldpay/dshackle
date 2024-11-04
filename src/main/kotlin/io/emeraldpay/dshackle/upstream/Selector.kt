@@ -261,6 +261,11 @@ class Selector {
         val matcher: Matcher,
     ) {
         constructor(matcher: Matcher) : this(Sort.default, matcher)
+
+        companion object {
+            @JvmStatic
+            val default = UpstreamFilter(empty)
+        }
     }
 
     data class MultiMatcher(
