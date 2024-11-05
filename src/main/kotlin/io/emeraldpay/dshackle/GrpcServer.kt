@@ -130,7 +130,8 @@ open class GrpcServer(
     @PreDestroy
     fun stop() {
         log.info("Shutting down GRPC Server...")
-        server?.shutdownNow()
+        server?.shutdown()
+        server?.awaitTermination(10, TimeUnit.SECONDS)
         log.info("GRPC Server shot down")
     }
 }
