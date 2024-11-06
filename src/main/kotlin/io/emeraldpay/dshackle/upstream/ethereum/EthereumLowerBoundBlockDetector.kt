@@ -25,6 +25,7 @@ class EthereumLowerBoundBlockDetector(
         private val NO_BLOCK_ERRORS = listOf(
             "error loading messages for tipset",
             "bad tipset height",
+            "Block with such an ID is pruned", // zksync
         )
     }
 

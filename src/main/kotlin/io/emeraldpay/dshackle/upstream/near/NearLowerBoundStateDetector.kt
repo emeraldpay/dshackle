@@ -36,6 +36,6 @@ class NearLowerBoundStateDetector(
     }
 
     override fun types(): Set<LowerBoundType> {
-        return setOf(LowerBoundType.STATE)
+        return setOf(LowerBoundType.STATE, LowerBoundType.BLOCK)
     }
 }

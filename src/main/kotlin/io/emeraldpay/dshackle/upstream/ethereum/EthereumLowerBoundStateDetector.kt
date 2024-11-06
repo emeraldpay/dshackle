@@ -47,6 +47,7 @@ class EthereumLowerBoundStateDetector(
             "Block with such an ID is pruned", // zksync
             "state at block", // berachain, eth
             "unsupported block number", // arb
+            "unexpected state root", // fantom
         )
     }
 
