@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "result": {
+    "@type": "blocks.header",
+    "id": {
+      "@type": "ton.blockIdExt",
+      "workchain": -1,
+      "shard": "-9223372036854775808",
+      "seqno": 41689287,
+      "root_hash": "kOdzFs2iOVrpBVpD5Wt1o9Z+eTJIjGXxMurjuKiIJgg=",
+      "file_hash": "2gGZ8/7b8ztvtzPaDbzsWzxvCSvwMoct1v2l9jtV2G0="
+    },
+    "global_id": -3345
+  }
+}

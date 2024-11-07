@@ -87,7 +87,20 @@ object TonHttpSpecific : AbstractPollChainSpecific() {
         config: ChainConfig,
     ): List<SingleValidator<ValidateUpstreamSettingsResult>> {
         // add check generic block
-        return emptyList()
+        return listOf(
+            TonChainIdValidator(upstream, chain),
+        )
+    }
+
+    override fun chainSettingsValidator(
+        chain: Chain,
+        upstream: Upstream,
+        reader: ChainReader?,
+    ): SingleValidator<ValidateUpstreamSettingsResult>? {
+        if (upstream.getOptions().disableUpstreamValidation) {
+            return null
+        }
+        return TonChainIdValidator(upstream, chain)
     }
 }
 
