@@ -1,8 +1,6 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
 import io.emeraldpay.dshackle.Defaults
-import io.emeraldpay.dshackle.upstream.ChainCallError
-import io.emeraldpay.dshackle.upstream.ChainCallUpstreamException
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -22,14 +20,17 @@ class EthereumLowerBoundBlockDetector(
     companion object {
         private const val NO_BLOCK_DATA = "No block data"
 
-        private val NO_BLOCK_ERRORS = listOf(
+        val NO_BLOCK_ERRORS = setOf(
+            NO_BLOCK_DATA,
             "error loading messages for tipset",
             "bad tipset height",
             "Block with such an ID is pruned", // zksync
+            "height is not available", // sei
+            "method handler crashed", // sei
         )
     }
 
-    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.BLOCK, setOf(NO_BLOCK_DATA), lowerBounds)
+    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.BLOCK, NO_BLOCK_ERRORS, lowerBounds)
 
     override fun period(): Long {
         return 3
@@ -52,19 +53,11 @@ class EthereumLowerBoundBlockDetector(
                         if (it.hasResult() && it.getResult().contentEquals("null".toByteArray())) {
                             throw IllegalStateException(NO_BLOCK_DATA)
                         }
-                    }.doOnError {
-                        if (it is ChainCallUpstreamException && handleError(it.error)) {
-                            throw IllegalStateException(NO_BLOCK_DATA)
-                        }
                     }
             }
         }.flatMap {
             Flux.just(it, lowerBoundFrom(it, LowerBoundType.LOGS))
         }
-    }
-
-    private fun handleError(error: ChainCallError): Boolean {
-        return NO_BLOCK_ERRORS.any { error.message.contains(it) }
     }
 
     override fun types(): Set<LowerBoundType> {

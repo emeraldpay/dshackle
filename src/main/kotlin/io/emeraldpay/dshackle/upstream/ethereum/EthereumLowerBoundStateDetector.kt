@@ -48,6 +48,7 @@ class EthereumLowerBoundStateDetector(
             "state at block", // berachain, eth
             "unsupported block number", // arb
             "unexpected state root", // fantom
+            "evm module does not exist on height", // sei
         )
     }
 
