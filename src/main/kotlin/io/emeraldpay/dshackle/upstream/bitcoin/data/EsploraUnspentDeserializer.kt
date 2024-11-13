@@ -19,18 +19,14 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.JsonNode
-import java.time.Instant
 
 class EsploraUnspentDeserializer : JsonDeserializer<EsploraUnspent>() {
     override fun deserialize(jp: JsonParser, ctxt: DeserializationContext): EsploraUnspent {
         val node: JsonNode = jp.readValueAsTree()
-        val status = node.get("status")
         return EsploraUnspent(
             node.get("txid").asText(),
             node.get("vout").asInt(),
             node.get("value").asLong(),
-            Instant.ofEpochSecond(status.get("block_time").asLong()),
-            status.get("block_height").asLong(),
         )
     }
 }

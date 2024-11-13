@@ -15,12 +15,8 @@
  */
 package io.emeraldpay.dshackle.upstream.bitcoin.data
 
-import java.time.Instant
-
 data class EsploraUnspent(
     val txid: String,
     val vout: Int,
     val value: Long,
-    val timestamp: Instant,
-    val height: Long,
 )

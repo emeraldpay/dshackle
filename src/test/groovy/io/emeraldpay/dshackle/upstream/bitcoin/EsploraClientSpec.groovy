@@ -1,5 +1,7 @@
 package io.emeraldpay.dshackle.upstream.bitcoin
 
+import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
+
 /**
  * Copyright (c) 2020 EmeraldPay, Inc
  *
@@ -15,7 +17,7 @@ package io.emeraldpay.dshackle.upstream.bitcoin
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import io.emeraldpay.dshackle.upstream.bitcoin.data.EsploraUnspent
+
 import org.bitcoinj.core.Address
 import org.bitcoinj.params.MainNetParams
 import org.bitcoinj.params.TestNet3Params
@@ -27,7 +29,6 @@ import reactor.test.StepVerifier
 import spock.lang.Specification
 
 import java.time.Duration
-import java.time.Instant
 
 class EsploraClientSpec extends Specification {
 
@@ -62,13 +63,13 @@ class EsploraClientSpec extends Specification {
                 .expectNextMatches { list ->
                     def ok = list.size() == 14
                     if (!ok) println("invalid size")
-                    ok = ok && list[0] == new EsploraUnspent("002eba7d9e8081afc687e1c3fa7b6a6451713b75bc91432d441bb1e7e1511c5c", 0, 105524, Instant.ofEpochSecond(1599808442), 647721)
+                    ok = ok && list[0] == new EsploraUnspent("002eba7d9e8081afc687e1c3fa7b6a6451713b75bc91432d441bb1e7e1511c5c", 0, 105524)
                     if (!ok) println("invalid 0")
-                    ok = ok && list[1] == new EsploraUnspent("1ee3cb3833b1e499e7f8babb1100c4aa0b4273f655036561d84dd72a5b197258", 0, 5248, Instant.ofEpochSecond(1600114632), 648312)
+                    ok = ok && list[1] == new EsploraUnspent("1ee3cb3833b1e499e7f8babb1100c4aa0b4273f655036561d84dd72a5b197258", 0, 5248)
                     if (!ok) println("invalid 1")
-                    ok = ok && list[12] == new EsploraUnspent("311d0d1d4eea6ee37d57954cd1002898bef64885d8e438afbbd7fe4fdc6e08de", 2250, 22978, Instant.ofEpochSecond(1599018027), 646382)
+                    ok = ok && list[12] == new EsploraUnspent("311d0d1d4eea6ee37d57954cd1002898bef64885d8e438afbbd7fe4fdc6e08de", 2250, 22978)
                     if (!ok) println("invalid 12")
-                    ok = ok && list[13] == new EsploraUnspent("230317b8fdf1ae85f5fbdc49ca90851b1728c2d9432b2738d3fe1c6f68f046e4", 11, 8642, Instant.ofEpochSecond(1599273442), 646777)
+                    ok = ok && list[13] == new EsploraUnspent("230317b8fdf1ae85f5fbdc49ca90851b1728c2d9432b2738d3fe1c6f68f046e4", 11, 8642)
                     if (!ok) println("invalid 13")
                     ok
                 }
