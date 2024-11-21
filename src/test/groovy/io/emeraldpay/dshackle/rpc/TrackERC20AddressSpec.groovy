@@ -167,9 +167,10 @@ class TrackERC20AddressSpec extends Specification {
 
     def "Check balance when event happens"() {
         setup:
+        def tokenAddress = Address.from("0x54EEdeAC495271D0F6B175474e89094C44Da98B9")
         def events = [
                 new LogMessage(
-                        Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9"),
+                        tokenAddress,
                         BlockHash.from("0x0c0d2969c843d0b61fbab1b2302cf24d6681b2ae0a140a3c2908990d048f7631"),
                         13668750,
                         HexData.from("0x0000000000000000000000000000000000000000000000000000000048f2fc7b"),
@@ -188,11 +189,14 @@ class TrackERC20AddressSpec extends Specification {
             1 * connect() >> Flux.fromIterable(events)
         }
         def logs = Mock(ConnectLogs) {
-            1 * create(
-                    [Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")],
-                    [Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")]
-            ) >> { args ->
+            1 * create(_, _) >> { args ->
                 println("ConnectLogs.create $args")
+                if (args[0].size() != 1 || args[0][0] != tokenAddress) {
+                    throw new IllegalArgumentException("Invalid address: ${args[0][0]}")
+                }
+                if (args[1].size() != 1 || !Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef").equals(args[1][0])) {
+                    throw new IllegalArgumentException("Invalid topic: ${args[1].size()} ${args[1][0]}")
+                }
                 logsConnect
             }
         }
@@ -214,7 +218,7 @@ class TrackERC20AddressSpec extends Specification {
                     blockchain = Chain.ETHEREUM
                     name = "TEST"
                     type = TokensConfig.Type.ERC20
-                    address = Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")
+                    address = tokenAddress
                 }
         ])
         TrackERC20Address track = new TrackERC20Address(mup, tokens)

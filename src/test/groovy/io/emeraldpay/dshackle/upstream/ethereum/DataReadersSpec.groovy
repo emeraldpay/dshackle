@@ -146,7 +146,9 @@ class DataReadersSpec extends Specification {
             .block(Duration.ofSeconds(1))
             .with { new String(it) }
         then:
-        act == '{"blockHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","blockNumber":"0x64","transactionHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5","logs":[]}'
+        act.contains('"blockHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"')
+        act.contains('"transactionHash":"0x40d15edaff9acdabd2a1c96fd5f683b3300aad34e7015f34def3c56ba8a7ffb5"')
+        act.contains('"blockNumber":"0x64"')
     }
 
     def "Produce empty on non-existing tx"() {

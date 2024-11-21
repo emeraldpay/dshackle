@@ -25,7 +25,7 @@ class ERC20BalanceTest : ShouldSpec({
                     listOf(
                         TransactionCallJson().also { json ->
                             json.to = Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")
-                            json.data = HexData.from("0x70a0823100000000000000000000000016c15c65ad00b6dfbcc2cb8a7b6c2d0103a3883b")
+                            json.input = HexData.from("0x70a0823100000000000000000000000016c15c65ad00b6dfbcc2cb8a7b6c2d0103a3883b")
                         },
                         "latest"
                     )
@@ -51,7 +51,7 @@ class ERC20BalanceTest : ShouldSpec({
                     listOf(
                         TransactionCallJson().also { json ->
                             json.to = Address.from("0x54EedeAC495271d0F6B175474E89094C44Da98b9")
-                            json.data = HexData.from("0x70a0823100000000000000000000000016c15c65ad00b6dfbcc2cb8a7b6c2d0103a3883b")
+                            json.input = HexData.from("0x70a0823100000000000000000000000016c15c65ad00b6dfbcc2cb8a7b6c2d0103a3883b")
                         },
                         "latest"
                     )
@@ -79,7 +79,7 @@ class ERC20BalanceTest : ShouldSpec({
                     listOf(
                         TransactionCallJson().also { json ->
                             json.to = Address.from("0x54eedeac495271d0f6b175474e89094c44da0000")
-                            json.data = HexData.from("0x70a0823100000000000000000000000016c15c65ad00b6dfbcc2cb8a7b6c2d0103a3883b")
+                            json.input = HexData.from("0x70a0823100000000000000000000000016c15c65ad00b6dfbcc2cb8a7b6c2d0103a3883b")
                         },
                         "latest"
                     )

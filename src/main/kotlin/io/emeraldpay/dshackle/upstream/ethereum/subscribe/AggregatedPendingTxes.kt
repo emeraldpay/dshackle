@@ -32,7 +32,7 @@ class AggregatedPendingTxes(
 
     private val track = ExpiringSet<TransactionId>(
         Duration.ofSeconds(30),
-        HexDataComparator() as Comparator<TransactionId>,
+        HexDataComparator<TransactionId>() as Comparator<TransactionId>,
         10_000
     )
 
