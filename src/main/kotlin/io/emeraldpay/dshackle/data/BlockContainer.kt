@@ -48,7 +48,7 @@ class BlockContainer(
                 block.number,
                 BlockId.from(block),
                 block.parentHash?.let(BlockId.Companion::from),
-                block.totalDifficulty,
+                block.totalDifficulty ?: BigInteger.ZERO,
                 block.timestamp,
                 hasTransactions,
                 raw,
