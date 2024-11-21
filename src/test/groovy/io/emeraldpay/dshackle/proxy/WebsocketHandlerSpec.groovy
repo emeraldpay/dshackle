@@ -18,7 +18,7 @@ package io.emeraldpay.dshackle.proxy
 import io.emeraldpay.dshackle.monitoring.accesslog.AccessLogHandlerHttp
 import io.emeraldpay.dshackle.rpc.NativeCall
 import io.emeraldpay.dshackle.rpc.NativeSubscribe
-import io.emeraldpay.etherjar.rpc.json.RequestJson
+import io.emeraldpay.etherjar.rpc.RequestJson
 import io.emeraldpay.api.Chain
 import io.micrometer.core.instrument.Counter
 import reactor.core.publisher.Flux

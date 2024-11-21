@@ -33,8 +33,8 @@ open class ConnectLogs(
     companion object {
         private val log = LoggerFactory.getLogger(ConnectLogs::class.java)
 
-        private val ADDR_COMPARATOR = HexDataComparator()
-        private val TOPIC_COMPARATOR = HexDataComparator()
+        private val ADDR_COMPARATOR = HexDataComparator<Address>()
+        private val TOPIC_COMPARATOR = HexDataComparator<Hex32>()
     }
 
     constructor(upstream: EthereumMultistream) : this(upstream, ConnectBlockUpdates(upstream))
