@@ -187,7 +187,7 @@ class TrackEthereumTx(
     }
 
     fun setBlockDetails(tx: TxDetails, block: BlockJson<TransactionRefJson>): TxDetails {
-        return if (block.number != null && block.totalDifficulty != null) {
+        return if (block.number != null) {
             tx.withStatus(
                 blockTotalDifficulty = block.totalDifficulty,
                 blockTime = block.timestamp
