@@ -126,8 +126,11 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
                         } else {
                             UpstreamAvailability.OK
                         }
+                    } else if (raw.get("batchProcessed") != null && raw.get("batchSeen") != null && raw.get("syncTargetMsgCount") != null) {
+                        // arbitrum nitro may return a complex syncing response that means a node is not synced
+                        UpstreamAvailability.SYNCING
                     } else {
-                        log.error("Received unknown syncing object ${raw.toPrettyString()} for upstream ${upstream.getId()}")
+                        log.error("Received unknown syncing object {} for upstream {}", raw.toPrettyString(), upstream.getId())
                         UpstreamAvailability.OK
                     }
                 }.also {
