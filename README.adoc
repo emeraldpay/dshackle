@@ -3,7 +3,7 @@
 ifdef::env-github[]
 :imagesdir: https://raw.githubusercontent.com/emeraldpay/dshackle/master/docs/assets
 endif::[]
-:version: 0.15.1
+:version: 0.15.2
 :version-short: 0.15
 :link-docs: https://github.com/emeraldpay/dshackle/tree/release/v{version-short}/docs
 
