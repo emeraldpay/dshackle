@@ -91,6 +91,9 @@ open class CachesFactory(
 
     private fun initCache(chain: Chain): Caches {
         val caches = Caches.newBuilder()
+        if (chain == Chain.ZIRCUIT__MAINNET || chain == Chain.ZIRCUIT__TESTNET) {
+            caches.setCacheEnabled(false)
+        }
         redis?.let { redis ->
             caches.setBlockByHash(BlocksRedisCache(redis.reactive(), chain))
             caches.setTxByHash(TxRedisCache(redis.reactive(), chain))
