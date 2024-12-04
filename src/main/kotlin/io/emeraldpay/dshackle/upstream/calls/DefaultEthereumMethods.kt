@@ -583,6 +583,27 @@ class DefaultEthereumMethods(
         "hmyv2_getValidators",
     )
 
+    private val zxkSyncMethods = listOf(
+        "zks_estimateFee",
+        "zks_estimateGasL1ToL2",
+        "zks_getAllAccountBalances",
+        "zks_getBlockDetails",
+        "zks_getBridgeContracts",
+        "zks_getBytecodeByHash",
+        "zks_getConfirmedTokens",
+        "zks_getL1BatchBlockRange",
+        "zks_getL1BatchDetails",
+        "zks_getL2ToL1LogProof",
+        "zks_getL2ToL1MsgProof",
+        "zks_getMainContract",
+        "zks_getRawBlockTransactions",
+        "zks_getTestnetPaymaster",
+        "zks_getTokenPrice",
+        "zks_getTransactionDetails",
+        "zks_L1BatchNumber",
+        "zks_L1ChainId",
+    )
+
     private val allowedMethods: List<String>
 
     init {
@@ -667,26 +688,7 @@ class DefaultEthereumMethods(
                 "zkevm_getBroadcastURI",
             )
 
-            Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__SEPOLIA -> listOf(
-                "zks_estimateFee",
-                "zks_estimateGasL1ToL2",
-                "zks_getAllAccountBalances",
-                "zks_getBlockDetails",
-                "zks_getBridgeContracts",
-                "zks_getBytecodeByHash",
-                "zks_getConfirmedTokens",
-                "zks_getL1BatchBlockRange",
-                "zks_getL1BatchDetails",
-                "zks_getL2ToL1LogProof",
-                "zks_getL2ToL1MsgProof",
-                "zks_getMainContract",
-                "zks_getRawBlockTransactions",
-                "zks_getTestnetPaymaster",
-                "zks_getTokenPrice",
-                "zks_getTransactionDetails",
-                "zks_L1BatchNumber",
-                "zks_L1ChainId",
-            )
+            Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__SEPOLIA -> zxkSyncMethods
 
             Chain.HARMONY__MAINNET_SHARD_0 ->
                 harmonyMethods
@@ -721,6 +723,8 @@ class DefaultEthereumMethods(
             Chain.FILECOIN__MAINNET, Chain.FILECOIN__CALIBRATION_TESTNET -> filecoinMethods
 
             Chain.SEI__MAINNET, Chain.SEI__TESTNET, Chain.SEI__DEVNET -> seiMethods
+
+            Chain.CRONOS_ZKEVM__MAINNET, Chain.CRONOS_ZKEVM__TESTNET -> zxkSyncMethods + "zk_estimateFee"
 
             else -> emptyList()
         }
