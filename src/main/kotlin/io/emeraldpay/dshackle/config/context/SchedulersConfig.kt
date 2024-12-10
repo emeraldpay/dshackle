@@ -12,7 +12,7 @@ import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
@@ -91,7 +91,7 @@ open class SchedulersConfig {
             size * threadsMultiplier,
             60L,
             TimeUnit.SECONDS,
-            SynchronousQueue(),
+            LinkedBlockingQueue(1000),
             CustomizableThreadFactory("$name-"),
         )
 
