@@ -25,6 +25,8 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         callTargetsHolder: CallTargetsHolder,
         @Qualifier("headScheduler")
         headScheduler: Scheduler,
+        @Qualifier("subScheduler")
+        subScheduler: Scheduler,
         tracer: Tracer,
         multistreamEventsScheduler: Scheduler,
         indexConfig: IndexConfig,
@@ -41,6 +43,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
                         chain,
                         cachesFactory,
                         headScheduler,
+                        subScheduler,
                         tracer,
                         multistreamEventsScheduler,
                         indexConfig.getByChain(chain),
@@ -54,6 +57,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
         chain: Chain,
         cachesFactory: CachesFactory,
         headScheduler: Scheduler,
+        subScheduler: Scheduler,
         tracer: Tracer,
         multistreamEventsScheduler: Scheduler,
         logsOracleConfig: IndexConfig.Index?,
@@ -71,7 +75,7 @@ open class MultistreamsConfig(val beanFactory: ConfigurableListableBeanFactory) 
             headScheduler,
             cs.makeCachingReaderBuilder(tracer),
             cs::localReaderBuilder,
-            cs.subscriptionBuilder(headScheduler),
+            cs.subscriptionBuilder(subScheduler),
             logsOracleConfig,
             logsOracleScheduler,
             tracer,

@@ -42,6 +42,11 @@ open class SchedulersConfig {
     }
 
     @Bean
+    open fun subScheduler(monitoringConfig: MonitoringConfig): Scheduler {
+        return makeScheduler("sub-scheduler", 4, monitoringConfig)
+    }
+
+    @Bean
     open fun logsOracleScheduler(monitoringConfig: MonitoringConfig): Scheduler {
         return makeScheduler("logs-oracle", 4, monitoringConfig)
     }
@@ -77,7 +82,7 @@ open class SchedulersConfig {
     }
 
     private fun makeScheduler(name: String, size: Int, monitoringConfig: MonitoringConfig): Scheduler {
-        return Schedulers.fromExecutorService(makePool(name, size * threadsMultiplier, monitoringConfig))
+        return Schedulers.fromExecutorService(makePool(name, size, monitoringConfig))
     }
 
     private fun makePool(name: String, size: Int, monitoringConfig: MonitoringConfig): ExecutorService {
