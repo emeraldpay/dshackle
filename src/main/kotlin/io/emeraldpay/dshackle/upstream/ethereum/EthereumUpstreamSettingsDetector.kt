@@ -72,7 +72,7 @@ class EthereumUpstreamSettingsDetector(
                     "latest",
                     mapOf(
                         "0x53Daa71B04d589429f6d3DF52db123913B818F22" to mapOf(
-                            "code" to "0x6080604052348015600e575f80fd5b50600436106026575f3560e01c806351be4eaa14602a575b5f80fd5b60306044565b604051603b91906061565b60405180910390f35b5f5a905090565b5f819050919050565b605b81604b565b82525050565b5f60208201905060725f8301846054565b9291505056fea2646970667358221220a85b088da3911ea743505594ac7cfdd1a65865de64499ee1f3c6bd9cdad4552364736f6c634300081a0033",
+                            "code" to "0x6080604052348015600f57600080fd5b506004361060285760003560e01c806351be4eaa14602d575b600080fd5b60336047565b604051603e91906066565b60405180910390f35b60005a905090565b6000819050919050565b606081604f565b82525050565b6000602082019050607960008301846059565b9291505056fea26469706673582212201c0202887c1afe66974b06ee355dee07542bbc424cf4d1659c91f56c08c3dcc064736f6c63430008130033",
                         ),
                     ),
                 ),
@@ -80,7 +80,7 @@ class EthereumUpstreamSettingsDetector(
         ).flatMap {
             it.requireResult()
         }.flatMapMany {
-            val gaslimit = String(it).drop(3).dropLast(1).toBigInteger(16) + (21180).toBigInteger()
+            val gaslimit = String(it).drop(3).dropLast(1).toBigInteger(16) + (21182).toBigInteger()
             val labels = mutableListOf(Pair("gas-limit", gaslimit.toString(10)))
             labels.add(Pair("extra_gas_limit", gaslimit.toString(10)))
             Flux.fromIterable(labels)
