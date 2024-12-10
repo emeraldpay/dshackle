@@ -726,6 +726,10 @@ class DefaultEthereumMethods(
 
             Chain.CRONOS_ZKEVM__MAINNET, Chain.CRONOS_ZKEVM__TESTNET -> zxkSyncMethods + "zk_estimateFee"
 
+            Chain.VICTION__MAINNET, Chain.VICTION__TESTNET -> listOf(
+                "posv_getNetworkInformation",
+            )
+
             else -> emptyList()
         }
     }
