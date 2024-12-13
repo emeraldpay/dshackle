@@ -707,6 +707,7 @@ class DefaultEthereumMethods(
 
             Chain.LINEA__MAINNET, Chain.LINEA__SEPOLIA -> listOf(
                 "linea_estimateGas",
+                "linea_getProof",
             )
 
             Chain.ROOTSTOCK__MAINNET, Chain.ROOTSTOCK__TESTNET -> listOf(
