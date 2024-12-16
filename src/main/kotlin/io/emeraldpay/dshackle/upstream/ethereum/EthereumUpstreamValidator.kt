@@ -192,46 +192,6 @@ class ChainIdValidator(
     }
 }
 
-class OldBlockValidator(
-    private val upstream: Upstream,
-) : SingleValidator<ValidateUpstreamSettingsResult> {
-
-    companion object {
-        @JvmStatic
-        val log: Logger = LoggerFactory.getLogger(OldBlockValidator::class.java)
-    }
-    override fun validate(onError: ValidateUpstreamSettingsResult): Mono<ValidateUpstreamSettingsResult> {
-        return EthereumArchiveBlockNumberReader(upstream.getIngressReader())
-            .readArchiveBlock()
-            .flatMap {
-                upstream.getIngressReader()
-                    .read(ChainRequest("eth_getBlockByNumber", ListParams(it, false)))
-                    .flatMap(ChainResponse::requireResult)
-            }
-            .retryRandomBackoff(3, Duration.ofMillis(100), Duration.ofMillis(500)) { ctx ->
-                log.warn(
-                    "error during old block retrieving for {}, iteration {}, reason - {}",
-                    upstream.getId(),
-                    ctx.iteration(),
-                    ctx.exception().message,
-                )
-            }
-            .map { result ->
-                val receivedResult = result.isNotEmpty() && !Global.nullValue.contentEquals(result)
-                if (!receivedResult) {
-                    log.warn(
-                        "Node ${upstream.getId()} probably is synced incorrectly, it is not possible to get old blocks",
-                    )
-                }
-                ValidateUpstreamSettingsResult.UPSTREAM_VALID
-            }
-            .onErrorResume {
-                log.warn("Error during old blocks validation of upstream {}, reason - {}", upstream.getId(), it.message)
-                Mono.just(ValidateUpstreamSettingsResult.UPSTREAM_VALID)
-            }
-    }
-}
-
 class GasPriceValidator(
     private val upstream: Upstream,
     private val config: ChainConfig,
