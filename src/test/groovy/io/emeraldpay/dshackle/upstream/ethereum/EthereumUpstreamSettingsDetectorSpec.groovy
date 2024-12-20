@@ -34,7 +34,7 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
                                     "0x53Daa71B04d589429f6d3DF52db123913B818F22": [
                                             "code": "0x6080604052348015600f57600080fd5b506004361060285760003560e01c806351be4eaa14602d575b600080fd5b60336047565b604051603e91906066565b60405180910390f35b60005a905090565b6000819050919050565b606081604f565b82525050565b6000602082019050607960008301846059565b9291505056fea26469706673582212201c0202887c1afe66974b06ee355dee07542bbc424cf4d1659c91f56c08c3dcc064736f6c63430008130033",
                                     ],
-                            ]], "0x2fa9dc2")
+                            ]], gas)
                 }
         )
         def detector = new EthereumUpstreamSettingsDetector(up, Chain.ETHEREUM__MAINNET)
@@ -42,22 +42,23 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
         when:
         def act = detector.internalDetectLabels()
         then:
-        StepVerifier.create(act)
+        def result = StepVerifier.create(act)
             .expectNext(
                     new Pair<String, String>("client_type", clientType),
                     new Pair<String, String>("client_version", version),
                     new Pair<String, String>("archive", "true"),
-                    new Pair<String, String>("gas-limit", "50000000"),
-                    new Pair<String, String>("extra_gas_limit", "50000000")
+                    new Pair<String, String>("gas-limit", gasv),
             )
-            .expectComplete()
-            .verify(Duration.ofSeconds(1))
+        if (extragas != null) {
+            result.expectNext(new Pair<String, String>("extra_gas_limit", extragas))
+        }
+        result.expectComplete().verify(Duration.ofSeconds(1))
         where:
-        response                                                | clientType      |  version
-        "Nethermind/v1.19.3+e8ac1da4/linux-x64/dotnet7.0.8"     | "nethermind"    |  "v1.19.3+e8ac1da4"
-        "Geth/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"     | "geth"          |  "v1.12.0-stable-e501b3b0"
-        "Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"   | "erigon"        |  "v1.12.0-stable-e501b3b0"
-        "Bor/v0.4.0/linux-amd64/go1.19.10"                      | "bor"           |  "v0.4.0"
+        response                                              | gas         | gasv        | extragas    | clientType      |  version
+        "Nethermind/v1.19.3+e8ac1da4/linux-x64/dotnet7.0.8"   | "0x2fa9dc2" | "50000000"  | null        | "nethermind"    |  "v1.19.3+e8ac1da4"
+        "Geth/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"   | "0x2fa9dc2" | "50000000"  | null        | "geth"          |  "v1.12.0-stable-e501b3b0"
+        "Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3" | "0x2fa9dc2" | "50000000"  | null        | "erigon"        |  "v1.12.0-stable-e501b3b0"
+        "Bor/v0.4.0/linux-amd64/go1.19.10"                    | "0x23c2f342"| "600000000" | "600000000" | "bor"           |  "v0.4.0"
     }
 
     def "Not archival node if null response"() {
