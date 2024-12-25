@@ -16,7 +16,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: 20
+          java-version: 21
       - name: Setup gradle
         uses: gradle/gradle-build-action@v2
       - name: Upload to Docker
@@ -36,7 +36,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: 20
+          java-version: 21
       - name: Setup gradle
         uses: gradle/gradle-build-action@v2
       - name: Build zip

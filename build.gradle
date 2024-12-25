@@ -36,8 +36,8 @@ group = 'io.emeraldpay.dshackle'
 version = getVersion()
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_20
-    targetCompatibility = JavaVersion.VERSION_20
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 repositories {
@@ -119,6 +119,7 @@ dependencies {
 
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-aarch_64") })
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("linux-x86_64") })
+    implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("linux-aarch_64") })
     implementation(variantOf(libs.netty.tcnative.boringssl) { classifier("osx-x86_64") })
     implementation 'dshackle:foundation:1.0.0'
 
@@ -132,10 +133,10 @@ tasks.withType(Test) { jvmArgs += "--enable-preview" }
 tasks.withType(JavaExec) { jvmArgs += "--enable-preview" }
 
 compileKotlin {
-    compilerOptions.jvmTarget.set(JvmTarget.JVM_20)
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
 }
 compileTestKotlin {
-    compilerOptions.jvmTarget.set(JvmTarget.JVM_20)
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
 }
 
 test {
