@@ -11,10 +11,10 @@ class DefaultBeaconChainMethods : CallMethods {
         getMethod("/eth/v1/beacon/states/*/root"),
         getMethod("/eth/v1/beacon/states/*/fork"),
         getMethod("/eth/v1/beacon/states/*/finality_checkpoints"),
-        getMethod("/eth/v1/beacon/states/*/validators"),
+        // getMethod("/eth/v1/beacon/states/*/validators"), // RESPONSE TOO BIG
         postMethod("/eth/v1/beacon/states/*/validators"),
         getMethod("/eth/v1/beacon/states/*/validators/*"),
-        getMethod("/eth/v1/beacon/states/*/validator_balances"),
+        // getMethod("/eth/v1/beacon/states/*/validator_balances"), // RESPONSE TOO BIG
         postMethod("/eth/v1/beacon/states/*/validator_balances"),
         getMethod("/eth/v1/beacon/states/*/committees"),
         getMethod("/eth/v1/beacon/states/*/sync_committees"),
