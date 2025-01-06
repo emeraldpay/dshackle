@@ -49,6 +49,7 @@ class EthereumLowerBoundStateDetector(
             "unsupported block number", // arb
             "unexpected state root", // fantom
             "evm module does not exist on height", // sei
+            "failed to load state at height", // 0g
         )
     }
 
