@@ -55,9 +55,9 @@ class EthereumUpstreamSettingsDetectorSpec extends Specification {
         result.expectComplete().verify(Duration.ofSeconds(1))
         where:
         response                                              | gas         | gasv        | extragas    | clientType      |  version
-        "Nethermind/v1.19.3+e8ac1da4/linux-x64/dotnet7.0.8"   | "0x2fa9dc2" | "50000000"  | null        | "nethermind"    |  "v1.19.3+e8ac1da4"
-        "Geth/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"   | "0x2fa9dc2" | "50000000"  | null        | "geth"          |  "v1.12.0-stable-e501b3b0"
-        "Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3" | "0x2fa9dc2" | "50000000"  | null        | "erigon"        |  "v1.12.0-stable-e501b3b0"
+        "Nethermind/v1.19.3+e8ac1da4/linux-x64/dotnet7.0.8"   | "0x2fa9dc2" | "50000000"  | "50000000"  | "nethermind"    |  "v1.19.3+e8ac1da4"
+        "Geth/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3"   | "0x2fa9dc2" | "50000000"  | "50000000"  | "geth"          |  "v1.12.0-stable-e501b3b0"
+        "Erigon/v1.12.0-stable-e501b3b0/linux-amd64/go1.20.3" | "0x2fa9dc2" | "50000000"  | "50000000"  | "erigon"        |  "v1.12.0-stable-e501b3b0"
         "Bor/v0.4.0/linux-amd64/go1.19.10"                    | "0x23c2f342"| "600000000" | "600000000" | "bor"           |  "v0.4.0"
     }
 
