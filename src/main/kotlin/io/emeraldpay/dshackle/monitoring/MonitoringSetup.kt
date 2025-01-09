@@ -87,6 +87,7 @@ class MonitoringSetup(
                 server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
                     val response = prometheusRegistry.scrape()
                     httpExchange.responseHeaders.add("Content-Encoding", "gzip")
+                    httpExchange.responseHeaders.add("Content-Type", "text/plain")
                     httpExchange.sendResponseHeaders(200, 0)
                     httpExchange.responseBody.use { os ->
                         GZIPOutputStream(os).use { gzos ->
