@@ -22,7 +22,6 @@ import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.ChainResponse
 import io.emeraldpay.dshackle.upstream.Head
-import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Selector
 import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.hex.HexQuantity
@@ -46,7 +45,6 @@ class EthereumLocalReader(
     private val reader: EthereumCachingReader,
     private val methods: CallMethods,
     private val head: Head,
-    private val logsOracle: LogsOracle?,
 ) : ChainReader {
 
     override fun read(key: ChainRequest): Mono<ChainResponse> {
@@ -132,10 +130,6 @@ class EthereumLocalReader(
                         .map { ChainResponse(it.data, null, it.resolvedUpstreamData) }
                 }
 
-                method == "drpc_getLogsEstimate" -> {
-                    getLogsEstimate(params.list)
-                }
-
                 else -> null
             }
         }
@@ -192,83 +186,5 @@ class EthereumLocalReader(
 
         return reader.blocksByHeightAsCont(upstreamFilter)
             .read(number).map { ChainResponse(it.data.json, null, it.resolvedUpstreamData) }
-    }
-
-    fun getLogsEstimate(params: List<Any?>): Mono<ChainResponse>? {
-        if (logsOracle == null) {
-            throw NotImplementedError()
-        }
-        if (params.size != 1 || params[0] == null) {
-            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Must provide 1 parameters")
-        }
-
-        val req = params[0] as LinkedHashMap<String, Any?>
-
-        val limit = try { req.get("limit") as Int? } catch (_: IllegalArgumentException) {
-            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'limit' parameter")
-        }
-
-        val fromBlock = try { parseBlockRef(req.get("fromBlock") as String?) } catch (_: IllegalArgumentException) {
-            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'fromBlock' parameter")
-        }
-        val toBlock = try { parseBlockRef(req.get("toBlock") as String?) } catch (_: IllegalArgumentException) {
-            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'toBlock' parameter")
-        }
-        val address: List<String> = try {
-            val it = req.get("address") ?: listOf<String>()
-
-            if (it is String) {
-                listOf<String>(it)
-            } else {
-                it as List<String>
-            }
-        } catch (_: Exception) {
-            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'address' parameter")
-        }
-        val topics: List<List<String>> = try {
-            val tpcs = req.get("topics")?.let { it as List<Any?> } ?: listOf<Any?>()
-            if (tpcs.size > 4) {
-                throw IllegalArgumentException()
-            }
-
-            tpcs.map {
-                if (it == null) {
-                    emptyList<String>()
-                } else if (it is String) {
-                    listOf<String>(it)
-                } else {
-                    it as List<String>
-                }
-            }
-        } catch (_: Exception) {
-            throw RpcException(RpcResponseError.CODE_INVALID_METHOD_PARAMS, "Invalid 'topics' parameter")
-        }
-
-        return logsOracle.estimate(limit?.toLong(), fromBlock, toBlock, address, topics)
-            .map { ChainResponse(it.toByteArray(), null, emptyList()) }
-    }
-
-    private fun parseBlockRef(blockRef: String?): Long {
-        when {
-            blockRef == "earliest" -> {
-                return 0
-            }
-            blockRef == null || blockRef == "finalized" || blockRef == "safe" || blockRef == "pending" || blockRef == "latest" -> {
-                return head.getCurrentHeight() ?: throw Exception("couldn't get current head")
-            }
-            blockRef.startsWith("0x") -> {
-                val quantity = HexQuantity.from(blockRef) ?: throw IllegalArgumentException()
-                return quantity.value.let {
-                    if (it < BigInteger.valueOf(Long.MAX_VALUE) && it >= BigInteger.ZERO) {
-                        it.toLong()
-                    } else {
-                        throw IllegalArgumentException()
-                    }
-                }
-            }
-            else -> {
-                throw IllegalArgumentException()
-            }
-        }
     }
 }

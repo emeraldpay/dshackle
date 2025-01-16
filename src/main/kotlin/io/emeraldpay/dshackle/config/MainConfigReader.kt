@@ -29,7 +29,6 @@ class MainConfigReader(
     private val optionsReader = ChainOptionsReader()
     private val upstreamsConfigReader = UpstreamsConfigReader(fileResolver, optionsReader)
     private val cacheConfigReader = CacheConfigReader()
-    private val indexConfigReader = IndexConfigReader()
     private val tokensConfigReader = TokensConfigReader()
     private val monitoringConfigReader = MonitoringConfigReader()
     private val accessLogReader = AccessLogReader()
@@ -63,9 +62,6 @@ class MainConfigReader(
         }
         cacheConfigReader.read(input)?.let {
             config.cache = it
-        }
-        indexConfigReader.read(input)?.let {
-            config.index = it
         }
         tokensConfigReader.read(input)?.let {
             config.tokens = it

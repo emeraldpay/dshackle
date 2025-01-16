@@ -38,7 +38,7 @@ class GenericUpstreamMock extends GenericUpstream {
 
     static CallMethods allMethods() {
         new AggregatedCallMethods([
-                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 new DefaultBitcoinMethods(true),
                 new DirectCallMethods(["eth_test"])
         ])

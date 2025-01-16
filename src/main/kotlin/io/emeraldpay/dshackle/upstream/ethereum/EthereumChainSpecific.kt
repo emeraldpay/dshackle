@@ -14,7 +14,6 @@ import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.GenericSingleCallValidator
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
-import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -65,9 +64,8 @@ object EthereumChainSpecific : AbstractPollChainSpecific() {
         cachingReader: CachingReader,
         methods: CallMethods,
         head: Head,
-        logsOracle: LogsOracle?,
     ): Mono<ChainReader> {
-        return Mono.just(EthereumLocalReader(cachingReader as EthereumCachingReader, methods, head, logsOracle))
+        return Mono.just(EthereumLocalReader(cachingReader as EthereumCachingReader, methods, head))
     }
 
     override fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription {

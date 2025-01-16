@@ -2,7 +2,6 @@ package io.emeraldpay.dshackle.startup.configure
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
-import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.hot.CompatibleVersionsRules
 import io.emeraldpay.dshackle.foundation.ChainOptions
@@ -13,11 +12,10 @@ import java.util.function.Supplier
 @Component
 class EthereumUpstreamCreator(
     chainsConfig: ChainsConfig,
-    indexConfig: IndexConfig,
     callTargets: CallTargetsHolder,
     connectorFactoryCreatorResolver: ConnectorFactoryCreatorResolver,
     versionRules: Supplier<CompatibleVersionsRules?>,
-) : GenericUpstreamCreator(chainsConfig, indexConfig, callTargets, connectorFactoryCreatorResolver, versionRules) {
+) : GenericUpstreamCreator(chainsConfig, callTargets, connectorFactoryCreatorResolver, versionRules) {
 
     override fun createUpstream(
         upstreamsConfig: UpstreamsConfig.Upstream<*>,

@@ -2,7 +2,6 @@ package io.emeraldpay.dshackle.startup.configure
 
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.config.ChainsConfig
-import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.config.hot.CompatibleVersionsRules
 import io.emeraldpay.dshackle.foundation.ChainOptions
@@ -19,11 +18,10 @@ import java.util.function.Supplier
 @Component
 open class GenericUpstreamCreator(
     chainsConfig: ChainsConfig,
-    indexConfig: IndexConfig,
     callTargets: CallTargetsHolder,
     private val connectorFactoryCreatorResolver: ConnectorFactoryCreatorResolver,
     private val versionRules: Supplier<CompatibleVersionsRules?>,
-) : UpstreamCreator(chainsConfig, indexConfig, callTargets) {
+) : UpstreamCreator(chainsConfig, callTargets) {
     private val hashes = HashSet<Short>()
 
     override fun createUpstream(

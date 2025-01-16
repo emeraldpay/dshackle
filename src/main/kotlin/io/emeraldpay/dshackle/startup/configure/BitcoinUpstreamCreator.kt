@@ -3,7 +3,6 @@ package io.emeraldpay.dshackle.startup.configure
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.FileResolver
 import io.emeraldpay.dshackle.config.ChainsConfig
-import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.startup.QuorumForLabels
@@ -24,12 +23,11 @@ import java.util.concurrent.atomic.AtomicInteger
 @Component
 class BitcoinUpstreamCreator(
     chainsConfig: ChainsConfig,
-    indexConfig: IndexConfig,
     callTargets: CallTargetsHolder,
     private val genericConnectorFactoryCreator: ConnectorFactoryCreator,
     private val fileResolver: FileResolver,
     private val headScheduler: Scheduler,
-) : UpstreamCreator(chainsConfig, indexConfig, callTargets) {
+) : UpstreamCreator(chainsConfig, callTargets) {
     private var seq = AtomicInteger(0)
 
     override fun createUpstream(

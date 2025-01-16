@@ -37,7 +37,7 @@ import static java.util.List.of
 
 class FilteredApisSpec extends Specification {
 
-    def ethereumTargets = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+    def ethereumTargets = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
 
     def "Verifies labels"() {
         setup:

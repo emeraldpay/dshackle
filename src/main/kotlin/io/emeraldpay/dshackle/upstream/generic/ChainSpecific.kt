@@ -23,7 +23,6 @@ import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.IngressSubscription
-import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
@@ -51,7 +50,7 @@ import reactor.core.scheduler.Scheduler
 import java.util.function.Supplier
 
 typealias SubscriptionBuilder = (Multistream) -> EgressSubscription
-typealias LocalReaderBuilder = (CachingReader, CallMethods, Head, LogsOracle?) -> Mono<ChainReader>
+typealias LocalReaderBuilder = (CachingReader, CallMethods, Head) -> Mono<ChainReader>
 typealias CachingReaderBuilder = (Multistream, Caches, Factory<CallMethods>) -> CachingReader
 typealias FinalizationDetectorBuilder = () -> FinalizationDetector
 
@@ -70,7 +69,6 @@ interface ChainSpecific {
         cachingReader: CachingReader,
         methods: CallMethods,
         head: Head,
-        logsOracle: LogsOracle?,
     ): Mono<ChainReader>
 
     fun subscriptionBuilder(headScheduler: Scheduler): (Multistream) -> EgressSubscription

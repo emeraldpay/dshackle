@@ -3,7 +3,6 @@ package io.emeraldpay.dshackle.startup.configure
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.config.ChainsConfig
-import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.foundation.ChainOptions
 import io.emeraldpay.dshackle.foundation.ChainOptions.Options
@@ -17,7 +16,6 @@ import kotlin.math.abs
 
 abstract class UpstreamCreator(
     private val chainsConfig: ChainsConfig,
-    private val indexConfig: IndexConfig,
     private val callTargets: CallTargetsHolder,
 ) {
     protected val log: Logger = LoggerFactory.getLogger(this::class.java)
@@ -83,7 +81,7 @@ abstract class UpstreamCreator(
             }
 
             ManagedCallMethods(
-                delegate = callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain), options, config.connection),
+                delegate = callTargets.getDefaultMethods(chain, options, config.connection),
                 enabled = config.methods?.enabled?.map { it.name }?.toSet() ?: emptySet(),
                 disabled = config.methods?.disabled?.map { it.name }?.toSet() ?: emptySet(),
                 groupsEnabled = config.methodGroups?.enabled ?: emptySet(),
@@ -99,7 +97,7 @@ abstract class UpstreamCreator(
                 }
             }
         } else {
-            callTargets.getDefaultMethods(chain, indexConfig.isChainEnabled(chain), options, config.connection)
+            callTargets.getDefaultMethods(chain, options, config.connection)
         }
     }
 }

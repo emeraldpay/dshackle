@@ -392,7 +392,7 @@ class NativeCallSpec extends Specification {
     def "Prepare call adds height selector for not-lagging quorum"() {
         setup:
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["foo_bar"] as Set, [] as Set, [] as Set, [] as Set
         )
         methods.setQuorum("foo_bar", "not_lagging")
@@ -434,7 +434,7 @@ class NativeCallSpec extends Specification {
     def "Prepare call adds decorator for eth_newFilter"() {
         setup:
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_newFilter"] as Set, [] as Set, [] as Set, [] as Set
         )
         methods.setQuorum("eth_newFilter", "always")
@@ -466,7 +466,7 @@ class NativeCallSpec extends Specification {
     def "Prepare call adds decorator for eth_getFilterChanges"() {
         setup:
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_getFilterChanges"] as Set, [] as Set, [] as Set, [] as Set
         )
         def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream())
@@ -497,7 +497,7 @@ class NativeCallSpec extends Specification {
     def "Prepare call adds decorator for eth_uninstallFilter"() {
         setup:
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 ["eth_uninstallFilter"] as Set, [] as Set, [] as Set, [] as Set
         )
         def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, TestingCommons.upstream())
@@ -595,7 +595,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = new AlwaysQuorum()
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 [] as Set, [] as Set, ["filter"] as Set, [] as Set
         )
         def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, new ArrayList<GenericUpstream>())
@@ -628,7 +628,7 @@ class NativeCallSpec extends Specification {
         setup:
         def quorum = new AlwaysQuorum()
         def methods = new ManagedCallMethods(
-                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false),
+                new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET),
                 [] as Set, [] as Set, ["filter"] as Set, [] as Set
         )
         def multistream = new MultistreamHolderMock.EthereumMultistreamMock(Chain.ETHEREUM__MAINNET, new ArrayList<GenericUpstream>())

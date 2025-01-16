@@ -57,7 +57,7 @@ class MultistreamSpec extends Specification {
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()), null, Schedulers.immediate(), TestingCommons.tracerMock())
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         when:
         aggr.onUpstreamsUpdated()
         def act = aggr.getMethods()
@@ -192,7 +192,7 @@ class MultistreamSpec extends Specification {
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()), null, Schedulers.immediate(), TestingCommons.tracerMock())
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
 
         expect:
         multistream.getHead(new Selector.LabelMatcher("provider", ["internal"])).is(up1.ethereumHeadMock)
@@ -265,7 +265,7 @@ class MultistreamSpec extends Specification {
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()), null, Schedulers.immediate(), TestingCommons.tracerMock())
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         when:
         ms.processUpstreamsEvents(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED)
@@ -296,7 +296,7 @@ class MultistreamSpec extends Specification {
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()), null, Schedulers.immediate(), TestingCommons.tracerMock())
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         def head1 = createBlock(250, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448401b")
         def head2 = createBlock(270, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448402b")
         def head3 = createBlock(100, "0x0d050c785de17179f935b9b93aca09c442964cc59972c71ae68e74731448412b")
@@ -331,7 +331,7 @@ class MultistreamSpec extends Specification {
                 Schedulers.boundedElastic(),
                 EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                 EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()), null, Schedulers.immediate(), TestingCommons.tracerMock())
+                EthereumChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         multistream.processUpstreamsEvents(
                 new UpstreamChangeEvent(Chain.ETHEREUM__MAINNET, up1, UpstreamChangeEvent.ChangeType.ADDED)
         )
@@ -369,7 +369,7 @@ class MultistreamSpec extends Specification {
                     Schedulers.boundedElastic(),
                     EthereumChainSpecific.INSTANCE.makeCachingReaderBuilder(TestingCommons.tracerMock()),
                     EthereumChainSpecific.INSTANCE.&localReaderBuilder,
-                    StarknetChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()), null, Schedulers.immediate(), TestingCommons.tracerMock())
+                    StarknetChainSpecific.INSTANCE.subscriptionBuilder(Schedulers.boundedElastic()))
         }
 
         @NotNull

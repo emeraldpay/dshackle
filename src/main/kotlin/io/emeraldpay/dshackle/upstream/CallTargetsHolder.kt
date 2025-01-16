@@ -29,22 +29,20 @@ class CallTargetsHolder {
 
     fun getDefaultMethods(
         chain: Chain,
-        hasLogsOracle: Boolean,
         options: ChainOptions.Options,
         connection: UpstreamsConfig.UpstreamConnection?,
     ): CallMethods {
-        return callTargets[chain] ?: return setupDefaultMethods(chain, hasLogsOracle, options, connection)
+        return callTargets[chain] ?: return setupDefaultMethods(chain, options, connection)
     }
 
     private fun setupDefaultMethods(
         chain: Chain,
-        hasLogsOracle: Boolean,
         options: ChainOptions.Options,
         connection: UpstreamsConfig.UpstreamConnection?,
     ): CallMethods {
         val created = when (chain.type) {
             BITCOIN -> DefaultBitcoinMethods(options.providesBalance == true)
-            ETHEREUM -> DefaultEthereumMethods(chain, hasLogsOracle)
+            ETHEREUM -> DefaultEthereumMethods(chain)
             STARKNET -> DefaultStarknetMethods(chain)
             POLKADOT -> DefaultPolkadotMethods(chain)
             SOLANA -> DefaultSolanaMethods()

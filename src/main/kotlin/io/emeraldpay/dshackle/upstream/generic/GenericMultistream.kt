@@ -19,7 +19,6 @@ package io.emeraldpay.dshackle.upstream.generic
 import io.emeraldpay.api.proto.BlockchainOuterClass
 import io.emeraldpay.dshackle.Chain
 import io.emeraldpay.dshackle.cache.Caches
-import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.UpstreamsConfig
 import io.emeraldpay.dshackle.reader.ChainReader
 import io.emeraldpay.dshackle.upstream.CachingReader
@@ -30,7 +29,6 @@ import io.emeraldpay.dshackle.upstream.EmptyHead
 import io.emeraldpay.dshackle.upstream.Head
 import io.emeraldpay.dshackle.upstream.HeadLagObserver
 import io.emeraldpay.dshackle.upstream.Lifecycle
-import io.emeraldpay.dshackle.upstream.LogsOracle
 import io.emeraldpay.dshackle.upstream.MergedHead
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
@@ -39,7 +37,6 @@ import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.calls.CallSelector
 import io.emeraldpay.dshackle.upstream.forkchoice.PriorityForkChoice
 import io.emeraldpay.dshackle.upstream.grpc.GrpcUpstream
-import org.springframework.cloud.sleuth.Tracer
 import org.springframework.util.ConcurrentReferenceHashMap
 import org.springframework.util.ConcurrentReferenceHashMap.ReferenceType.WEAK
 import reactor.core.publisher.Flux
@@ -56,9 +53,6 @@ open class GenericMultistream(
     cachingReaderBuilder: CachingReaderBuilder,
     private val localReaderBuilder: LocalReaderBuilder,
     private val subscriptionBuilder: SubscriptionBuilder,
-    logsOracleConfig: IndexConfig.Index? = null,
-    private val logsOracleScheduler: Scheduler,
-    private val tracer: Tracer,
 ) : Multistream(chain, caches, callSelector, multistreamEventsScheduler) {
 
     private val cachingReader = cachingReaderBuilder(this, caches, getMethodsFactory())
@@ -77,10 +71,6 @@ open class GenericMultistream(
         headScheduler,
     )
 
-    private val logsOracle: LogsOracle? = logsOracleConfig?.let {
-        LogsOracle(logsOracleConfig, this, logsOracleScheduler, tracer)
-    }
-
     private var subscription: EgressSubscription = subscriptionBuilder(this)
 
     private val filteredHeads: MutableMap<String, Head> =
@@ -91,14 +81,12 @@ open class GenericMultistream(
         head.start()
         onHeadUpdated(head)
         cachingReader.start()
-        logsOracle?.start()
     }
 
     override fun stop() {
         super.stop()
         cachingReader.stop()
         filteredHeads.clear()
-        logsOracle?.stop()
     }
 
     override fun addHead(upstream: Upstream) {
@@ -167,7 +155,7 @@ open class GenericMultistream(
     }
 
     override fun getLocalReader(): Mono<ChainReader> {
-        return localReaderBuilder(cachingReader, getMethods(), getHead(), logsOracle)
+        return localReaderBuilder(cachingReader, getMethods(), getHead())
     }
 
     override fun getEgressSubscription(): EgressSubscription {

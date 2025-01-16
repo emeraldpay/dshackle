@@ -21,7 +21,6 @@ import io.emeraldpay.dshackle.config.CacheConfig
 import io.emeraldpay.dshackle.config.ChainsConfig
 import io.emeraldpay.dshackle.config.CompressionConfig
 import io.emeraldpay.dshackle.config.HealthConfig
-import io.emeraldpay.dshackle.config.IndexConfig
 import io.emeraldpay.dshackle.config.MainConfig
 import io.emeraldpay.dshackle.config.MainConfigReader
 import io.emeraldpay.dshackle.config.MonitoringConfig
@@ -129,11 +128,6 @@ open class Config(
     @Bean
     open fun cacheConfig(@Autowired mainConfig: MainConfig): CacheConfig {
         return mainConfig.cache ?: CacheConfig()
-    }
-
-    @Bean
-    open fun indexConfig(@Autowired mainConfig: MainConfig): IndexConfig {
-        return mainConfig.index ?: IndexConfig()
     }
 
     @Bean

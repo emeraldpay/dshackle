@@ -25,17 +25,16 @@ class EthereumLocalReaderSpec extends Specification {
 
     def "Calls hardcoded"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
-                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)),
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)),
                         TestingCommons.tracerMock()
                 ),
                 methods,
                 new EmptyHead(),
-                null
         )
         when:
         def act = router.read(new ChainRequest("eth_coinbase", new ListParams())).block(Duration.ofSeconds(1))
@@ -45,17 +44,16 @@ class EthereumLocalReaderSpec extends Specification {
 
     def "Returns empty if nonce set"() {
         setup:
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
         def router = new EthereumLocalReader(
                 new EthereumCachingReader(
                         TestingCommons.multistream(TestingCommons.api()),
                         Caches.default(),
-                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)),
+                        ConstantFactory.constantFactory(new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)),
                         TestingCommons.tracerMock()
                 ),
                 methods,
                 new EmptyHead(),
-                null
         )
         when:
         def act = router.read(new ChainRequest("eth_getTransactionByHash", new ListParams(["test"]), 10))
@@ -78,8 +76,8 @@ class EthereumLocalReaderSpec extends Specification {
                 )
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
-        def router = new EthereumLocalReader(reader, methods, head, null)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["latest", false], Selector.UpstreamFilter.default)
@@ -106,8 +104,8 @@ class EthereumLocalReaderSpec extends Specification {
                 )
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
-        def router = new EthereumLocalReader(reader, methods, head, null)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["earliest", false], Selector.UpstreamFilter.default)
@@ -134,8 +132,8 @@ class EthereumLocalReaderSpec extends Specification {
                 )
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
-        def router = new EthereumLocalReader(reader, methods, head, null)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["0x123ef", false], Selector.UpstreamFilter.default)
@@ -160,8 +158,8 @@ class EthereumLocalReaderSpec extends Specification {
                 )
             }
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
-        def router = new EthereumLocalReader(reader, methods, head, null)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.read(
@@ -188,8 +186,8 @@ class EthereumLocalReaderSpec extends Specification {
             _ * txByHashAsCont(Selector.UpstreamFilter.default) >> new EmptyReader<>()
             _ * blocksByHeightAsCont(Selector.UpstreamFilter.default) >> new EmptyReader<>()
         }
-        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET, false)
-        def router = new EthereumLocalReader(reader, methods, head, null)
+        def methods = new DefaultEthereumMethods(Chain.ETHEREUM__MAINNET)
+        def router = new EthereumLocalReader(reader, methods, head)
 
         when:
         def act = router.getBlockByNumber(["0x0", true], Selector.UpstreamFilter.default)
