@@ -50,6 +50,10 @@ class EthereumLowerBoundStateDetector(
             "unexpected state root", // fantom
             "evm module does not exist on height", // sei
             "failed to load state at height", // 0g
+            "no state found for block", // optimism
+            "old data not available due", // eth
+            "State not found for block", // rootstock
+            "state does not maintain archive data", // fantom
         )
     }
 
