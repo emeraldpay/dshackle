@@ -71,7 +71,6 @@ class DefaultSolanaMethods : CallMethods {
         "minimumLedgerSlot",
         "requestAirdrop",
         "simulateTransaction",
-        "getRecentBlockHash",
         "getFees",
         "getIdentity",
         "getConfirmedSignaturesForAddress2",
