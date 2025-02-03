@@ -74,6 +74,7 @@ class DefaultSolanaMethods : CallMethods {
         "getFees",
         "getIdentity",
         "getConfirmedSignaturesForAddress2",
+        "getRecentBlockhash",
     )
 
     private val add = setOf(
