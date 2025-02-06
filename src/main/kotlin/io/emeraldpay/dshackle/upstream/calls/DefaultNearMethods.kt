@@ -1,9 +1,8 @@
-package io.emeraldpay.dshackle.upstream
+package io.emeraldpay.dshackle.upstream.calls
 
 import io.emeraldpay.dshackle.quorum.AlwaysQuorum
 import io.emeraldpay.dshackle.quorum.BroadcastQuorum
 import io.emeraldpay.dshackle.quorum.CallQuorum
-import io.emeraldpay.dshackle.upstream.calls.CallMethods
 import io.emeraldpay.dshackle.upstream.ethereum.rpc.RpcException
 
 class DefaultNearMethods : CallMethods {
