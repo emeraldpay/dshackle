@@ -59,12 +59,11 @@ cluster:
       options:
         disable-validation: true
       connection:
-        ethereum-pos:
-            execution:
-              rpc:
-                url: "https://lb.drpc.org/ogrpc?network=ethereum&dkey=${DRPC_KEY}"
-              ws:
-                url: "wss://lb.drpc.org/ogws?network=ethereum&dkey=${DRPC_KEY}"
+        generic:
+          rpc:
+            url: "https://lb.drpc.org/ogrpc?network=ethereum&dkey=${DRPC_KEY}"
+          ws:
+            url: "wss://lb.drpc.org/ogws?network=ethereum&dkey=${DRPC_KEY}"
     - id: solana
       node-id: 3
       chain: solana

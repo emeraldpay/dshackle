@@ -110,28 +110,26 @@ cluster:
         disabled:
           - name: "admin_shutdown"
       connection:
-        ethereum-pos:
-            execution:
-              rpc:
-                url: "http://localhost:8545"
-              ws:
-                url: "ws://localhost:8546"
-                origin: "http://localhost"
-                basic-auth:
-                  username: 9c199ad8f281f20154fc258fe41a6814
-                  password: 258fe4149c199ad8f2811a68f20154fc
+        generic:
+          rpc:
+            url: "http://localhost:8545"
+          ws:
+            url: "ws://localhost:8546"
+            origin: "http://localhost"
+            basic-auth:
+              username: 9c199ad8f281f20154fc258fe41a6814
+              password: 258fe4149c199ad8f2811a68f20154fc
     - id: infura
       chain: ethereum
       options:
         disable-validation: true
       connection:
-        ethereum-pos:
-            execution:
-              rpc:
-                url: "https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2"
-                basic-auth:
-                  username: 4fc258fe41a68149c199ad8f281f2015
-                  password: 1a68f20154fc258fe4149c199ad8f281
+        generic:
+          rpc:
+            url: "https://mainnet.infura.io/v3/fa28c968191849c1aff541ad1d8511f2"
+            basic-auth:
+              username: 4fc258fe41a68149c199ad8f281f2015
+              password: 1a68f20154fc258fe4149c199ad8f281
     - id: bitcoin
       chain: bitcoin
       options:
@@ -610,13 +608,12 @@ cluster:
     - id: local
       chain: ethereum
       connection:
-        ethereum-pos:
-            execution:
-              rpc:
-                url: "http://localhost:8545"
-              ws:
-                url: "ws://localhost:8546"
-                origin: "http://localhost"
+        generic:
+          rpc:
+            url: "http://localhost:8545"
+          ws:
+            url: "ws://localhost:8546"
+            origin: "http://localhost"
   include:
     - "upstreams-extra.yaml"
 ----
@@ -657,18 +654,17 @@ configuration, and may be omitted for most of the situations.
     disabled:
       - name: "admin_shutdown"
   connection:
-    ethereum-pos:
-      execution:
-          rpc:
-            url: "http://localhost:8545"
-          ws:
-            url: "ws://localhost:8546"
-            origin: "http://localhost"
-            basic-auth:
-              username: 9c199ad8f281f20154fc258fe41a6814
-              password: 258fe4149c199ad8f2811a68f20154fc
-            frameSize: 5mb
-            msgSize: 15mb
+    generic:
+      rpc:
+        url: "http://localhost:8545"
+      ws:
+        url: "ws://localhost:8546"
+        origin: "http://localhost"
+        basic-auth:
+          username: 9c199ad8f281f20154fc258fe41a6814
+          password: 258fe4149c199ad8f2811a68f20154fc
+        frameSize: 5mb
+        msgSize: 15mb
 ----
 
 .Main Config
@@ -722,9 +718,9 @@ See xref:09-quorum-and-selectors.adoc[Quorum and Selectors]
 `not_empty` - accept not _null_ value, otherwise retry another upstream;
 `not_lagging` - accept response only from a fully synced upstream.
 
-| `connection.ethereum-pos`
+| `connection.generic`
 | yes
-| Connection configuration for Ethereum API of PoS network
+| Generic connection configuration for most of networks e.g. Ethereum
 
 | `connection.bitcoin`
 | yes
