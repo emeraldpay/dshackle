@@ -6,6 +6,7 @@ import io.emeraldpay.dshackle.BlockchainType.ETHEREUM
 import io.emeraldpay.dshackle.BlockchainType.ETHEREUM_BEACON_CHAIN
 import io.emeraldpay.dshackle.BlockchainType.NEAR
 import io.emeraldpay.dshackle.BlockchainType.POLKADOT
+import io.emeraldpay.dshackle.BlockchainType.RIPPLE
 import io.emeraldpay.dshackle.BlockchainType.SOLANA
 import io.emeraldpay.dshackle.BlockchainType.STARKNET
 import io.emeraldpay.dshackle.BlockchainType.TON
@@ -40,6 +41,7 @@ import io.emeraldpay.dshackle.upstream.finalization.FinalizationDetector
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
 import io.emeraldpay.dshackle.upstream.near.NearChainSpecific
 import io.emeraldpay.dshackle.upstream.polkadot.PolkadotChainSpecific
+import io.emeraldpay.dshackle.upstream.ripple.RippleChainSpecific
 import io.emeraldpay.dshackle.upstream.solana.SolanaChainSpecific
 import io.emeraldpay.dshackle.upstream.starknet.StarknetChainSpecific
 import io.emeraldpay.dshackle.upstream.ton.TonHttpSpecific
@@ -112,6 +114,7 @@ object ChainSpecificRegistry {
             ETHEREUM_BEACON_CHAIN -> BeaconChainSpecific
             TON -> TonHttpSpecific
             COSMOS -> CosmosChainSpecific
+            RIPPLE -> RippleChainSpecific
             BITCOIN -> throw IllegalArgumentException("bitcoin should use custom streams implementation")
             UNKNOWN -> throw IllegalArgumentException("unknown chain")
         }

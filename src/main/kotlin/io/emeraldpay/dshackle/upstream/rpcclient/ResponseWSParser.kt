@@ -30,18 +30,18 @@ class ResponseWSParser : ResponseParser<ResponseWSParser.WsResponse>() {
     }
 
     override fun build(state: Preparsed): WsResponse {
-        if (state.isRpcReady) {
-            return WsResponse(
-                Type.RPC,
-                state.id!!,
-                if (state.nullResult) NULL_RESULT else state.result,
-                state.error,
-            )
-        }
         if (state.isSubReady) {
             return WsResponse(
                 Type.SUBSCRIPTION,
                 ChainResponse.Id.from(state.subId!!),
+                if (state.nullResult) NULL_RESULT else state.result,
+                state.error,
+            )
+        }
+        if (state.isRpcReady) {
+            return WsResponse(
+                Type.RPC,
+                state.id!!,
                 if (state.nullResult) NULL_RESULT else state.result,
                 state.error,
             )

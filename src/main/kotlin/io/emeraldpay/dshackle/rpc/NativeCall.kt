@@ -16,6 +16,7 @@
  */
 package io.emeraldpay.dshackle.rpc
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
 import io.emeraldpay.api.proto.BlockchainOuterClass
@@ -481,17 +482,24 @@ open class NativeCall(
             ReaderData(ctx.upstream, ctx.upstreamFilter, ctx.callQuorum, signer, tracer),
         )
         val counter = reader.attempts()
+        val isRipple = ctx.upstream.getChain() in listOf(Chain.RIPPLE__MAINNET, Chain.RIPPLE__TESTNET)
+        var streamRequest = ctx.streamRequest
+        if (isRipple) {
+            streamRequest = false
+        }
 
         return SpannedReader(reader, tracer, RPC_READER)
-            .read(ctx.payload.toChainRequest(ctx.nonce, ctx.forwardedSelector, ctx.streamRequest))
+            .read(ctx.payload.toChainRequest(ctx.nonce, ctx.forwardedSelector, streamRequest))
             .map {
                 val resolvedUpstreamData = it.resolvedUpstreamData.ifEmpty {
                     ctx.upstream.getUpstreamSettingsData()?.run { listOf(this) } ?: emptyList()
                 }
                 if (it.stream == null) {
-                    val bytes = ctx.resultDecorator.processResult(it)
-                    validateResult(bytes, "remote", ctx)
-                    CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, resolvedUpstreamData, ctx)
+                    if (isRipple) {
+                        callRippleResult(ctx, it, resolvedUpstreamData)
+                    } else {
+                        callResult(ctx, it, resolvedUpstreamData)
+                    }
                 } else {
                     CallResult.ok(ctx.id, ctx.nonce, ByteArray(0), it.signature, resolvedUpstreamData, ctx, it.stream)
                 }
@@ -513,6 +521,67 @@ open class NativeCall(
                     }
                 },
             )
+    }
+
+    private fun callResult(
+        ctx: ValidCallContext<ParsedCallDetails>,
+        it: RequestReader.Result,
+        resolvedUpstreamData: List<Upstream.UpstreamSettingsData>,
+    ): CallResult {
+        val bytes = ctx.resultDecorator.processResult(it)
+        validateResult(bytes, "remote", ctx)
+        return CallResult.ok(ctx.id, ctx.nonce, bytes, it.signature, resolvedUpstreamData, ctx)
+    }
+
+    private fun callRippleResult(
+        ctx: ValidCallContext<ParsedCallDetails>,
+        it: RequestReader.Result,
+        resolvedUpstreamData: List<Upstream.UpstreamSettingsData>,
+    ): CallResult {
+        return try {
+            val responseJson = Global.objectMapper.readTree(it.value)
+            if (isRippleErrorResponse(responseJson)) {
+                return createRippleErrorResult(ctx, it, responseJson)
+            }
+            callResult(ctx, it, resolvedUpstreamData)
+        } catch (e: Exception) {
+            log.warn("Failed to parse Ripple response: ${e.message}", e)
+            callResult(ctx, it, resolvedUpstreamData)
+        }
+    }
+
+    private fun isRippleErrorResponse(responseJson: JsonNode): Boolean =
+        !responseJson.has("status") || responseJson.get("status").asText() == "error"
+
+    private fun createRippleErrorResult(
+        ctx: ValidCallContext<ParsedCallDetails>,
+        result: RequestReader.Result,
+        responseJson: JsonNode,
+    ): CallResult {
+        val error = responseJson.get("error")?.asText().orEmpty()
+        val errorMessage = responseJson.get("error_message")?.asText().orEmpty()
+        val fullErrorMessage = if (error.isNotEmpty() && errorMessage.isNotEmpty()) {
+            "$error: $errorMessage"
+        } else {
+            error.ifEmpty { errorMessage.ifEmpty { "Ripple request failed" } }
+        }
+
+        val errorCode = responseJson.get("error_code")?.asInt() ?: RpcResponseError.CODE_UPSTREAM_INVALID_RESPONSE
+
+        return CallResult.fail(
+            ctx.id,
+            ctx.nonce,
+            CallError(
+                ctx.id,
+                fullErrorMessage,
+                ChainCallError(
+                    errorCode,
+                    fullErrorMessage,
+                ),
+                String(result.value),
+            ),
+            ctx,
+        )
     }
 
     private fun validateResult(bytes: ByteArray, origin: String, ctx: ValidCallContext<ParsedCallDetails>) {
