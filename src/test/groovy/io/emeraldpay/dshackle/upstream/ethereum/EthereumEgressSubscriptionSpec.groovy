@@ -176,6 +176,29 @@ class EthereumEgressSubscriptionSpec extends Specification {
         ]
     }
 
+    def "read full logs request with array of topics or null"() {
+        setup:
+        def ethereumSubscribe = new EthereumEgressSubscription(TestingCommons.emptyMultistream() as GenericMultistream, Schedulers.boundedElastic(), Stub(PendingTxesSource))
+        when:
+        def act = ethereumSubscribe.readLogsRequest([
+                address: "0x298d492e8c1d909d3f63bc4a36c66c64acb3d695",
+                topics : [
+                        ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],
+                        null,
+                        ["0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"]
+                ]
+        ])
+
+        then:
+        act.address == [
+                Address.from("0x298d492e8c1d909d3f63bc4a36c66c64acb3d695")
+        ]
+        act.topics == [
+                Hex32.from("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+                Hex32.from("0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925")
+        ]
+    }
+
     def "get available subscriptions"() {
         when:
         def up1 = TestingCommons.upstream("test")

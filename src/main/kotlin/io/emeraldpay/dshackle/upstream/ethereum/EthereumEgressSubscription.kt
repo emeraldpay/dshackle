@@ -106,11 +106,14 @@ open class EthereumEgressSubscription(
                     log.debug("Ignore invalid topic: $topics with error ${t.message}")
                     emptyList()
                 }
-                is Collection<*> -> topics.mapNotNull {
+                is Collection<*> -> topics.mapNotNull { topic ->
                     try {
-                        Hex32.from(it.toString())
+                        when (topic) {
+                            is Collection<*> -> topic.firstOrNull()?.toString()?.let { Hex32.from(it) }
+                            else -> topic?.toString()?.let { Hex32.from(it) }
+                        }
                     } catch (t: Throwable) {
-                        log.debug("Ignore invalid topic: $topics with error ${t.message}")
+                        log.debug("Ignore invalid topic: $topic with error ${t.message}")
                         null
                     }
                 }
