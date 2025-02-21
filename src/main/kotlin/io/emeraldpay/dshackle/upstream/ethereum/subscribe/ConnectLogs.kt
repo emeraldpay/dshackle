@@ -37,6 +37,7 @@ open class ConnectLogs(
     }
 
     constructor(upstream: Multistream, scheduler: Scheduler) : this(upstream, ConnectBlockUpdates(upstream, scheduler))
+
     private val produceLogs = ProduceLogs(upstream)
 
     fun start(matcher: Selector.Matcher): Flux<LogMessage> {
@@ -65,12 +66,15 @@ open class ConnectLogs(
             logs.filter {
                 val goodAddress =
                     sortedAddresses.isEmpty() || sortedAddresses.binarySearch(it.address, ADDR_COMPARATOR) >= 0
-                val goodTopic = sortedTopics.isEmpty() || (
-                    it.topics.isNotEmpty() && sortedTopics.binarySearch(
-                        it.topics[0],
-                        TOPIC_COMPARATOR,
-                    ) >= 0
-                    )
+                val goodTopic = when {
+                    sortedTopics.isEmpty() -> true
+                    it.topics.size < sortedTopics.size -> false
+                    else -> sortedTopics.indices.all { index ->
+                        it.topics[index].let { logTopic ->
+                            sortedTopics.binarySearch(logTopic, TOPIC_COMPARATOR) >= 0
+                        }
+                    }
+                }
                 goodAddress && goodTopic
             }
         }
