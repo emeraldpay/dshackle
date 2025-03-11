@@ -54,6 +54,7 @@ class EthereumLowerBoundStateDetector(
             "old data not available due", // eth
             "State not found for block", // rootstock
             "state does not maintain archive data", // fantom
+            "Access to archival, debug, or trace data is not included in your current plan", // chainstack
         )
     }
 
