@@ -39,6 +39,15 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                             null,
                         ),
                     )
+                on {
+                    read(ChainRequest("trace_callMany", ListParams(listOf(listOf<Any>()))))
+                } doReturn
+                    Mono.just(
+                        ChainResponse(
+                            "[]".toByteArray(),
+                            null,
+                        ),
+                    )
             }
 
         val upstream =
@@ -79,6 +88,15 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                             null,
                         ),
                     )
+                on {
+                    read(ChainRequest("trace_callMany", ListParams(listOf(listOf<Any>()))))
+                } doReturn
+                    Mono.just(
+                        ChainResponse(
+                            "[]".toByteArray(),
+                            null,
+                        ),
+                    )
             }
 
         val upstream =
@@ -90,8 +108,9 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
         val detector = BasicEthUpstreamRpcMethodsDetector(upstream, config)
         Assertions.assertThat(detector.detectRpcMethods().block()).apply {
             isNotNull()
-            hasSize(1)
+            hasSize(2)
             containsEntry("eth_getBlockReceipts", true)
+            containsEntry("trace_callMany", true)
         }
     }
 
@@ -116,6 +135,15 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                         ChainResponse(
                             """[{"blockHash": "0xd12897f54acaa79f4824aa4f8e1d0f045b5568f5b942073555e9977202c5c474","blockNumber": "0x13c1108"}]"""
                                 .toByteArray(),
+                            null,
+                        ),
+                    )
+                on {
+                    read(ChainRequest("trace_callMany", ListParams(listOf(listOf<Any>()))))
+                } doReturn
+                    Mono.just(
+                        ChainResponse(
+                            "[]".toByteArray(),
                             null,
                         ),
                     )

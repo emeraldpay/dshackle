@@ -34,13 +34,17 @@ abstract class UpstreamRpcMethodsDetector(
                             .getIngressReader()
                             .read(ChainRequest(method, param))
                             .flatMap(ChainResponse::requireResult)
-                            .map { method to true }
+                            .map {
+                                method to true
+                            }
                             .onErrorResume { err ->
                                 val notAvailableError =
                                     notAvailableRegexps.any { s -> s.containsMatchIn(err.message ?: "") }
                                 if (notAvailableError) {
+                                    log.error("$method failed with ${err.message}, detect as false")
                                     Mono.just(method to false)
                                 } else {
+                                    log.error("$method failed with ${err.message}, do not detect")
                                     Mono.empty()
                                 }
                             }
@@ -50,7 +54,7 @@ abstract class UpstreamRpcMethodsDetector(
             it
                 .map { p -> p as Pair<String, Boolean> }
                 .associate { (method, enabled) -> method to enabled }
-        }
+        }.switchIfEmpty(Mono.just(emptyMap()))
 
     protected abstract fun detectByMagicMethod(): Mono<Map<String, Boolean>>
 

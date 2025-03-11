@@ -33,6 +33,7 @@ class BasicEthUpstreamRpcMethodsDetector(
     override fun rpcMethods(): Set<Pair<String, CallParams>> =
         setOf(
             "eth_getBlockReceipts" to ListParams("latest"),
+            "trace_callMany" to ListParams(listOf(listOf<Any>())),
         )
 
     private fun parseRpcModules(data: ByteArray): Map<String, Boolean> {

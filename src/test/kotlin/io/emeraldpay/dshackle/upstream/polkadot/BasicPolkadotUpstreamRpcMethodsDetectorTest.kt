@@ -64,6 +64,6 @@ class BasicPolkadotUpstreamRpcMethodsDetectorTest {
                 on { getChain() } doReturn Chain.POLKADOT__MAINNET
             }
         val detector = BasicPolkadotUpstreamRpcMethodsDetector(upstream)
-        Assertions.assertThat(detector.detectRpcMethods().block()).isNull()
+        Assertions.assertThat(detector.detectRpcMethods().block()).isEqualTo(emptyMap<String, Boolean>())
     }
 }
