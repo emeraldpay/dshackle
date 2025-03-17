@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
+import java.time.Instant
 
 class HeadLivenessValidatorImpl(
     private val head: Head,
@@ -15,8 +16,12 @@ class HeadLivenessValidatorImpl(
 ) : HeadLivenessValidator {
     companion object {
         const val CHECKED_BLOCKS_UNTIL_LIVE = 3
+        const val COOLDOWN_MINUTES = 5L
         private val log = LoggerFactory.getLogger(HeadLivenessValidatorImpl::class.java)
     }
+
+    @Volatile
+    private var lastNonConsecutiveTime: Instant? = null
 
     override fun getFlux(): Flux<HeadLivenessState> {
         val headLiveness = head.headLiveness()
@@ -33,14 +38,29 @@ class HeadLivenessValidatorImpl(
                 } else {
                     ThrottledLogger.log(log, "non consecutive blocks in head for $upstreamId")
                 }
+                // Mark the time when we detected non-consecutive blocks
+                lastNonConsecutiveTime = Instant.now()
                 Pair(0, false)
             }
         }.flatMap { (count, value) ->
             // we emit when we have false or checked CHECKED_BLOCKS_UNTIL_LIVE blocks
             // CHECKED_BLOCKS_UNTIL_LIVE blocks == (CHECKED_BLOCKS_UNTIL_LIVE - 1) consecutive true
             when {
-                count >= (CHECKED_BLOCKS_UNTIL_LIVE - 1) -> Flux.just(HeadLivenessState.OK)
-                !value -> Flux.just(HeadLivenessState.NON_CONSECUTIVE)
+                !value -> {
+                    Flux.just(HeadLivenessState.NON_CONSECUTIVE)
+                }
+                count >= (CHECKED_BLOCKS_UNTIL_LIVE - 1) -> {
+                    // Check if we're still in the cooldown period
+                    val lastNonConsec = lastNonConsecutiveTime
+                    if (lastNonConsec != null && Duration.between(lastNonConsec, Instant.now()).toMinutes() < COOLDOWN_MINUTES) {
+                        if (log.isDebugEnabled) {
+                            log.debug("Still in cooldown period for $upstreamId after non-consecutive blocks")
+                        }
+                        Flux.just(HeadLivenessState.NON_CONSECUTIVE)
+                    } else {
+                        Flux.just(HeadLivenessState.OK)
+                    }
+                }
                 else -> Flux.empty()
             }
         }.timeout(
