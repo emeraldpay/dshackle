@@ -720,6 +720,10 @@ class DefaultEthereumMethods(
                 "posv_getNetworkInformation",
             )
 
+            Chain.ZIRCUIT__MAINNET, Chain.ZIRCUIT__TESTNET, Chain.ZIRCUIT__GARFIELD -> listOf(
+                "zirc_isQuarantined",
+            )
+
             else -> emptyList()
         }
     }
