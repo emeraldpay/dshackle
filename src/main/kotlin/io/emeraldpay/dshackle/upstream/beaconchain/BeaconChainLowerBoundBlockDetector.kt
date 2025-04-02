@@ -24,6 +24,7 @@ class BeaconChainLowerBoundBlockDetector(
     private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.BLOCK, stateErrors, lowerBounds)
 
     companion object {
+        const val MAX_OFFSET = 30
         val notFoundError = "NOT_FOUND:" // e.g. {"message":"NOT_FOUND: beacon block at slot 1086646","code":404}
         val notFoundError2 = "Could not find requested block" // {"message":"Could not find requested block: signed beacon block can't be nil","code":404}
         val notFoundError3 = "has not been found" // Block header/data has not been found
@@ -35,7 +36,7 @@ class BeaconChainLowerBoundBlockDetector(
     }
 
     override fun internalDetectLowerBound(): Flux<LowerBoundData> {
-        return recursiveLowerBound.recursiveDetectLowerBound { block ->
+        return recursiveLowerBound.recursiveDetectLowerBoundWithOffset(MAX_OFFSET) { block ->
             val restParams = RestParams(emptyList(), emptyList(), listOf(block.toString()), ByteArray(0))
 
             upstream.getIngressReader()
