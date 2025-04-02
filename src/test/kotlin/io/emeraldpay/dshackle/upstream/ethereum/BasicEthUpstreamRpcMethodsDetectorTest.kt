@@ -48,6 +48,15 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                             null,
                         ),
                     )
+                on {
+                    read(ChainRequest("eth_simulateV1", ListParams(listOf(listOf<Any>()))))
+                } doReturn
+                    Mono.just(
+                        ChainResponse(
+                            "[]".toByteArray(),
+                            null,
+                        ),
+                    )
             }
 
         val upstream =
@@ -97,6 +106,15 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                             null,
                         ),
                     )
+                on {
+                    read(ChainRequest("eth_simulateV1", ListParams(listOf(listOf<Any>()))))
+                } doReturn
+                    Mono.just(
+                        ChainResponse(
+                            "[]".toByteArray(),
+                            null,
+                        ),
+                    )
             }
 
         val upstream =
@@ -108,7 +126,7 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
         val detector = BasicEthUpstreamRpcMethodsDetector(upstream, config)
         Assertions.assertThat(detector.detectRpcMethods().block()).apply {
             isNotNull()
-            hasSize(2)
+            hasSize(3)
             containsEntry("eth_getBlockReceipts", true)
             containsEntry("trace_callMany", true)
         }
@@ -147,6 +165,15 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                             null,
                         ),
                     )
+                on {
+                    read(ChainRequest("eth_simulateV1", ListParams(listOf(listOf<Any>()))))
+                } doReturn
+                    Mono.just(
+                        ChainResponse(
+                            null,
+                            ChainCallError(32602, "missing value for required argument 0"),
+                        ),
+                    )
             }
 
         val upstream =
@@ -168,6 +195,7 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
             containsEntry("eth_getBlockByNumber", false)
             containsEntry("eth_getBlockReceipts", true)
             containsEntry("debug_traceBlock", true)
+            containsEntry("eth_simulateV1", true)
         }
     }
 }
