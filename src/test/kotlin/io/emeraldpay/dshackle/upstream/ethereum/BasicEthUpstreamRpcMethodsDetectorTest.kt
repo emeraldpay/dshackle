@@ -49,7 +49,7 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                         ),
                     )
                 on {
-                    read(ChainRequest("eth_simulateV1", ListParams(listOf(listOf<Any>()))))
+                    read(ChainRequest("eth_simulateV1", ListParams(listOf())))
                 } doReturn
                     Mono.just(
                         ChainResponse(
@@ -107,7 +107,7 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                         ),
                     )
                 on {
-                    read(ChainRequest("eth_simulateV1", ListParams(listOf(listOf<Any>()))))
+                    read(ChainRequest("eth_simulateV1", ListParams(listOf())))
                 } doReturn
                     Mono.just(
                         ChainResponse(
@@ -166,7 +166,7 @@ class BasicEthUpstreamRpcMethodsDetectorTest {
                         ),
                     )
                 on {
-                    read(ChainRequest("eth_simulateV1", ListParams(listOf(listOf<Any>()))))
+                    read(ChainRequest("eth_simulateV1", ListParams(listOf())))
                 } doReturn
                     Mono.just(
                         ChainResponse(
