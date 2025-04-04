@@ -44,7 +44,7 @@ open class ConnectLogs(
         return produceLogs.produce(connectBlockUpdates.connect(matcher))
     }
 
-    open fun create(addresses: List<Address>, topics: List<Hex32>): SubscriptionConnect<LogMessage> {
+    open fun create(addresses: List<Address>, topics: List<Hex32?>): SubscriptionConnect<LogMessage> {
         return object : SubscriptionConnect<LogMessage> {
             override fun connect(matcher: Selector.Matcher): Flux<LogMessage> {
                 // shortcut to the whole output if we don't have any filters
@@ -58,22 +58,17 @@ open class ConnectLogs(
         }
     }
 
-    fun filtered(addresses: List<Address>, topics: List<Hex32>): Function<Flux<LogMessage>, Flux<LogMessage>> {
+    fun filtered(addresses: List<Address>, selectedTopics: List<Hex32?>): Function<Flux<LogMessage>, Flux<LogMessage>> {
         // sort search criteria to use binary search later
         val sortedAddresses: List<Address> = addresses.sortedWith(ADDR_COMPARATOR)
-        val sortedTopics: List<Hex32> = topics.sortedWith(TOPIC_COMPARATOR)
         return Function { logs ->
             logs.filter {
                 val goodAddress =
                     sortedAddresses.isEmpty() || sortedAddresses.binarySearch(it.address, ADDR_COMPARATOR) >= 0
                 val goodTopic = when {
-                    sortedTopics.isEmpty() -> true
-                    it.topics.size < sortedTopics.size -> false
-                    else -> sortedTopics.indices.all { index ->
-                        it.topics[index].let { logTopic ->
-                            sortedTopics.binarySearch(logTopic, TOPIC_COMPARATOR) >= 0
-                        }
-                    }
+                    selectedTopics.isEmpty() -> true
+                    it.topics.size < selectedTopics.size -> false
+                    else -> selectedTopics.zip(it.topics).all { (selectedTopic, logTopic) -> selectedTopic == null || selectedTopic == logTopic }
                 }
                 goodAddress && goodTopic
             }

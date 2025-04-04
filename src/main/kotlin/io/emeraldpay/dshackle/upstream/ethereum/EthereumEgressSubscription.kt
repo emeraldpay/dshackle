@@ -72,7 +72,7 @@ open class EthereumEgressSubscription(
 
     data class LogsRequest(
         val address: List<Address>,
-        val topics: List<Hex32>,
+        val topics: List<Hex32?>,
     )
 
     fun readLogsRequest(params: Map<String, Any?>): LogsRequest {
@@ -98,7 +98,7 @@ open class EthereumEgressSubscription(
         } else {
             emptyList()
         }
-        val topics: List<Hex32> = if (params.containsKey("topics")) {
+        val topics: List<Hex32?> = if (params.containsKey("topics")) {
             when (val topics = params["topics"]) {
                 is String -> try {
                     listOf(Hex32.from(topics))
@@ -106,15 +106,16 @@ open class EthereumEgressSubscription(
                     log.debug("Ignore invalid topic: $topics with error ${t.message}")
                     emptyList()
                 }
-                is Collection<*> -> topics.mapNotNull { topic ->
+                is Collection<*> -> topics.map { topic ->
                     try {
                         when (topic) {
+                            null -> null
                             is Collection<*> -> topic.firstOrNull()?.toString()?.let { Hex32.from(it) }
                             else -> topic?.toString()?.let { Hex32.from(it) }
                         }
                     } catch (t: Throwable) {
                         log.debug("Ignore invalid topic: $topic with error ${t.message}")
-                        null
+                        throw IllegalArgumentException("Invalid topic: $topic")
                     }
                 }
                 null -> emptyList()

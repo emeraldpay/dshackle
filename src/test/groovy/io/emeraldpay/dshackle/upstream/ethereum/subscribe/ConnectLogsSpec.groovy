@@ -104,6 +104,23 @@ class ConnectLogsSpec extends Specification {
             "upstream"
     )
 
+    def log6 = new LogMessage(
+            Address.from("0x63bc4a36c66c64acb3d695298d492e8c1d909d3f"),
+            BlockHash.empty(),
+            100L,
+            HexData.empty(),
+            1L,
+            [
+                    Hex32.from("0x952ba7f163c4a11628f55a4df523b3efddf252ad1be2c89b69c2b068fc378daa"),
+                    Hex32.from("0x00000000000000000000000088e6a0c2ddd26feeb64f039a2c41296fcb3f5640"),
+                    Hex32.from("0x00000000000000000000000088e6a0c2ddd26feeb64f039a2c41296fcb3f5641")
+            ],
+            TransactionId.from("0xb5e554178a94fd993111f2ae64cb708cb0899d7b5182024e70d5c468164a8bec"),
+            1L,
+            false,
+            "upstream"
+    )
+
     def "Filter is empty"() {
         setup:
         def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream(), Schedulers.boundedElastic())
@@ -174,7 +191,7 @@ class ConnectLogsSpec extends Specification {
         def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream(), Schedulers.boundedElastic())
         when:
         def input = Flux.fromIterable([
-                log1, log2, log3, log4, log5
+                log1, log2, log3, log4, log5, log6
         ])
 
         def act = input.transform(connectLogs.filtered(
@@ -187,7 +204,31 @@ class ConnectLogsSpec extends Specification {
                 .collectList().block()
 
         then:
-        act.size() == 1
+        act.size() == 2
         act[0] == log5
+        act[1] == log6
+    }
+
+    def "Filter by address and second topics"() {
+        setup:
+        def connectLogs = new ConnectLogs(TestingCommons.emptyMultistream(), Schedulers.boundedElastic())
+        when:
+        def input = Flux.fromIterable([
+                log1, log2, log3, log4, log5, log6
+        ])
+
+        def act = input.transform(connectLogs.filtered(
+                [Address.from("0x63bc4a36c66c64acb3d695298d492e8c1d909d3f")],
+                [
+                        Hex32.from("0x952ba7f163c4a11628f55a4df523b3efddf252ad1be2c89b69c2b068fc378daa"),
+                        null,
+                        Hex32.from("0x00000000000000000000000088e6a0c2ddd26feeb64f039a2c41296fcb3f5641"),
+                ]
+        ))
+                .collectList().block()
+
+        then:
+        act.size() == 1
+        act[0] == log6
     }
 }
