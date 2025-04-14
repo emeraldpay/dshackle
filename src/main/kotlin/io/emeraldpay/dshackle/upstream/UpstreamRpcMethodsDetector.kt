@@ -25,7 +25,7 @@ abstract class UpstreamRpcMethodsDetector(
     private val availableRegexps =
         listOf(
             "missing value for required argument ([0-9]+)",
-//            "Invalid params", // todo: uncomment when reth node issue will be fixed
+            "Invalid params",
         ).map { s -> s.toRegex() }
 
     open fun detectRpcMethods(): Mono<Map<String, Boolean>> = detectByMagicMethod().switchIfEmpty(detectByMethod())
