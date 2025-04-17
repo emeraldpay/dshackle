@@ -55,6 +55,7 @@ class EthereumLowerBoundStateDetector(
             "State not found for block", // rootstock
             "state does not maintain archive data", // fantom
             "Access to archival, debug, or trace data is not included in your current plan", // chainstack
+            "empty reader set", // strange bsc geth error
         )
     }
 
