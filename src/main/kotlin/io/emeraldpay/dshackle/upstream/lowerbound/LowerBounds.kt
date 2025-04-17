@@ -22,12 +22,17 @@ class LowerBounds(
     fun updateBound(newBound: LowerBoundData) {
         if (lowerBounds.containsKey(newBound.type)) {
             val lowerBoundCoeffs = lowerBounds[newBound.type]!!
+            val lastBound = lowerBoundCoeffs.getLastBound()
 
             // we add only bounds with different timestamps
-            if (newBound.timestamp != lowerBoundCoeffs.getLastBound().timestamp) {
+            if (newBound.timestamp != lastBound.timestamp) {
                 if (newBound.lowerBound == 1L) {
                     // this is the fully archival node, so there is no need to accumulate bounds and calculate the coeffs
                     lowerBoundCoeffs.updateCoeffs(0.0, 1.0)
+                    lowerBoundCoeffs.clearBounds()
+                    lowerBoundCoeffs.addBound(newBound)
+                } else if (newBound.lowerBound < lastBound.lowerBound || (newBound.lowerBound - lastBound.lowerBound) >= 100000) {
+                    lowerBoundCoeffs.updateCoeffs(averageSpeed, calculateB(newBound))
                     lowerBoundCoeffs.clearBounds()
                     lowerBoundCoeffs.addBound(newBound)
                 } else {

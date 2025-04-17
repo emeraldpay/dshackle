@@ -194,11 +194,76 @@ class LowerBoundsPredictionTest {
         lowerBounds.updateBound(lowerBound1)
 
         val predicted = lowerBounds.predictNextBound(LowerBoundType.STATE)
-        println(predicted)
 
         assertThat(predicted)
             .isLessThan(37996030)
             .isGreaterThan(37996020)
+    }
+
+    @Test
+    fun `reset all bound if the next bound is less than the current one`() {
+        val lowerBounds = LowerBounds(Chain.ETHEREUM__MAINNET)
+        val lowerBoundState1 = LowerBoundData(15060L, 1010, LowerBoundType.STATE)
+        val lowerBoundState2 = LowerBoundData(100L, 1020, LowerBoundType.STATE)
+        val lowerBoundState3 = LowerBoundData(105L, 1030, LowerBoundType.STATE)
+        val lowerBoundState4 = LowerBoundData(108L, 1040, LowerBoundType.STATE)
+        val lowerBoundState5 = LowerBoundData(5L, 1050, LowerBoundType.STATE)
+
+        lowerBounds.updateBound(lowerBoundState1)
+        lowerBounds.updateBound(lowerBoundState2)
+
+        assertThat(lowerBounds.getAllBounds(LowerBoundType.STATE))
+            .hasSize(1)
+        assertThat(lowerBounds.getLastBound(LowerBoundType.STATE))
+            .isEqualTo(lowerBoundState2)
+
+        lowerBounds.updateBound(lowerBoundState3)
+        lowerBounds.updateBound(lowerBoundState4)
+
+        assertThat(lowerBounds.getAllBounds(LowerBoundType.STATE))
+            .hasSize(3)
+        assertThat(lowerBounds.getLastBound(LowerBoundType.STATE))
+            .isEqualTo(lowerBoundState4)
+
+        lowerBounds.updateBound(lowerBoundState5)
+
+        assertThat(lowerBounds.getAllBounds(LowerBoundType.STATE))
+            .hasSize(1)
+        assertThat(lowerBounds.getLastBound(LowerBoundType.STATE))
+            .isEqualTo(lowerBoundState5)
+    }
+
+    @Test
+    fun `reset all bound if the next bound is much bigger than the current one`() {
+        val lowerBounds = LowerBounds(Chain.ETHEREUM__MAINNET)
+        val lowerBoundState1 = LowerBoundData(15060L, 1010, LowerBoundType.STATE)
+        val lowerBoundState2 = LowerBoundData(130000L, 1020, LowerBoundType.STATE)
+        val lowerBoundState3 = LowerBoundData(131000L, 1030, LowerBoundType.STATE)
+        val lowerBoundState4 = LowerBoundData(132000L, 1040, LowerBoundType.STATE)
+        val lowerBoundState5 = LowerBoundData(232000L, 1050, LowerBoundType.STATE)
+
+        lowerBounds.updateBound(lowerBoundState1)
+        lowerBounds.updateBound(lowerBoundState2)
+
+        assertThat(lowerBounds.getAllBounds(LowerBoundType.STATE))
+            .hasSize(1)
+        assertThat(lowerBounds.getLastBound(LowerBoundType.STATE))
+            .isEqualTo(lowerBoundState2)
+
+        lowerBounds.updateBound(lowerBoundState3)
+        lowerBounds.updateBound(lowerBoundState4)
+
+        assertThat(lowerBounds.getAllBounds(LowerBoundType.STATE))
+            .hasSize(3)
+        assertThat(lowerBounds.getLastBound(LowerBoundType.STATE))
+            .isEqualTo(lowerBoundState4)
+
+        lowerBounds.updateBound(lowerBoundState5)
+
+        assertThat(lowerBounds.getAllBounds(LowerBoundType.STATE))
+            .hasSize(1)
+        assertThat(lowerBounds.getLastBound(LowerBoundType.STATE))
+            .isEqualTo(lowerBoundState5)
     }
 
     @Test
