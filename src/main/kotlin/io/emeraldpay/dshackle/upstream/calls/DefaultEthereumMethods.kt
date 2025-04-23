@@ -677,7 +677,10 @@ class DefaultEthereumMethods(
                 "zkevm_getBroadcastURI",
             )
 
-            Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__SEPOLIA -> zxkSyncMethods
+            Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__SEPOLIA,
+            Chain.ABSTRACT__MAINNET, Chain.ABSTRACT__SEPOLIA,
+            Chain.LENS__MAINNET, Chain.LENS__TESTNET,
+            -> zxkSyncMethods
 
             Chain.HARMONY__MAINNET_SHARD_0 ->
                 harmonyMethods
