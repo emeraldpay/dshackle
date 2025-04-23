@@ -147,6 +147,7 @@ class ChainEventMapper {
             LowerBoundType.TX -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_TX
             LowerBoundType.LOGS -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_LOGS
             LowerBoundType.TRACE -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_TRACE
+            LowerBoundType.PROOF -> BlockchainOuterClass.LowerBoundType.LOWER_BOUND_PROOF
         }
     }
 }
