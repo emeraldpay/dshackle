@@ -34,5 +34,7 @@ fun BlockchainOuterClass.LowerBoundType.fromProtoType(): LowerBoundType {
         BlockchainOuterClass.LowerBoundType.LOWER_BOUND_LOGS -> LowerBoundType.LOGS
         BlockchainOuterClass.LowerBoundType.LOWER_BOUND_TRACE -> LowerBoundType.TRACE
         BlockchainOuterClass.LowerBoundType.LOWER_BOUND_PROOF -> LowerBoundType.PROOF
+        BlockchainOuterClass.LowerBoundType.LOWER_BOUND_BLOB -> LowerBoundType.UNKNOWN
+        BlockchainOuterClass.LowerBoundType.LOWER_BOUND_EPOCH -> LowerBoundType.UNKNOWN
     }
 }
