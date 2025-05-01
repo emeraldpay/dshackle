@@ -183,6 +183,7 @@ jib {
         }
     }
     container {
+        creationTime = 'USE_CURRENT_TIMESTAMP'
         jvmFlags = ['-XX:+UseG1GC', '-XX:+ExitOnOutOfMemoryError', '-Xms1024M', '-XX:NativeMemoryTracking=summary', '-XX:+UnlockDiagnosticVMOptions', '-XX:GCLockerRetryAllocationCount=10', '--enable-preview']
         mainClass = 'io.emeraldpay.dshackle.StarterKt'
         args = []
