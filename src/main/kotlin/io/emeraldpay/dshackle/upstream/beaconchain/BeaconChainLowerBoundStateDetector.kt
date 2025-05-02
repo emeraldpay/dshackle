@@ -17,20 +17,17 @@ import io.emeraldpay.dshackle.upstream.rpcclient.RestParams
 import reactor.core.publisher.Flux
 import reactor.kotlin.core.publisher.toFlux
 
-class BeaconChainLowerBoundBlockDetector(
+class BeaconChainLowerBoundStateDetector(
     private val chain: Chain,
     private val upstream: Upstream,
 ) : LowerBoundDetector(chain) {
-    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.BLOCK, stateErrors, lowerBounds)
+    private val recursiveLowerBound = RecursiveLowerBound(upstream, LowerBoundType.STATE, stateErrors, lowerBounds)
 
     companion object {
         const val MAX_OFFSET = 20
         val notFoundError = "NOT_FOUND:" // e.g. {"message":"NOT_FOUND: beacon block at slot 1086646","code":404}
-        val notFoundError2 = "Could not find requested block" // {"message":"Could not find requested block: signed beacon block can't be nil","code":404}
-        val notFoundError3 = "has not been found" // Block header/data has not been found
-        val notFoundError4 = "lock not found" // {"message":"block not found 1413","code":404}
-        val notFoundError5 = "Internal Server Error" // block pi returns {"message":"Internal Server Error"} in first 9 blocks (?)
-        val stateErrors = setOf(notFoundError, notFoundError2, notFoundError3, notFoundError4, notFoundError5)
+        val notFoundError2 = "Could not get requested state"
+        val stateErrors = setOf(notFoundError, notFoundError2)
     }
 
     override fun period(): Long {
@@ -38,11 +35,11 @@ class BeaconChainLowerBoundBlockDetector(
     }
 
     override fun internalDetectLowerBound(): Flux<LowerBoundData> {
-        return recursiveLowerBound.recursiveDetectLowerBoundWithOffset(MAX_OFFSET) { block ->
-            val restParams = RestParams(emptyList(), emptyList(), listOf(block.toString()), ByteArray(0))
+        return recursiveLowerBound.recursiveDetectLowerBoundWithOffset(MAX_OFFSET) { slot ->
+            val restParams = RestParams(listOf(), emptyList(), listOf(slot.toString()), "[\"1\"]".toByteArray())
 
             upstream.getIngressReader()
-                .read(ChainRequest("GET#/eth/v2/beacon/blocks/*", restParams))
+                .read(ChainRequest("POST#/eth/v1/beacon/states/*/validator_balances", restParams))
                 .flatMap(ChainResponse::requireResult)
                 .timeout(Defaults.internalCallsTimeout)
                 .map {
@@ -52,7 +49,7 @@ class BeaconChainLowerBoundBlockDetector(
     }
 
     override fun types(): Set<LowerBoundType> {
-        return setOf(LowerBoundType.BLOCK)
+        return setOf(LowerBoundType.STATE)
     }
 
     private fun parseHeadersResponse(data: ByteArray): ChainResponse {
@@ -60,8 +57,13 @@ class BeaconChainLowerBoundBlockDetector(
         if (node.get("code") != null && node.get("message") != null && node.get("code").textValue() == "404") {
             return ChainResponse(null, ChainCallError(node.get("code").asInt(), node.get("message").asText(), node.get("message").asText()))
         }
-        if (node.get("data")?.get("message")?.get("slot") != null) {
-            return ChainResponse(node.get("data").toString().toByteArray(), null)
+
+        val jsonData = node.get("data")
+        if (jsonData != null) {
+            val str = jsonData.toString()
+            if (str.length >= 2) {
+                return ChainResponse(str.toByteArray(), null)
+            }
         }
         return ChainResponse(null, ChainCallError(404, notFoundError))
     }

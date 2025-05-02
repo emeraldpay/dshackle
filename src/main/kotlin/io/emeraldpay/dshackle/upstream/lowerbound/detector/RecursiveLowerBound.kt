@@ -14,13 +14,13 @@ import reactor.util.retry.RetryBackoffSpec
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
 
-class RecursiveLowerBound(
-    private val upstream: Upstream,
-    private val type: LowerBoundType,
-    private val nonRetryableErrors: Set<String>,
-    private val lowerBounds: LowerBounds,
+open class RecursiveLowerBound(
+    protected val upstream: Upstream,
+    protected val type: LowerBoundType,
+    protected val nonRetryableErrors: Set<String>,
+    protected val lowerBounds: LowerBounds,
 ) {
-    private val log = LoggerFactory.getLogger(this::class.java)
+    protected val log = LoggerFactory.getLogger(this::class.java)
 
     fun recursiveDetectLowerBound(hasData: (Long) -> Mono<ChainResponse>): Flux<LowerBoundData> {
         return initialRange()
@@ -32,7 +32,17 @@ class RecursiveLowerBound(
 
                     if (data.left > data.right) {
                         val current = if (data.current == 0L) 1 else data.current
-                        Mono.just(LowerBoundBinarySearchData(current, true))
+                        hasData(current)
+                            .retryWhen(retrySpec(middle, nonRetryableErrors))
+                            .flatMap(ChainResponse::requireResult)
+                            .map { LowerBoundBinarySearchData(current, true) }
+                            .onErrorResume {
+                                if (current == 1L && data.right > 10) {
+                                    Mono.empty() // Couldn't detect bound: data.right is chain height here and current wasn't set because we got errors all the time
+                                } else {
+                                    Mono.just(LowerBoundBinarySearchData(current, true)) // if we approached left bound(1) or node have just pruned data.current due to long bound calculation, return data.current as is
+                                }
+                            }
                     } else {
                         hasData(middle)
                             .retryWhen(retrySpec(middle, nonRetryableErrors))
@@ -75,7 +85,17 @@ class RecursiveLowerBound(
 
                             if (data.left > data.right) {
                                 val current = if (data.current == 0L) 1 else data.current
-                                Mono.just(LowerBoundBinarySearchData(current, true))
+                                hasData(current)
+                                    .retryWhen(retrySpec(middle, nonRetryableErrors))
+                                    .flatMap(ChainResponse::requireResult)
+                                    .map { LowerBoundBinarySearchData(current, true) }
+                                    .onErrorResume {
+                                        if (current == 1L && data.right > 10) {
+                                            Mono.empty() // Couldn't detect bound: data.right is chain height here and current wasn't set because we got errors all the time
+                                        } else {
+                                            Mono.just(LowerBoundBinarySearchData(current, true)) // if we approached left bound(1) or node have just pruned data.current due to long bound calculation, return data.current as is
+                                        }
+                                    }
                             } else {
                                 hasData(middle)
                                     .retryWhen(retrySpec(middle, nonRetryableErrors))
@@ -99,7 +119,7 @@ class RecursiveLowerBound(
             )
     }
 
-    private fun shiftLeftAndSearch(
+    protected fun shiftLeftAndSearch(
         currentData: LowerBoundBinarySearchData,
         currentMiddle: Long,
         visitedBlocks: HashSet<Long>,
@@ -145,7 +165,7 @@ class RecursiveLowerBound(
             }
     }
 
-    private fun initialRange(): Mono<LowerBoundBinarySearchData> {
+    protected open fun initialRange(): Mono<LowerBoundBinarySearchData> {
         return Mono.just(upstream.getHead())
             .flatMap {
                 val currentHeight = it.getCurrentHeight()
@@ -160,7 +180,7 @@ class RecursiveLowerBound(
             }
     }
 
-    private fun retrySpec(block: Long, nonRetryableErrors: Set<String>): RetryBackoffSpec {
+    protected fun retrySpec(block: Long, nonRetryableErrors: Set<String>): RetryBackoffSpec {
         return Retry.backoff(
             Long.MAX_VALUE,
             Duration.ofSeconds(1),
@@ -172,8 +192,9 @@ class RecursiveLowerBound(
             .doAfterRetry {
                 if (it.totalRetries() > 30) {
                     log.warn(
-                        "There are too much retries to calculate {} lower bound of upstream {}, " +
+                        "There are too much retries to calculate {} lower bound of upstream {}, block {} " +
                             "probably this error with message `{}` is not retryable, please report it to dshackle devs",
+                        block,
                         type,
                         upstream.getId(),
                         it.failure().message,
@@ -191,10 +212,10 @@ class RecursiveLowerBound(
             }
     }
 
-    private fun middleBlock(lowerBoundBinarySearchData: LowerBoundBinarySearchData): Long =
+    protected fun middleBlock(lowerBoundBinarySearchData: LowerBoundBinarySearchData): Long =
         lowerBoundBinarySearchData.left + (lowerBoundBinarySearchData.right - lowerBoundBinarySearchData.left) / 2
 
-    private data class LowerBoundBinarySearchData(
+    protected data class LowerBoundBinarySearchData(
         val left: Long,
         val right: Long,
         val current: Long,

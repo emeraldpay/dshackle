@@ -10,6 +10,11 @@ class BeaconChainLowerBoundService(
     private val upstream: Upstream,
 ) : LowerBoundService(chain, upstream) {
     override fun detectors(): List<LowerBoundDetector> {
-        return listOf(BeaconChainLowerBoundBlockDetector(chain, upstream))
+        return listOf(
+            BeaconChainLowerBoundBlockDetector(chain, upstream),
+            BeaconChainLowerBoundEpochDetector(chain, upstream),
+            BeaconChainLowerBoundStateDetector(chain, upstream),
+            BeaconChainLowerBoundBlobDetector(chain, upstream),
+        )
     }
 }
