@@ -680,6 +680,7 @@ class DefaultEthereumMethods(
             Chain.ZKSYNC__MAINNET, Chain.ZKSYNC__SEPOLIA,
             Chain.ABSTRACT__MAINNET, Chain.ABSTRACT__SEPOLIA,
             Chain.LENS__MAINNET, Chain.LENS__TESTNET,
+            Chain.ZERO__MAINNET,
             -> zxkSyncMethods
 
             Chain.HARMONY__MAINNET_SHARD_0 ->
