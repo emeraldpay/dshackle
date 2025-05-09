@@ -25,6 +25,7 @@ class EthereumLowerBoundProofDetector(
             "block not found",
             "proofs are available only for the 'latest' block",
             "missing trie node",
+            "cannot find EVM IAVL store",
         )
     }
 
