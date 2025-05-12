@@ -14,6 +14,7 @@ import io.emeraldpay.dshackle.upstream.GenericSingleCallValidator
 import io.emeraldpay.dshackle.upstream.SingleValidator
 import io.emeraldpay.dshackle.upstream.Upstream
 import io.emeraldpay.dshackle.upstream.UpstreamAvailability
+import io.emeraldpay.dshackle.upstream.UpstreamSettingsDetector
 import io.emeraldpay.dshackle.upstream.ValidateUpstreamSettingsResult
 import io.emeraldpay.dshackle.upstream.generic.AbstractPollChainSpecific
 import io.emeraldpay.dshackle.upstream.lowerbound.LowerBoundService
@@ -107,6 +108,13 @@ object StarknetChainSpecific : AbstractPollChainSpecific() {
 
     override fun latestBlockRequest(): ChainRequest =
         ChainRequest("starknet_getBlockWithTxHashes", ListParams("latest"))
+
+    override fun upstreamSettingsDetector(
+        chain: Chain,
+        upstream: Upstream,
+    ): UpstreamSettingsDetector {
+        return StarknetUpstreamSettingsDetector(upstream, chain)
+    }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
