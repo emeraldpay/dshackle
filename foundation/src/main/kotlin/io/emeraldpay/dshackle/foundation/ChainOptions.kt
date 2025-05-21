@@ -16,6 +16,7 @@ class ChainOptions {
         val validateGasPrice: Boolean,
         val validateChain: Boolean,
         val callLimitSize: Int,
+        val disableLivenessSubscriptionValidation: Boolean,
     )
 
     data class DefaultOptions(
@@ -36,6 +37,7 @@ class ChainOptions {
         var validateSyncing: Boolean? = null,
         var validateChain: Boolean? = null,
         var callLimitSize: Int? = null,
+        var disableLivenessSubscriptionValidation: Boolean? = null,
     ) {
         companion object {
             @JvmStatic
@@ -64,6 +66,7 @@ class ChainOptions {
             copy.disableUpstreamValidation =
                 overwrites.disableUpstreamValidation ?: this.disableUpstreamValidation
             copy.callLimitSize = overwrites.callLimitSize ?: this.callLimitSize
+            copy.disableLivenessSubscriptionValidation = overwrites.disableLivenessSubscriptionValidation ?: this.disableLivenessSubscriptionValidation
             return copy
         }
 
@@ -81,6 +84,7 @@ class ChainOptions {
                 this.validateGasPrice ?: true,
                 this.validateChain ?: true,
                 this.callLimitSize ?: 1_000_000,
+                this.disableLivenessSubscriptionValidation ?: false,
             )
     }
 }

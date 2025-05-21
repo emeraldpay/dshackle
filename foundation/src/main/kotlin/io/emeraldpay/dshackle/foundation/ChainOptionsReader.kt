@@ -52,6 +52,9 @@ class ChainOptionsReader : YamlConfigReader<ChainOptions.PartialOptions>() {
         getValueAsBool(values, "disable-upstream-validation")?.let {
             options.disableUpstreamValidation = it
         }
+        getValueAsBool(values, "disable-liveness-subscription-validation")?.let {
+            options.disableLivenessSubscriptionValidation = it
+        }
         return options
     }
 }
