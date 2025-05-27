@@ -586,7 +586,7 @@ open class NativeCall(
 
     private fun validateResult(bytes: ByteArray, origin: String, ctx: ValidCallContext<ParsedCallDetails>) {
         if (bytes.isEmpty() || nullValue.contentEquals(bytes)) {
-            log.warn("Empty result from origin $origin, method ${ctx.payload.method}, params ${ctx.payload.params}")
+            log.debug("Empty result from origin $origin, method ${ctx.payload.method}, params ${ctx.payload.params}")
         }
     }
 
