@@ -91,41 +91,43 @@ class MonitoringSetup(
         if (monitoringConfig.prometheus.enabled) {
             // use standard JVM server with a single thread blocking processing
             // prometheus is a single thread periodic call, no reason to setup anything complex
-            var started = false
-            while (true) {
-                if (isTcpPortAvailable(monitoringConfig.prometheus.host, monitoringConfig.prometheus.port)) {
-                    started = true
-                    try {
-                        log.info("Run Prometheus metrics on ${monitoringConfig.prometheus.host}:${monitoringConfig.prometheus.port}${monitoringConfig.prometheus.path}")
-                        val server = HttpServer.create(
-                            InetSocketAddress(
-                                monitoringConfig.prometheus.host,
-                                monitoringConfig.prometheus.port,
-                            ),
-                            0,
-                        )
-                        server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
-                            val response = prometheusRegistry.scrape()
-                            httpExchange.responseHeaders.add("Content-Encoding", "gzip")
-                            httpExchange.responseHeaders.add("Content-Type", "text/plain")
-                            httpExchange.sendResponseHeaders(200, 0)
-                            httpExchange.responseBody.use { os ->
-                                GZIPOutputStream(os).use { gzos ->
-                                    gzos.write(response.toByteArray())
+            Thread {
+                var started = false
+                while (true) {
+                    if (isTcpPortAvailable(monitoringConfig.prometheus.host, monitoringConfig.prometheus.port)) {
+                        started = true
+                        try {
+                            log.info("Run Prometheus metrics on ${monitoringConfig.prometheus.host}:${monitoringConfig.prometheus.port}${monitoringConfig.prometheus.path}")
+                            val server = HttpServer.create(
+                                InetSocketAddress(
+                                    monitoringConfig.prometheus.host,
+                                    monitoringConfig.prometheus.port,
+                                ),
+                                0,
+                            )
+                            server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
+                                val response = prometheusRegistry.scrape()
+                                httpExchange.responseHeaders.add("Content-Encoding", "gzip")
+                                httpExchange.responseHeaders.add("Content-Type", "text/plain")
+                                httpExchange.sendResponseHeaders(200, 0)
+                                httpExchange.responseBody.use { os ->
+                                    GZIPOutputStream(os).use { gzos ->
+                                        gzos.write(response.toByteArray())
+                                    }
                                 }
                             }
+                            Thread(server::start).start()
+                        } catch (e: IOException) {
+                            log.error("Failed to start Prometheus Server", e)
                         }
-                        Thread(server::start).start()
-                    } catch (e: IOException) {
-                        log.error("Failed to start Prometheus Server", e)
+                    } else {
+                        if (!started) {
+                            log.error("Can't start prometheus metrics on ${monitoringConfig.prometheus.host}:${monitoringConfig.prometheus.port}${monitoringConfig.prometheus.path}")
+                        }
+                        Thread.sleep(1000)
                     }
-                } else {
-                    if (!started) {
-                        log.error("Can't start prometheus metrics on ${monitoringConfig.prometheus.host}:${monitoringConfig.prometheus.port}${monitoringConfig.prometheus.path}")
-                    }
-                    Thread.sleep(1000)
                 }
-            }
+            }.start()
         }
     }
 }
