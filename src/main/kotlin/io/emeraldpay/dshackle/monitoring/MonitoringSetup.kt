@@ -32,7 +32,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import java.io.IOException
+import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.util.zip.GZIPOutputStream
 import javax.annotation.PostConstruct
 
@@ -43,6 +45,20 @@ class MonitoringSetup(
 
     companion object {
         private val log = LoggerFactory.getLogger(MonitoringSetup::class.java)
+    }
+
+    private fun isTcpPortAvailable(host: String, port: Int): Boolean {
+        try {
+            ServerSocket().use { serverSocket ->
+                // setReuseAddress(false) is required only on macOS,
+                // otherwise the code will not work correctly on that platform
+                serverSocket.reuseAddress = false
+                serverSocket.bind(InetSocketAddress(InetAddress.getByName(host), port), 1)
+                return true
+            }
+        } catch (ex: java.lang.Exception) {
+            return false
+        }
     }
 
     @PostConstruct
@@ -75,29 +91,40 @@ class MonitoringSetup(
         if (monitoringConfig.prometheus.enabled) {
             // use standard JVM server with a single thread blocking processing
             // prometheus is a single thread periodic call, no reason to setup anything complex
-            try {
-                log.info("Run Prometheus metrics on ${monitoringConfig.prometheus.host}:${monitoringConfig.prometheus.port}${monitoringConfig.prometheus.path}")
-                val server = HttpServer.create(
-                    InetSocketAddress(
-                        monitoringConfig.prometheus.host,
-                        monitoringConfig.prometheus.port,
-                    ),
-                    0,
-                )
-                server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
-                    val response = prometheusRegistry.scrape()
-                    httpExchange.responseHeaders.add("Content-Encoding", "gzip")
-                    httpExchange.responseHeaders.add("Content-Type", "text/plain")
-                    httpExchange.sendResponseHeaders(200, 0)
-                    httpExchange.responseBody.use { os ->
-                        GZIPOutputStream(os).use { gzos ->
-                            gzos.write(response.toByteArray())
+            var started = false
+            while (true) {
+                if (isTcpPortAvailable(monitoringConfig.prometheus.host, monitoringConfig.prometheus.port)) {
+                    started = true
+                    try {
+                        log.info("Run Prometheus metrics on ${monitoringConfig.prometheus.host}:${monitoringConfig.prometheus.port}${monitoringConfig.prometheus.path}")
+                        val server = HttpServer.create(
+                            InetSocketAddress(
+                                monitoringConfig.prometheus.host,
+                                monitoringConfig.prometheus.port,
+                            ),
+                            0,
+                        )
+                        server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
+                            val response = prometheusRegistry.scrape()
+                            httpExchange.responseHeaders.add("Content-Encoding", "gzip")
+                            httpExchange.responseHeaders.add("Content-Type", "text/plain")
+                            httpExchange.sendResponseHeaders(200, 0)
+                            httpExchange.responseBody.use { os ->
+                                GZIPOutputStream(os).use { gzos ->
+                                    gzos.write(response.toByteArray())
+                                }
+                            }
                         }
+                        Thread(server::start).start()
+                    } catch (e: IOException) {
+                        log.error("Failed to start Prometheus Server", e)
                     }
+                } else {
+                    if (!started) {
+                        log.error("Can't start prometheus metrics on ${monitoringConfig.prometheus.host}:${monitoringConfig.prometheus.port}${monitoringConfig.prometheus.path}")
+                    }
+                    Thread.sleep(1000)
                 }
-                Thread(server::start).start()
-            } catch (e: IOException) {
-                log.error("Failed to start Prometheus Server", e)
             }
         }
     }
