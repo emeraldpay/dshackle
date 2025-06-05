@@ -1,6 +1,9 @@
 package io.emeraldpay.dshackle.upstream.ethereum
 
+import io.emeraldpay.dshackle.Defaults
+import io.emeraldpay.dshackle.Global
 import io.emeraldpay.dshackle.upstream.Capability
+import io.emeraldpay.dshackle.upstream.ChainRequest
 import io.emeraldpay.dshackle.upstream.EgressSubscription
 import io.emeraldpay.dshackle.upstream.Multistream
 import io.emeraldpay.dshackle.upstream.Selector
@@ -9,9 +12,37 @@ import io.emeraldpay.dshackle.upstream.ethereum.hex.Hex32
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectLogs
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.ConnectNewHeads
 import io.emeraldpay.dshackle.upstream.ethereum.subscribe.PendingTxesSource
+import io.emeraldpay.dshackle.upstream.rpcclient.ListParams
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
+
+data class Transaction(
+    val blockHash: String?,
+    val blockNumber: String?,
+    val from: String,
+    val gas: String,
+
+    val gasPrice: String?,
+    val maxFeePerGas: String?,
+
+    val maxPriorityFeePerGas: String?,
+
+    val hash: String,
+    val input: String,
+    val nonce: String,
+    val to: String,
+    val transactionIndex: String?,
+    val value: String,
+    val type: String,
+    val accessList: List<Any>?,
+    val chainId: String,
+    val v: String,
+    val yParity: String?,
+    val r: String?,
+    val s: String?,
+)
 
 open class EthereumEgressSubscription(
     val upstream: Multistream,
@@ -25,6 +56,7 @@ open class EthereumEgressSubscription(
         const val METHOD_NEW_HEADS = "newHeads"
         const val METHOD_LOGS = "logs"
         const val METHOD_PENDING_TXES = "newPendingTransactions"
+        const val METHOD_PENDING_TXES_WITH_BODY = "newPendingTransactionsWithBody"
     }
 
     private val newHeads = ConnectNewHeads(upstream, scheduler)
@@ -41,7 +73,7 @@ open class EthereumEgressSubscription(
             listOf()
         }
         return if (pendingTxesSource != null) {
-            subs.plus(METHOD_PENDING_TXES)
+            subs.plus(listOf(METHOD_PENDING_TXES, METHOD_PENDING_TXES_WITH_BODY))
         } else {
             subs
         }
@@ -66,6 +98,36 @@ open class EthereumEgressSubscription(
         }
         if (topic == METHOD_PENDING_TXES) {
             return pendingTxesSource?.connect(matcher) ?: Flux.empty()
+        } else if (topic == METHOD_PENDING_TXES_WITH_BODY) {
+            return pendingTxesSource?.connect(matcher)?.flatMap { txHash ->
+                // Create request to get full transaction
+                val request = ChainRequest(
+                    "eth_getTransactionByHash",
+                    ListParams(txHash.toString()),
+                )
+
+                // try to read froms each upstream
+                Flux.fromIterable(upstream.getUpstreams())
+                    .flatMap { currentUpstream ->
+                        currentUpstream.getIngressReader().read(request)
+                            .timeout(Defaults.internalCallsTimeout)
+                            .flatMap { response ->
+                                val result = response.getResult()
+                                if (result.isEmpty()) {
+                                    Mono.empty()
+                                } else {
+                                    Mono.just(Global.objectMapper.readValue(result, Transaction::class.java))
+                                }
+                            }
+                            .doOnError { err ->
+                                log.debug("Failed to get response from upstream ${currentUpstream.getId()} tx: $txHash: ${err.message}")
+                            }
+                            .onErrorResume { Mono.empty() }
+                    }
+                    .next()
+                    .doOnSuccess { resp -> log.debug("eth_getTransactionByHash got response: $resp") }
+                    .doOnError { err -> log.warn("eth_getTransactionByHash failed to get response from any upstream tx: $txHash: ${err.message}") }
+            } ?: Flux.empty()
         }
         return Flux.error(UnsupportedOperationException("Method $topic is not supported"))
     }
