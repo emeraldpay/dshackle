@@ -18,19 +18,19 @@ class VerifyingReaderTest : ShouldSpec({
 
     should("Return empty for allowed method") {
         val methods = mockk<CallMethods>()
-        every { methods.isCallable("test_foo") } returns true
+        every { methods.isAvailable("test_foo") } returns true
         val reader = VerifyingReader(AtomicReference(methods))
 
         val act = reader.read(DshackleRequest("test_foo", emptyList()))
             .block(Duration.ofSeconds(1))
 
         act shouldBe null
-        verify(exactly = 1) { methods.isCallable(any()) }
+        verify(exactly = 1) { methods.isAvailable(any()) }
     }
 
     should("Return error for allowed method") {
         val methods = mockk<CallMethods>()
-        every { methods.isCallable("test_foo") } returns false
+        every { methods.isAvailable("test_foo") } returns false
         val reader = VerifyingReader(AtomicReference(methods))
 
         val t = shouldThrow<RpcException> {
@@ -41,6 +41,6 @@ class VerifyingReaderTest : ShouldSpec({
         t shouldNotBe null
         t.message!! should contain("Unsupported method: test_foo")
 
-        verify(exactly = 1) { methods.isCallable(any()) }
+        verify(exactly = 1) { methods.isAvailable(any()) }
     }
 })

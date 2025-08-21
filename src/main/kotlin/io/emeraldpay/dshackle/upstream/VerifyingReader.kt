@@ -19,7 +19,7 @@ class VerifyingReader(
     }
 
     override fun read(key: DshackleRequest): Mono<DshackleResponse> {
-        if (!methods.get().isCallable(key.method)) {
+        if (!methods.get().isAvailable(key.method)) {
             return Mono.error(RpcException(RpcResponseError.CODE_METHOD_NOT_EXIST, "Unsupported method: ${key.method}"))
         }
         return Mono.empty()
