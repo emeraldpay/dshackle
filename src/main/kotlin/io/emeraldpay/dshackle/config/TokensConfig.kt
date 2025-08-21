@@ -33,12 +33,16 @@ class TokensConfig(
         var type: Type? = null
         var address: String? = null
 
+        /**
+         *  Validate the config, and if it is not valid, then returns the name of the field that is invalid.
+         *
+         */
         fun validate(): String? {
             return when {
                 id.isNullOrBlank() -> "id"
                 blockchain == null -> "blockchain"
                 name.isNullOrBlank() -> "name"
-                type == null -> type
+                type == null -> "type"
                 address.isNullOrBlank() -> "address"
                 blockchain != null &&
                     BlockchainType.from(blockchain!!) == BlockchainType.ETHEREUM &&
