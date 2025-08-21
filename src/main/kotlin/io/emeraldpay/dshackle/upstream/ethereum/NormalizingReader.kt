@@ -52,7 +52,7 @@ class NormalizingReader(
     }
 
     fun isBlockOrNumber(id: String): Boolean {
-        return id.matches(HEX_REGEX) && id.length == 66 || id.length <= 18
+        return id.matches(HEX_REGEX) && (id.length == 66 || id.length <= 18)
     }
 
     fun acceptHeight(height: Long): Boolean {

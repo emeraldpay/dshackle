@@ -61,6 +61,7 @@ class NormalizingReaderTest : ShouldSpec({
 
             reader.isBlockOrNumber("0x9e1891c70836f4d5817924") shouldBe false
             reader.isBlockOrNumber("0x515846D0F6CC07C99B60F6A910723D5C91817E3C3570D198427222D4ED9F4FB") shouldBe false
+            reader.isBlockOrNumber("foobar") shouldBe false
         }
 
         should("Accept latest tag block") {
