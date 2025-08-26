@@ -31,9 +31,13 @@ open class MethodSpecificReader : DshackleRpcReader {
     }
 
     override fun read(key: DshackleRequest): Mono<DshackleResponse> {
-        return specific[key.method]?.find {
+        val delegate = specific[key.method]?.find {
             it.params.test(key.params)
-        }?.reader?.read(key) ?: Mono.empty()
+        }
+        if (delegate == null) {
+            return Mono.empty()
+        }
+        return delegate.reader.read(key)
     }
 
     data class Delegate(

@@ -3,79 +3,104 @@ package emerald;
 option java_package = "io.emeraldpay.api.proto";
 
 message Chain {
-    ChainRef type = 1;
+  ChainRef type = 1;
 }
 
+/**
+ * Defines standard chain references used across Emerald APIs.
+ *
+ * The numbering scheme is as follows:
+ * - Bitcoin starts with 1
+ * - Ethereum starts with 100
+ * - Sidechains and state channels start with 1_000
+ * - All Testnets start with 10_000
+ * - Non-standard chains start with 20_000
+ */
 enum ChainRef {
-    CHAIN_UNSPECIFIED = 0;
+  CHAIN_UNSPECIFIED = 0;
 
-    CHAIN_BITCOIN = 1;
-    // CHAIN_GRIN = 2;
+  CHAIN_BITCOIN = 1;
 
-    CHAIN_ETHEREUM = 100;
-    CHAIN_ETHEREUM_CLASSIC = 101;
-    CHAIN_FANTOM = 102; // Fantom, https://fantom.foundation/
+  CHAIN_ETHEREUM = 100;
+  CHAIN_ETHEREUM_CLASSIC = 101;
 
-    // Sidechains and state channels start with 1_000
-    // CHAIN_LIGHTNING = 1001;
-    CHAIN_MATIC = 1002; // Matic PoS Ethereum sidechain based on Polygon
-    CHAIN_RSK = 1003; // RSK sidechain, https://www.rsk.co/
+  // Fantom, https://fantom.foundation/
+  CHAIN_FANTOM = 102;
 
-    // Testnets start with 10_000
-    CHAIN_MORDEN = 10001;
-    CHAIN_KOVAN = 10002;
-    CHAIN_TESTNET_BITCOIN = 10003;
-    // CHAIN_FLOONET = 10004;
-    CHAIN_GOERLI = 10005;
-    CHAIN_ROPSTEN = 10006;
-    CHAIN_RINKEBY = 10007;
-    CHAIN_HOLESKY = 10008;
-    CHAIN_SEPOLIA = 10009;
+  // Matic PoS Ethereum sidechain based on Polygon
+  CHAIN_MATIC = 1002;
+  // RSK sidechain, https://www.rsk.co/
+  CHAIN_RSK = 1003;
 
-    // Non-standard starts from 20_000
+  // DEPRECATED
+  CHAIN_MORDEN = 10001;
+  // DEPRECATED
+  CHAIN_KOVAN = 10002;
+
+  // DEPRECATED, use CHAIN_TESTNET_BITCOIN_4 instead
+  CHAIN_TESTNET_BITCOIN = 10003;
+  // https://bips.dev/94/
+  CHAIN_TESTNET_BITCOIN_4 = 10004;
+
+  // DEPRECATED, use CHAIN_SEPOLIA instead
+  CHAIN_GOERLI = 10005;
+  // DEPRECATED, use CHAIN_HOLESKY instead
+  CHAIN_ROPSTEN = 10006;
+  // DEPRECATED, use CHAIN_SEPOLIA instead
+  CHAIN_RINKEBY = 10007;
+  // DEPRECATED, use CHAIN_HOODI instead
+  CHAIN_HOLESKY = 10008;
+
+  ///
+  /// https://github.com/eth-clients/sepolia
+  CHAIN_SEPOLIA = 10009;
+
+  /// replaces HOLESKY,
+  /// https://github.com/eth-clients/hoodi
+  CHAIN_HOODI = 10010;
 }
 
 message SingleAddress {
-    string address = 1;
+  string address = 1;
 }
 
 message XpubAddress {
-    // base58 encoded string for xpub, https://en.bitcoin.it/wiki/BIP_0032#Serialization_format
-    string xpub = 1;
-    uint64 start = 3;
-    uint64 limit = 4;
-    uint64 unused_limit = 5;
+  // base58 encoded string for xpub, https://en.bitcoin.it/wiki/BIP_0032#Serialization_format
+  string xpub = 1;
+  uint64 start = 3;
+  uint64 limit = 4;
+  uint64 unused_limit = 5;
 }
 
 message MultiAddress {
-    repeated SingleAddress addresses = 1;
+  repeated SingleAddress addresses = 1;
 }
 
 message ReferenceAddress {
-    uint64 refid = 1;
+  uint64 refid = 1;
 }
 
 message AnyAddress {
-    oneof addr_type {
-        SingleAddress address_single = 1;
-        MultiAddress address_multi = 2;
-        XpubAddress address_xpub = 3;
-        ReferenceAddress address_ref = 4;
-    }
+  oneof addr_type {
+    SingleAddress address_single = 1;
+    MultiAddress address_multi = 2;
+    XpubAddress address_xpub = 3;
+    ReferenceAddress address_ref = 4;
+  }
 }
 
 message Asset {
-    ChainRef chain = 1;
-    string code = 2;
+  ChainRef chain = 1;
+  string code = 2;
 }
 
 message Erc20Asset {
-    ChainRef chain = 1;
-    string contract_address = 2;
+  ChainRef chain = 1;
+  string contract_address = 2;
 }
 
 message BlockInfo {
-    uint64 height = 1;
-    string block_id = 2;
-    uint64 timestamp = 3;
+  uint64 height = 1;
+  string block_id = 2;
+  uint64 timestamp = 3;
 }

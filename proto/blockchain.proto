@@ -4,316 +4,319 @@ option java_package = "io.emeraldpay.api.proto";
 import "common.proto";
 
 service Blockchain {
-    rpc SubscribeHead (Chain) returns (stream ChainHead) {}
-    rpc SubscribeBalance (BalanceRequest) returns (stream AddressBalance) {}
-    rpc SubscribeTxStatus (TxStatusRequest) returns (stream TxStatus) {}
+  rpc SubscribeHead (Chain) returns (stream ChainHead) {}
+  rpc SubscribeBalance (BalanceRequest) returns (stream AddressBalance) {}
+  rpc SubscribeTxStatus (TxStatusRequest) returns (stream TxStatus) {}
 
-    rpc GetBalance (BalanceRequest) returns (stream AddressBalance) {}
+  rpc GetBalance (BalanceRequest) returns (stream AddressBalance) {}
 
-    rpc GetAddressAllowance(AddressAllowanceRequest) returns (stream AddressAllowance) {}
-    rpc SubscribeAddressAllowance(AddressAllowanceRequest) returns (stream AddressAllowance) {}
+  // DEPRECATED, moved to token service
+  rpc GetAddressAllowance(AddressAllowanceRequest) returns (stream AddressAllowance) {}
+  // DEPRECATED, moved to token service
+  rpc SubscribeAddressAllowance(AddressAllowanceRequest) returns (stream AddressAllowance) {}
 
-    /**
-     * Fee Estimation service. The server tries to estimate a fair fee based on the last N blocks.
-     */
-    rpc EstimateFee (EstimateFeeRequest) returns (EstimateFeeResponse) {}
+  /**
+   * Fee Estimation service. The server tries to estimate a fair fee based on the last N blocks.
+   */
+  rpc EstimateFee (EstimateFeeRequest) returns (EstimateFeeResponse) {}
 
-    rpc NativeCall (NativeCallRequest) returns (stream NativeCallReplyItem) {}
-    rpc NativeSubscribe (NativeSubscribeRequest) returns (stream NativeSubscribeReplyItem) {}
+  rpc NativeCall (NativeCallRequest) returns (stream NativeCallReplyItem) {}
+  rpc NativeSubscribe (NativeSubscribeRequest) returns (stream NativeSubscribeReplyItem) {}
 
-    rpc Describe (DescribeRequest) returns (DescribeResponse) {}
-    rpc SubscribeStatus (StatusRequest) returns (stream ChainStatus) {}
+  rpc Describe (DescribeRequest) returns (DescribeResponse) {}
+  rpc SubscribeStatus (StatusRequest) returns (stream ChainStatus) {}
 }
 
 message NativeCallRequest {
-    ChainRef chain = 1;
-    repeated NativeCallItem items = 2;
-    Selector selector = 3;
-    int32 quorum = 4;
-    AvailabilityEnum min_availability = 5;
+  ChainRef chain = 1;
+  repeated NativeCallItem items = 2;
+  Selector selector = 3;
+  int32 quorum = 4;
+  AvailabilityEnum min_availability = 5;
 }
 
 message NativeCallItem {
-    uint32 id = 1;
-    string method = 3;
-    bytes payload = 4;
-    uint64 nonce = 5;
+  uint32 id = 1;
+  string method = 3;
+  bytes payload = 4;
+  uint64 nonce = 5;
 }
 
 /**
  * Signature for a response
  */
 message NativeCallReplySignature {
-    /**
-     * Original nonce value used for the call
-     */
-    uint64 nonce = 1;
-    /**
-     * Signature value
-     */
-    bytes signature = 2;
-    /**
-     * Key Id used for the signing
-     */
-    uint64 key_id = 3;
-    /**
-     * Id of the upstream produced the response
-     */
-    string upstream_id = 4;
+  /**
+   * Original nonce value used for the call
+   */
+  uint64 nonce = 1;
+  /**
+   * Signature value
+   */
+  bytes signature = 2;
+  /**
+   * Key Id used for the signing
+   */
+  uint64 key_id = 3;
+  /**
+   * Id of the upstream produced the response
+   */
+  string upstream_id = 4;
 }
 
 message NativeCallReplyItem {
-    uint32 id = 1;
-    bool succeed = 2;
-    bytes payload = 3;
-    string errorMessage = 4;
-    /**
-     * Optional signature for the response.
-     * Available only when it's configured at the edge dshackle and nonce is provided wit the request.
-     */
-    NativeCallReplySignature signature = 5;
+  uint32 id = 1;
+  bool succeed = 2;
+  bytes payload = 3;
+  string errorMessage = 4;
+  /**
+   * Optional signature for the response.
+   * Available only when it's configured at the edge dshackle and nonce is provided wit the request.
+   */
+  NativeCallReplySignature signature = 5;
 }
 
 message NativeSubscribeRequest {
-    ChainRef chain = 1;
-    string method = 2;
-    bytes payload = 3;
+  ChainRef chain = 1;
+  string method = 2;
+  bytes payload = 3;
 }
 
 message NativeSubscribeReplyItem {
-    bytes payload = 1;
+  bytes payload = 1;
 }
 
 message ChainHead {
-    ChainRef chain = 1;
-    uint64 height = 2;
-    string block_id = 3;
-    uint64 timestamp = 4;
-    bytes weight = 5;
-    uint64 reorg = 6;
+  ChainRef chain = 1;
+  uint64 height = 2;
+  string block_id = 3;
+  uint64 timestamp = 4;
+  bytes weight = 5;
+  uint64 reorg = 6;
 }
 
 message TxStatusRequest {
-    ChainRef chain = 1;
-    string tx_id = 2;
-    uint32 confirmation_limit = 3;
+  ChainRef chain = 1;
+  string tx_id = 2;
+  uint32 confirmation_limit = 3;
 }
 
 message TxStatus {
-    string tx_id = 1;
-    bool broadcasted = 2;
-    bool mined = 3;
-    BlockInfo block = 4;
-    uint32 confirmations = 5;
+  string tx_id = 1;
+  bool broadcasted = 2;
+  bool mined = 3;
+  BlockInfo block = 4;
+  uint32 confirmations = 5;
 }
 
 message BalanceRequest {
-    oneof balance_type {
-        Asset asset = 1;
-        Erc20Asset erc20_asset = 4;
-    }
-    AnyAddress address = 2;
-    bool include_utxo = 3;
+  oneof balance_type {
+    Asset asset = 1;
+    Erc20Asset erc20_asset = 4;
+  }
+  AnyAddress address = 2;
+  bool include_utxo = 3;
 }
 
 message AddressBalance {
-    oneof balance_type {
-        Asset asset = 1;
-        Erc20Asset erc20_asset = 6;
-    }
-    SingleAddress address = 2;
-    string balance = 3;
-    bool confirmed = 4;
-    repeated Utxo utxo = 5;
+  oneof balance_type {
+    Asset asset = 1;
+    Erc20Asset erc20_asset = 6;
+  }
+  SingleAddress address = 2;
+  string balance = 3;
+  bool confirmed = 4;
+  repeated Utxo utxo = 5;
 }
 
 message AddressAllowanceRequest {
-    ChainRef chain = 1;
-    AnyAddress address = 2;
-    repeated SingleAddress contract_addresses = 3; // contract addresses filter, no filter if empty
+  ChainRef chain = 1;
+  AnyAddress address = 2;
+  repeated SingleAddress contract_addresses = 3; // contract addresses filter, no filter if empty
 }
 
 message AddressAllowance {
-    ChainRef chain = 1;
-    SingleAddress address = 2;
+  ChainRef chain = 1;
+  SingleAddress address = 2;
 
-    SingleAddress contract_address = 3;
-    SingleAddress owner_address = 4;
-    SingleAddress spender_address = 5;
-    string allowance = 6;
-    string available = 7; // minOf(owner_balance, allowance)
+  SingleAddress contract_address = 3;
+  SingleAddress owner_address = 4;
+  SingleAddress spender_address = 5;
+  string allowance = 6;
+  string available = 7; // minOf(owner_balance, allowance)
 }
 
 message Utxo {
-    string tx_id = 1;
-    uint64 index = 2;
-    string balance = 3;
-    bool spent = 4;
+  string tx_id = 1;
+  uint64 index = 2;
+  string balance = 3;
+  bool spent = 4;
 }
 
 message DescribeRequest {
 }
 
 message DescribeResponse {
-    repeated DescribeChain chains = 1;
+  repeated DescribeChain chains = 1;
 }
 
 message DescribeChain {
-    ChainRef chain = 1;
-    ChainStatus status = 2;
-    repeated NodeDetails nodes = 3;
+  ChainRef chain = 1;
+  ChainStatus status = 2;
+  repeated NodeDetails nodes = 3;
 
-    /**
-     * List of method available through NativeCall
-     */
-    repeated string supportedMethods = 4;
-    repeated string excludedMethods = 5;
-    repeated Capabilities capabilities = 6;
+  /**
+   * List of method available through NativeCall
+   */
+  repeated string supportedMethods = 4;
+  repeated string excludedMethods = 5;
+  repeated Capabilities capabilities = 6;
 
-    /**
-     * List of subscriptions available through NativeSubscribe
-     */
-    repeated string supportedSubscriptions = 7;
+  /**
+   * List of subscriptions available through NativeSubscribe
+   */
+  repeated string supportedSubscriptions = 7;
 }
 
 message StatusRequest {
-    repeated ChainRef chains = 1;
+  repeated ChainRef chains = 1;
 }
 
 message ChainStatus {
-    ChainRef chain = 1;
-    AvailabilityEnum availability = 2;
-    uint32 quorum = 3;
+  ChainRef chain = 1;
+  AvailabilityEnum availability = 2;
+  uint32 quorum = 3;
 }
 
 enum AvailabilityEnum {
-    AVAIL_UNKNOWN = 0;
-    AVAIL_OK = 1;
-    AVAIL_LAGGING = 2;
-    AVAIL_IMMATURE = 3;
-    AVAIL_SYNCING = 4;
-    AVAIL_UNAVAILABLE = 5;
+  AVAIL_UNKNOWN = 0;
+  AVAIL_OK = 1;
+  AVAIL_LAGGING = 2;
+  AVAIL_IMMATURE = 3;
+  AVAIL_SYNCING = 4;
+  AVAIL_UNAVAILABLE = 5;
 }
 
 message NodeDetails {
-    uint32 quorum = 1;
-    repeated Label labels = 2;
+  uint32 quorum = 1;
+  repeated Label labels = 2;
 }
 
 enum Capabilities {
-    CAP_NONE = 0;
-    CAP_CALLS = 1;
-    CAP_BALANCE = 2;
+  CAP_NONE = 0;
+  CAP_CALLS = 1;
+  CAP_BALANCE = 2;
+  CAP_ALLOWANCE = 3;
 }
 
 message Label {
-    string name = 1;
-    string value = 2;
+  string name = 1;
+  string value = 2;
 }
 
 message Selector {
-    oneof selector_type {
-        LabelSelector labelSelector = 1;
-        OrSelector orSelector = 2;
-        AndSelector andSelector = 3;
-        NotSelector notSelector = 4;
-        ExistsSelector existsSelector = 5;
-    }
+  oneof selector_type {
+    LabelSelector labelSelector = 1;
+    OrSelector orSelector = 2;
+    AndSelector andSelector = 3;
+    NotSelector notSelector = 4;
+    ExistsSelector existsSelector = 5;
+  }
 }
 
 message LabelSelector {
-    string name = 1;
-    repeated string value = 2;
+  string name = 1;
+  repeated string value = 2;
 }
 
 message OrSelector {
-    repeated Selector selectors = 1;
+  repeated Selector selectors = 1;
 }
 
 message AndSelector {
-    repeated Selector selectors = 1;
+  repeated Selector selectors = 1;
 }
 
 message NotSelector {
-    Selector selector = 1;
+  Selector selector = 1;
 }
 
 message ExistsSelector {
-    string name = 1;
+  string name = 1;
 }
 
 /**
  * Request for Fee Estimation Service
  */
 message EstimateFeeRequest {
-    // Target chain
-    ChainRef chain = 1;
-    // The way how the fee should be estimated
-    FeeEstimationMode mode = 2;
-    // How many blocks the server is supposed to use to estimate current fee. Note that the server may use value, depending on configuration
-    uint32 blocks = 3;
+  // Target chain
+  ChainRef chain = 1;
+  // The way how the fee should be estimated
+  FeeEstimationMode mode = 2;
+  // How many blocks the server is supposed to use to estimate current fee. Note that the server may use value, depending on configuration
+  uint32 blocks = 3;
 }
 
 /**
  * Responset for Fee Estimation Service
  */
 message EstimateFeeResponse {
-    // May return different struct, depending on the blockchain
-    oneof fee_type {
-        // Standard Ethereum Fee, supported by majority of forks and by Ethereum Mainnet before EIP-1559
-        EthereumStdFees ethereumStd = 1;
-        // Ethereum Fee for EIP-1559 compatible forks
-        EthereumExtFees ethereumExtended = 2;
-        // Standard Bitcoin Fee
-        BitcoinStdFees bitcoinStd = 3;
-    }
+  // May return different struct, depending on the blockchain
+  oneof fee_type {
+    // Standard Ethereum Fee, supported by majority of forks and by Ethereum Mainnet before EIP-1559
+    EthereumStdFees ethereumStd = 1;
+    // Ethereum Fee for EIP-1559 compatible forks
+    EthereumExtFees ethereumExtended = 2;
+    // Standard Bitcoin Fee
+    BitcoinStdFees bitcoinStd = 3;
+  }
 }
 
 /**
  * The mode of how the fee must be estimated
  */
 enum FeeEstimationMode {
-    INVALID = 0;
-    // Average over last transaction in each block
-    AVG_LAST = 1;
-    // Average over transaction 5th from the end in each block
-    AVG_T5 = 2;
-    // Average over transaction 20th from the end in each block
-    AVG_T20 = 3;
-    // Average over transaction 50th from the end in each block
-    AVG_T50 = 4;
-    // Minimal fee that would be accepted by every last block
-    MIN_ALWAYS = 5;
-    // Average over transaction in the middle of each block
-    AVG_MIDDLE = 6;
-    // Average over transaction in head of each block. Note that for Bitcoin it doesn't count COINBASE tx as top tx.
-    AVG_TOP = 7;
+  INVALID = 0;
+  // Average over last transaction in each block
+  AVG_LAST = 1;
+  // Average over transaction 5th from the end in each block
+  AVG_T5 = 2;
+  // Average over transaction 20th from the end in each block
+  AVG_T20 = 3;
+  // Average over transaction 50th from the end in each block
+  AVG_T50 = 4;
+  // Minimal fee that would be accepted by every last block
+  MIN_ALWAYS = 5;
+  // Average over transaction in the middle of each block
+  AVG_MIDDLE = 6;
+  // Average over transaction in head of each block. Note that for Bitcoin it doesn't count COINBASE tx as top tx.
+  AVG_TOP = 7;
 }
 
 /**
  * Standard Ethereum Fee, supported by majority of forks and by Ethereum Mainnet before EIP-1559
  */
 message EthereumStdFees {
-    // Big Number encoded as string. Fee value in Wei
-    string fee = 1;
+  // Big Number encoded as string. Fee value in Wei
+  string fee = 1;
 }
 
 /**
  * Ethereum Fee for EIP-1559 compatible forks
  */
 message EthereumExtFees {
-    // Big Number encoded as string. Estimated fee that expected to be actually paid. I.e. it's the Base Fee + Priority Fee
-    string expect = 1;
-    // Big Number encoded as string. Priority Fee in Wei
-    string priority = 2;
-    // Big Number encoded as string. Max Fee value in Wei. Note that it only indicates the current preference, and the actual Max may be significantly lower, depending on the usage scenario.
-    string max = 3;
+  // Big Number encoded as string. Estimated fee that expected to be actually paid. I.e. it's the Base Fee + Priority Fee
+  string expect = 1;
+  // Big Number encoded as string. Priority Fee in Wei
+  string priority = 2;
+  // Big Number encoded as string. Max Fee value in Wei. Note that it only indicates the current preference, and the actual Max may be significantly lower, depending on the usage scenario.
+  string max = 3;
 }
 
 /**
  * Standard Bitcoin Fee
  */
 message BitcoinStdFees {
-    // Fee in Satoshi per Kilobyte. Note that the actual fee calculation MUST divide it by 1024 at the last step to get a fair fee.
-    uint64 satPerKb = 1;
+  // Fee in Satoshi per Kilobyte. Note that the actual fee calculation MUST divide it by 1024 at the last step to get a fair fee.
+  uint64 satPerKb = 1;
 }
