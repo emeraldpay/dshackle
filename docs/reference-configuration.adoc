@@ -772,7 +772,7 @@ configuration, and may be omitted for most of the situations.
 | yes
 | Blockchain which is the provided by the upstream.
 Cluster may have multiple upstreams for a single blockchain.
-Accepted types: `bitcoin`, `bitcoin-testnet`, `ethereum`, `ethereum-classic`, or `sepolia-testnet`
+Accepted types: `bitcoin`, `bitcoin-testnet-v4`, `ethereum`, `ethereum-classic`, `sepolia`, `hoodi`, etc. See link:04-upstream-config.adoc#supported-blockchains[Upstream Config] docs for the full list.
 
 
 | `labels`

@@ -149,6 +149,9 @@ class DefaultEthereumMethods(
                     Chain.TESTNET_SEPOLIA == chain -> {
                         "\"11155111\""
                     }
+                    Chain.TESTNET_HOODI == chain -> {
+                        "\"560048\""
+                    }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }
             }
@@ -183,6 +186,9 @@ class DefaultEthereumMethods(
                     }
                     Chain.TESTNET_SEPOLIA == chain -> {
                         "\"0xaa36a7\""
+                    }
+                    Chain.TESTNET_HOODI == chain -> {
+                        "\"0x88bb0\""
                     }
                     else -> throw RpcException(-32602, "Invalid chain")
                 }

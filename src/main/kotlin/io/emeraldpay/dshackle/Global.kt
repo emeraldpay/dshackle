@@ -59,12 +59,18 @@ class Global {
             "holesky-testnet" to Chain.TESTNET_HOLESKY,
             "sepolia" to Chain.TESTNET_SEPOLIA,
             "sepolia-testnet" to Chain.TESTNET_SEPOLIA,
+            "hoodi" to Chain.TESTNET_HOODI,
+            "hoodi-testnet" to Chain.TESTNET_HOODI,
             "rinkeby" to Chain.TESTNET_RINKEBY,
             "rinkeby-testnet" to Chain.TESTNET_RINKEBY,
             "ropsten" to Chain.TESTNET_ROPSTEN,
             "ropsten-testnet" to Chain.TESTNET_ROPSTEN,
             "bitcoin" to Chain.BITCOIN,
-            "bitcoin-testnet" to Chain.TESTNET_BITCOIN
+            "bitcoin-testnet" to Chain.TESTNET_BITCOIN,
+            "bitcoin-testnet-3" to Chain.TESTNET_BITCOIN,
+            "bitcoin-testnet-v3" to Chain.TESTNET_BITCOIN,
+            "bitcoin-testnet-4" to Chain.TESTNET_BITCOIN_V4,
+            "bitcoin-testnet-v4" to Chain.TESTNET_BITCOIN_V4
         )
 
         fun chainById(id: String?): Chain {

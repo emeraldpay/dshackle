@@ -43,7 +43,7 @@ Blockchains support:
 - Ethereum and Ethereum Classic
 - Various Ethereum testnets
 - Bitcoin
-- Bitcoin testnet
+- Bitcoin testnets
 
 image::dshackle-intro.png[alt="",width=80%,align="center"]
 

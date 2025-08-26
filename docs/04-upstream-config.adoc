@@ -10,6 +10,29 @@ Supported upstream protocols:
 
 Those protocols can be configures with additional security, TLS and authentication.
 
+[#supported-blockchains]
+=== Supported Blockchains
+
+=== Ethereum
+
+- `ethereum`, `eth`
+- `ethereum-classic`, `etc`
+- `polygon`, `matic`
+- `morden` (Testnet, Deprecated)
+- `kovan` (Testnet, Deprecated)
+- `rinkeby` (Testnet, Deprecated)
+- `ropsten` (Testnet, Deprecated)
+- `goerli` (Testnet, Deprecated)
+- `holesky` (Testnet)
+- `sepolia` (Testnet)
+- `hoodi` (Testnet)
+
+=== Bitcoin
+
+- `bitcoin`
+- `bitcoin-testnet-v3` (Testnet, Deprecated)
+- `bitcoin-testnet-v4` (Testnet)
+
 === Notes on upstream configuration
 
 ==== Ethereum
