@@ -24,7 +24,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v1
         with:
-          java-version: 17
+          java-version: 21
 
       - name: Auth GCP
         uses: google-github-actions/auth@v0
