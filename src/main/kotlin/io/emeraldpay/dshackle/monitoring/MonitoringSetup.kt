@@ -88,6 +88,7 @@ class MonitoringSetup(
                     )
                 server.createContext(monitoringConfig.prometheus.path) { httpExchange ->
                     val response = prometheusRegistry.scrape()
+                    httpExchange.responseHeaders.add("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
                     httpExchange.sendResponseHeaders(200, response.toByteArray().size.toLong())
                     httpExchange.responseBody.use { os ->
                         os.write(response.toByteArray())
